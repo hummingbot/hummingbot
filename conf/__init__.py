@@ -38,6 +38,11 @@ kafka_bootstrap_server = "***REMOVED***"
 binance_api_key = os.getenv("BINANCE_API_KEY")
 binance_api_secret = os.getenv("BINANCE_API_SECRET")
 
+# Coinbase Pro Tests
+coinbase_pro_api_key = os.getenv("COINBASE_PRO_API_KEY")
+coinbase_pro_secret_key = os.getenv("COINBASE_PRO_SECRET_KEY")
+coinbase_pro_passphrase = os.getenv("COINBASE_PRO_PASSPHRASE")
+
 test_web3_provider_list = [os.getenv("WEB3_PROVIDER")]
 
 # Wallet Tests
