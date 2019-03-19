@@ -144,8 +144,6 @@ cdef class InFlightOrder:
         public object fee_paid
         public str last_state
 
-    SYMBOL_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|TUSD|PAX)$")
-
     def __init__(self, client_order_id: str, exchange_order_id: int, symbol: str, is_buy: bool, amount: Decimal):
         global s_decimal_0
 
@@ -190,13 +188,11 @@ cdef class InFlightOrder:
 
     @property
     def base_asset(self) -> str:
-        m = self.SYMBOL_SPLITTER.match(self.symbol)
-        return m.group(1)
+        return self.symbol.split("")[0]
 
     @property
     def quote_asset(self) -> str:
-        m = self.SYMBOL_SPLITTER.match(self.symbol)
-        return m.group(2)
+        return self.symbol.split("")[1]
 
 
 cdef class TradingRule:
@@ -256,7 +252,7 @@ cdef class CoinbaseProMarket(MarketBase):
     DEPOSIT_TIMEOUT = 1800.0
     API_CALL_TIMEOUT = 10.0
 
-    COINBASE_API_ENDPOINT = "https://api.pro.coinbase.com"
+    # COINBASE_API_ENDPOINT = "https://api.pro.coinbase.com"
     COINBASE_API_ENDPOINT = "https://api-public.sandbox.pro.coinbase.com"
 
     @classmethod
@@ -308,10 +304,11 @@ cdef class CoinbaseProMarket(MarketBase):
 
     @property
     def ready(self) -> bool:
-        return (len(self._order_book_tracker.order_books) > 0 and
-                len(self._account_balances) > 0 and
-                len(self._withdraw_rules) > 0 and
-                len(self._trading_rules) > 0)
+        return True
+        # return (len(self._order_book_tracker.order_books) > 0 and
+        #         len(self._account_balances) > 0 and
+        #         len(self._withdraw_rules) > 0 and
+        #         len(self._trading_rules) > 0)
 
     def get_all_balances(self) -> Dict[str, float]:
         return self._account_balances.copy()
@@ -343,13 +340,60 @@ cdef class CoinbaseProMarket(MarketBase):
                 self._poll_notifier.set()
         self._last_timestamp = timestamp
 
+    async def query_api(self, func, *args, **kwargs) -> Dict[str, any]:
+        async with timeout(self.API_CALL_TIMEOUT):
+            coro = self._ev_loop.run_in_executor(wings.get_executor(), partial(func, *args, **kwargs))
+            return await self.schedule_async_call(coro, self.API_CALL_TIMEOUT)
+
     async def execute_buy(self,
                           order_id: str,
                           symbol: str,
                           amount: float,
                           order_type: OrderType,
                           price: Optional[float] = NaN):
-        raise NotImplementedError
+        cdef:
+            TradingRule trading_rule = self._trading_rules[symbol]
+
+        decimal_amount = self.quantize_order_amount(symbol, amount)
+        if decimal_amount < trading_rule.min_order_size:
+            raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
+                             f"{trading_rule.min_order_size}.")
+
+        self.c_start_tracking_order(order_id, -1, symbol, True, decimal_amount)
+        url = f"{self.COINBASE_API_ENDPOINT}/orders"
+        data = {
+            "client_oid": order_id,
+            "price": price,
+            "size": decimal_amount,
+            "product_id": symbol,
+            "side": "buy",
+            "type": "limit" if order_type is OrderType.LIMIT else "market",
+        }
+        try:
+            order_result = await self._api_request('post', url=url, data=data)
+            self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
+                                 BuyOrderCreatedEvent(
+                                     self._current_timestamp,
+                                     order_type,
+                                     symbol,
+                                     decimal_amount,
+                                     0.0 if math.isnan(price) else price,
+                                     order_id
+                                 ))
+
+            exchange_order_id = order_result["id"]
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is not None:
+                self.logger().info(f"Created {order_type} buy order {order_id} for {decimal_amount} {symbol}.")
+                tracked_order.exchange_order_id = exchange_order_id
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            order_type_str = 'MARKET' if order_type == OrderType.MARKET else 'LIMIT'
+            self.logger().error(f"Error submitting buy {order_type_str} order to Coinbase Pro for "
+                                f"{decimal_amount} {symbol} {price}.", exc_info=True)
+            self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
+                                 MarketTransactionFailureEvent(self._current_timestamp, order_id))
 
     cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = NaN,
                    dict kwargs = {}):
