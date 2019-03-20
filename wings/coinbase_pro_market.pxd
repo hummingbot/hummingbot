@@ -8,7 +8,7 @@ cdef class CoinbaseProMarket(MarketBase):
     cdef:
         object _order_book_tracker
         object _user_stream_tracker
-        object _binance_client
+        object _coinbase_client
         dict _account_balances
         object _ev_loop
         object _poll_notifier

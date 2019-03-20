@@ -1,4 +1,5 @@
 import math
+import json
 import aiohttp
 from aiokafka import (
     AIOKafkaConsumer,
@@ -6,7 +7,7 @@ from aiokafka import (
 )
 import asyncio
 from async_timeout import timeout
-import hmac, hashlib, base64
+import hmac, hashlib, base64, requests
 from requests.auth import AuthBase
 from decimal import (
     Decimal
@@ -24,7 +25,6 @@ from typing import (
 )
 from web3 import Web3
 
-import conf
 import wings
 from wings.clock cimport Clock
 from wings.events import (
@@ -41,7 +41,6 @@ from wings.events import (
 from wings.market_base import (
     MarketBase,
     OrderType,
-    NaN
 )
 from wings.order_book_tracker import (
     OrderBookTrackerDataSourceType
@@ -57,27 +56,26 @@ s_logger = None
 s_decimal_0 = Decimal(0)
 
 
-class CoinbaseProAuth(AuthBase):
+class CoinbaseProAuth:
     def __init__(self, api_key, secret_key, passphrase):
         self.api_key = api_key
         self.secret_key = secret_key
         self.passphrase = passphrase
 
-    def __call__(self, request):
+    def get_headers(self, method: str = "GET", path_url: str = "/accounts", body: str = "") -> Dict[str, str]:
         timestamp = str(time.time())
-        message = timestamp + request.method + request.path_url + (request.body or '')
+        message = timestamp + method.upper() + path_url + body
         hmac_key = base64.b64decode(self.secret_key)
-        signature = hmac.new(hmac_key, message, hashlib.sha256)
-        signature_b64 = signature.digest().encode('base64').rstrip('\n')
+        signature = hmac.new(hmac_key, message.encode('utf8'), hashlib.sha256)
+        signature_b64 = base64.b64encode(bytes(signature.digest())).decode('utf8')
 
-        request.headers.update({
+        return {
             'CB-ACCESS-SIGN': signature_b64,
             'CB-ACCESS-TIMESTAMP': timestamp,
             'CB-ACCESS-KEY': self.api_key,
             'CB-ACCESS-PASSPHRASE': self.passphrase,
             'Content-Type': 'application/json'
-        })
-        return request
+        }
 
 
 cdef class CoinbaseProMarketTransactionTracker(TransactionTracker):
@@ -198,44 +196,34 @@ cdef class InFlightOrder:
 cdef class TradingRule:
     cdef:
         public str symbol
-        public object price_tick_size
-        public object order_step_size
-        public object min_order_size
-        public object min_notional_size
+        public object quote_increment
+        public object base_min_size
+        public object base_max_size
 
     @classmethod
-    def parse_exchange_info(cls, exchange_info_dict: Dict[str, any]) -> List[TradingRule]:
+    def parse_exchange_info(cls, trading_rules: List[any]) -> List[TradingRule]:
         cdef:
-            list symbol_rules = exchange_info_dict.get("symbols", [])
             list retval = []
-        for rule in symbol_rules:
+        for rule in trading_rules:
             try:
-                symbol = rule.get("symbol")
-                filters = rule.get("filters")
-                price_filter = [f for f in filters if f.get("filterType") == "PRICE_FILTER"][0]
-                lot_size_filter = [f for f in filters if f.get("filterType") == "LOT_SIZE"][0]
-                min_notional_filter = [f for f in filters if f.get("filterType") == "MIN_NOTIONAL"][0]
+                symbol = rule.get("id")
                 retval.append(TradingRule(symbol,
-                                          Decimal(price_filter.get("tickSize")),
-                                          Decimal(lot_size_filter.get("stepSize")),
-                                          Decimal(lot_size_filter.get("minQty")),
-                                          Decimal(min_notional_filter.get("minNotional"))))
+                                          Decimal(rule.get("quote_increment")),
+                                          Decimal(rule.get("base_min_size")),
+                                          Decimal(rule.get("base_max_size"))))
             except Exception:
                 CoinbaseProMarket.logger().error(f"Error parsing the symbol rule {rule}. Skipping.", exc_info=True)
         return retval
 
-    def __init__(self, symbol: str, price_tick_size: Decimal, order_step_size: Decimal, min_order_size: Decimal,
-                 min_notional_size: Decimal):
+    def __init__(self, symbol: str, quote_increment: Decimal, base_min_size: Decimal, base_max_size: Decimal):
         self.symbol = symbol
-        self.price_tick_size = price_tick_size
-        self.order_step_size = order_step_size
-        self.min_order_size = min_order_size
-        self.min_notional_size = min_notional_size
+        self.quote_increment = quote_increment
+        self.base_min_size = base_min_size
+        self.base_max_size = base_max_size
 
     def __repr__(self) -> str:
-        return f"TradingRule(symbol='{self.symbol}', price_tick_size={self.price_tick_size}, " \
-               f"order_step_size={self.order_step_size}, min_order_size={self.min_order_size}, " \
-               f"min_notional_size={self.min_notional_size})"
+        return f"TradingRule(symbol='{self.symbol}', quote_increment={self.quote_increment}, " \
+               f"base_min_size={self.base_min_size}, base_max_size={self.base_max_size}"
 
 
 cdef class CoinbaseProMarket(MarketBase):
@@ -304,11 +292,11 @@ cdef class CoinbaseProMarket(MarketBase):
 
     @property
     def ready(self) -> bool:
-        return True
-        # return (len(self._order_book_tracker.order_books) > 0 and
-        #         len(self._account_balances) > 0 and
-        #         len(self._withdraw_rules) > 0 and
-        #         len(self._trading_rules) > 0)
+        return (
+                # len(self._order_book_tracker.order_books) > 0 and
+                # len(self._account_balances) > 0 and
+                # len(self._withdraw_rules) > 0 and
+                len(self._trading_rules) > 0)
 
     def get_all_balances(self) -> Dict[str, float]:
         return self._account_balances.copy()
@@ -323,7 +311,7 @@ cdef class CoinbaseProMarket(MarketBase):
         self._tx_tracker.c_start(clock, timestamp)
         MarketBase.c_start(self, clock, timestamp)
         # self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
-        # self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
+        self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
         # self._user_stream_tracker_task = asyncio.ensure_future(self._user_stream_tracker.start())
         # self._user_stream_event_listener_task = asyncio.ensure_future(self._user_stream_event_listener())
         # self._coro_scheduler_task = asyncio.ensure_future(self.coro_scheduler(self._coro_queue))
@@ -340,46 +328,92 @@ cdef class CoinbaseProMarket(MarketBase):
                 self._poll_notifier.set()
         self._last_timestamp = timestamp
 
-    async def query_api(self, func, *args, **kwargs) -> Dict[str, any]:
-        async with timeout(self.API_CALL_TIMEOUT):
-            coro = self._ev_loop.run_in_executor(wings.get_executor(), partial(func, *args, **kwargs))
-            return await self.schedule_async_call(coro, self.API_CALL_TIMEOUT)
+    async def _api_request(self,
+                           http_method: str,
+                           url: str,
+                           data: Optional[Dict[str, any]] = None,
+                           headers: Optional[Dict[str, str]] = None):
+        client = aiohttp.ClientSession()
+        async with client.request(http_method, url=url, timeout=self.API_CALL_TIMEOUT, data=data,
+                                  headers=headers) as response:
+            if response.status != 200:
+                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
+            data = await response.json()
+            await client.close()
+            return data
+
+    async def _update_balances(self):
+        cdef:
+            dict account_info
+            list balances
+            str asset_name
+            set local_asset_names = set(self._account_balances.keys())
+            set remote_asset_names = set()
+            set asset_names_to_remove
+
+        path_url = "/accounts"
+        url = f"{self.COINBASE_API_ENDPOINT}{path_url}"
+        headers = self.coinbase_client.get_headers("GET", path_url)
+        account_balances = await self._api_request('get', url=url, headers=headers)
+
+        for balance_entry in account_balances:
+            asset_name = balance_entry["currency"]
+            balance = Decimal(balance_entry["balance"])
+            self._account_balances[asset_name] = balance
+            remote_asset_names.add(asset_name)
+
+        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+        for asset_name in asset_names_to_remove:
+            del self._account_balances[asset_name]
+
+    async def _update_trading_rules(self):
+        cdef:
+            # The poll interval for withdraw rules is 60 seconds.
+            int64_t last_tick = <int64_t>(self._last_timestamp / 60.0)
+            int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
+        if current_tick > last_tick or len(self._trading_rules) < 1:
+            product_info = await self._api_request('get', url=f"{self.COINBASE_API_ENDPOINT}/products")
+            trading_rules_list = TradingRule.parse_exchange_info(product_info)
+            self._trading_rules.clear()
+            for trading_rule in trading_rules_list:
+                self._trading_rules[trading_rule.symbol] = trading_rule
+
+    async def place_order(self, order_id: str, symbol: str, amount: Decimal, is_buy: bool = True, order_type: OrderType,
+                          price: float):
+        path_url = "/orders"
+        url = f"{self.COINBASE_API_ENDPOINT}{path_url}"
+        data = {
+            "client_oid": order_id,
+            "price": price,
+            "size": amount,
+            "product_id": symbol,
+            "side": "buy" if is_buy else "sell",
+            "type": "limit" if order_type is OrderType.LIMIT else "market",
+        }
+        headers = self.coinbase_client.get_headers("GET", path_url, body=json.dumps(data))
+        order_result = await self._api_request('post', url=url, data=data, headers=headers)
+        return order_result
 
     async def execute_buy(self,
                           order_id: str,
                           symbol: str,
                           amount: float,
                           order_type: OrderType,
-                          price: Optional[float] = NaN):
+                          price: Optional[float] = None):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
 
         decimal_amount = self.quantize_order_amount(symbol, amount)
-        if decimal_amount < trading_rule.min_order_size:
+        if decimal_amount < trading_rule.base_min_size:
             raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
-                             f"{trading_rule.min_order_size}.")
+                             f"{trading_rule.base_min_size}.")
 
-        self.c_start_tracking_order(order_id, -1, symbol, True, decimal_amount)
-        url = f"{self.COINBASE_API_ENDPOINT}/orders"
-        data = {
-            "client_oid": order_id,
-            "price": price,
-            "size": decimal_amount,
-            "product_id": symbol,
-            "side": "buy",
-            "type": "limit" if order_type is OrderType.LIMIT else "market",
-        }
         try:
-            order_result = await self._api_request('post', url=url, data=data)
+            self.c_start_tracking_order(order_id, -1, symbol, True, decimal_amount)
+            order_result = await self.place_order(order_id, symbol, decimal_amount, True, order_type, price)
             self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
-                                 BuyOrderCreatedEvent(
-                                     self._current_timestamp,
-                                     order_type,
-                                     symbol,
-                                     decimal_amount,
-                                     0.0 if math.isnan(price) else price,
-                                     order_id
-                                 ))
+                                 BuyOrderCreatedEvent(self._current_timestamp, order_type, symbol, decimal_amount,
+                                                      0.0 if price is None else price, order_id))
 
             exchange_order_id = order_result["id"]
             tracked_order = self._in_flight_orders.get(order_id)
@@ -395,7 +429,7 @@ cdef class CoinbaseProMarket(MarketBase):
             self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                                  MarketTransactionFailureEvent(self._current_timestamp, order_id))
 
-    cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = NaN,
+    cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = None,
                    dict kwargs = {}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
@@ -408,10 +442,37 @@ cdef class CoinbaseProMarket(MarketBase):
                            symbol: str,
                            amount: float,
                            order_type: OrderType,
-                           price: Optional[float] = NaN):
-        raise NotImplementedError
+                           price: Optional[float] = None):
+        cdef:
+            TradingRule trading_rule = self._trading_rules[symbol]
 
-    cdef str c_sell(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = NaN,
+        decimal_amount = self.quantize_order_amount(symbol, amount)
+        if decimal_amount < trading_rule.base_min_size:
+            raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
+                             f"{trading_rule.base_min_size}.")
+
+        try:
+            self.c_start_tracking_order(order_id, -1, symbol, False, decimal_amount)
+            order_result = await self.place_order(order_id, symbol, decimal_amount, False, order_type, price)
+            self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
+                                 SellOrderCreatedEvent(self._current_timestamp, order_type, symbol, decimal_amount,
+                                                      0.0 if price is None else price, order_id))
+
+            exchange_order_id = order_result["id"]
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is not None:
+                self.logger().info(f"Created {order_type} buy order {order_id} for {decimal_amount} {symbol}.")
+                tracked_order.exchange_order_id = exchange_order_id
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            order_type_str = 'MARKET' if order_type == OrderType.MARKET else 'LIMIT'
+            self.logger().error(f"Error submitting buy {order_type_str} order to Coinbase Pro for "
+                                f"{decimal_amount} {symbol} {price}.", exc_info=True)
+            self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
+                                 MarketTransactionFailureEvent(self._current_timestamp, order_id))
+
+    cdef str c_sell(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = None,
                     dict kwargs = {}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
@@ -428,6 +489,25 @@ cdef class CoinbaseProMarket(MarketBase):
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         raise NotImplementedError
+
+    async def _status_polling_loop(self):
+        while True:
+            try:
+                await asyncio.gather(
+                    self._update_balances(),
+                    # self._check_failed_eth_tx(),
+                    # self._check_deposit_completion(),
+                    # self._update_withdraw_rules(),
+                    self._update_trading_rules(),
+                    # self._update_order_status()
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error while fetching account updates.", exc_info=True)
+            finally:
+                self._poll_notifier = asyncio.Event()
+                await self._poll_notifier.wait()
 
     cdef double c_get_balance(self, str currency) except? -1:
         return float(self._account_balances.get(currency, 0.0))
@@ -454,16 +534,35 @@ cdef class CoinbaseProMarket(MarketBase):
         raise NotImplementedError
 
     cdef c_start_tracking_order(self, str order_id, int64_t exchange_order_id, str symbol, bint is_buy, object amount):
-        raise NotImplementedError
+        self._in_flight_orders[order_id] = InFlightOrder(order_id, exchange_order_id, symbol, is_buy, amount)
 
     cdef c_stop_tracking_order(self, str order_id):
-        raise NotImplementedError
+        if order_id in self._in_flight_orders:
+            del self._in_flight_orders[order_id]
 
     cdef object c_get_order_price_quantum(self, str symbol, double price):
-        raise NotImplementedError
+        cdef:
+            TradingRule trading_rule = self._trading_rules[symbol]
+        return trading_rule.quote_increment
 
     cdef object c_get_order_size_quantum(self, str symbol, double order_size):
-        raise NotImplementedError
+        cdef:
+            TradingRule trading_rule = self._trading_rules[symbol]
+        return Decimal(0.01)
 
     cdef object c_quantize_order_amount(self, str symbol, double amount):
-        raise NotImplementedError
+        cdef:
+            TradingRule trading_rule = self._trading_rules[symbol]
+
+        global s_decimal_0
+        quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
+
+        # Check against base_min_size. If not passing either check, return 0.
+        if quantized_amount < trading_rule.base_min_size:
+            return s_decimal_0
+
+        # Check against base_max_size. If not passing either check, return 0.
+        if quantized_amount > trading_rule.base_max_size:
+            return s_decimal_0
+
+        return quantized_amount
