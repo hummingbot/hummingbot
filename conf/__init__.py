@@ -75,3 +75,8 @@ try:
     from .binance_secret import *
 except ModuleNotFoundError:
     _logger.warning("Warning: binance secret not found. You need to define the binance secret in binance_secret.py")
+
+try:
+    from .coinbase_pro_secrets import *
+except ModuleNotFoundError:
+    _logger.warning("Warning: coinbase pro secret not found. You need to define the coinbase pro secret in coinbase_pro_secrets.py")
