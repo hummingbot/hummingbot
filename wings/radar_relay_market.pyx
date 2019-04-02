@@ -310,6 +310,7 @@ cdef class RadarRelayMarket(MarketBase):
                 raise
             except Exception:
                 self.logger().error("Unexpected error while fetching account updates.", exc_info=True)
+                await asyncio.sleep(0.5)
 
     def _update_balances(self):
         self._account_balances = self.wallet.get_all_balances()
@@ -455,7 +456,7 @@ cdef class RadarRelayMarket(MarketBase):
                             TradeType.BUY if tracked_market_order.is_buy else TradeType.SELL,
                             OrderType.MARKET,
                             tracked_market_order.price,
-                            order_executed_amount
+                            tracked_market_order.amount,
                         )
                     )
                     if tracked_market_order.is_buy:
@@ -600,8 +601,10 @@ cdef class RadarRelayMarket(MarketBase):
         response = await self.request_signed_market_orders(symbol=symbol,
                                                            side=side,
                                                            amount=amount)
+        print(response)
         signed_market_orders = response["orders"]
         average_price = float(response["averagePrice"])
+        print(average_price)
 
         signatures = []
         orders = []
@@ -616,6 +619,7 @@ cdef class RadarRelayMarket(MarketBase):
             tx_hash = self._exchange.market_sell_orders(orders, amount, signatures)
         else:
             raise ValueError("Invalid side. Aborting.")
+        print(orders, tx_hash)
         return average_price, tx_hash
 
     async def submit_limit_order(self,
@@ -711,6 +715,7 @@ cdef class RadarRelayMarket(MarketBase):
                                                       expires=expires,
                                                       zero_ex_order=zero_ex_order)
             elif order_type is OrderType.MARKET:
+                print(q_amt)
                 avg_price, tx_hash = await self.submit_market_order(symbol=symbol,
                                                                     side=order_side,
                                                                     amount=q_amt)
