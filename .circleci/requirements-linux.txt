@@ -1,0 +1,3 @@
+# essential
+gcc
+build-essential

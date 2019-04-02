@@ -1,0 +1,29 @@
+#!/bin/bash
+
+cd $(dirname $0)
+
+# Compatibility logic for older Anaconda versions.
+if [ "${CONDA_EXE} " == " " ]; then
+    CONDA_EXE=$((find /opt/conda/bin/conda || find ~/anaconda3/bin/conda) 2>/dev/null)
+fi
+
+if ! ${CONDA_EXE} info > /dev/null 2>&1; then
+    echo "Please install Anaconda w/ Python 3.7+ first"
+    echo "See: https://www.anaconda.com/distribution/"
+    exit 1
+fi
+
+CONDA_BIN=$(dirname ${CONDA_EXE})
+MACOS_ENV=setup/environment.yml
+LINUX_ENV=setup/environment-linux.yml
+ENV_FILE=$MACOS_ENV
+
+if uname | egrep -qe "Linux"; then
+    ENV_FILE=$LINUX_ENV
+fi
+
+if ${CONDA_EXE} env list | egrep -qe "^hummingbot"; then
+    ${CONDA_EXE} env update -f $ENV_FILE
+else
+    ${CONDA_EXE} env create -f $ENV_FILE
+fi

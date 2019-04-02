@@ -1,0 +1,107 @@
+---
+version: 1
+
+formatters:
+    simple:
+        format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+handlers:
+    console:
+        class: logging.StreamHandler
+        level: DEBUG
+        formatter: simple
+        stream: ext://sys.stdout
+    console_warning:
+        class: logging.StreamHandler
+        level: WARNING
+        formatter: simple
+        stream: ext://sys.stdout
+    console_info:
+        class: logging.StreamHandler
+        level: INFO
+        formatter: simple
+        stream: ext://sys.stdout
+    file_handler:
+        class: logging.FileHandler
+        level: DEBUG
+        formatter: simple
+        filename: $PROJECT_DIR/logs/hummingbot_logs_$DATETIME.log
+        encoding: utf8
+    report_proxy_handler:
+        class: hummingbot.logger.reporting_proxy_handler.ReportingProxyHandler
+        level: DEBUG
+        proxy_url: https://api.coinalpha.com/reporting-proxy
+        capacity: 5
+    "null":
+        class: logging.NullHandler
+        level: DEBUG
+
+loggers:
+    hummingbot.public_eth_address:
+        level: INFO
+        propagate: no
+        handlers: [report_proxy_handler]
+    hummingbot.command_history:
+        level: INFO
+        propagate: no
+        handlers: ["null"]
+    hummingbot.logger.report_aggregator:
+        level: METRIC_LOG
+        handlers: [report_proxy_handler, console_warning]
+        propagate: no
+    hummingbot.logger.log_server_client:
+        level: WARNING
+        propagate: no
+        handlers: [console, file_handler]
+    hummingbot.logger.reporting_proxy_handler:
+        level: WARNING
+        propagate: no
+        handlers: [console, file_handler]
+    hummingbot.strategy.arbitrage:
+        level: INFO
+        handlers: [console, file_handler]
+        propagate: no
+    hummingbot.strategy.hedged_market_making:
+        level: INFO
+        handlers: [console, file_handler]
+        propagate: no
+    wings.event_reporter:
+        level: EVENT_LOG
+        handlers: [file_handler]
+        propagate: no
+    wings.tracker:
+        level: WARNING
+        handlers: [console_warning, file_handler]
+        propagate: no
+    wings.data_source:
+        level: WARNING
+        handlers: [console_warning, file_handler]
+        propagate: no
+    wings.ddex_active_order_tracker:
+        level: WARNING
+        handlers: [console_warning, file_handler]
+        propagate: no
+    wings.web3_wallet:
+        level: INFO
+        handlers: [console, file_handler]
+        propagate: no
+    wings.web3_wallet_backend:
+        level: INFO
+        handlers: [console, file_handler]
+        propagate: no
+    wings.ddex_market:
+        level: INFO
+        handlers: [console, file_handler]
+        propagate: no
+    wings.binance_market:
+        level: INFO
+        handlers: [console, file_handler]
+        propagate: no
+    conf:
+        level: INFO
+        handlers: ["null"]
+        propagate: no
+
+root:
+    level: INFO
+    handlers: [console, file_handler]

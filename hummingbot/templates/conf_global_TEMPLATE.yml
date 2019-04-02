@@ -1,0 +1,33 @@
+#################################
+###   Global configurations   ###
+#################################
+
+# Exchange configs
+# Only fill out the credentials for the markets you are trading on
+binance_api_key: null
+binance_api_secret: null
+
+# Ethereum wallet address: required for trading on a DEX
+wallet: null
+ethereum_rpc_url: null
+
+# Advanced configs: Do NOT touch unless you understand what you are changing
+client_id: null
+log_level: INFO
+debug_console: false
+strategy_report_interval: 900.0
+reporting_aggregation_interval: 60.0
+reporting_log_interval: 60.0
+logger_override_whitelist:
+- hummingbot.strategy.arbitrage
+- hummingbot.strategy.cross_exchange_market_making
+- wings.web3_wallet
+- wings.web3_wallet_backend
+- wings.ddex_market
+- wings.binance_market
+- conf
+key_file_path: conf/
+log_file_path: logs/
+on_chain_cancel_on_exit: false
+
+# For more detailed information: https://docs.hummingbot.io
