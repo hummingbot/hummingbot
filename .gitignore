@@ -72,7 +72,7 @@ __pycache__
 /build
 
 # Local files
-.DS_Store
+**/.DS_Store
 portfolio_value.csv
 /notebooks
 /data/cache/
@@ -87,3 +87,6 @@ debug.log
 
 # VSCode
 .vscode/
+
+# Documentation build dir
+/documentation/site/
