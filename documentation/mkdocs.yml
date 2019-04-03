@@ -1,0 +1,93 @@
+# Project info
+site_name: hummingbot docs
+site_description: 'Docs for hummingbot, the open source crypto market making bot'
+site_author: 'CoinAlpha, Inc.'
+site_url: 'https://docs.hummingbot.io'
+
+# Repository
+repo_name: 'coinalpha/hummingbot'
+repo_url: 'https://github.com/coinalpha/hummingbot'
+
+# Copyright
+copyright: 'Copyright &copy; 2019 CoinAlpha, Inc.'
+
+# Configuration
+theme:
+  name: 'material'
+  logo: 'img/logo.png'
+  favicon: 'img/favicon.ico'
+  palette:
+    primary: 'teal'
+    accent: 'teal'
+  font:
+      text: 'Roboto'
+      code: 'Roboto Mono'
+
+# Customization
+extra:
+  search:
+    language: 'en'
+  social:
+    - type: 'globe'
+      link: 'https://www.hummingbot.io'
+    - type: 'github'
+      link: 'https://github.com/coinalpha/hummingbot'
+    - type: 'twitter'
+      link: 'https://twitter.com/hummingbot_io'
+google_analytics:
+  - 'UA-119262087-3'
+  - 'auto'
+extra_css:
+  - css/custom.css
+extra_javascript:
+  - js/heap.js
+
+# Extensions
+markdown_extensions:
+  - admonition
+  - codehilite:
+      guess_lang: false
+      linenums: true
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.critic
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_generator: !!python/name:pymdownx.emoji.to_svg
+  - pymdownx.inlinehilite
+  - pymdownx.magiclink
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+  
+# Navigation
+nav:
+    - Intro:
+      - Getting started: index.md
+      - Litepaper: litepaper.md
+      - Roadmap: roadmap.md
+    - FAQs:
+      - General: faq-general.md
+      - Technical: faq-technical.md
+      - Alpha Program: faq-alpha-program.md
+      - Terminology: faq-terminology.md
+    - Operation:
+      - Installation: installation.md
+      - Client: client.md
+      - Configuration: configuration.md
+      - Running Bots: running-bots.md
+    - Support:
+      - Feedback: feedback.md
+      - Tips & Known Issues: tips-issues.md
+    - Release Notes:
+      - 0.2.0: release-notes/0.2.0.md
+      - 0.3.0: release-notes/0.3.0.md
+      - latest: release-notes/latest.md
+      
