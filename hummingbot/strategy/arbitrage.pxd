@@ -17,9 +17,12 @@ cdef class ArbitrageStrategy(Strategy):
         double _min_order_size
         double _status_report_interval
         double _last_timestamp
+        dict _last_trade_timestamps
+        double _next_trade_delay
         EventListener _buy_order_completed_listener
         EventListener _sell_order_completed_listener
         EventListener _order_failed_listener
+        EventListener _order_canceled_listener
         set _markets
         set _sell_markets
         set _buy_markets
@@ -32,7 +35,8 @@ cdef class ArbitrageStrategy(Strategy):
                                      object order_type = *, double price = *)
     cdef c_did_complete_buy_order(self, object buy_order_completed_event)
     cdef c_did_complete_sell_order(self, object sell_order_completed_event)
-    cdef c_did_fail_order(self, str order_id)
+    cdef c_did_fail_order(self, object fail_event)
+    cdef c_did_cancel_order(self, object cancel_event)
     cdef c_process_market_pair(self, object market_pair)
     cdef c_process_market_pair_inner(self,
                                      MarketBase buy_market,
