@@ -8,9 +8,9 @@ For instructions on operating `hummingbot` with Docker, navigate to [`hummingbot
 
 ---
 
-## Development Commands: Deploying to Docker Hub
+## Development commands: deploying to Docker Hub
 
-### 1) Build Binary
+### 1) Build binary
 
 From a Linux environment, build a wheel by running the following command from this repo's root folder:
 
@@ -22,7 +22,7 @@ $ ./docker/build_wheel.sh
 This will create a new wheel file in the `dist/` folder.  Note the name of this new wheel file, which will be used in step 2.
 
 
-### 2) Build Docker File
+### 2) Build DockerFile
 
 Run the docker build command as follows, with the wheel file name as the argument `LINUX_PACKAGE`
 
@@ -39,4 +39,3 @@ $ docker image rm coinalpha/hummingbot:$TAG && \
   --build-arg LINUX_PACKAGE=$WHL_FILENAME . && \
   docker push coinalpha/hummingbot:$TAG
 ```
-
