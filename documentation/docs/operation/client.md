@@ -29,7 +29,7 @@ hummingbot.py
 ## User interface
 
 ### Layout
-![Hummingbot CLI](img/hummingbot-cli.png)
+![Hummingbot CLI](assets/img/hummingbot-cli.png)
 
 The CLI is divided into three panes:
 * **Input pane (lower left)**: where users enter commands

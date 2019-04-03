@@ -33,7 +33,7 @@ When creating the instance for the first time, the `docker run` command above wi
 - `conf/`: where configuration files will be stored
 - `log/`: where logs will be stored
 
-![docker setup](img/docker-file-setup.png "Docker file system setup")
+![docker setup](assets/img/docker-file-setup.png "Docker file system setup")
 
 !!! info "Mounting Existing `config` and `log` Folders"
     If you have existing `conf/` and `log/` folders, running the command above will mount the existing `conf/` and `log/` folders to the newly created docker container instance and allow you to continue using those files.
