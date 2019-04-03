@@ -26,13 +26,18 @@ from hummingbot import (
 )
 
 from hummingbot.cli.hummingbot_application import HummingbotApplication
-from hummingbot.cli.settings import global_config_map, create_yml_files
+from hummingbot.cli.settings import (
+    global_config_map,
+    create_yml_files,
+    read_configs_from_yml
+)
 from hummingbot.cli.ui.stdout_redirection import patch_stdout
 from hummingbot.management.console import start_management_console
 
 
 async def main():
     await create_yml_files()
+    read_configs_from_yml()
 
     init_logging("hummingbot_logs.yml")
 
