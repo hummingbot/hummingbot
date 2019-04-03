@@ -7,6 +7,7 @@ site_url: 'https://docs.hummingbot.io'
 # Repository
 repo_name: 'coinalpha/hummingbot'
 repo_url: 'https://github.com/coinalpha/hummingbot'
+edit_uri: 'blob/master/documentation/docs/'
 
 # Copyright
 copyright: 'Copyright &copy; 2019 CoinAlpha, Inc.'
