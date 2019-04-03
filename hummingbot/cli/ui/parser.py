@@ -54,14 +54,13 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     status_parser.set_defaults(func=hummingbot.status)
 
     list_parser = subparsers.add_parser('list', help='List global objects')
-    list_parser.add_argument('obj', choices=["wallets", "exchanges", "configs", "orders"],
+    list_parser.add_argument('obj', choices=["wallets", "exchanges", "configs"],
                              help='Type of object to list', nargs='?')
     list_parser.set_defaults(func=hummingbot.list)
 
     describe_parser = subparsers.add_parser('describe', help='Print detailed description of objects ')
     describe_parser.add_argument('-w', '--wallet', action='store_true', help='Describe current wallet')
     describe_parser.add_argument('-e', '--exchange', help='Describe an exchange')
-    describe_parser.add_argument('-o', '--order', help='Describe an order')
     describe_parser.set_defaults(func=hummingbot.describe)
 
     get_balance_parser = subparsers.add_parser('get_balance', help='Print balance of a certain currency ')
