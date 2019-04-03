@@ -426,21 +426,10 @@ class HummingbotApplication:
                 self.app.log('\n'.join(EXCHANGES))
         elif obj == "configs":
             self.app.log('\n'.join(load_required_configs().keys()))
-        elif obj == "orders":
-            active_maker_orders: List[LimitOrder] = ([order for _, order in self.strategy.active_maker_orders]
-                                                     if self.strategy is not None
-                                                     else [])
-            if len(active_maker_orders) == 0:
-                self.app.log('No active orders available.')
-            else:
-                lines: List[str] = ["    " + line
-                                    for line
-                                    in f"{LimitOrder.to_pandas(active_maker_orders)}".split("\n")]
-                self.app.log("\n".join(lines))
         else:
             self.help("list")
 
-    def describe(self, wallet: bool = False, exchange: str = None, order: str = None):
+    def describe(self, wallet: bool = False, exchange: str = None):
         if wallet:
             if self.wallet is None:
                 self.app.log('None available. Your wallet may not have been initialized. Enter "start" to initialize '
@@ -453,16 +442,6 @@ class HummingbotApplication:
                 self.app.log(f"{self.get_exchange_balance(exchange)}")
             else:
                 raise InvalidCommandError("The exchange you specified has not been initialized")
-        elif order is not None:
-            limit_orders: List[LimitOrder] = []
-            for market in self.markets.values():
-                limit_orders += market.limit_orders
-            keys = list(map(lambda lo: lo.client_order_id, limit_orders))
-            order_dict = dict(zip(keys, limit_orders))
-            if order in order_dict:
-                self.app.log(str(order_dict.get(order)))
-            else:
-                self.app.log("Invalid order id")
         else:
             self.help("describe")
 
