@@ -8,7 +8,10 @@ import pandas as pd
 from typing import (
     List,
     Tuple,
-    Optional)
+    Optional,
+    Dict,
+    Deque
+)
 
 from wings.clock cimport Clock
 from wings.events import (
@@ -193,12 +196,8 @@ cdef class CrossExchangeMarketMakingStrategy(Strategy):
         return [(market, limit_order) for market, limit_order in self.active_maker_orders if not limit_order.is_buy]
 
     @property
-    def suggested_bid_price_samples(self) -> List[Decimal]:
-        return self._suggested_bid_price_samples
-
-    @property
-    def suggested_ask_price_samples(self) -> List[Decimal]:
-        return self._suggested_ask_price_samples
+    def suggested_price_samples(self) -> Dict[CrossExchangeMarketPair, Tuple[Deque[Decimal], Deque[Decimal]]]:
+        return self._suggested_price_samples
 
     @property
     def logging_options(self) -> int:
