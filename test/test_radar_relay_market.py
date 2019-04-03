@@ -59,7 +59,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.wallet = Web3Wallet(private_key=conf.web3_private_key_ryan,
+        cls.wallet = Web3Wallet(private_key=conf.web3_private_key_radar,
                                 backend_urls=conf.test_web3_provider_list,
                                 erc20_token_addresses=[conf.mn_zerox_token_address, conf.mn_weth_token_address],
                                 chain=EthereumChain.MAIN_NET)

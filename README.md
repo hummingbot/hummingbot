@@ -68,11 +68,12 @@ For instructions on running `hummingbot` with Docker including deployment, see [
 
 Run tests by executing: `python test/test_**TEST_NAME**.py`.
 
-Requires secret files to be saved in the [conf/](conf/) folder:
+Requires secret files to be saved in the [hummingbot/templates/test_templates/](hummingbot/templates/test_templates/) folder:
 
 File | Description
 ---|---
-`binance_secret.py` | See template: [binance-TEMPLATE.py](conf/binance-TEMPLATE.py)
+`binance_secret.py` | [binance_secret_TEMPLATE.py](hummingbot/templates/test_templates/binance_secret_TEMPLATE.py)
+`web3_wallet_secret.py` | [web3_wallet_secret_TEMPLATE.py](hummingbot/templates/test_templates/web3_wallet_secret_TEMPLATE.py)
 
 ## Social
 - [Follow us on Twitter](https://twitter.com/hummingbot_io)

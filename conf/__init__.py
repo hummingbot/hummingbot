@@ -49,13 +49,6 @@ web3_test_private_key_c = "***REMOVED***"
 coinalpha_order_book_api_username = "***REMOVED***"
 coinalpha_order_book_api_password = "***REMOVED***"
 
-order_books_db_2 = {
-    "host": "***REMOVED***",
-    "user": "***REMOVED***",
-    "password": "***REMOVED***",
-    "db": "***REMOVED***"
-}
-
 kafka_2 = {
     "bootstrap_servers": "***REMOVED***",
     "zookeeper_servers":  "***REMOVED***"
@@ -70,12 +63,8 @@ except ModuleNotFoundError:
 try:
     from .web3_wallet_secret import *
 except ModuleNotFoundError:
-    _logger.warning("Warning: web3 wallet secret not found. You need to define the web3 wallet secret in web3_wallet_secret.py")
-
-try:
-    from .api_secrets import *
-except ModuleNotFoundError:
-    _logger.warning("Warning: API secret not found. You need to define the API secret in api_secret.py")
+    _logger.warning("Warning: web3 wallet secret not found. You need to define the web3 wallet secret in "
+                    "web3_wallet_secret.py")
 
 try:
     from .binance_secret import *
