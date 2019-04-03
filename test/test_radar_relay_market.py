@@ -125,13 +125,13 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
                                        amount=amount,
                                        order_type=OrderType.LIMIT,
                                        price=current_price - 0.2 * current_price,
-                                       expires=expires)
+                                       expiration_ts=expires)
         [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.assertEqual("ZRX-WETH", buy_order_opened_event.symbol)
         self.assertEqual(OrderType.LIMIT, buy_order_opened_event.type)
         self.assertEqual(quantized_amount, Decimal(buy_order_opened_event.amount))
 
-        self.market.cancel_order(buy_order_id)
+        self.run_parallel(self.market.cancel_order(buy_order_id))
         [buy_order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(buy_order_opened_event.order_id, buy_order_cancelled_event.order_id)
 
@@ -148,7 +148,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
                                        amount=amount,
                                        order_type=OrderType.LIMIT,
                                        price=current_price - 0.2 * current_price,
-                                       expires=expires)
+                                       expiration_ts=expires)
         [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.assertEqual(buy_order_id, buy_order_opened_event.order_id)
         self.assertEqual(quantized_amount, Decimal(buy_order_opened_event.amount))
@@ -162,7 +162,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
                                          amount=amount,
                                          order_type=OrderType.LIMIT,
                                          price=current_price + 0.2 * current_price,
-                                         expires=expires)
+                                         expiration_ts=expires)
         [sell_order_opened_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         self.assertEqual(sell_order_id, sell_order_opened_event.order_id)
         self.assertEqual(quantized_amount, Decimal(sell_order_opened_event.amount))
@@ -185,7 +185,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
                                        amount=amount,
                                        order_type=OrderType.LIMIT,
                                        price=current_price - 0.2 * current_price,
-                                       expires=expires)
+                                       expiration_ts=expires)
         [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
 
         self.assertEqual("ZRX-WETH", buy_order_opened_event.symbol)
