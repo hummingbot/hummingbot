@@ -43,7 +43,11 @@ cdef class DDEXActiveOrderTracker:
             object price = Decimal(message.content["price"])
             double timestamp = message.timestamp
             double quantity = 0
+            str order_type = message.content["orderType"]
 
+        # Only process limit orders
+        if order_type != "limit":
+            return s_empty_diff, s_empty_diff
         # If it is "trade_success", it means an existing order is either completely or partially filled, and we need to
         # update or remove the order
         if message_type == "trade_success":

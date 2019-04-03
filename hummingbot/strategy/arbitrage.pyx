@@ -42,13 +42,17 @@ cdef class SellOrderCompletedListener(BaseArbitrageStrategyEventListener):
 
 cdef class OrderFailedListener(BaseArbitrageStrategyEventListener):
     cdef c_call(self, object arg):
-        self._owner.c_did_fail_order(arg.order_id)
+        self._owner.c_did_fail_order(arg)
 
+cdef class OrderCancelledListener(BaseArbitrageStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_cancel_order(arg)
 
 cdef class ArbitrageStrategy(Strategy):
     BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
+    ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
 
     OPTION_LOG_STATUS_REPORT = 1 << 0
     OPTION_LOG_CREATE_ORDER = 1 << 1
@@ -70,7 +74,8 @@ cdef class ArbitrageStrategy(Strategy):
                  market_pairs: List[ArbitrageMarketPair],
                  min_profitability: float,
                  logging_options: int = OPTION_LOG_ORDER_COMPLETED,
-                 status_report_interval: float = 900):
+                 status_report_interval: float = 900,
+                 next_trade_delay_interval: float = 15.0):
 
         if len(market_pairs) < 0:
             raise ValueError(f"market_pairs must not be empty.")
@@ -80,12 +85,15 @@ cdef class ArbitrageStrategy(Strategy):
         self._buy_order_completed_listener = BuyOrderCompletedListener(self)
         self._sell_order_completed_listener = SellOrderCompletedListener(self)
         self._order_failed_listener = OrderFailedListener(self)
+        self._order_canceled_listener = OrderCancelledListener(self)
         self._all_markets_ready = False
         self._markets = set()
         self._order_id_to_market = {}
         self._tracked_market_orders = {}
         self._status_report_interval = status_report_interval
         self._last_timestamp = 0
+        self._next_trade_delay = next_trade_delay_interval
+        self._last_trade_timestamps = {}
         self.exchange_rate_conversion = ExchangeRateConversion.get_instance()
         cdef:
             MarketBase typed_market
@@ -97,6 +105,7 @@ cdef class ArbitrageStrategy(Strategy):
                 typed_market.c_add_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sell_order_completed_listener)
                 typed_market.c_add_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._buy_order_completed_listener)
                 typed_market.c_add_listener(self.TRANSACTION_FAILURE_EVENT_TAG, self._order_failed_listener)
+                typed_market.c_add_listener(self.ORDER_CANCELLED_EVENT_TAG, self._order_canceled_listener)
 
     def format_status(self) -> str:
         cdef:
@@ -252,16 +261,29 @@ cdef class ArbitrageStrategy(Strategy):
             if market_pair in self._tracked_market_orders:
                 del self._tracked_market_orders[market_pair]
 
-    cdef c_did_fail_order(self, str order_id):
+    cdef c_did_fail_order(self, object fail_event):
         cdef:
-            object market_pair = self._order_id_to_market.get(order_id)
+            object market_pair = self._order_id_to_market.get(fail_event.order_id)
 
         if market_pair is not None:
             self.log_with_clock(
                 logging.INFO,
-                f"Market order failed on {market_pair[0].__class__.__name__}: {order_id}"
+                f"Market order failed on {market_pair[0].__class__.__name__}: {fail_event.order_id}"
             )
-            del self._order_id_to_market[order_id]
+            del self._order_id_to_market[fail_event.order_id]
+            if market_pair in self._tracked_market_orders:
+                del self._tracked_market_orders[market_pair]
+
+    cdef c_did_cancel_order(self, object cancel_event):
+        cdef:
+            object market_pair = self._order_id_to_market.get(cancel_event.order_id)
+
+        if market_pair is not None:
+            self.log_with_clock(
+                logging.INFO,
+                f"Market order canceled on {market_pair[0].__class__.__name__}: {cancel_event.order_id}"
+            )
+            del self._order_id_to_market[cancel_event.order_id]
             if market_pair in self._tracked_market_orders:
                 del self._tracked_market_orders[market_pair]
 
@@ -365,6 +387,7 @@ cdef class ArbitrageStrategy(Strategy):
             str sell_order_id
             object tracked_buy_market_order = self._tracked_market_orders.get(buy_market_key)
             object tracked_sell_market_order = self._tracked_market_orders.get(sell_market_key)
+            double time_left
 
         # Do not continue if there are pending market order on buy market
         if tracked_buy_market_order is not None:
@@ -381,6 +404,27 @@ cdef class ArbitrageStrategy(Strategy):
                 pass
             else:
                 return
+
+        # Wait for the cool off interval before the next trade, so wallet balance is up to date
+        if buy_market_key in self._last_trade_timestamps and \
+                self._last_trade_timestamps[buy_market_key] + self._next_trade_delay > self._current_timestamp:
+            time_left = self._current_timestamp - self._last_trade_timestamps[buy_market_key] - self._next_trade_delay
+            self.log_with_clock(
+                logging.INFO,
+                f"Cooling off from previous trade on {buy_market.__class__.__name__}:{buy_market_symbol}. "
+                f"Resuming in {int(time_left)} seconds."
+                )
+            return
+
+        if sell_market_key in self._last_trade_timestamps and \
+                self._last_trade_timestamps[sell_market_key] + self._next_trade_delay > self._current_timestamp:
+            time_left = self._current_timestamp - self._last_trade_timestamps[sell_market_key] - self._next_trade_delay
+            self.log_with_clock(
+                logging.INFO,
+                f"Cooling off from previous trade on {sell_market.__class__.__name__}:{sell_market_symbol}. "
+                f"Resuming in {int(time_left)} seconds."
+                )
+            return
 
         profitable_orders = self.c_find_profitable_arbitrage_orders(buy_order_book,
                                                                     sell_order_book,
@@ -466,6 +510,8 @@ cdef class ArbitrageStrategy(Strategy):
             )
 
             time_now = self._current_timestamp
+            self._last_trade_timestamps[buy_order_id] = time_now
+            self._last_trade_timestamps[sell_order_id] = time_now
             self._order_id_to_market[buy_order_id] = buy_market_key
             self._order_id_to_market[sell_order_id] = sell_market_key
             self._tracked_market_orders[buy_market_key] = (
