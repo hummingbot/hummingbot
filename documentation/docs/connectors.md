@@ -8,10 +8,10 @@ This section contains information about official connectors for individual excha
 
 ## Currently supported connectors
 
-* [Binance](binance.md)
-* [DDEX](ddex.md)
-* [Radar Relay](radar-relay.md)
-* [0x open order book relayers](0x.md)
+* [Binance](/connectors/binance.md)
+* [DDEX](/connectors/ddex.md)
+* [Radar Relay](/connectors/radar-relay.md)
+* [0x open order book relayers](/connectors/0x.md)
 
 ## Coming soon
 

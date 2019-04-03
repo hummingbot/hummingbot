@@ -15,8 +15,8 @@ copyright: 'Copyright &copy; 2019 CoinAlpha, Inc.'
 # Configuration
 theme:
   name: 'material'
-  logo: 'img/logo.png'
-  favicon: 'img/favicon.ico'
+  logo: 'assets/img/logo.png'
+  favicon: 'assets/img/favicon.ico'
   palette:
     primary: 'teal'
     accent: 'teal'
@@ -39,9 +39,9 @@ google_analytics:
   - 'UA-119262087-3'
   - 'auto'
 extra_css:
-  - css/custom.css
+  - assets/css/custom.css
 extra_javascript:
-  - js/heap.js
+  - assets/js/heap.js
 
 # Extensions
 markdown_extensions:
@@ -75,31 +75,36 @@ nav:
       - Litepaper: litepaper.md
       - Roadmap: roadmap.md
     - FAQs:
-      - General: faq-general.md
-      - Technical: faq-technical.md
-      - Data Collection: faq-data-collection.md
-      - Terminology: faq-terminology.md
+      - General: faq/general.md
+      - Technical: faq/technical.md
+      - Data Collection: faq/data-collection.md
+      - Terminology: faq/terminology.md
     - Installation:
       - Installation: installation.md
+      - Install from Docker: installation/docker.md
+      - Install from source: installation/source.md
+      - API keys: installation/api-keys.md
+      - Ethereum wallet: installation/wallet.md
+      - Ethereum node: installation/node.md
     - Operation:
-      - Client: client.md
-      - Configuration: configuration.md
-      - Running Bots: running-bots.md
+      - Client: operation/client.md
+      - Configuration: operation/configuration.md
+      - Running Bots: operation/running-bots.md
     - Connectors:
-      - Connectors: connectors/connectors.md
+      - Connectors: connectors.md
       - Binance: connectors/binance.md
       - DDEX: connectors/ddex.md
       - Radar Relay: rconnectors/adar-relay.md
       - 0x open order book relayers: connectors/0x.md
     - Strategies:
-      - Strategies: strategies/strategies.md
+      - Strategies: strategies.md
       - Cross-exchange market making: strategies/cross-exchange-market-making.md
       - Arbitrage: strategies/arbitrage.md
     - Support:
-      - Feedback: feedback.md
-      - Tips & Known Issues: tips-issues.md
+      - Feedback: support/feedback.md
+      - Tips & Known Issues: support/tips-issues.md
     - Release Notes:
       - 0.2.0: release-notes/0.2.0.md
       - 0.3.0: release-notes/0.3.0.md
-      - latest: release-notes/latest.md
+      - 0.3.1-beta: release-notes/0.3.1-beta.md
       
