@@ -71,9 +71,12 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return {d["address"]: d for d in data}
 
     @classmethod
-    async def get_active_exchange_markets(cls) -> pd.DataFrame:
+    async def get_active_exchange_markets(cls, symbols: List[str] = []) -> pd.DataFrame:
         client: aiohttp.ClientSession = cls.http_client()
-        async with client.get(f"{MARKETS_URL}?include=ticker,stats") as response:
+        if "WETH-DAI" not in symbols:
+            symbols.append("WETH-DAI")
+        market_ids = ",".join(symbols)
+        async with client.get(f"{MARKETS_URL}?ids={market_ids}&include=ticker,stats") as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching active Radar Relay markets. HTTP status is {response.status}.")
@@ -110,7 +113,7 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_trading_pairs(self) -> List[str]:
         if self._symbols is None:
-            active_markets: pd.DataFrame = await self.get_active_exchange_markets()
+            active_markets: pd.DataFrame = await self.get_active_exchange_markets(self._symbols)
             trading_pairs: List[str] = active_markets.index.tolist()
         else:
             trading_pairs: List[str] = self._symbols
@@ -175,7 +178,7 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                active_markets: pd.DataFrame = await self.get_active_exchange_markets()
+                active_markets: pd.DataFrame = await self.get_active_exchange_markets(self._symbols)
                 trading_pairs: List[str] = active_markets.index.tolist()
                 async with websockets.connect(WS_URL) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
@@ -203,7 +206,7 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                active_markets: pd.DataFrame = await self.get_active_exchange_markets()
+                active_markets: pd.DataFrame = await self.get_active_exchange_markets(self._symbols)
                 trading_pairs: List[str] = active_markets.index.tolist()
                 client: aiohttp.ClientSession = self.http_client()
                 for trading_pair in trading_pairs:
