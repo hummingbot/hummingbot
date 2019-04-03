@@ -395,6 +395,8 @@ cdef class DDEXMarket(MarketBase):
                                                                      float(tracked_order.gas_fee_amount)))
                 else:
                     self.logger().info(f"The {order_type_description} order {client_order_id} has been cancelled.")
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                 OrderCancelledEvent(self._current_timestamp, client_order_id))
                 self.c_expire_order(tracked_order.client_order_id)
 
         self._last_update_order_timestamp = current_timestamp
