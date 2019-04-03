@@ -39,21 +39,21 @@ class ZeroExExchange:
         order_epoch: int = self._contract.functions.orderEpoch(maker_address, sender_address).call()
         return order_epoch
 
-    def market_buy_orders(self, orders: List[Order], maker_asset_fill_amount: str, signatures: List[str]) -> str:
+    def market_buy_orders(self, orders: List[Order], maker_asset_fill_amount: Decimal, signatures: List[str]) -> str:
         order_tuples: List[tuple] = [convert_order_to_tuple(order) for order in orders]
         signatures: List[bytes] = [self._w3.toBytes(hexstr=signature) for signature in signatures]
         tx_hash: str = self._wallet.execute_transaction(
             self._contract.functions.marketBuyOrders(order_tuples,
-                                                     int(Decimal(maker_asset_fill_amount) * Decimal("1e18")),
+                                                     int(maker_asset_fill_amount),
                                                      signatures))
         return tx_hash
 
-    def market_sell_orders(self, orders: List[Order], taker_asset_fill_amount: str, signatures: List[str]) -> str:
+    def market_sell_orders(self, orders: List[Order], taker_asset_fill_amount: Decimal, signatures: List[str]) -> str:
         order_tuples: List[tuple] = [convert_order_to_tuple(order) for order in orders]
         signatures: List[bytes] = [self._w3.toBytes(hexstr=signature) for signature in signatures]
         tx_hash: str = self._wallet.execute_transaction(
             self._contract.functions.marketSellOrders(order_tuples,
-                                                      int(Decimal(taker_asset_fill_amount) * Decimal("1e18")),
+                                                      int(taker_asset_fill_amount),
                                                       signatures))
         return tx_hash
 

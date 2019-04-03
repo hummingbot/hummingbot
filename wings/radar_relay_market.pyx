@@ -310,6 +310,7 @@ cdef class RadarRelayMarket(MarketBase):
                 raise
             except Exception:
                 self.logger().error("Unexpected error while fetching account updates.", exc_info=True)
+                await asyncio.sleep(0.5)
 
     def _update_balances(self):
         self._account_balances = self.wallet.get_all_balances()
@@ -455,7 +456,7 @@ cdef class RadarRelayMarket(MarketBase):
                             TradeType.BUY if tracked_market_order.is_buy else TradeType.SELL,
                             OrderType.MARKET,
                             tracked_market_order.price,
-                            order_executed_amount
+                            tracked_market_order.amount,
                         )
                     )
                     if tracked_market_order.is_buy:
@@ -596,12 +597,14 @@ cdef class RadarRelayMarket(MarketBase):
     async def submit_market_order(self,
                                   symbol: str,
                                   side: TradeType,
-                                  amount: str) -> Tuple[float, str]:
+                                  amount: Decimal) -> Tuple[float, str]:
         response = await self.request_signed_market_orders(symbol=symbol,
                                                            side=side,
-                                                           amount=amount)
+                                                           amount=str(amount))
         signed_market_orders = response["orders"]
         average_price = float(response["averagePrice"])
+        base_asset_decimals = self.trading_rules.get(symbol).amount_decimals
+        amt_with_decimals = int(Decimal(amount) * Decimal(f"1e{base_asset_decimals}"))
 
         signatures = []
         orders = []
@@ -611,9 +614,9 @@ cdef class RadarRelayMarket(MarketBase):
             orders.append(jsdict_order_to_struct(order))
         tx_hash = ""
         if side is TradeType.BUY:
-            tx_hash = self._exchange.market_buy_orders(orders, amount, signatures)
+            tx_hash = self._exchange.market_buy_orders(orders, amt_with_decimals, signatures)
         elif side is TradeType.SELL:
-            tx_hash = self._exchange.market_sell_orders(orders, amount, signatures)
+            tx_hash = self._exchange.market_sell_orders(orders, amt_with_decimals, signatures)
         else:
             raise ValueError("Invalid side. Aborting.")
         return average_price, tx_hash
@@ -621,13 +624,13 @@ cdef class RadarRelayMarket(MarketBase):
     async def submit_limit_order(self,
                                  symbol: str,
                                  side: TradeType,
-                                 amount: str,
+                                 amount: Decimal,
                                  price: str,
                                  expires: int) -> Tuple[str, Order]:
         url = f"{RADAR_RELAY_REST_ENDPOINT}/orders"
         unsigned_limit_order = await self.request_unsigned_limit_order(symbol=symbol,
                                                                        side=side,
-                                                                       amount=amount,
+                                                                       amount=str(amount),
                                                                        price=price,
                                                                        expires=expires)
         unsigned_limit_order["makerAddress"] = self._wallet.address.lower()
@@ -676,7 +679,7 @@ cdef class RadarRelayMarket(MarketBase):
                             expires: int) -> str:
         cdef:
             str q_price
-            str q_amt = str(self.c_quantize_order_amount(symbol, amount))
+            object q_amt = self.c_quantize_order_amount(symbol, amount)
             TradingRule trading_rule = self._trading_rules[symbol]
             bint is_buy = order_side is TradeType.BUY 
         try:
@@ -745,7 +748,7 @@ cdef class RadarRelayMarket(MarketBase):
 
             return order_id
         except Exception:
-            self.logger().error(f"Error submitting trade order to Radar Relay for {q_amt} {symbol}.", exc_info=True)
+            self.logger().error(f"Error submitting trade order to Radar Relay for {str(q_amt)} {symbol}.", exc_info=True)
             self.c_trigger_event(
                 self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                 MarketTransactionFailureEvent(self._current_timestamp, order_id)
@@ -944,12 +947,12 @@ cdef class RadarRelayMarket(MarketBase):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
         decimals_quantum = Decimal(f"1e-{trading_rule.amount_decimals}")
+
         if amount > 0:
             precision_quantum = Decimal(f"1e{math.ceil(math.log10(amount)) - trading_rule.price_precision}")
         else:
             precision_quantum = s_decimal_0
         return max(decimals_quantum, precision_quantum)
-
 
     cdef object c_quantize_order_amount(self, str symbol, double amount):
         cdef:
