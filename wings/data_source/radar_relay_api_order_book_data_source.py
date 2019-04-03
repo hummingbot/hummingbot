@@ -175,8 +175,7 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                trading_pairs: List[str] = active_markets.index.tolist()
+                trading_pairs: List[str] = await self.get_trading_pairs()
                 async with websockets.connect(WS_URL) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     for trading_pair in trading_pairs:
@@ -203,8 +202,7 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                trading_pairs: List[str] = active_markets.index.tolist()
+                trading_pairs: List[str] = await self.get_trading_pairs()
                 client: aiohttp.ClientSession = self.http_client()
                 for trading_pair in trading_pairs:
                     try:

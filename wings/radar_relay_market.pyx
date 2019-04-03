@@ -201,7 +201,10 @@ cdef class RadarRelayMarket(MarketBase):
     MARKET_ORDER_EXPIRED_EVENT_TAG = MarketEvent.OrderExpired.value
 
     API_CALL_TIMEOUT = 10.0
-    ORDER_EXPIRY_TIME = 3600.0
+    ORDER_EXPIRY_TIME = 60.0 * 15
+    UPDATE_RULES_INTERVAL = 60.0
+    UPDATE_OPEN_LIMIT_ORDERS_INTERVAL = 10.0
+    UPDATE_MARKET_ORDERS_INTERVAL = 10.0
 
     @classmethod
     def logger(cls) -> logging.Logger:
@@ -225,7 +228,8 @@ cdef class RadarRelayMarket(MarketBase):
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
-        self._last_update_order_timestamp = 0
+        self._last_update_limit_order_timestamp = 0
+        self._last_update_market_order_timestamp = 0
         self._last_update_trading_rules_timestamp = 0
         self._poll_interval = poll_interval
         self._in_flight_limit_orders = {} # limit orders are off chain
@@ -305,7 +309,11 @@ cdef class RadarRelayMarket(MarketBase):
                 await self._poll_notifier.wait()
 
                 self._update_balances()
-                await asyncio.gather(self._update_trading_rules(), self._update_order_status())
+                await asyncio.gather(
+                    self._update_trading_rules(),
+                    self._update_limit_order_status(),
+                    self._update_market_order_status()
+                )
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -323,7 +331,7 @@ cdef class RadarRelayMarket(MarketBase):
         cdef:
             double current_timestamp = self._current_timestamp
 
-        if current_timestamp - self._last_update_trading_rules_timestamp > 60.0 or len(self._trading_rules) < 1:
+        if current_timestamp - self._last_update_trading_rules_timestamp > self.UPDATE_RULES_INTERVAL or len(self._trading_rules) < 1:
             markets = await self.list_market()
             trading_rules_list = TradingRule.parse_exchange_info(markets)
             self._trading_rules.clear()
@@ -331,11 +339,11 @@ cdef class RadarRelayMarket(MarketBase):
                 self._trading_rules[trading_rule.symbol] = trading_rule
             self._last_update_trading_rules_timestamp = current_timestamp
 
-    async def _update_order_status(self):
+    async def _update_limit_order_status(self):
         cdef:
             double current_timestamp = self._current_timestamp
 
-        if current_timestamp - self._last_update_order_timestamp <= 10.0:
+        if current_timestamp - self._last_update_limit_order_timestamp <= self.UPDATE_OPEN_LIMIT_ORDERS_INTERVAL:
             return
         
         if len(self._in_flight_limit_orders) > 0:
@@ -430,7 +438,15 @@ cdef class RadarRelayMarket(MarketBase):
                                                                      float(tracked_limit_order.quote_asset_amount),
                                                                      float(tracked_limit_order.gas_fee_amount)))
                     self.c_expire_order(tracked_limit_order.client_order_id)
+        self._last_update_limit_order_timestamp = current_timestamp
 
+    async def _update_market_order_status(self):
+        cdef:
+            double current_timestamp = self._current_timestamp
+
+        if current_timestamp - self._last_update_market_order_timestamp <= self.UPDATE_MARKET_ORDERS_INTERVAL:
+            return
+        
         if len(self._in_flight_market_orders) > 0:
             tracked_market_orders = list(self._in_flight_market_orders.values())
             for tracked_market_order in tracked_market_orders:
@@ -495,8 +511,7 @@ cdef class RadarRelayMarket(MarketBase):
                     )
 
                 self.c_stop_tracking_order(tracked_market_order.tx_hash)
-
-        self._last_update_order_timestamp = current_timestamp
+        self._last_update_market_order_timestamp = current_timestamp
 
     async def _approval_tx_polling_loop(self):
         while len(self._pending_approval_tx_hashes) > 0:
@@ -681,7 +696,7 @@ cdef class RadarRelayMarket(MarketBase):
             str q_price
             object q_amt = self.c_quantize_order_amount(symbol, amount)
             TradingRule trading_rule = self._trading_rules[symbol]
-            bint is_buy = order_side is TradeType.BUY 
+            bint is_buy = order_side is TradeType.BUY
         try:
             if float(q_amt) < trading_rule.min_order_size:
                 raise ValueError(f"Buy order amount {q_amt} is lower than the minimum order size "
@@ -694,7 +709,7 @@ cdef class RadarRelayMarket(MarketBase):
                 if price == NaN:
                     raise ValueError(f"Limit orders require a price. Aborting.")
                 elif expires is None:
-                    raise ValueError(f"Limit orders require an expiration time. Aborting.")
+                    raise ValueError(f"Limit orders require an expiration timestamp 'expiration_ts'. Aborting.")
                 elif expires < time.time():
                     raise ValueError(f"expiration time {expires} must be greater than current time {time.time()}")
                 else:

@@ -14,7 +14,8 @@ cdef class RadarRelayMarket(MarketBase):
         object _ev_loop
         object _poll_notifier
         double _last_timestamp
-        double _last_update_order_timestamp
+        double _last_update_limit_order_timestamp
+        double _last_update_market_order_timestamp
         double _last_update_trading_rules_timestamp
         double _poll_interval
         dict _in_flight_limit_orders
