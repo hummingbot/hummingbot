@@ -1,14 +1,11 @@
----
-type: "docs"
-title: "Getting Started"
-category: "0-intro"
-category_order: 0
----
-# Getting Started
+# Welcome to Hummingbot!
 
-Welcome to the documentation for Hummingbot, an open source trading bot that helps you run automated, market making strategies across multiple cryptocurrency exchanges.
+Welcome to the documentation for `hummingbot`, an open source orchestration tool that helps you create and operate high-frequency algorithmic trading bots on both centralized and decentralized cryptocurrency exchanges.
 
-We'll populate these docs with a lot more content once we release the public beta version, expected by end of March 2019.
+Here are some helpful links to get started:
 
-## Questions?
-If you have questions about the project, the team behind it, or market making generally, please join our [Discord server](https://discord.hummingbot.io).
+* [Website](https://hummingbot.io)
+* [FAQ](/faq)
+* [Whitepaper](/whitepaper)
+* [Installation](/installation) 
+* [Support](/support)
