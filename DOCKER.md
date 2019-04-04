@@ -4,7 +4,7 @@ Compiled versions of `hummingbot` are available on Docker Hub at [`coinalpha/hum
 
 ## Running `hummingbot` with Docker
 
-For instructions on operating `hummingbot` with Docker, navigate to [`hummingbot` documentation: docker instructions](https://docs.hummingbot.io/installation/#option-1-run-hummingbot-using-docker).
+For instructions on operating `hummingbot` with Docker, navigate to [`hummingbot` documentation: Install with Docker](https://docs.hummingbot.io/installation/docker/).
 
 ---
 
