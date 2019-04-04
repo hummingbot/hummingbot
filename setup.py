@@ -15,7 +15,7 @@ if os.name == "posix":
 
 
 def main():
-    version = "20190329"
+    version = "0.3.1"
     packages = [
         "wings",
         "wings.logger",
