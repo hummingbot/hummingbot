@@ -210,6 +210,8 @@ async def write_config_to_yml():
                 data = yaml.load(stream) or {}
                 for key in cm:
                     cvar = cm.get(key)
+                    if key == "active_order_canceling":
+                        print(cvar.value)
                     data[key] = cvar.value
                 with open(yml_path, "w+") as outfile:
                     yaml.dump(data, outfile)
@@ -269,22 +271,22 @@ cross_exchange_market_making_config_map = {
                                                       ["^.+ETH$", 10],
                                                       ["^.+BTC$", 0.5],
                                                   ]),
-    "active_order_canceling": ConfigVar(key="active_order_canceling",
-                                        prompt="Do you want to actively adjust/cancel orders? "
-                                               "(Default True, only set to False if maker market is Radar Relay) >>> ",
-                                        type_str="bool",
-                                        default=True),
-    "cancel_order_threshold":   ConfigVar(key="cancel_order_threshold",
-                                          prompt="What is the minimum profitability to actively cancel orders? "
-                                                 "(Default to 0.0, only specify when active_order_canceling is "
-                                                 "disabled, value can be negative) >>> ",
-                                          default=0.0,
-                                          type_str="float"),
-    "limit_order_min_expiration":    ConfigVar(key="limit_order_min_expiration",
-                                               prompt="What is the minimum limit order expiration in seconds? "
-                                                      "(Default to 130 seconds) >>> ",
-                                               default=130.0,
-                                               type_str="float")
+    "active_order_canceling":           ConfigVar(key="active_order_canceling",
+                                                  prompt="Do you want to actively adjust/cancel orders? (Default "\
+                                                         "True, only set to False if maker market is Radar Relay) >>> ",
+                                                  type_str="bool",
+                                                  default=True),
+    "cancel_order_threshold":           ConfigVar(key="cancel_order_threshold",
+                                                  prompt="What is the minimum profitability to actively cancel orders? "
+                                                         "(Default to 0.0, only specify when active_order_canceling is "
+                                                         "disabled, value can be negative) >>> ",
+                                                  default=0.0,
+                                                  type_str="float"),
+    "limit_order_min_expiration":       ConfigVar(key="limit_order_min_expiration",
+                                                  prompt="What is the minimum limit order expiration in seconds? "
+                                                         "(Default to 130 seconds) >>> ",
+                                                  default=130.0,
+                                                  type_str="float")
 }
 
 
@@ -430,7 +432,7 @@ def parse_cvar_value(cvar: ConfigVar, value: any):
         if type(value) == str and value.lower() in ["true", "yes"]:
             return True
         else:
-            return False
+            return bool(value)
     else:
         raise TypeError
 
