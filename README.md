@@ -35,7 +35,7 @@ See [installation guide](https://docs.hummingbot.io/installation/).
 
 ## Docker / deployment
 
-Hummingbot is available on Docker Hub at [coinalpha/hummingbot](https://cloud.docker.com/u/coinalpha/repository/docker/coinalpha/hummingbot).
+Hummingbot is available on Docker Hub at [coinalpha/hummingbot](https://hub.docker.com/r/coinalpha/hummingbot).
 
 For instructions on running `hummingbot` with Docker including deployment, see [DOCKER.md](DOCKER.md).
 
