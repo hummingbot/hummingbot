@@ -9,8 +9,8 @@ This section contains information about official connectors for individual excha
 ## Currently supported connectors
 
 * [Binance](/connectors/binance)
-* [DDEX](/connectors/ddex)
 * [Radar Relay](/connectors/radar-relay)
+* [DDEX](/connectors/ddex)
 * [0x open order book relayers](/connectors/0x)
 
 ## Coming soon
@@ -18,4 +18,3 @@ This section contains information about official connectors for individual excha
 * IDEX
 * Coinbase Pro
 * Uniswap
-

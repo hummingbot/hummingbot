@@ -1,6 +1,6 @@
 # Install from Docker
 
-Using a pre-compiled version of `hummingbot` from Docker allows you to run `hummingbot` using a single line command.
+Using a pre-compiled version of `hummingbot` from Docker allows you to run `hummingbot` with a single line command.
 
 Docker images of `hummingbot` are available on Docker Hub at [coinalpha/hummingbot](https://cloud.docker.com/u/coinalpha/repository/docker/coinalpha/hummingbot).
 
@@ -39,7 +39,7 @@ Command | Description
 `docker start $NAME` | Start an existing, previously created container
 `docker attach $NAME` | Connect to an existing, running container
 
-## Update Hummingbot Version
+## Update Hummingbot version
 
 The following command will update an existing instance of `hummingbot` with a new, specified version:
 
