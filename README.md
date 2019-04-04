@@ -6,9 +6,9 @@
 [![Twitter Follow](https://img.shields.io/twitter/follow/hummingbot_io.svg?style=social&label=hummingbot)](https://twitter.com/hummingbot_io)
 
 An open-source project for the development of cryptocurrency trading software, created and maintained by [CoinAlpha, Inc](https://coinalpha.com).  
-#### [Install](https://docs.hummingbot.io/installation/) · [Documentation](https://docs.hummingbot.io/) · [FAQ](https://docs.hummingbot.io/faq-general/) · [Contributing](./CONTRIBUTING.md) · [Blog]()
+#### [Install](https://docs.hummingbot.io/installation/) · [Documentation](https://docs.hummingbot.io/) · [FAQ](https://docs.hummingbot.io/faq/) · [Contributing](./CONTRIBUTING.md) · [Blog](https://hummingbot.io/blog)
 
-![CLI View](https://documentation.hummingbot.io/img/hummingbot-cli.png)
+![CLI View](documentation/docs/assets/img/hummingbot-cli.png)
 
 Hummingbot allows users to run a local client that executes customized, automated market-making trading strategies for cryptocurrencies.
 
@@ -31,8 +31,7 @@ For more detailed information, please visit the [Hummingbot website](https://hum
 
 ## Getting started
 
-- Option 1) Clone this repo and [build from source](https://documentation.hummingbot.io/installation/#option-1-run-hummingbot-using-docker)
-- Option 2) [Run using Docker](https://documentation.hummingbot.io/installation/#option-2-install-from-source)
+See [installation guide](https://docs.hummingbot.io/installation/).
 
 ## Docker / deployment
 
