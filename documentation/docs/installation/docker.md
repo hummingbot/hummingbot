@@ -4,12 +4,7 @@ Using a pre-compiled version of `hummingbot` from Docker allows you to run `humm
 
 Docker images of `hummingbot` are available on Docker Hub at [coinalpha/hummingbot](https://cloud.docker.com/u/coinalpha/repository/docker/coinalpha/hummingbot).
 
-!!! warning "Alpha Testers"
-    The `hummingbot` docker image is currently only available to alpha testers.  If you are an alpha tester and would like access, please contact us on [`hummingbot` Discord](https://discord.hummingbot.io) or email [contact@hummingbot.io](mailto:contact@hummingbot.io).
-
-
 ## Create new instance of `hummingbot`
-
 
 ``` bash tab="Terminal: Start hummingbot with Docker"
 docker run -it \
