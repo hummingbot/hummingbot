@@ -9,3 +9,6 @@ Here are some helpful links to get started:
 * [Whitepaper](/whitepaper)
 * [Installation](/installation) 
 * [Support](/support)
+
+!!! warning "Experimental software"
+    `hummingbot` is experimental software, and you use it at your own risk.  Please review the [Apache 2.0 license](https://github.com/CoinAlpha/hummingbot/blob/master/LICENSE).
