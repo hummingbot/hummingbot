@@ -18,11 +18,11 @@ For more detailed information, please visit the [Hummingbot website](https://hum
 
 ## Currently supported cryptocurrency exchanges
 
-|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;logo&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;                                            | id          | name                                                         | ver | doc                                                                                          |                                                                                                                  
-|------------------------------------------------------------------------------------------------------------------------------|-------------|:------------------------------------------------------------:|:---:|----------------------------------------------------------------------------------------------|
-|[![binance](https://i.ibb.co/m0YDQLd/Screen-Shot-2019-03-14-at-10-53-42-AM.png)](https://www.binance.com/?ref=10205187)       | binance     | [Binance](https://www.binance.com/)                          | *   | [API](https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md) |  
-|[![Radar Relay](https://i.ibb.co/7RW75mf/Screen-Shot-2019-03-14-at-10-47-07-AM.png)](https://radarrelay.com/)                        | radar_relay | [Radar Relay](https://radarrelay.com/)                       | 2   | [API](https://developers.radarrelay.com/api/trade-api)                                       | 
-|[![DDEX](https://i.ibb.co/Lrpps2G/Screen-Shot-2019-03-14-at-10-39-23-AM.png)](https://ddex.io/)                               | ddex        | [DDEX](https://ddex.io/)                                     | 3   | [API](https://docs.ddex.io/)                                                                 | 
+| logo | id | name | ver | doc|
+|:---:|:---:|:---:|:---:|:---:|
+| [![binance](https://i.ibb.co/m0YDQLd/Screen-Shot-2019-03-14-at-10-53-42-AM.png)](https://www.binance.com/?ref=10205187) | binance | [Binance](https://www.binance.com/) | * | [API](https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md) |
+| [![Radar Relay](https://i.ibb.co/7RW75mf/Screen-Shot-2019-03-14-at-10-47-07-AM.png)](https://radarrelay.com/) | radar_relay | [Radar Relay](https://radarrelay.com/) | 2 | [API](https://developers.radarrelay.com/api/trade-api) |
+| [![DDEX](https://i.ibb.co/Lrpps2G/Screen-Shot-2019-03-14-at-10-39-23-AM.png)](https://ddex.io/) | ddex | [DDEX](https://ddex.io/) | 3 | [API](https://docs.ddex.io/) |
 
 ## Resources / links
 - [Hummingbot Home Page](https://hummingbot.io)
