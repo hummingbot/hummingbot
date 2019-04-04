@@ -23,7 +23,7 @@ Running your own node may require dedicated storage and compute, as well as some
 !!! warning
     Third party providers may have limited functionality; the Hummingbot team continues to evaluate and test node providers.
 
-## Option 3. Dedicated Blockchain Hardware
+## Option 3. Dedicated blockchain hardware
 Get dedicated hardware for your Ethereum node.  Ethereum nodes are meant to run constantly 24/7 and use up a material amount of computational resources (CPU, RAM, and storage).  For more serious users, it may make sense to use dedicated hardware.
 
 ### Software
