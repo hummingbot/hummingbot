@@ -235,7 +235,9 @@ class Web3WalletBackend(PubSub):
                              for block_hash in block_hash_set]
         blocks: Dict[HexBytes, AttributeDict] = dict((block.hash, block)
                                                      for block
-                                                     in await asyncio.gather(*fetch_block_tasks))
+                                                     in await asyncio.gather(*fetch_block_tasks)
+                                                     if block is not None)
+
         for receipt in transaction_receipts:
             # Emit gas used event.
             tx_hash: str = receipt.transactionHash.hex()
