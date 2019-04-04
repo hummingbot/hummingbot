@@ -210,8 +210,6 @@ async def write_config_to_yml():
                 data = yaml.load(stream) or {}
                 for key in cm:
                     cvar = cm.get(key)
-                    if key == "active_order_canceling":
-                        print(cvar.value)
                     data[key] = cvar.value
                 with open(yml_path, "w+") as outfile:
                     yaml.dump(data, outfile)
