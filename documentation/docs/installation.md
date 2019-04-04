@@ -10,12 +10,7 @@
 
 4. **Ethereum wallet**: To trade on decentralized exchanges like Radar Relay and DDEX, you need an Ethereum wallet. See [Ethereum wallet](installation/wallet.md) for more information.
 
+5. **Ethereum node**: lastly, you will need access to an Ethereum node.  You can either run your own locally or use a publicly available service such as [Alchemy Insights](https://alchemyinsights.io/hummingbot), [QuikNode](https://quiknode.io/) or [Infura](https://infura.io/).
+
 !!! note
     Since on-chain Ethereum transactions cost gas, make sure that your wallet contains some ETH.
-
-5. **Ethereum node**: 
-
-3. **Ethereum wallet**: 
-
-
-6. **Ethereum node**: lastly, you will need access to an Ethereum node.  You can either run your own locally or use a publicly available service such as [Alchemy Insights](https://alchemyinsights.io/hummingbot) or [Infura](https://infura.io/).
