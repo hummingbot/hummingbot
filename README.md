@@ -6,8 +6,9 @@
 [![Twitter Follow](https://img.shields.io/twitter/follow/hummingbot_io.svg?style=social&label=hummingbot)](https://twitter.com/hummingbot_io)
 
 An open-source project for the development of cryptocurrency trading software, created and maintained by [CoinAlpha, Inc](https://coinalpha.com).  
-#### [Install](https://www.hummingbot.io/docs/installation/) · [Documentation](https://www.hummingbot.io/docs/) · [FAQ](https://www.hummingbot.io/docs/faq-general/) · [Contributing](https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md) · [Blog]()
+#### [Install](https://docs.hummingbot.io/installation/) · [Documentation](https://docs.hummingbot.io/) · [FAQ](https://docs.hummingbot.io/faq-general/) · [Contributing](./CONTRIBUTING.md) · [Blog]()
 
+![CLI View](https://documentation.hummingbot.io/img/hummingbot-cli.png)
 
 Hummingbot allows users to run a local client that executes customized, automated market-making trading strategies for cryptocurrencies.
 
@@ -15,48 +16,25 @@ Hummingbot was created to promote  ***decentralized market-making***: enabling m
 
 For more detailed information, please visit the [Hummingbot website](https://hummingbot.io) and read the [Hummingbot whitepaper](https://hummingbot.io/whitepaper.pdf).
 
-## Supported Cryptocurrency Exchanges
+## Currently supported cryptocurrency exchanges
 
-|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;logo&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;                                            | id          | name                                                         | ver | doc                                                                                          |                                                                                                                  
-|------------------------------------------------------------------------------------------------------------------------------|-------------|:------------------------------------------------------------:|:---:|----------------------------------------------------------------------------------------------|
-|[![binance](https://i.ibb.co/m0YDQLd/Screen-Shot-2019-03-14-at-10-53-42-AM.png)](https://www.binance.com/?ref=10205187)       | binance     | [Binance](https://www.binance.com/)                          | *   | [API](https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md) |  
-|[![DDEX](https://i.ibb.co/Lrpps2G/Screen-Shot-2019-03-14-at-10-39-23-AM.png)](https://ddex.io/)                               | ddex        | [DDEX](https://ddex.io/)                                     | 3   | [API](https://docs.ddex.io/)                                                                 | 
-|[![DDEX](https://i.ibb.co/7RW75mf/Screen-Shot-2019-03-14-at-10-47-07-AM.png)](https://radarrelay.com/)                        | radar_relay | [Radar Relay](https://radarrelay.com/)                       | 2   | [API](https://developers.radarrelay.com/api/trade-api)                                       | 
+| logo | id | name | ver | doc|
+|:---:|:---:|:---:|:---:|:---:|
+| [![binance](https://i.ibb.co/m0YDQLd/Screen-Shot-2019-03-14-at-10-53-42-AM.png)](https://www.binance.com/?ref=10205187) | binance | [Binance](https://www.binance.com/) | * | [API](https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md) |
+| [![Radar Relay](https://i.ibb.co/7RW75mf/Screen-Shot-2019-03-14-at-10-47-07-AM.png)](https://radarrelay.com/) | radar_relay | [Radar Relay](https://radarrelay.com/) | 2 | [API](https://developers.radarrelay.com/api/trade-api) |
+| [![DDEX](https://i.ibb.co/Lrpps2G/Screen-Shot-2019-03-14-at-10-39-23-AM.png)](https://ddex.io/) | ddex | [DDEX](https://ddex.io/) | 3 | [API](https://docs.ddex.io/) |
 
-## Resources / Links
+## Resources / links
 - [Hummingbot Home Page](https://hummingbot.io)
 - [Whitepaper](https://hummingbot.io/whitepaper.pdf)
-- [Documentation](https://hummingbot.io/whitepaper.pdf)
-- **Discussions**: join the CoinAlpha / Hummingbot community on our [Discord Server](https://discord.coinalpha.com) or email us at [dev@coinalpha.com](mailto:dev@coinalpha.com).
+- [Documentation](https://docs.hummingbot.io)
 
-## Getting Started
+## Getting started
 
-First, run
-```
-$ ./install
-```
+- Option 1) Clone this repo and [build from source](https://documentation.hummingbot.io/installation/#option-1-run-hummingbot-using-docker)
+- Option 2) [Run using Docker](https://documentation.hummingbot.io/installation/#option-2-install-from-source)
 
-After running the `install` script, the Anaconda environment named `hummingbot` will be created. You can activate it in the same way as all Anaconda environments.
-
-```
-$ conda activate hummingbot
-```
-
-Once the Anaconda environment is actvated, you will see it prefixed to your command line prompt.
-
-```
-(hummingbot) $ 
-```
-Then, run
-```
-(hummingbot) $ bin/hummingbot
-```
-Once you see the CLI interface, you can enter `help` to start interacting using our commands.
-
-![CLI View](https://www.hummingbot.io/docs/hummingbot-cli.png)
-
-
-## Docker / Deployment
+## Docker / deployment
 
 Hummingbot is available on Docker Hub at [coinalpha/hummingbot](https://cloud.docker.com/u/coinalpha/repository/docker/coinalpha/hummingbot).
 
@@ -75,12 +53,16 @@ File | Description
 `binance_secret.py` | [binance_secret_TEMPLATE.py](hummingbot/templates/test_templates/binance_secret_TEMPLATE.py)
 `web3_wallet_secret.py` | [web3_wallet_secret_TEMPLATE.py](hummingbot/templates/test_templates/web3_wallet_secret_TEMPLATE.py)
 
-## Social
+## Social / discuss
 - [Follow us on Twitter](https://twitter.com/hummingbot_io)
 - [Read our blog](https://www.hummingbot.io/blog)
-## Contributing
+- Join the CoinAlpha / Hummingbot community on our [Discord Server](https://discord.coinalpha.com)
 
-We welcome code contributions (via [pull requests](https://github.com/CoinAlpha/hummingbot/pulls)) as well as bug reports and feature requests through [github issues](https://github.com/CoinAlpha/hummingbot/issues).
+## Contributions are welcome!
+
+We welcome code contributions (via [pull requests](./pulls)) as well as bug reports and feature requests through [github issues](./issues).
+
+When doing so, please review the [contributing guidelines](CONTRIBUTING.md) / git workflow.
 
 ## License
 Code is released under the [Apache-2.0 License](LICENSE), which means it's absolutely free for any developer to build commercial and opensource software on top of it, but use it at your own risk with no warranties, as is.
@@ -88,4 +70,4 @@ Code is released under the [Apache-2.0 License](LICENSE), which means it's absol
 ## Contact
 Hummingbot was created and is maintained by [CoinAlpha](https://www.coinalpha.com). You can contact us at [dev@coinalpha.com](mailto:dev@coinalpha.com) or join our [Discord server](https://discord.coinalpha.com).
 
-For business inquiries, please contact us at [contact@coinalpha.com](mailto:contact@coinalpha.com).
+For business inquiries, please contact us at [partnerships@hummingbot.io](mailto:partnerships@hummingbot.io).
