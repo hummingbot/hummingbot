@@ -25,4 +25,4 @@ Since Hummingbot needs to access sensitive digital asset private keys and exchan
 
 Hummingbot will effectively be a trading engine to execute transactions with the parameters provided by users, abstracting some the technical complexities of transacting with centralized and decentralized exchanges, each with their own non-standardized technical specifications.  Hummingbot will facilitate trade execution and interaction with different exchanges, performing actions such as price and order book retrieval, submission of trade instructions, and, if specified by the user, handle asset transfers for functions such as rebalancing across different exchange accounts.
 
-![Hummingbot architecture](img/architecture.png)
+![Hummingbot architecture](assets/img/architecture.png)

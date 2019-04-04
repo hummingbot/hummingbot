@@ -2,9 +2,11 @@
 
 Hummingbot uses a command-line interface (CLI) that helps users configure and run the bot, as well as generate logs of the trades performed.
 
-## Starting `hummingbot` using Docker
+## Starting `hummingbot`
 
-Creating a new instance of `hummingbot` with `docker run` will automatically start the `hummingbot` client (see [Installation](/installation#create-new-instance-of-hummingbot)).
+### Installed from Docker
+
+Creating a new instance of `hummingbot` with `docker run` will automatically start the `hummingbot` client (see [Docker - Create new instance of hummingbot](/installation/docker#create-new-instance-of-hummingbot)).
 
 To run a previously created, stopped container:
 
@@ -12,26 +14,23 @@ To run a previously created, stopped container:
 docker start $NAME && docker attach $NAME
 ```
 
----
-
-## Starting `hummingbot` from local installation
+### Installed from source
 
 !!! note
-    Make sure that you activate the Anaconda environment with `conda activate hummingbot-dist` prior to running Hummingbot.
+    Make sure that you activate the Anaconda environment with `conda activate hummingbot` prior to running Hummingbot.
 
 Open a Terminal window and go to the root of the directory that contains Hummingbot. From there, run:
 ```
-hummingbot.py
+bin/hummingbot.py
 ```
-
----
 
 ## User interface
 
 ### Layout
-![Hummingbot CLI](img/hummingbot-cli.png)
+![Hummingbot CLI](/assets/img/hummingbot-cli.png)
 
 The CLI is divided into three panes:
+
 * **Input pane (lower left)**: where users enter commands
 * **Output pane (upper left)**: prints the output of the user's commands
 * **Log pane (right)**: log messages
@@ -50,7 +49,3 @@ The CLI is divided into three panes:
 | `get_balance` | Gets the balance of an exchange or wallet.<br/><br/>*Example usage: `get_balance [-c WETH -w|-c ETH -e binance]` to show available WETH balance in the Ethereum wallet and ETH balance in Binance, respectively*.
 | `exit` \| `CTRL + C` | Cancels all orders, saves the log, and exits Hummingbot.
 |`exit -f`| Force quit without cancelling orders.
-
-<hr />
-
-# Next: [Configure the bot](/configuration)
