@@ -1,13 +1,13 @@
 # Running Bots
 
 !!! note
-    The commands below assume that you are already inside the Hummingbot CLI. Please see [Installation](/installation) and [Client](/client) if you need help to install and launch the CLI.
+    The commands below assume that you are already inside the Hummingbot CLI. Please see [Installation](/installation) and [Client](/operation/client) if you need help to install and launch the CLI.
 
 ## Starting a bot
 
 Use the `start` command to initialize a market making bot. 
 
-If any configuration settings are missing, you will be prompted to add them (see: [Configuration](/configuration/)). 
+If any configuration settings are missing, you will be prompted to add them (see: [Configuration](/operation/configuration/)). 
 
 If you have previously configured Hummingbot using `config` but are in a new session of the CLI, you will need to run `config` again to unlock your Ethereum wallet.
 
@@ -16,6 +16,7 @@ If you have previously configured Hummingbot using `config` but are in a new ses
 Hummingbot uses your token balances to determine the size of each order. For decentralized exchanges like DDEX and Radar Relay, it uses the token balances in your Ethereum wallet. For centralized exchanges like Binance, it uses your token balances in the respective exchange.
 
 For cross-exchange market making, we recommend that users start with roughly equivalent balances of the base asset and the quote asset on each exchange. Thus, there are four balances to track:
+
 * Base asset on the maker exchange
 * Quote asset on the maker exchange
 * Base asset on the taker exchange
@@ -26,7 +27,7 @@ For cross-exchange market making, we recommend that users start with roughly equ
 
 ## Commands
 
-Please see [Client: Commands](/client#commands).
+Please see [Client: Commands](/operation/client#commands).
 
 ## Logs
 

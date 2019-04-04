@@ -73,12 +73,9 @@ nav:
     - Intro:
       - Getting started: index.md
       - Litepaper: litepaper.md
+      - FAQ: faq.md
       - Roadmap: roadmap.md
-    - FAQs:
-      - General: faq/general.md
-      - Technical: faq/technical.md
-      - Data Collection: faq/data-collection.md
-      - Terminology: faq/terminology.md
+      - Terminology: glossary.md
     - Installation:
       - Installation: installation.md
       - Install from Docker: installation/docker.md
