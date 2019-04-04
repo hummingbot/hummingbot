@@ -562,9 +562,13 @@ cdef class RadarRelayMarket(MarketBase):
                     else:
                         raise IOError
                 except Exception:
-                    response_text = await response.text()
-                    raise IOError(f"Error fetching data from {url}. "
-                                  f"HTTP status is {response.status}.")
+                    if response.status == 502:
+                        raise IOError(f"Error fetching data from {url}. "
+                                      f"HTTP status is {response.status} - Server Error: Bad Gateway.")
+                    else:
+                        response_text = await response.text()
+                        raise IOError(f"Error fetching data from {url}. "
+                                      f"HTTP status is {response.status} - {response_text}.")
 
     async def request_signed_market_orders(self, symbol: str, side: TradeType, amount: str) -> Dict[str, any]:
         if side is TradeType.BUY:
