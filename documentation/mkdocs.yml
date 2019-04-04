@@ -72,8 +72,8 @@ markdown_extensions:
 nav:
     - Intro:
       - Getting started: index.md
-      - Litepaper: litepaper.md
       - FAQ: faq.md
+      - Whitepaper: whitepaper.md
       - Roadmap: roadmap.md
       - Terminology: glossary.md
     - Installation:
@@ -99,7 +99,7 @@ nav:
       - Cross-exchange market making: strategies/cross-exchange-market-making.md
       - Arbitrage: strategies/arbitrage.md
     - Support:
-      - Feedback: support/feedback.md
+      - Support: support.md
       - Tips & Known Issues: support/tips-issues.md
     - Release Notes:
       - 0.2.0: release-notes/0.2.0.md

@@ -1,15 +1,19 @@
-# Litepaper
+# Whitepaper
 
-Below is a high-level summary of the full [Hummingbot whitepaper](https://www.hummingbot.io/whitepaper.pdf).
+## [Hummingbot whitepaper](https://www.hummingbot.io/whitepaper.pdf)
 
-## Motivation
+## Litepaper
+
+Below, we provide a high-level summary of the [full whitepaper](https://www.hummingbot.io/whitepaper.pdf).
+
+### Motivation
 
 Proponents of tokenization, the process of creating a digital asset transferrable on a public
 distributed ledger, espouse its ability to unlock the liquidity premium in asset classes such as startups, real estate, and private equity. Yet in practice, tokenization has led to extreme concentration of liquidity. The top three digital assets have a combined daily exchange trading volume of $12 billion, 72% of total daily exchange trading volume, and of the more than 2,000 crypto assets listed in [CoinMarketCap](https://coinmarketcap.com), 92% have less than $1 million in daily volume.
 
 While tokenization enables assets to trade freely, it does not automatically confer liquidity onto them. In order for the global financial system to fully realize the value of tokenization, there needs to be sufficient actors who are both incentivized and equipped to provide liquidity, especially for the long tail of tokenized assets.
 
-## Market making
+### Market making
 
 Providers of liquidity on financial markets are called ==market makers==. Market makers play a fundamental role in asset markets by simultaneously quoting bid (offers to buy) and ask (offers to sell) prices for assets on an exchange. By quoting prices at which they stand ready to buy and sell assets, they enable price discovery and liquid trading by other market participants. In addition, by quoting prices on different trading venues and arbitraging away inter-market dislocations across different markets, market makers increase overall market efficiency.
 
@@ -17,7 +21,7 @@ Unlike in fiat markets, ==direct market access== in digital markets enables indi
 
 However, technical barriers prevent additional entrants from making markets for digital assets. Due to the highly volatile nature of digital asset prices, market makers need to utilize an automated, algorithmic approach in order to stay competitive. Unlike in fiat markets where the Financial Information eXchange (FIX) Protocol provides a standardized message format for electronic trading, digital asset exchange APIs vary in both format and reliability. Market making algorithms need to handle edge cases such as stale data, trade execution lag, and API downtime. Writing robust, reliable market making algorithms that can trade on multiple exchanges requires significant specialized engineering resources.
 
-## The Hummingbot client
+### The Hummingbot client
 
 We introduce Hummingbot, an open source software client that allows users to create and customize automated, algorithmic trading bots for making markets on both centralized and decentralized digital asset exchanges. By lowering these technical barriers and introducing new incentive mechanisms, we enable anyone to act as a market maker for digital assets, a new model for liquidity provision that we call ==decentralized market making==.
 
