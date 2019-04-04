@@ -1,3 +1,5 @@
-This is a stub. Help our community expand it.
+# Binance
 
-Please use the [Contributor's Guide](https://github.com/coinalpha/hummingbot/blob/master/CONTRIBUTING.md) to ensure your pull request gets accepted.
+## API keys
+In order to trade on [Binance](https://binance.com), you need an account and need to [create an Binance API key](https://support.binance.com/hc/en-us/articles/360002502072-How-to-create-API).  For the Binance API key, “Enable Trading” must be selected.
+
