@@ -87,11 +87,12 @@ nav:
       - Client: operation/client.md
       - Configuration: operation/configuration.md
       - Running Bots: operation/running-bots.md
+      - Logging: operation/logging.md
     - Connectors:
       - Connectors: connectors.md
       - Binance: connectors/binance.md
       - DDEX: connectors/ddex.md
-      - Radar Relay: rconnectors/adar-relay.md
+      - Radar Relay: connectors/radar-relay.md
       - 0x open order book relayers: connectors/0x.md
     - Strategies:
       - Strategies: strategies.md
