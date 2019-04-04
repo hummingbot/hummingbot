@@ -94,7 +94,7 @@ cdef class CrossExchangeMarketMakingStrategy(Strategy):
     ORDER_ADJUST_SAMPLE_INTERVAL = 5
     ORDER_ADJUST_SAMPLE_WINDOW = 12
 
-    SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION = 3600.0
+    SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION = 60.0 * 15
 
     @classmethod
     def logger(cls):
