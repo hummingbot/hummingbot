@@ -564,7 +564,7 @@ cdef class RadarRelayMarket(MarketBase):
                 except Exception:
                     response_text = await response.text()
                     raise IOError(f"Error fetching data from {url}. "
-                                  f"HTTP status is {response.status} - {response_text}.")
+                                  f"HTTP status is {response.status}.")
 
     async def request_signed_market_orders(self, symbol: str, side: TradeType, amount: str) -> Dict[str, any]:
         if side is TradeType.BUY:
