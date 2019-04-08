@@ -9,19 +9,24 @@ You need an Ethereum node for strategies that trade on Ethereum-based decentrali
 The best and most reliable way, not to mention in the spirit of decentralization, is to run your own Ethereum node!
 
 Running your own node may require dedicated storage and compute, as well as some technical skills. These are the two most widely used Ethereum clients:
-- [go-ethereum (geth)](https://github.com/ethereum/go-ethereum/wiki/Building-Ethereum)
-- [parity](https://github.com/paritytech/parity-ethereum)
+
+- [Geth (go-ethereum)](https://github.com/ethereum/go-ethereum/wiki/Building-Ethereum)
+- [Parity](https://github.com/paritytech/parity-ethereum)
 
 !!! note
     These may require several hours to days to sync and may require some troubleshooting when first running.
 
 ## Option 2. Third-party providers
-1. [Alchemy Insights](https://alchemyinsights.io/) provides professional grade Ethereum nodes. We have partnered with Alchemy to provide a free trial for Hummingbot users - please contact us for more information.
+1. [Infura](https://infura.io/) provides free and the most widely used Ethereum nodes.
+2. [Alchemy Insights](https://alchemyinsights.io/) provides professional grade Ethereum nodes. We have partnered with Alchemy to provide a free trial for Hummingbot users - please contact us for more information.
 2. [Quiknode](https://quiknode.io)
-3. [Infura](https://infura.io/) provides free and the most widely used Ethereum nodes.
 
-!!! warning
-    Third party providers may have limited functionality; the Hummingbot team continues to evaluate and test node providers.
+!!! tip "Important tip for Infura users"
+    If you use an Infura endpoint, make sure to append `https://` to the URL when you use it in Hummingbot. Otherwise, you may see a `Bad ethereum rpc url` error.
+
+     ![Infura](/assets/img/infura.png)
+
+
 
 ## Option 3. Dedicated blockchain hardware
 Get dedicated hardware for your Ethereum node.  Ethereum nodes are meant to run constantly 24/7 and use up a material amount of computational resources (CPU, RAM, and storage).  For more serious users, it may make sense to use dedicated hardware.
