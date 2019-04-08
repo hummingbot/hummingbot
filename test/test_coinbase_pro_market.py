@@ -231,7 +231,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         # Ensure the local wallet has enough balance for deposit testing.
         self.assertGreaterEqual(self.wallet.get_balance("ZRX"), 1)
 
-        # Deposit ZRX to Binance, and wait.
+        # Deposit ZRX to Coinbase Pro, and wait.
         tracking_id: str = self.market.deposit(self.wallet, "ZRX", 1)
         [received_asset_event] = self.run_parallel(
             self.market_logger.wait_for(MarketReceivedAssetEvent, timeout_seconds=1800)
@@ -247,7 +247,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         # Ensure the market account has enough balance for withdraw testing.
         self.assertGreaterEqual(self.market.get_balance("ZRX"), 1)
 
-        # Withdraw ZRX from Binance to test wallet.
+        # Withdraw ZRX from Coinbase Pro to test wallet.
         self.market.withdraw(self.wallet.address, "ZRX", 1)
         [withdraw_asset_event] = self.run_parallel(
             self.market_logger.wait_for(MarketWithdrawAssetEvent)
