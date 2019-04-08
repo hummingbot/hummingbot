@@ -1,10 +1,12 @@
+import aiohttp
 import asyncio
 from async_timeout import timeout
-import hmac, hashlib, base64, requests
+import hmac, hashlib, base64
 from requests.auth import AuthBase
 from decimal import (
     Decimal
 )
+import json
 import logging
 import time
 from typing import (
@@ -35,7 +37,7 @@ from wings.order_book_tracker import (
     OrderBookTrackerDataSourceType
 )
 from wings.order_book cimport OrderBook
-# from wings.tracker.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
+from wings.tracker.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from wings.cancellation_result import CancellationResult
 from .transaction_tracker import TransactionTracker
 from .wallet_base import WalletBase
@@ -52,14 +54,13 @@ class CoinbaseProAuth(AuthBase):
         self.passphrase = passphrase
 
     def __call__(self, request):
-        timestamp = str(time.time())
         body = "" if request.body is None else request.body.decode("utf8")
         request.headers.update(self.get_headers(request.method, request.path_url, body))
         return request
 
     def get_headers(self, method: str, path_url: str, body: str = "") -> Dict[str, any]:
         timestamp = str(time.time())
-        message = timestamp + method + path_url + body
+        message = timestamp + method.upper() + path_url + body
         hmac_key = base64.b64decode(self.secret_key)
         signature = hmac.new(hmac_key, message.encode('utf8'), hashlib.sha256)
         signature_b64 = base64.b64encode(bytes(signature.digest())).decode('utf8')
@@ -69,7 +70,7 @@ class CoinbaseProAuth(AuthBase):
             'CB-ACCESS-TIMESTAMP': timestamp,
             'CB-ACCESS-KEY': self.api_key,
             'CB-ACCESS-PASSPHRASE': self.passphrase,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
         }
 
 
@@ -247,8 +248,8 @@ cdef class CoinbaseProMarket(MarketBase):
                  symbols: Optional[List[str]] = None):
         super().__init__()
         self._coinbase_auth = CoinbaseProAuth(coinbase_pro_api_key, coinbase_pro_secret_key, coinbase_pro_passphrase)
-        # self._order_book_tracker = CoinbaseProOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-        #                                                        symbols=symbols)
+        self._order_book_tracker = CoinbaseProOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
+                                                               symbols=symbols)
         self._account_balances = {}
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
@@ -262,10 +263,11 @@ cdef class CoinbaseProMarket(MarketBase):
         self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
         self._order_tracker_task = None
+        self._shared_client = None
 
-    # @property
-    # def order_books(self) -> Dict[str, OrderBook]:
-    #     return self._order_book_tracker.order_books
+    @property
+    def order_books(self) -> Dict[str, OrderBook]:
+        return self._order_book_tracker.order_books
 
     @property
     def coinbase_auth(self) -> CoinbaseProAuth:
@@ -273,8 +275,7 @@ cdef class CoinbaseProMarket(MarketBase):
 
     @property
     def ready(self) -> bool:
-        return (
-                # len(self._order_book_tracker.order_books) > 0 and
+        return (len(self._order_book_tracker.order_books) > 0 and
                 len(self._account_balances) > 0 and
                 len(self._trading_rules) > 0)
 
@@ -284,7 +285,7 @@ cdef class CoinbaseProMarket(MarketBase):
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
         MarketBase.c_start(self, clock, timestamp)
-        # self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
+        self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
         self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
 
     cdef c_tick(self, double timestamp):
@@ -298,15 +299,39 @@ cdef class CoinbaseProMarket(MarketBase):
                 self._poll_notifier.set()
         self._last_timestamp = timestamp
 
+    # async def _api_request(self,
+    #                        http_method: str,
+    #                        url: str,
+    #                        data: Optional[Dict[str, any]] = None,
+    #                        headers: Optional[Dict[str, str]] = None,
+    #                        auth: any = None) -> Dict[str, any]:
+    #     auth = auth or self.coinbase_auth
+    #     response = requests.request(http_method, url=url, timeout=self.API_CALL_TIMEOUT, json=data, auth=auth)
+    #     return response.json()
+
+    async def _http_client(self) -> aiohttp.ClientSession:
+        if self._shared_client is None:
+            self._shared_client = aiohttp.ClientSession()
+        return self._shared_client
+
     async def _api_request(self,
                            http_method: str,
-                           url: str,
-                           data: Optional[Dict[str, any]] = None,
-                           headers: Optional[Dict[str, str]] = None,
-                           auth: any = None) -> Dict[str, any]:
-        auth = auth or self.coinbase_auth
-        response = requests.request(http_method, url=url, timeout=self.API_CALL_TIMEOUT, json=data, auth=auth)
-        return response.json()
+                           path_url: str = None,
+                           url: str = None,
+                           data: Optional[Dict[str, any]] = None) -> Dict[str, any]:
+        assert path_url is not None or url is not None
+
+        url = url or f"{self.COINBASE_API_ENDPOINT}{path_url}"
+        data_str = "" if data is None else json.dumps(data)
+        headers = self.coinbase_auth.get_headers(http_method, path_url, data_str)
+
+        client = await self._http_client()
+        async with client.request(http_method,
+                                  url=url, timeout=self.API_CALL_TIMEOUT, data=data_str, headers=headers) as response:
+            data = await response.json()
+            if response.status != 200:
+                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {data}")
+            return data
 
     async def _update_balances(self):
         cdef:
@@ -318,8 +343,7 @@ cdef class CoinbaseProMarket(MarketBase):
             set asset_names_to_remove
 
         path_url = "/accounts"
-        url = f"{self.COINBASE_API_ENDPOINT}{path_url}"
-        account_balances = await self._api_request('get', url=url, auth=self.coinbase_auth)
+        account_balances = await self._api_request('get', path_url=path_url)
 
         for balance_entry in account_balances:
             asset_name = balance_entry["currency"]
@@ -362,7 +386,7 @@ cdef class CoinbaseProMarket(MarketBase):
             int64_t last_tick = <int64_t>(self._last_timestamp / 60.0)
             int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) <= 0:
-            product_info = await self._api_request('get', url=f"{self.COINBASE_API_ENDPOINT}/products")
+            product_info = await self._api_request('get', path_url="/products")
             trading_rules_list = TradingRule.parse_exchange_info(product_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
@@ -456,7 +480,6 @@ cdef class CoinbaseProMarket(MarketBase):
     async def place_order(self, order_id: str, symbol: str, amount: Decimal, is_buy: bool, order_type: OrderType,
                           price: float):
         path_url = "/orders"
-        url = f"{self.COINBASE_API_ENDPOINT}{path_url}"
         data = {
             "price": price,
             "size": float(amount),
@@ -465,9 +488,7 @@ cdef class CoinbaseProMarket(MarketBase):
             "type": "limit" if order_type is OrderType.LIMIT else "market",
         }
 
-        order_result = await self._api_request("post", url=url, data=data, auth=self.coinbase_auth)
-        if "id" not in order_result:
-            raise IOError(f"Submission of order {order_id} has failed due to {order_result['message']}")
+        order_result = await self._api_request("post", path_url=path_url, data=data)
         return order_result
 
     async def execute_buy(self,
@@ -560,7 +581,7 @@ cdef class CoinbaseProMarket(MarketBase):
         exchange_order_id = self._in_flight_orders.get(order_id).exchange_order_id
         path_url = f"/orders/{exchange_order_id}"
         url = f"{self.COINBASE_API_ENDPOINT}{path_url}"
-        [cancelled_id] = await self._api_request("delete", url, auth=self.coinbase_auth)
+        [cancelled_id] = await self._api_request("delete", path_url=path_url)
         if cancelled_id == exchange_order_id:
             self.logger().info(f"Successfully cancelled order {order_id}.")
             self.c_stop_tracking_order(order_id)
@@ -581,7 +602,7 @@ cdef class CoinbaseProMarket(MarketBase):
             path_url = "/orders"
             url = f"{self.COINBASE_API_ENDPOINT}{path_url}"
             async with timeout(timeout_seconds):
-                results = await self._api_request("delete", url, auth=self.coinbase_auth)
+                results = await self._api_request("delete", path_url=path_url)
                 for exchange_order_id in results:
                     order = exchange_order_id_map.get(exchange_order_id)
                     if order is not None:
@@ -597,6 +618,9 @@ cdef class CoinbaseProMarket(MarketBase):
     async def _status_polling_loop(self):
         while True:
             try:
+                self._poll_notifier = asyncio.Event()
+                await self._poll_notifier.wait()
+
                 await asyncio.gather(
                     self._update_balances(),
                     self._update_trading_rules(),
@@ -607,29 +631,21 @@ cdef class CoinbaseProMarket(MarketBase):
                 raise
             except Exception:
                 self.logger().error("Unexpected error while fetching account updates.", exc_info=True)
-            finally:
-                self._poll_notifier = asyncio.Event()
-                await self._poll_notifier.wait()
 
     async def get_order(self, client_order_id: str) -> Dict[str, any]:
         exchange_order_id = self._in_flight_orders.get(client_order_id).exchange_order_id
         path_url = f"/orders/{exchange_order_id}"
-        url = f"{self.COINBASE_API_ENDPOINT}{path_url}"
-        result = await self._api_request("get", url, auth=self.coinbase_auth)
-        if "id" not in result:
-            raise IOError(f"Error fetching update for order {client_order_id}. Message: {result['message']}")
+        result = await self._api_request("get", path_url=path_url)
         return result
 
     async def get_transfers(self) -> Dict[str, any]:
         path_url = "/transfers"
-        url = f"{self.COINBASE_API_ENDPOINT}{path_url}"
-        result = await self._api_request("get", url, auth=self.coinbase_auth)
+        result = await self._api_request("get", path_url=path_url)
         return result
 
     async def list_coinbase_accounts(self) -> Dict[str, str]:
         path_url = "/coinbase-accounts"
-        url = f"{self.COINBASE_API_ENDPOINT}{path_url}"
-        coinbase_accounts = await self._api_request("get", url=url, auth=self.coinbase_auth)
+        coinbase_accounts = await self._api_request("get", path_url=path_url)
         ids = [a["id"] for a in coinbase_accounts]
         currencies = [a["currency"] for a in coinbase_accounts]
         return dict(zip(currencies, ids))
@@ -639,7 +655,7 @@ cdef class CoinbaseProMarket(MarketBase):
         account_id = coinbase_account_id_dict.get(currency)
         path_url = f"/coinbase-accounts/{account_id}/addresses"
         url = f"{self.COINBASE_API_ENDPOINT}{path_url}"
-        deposit_result = await self._api_request("post", url=url, auth=self.coinbase_auth)
+        deposit_result = await self._api_request("post", path_url=path_url)
         return deposit_result.get("address")
 
     async def execute_deposit(self, tracking_id: str, from_wallet: WalletBase, currency: str, amount: float):
@@ -671,7 +687,6 @@ cdef class CoinbaseProMarket(MarketBase):
 
     async def execute_withdraw(self, str tracking_id, str to_address, str currency, double amount):
         path_url = "/withdrawals/crypto"
-        url = f"{self.COINBASE_API_ENDPOINT}{path_url}"
         data = {
             "amount": amount,
             "currency": currency,
@@ -679,10 +694,7 @@ cdef class CoinbaseProMarket(MarketBase):
             "no_destination_tag": True,
         }
         try:
-            withdraw_result = await self._api_request("post", url, data=data, auth=self.coinbase_auth)
-            if "id" not in withdraw_result:
-                raise IOError(withdraw_result["message"])
-
+            withdraw_result = await self._api_request("post", path_url=path_url, data=data)
             self.logger().info(f"Successfully withdrew {amount} of {currency}. {withdraw_result}")
             # Withdrawing of digital assets from Coinbase Pro is currently free
             withdraw_fee = 0.0

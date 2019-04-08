@@ -35,7 +35,6 @@ from wings.events import (
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent
 )
-from wings.event_logger import EventLogger
 from wings.cancellation_result import CancellationResult
 
 
@@ -295,8 +294,10 @@ cdef class DDEXMarket(MarketBase):
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
 
-                self._update_balances()
-                await asyncio.gather(self._update_trading_rules(), self._update_order_status())
+                await asyncio.gather(
+                    self._update_trading_rules(),
+                    self._update_order_status(),
+                    self._update_balances())
             except asyncio.CancelledError:
                 raise
             except Exception:
