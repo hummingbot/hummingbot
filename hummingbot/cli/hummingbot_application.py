@@ -335,12 +335,14 @@ class HummingbotApplication:
             if market_name == "ddex" and self.wallet:
                 market = DDEXMarket(wallet=self.wallet,
                                     web3_url=ethereum_rpc_url,
+                                    order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                     symbols=[symbol])
 
             elif market_name == "binance":
                 market = BinanceMarket(web3_url=ethereum_rpc_url,
                                        binance_api_key=binance_api_key,
                                        binance_api_secret=binance_api_secret,
+                                       order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                        symbols=[symbol])
 
             elif market_name == "radar_relay" and self.wallet:
