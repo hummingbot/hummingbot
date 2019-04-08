@@ -25,9 +25,6 @@ Running your own node may require dedicated storage and compute, as well as some
     If you use an Infura endpoint, make sure to append `https://` to the URL when you use it in Hummingbot. Otherwise, you may see a `Bad ethereum rpc url` error.
 
      ![Infura](/assets/img/infura.png)
-
-
-
 ## Option 3. Dedicated blockchain hardware
 Get dedicated hardware for your Ethereum node.  Ethereum nodes are meant to run constantly 24/7 and use up a material amount of computational resources (CPU, RAM, and storage).  For more serious users, it may make sense to use dedicated hardware.
 
