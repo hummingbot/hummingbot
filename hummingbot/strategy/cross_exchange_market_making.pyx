@@ -26,8 +26,7 @@ from wings.market_base import (
     OrderType
 )
 from wings.order_book import OrderBook
-from wings.strategy.strategy import Strategy
-
+from .strategy_base import StrategyBase
 from .cross_exchange_market_pair import CrossExchangeMarketPair
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 
@@ -74,7 +73,7 @@ cdef class OrderExpiredListener(BaseCrossExchangeMarketMakingStrategyEventListen
         self._owner.c_did_cancel_order(arg)
 
 
-cdef class CrossExchangeMarketMakingStrategy(Strategy):
+cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -343,11 +342,11 @@ cdef class CrossExchangeMarketMakingStrategy(Strategy):
         maker_market.c_cancel(market_pair.maker_symbol, order_id)
 
     cdef c_start(self, Clock clock, double timestamp):
-        Strategy.c_start(self, clock, timestamp)
+        StrategyBase.c_start(self, clock, timestamp)
         self._last_timestamp = timestamp
 
     cdef c_tick(self, double timestamp):
-        Strategy.c_tick(self, timestamp)
+        StrategyBase.c_tick(self, timestamp)
 
         if not self._all_markets_ready:
             self._all_markets_ready = all([market.ready for market in self._markets])
