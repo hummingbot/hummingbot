@@ -10,7 +10,7 @@ from typing import (
 )
 
 from sqlalchemy.engine import RowProxy
-
+import pandas as pd
 from wings.order_book cimport OrderBook
 from wings.order_book_message import (
     CoinbaseProOrderBookMessage,
@@ -50,10 +50,12 @@ cdef class CoinbaseProOrderBook(OrderBook):
                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
+        if "time" in msg:
+            msg_time: float = pd.Timestamp(msg["time"]).timestamp()
         return CoinbaseProOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=msg,
-            timestamp=timestamp)
+            timestamp=timestamp or msg_time)
 
     @classmethod
     def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
