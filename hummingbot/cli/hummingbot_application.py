@@ -72,9 +72,13 @@ def check_web3(ethereum_rpc_url: str) -> bool:
     except Exception:
         ret = False
 
-    if not ret and ethereum_rpc_url.startswith("http://mainnet.infura.io"):
-        logging.getLogger().warning("You are connecting to an Infura using an insecure network protocol "
-                                    "(\"http\"), which may not be allowed by Infura. Try using \"https://\" instead.")
+    if not ret:
+        if ethereum_rpc_url.startswith("http://mainnet.infura.io"):
+            logging.getLogger().warning("You are connecting to an Infura using an insecure network protocol "
+                                        "(\"http\"), which may not be allowed by Infura. "
+                                        "Try using \"https://\" instead.")
+        if ethereum_rpc_url.startswith("mainnet.infura.io"):
+            logging.getLogger().warning("Please add \"https://\" to your Infura node url.")
     return ret
 
 
@@ -315,10 +319,11 @@ class HummingbotApplication:
     def _initialize_wallet(self, token_symbols: List[str]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
         erc20_token_addresses = get_erc20_token_addresses(token_symbols)
-        self.wallet: Web3Wallet = Web3Wallet(private_key=self.acct.privateKey,
-                                             backend_urls=[ethereum_rpc_url],
-                                             erc20_token_addresses=erc20_token_addresses,
-                                             chain=EthereumChain.MAIN_NET)
+        if self.acct is not None:
+            self.wallet: Web3Wallet = Web3Wallet(private_key=self.acct.privateKey,
+                                                 backend_urls=[ethereum_rpc_url],
+                                                 erc20_token_addresses=erc20_token_addresses,
+                                                 chain=EthereumChain.MAIN_NET)
 
     def _initialize_markets(self, market_names: List[Tuple[str, str]]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
@@ -327,7 +332,7 @@ class HummingbotApplication:
 
         for market_name, symbol in market_names:
             market = None
-            if market_name == "ddex":
+            if market_name == "ddex" and self.wallet:
                 market = DDEXMarket(wallet=self.wallet,
                                     web3_url=ethereum_rpc_url,
                                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
@@ -340,10 +345,13 @@ class HummingbotApplication:
                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                        symbols=[symbol])
 
-            elif market_name == "radar_relay":
+            elif market_name == "radar_relay" and self.wallet:
                 market = RadarRelayMarket(wallet=self.wallet,
                                           web3_url=ethereum_rpc_url,
                                           symbols=[symbol])
+
+            else:
+                raise ValueError(f"Market name {market_name} is invalid.")
 
             self.markets[market_name]: MarketBase = market
 
@@ -362,10 +370,19 @@ class HummingbotApplication:
                          'Please re-configure by entering "config ethereum_rpc_url"')
             return False
 
+        if self.wallet is not None:
+            has_minimum_eth = self.wallet.get_balance("ETH") > 0.01
+            if has_minimum_eth:
+                self.app.log(" - Minimum ETH requirement satisfied")
+            else:
+                self.app.log(" x Not enough ETH in wallet. "
+                             "A small amount of Ether is required for sending transactions on Decentralized Exchanges")
+
         loading_markets: List[str] = []
         for market_name, market in self.markets.items():
             if not market.ready:
                 loading_markets.append(market_name)
+
         if self.strategy is None:
             return True
         elif len(loading_markets) > 0:
@@ -373,13 +390,10 @@ class HummingbotApplication:
                 self.app.log(f" x Waiting for {loading_market} market to get ready for trading. "
                              f"Please keep the bot running and try to start again in a few minutes")
             return False
-        else:
-            self.app.log(" - All markets ready")
 
-        if self.strategy is not None:
-            self.app.log("\n" + self.strategy.format_status())
-
-        return False
+        self.app.log(" - All markets ready")
+        self.app.log("\n" + self.strategy.format_status())
+        return True
 
     def help(self, command):
         if command == 'all':
