@@ -164,7 +164,7 @@ cdef class RadarRelayActiveOrderTracker:
                     if order_hash in self._active_asks[price]:
                         if event["order"]["state"] == "FILLED":
                             del self._order_price_map[order_hash]
-                            del self._active_bids[price][order_hash]
+                            del self._active_asks[price][order_hash]
                         else: # update the remaining amount of the order
                             self._active_asks[price][order_hash]["remainingBaseTokenAmount"] = remaining_base_amount
 
