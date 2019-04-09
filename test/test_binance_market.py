@@ -18,7 +18,7 @@ import unittest
 
 import conf
 from wings.market_base import OrderType
-from wings.binance_market import (
+from wings.market.binance_market import (
     BinanceMarket,
     BinanceTime
 )

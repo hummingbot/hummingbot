@@ -51,9 +51,9 @@ from wings.tracker.binance_order_book_tracker import BinanceOrderBookTracker
 from wings.tracker.binance_user_stream_tracker import BinanceUserStreamTracker
 from wings.user_stream_tracker import UserStreamTrackerDataSourceType
 from wings.cancellation_result import CancellationResult
-from .transaction_tracker import TransactionTracker
-from .wallet_base import WalletBase
-from .wallet_base cimport WalletBase
+from wings.transaction_tracker import TransactionTracker
+from wings.wallet_base import WalletBase
+from wings.wallet_base cimport WalletBase
 
 s_logger = None
 s_decimal_0 = Decimal(0)
