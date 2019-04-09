@@ -204,8 +204,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         elif msg_type == "error":
                             raise ValueError(f"Coinbase Pro Websocket received error message - {msg['message']}")
                         elif msg_type in ["open", "match", "change", "done"]:
-                            order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(
-                                msg, time.time())
+                            order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(msg)
                             output.put_nowait(order_book_message)
                         elif msg_type in ["received", "activate", "subscriptions"]:
                             # these messages are not needed to track the order book
