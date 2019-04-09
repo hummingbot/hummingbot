@@ -3,10 +3,10 @@
 from wings.event_listener cimport EventListener
 from wings.market_base cimport MarketBase
 from wings.order_book cimport OrderBook
-from wings.strategy.strategy cimport Strategy
+from hummingbot.strategy.strategy_base cimport StrategyBase
 from libc.stdint cimport int64_t
 
-cdef class ArbitrageStrategy(Strategy):
+cdef class ArbitrageStrategy(StrategyBase):
     cdef:
         list _market_pairs
         bint _all_markets_ready

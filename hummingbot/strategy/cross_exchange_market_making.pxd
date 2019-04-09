@@ -6,9 +6,9 @@ from wings.event_listener cimport EventListener
 from wings.limit_order cimport LimitOrder
 from wings.market_base cimport MarketBase
 from wings.order_book cimport OrderBook
-from wings.strategy.strategy cimport Strategy
+from hummingbot.strategy.strategy_base cimport StrategyBase
 
-cdef class CrossExchangeMarketMakingStrategy(Strategy):
+cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef:
         dict _market_pairs
         set _markets

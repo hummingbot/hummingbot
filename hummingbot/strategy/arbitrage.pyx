@@ -13,7 +13,7 @@ from wings.market_base import (
     OrderType
 )
 from wings.order_book import OrderBook
-from wings.strategy.strategy import Strategy
+from hummingbot.strategy.strategy_base import StrategyBase
 from .arbitrage_market_pair import ArbitrageMarketPair
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 import logging
@@ -44,11 +44,13 @@ cdef class OrderFailedListener(BaseArbitrageStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_fail_order(arg)
 
+
 cdef class OrderCancelledListener(BaseArbitrageStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_cancel_order(arg)
 
-cdef class ArbitrageStrategy(Strategy):
+
+cdef class ArbitrageStrategy(StrategyBase):
     BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
@@ -209,7 +211,7 @@ cdef class ArbitrageStrategy(Strategy):
 
 
     cdef c_tick(self, double timestamp):
-        Strategy.c_tick(self, timestamp)
+        StrategyBase.c_tick(self, timestamp)
 
         if not self._all_markets_ready:
             self._all_markets_ready = all([market.ready for market in self._markets])
