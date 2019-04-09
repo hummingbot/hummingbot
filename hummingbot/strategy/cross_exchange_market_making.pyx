@@ -120,7 +120,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         if not 0 <= order_size_taker_balance_factor <= 1:
             raise ValueError(f"order_size_taker_balance_factor must be between 0 and 1.")
 
-        super().__init__(list(market_pairs)[0].maker_market)
+        super().__init__()
         self._market_pairs = {
             (market_pair.maker_market, market_pair.maker_symbol): market_pair
             for market_pair in market_pairs
