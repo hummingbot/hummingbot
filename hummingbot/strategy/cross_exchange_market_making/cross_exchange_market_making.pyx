@@ -26,8 +26,8 @@ from wings.market_base import (
     OrderType
 )
 from wings.order_book import OrderBook
-from .strategy_base import StrategyBase
 from .cross_exchange_market_pair import CrossExchangeMarketPair
+from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 
 NaN = float("nan")
