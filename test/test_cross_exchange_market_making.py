@@ -35,7 +35,7 @@ from wings.order_book import OrderBook
 from wings.order_book_row import OrderBookRow
 from wings.limit_order import LimitOrder
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketMakingStrategy
-from hummingbot.strategy.cross_exchange_market_pair import CrossExchangeMarketPair
+from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair
 
 
 class HedgedMarketMakingUnitTest(unittest.TestCase):
