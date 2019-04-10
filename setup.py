@@ -25,6 +25,8 @@ def main():
         "wings.data_source",
         "wings.orderbook",
         "wings.tracker",
+        "wings.market",
+        "wings.wallet",
         "hummingbot",
         "hummingbot.strategy",
         "hummingbot.cli",
