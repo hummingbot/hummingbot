@@ -19,7 +19,7 @@ from wings.market.market_base import MarketBase
 from wings.market.binance_market import BinanceMarket
 from wings.market.radar_relay_market import RadarRelayMarket
 from wings.market.ddex_market import DDEXMarket
-from wings.coinbase_pro_market import CoinbaseProMarket
+from wings.market.coinbase_pro_market import CoinbaseProMarket
 from wings.clock import Clock, ClockMode
 from wings.ethereum_chain import EthereumChain
 from wings.order_book_tracker import OrderBookTrackerDataSourceType

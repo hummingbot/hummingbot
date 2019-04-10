@@ -1,7 +1,7 @@
 from libc.stdint cimport int64_t
 
-from .market_base cimport MarketBase
-from .transaction_tracker cimport TransactionTracker
+from wings.market.market_base cimport MarketBase
+from wings.transaction_tracker cimport TransactionTracker
 
 
 cdef class CoinbaseProMarket(MarketBase):
