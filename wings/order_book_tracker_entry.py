@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 
-from typing import Dict
 from wings.order_book import OrderBook
-from wings.ddex_active_order_tracker import DDEXActiveOrderTracker
-from wings.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
 from wings.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
+from wings.tracker.ddex_active_order_tracker import DDEXActiveOrderTracker
+from wings.tracker.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
 
 
 class OrderBookTrackerEntry:

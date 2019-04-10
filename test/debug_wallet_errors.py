@@ -7,7 +7,7 @@ import asyncio
 import time
 
 from hummingbot.cli.settings import get_erc20_token_addresses
-from wings.web3_wallet import Web3Wallet
+from wings.wallet.web3_wallet import Web3Wallet
 from wings.clock import Clock, ClockMode
 from wings.market.ddex_market import DDEXMarket
 from wings.ethereum_chain import EthereumChain
