@@ -4,7 +4,7 @@ from os.path import join, realpath
 import sys;
 sys.path.insert(0, realpath(join(__file__, "../../")))
 from wings.orderbook.radar_relay_order_book import RadarRelayOrderBook
-from wings.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
+from wings.tracker.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
 from collections import defaultdict
 from decimal import Decimal
 import pandas as pd
@@ -24,7 +24,6 @@ from wings.events import (
     OrderBookTradeEvent,
     OrderBookEvent,
 )
-from wings.order_book import OrderBook
 from wings.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType

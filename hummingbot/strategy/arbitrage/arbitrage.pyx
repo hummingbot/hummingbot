@@ -8,7 +8,7 @@ from typing import (
 )
 from wings.events import MarketEvent
 from wings.event_listener cimport EventListener
-from wings.market_base import (
+from wings.market.market_base import (
     MarketBase,
     OrderType
 )

@@ -17,7 +17,7 @@ from typing import List
 import unittest
 
 import conf
-from wings.market_base import OrderType
+from wings.market.market_base import OrderType
 from wings.market.binance_market import (
     BinanceMarket,
     BinanceTime
@@ -34,7 +34,7 @@ from wings.events import (
     MarketWithdrawAssetEvent,
     OrderFilledEvent,
     BuyOrderCreatedEvent, SellOrderCreatedEvent)
-from wings.mock_wallet import MockWallet
+from wings.wallet.mock_wallet import MockWallet
 from wings.event_logger import EventLogger
 from wings.order_book_tracker import (
     OrderBookTrackerDataSourceType

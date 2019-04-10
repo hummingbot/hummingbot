@@ -877,7 +877,7 @@ static const char *__pyx_f[] = {
   "wings/order_book.pxd",
   "wings/clock.pxd",
   "wings/time_iterator.pxd",
-  "wings/wallet_base.pxd",
+  "wings/wallet/wallet_base.pxd",
 };
 
 /* "../../../anaconda3/envs/hummingbot/lib/python3.6/site-packages/Cython/Includes/numpy/__init__.pxd":776
@@ -1100,8 +1100,8 @@ struct __pyx_obj_5wings_6pubsub_PubSub;
 struct __pyx_obj_5wings_10order_book_OrderBook;
 struct __pyx_obj_5wings_5clock_Clock;
 struct __pyx_obj_5wings_13time_iterator_TimeIterator;
-struct __pyx_obj_5wings_11wallet_base_WalletBase;
-struct __pyx_obj_5wings_11market_base_MarketBase;
+struct __pyx_obj_5wings_6wallet_11wallet_base_WalletBase;
+struct __pyx_obj_5wings_6market_11market_base_MarketBase;
 struct __pyx_obj_5wings_19transaction_tracker_TransactionTracker;
 struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket;
 struct __pyx_obj_5wings_6market_14binance_market_BinanceMarketTransactionTracker;
@@ -1214,31 +1214,31 @@ typedef std::unordered_map<int64_t,__pyx_t_5wings_6pubsub_EventListenersCollecti
  * 
  */
 typedef std::pair<int64_t,__pyx_t_5wings_6pubsub_EventListenersCollection>  __pyx_t_5wings_6pubsub_EventsPair;
-struct __pyx_opt_args_5wings_11market_base_10MarketBase_c_buy;
-struct __pyx_opt_args_5wings_11market_base_10MarketBase_c_sell;
+struct __pyx_opt_args_5wings_6market_11market_base_10MarketBase_c_buy;
+struct __pyx_opt_args_5wings_6market_11market_base_10MarketBase_c_sell;
 
-/* "wings/market_base.pxd":10
+/* "wings/market/market_base.pxd":10
  *     cdef:
  *         EventReporter event_reporter
  *     cdef str c_buy(self, str symbol, double amount, object order_type=*, double price=*, dict kwargs=*)             # <<<<<<<<<<<<<<
  *     cdef str c_sell(self, str symbol, double amount, object order_type=*, double price=*, dict kwargs=*)
  *     cdef c_cancel(self, str symbol, str client_order_id)
  */
-struct __pyx_opt_args_5wings_11market_base_10MarketBase_c_buy {
+struct __pyx_opt_args_5wings_6market_11market_base_10MarketBase_c_buy {
   int __pyx_n;
   PyObject *order_type;
   double price;
   PyObject *kwargs;
 };
 
-/* "wings/market_base.pxd":11
+/* "wings/market/market_base.pxd":11
  *         EventReporter event_reporter
  *     cdef str c_buy(self, str symbol, double amount, object order_type=*, double price=*, dict kwargs=*)
  *     cdef str c_sell(self, str symbol, double amount, object order_type=*, double price=*, dict kwargs=*)             # <<<<<<<<<<<<<<
  *     cdef c_cancel(self, str symbol, str client_order_id)
  *     cdef double c_get_balance(self, str currency) except? -1
  */
-struct __pyx_opt_args_5wings_11market_base_10MarketBase_c_sell {
+struct __pyx_opt_args_5wings_6market_11market_base_10MarketBase_c_sell {
   int __pyx_n;
   PyObject *order_type;
   double price;
@@ -1366,26 +1366,26 @@ struct __pyx_obj_5wings_13time_iterator_TimeIterator {
 };
 
 
-/* "wallet_base.pxd":4
+/* "wings/wallet/wallet_base.pxd":4
  * 
  * 
  * cdef class WalletBase(TimeIterator):             # <<<<<<<<<<<<<<
  *     cdef double c_get_balance(self, str asset_name) except? -1
  *     cdef object c_get_raw_balance(self, str asset_name)
  */
-struct __pyx_obj_5wings_11wallet_base_WalletBase {
+struct __pyx_obj_5wings_6wallet_11wallet_base_WalletBase {
   struct __pyx_obj_5wings_13time_iterator_TimeIterator __pyx_base;
 };
 
 
-/* "wings/market_base.pxd":7
+/* "wings/market/market_base.pxd":7
  * 
  * 
  * cdef class MarketBase(TimeIterator):             # <<<<<<<<<<<<<<
  *     cdef:
  *         EventReporter event_reporter
  */
-struct __pyx_obj_5wings_11market_base_MarketBase {
+struct __pyx_obj_5wings_6market_11market_base_MarketBase {
   struct __pyx_obj_5wings_13time_iterator_TimeIterator __pyx_base;
   struct __pyx_obj_5wings_14event_reporter_EventReporter *event_reporter;
 };
@@ -1412,7 +1412,7 @@ struct __pyx_obj_5wings_19transaction_tracker_TransactionTracker {
  *         object _order_book_tracker
  */
 struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket {
-  struct __pyx_obj_5wings_11market_base_MarketBase __pyx_base;
+  struct __pyx_obj_5wings_6market_11market_base_MarketBase __pyx_base;
   PyObject *_order_book_tracker;
   PyObject *_user_stream_tracker;
   PyObject *_binance_client;
@@ -1937,7 +1937,7 @@ struct __pyx_obj_5wings_6market_14binance_market___pyx_scope_struct_18_execute_d
   PyObject *__pyx_v_currency;
   PyObject *__pyx_v_deposit_address;
   PyObject *__pyx_v_deposit_reply;
-  struct __pyx_obj_5wings_11wallet_base_WalletBase *__pyx_v_from_wallet;
+  struct __pyx_obj_5wings_6wallet_11wallet_base_WalletBase *__pyx_v_from_wallet;
   struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *__pyx_v_self;
   PyObject *__pyx_v_server_time_ms;
   PyObject *__pyx_v_tracking_id;
@@ -2165,7 +2165,7 @@ struct __pyx_vtabstruct_5wings_13time_iterator_TimeIterator {
 static struct __pyx_vtabstruct_5wings_13time_iterator_TimeIterator *__pyx_vtabptr_5wings_13time_iterator_TimeIterator;
 
 
-/* "wallet_base.pxd":4
+/* "wings/wallet/wallet_base.pxd":4
  * 
  * 
  * cdef class WalletBase(TimeIterator):             # <<<<<<<<<<<<<<
@@ -2173,16 +2173,16 @@ static struct __pyx_vtabstruct_5wings_13time_iterator_TimeIterator *__pyx_vtabpt
  *     cdef object c_get_raw_balance(self, str asset_name)
  */
 
-struct __pyx_vtabstruct_5wings_11wallet_base_WalletBase {
+struct __pyx_vtabstruct_5wings_6wallet_11wallet_base_WalletBase {
   struct __pyx_vtabstruct_5wings_13time_iterator_TimeIterator __pyx_base;
-  double (*c_get_balance)(struct __pyx_obj_5wings_11wallet_base_WalletBase *, PyObject *);
-  PyObject *(*c_get_raw_balance)(struct __pyx_obj_5wings_11wallet_base_WalletBase *, PyObject *);
-  PyObject *(*c_send)(struct __pyx_obj_5wings_11wallet_base_WalletBase *, PyObject *, PyObject *, double);
+  double (*c_get_balance)(struct __pyx_obj_5wings_6wallet_11wallet_base_WalletBase *, PyObject *);
+  PyObject *(*c_get_raw_balance)(struct __pyx_obj_5wings_6wallet_11wallet_base_WalletBase *, PyObject *);
+  PyObject *(*c_send)(struct __pyx_obj_5wings_6wallet_11wallet_base_WalletBase *, PyObject *, PyObject *, double);
 };
-static struct __pyx_vtabstruct_5wings_11wallet_base_WalletBase *__pyx_vtabptr_5wings_11wallet_base_WalletBase;
+static struct __pyx_vtabstruct_5wings_6wallet_11wallet_base_WalletBase *__pyx_vtabptr_5wings_6wallet_11wallet_base_WalletBase;
 
 
-/* "wings/market_base.pxd":7
+/* "wings/market/market_base.pxd":7
  * 
  * 
  * cdef class MarketBase(TimeIterator):             # <<<<<<<<<<<<<<
@@ -2190,22 +2190,22 @@ static struct __pyx_vtabstruct_5wings_11wallet_base_WalletBase *__pyx_vtabptr_5w
  *         EventReporter event_reporter
  */
 
-struct __pyx_vtabstruct_5wings_11market_base_MarketBase {
+struct __pyx_vtabstruct_5wings_6market_11market_base_MarketBase {
   struct __pyx_vtabstruct_5wings_13time_iterator_TimeIterator __pyx_base;
-  PyObject *(*c_buy)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *, double, struct __pyx_opt_args_5wings_11market_base_10MarketBase_c_buy *__pyx_optional_args);
-  PyObject *(*c_sell)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *, double, struct __pyx_opt_args_5wings_11market_base_10MarketBase_c_sell *__pyx_optional_args);
-  PyObject *(*c_cancel)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *, PyObject *);
-  double (*c_get_balance)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *);
-  PyObject *(*c_withdraw)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *, PyObject *, double);
-  PyObject *(*c_deposit)(struct __pyx_obj_5wings_11market_base_MarketBase *, struct __pyx_obj_5wings_11wallet_base_WalletBase *, PyObject *, double);
-  struct __pyx_obj_5wings_10order_book_OrderBook *(*c_get_order_book)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *);
-  double (*c_get_price)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *, int);
-  PyObject *(*c_get_order_price_quantum)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *, double);
-  PyObject *(*c_get_order_size_quantum)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *, double);
-  PyObject *(*c_quantize_order_price)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *, double);
-  PyObject *(*c_quantize_order_amount)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *, double);
+  PyObject *(*c_buy)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *, double, struct __pyx_opt_args_5wings_6market_11market_base_10MarketBase_c_buy *__pyx_optional_args);
+  PyObject *(*c_sell)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *, double, struct __pyx_opt_args_5wings_6market_11market_base_10MarketBase_c_sell *__pyx_optional_args);
+  PyObject *(*c_cancel)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *, PyObject *);
+  double (*c_get_balance)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *);
+  PyObject *(*c_withdraw)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *, PyObject *, double);
+  PyObject *(*c_deposit)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, struct __pyx_obj_5wings_6wallet_11wallet_base_WalletBase *, PyObject *, double);
+  struct __pyx_obj_5wings_10order_book_OrderBook *(*c_get_order_book)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *);
+  double (*c_get_price)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *, int);
+  PyObject *(*c_get_order_price_quantum)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *, double);
+  PyObject *(*c_get_order_size_quantum)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *, double);
+  PyObject *(*c_quantize_order_price)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *, double);
+  PyObject *(*c_quantize_order_amount)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *, double);
 };
-static struct __pyx_vtabstruct_5wings_11market_base_MarketBase *__pyx_vtabptr_5wings_11market_base_MarketBase;
+static struct __pyx_vtabstruct_5wings_6market_11market_base_MarketBase *__pyx_vtabptr_5wings_6market_11market_base_MarketBase;
 
 
 /* "wings/transaction_tracker.pxd":4
@@ -2236,7 +2236,7 @@ static struct __pyx_vtabstruct_5wings_19transaction_tracker_TransactionTracker *
  */
 
 struct __pyx_vtabstruct_5wings_6market_14binance_market_BinanceMarket {
-  struct __pyx_vtabstruct_5wings_11market_base_MarketBase __pyx_base;
+  struct __pyx_vtabstruct_5wings_6market_11market_base_MarketBase __pyx_base;
   PyObject *(*c_did_timeout_tx)(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *, PyObject *);
   PyObject *(*c_did_fail_tx)(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *, PyObject *);
   PyObject *(*c_start_tracking_deposit)(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *, PyObject *, int64_t, PyObject *, PyObject *, PyObject *);
@@ -3323,7 +3323,7 @@ static int __Pyx_check_binary_version(void);
 static int __Pyx_InitStrings(__Pyx_StringTabEntry *t);
 
 static PyObject *__pyx_f_5wings_6market_14binance_market_31BinanceMarketTransactionTracker_c_did_timeout_tx(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarketTransactionTracker *__pyx_v_self, PyObject *__pyx_v_tx_id); /* proto*/
-static PyObject *__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_deposit(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *__pyx_v_self, struct __pyx_obj_5wings_11wallet_base_WalletBase *__pyx_v_from_wallet, PyObject *__pyx_v_currency, double __pyx_v_amount); /* proto*/
+static PyObject *__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_deposit(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *__pyx_v_self, struct __pyx_obj_5wings_6wallet_11wallet_base_WalletBase *__pyx_v_from_wallet, PyObject *__pyx_v_currency, double __pyx_v_amount); /* proto*/
 static PyObject *__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_withdraw(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *__pyx_v_self, PyObject *__pyx_v_address, PyObject *__pyx_v_currency, double __pyx_v_amount); /* proto*/
 static PyObject *__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_start(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *__pyx_v_self, struct __pyx_obj_5wings_5clock_Clock *__pyx_v_clock, double __pyx_v_timestamp); /* proto*/
 static PyObject *__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_tick(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *__pyx_v_self, double __pyx_v_timestamp); /* proto*/
@@ -3406,11 +3406,11 @@ static PyTypeObject *__pyx_ptype_5wings_5clock_Clock = 0;
 /* Module declarations from 'wings.time_iterator' */
 static PyTypeObject *__pyx_ptype_5wings_13time_iterator_TimeIterator = 0;
 
-/* Module declarations from 'wings.wallet_base' */
-static PyTypeObject *__pyx_ptype_5wings_11wallet_base_WalletBase = 0;
+/* Module declarations from 'wings.wallet.wallet_base' */
+static PyTypeObject *__pyx_ptype_5wings_6wallet_11wallet_base_WalletBase = 0;
 
-/* Module declarations from 'wings.market_base' */
-static PyTypeObject *__pyx_ptype_5wings_11market_base_MarketBase = 0;
+/* Module declarations from 'wings.market.market_base' */
+static PyTypeObject *__pyx_ptype_5wings_6market_11market_base_MarketBase = 0;
 
 /* Module declarations from 'wings.transaction_tracker' */
 static PyTypeObject *__pyx_ptype_5wings_19transaction_tracker_TransactionTracker = 0;
@@ -3806,8 +3806,6 @@ static const char __pyx_k_origClientOrderId[] = "origClientOrderId";
 static const char __pyx_k_price_tick_size_2[] = "', price_tick_size=";
 static const char __pyx_k_return_exceptions[] = "return_exceptions";
 static const char __pyx_k_toChecksumAddress[] = "toChecksumAddress";
-static const char __pyx_k_wings_market_base[] = "wings.market_base";
-static const char __pyx_k_wings_wallet_base[] = "wings.wallet_base";
 static const char __pyx_k_BinanceTime___init[] = "BinanceTime.__init__";
 static const char __pyx_k_BinanceTime_logger[] = "BinanceTime.logger";
 static const char __pyx_k_CancellationResult[] = "CancellationResult";
@@ -3873,7 +3871,9 @@ static const char __pyx_k_No_order_book_exists_for[] = "No order book exists for
 static const char __pyx_k_binance_trade_serialized[] = "binance-trade.serialized";
 static const char __pyx_k_check_deposit_completion[] = "_check_deposit_completion";
 static const char __pyx_k_pyx_unpickle_TradingRule[] = "__pyx_unpickle_TradingRule";
+static const char __pyx_k_wings_market_market_base[] = "wings.market.market_base";
 static const char __pyx_k_wings_order_book_tracker[] = "wings.order_book_tracker";
+static const char __pyx_k_wings_wallet_wallet_base[] = "wings.wallet.wallet_base";
 static const char __pyx_k_BinanceMarket_execute_buy[] = "BinanceMarket.execute_buy";
 static const char __pyx_k_BinanceMarket_server_time[] = "BinanceMarket.server_time";
 static const char __pyx_k_monkey_patch_binance_time[] = "monkey_patch_binance_time";
@@ -4468,15 +4468,15 @@ static PyObject *__pyx_n_s_web3_url;
 static PyObject *__pyx_n_s_wings;
 static PyObject *__pyx_n_s_wings_cancellation_result;
 static PyObject *__pyx_n_s_wings_events;
-static PyObject *__pyx_n_s_wings_market_base;
 static PyObject *__pyx_n_s_wings_market_binance_market;
 static PyObject *__pyx_kp_s_wings_market_binance_market_pyx;
+static PyObject *__pyx_n_s_wings_market_market_base;
 static PyObject *__pyx_n_s_wings_order_book_tracker;
 static PyObject *__pyx_n_s_wings_tracker_binance_order_book;
 static PyObject *__pyx_n_s_wings_tracker_binance_user_strea;
 static PyObject *__pyx_n_s_wings_transaction_tracker;
 static PyObject *__pyx_n_s_wings_user_stream_tracker;
-static PyObject *__pyx_n_s_wings_wallet_base;
+static PyObject *__pyx_n_s_wings_wallet_wallet_base;
 static PyObject *__pyx_n_s_withdraw;
 static PyObject *__pyx_kp_u_withdraw_2;
 static PyObject *__pyx_n_s_withdraw_fee;
@@ -4614,7 +4614,7 @@ static PyObject *__pyx_pf_5wings_6market_14binance_market_13BinanceMarket_45_sta
 static PyObject *__pyx_pf_5wings_6market_14binance_market_13BinanceMarket_5ready___get__(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_5wings_6market_14binance_market_13BinanceMarket_48server_time(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_5wings_6market_14binance_market_13BinanceMarket_51get_all_balances(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_5wings_6market_14binance_market_13BinanceMarket_53execute_deposit(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *__pyx_v_self, PyObject *__pyx_v_tracking_id, struct __pyx_obj_5wings_11wallet_base_WalletBase *__pyx_v_from_wallet, PyObject *__pyx_v_currency, double __pyx_v_amount); /* proto */
+static PyObject *__pyx_pf_5wings_6market_14binance_market_13BinanceMarket_53execute_deposit(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *__pyx_v_self, PyObject *__pyx_v_tracking_id, struct __pyx_obj_5wings_6wallet_11wallet_base_WalletBase *__pyx_v_from_wallet, PyObject *__pyx_v_currency, double __pyx_v_amount); /* proto */
 static PyObject *__pyx_pf_5wings_6market_14binance_market_13BinanceMarket_56execute_withdraw(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *__pyx_v_self, PyObject *__pyx_v_tracking_id, PyObject *__pyx_v_to_address, PyObject *__pyx_v_currency, double __pyx_v_amount); /* proto */
 static PyObject *__pyx_pf_5wings_6market_14binance_market_13BinanceMarket_59execute_buy(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *__pyx_v_self, PyObject *__pyx_v_order_id, PyObject *__pyx_v_symbol, double __pyx_v_amount, PyObject *__pyx_v_order_type, PyObject *__pyx_v_price); /* proto */
 static PyObject *__pyx_pf_5wings_6market_14binance_market_13BinanceMarket_62execute_sell(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *__pyx_v_self, PyObject *__pyx_v_order_id, PyObject *__pyx_v_symbol, double __pyx_v_amount, PyObject *__pyx_v_order_type, PyObject *__pyx_v_price); /* proto */
@@ -27615,7 +27615,7 @@ static PyObject *__pyx_gb_5wings_6market_14binance_market_13BinanceMarket_55gene
 static PyObject *__pyx_pw_5wings_6market_14binance_market_13BinanceMarket_54execute_deposit(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
 static PyObject *__pyx_pw_5wings_6market_14binance_market_13BinanceMarket_54execute_deposit(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_tracking_id = 0;
-  struct __pyx_obj_5wings_11wallet_base_WalletBase *__pyx_v_from_wallet = 0;
+  struct __pyx_obj_5wings_6wallet_11wallet_base_WalletBase *__pyx_v_from_wallet = 0;
   PyObject *__pyx_v_currency = 0;
   double __pyx_v_amount;
   PyObject *__pyx_r = 0;
@@ -27675,7 +27675,7 @@ static PyObject *__pyx_pw_5wings_6market_14binance_market_13BinanceMarket_54exec
       values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
     }
     __pyx_v_tracking_id = ((PyObject*)values[0]);
-    __pyx_v_from_wallet = ((struct __pyx_obj_5wings_11wallet_base_WalletBase *)values[1]);
+    __pyx_v_from_wallet = ((struct __pyx_obj_5wings_6wallet_11wallet_base_WalletBase *)values[1]);
     __pyx_v_currency = ((PyObject*)values[2]);
     __pyx_v_amount = __pyx_PyFloat_AsDouble(values[3]); if (unlikely((__pyx_v_amount == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 729, __pyx_L3_error)
   }
@@ -27688,7 +27688,7 @@ static PyObject *__pyx_pw_5wings_6market_14binance_market_13BinanceMarket_54exec
   return NULL;
   __pyx_L4_argument_unpacking_done:;
   if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_tracking_id), (&PyUnicode_Type), 1, "tracking_id", 1))) __PYX_ERR(0, 729, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_from_wallet), __pyx_ptype_5wings_11wallet_base_WalletBase, 1, "from_wallet", 0))) __PYX_ERR(0, 729, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_from_wallet), __pyx_ptype_5wings_6wallet_11wallet_base_WalletBase, 1, "from_wallet", 0))) __PYX_ERR(0, 729, __pyx_L1_error)
   if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_currency), (&PyUnicode_Type), 1, "currency", 1))) __PYX_ERR(0, 729, __pyx_L1_error)
   __pyx_r = __pyx_pf_5wings_6market_14binance_market_13BinanceMarket_53execute_deposit(((struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *)__pyx_v_self), __pyx_v_tracking_id, __pyx_v_from_wallet, __pyx_v_currency, __pyx_v_amount);
 
@@ -27701,7 +27701,7 @@ static PyObject *__pyx_pw_5wings_6market_14binance_market_13BinanceMarket_54exec
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_5wings_6market_14binance_market_13BinanceMarket_53execute_deposit(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *__pyx_v_self, PyObject *__pyx_v_tracking_id, struct __pyx_obj_5wings_11wallet_base_WalletBase *__pyx_v_from_wallet, PyObject *__pyx_v_currency, double __pyx_v_amount) {
+static PyObject *__pyx_pf_5wings_6market_14binance_market_13BinanceMarket_53execute_deposit(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *__pyx_v_self, PyObject *__pyx_v_tracking_id, struct __pyx_obj_5wings_6wallet_11wallet_base_WalletBase *__pyx_v_from_wallet, PyObject *__pyx_v_currency, double __pyx_v_amount) {
   struct __pyx_obj_5wings_6market_14binance_market___pyx_scope_struct_18_execute_deposit *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -28630,7 +28630,7 @@ static PyObject *__pyx_gb_5wings_6market_14binance_market_13BinanceMarket_55gene
  *             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
  */
 
-static PyObject *__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_deposit(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *__pyx_v_self, struct __pyx_obj_5wings_11wallet_base_WalletBase *__pyx_v_from_wallet, PyObject *__pyx_v_currency, double __pyx_v_amount) {
+static PyObject *__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_deposit(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *__pyx_v_self, struct __pyx_obj_5wings_6wallet_11wallet_base_WalletBase *__pyx_v_from_wallet, PyObject *__pyx_v_currency, double __pyx_v_amount) {
   int64_t __pyx_v_tracking_nonce;
   PyObject *__pyx_v_tracking_id = 0;
   PyObject *__pyx_r = NULL;
@@ -29871,7 +29871,7 @@ static PyObject *__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_start
  *         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
  *         self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
  */
-  __pyx_t_1 = __pyx_vtabptr_5wings_11market_base_MarketBase->__pyx_base.c_start(((struct __pyx_obj_5wings_13time_iterator_TimeIterator *)__pyx_v_self), __pyx_v_clock, __pyx_v_timestamp); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 800, __pyx_L1_error)
+  __pyx_t_1 = __pyx_vtabptr_5wings_6market_11market_base_MarketBase->__pyx_base.c_start(((struct __pyx_obj_5wings_13time_iterator_TimeIterator *)__pyx_v_self), __pyx_v_clock, __pyx_v_timestamp); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 800, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
@@ -30219,7 +30219,7 @@ static PyObject *__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_tick(
  *         if current_tick > last_tick:
  *             if not self._poll_notifier.is_set():
  */
-  __pyx_t_1 = __pyx_vtabptr_5wings_11market_base_MarketBase->__pyx_base.c_tick(((struct __pyx_obj_5wings_13time_iterator_TimeIterator *)__pyx_v_self), __pyx_v_timestamp); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 813, __pyx_L1_error)
+  __pyx_t_1 = __pyx_vtabptr_5wings_6market_11market_base_MarketBase->__pyx_base.c_tick(((struct __pyx_obj_5wings_13time_iterator_TimeIterator *)__pyx_v_self), __pyx_v_timestamp); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 813, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
@@ -35413,7 +35413,7 @@ static double __pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_get_pric
  * 
  *         return order_book.c_get_price(is_buy)
  */
-  __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5wings_6market_14binance_market_BinanceMarket *)__pyx_v_self->__pyx_base.__pyx_base.__pyx_base.__pyx_vtab)->__pyx_base.c_get_order_book(((struct __pyx_obj_5wings_11market_base_MarketBase *)__pyx_v_self), __pyx_v_symbol)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 988, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5wings_6market_14binance_market_BinanceMarket *)__pyx_v_self->__pyx_base.__pyx_base.__pyx_base.__pyx_vtab)->__pyx_base.c_get_order_book(((struct __pyx_obj_5wings_6market_11market_base_MarketBase *)__pyx_v_self), __pyx_v_symbol)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 988, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_order_book = ((struct __pyx_obj_5wings_10order_book_OrderBook *)__pyx_t_1);
   __pyx_t_1 = 0;
@@ -36427,7 +36427,7 @@ static PyObject *__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_quant
  * 
  *         # Check against min_order_size and min_notional_size. If not passing either check, return 0.
  */
-  __pyx_t_1 = __pyx_vtabptr_5wings_11market_base_MarketBase->c_quantize_order_amount(((struct __pyx_obj_5wings_11market_base_MarketBase *)__pyx_v_self), __pyx_v_symbol, __pyx_v_amount); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1044, __pyx_L1_error)
+  __pyx_t_1 = __pyx_vtabptr_5wings_6market_11market_base_MarketBase->c_quantize_order_amount(((struct __pyx_obj_5wings_6market_11market_base_MarketBase *)__pyx_v_self), __pyx_v_symbol, __pyx_v_amount); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1044, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_quantized_amount = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -36474,7 +36474,7 @@ static PyObject *__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_quant
  *             double notional_size = current_price * float(quantized_amount)
  * 
  */
-  __pyx_t_3 = ((struct __pyx_vtabstruct_5wings_6market_14binance_market_BinanceMarket *)__pyx_v_self->__pyx_base.__pyx_base.__pyx_base.__pyx_vtab)->__pyx_base.c_get_price(((struct __pyx_obj_5wings_11market_base_MarketBase *)__pyx_v_self), __pyx_v_symbol, 0); if (unlikely(__pyx_t_3 == ((double)-1.0) && PyErr_Occurred())) __PYX_ERR(0, 1051, __pyx_L1_error)
+  __pyx_t_3 = ((struct __pyx_vtabstruct_5wings_6market_14binance_market_BinanceMarket *)__pyx_v_self->__pyx_base.__pyx_base.__pyx_base.__pyx_vtab)->__pyx_base.c_get_price(((struct __pyx_obj_5wings_6market_11market_base_MarketBase *)__pyx_v_self), __pyx_v_symbol, 0); if (unlikely(__pyx_t_3 == ((double)-1.0) && PyErr_Occurred())) __PYX_ERR(0, 1051, __pyx_L1_error)
   __pyx_v_current_price = __pyx_t_3;
 
   /* "wings/market/binance_market.pyx":1052
@@ -41328,7 +41328,7 @@ static struct __pyx_vtabstruct_5wings_6market_14binance_market_BinanceMarket __p
 
 static PyObject *__pyx_tp_new_5wings_6market_14binance_market_BinanceMarket(PyTypeObject *t, PyObject *a, PyObject *k) {
   struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *p;
-  PyObject *o = __pyx_ptype_5wings_11market_base_MarketBase->tp_new(t, a, k);
+  PyObject *o = __pyx_ptype_5wings_6market_11market_base_MarketBase->tp_new(t, a, k);
   if (unlikely(!o)) return 0;
   p = ((struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *)o);
   p->__pyx_base.__pyx_base.__pyx_base.__pyx_vtab = (struct __pyx_vtabstruct_5wings_6pubsub_PubSub*)__pyx_vtabptr_5wings_6market_14binance_market_BinanceMarket;
@@ -41384,13 +41384,13 @@ static void __pyx_tp_dealloc_5wings_6market_14binance_market_BinanceMarket(PyObj
   Py_CLEAR(p->_coro_scheduler_task);
   Py_CLEAR(p->_set_server_time_offset_task);
   PyObject_GC_Track(o);
-  if (likely(__pyx_ptype_5wings_11market_base_MarketBase)) __pyx_ptype_5wings_11market_base_MarketBase->tp_dealloc(o); else __Pyx_call_next_tp_dealloc(o, __pyx_tp_dealloc_5wings_6market_14binance_market_BinanceMarket);
+  if (likely(__pyx_ptype_5wings_6market_11market_base_MarketBase)) __pyx_ptype_5wings_6market_11market_base_MarketBase->tp_dealloc(o); else __Pyx_call_next_tp_dealloc(o, __pyx_tp_dealloc_5wings_6market_14binance_market_BinanceMarket);
 }
 
 static int __pyx_tp_traverse_5wings_6market_14binance_market_BinanceMarket(PyObject *o, visitproc v, void *a) {
   int e;
   struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *p = (struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *)o;
-  e = ((likely(__pyx_ptype_5wings_11market_base_MarketBase)) ? ((__pyx_ptype_5wings_11market_base_MarketBase->tp_traverse) ? __pyx_ptype_5wings_11market_base_MarketBase->tp_traverse(o, v, a) : 0) : __Pyx_call_next_tp_traverse(o, v, a, __pyx_tp_traverse_5wings_6market_14binance_market_BinanceMarket)); if (e) return e;
+  e = ((likely(__pyx_ptype_5wings_6market_11market_base_MarketBase)) ? ((__pyx_ptype_5wings_6market_11market_base_MarketBase->tp_traverse) ? __pyx_ptype_5wings_6market_11market_base_MarketBase->tp_traverse(o, v, a) : 0) : __Pyx_call_next_tp_traverse(o, v, a, __pyx_tp_traverse_5wings_6market_14binance_market_BinanceMarket)); if (e) return e;
   if (p->_order_book_tracker) {
     e = (*v)(p->_order_book_tracker, a); if (e) return e;
   }
@@ -41457,7 +41457,7 @@ static int __pyx_tp_traverse_5wings_6market_14binance_market_BinanceMarket(PyObj
 static int __pyx_tp_clear_5wings_6market_14binance_market_BinanceMarket(PyObject *o) {
   PyObject* tmp;
   struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *p = (struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *)o;
-  if (likely(__pyx_ptype_5wings_11market_base_MarketBase)) { if (__pyx_ptype_5wings_11market_base_MarketBase->tp_clear) __pyx_ptype_5wings_11market_base_MarketBase->tp_clear(o); } else __Pyx_call_next_tp_clear(o, __pyx_tp_clear_5wings_6market_14binance_market_BinanceMarket);
+  if (likely(__pyx_ptype_5wings_6market_11market_base_MarketBase)) { if (__pyx_ptype_5wings_6market_11market_base_MarketBase->tp_clear) __pyx_ptype_5wings_6market_11market_base_MarketBase->tp_clear(o); } else __Pyx_call_next_tp_clear(o, __pyx_tp_clear_5wings_6market_14binance_market_BinanceMarket);
   tmp = ((PyObject*)p->_order_book_tracker);
   p->_order_book_tracker = Py_None; Py_INCREF(Py_None);
   Py_XDECREF(tmp);
@@ -46316,15 +46316,15 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_wings, __pyx_k_wings, sizeof(__pyx_k_wings), 0, 0, 1, 1},
   {&__pyx_n_s_wings_cancellation_result, __pyx_k_wings_cancellation_result, sizeof(__pyx_k_wings_cancellation_result), 0, 0, 1, 1},
   {&__pyx_n_s_wings_events, __pyx_k_wings_events, sizeof(__pyx_k_wings_events), 0, 0, 1, 1},
-  {&__pyx_n_s_wings_market_base, __pyx_k_wings_market_base, sizeof(__pyx_k_wings_market_base), 0, 0, 1, 1},
   {&__pyx_n_s_wings_market_binance_market, __pyx_k_wings_market_binance_market, sizeof(__pyx_k_wings_market_binance_market), 0, 0, 1, 1},
   {&__pyx_kp_s_wings_market_binance_market_pyx, __pyx_k_wings_market_binance_market_pyx, sizeof(__pyx_k_wings_market_binance_market_pyx), 0, 0, 1, 0},
+  {&__pyx_n_s_wings_market_market_base, __pyx_k_wings_market_market_base, sizeof(__pyx_k_wings_market_market_base), 0, 0, 1, 1},
   {&__pyx_n_s_wings_order_book_tracker, __pyx_k_wings_order_book_tracker, sizeof(__pyx_k_wings_order_book_tracker), 0, 0, 1, 1},
   {&__pyx_n_s_wings_tracker_binance_order_book, __pyx_k_wings_tracker_binance_order_book, sizeof(__pyx_k_wings_tracker_binance_order_book), 0, 0, 1, 1},
   {&__pyx_n_s_wings_tracker_binance_user_strea, __pyx_k_wings_tracker_binance_user_strea, sizeof(__pyx_k_wings_tracker_binance_user_strea), 0, 0, 1, 1},
   {&__pyx_n_s_wings_transaction_tracker, __pyx_k_wings_transaction_tracker, sizeof(__pyx_k_wings_transaction_tracker), 0, 0, 1, 1},
   {&__pyx_n_s_wings_user_stream_tracker, __pyx_k_wings_user_stream_tracker, sizeof(__pyx_k_wings_user_stream_tracker), 0, 0, 1, 1},
-  {&__pyx_n_s_wings_wallet_base, __pyx_k_wings_wallet_base, sizeof(__pyx_k_wings_wallet_base), 0, 0, 1, 1},
+  {&__pyx_n_s_wings_wallet_wallet_base, __pyx_k_wings_wallet_wallet_base, sizeof(__pyx_k_wings_wallet_wallet_base), 0, 0, 1, 1},
   {&__pyx_n_s_withdraw, __pyx_k_withdraw, sizeof(__pyx_k_withdraw), 0, 0, 1, 1},
   {&__pyx_kp_u_withdraw_2, __pyx_k_withdraw_2, sizeof(__pyx_k_withdraw_2), 0, 1, 0, 0},
   {&__pyx_n_s_withdraw_fee, __pyx_k_withdraw_fee, sizeof(__pyx_k_withdraw_fee), 0, 0, 1, 1},
@@ -46816,33 +46816,33 @@ static int __Pyx_modinit_type_init_code(void) {
   PyObject *__pyx_t_2 = NULL;
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
-  __pyx_t_1 = PyImport_ImportModule("wings.market_base"); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("wings.market.market_base"); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_ptype_5wings_11market_base_MarketBase = __Pyx_ImportType(__pyx_t_1, "wings.market_base", "MarketBase", sizeof(struct __pyx_obj_5wings_11market_base_MarketBase), __Pyx_ImportType_CheckSize_Warn);
-   if (!__pyx_ptype_5wings_11market_base_MarketBase) __PYX_ERR(0, 1, __pyx_L1_error)
-  __pyx_vtabptr_5wings_11market_base_MarketBase = (struct __pyx_vtabstruct_5wings_11market_base_MarketBase*)__Pyx_GetVtable(__pyx_ptype_5wings_11market_base_MarketBase->tp_dict); if (unlikely(!__pyx_vtabptr_5wings_11market_base_MarketBase)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __pyx_ptype_5wings_6market_11market_base_MarketBase = __Pyx_ImportType(__pyx_t_1, "wings.market.market_base", "MarketBase", sizeof(struct __pyx_obj_5wings_6market_11market_base_MarketBase), __Pyx_ImportType_CheckSize_Warn);
+   if (!__pyx_ptype_5wings_6market_11market_base_MarketBase) __PYX_ERR(0, 1, __pyx_L1_error)
+  __pyx_vtabptr_5wings_6market_11market_base_MarketBase = (struct __pyx_vtabstruct_5wings_6market_11market_base_MarketBase*)__Pyx_GetVtable(__pyx_ptype_5wings_6market_11market_base_MarketBase->tp_dict); if (unlikely(!__pyx_vtabptr_5wings_6market_11market_base_MarketBase)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_vtabptr_5wings_6market_14binance_market_BinanceMarket = &__pyx_vtable_5wings_6market_14binance_market_BinanceMarket;
-  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base = *__pyx_vtabptr_5wings_11market_base_MarketBase;
+  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base = *__pyx_vtabptr_5wings_6market_11market_base_MarketBase;
   __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.__pyx_base.c_start = (PyObject *(*)(struct __pyx_obj_5wings_13time_iterator_TimeIterator *, struct __pyx_obj_5wings_5clock_Clock *, double))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_start;
   __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.__pyx_base.c_tick = (PyObject *(*)(struct __pyx_obj_5wings_13time_iterator_TimeIterator *, double))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_tick;
-  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_buy = (PyObject *(*)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *, double, struct __pyx_opt_args_5wings_11market_base_10MarketBase_c_buy *__pyx_optional_args))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_buy;
-  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_sell = (PyObject *(*)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *, double, struct __pyx_opt_args_5wings_11market_base_10MarketBase_c_sell *__pyx_optional_args))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_sell;
-  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_cancel = (PyObject *(*)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *, PyObject *))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_cancel;
-  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_get_balance = (double (*)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_get_balance;
-  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_withdraw = (PyObject *(*)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *, PyObject *, double))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_withdraw;
-  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_deposit = (PyObject *(*)(struct __pyx_obj_5wings_11market_base_MarketBase *, struct __pyx_obj_5wings_11wallet_base_WalletBase *, PyObject *, double))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_deposit;
-  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_get_order_book = (struct __pyx_obj_5wings_10order_book_OrderBook *(*)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_get_order_book;
-  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_get_price = (double (*)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *, int))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_get_price;
-  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_get_order_price_quantum = (PyObject *(*)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *, double))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_get_order_price_quantum;
-  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_get_order_size_quantum = (PyObject *(*)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *, double))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_get_order_size_quantum;
-  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_quantize_order_amount = (PyObject *(*)(struct __pyx_obj_5wings_11market_base_MarketBase *, PyObject *, double))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_quantize_order_amount;
+  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_buy = (PyObject *(*)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *, double, struct __pyx_opt_args_5wings_6market_11market_base_10MarketBase_c_buy *__pyx_optional_args))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_buy;
+  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_sell = (PyObject *(*)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *, double, struct __pyx_opt_args_5wings_6market_11market_base_10MarketBase_c_sell *__pyx_optional_args))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_sell;
+  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_cancel = (PyObject *(*)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *, PyObject *))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_cancel;
+  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_get_balance = (double (*)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_get_balance;
+  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_withdraw = (PyObject *(*)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *, PyObject *, double))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_withdraw;
+  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_deposit = (PyObject *(*)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, struct __pyx_obj_5wings_6wallet_11wallet_base_WalletBase *, PyObject *, double))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_deposit;
+  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_get_order_book = (struct __pyx_obj_5wings_10order_book_OrderBook *(*)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_get_order_book;
+  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_get_price = (double (*)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *, int))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_get_price;
+  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_get_order_price_quantum = (PyObject *(*)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *, double))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_get_order_price_quantum;
+  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_get_order_size_quantum = (PyObject *(*)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *, double))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_get_order_size_quantum;
+  __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.__pyx_base.c_quantize_order_amount = (PyObject *(*)(struct __pyx_obj_5wings_6market_11market_base_MarketBase *, PyObject *, double))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_quantize_order_amount;
   __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.c_did_timeout_tx = (PyObject *(*)(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *, PyObject *))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_did_timeout_tx;
   __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.c_did_fail_tx = (PyObject *(*)(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *, PyObject *))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_did_fail_tx;
   __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.c_start_tracking_deposit = (PyObject *(*)(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *, PyObject *, int64_t, PyObject *, PyObject *, PyObject *))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_start_tracking_deposit;
   __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.c_stop_tracking_deposit = (PyObject *(*)(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *, PyObject *))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_stop_tracking_deposit;
   __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.c_start_tracking_order = (PyObject *(*)(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *, PyObject *, int64_t, PyObject *, int, PyObject *))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_start_tracking_order;
   __pyx_vtable_5wings_6market_14binance_market_BinanceMarket.c_stop_tracking_order = (PyObject *(*)(struct __pyx_obj_5wings_6market_14binance_market_BinanceMarket *, PyObject *))__pyx_f_5wings_6market_14binance_market_13BinanceMarket_c_stop_tracking_order;
-  __pyx_type_5wings_6market_14binance_market_BinanceMarket.tp_base = __pyx_ptype_5wings_11market_base_MarketBase;
+  __pyx_type_5wings_6market_14binance_market_BinanceMarket.tp_base = __pyx_ptype_5wings_6market_11market_base_MarketBase;
   if (PyType_Ready(&__pyx_type_5wings_6market_14binance_market_BinanceMarket) < 0) __PYX_ERR(0, 295, __pyx_L1_error)
   __pyx_type_5wings_6market_14binance_market_BinanceMarket.tp_print = 0;
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_type_5wings_6market_14binance_market_BinanceMarket.tp_dictoffset && __pyx_type_5wings_6market_14binance_market_BinanceMarket.tp_getattro == PyObject_GenericGetAttr)) {
@@ -47123,11 +47123,11 @@ static int __Pyx_modinit_type_import_code(void) {
    if (!__pyx_ptype_5wings_13time_iterator_TimeIterator) __PYX_ERR(9, 8, __pyx_L1_error)
   __pyx_vtabptr_5wings_13time_iterator_TimeIterator = (struct __pyx_vtabstruct_5wings_13time_iterator_TimeIterator*)__Pyx_GetVtable(__pyx_ptype_5wings_13time_iterator_TimeIterator->tp_dict); if (unlikely(!__pyx_vtabptr_5wings_13time_iterator_TimeIterator)) __PYX_ERR(9, 8, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("wings.wallet_base"); if (unlikely(!__pyx_t_1)) __PYX_ERR(10, 4, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("wings.wallet.wallet_base"); if (unlikely(!__pyx_t_1)) __PYX_ERR(10, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_ptype_5wings_11wallet_base_WalletBase = __Pyx_ImportType(__pyx_t_1, "wings.wallet_base", "WalletBase", sizeof(struct __pyx_obj_5wings_11wallet_base_WalletBase), __Pyx_ImportType_CheckSize_Warn);
-   if (!__pyx_ptype_5wings_11wallet_base_WalletBase) __PYX_ERR(10, 4, __pyx_L1_error)
-  __pyx_vtabptr_5wings_11wallet_base_WalletBase = (struct __pyx_vtabstruct_5wings_11wallet_base_WalletBase*)__Pyx_GetVtable(__pyx_ptype_5wings_11wallet_base_WalletBase->tp_dict); if (unlikely(!__pyx_vtabptr_5wings_11wallet_base_WalletBase)) __PYX_ERR(10, 4, __pyx_L1_error)
+  __pyx_ptype_5wings_6wallet_11wallet_base_WalletBase = __Pyx_ImportType(__pyx_t_1, "wings.wallet.wallet_base", "WalletBase", sizeof(struct __pyx_obj_5wings_6wallet_11wallet_base_WalletBase), __Pyx_ImportType_CheckSize_Warn);
+   if (!__pyx_ptype_5wings_6wallet_11wallet_base_WalletBase) __PYX_ERR(10, 4, __pyx_L1_error)
+  __pyx_vtabptr_5wings_6wallet_11wallet_base_WalletBase = (struct __pyx_vtabstruct_5wings_6wallet_11wallet_base_WalletBase*)__Pyx_GetVtable(__pyx_ptype_5wings_6wallet_11wallet_base_WalletBase->tp_dict); if (unlikely(!__pyx_vtabptr_5wings_6wallet_11wallet_base_WalletBase)) __PYX_ERR(10, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_RefNannyFinishContext();
   return 0;
@@ -47797,7 +47797,7 @@ if (!__Pyx_RefNanny) {
 
   /* "wings/market/binance_market.pyx":42
  *     MarketTransactionFailureEvent, TradeType)
- * from wings.market_base import (
+ * from wings.market.market_base import (
  *     MarketBase,             # <<<<<<<<<<<<<<
  *     OrderType,
  *     NaN
@@ -47817,11 +47817,11 @@ if (!__Pyx_RefNanny) {
   /* "wings/market/binance_market.pyx":41
  *     SellOrderCreatedEvent,
  *     MarketTransactionFailureEvent, TradeType)
- * from wings.market_base import (             # <<<<<<<<<<<<<<
+ * from wings.market.market_base import (             # <<<<<<<<<<<<<<
  *     MarketBase,
  *     OrderType,
  */
-  __pyx_t_2 = __Pyx_Import(__pyx_n_s_wings_market_base, __pyx_t_1, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 41, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Import(__pyx_n_s_wings_market_market_base, __pyx_t_1, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 41, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = __Pyx_ImportFrom(__pyx_t_2, __pyx_n_s_OrderType); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 41, __pyx_L1_error)
@@ -47931,7 +47931,7 @@ if (!__Pyx_RefNanny) {
  * from wings.user_stream_tracker import UserStreamTrackerDataSourceType
  * from wings.cancellation_result import CancellationResult             # <<<<<<<<<<<<<<
  * from wings.transaction_tracker import TransactionTracker
- * from wings.wallet_base import WalletBase
+ * from wings.wallet.wallet_base import WalletBase
  */
   __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 53, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
@@ -47951,8 +47951,8 @@ if (!__Pyx_RefNanny) {
  * from wings.user_stream_tracker import UserStreamTrackerDataSourceType
  * from wings.cancellation_result import CancellationResult
  * from wings.transaction_tracker import TransactionTracker             # <<<<<<<<<<<<<<
- * from wings.wallet_base import WalletBase
- * from wings.wallet_base cimport WalletBase
+ * from wings.wallet.wallet_base import WalletBase
+ * from wings.wallet.wallet_base cimport WalletBase
  */
   __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -47967,8 +47967,8 @@ if (!__Pyx_RefNanny) {
   /* "wings/market/binance_market.pyx":55
  * from wings.cancellation_result import CancellationResult
  * from wings.transaction_tracker import TransactionTracker
- * from wings.wallet_base import WalletBase             # <<<<<<<<<<<<<<
- * from wings.wallet_base cimport WalletBase
+ * from wings.wallet.wallet_base import WalletBase             # <<<<<<<<<<<<<<
+ * from wings.wallet.wallet_base cimport WalletBase
  * 
  */
   __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 55, __pyx_L1_error)
@@ -47976,13 +47976,13 @@ if (!__Pyx_RefNanny) {
   __Pyx_INCREF(__pyx_n_s_WalletBase);
   __Pyx_GIVEREF(__pyx_n_s_WalletBase);
   PyList_SET_ITEM(__pyx_t_2, 0, __pyx_n_s_WalletBase);
-  __pyx_t_1 = __Pyx_Import(__pyx_n_s_wings_wallet_base, __pyx_t_2, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_Import(__pyx_n_s_wings_wallet_wallet_base, __pyx_t_2, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 55, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
   /* "wings/market/binance_market.pyx":58
- * from wings.wallet_base cimport WalletBase
+ * from wings.wallet.wallet_base cimport WalletBase
  * 
  * s_logger = None             # <<<<<<<<<<<<<<
  * s_decimal_0 = Decimal(0)

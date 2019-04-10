@@ -9,7 +9,6 @@ from typing import (
     Dict,
     List,
     Optional,
-    Set,
 )
 import re
 import time
@@ -18,7 +17,7 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 
 from wings.orderbook.radar_relay_order_book import RadarRelayOrderBook
-from wings.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
+from wings.tracker.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
 from .order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.order_book_tracker_entry import OrderBookTrackerEntry, RadarRelayOrderBookTrackerEntry
 from wings.order_book_message import OrderBookMessage, RadarRelayOrderBookMessage

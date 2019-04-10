@@ -10,9 +10,8 @@ from typing import (
     Deque,
     List,
     Dict,
-    Set,
-    Tuple)
-from wings.ddex_active_order_tracker import DDEXActiveOrderTracker
+    Set)
+from wings.tracker.ddex_active_order_tracker import DDEXActiveOrderTracker
 from wings.data_source.ddex_local_cluster_order_book_data_source import DDEXLocalClusterOrderBookDataSource
 from wings.model.sql_connection_manager import SQLConnectionManager
 from wings.order_book_tracker import (

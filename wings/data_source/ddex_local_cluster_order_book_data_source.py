@@ -27,14 +27,13 @@ from sqlalchemy.sql.elements import TextClause
 import conf
 import wings
 from wings.data_source.local_cluster_order_book_data_source import LocalClusterOrderBookDataSource
-from wings.ddex_active_order_tracker import DDEXActiveOrderTracker
+from wings.tracker.ddex_active_order_tracker import DDEXActiveOrderTracker
 from wings.model.sql_connection_manager import SQLConnectionManager
 from wings.order_book_message import (
     OrderBookMessage,
     DDEXOrderBookMessage
 )
 from wings.order_book_tracker_entry import (
-    OrderBookTrackerEntry,
     DDEXOrderBookTrackerEntry
 )
 from wings.orderbook.ddex_order_book import DDEXOrderBook
