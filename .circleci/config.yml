@@ -7,7 +7,7 @@ jobs:
     working_directory: ~/hummingbot
     docker:
       # Specify base image: using Anaconda
-      - image: continuumio/anaconda
+      - image: continuumio/anaconda3:2018.12
     steps:
       - checkout
 
