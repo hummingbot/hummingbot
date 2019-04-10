@@ -8,17 +8,12 @@ import asyncio
 import logging
 import unittest
 from typing import (
-    Any,
     Dict,
     Optional
 )
 from wings.tracker.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from wings.order_book import OrderBook
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
-from wings.order_book_message import (
-    CoinbaseProOrderBookMessage,
-    OrderBookMessageType
-)
 
 test_symbol = "XLM-USD"
 
@@ -56,6 +51,7 @@ class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
         test_active_order_tracker = self.order_book_tracker._active_order_trackers[test_symbol]
         self.assertTrue(len(test_active_order_tracker.active_asks) > 0)
         self.assertTrue(len(test_active_order_tracker.active_bids) > 0)
+
 
 def main():
     logging.basicConfig(level=logging.INFO)
