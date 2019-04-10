@@ -22,7 +22,7 @@ from wings.ddex_market import DDEXMarket
 from wings.clock import Clock, ClockMode
 from wings.ethereum_chain import EthereumChain
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
-from wings.limit_order import LimitOrder
+from wings.trade import Trade
 
 from hummingbot import init_logging
 from hummingbot.cli.ui.keybindings import load_key_bindings
@@ -440,6 +440,19 @@ class HummingbotApplication:
                 self.app.log('\n'.join(EXCHANGES))
         elif obj == "configs":
             self.app.log('\n'.join(load_required_configs().keys()))
+        elif obj == "trades":
+            lines = []
+            if self.strategy is None:
+                self.app.log("No strategy available, cannot show past trades.")
+            else:
+                if len(self.strategy.trades) > 0:
+                    df = Trade.to_pandas(self.strategy.trades)
+                    df_lines = str(df).split("\n")
+                    lines.extend(["", "  Past trades:"] +
+                                 ["    " + line for line in df_lines])
+                else:
+                    lines.extend(["  No past trades."])
+            self.app.log("\n".join(lines))
         else:
             self.help("list")
 
@@ -528,8 +541,7 @@ class HummingbotApplication:
                                                               trade_size_override=trade_size_override,
                                                               limit_order_min_expiration=limit_order_min_expiration,
                                                               cancel_order_threshold=cancel_order_threshold,
-                                                              active_order_canceling=active_order_canceling
-                                                              )
+                                                              active_order_canceling=active_order_canceling)
 
         elif strategy_name == "arbitrage":
             primary_market = strategy_cm.get("primary_market").value.lower()
