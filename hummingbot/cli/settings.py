@@ -40,7 +40,7 @@ EXAMPLE_PAIRS = {
     "binance": "ZRXETH",
     "ddex": "ZRX-WETH",
     "radar_relay": "ZRX-WETH",
-    "coinbase_pro": "ZRX-USDC",
+    "coinbase_pro": "ETH-USDC",
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
