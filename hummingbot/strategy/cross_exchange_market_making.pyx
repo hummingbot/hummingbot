@@ -171,6 +171,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             typed_market.c_add_listener(self.TRANSACTION_FAILURE_EVENT_TAG, self._order_failed_listener)
 
     @property
+    def active_markets(self) -> List[MarketBase]:
+        return list(self._markets)
+
+    @property
     def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
         return [
             (market_pair.maker_market, limit_order)
