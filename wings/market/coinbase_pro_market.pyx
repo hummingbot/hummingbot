@@ -29,7 +29,7 @@ from wings.events import (
     MarketReceivedAssetEvent,
     MarketWithdrawAssetEvent,
     MarketTransactionFailureEvent)
-from wings.market_base import (
+from wings.market.market_base import (
     MarketBase,
     OrderType,
 )
@@ -40,8 +40,8 @@ from wings.order_book cimport OrderBook
 from wings.tracker.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from wings.cancellation_result import CancellationResult
 from wings.transaction_tracker import TransactionTracker
-from wings.wallet_base import WalletBase
-from wings.wallet_base cimport WalletBase
+from wings.wallet.wallet_base import WalletBase
+from wings.wallet.wallet_base cimport WalletBase
 
 s_logger = None
 s_decimal_0 = Decimal(0)
