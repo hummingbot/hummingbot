@@ -25,7 +25,7 @@ from wings.order_book_message import (
 )
 from wings.order_book_tracker_entry import CoinbaseProOrderBookTrackerEntry
 from wings.orderbook.coinbase_pro_order_book import CoinbaseProOrderBook
-from wings.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
+from wings.tracker.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
 
 
 class CoinbaseProOrderBookTracker(OrderBookTracker):

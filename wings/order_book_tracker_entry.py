@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from wings.order_book import OrderBook
-from wings.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
+from wings.tracker.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
 from wings.tracker.ddex_active_order_tracker import DDEXActiveOrderTracker
 from wings.tracker.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
 
