@@ -235,7 +235,8 @@ class Web3WalletBackend(PubSub):
                              for block_hash in block_hash_set]
         blocks: Dict[HexBytes, AttributeDict] = dict((block.hash, block)
                                                      for block
-                                                     in await asyncio.gather(*fetch_block_tasks))
+                                                     in await asyncio.gather(*fetch_block_tasks)
+                                                     if block is not None)
 
         for receipt in transaction_receipts:
             # Emit gas used event.
@@ -243,22 +244,26 @@ class Web3WalletBackend(PubSub):
             gas_price_wei: int = self._pending_tx_dict[tx_hash]
             gas_used: int = receipt.gasUsed
             gas_eth_amount_raw: int = gas_price_wei * gas_used
-            block: AttributeDict = blocks[receipt.blockHash]
-            if receipt.status == 0:
-                self.logger().warning(f"The transaction {tx_hash} has failed.")
-                self.trigger_event(WalletEvent.TransactionFailure, tx_hash)
-            self.trigger_event(WalletEvent.GasUsed, EthereumGasUsedEvent(
-                float(block.timestamp),
-                tx_hash,
-                float(gas_price_wei * 1e-9),
-                gas_price_wei,
-                gas_used,
-                float(gas_eth_amount_raw * 1e-18),
-                gas_eth_amount_raw
-            ))
 
-            # Stop tracking the transaction.
-            self._stop_tx_tracking(tx_hash)
+            if receipt.blockHash in blocks:
+                block: AttributeDict = blocks[receipt.blockHash]
+
+                if receipt.status == 0:
+                    self.logger().warning(f"The transaction {tx_hash} has failed.")
+                    self.trigger_event(WalletEvent.TransactionFailure, tx_hash)
+
+                self.trigger_event(WalletEvent.GasUsed, EthereumGasUsedEvent(
+                    float(block.timestamp),
+                    tx_hash,
+                    float(gas_price_wei * 1e-9),
+                    gas_price_wei,
+                    gas_used,
+                    float(gas_eth_amount_raw * 1e-18),
+                    gas_eth_amount_raw
+                ))
+
+                # Stop tracking the transaction.
+                self._stop_tx_tracking(tx_hash)
 
     async def outgoing_eth_transactions_loop(self):
         ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
