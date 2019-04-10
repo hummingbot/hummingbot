@@ -48,7 +48,7 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._process_msg_deque_task: Optional[asyncio.Task] = None
         self._past_diffs_windows: Dict[str, Deque] = {}
-        self._order_books: Dict[str, CoinbaseProOrderBook] = defaultdict(CoinbaseProOrderBook)
+        self._order_books: Dict[str, CoinbaseProOrderBook] = {}
         self._saved_message_queues: Dict[str, Deque[CoinbaseProOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
         self._active_order_trackers: Dict[str, CoinbaseProActiveOrderTracker] = defaultdict(CoinbaseProActiveOrderTracker)
         self._symbols: Optional[List[str]] = symbols
