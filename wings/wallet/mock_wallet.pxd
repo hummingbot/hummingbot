@@ -1,4 +1,4 @@
-from wings.wallet_base cimport WalletBase
+from wings.wallet.wallet_base cimport WalletBase
 
 
 cdef class MockWallet(WalletBase):

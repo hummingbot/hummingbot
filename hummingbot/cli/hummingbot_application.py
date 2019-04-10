@@ -14,8 +14,8 @@ from typing import (
 )
 from web3 import Web3
 
-from wings.web3_wallet import Web3Wallet
-from wings.market_base import MarketBase
+from wings.wallet.web3_wallet import Web3Wallet
+from wings.market.market_base import MarketBase
 from wings.market.binance_market import BinanceMarket
 from wings.market.radar_relay_market import RadarRelayMarket
 from wings.market.ddex_market import DDEXMarket

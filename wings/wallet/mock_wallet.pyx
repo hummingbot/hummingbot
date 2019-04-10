@@ -9,7 +9,7 @@ from typing import (
 from web3 import Web3
 from web3.datastructures import AttributeDict
 
-from .erc20_token import ERC20Token
+from wings.erc20_token import ERC20Token
 
 s_logger = None
 

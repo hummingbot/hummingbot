@@ -25,7 +25,7 @@ from wings.events import (
     EthereumGasUsedEvent,
 )
 from wings.erc20_token import ERC20Token
-from wings.web3_wallet import Web3Wallet
+from wings.wallet.web3_wallet import Web3Wallet
 from wings.event_logger import EventLogger
 
 

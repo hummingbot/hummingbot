@@ -21,7 +21,7 @@ from wings.events import (
 from wings.event_listener cimport EventListener
 from wings.limit_order cimport LimitOrder
 from wings.limit_order import LimitOrder
-from wings.market_base import (
+from wings.market.market_base import (
     MarketBase,
     OrderType
 )
