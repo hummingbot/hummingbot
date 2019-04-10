@@ -13,13 +13,13 @@ from web3.contract import (
 from wings.ethereum_chain import EthereumChain
 
 
-with open(os.path.join(os.path.dirname(__file__), 'erc20_abi.json')) as erc20_abi:
+with open(os.path.join(os.path.dirname(__file__), 'abi/erc20_abi.json')) as erc20_abi:
     abi: json = json.load(erc20_abi)
 
-with open(os.path.join(os.path.dirname(__file__), 'weth_contract_abi.json')) as weth_abi:
+with open(os.path.join(os.path.dirname(__file__), 'abi/weth_contract_abi.json')) as weth_abi:
     w_abi: json = json.load(weth_abi)
 
-with open(os.path.join(os.path.dirname(__file__), 'dai_abi.json')) as dai_abi:
+with open(os.path.join(os.path.dirname(__file__), 'abi/dai_abi.json')) as dai_abi:
     d_abi: json = json.load(dai_abi)
 
 

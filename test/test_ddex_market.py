@@ -11,7 +11,7 @@ from decimal import Decimal
 import unittest
 from typing import List
 from wings.clock import Clock, ClockMode
-from wings.ddex_market import DDEXMarket
+from wings.market.ddex_market import DDEXMarket
 from wings.ethereum_chain import EthereumChain
 from wings.events import (
     MarketEvent,
@@ -22,9 +22,9 @@ from wings.events import (
     WalletUnwrappedEthEvent,
     BuyOrderCreatedEvent, SellOrderCreatedEvent, OrderFilledEvent)
 from wings.event_logger import EventLogger
-from wings.market_base import OrderType
+from wings.market.market_base import OrderType
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
-from wings.web3_wallet import Web3Wallet
+from wings.wallet.web3_wallet import Web3Wallet
 
 
 class DDEXMarketUnitTest(unittest.TestCase):

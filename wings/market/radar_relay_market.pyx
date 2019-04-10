@@ -15,15 +15,15 @@ from typing import (
 from decimal import Decimal
 from libc.stdint cimport int64_t
 from web3 import Web3
-from .clock cimport Clock
-from .limit_order import LimitOrder
-from .market_base cimport MarketBase
-from .market_base import (
+from wings.clock cimport Clock
+from wings.limit_order import LimitOrder
+from wings.market.market_base cimport MarketBase
+from wings.market.market_base import (
   OrderType,
   NaN
 )
-from .web3_wallet import Web3Wallet
-from .order_book cimport OrderBook
+from wings.wallet.web3_wallet import Web3Wallet
+from wings.order_book cimport OrderBook
 from wings.cancellation_result import CancellationResult
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.tracker.radar_relay_order_book_tracker import RadarRelayOrderBookTracker

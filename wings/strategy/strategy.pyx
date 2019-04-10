@@ -1,4 +1,4 @@
-from wings.market_base import (
+from wings.market.market_base import (
     MarketBase,
     OrderType
 )

@@ -17,8 +17,8 @@ from wings.events import (
 from wings.ethereum_chain import EthereumChain
 from wings.event_listener cimport EventListener
 from wings.pubsub cimport PubSub
-from wings.wallet_base import WalletBase
-from wings.web3_wallet_backend import Web3WalletBackend
+from wings.wallet.wallet_base import WalletBase
+from wings.wallet.web3_wallet_backend import Web3WalletBackend
 
 class_logger = None
 

@@ -37,10 +37,7 @@ def main():
     package_data = {
         "wings": [
             "cpp/*.h",
-            "erc20_abi.json",
-            "weth_contract_abi.json",
-            "dai_abi.json",
-            "zero_ex_exchange_abi.json",
+            "abi/*.json",
         ],
         "hummingbot": [
             "erc20_tokens.json",
