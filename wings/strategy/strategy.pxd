@@ -1,4 +1,4 @@
-from wings.market_base cimport MarketBase
+from wings.market.market_base cimport MarketBase
 from wings.time_iterator cimport TimeIterator
 
 

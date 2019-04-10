@@ -1,6 +1,6 @@
 from libc.stdint cimport int64_t
 
-from wings.wallet_base cimport WalletBase
+from wings.wallet.wallet_base cimport WalletBase
 from wings.event_listener cimport EventListener
 
 
