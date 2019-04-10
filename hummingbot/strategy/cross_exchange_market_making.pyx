@@ -172,7 +172,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
     @property
     def active_markets(self) -> List[MarketBase]:
-        return list(self._maker_markets) + list(self._taker_markets)
+        return list(self._markets)
 
     @property
     def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
