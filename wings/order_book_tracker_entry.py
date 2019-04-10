@@ -4,6 +4,7 @@ from typing import Dict
 from wings.order_book import OrderBook
 from wings.ddex_active_order_tracker import DDEXActiveOrderTracker
 from wings.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
+from wings.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
 
 
 class OrderBookTrackerEntry:
@@ -58,5 +59,20 @@ class RadarRelayOrderBookTrackerEntry(OrderBookTrackerEntry):
 
     @property
     def active_order_tracker(self) -> RadarRelayActiveOrderTracker:
+        return self._active_order_tracker
+
+class CoinbaseProOrderBookTrackerEntry(OrderBookTrackerEntry):
+    def __init__(self, symbol: str, timestamp: float, order_book: OrderBook,
+                 active_order_tracker: CoinbaseProActiveOrderTracker):
+
+        self._active_order_tracker = active_order_tracker
+        super(CoinbaseProOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
+
+    def __repr__(self) -> str:
+        return f"CoinbaseProOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', " \
+            f"order_book='{self._order_book}')"
+        
+    @property
+    def active_order_tracker(self) -> CoinbaseProActiveOrderTracker:
         return self._active_order_tracker
 
