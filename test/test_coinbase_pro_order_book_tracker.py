@@ -12,7 +12,6 @@ from typing import (
     Dict,
     Optional
 )
-
 from wings.tracker.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from wings.order_book import OrderBook
 from wings.order_book_tracker import OrderBookTrackerDataSourceType

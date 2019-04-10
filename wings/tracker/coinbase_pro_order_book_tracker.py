@@ -2,7 +2,10 @@
 
 import asyncio
 import bisect
-from collections import deque, defaultdict
+from collections import (
+    defaultdict,
+    deque
+)
 import logging
 import time
 from typing import (

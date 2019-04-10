@@ -19,8 +19,11 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 
 from wings.orderbook.coinbase_pro_order_book import CoinbaseProOrderBook
-from .order_book_tracker_data_source import OrderBookTrackerDataSource
-from wings.order_book_tracker_entry import OrderBookTrackerEntry, CoinbaseProOrderBookTrackerEntry
+from wings.order_book_tracker_data_source import OrderBookTrackerDataSource
+from wings.order_book_tracker_entry import (
+    CoinbaseProOrderBookTrackerEntry,
+    OrderBookTrackerEntry
+)
 from wings.order_book_message import OrderBookMessage
 from wings.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
 
