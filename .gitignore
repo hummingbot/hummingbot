@@ -67,6 +67,12 @@ __pycache__
 /wings/strategy/**/*.cpp
 /wings/orderbook/*.c
 /wings/orderbook/*.cpp
+/wings/market/*.c
+/wings/market/*.cpp
+/wings/tracker/*.c
+/wings/tracker/*.cpp
+/wings/wallet/*.c
+/wings/wallet/*.cpp
 /hummingbot/**/*.c
 /hummingbot/**/*.cpp
 /build

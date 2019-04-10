@@ -7,7 +7,7 @@ from typing import (
 from wings.events import MarketEvent
 from wings.order_book import OrderBook
 from wings.cancellation_result import CancellationResult
-from .limit_order import LimitOrder
+from wings.limit_order import LimitOrder
 from wings.event_reporter import EventReporter
 from wings.events import OrderType
 NaN = float("nan")

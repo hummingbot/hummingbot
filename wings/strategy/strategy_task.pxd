@@ -1,8 +1,8 @@
-from wings.market_base cimport MarketBase
+from wings.market.market_base cimport MarketBase
 from wings.event_listener cimport EventListener
 from wings.time_iterator cimport TimeIterator
 from wings.transaction_tracker cimport TransactionTracker
-from wings.wallet_base cimport WalletBase
+from wings.wallet.wallet_base cimport WalletBase
 
 
 cdef class StrategyTask(TimeIterator):

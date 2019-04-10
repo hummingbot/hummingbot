@@ -11,11 +11,11 @@ import logging
 import unittest
 from typing import List
 from wings.cancellation_result import CancellationResult
-from wings.market_base import OrderType
-from wings.web3_wallet import Web3Wallet
-from wings.web3_wallet_backend import EthereumChain
+from wings.market.market_base import OrderType
+from wings.wallet.web3_wallet import Web3Wallet
+from wings.wallet.web3_wallet_backend import EthereumChain
 from wings.clock import Clock, ClockMode
-from wings.radar_relay_market import RadarRelayMarket
+from wings.market.radar_relay_market import RadarRelayMarket
 from wings.event_logger import EventLogger
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.events import (
