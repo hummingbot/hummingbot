@@ -78,9 +78,10 @@ cdef class ArbitrageStrategy(StrategyBase):
                  logging_options: int = OPTION_LOG_ORDER_COMPLETED,
                  status_report_interval: float = 900,
                  next_trade_delay_interval: float = 15.0):
-
         if len(market_pairs) < 0:
             raise ValueError(f"market_pairs must not be empty.")
+
+        super().__init__()
         self._logging_options = logging_options
         self._market_pairs = market_pairs
         self._min_profitability = min_profitability
@@ -97,6 +98,7 @@ cdef class ArbitrageStrategy(StrategyBase):
         self._next_trade_delay = next_trade_delay_interval
         self._last_trade_timestamps = {}
         self.exchange_rate_conversion = ExchangeRateConversion.get_instance()
+
         cdef:
             MarketBase typed_market
 
@@ -108,6 +110,10 @@ cdef class ArbitrageStrategy(StrategyBase):
                 typed_market.c_add_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._buy_order_completed_listener)
                 typed_market.c_add_listener(self.TRANSACTION_FAILURE_EVENT_TAG, self._order_failed_listener)
                 typed_market.c_add_listener(self.ORDER_CANCELLED_EVENT_TAG, self._order_canceled_listener)
+
+    @property
+    def active_markets(self) -> List[MarketBase]:
+        return list(self._markets)
 
     def format_status(self) -> str:
         cdef:
