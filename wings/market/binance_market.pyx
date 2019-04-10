@@ -38,7 +38,7 @@ from wings.events import (
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
     MarketTransactionFailureEvent, TradeType)
-from wings.market_base import (
+from wings.market.market_base import (
     MarketBase,
     OrderType,
     NaN
@@ -52,8 +52,8 @@ from wings.tracker.binance_user_stream_tracker import BinanceUserStreamTracker
 from wings.user_stream_tracker import UserStreamTrackerDataSourceType
 from wings.cancellation_result import CancellationResult
 from wings.transaction_tracker import TransactionTracker
-from wings.wallet_base import WalletBase
-from wings.wallet_base cimport WalletBase
+from wings.wallet.wallet_base import WalletBase
+from wings.wallet.wallet_base cimport WalletBase
 
 s_logger = None
 s_decimal_0 = Decimal(0)

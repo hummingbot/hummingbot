@@ -17,12 +17,12 @@ from libc.stdint cimport int64_t
 from web3 import Web3
 from wings.clock cimport Clock
 from wings.limit_order import LimitOrder
-from wings.market_base cimport MarketBase
-from wings.market_base import (
+from wings.market.market_base cimport MarketBase
+from wings.market.market_base import (
   OrderType,
   NaN
 )
-from wings.web3_wallet import Web3Wallet
+from wings.wallet.web3_wallet import Web3Wallet
 from wings.order_book cimport OrderBook
 from wings.cancellation_result import CancellationResult
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
