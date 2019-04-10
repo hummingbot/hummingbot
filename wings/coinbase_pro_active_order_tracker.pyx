@@ -1,5 +1,6 @@
 # distutils: language=c++
 # distutils: sources=wings/cpp/OrderBookEntry.cpp
+
 import logging
 import numpy as np
 from decimal import Decimal
