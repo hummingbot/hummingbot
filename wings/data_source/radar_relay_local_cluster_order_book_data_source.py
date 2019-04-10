@@ -33,11 +33,10 @@ from wings.order_book_message import (
     DDEXOrderBookMessage
 )
 from wings.order_book_tracker_entry import (
-    OrderBookTrackerEntry,
     RadarRelayOrderBookTrackerEntry
 )
 from wings.orderbook.radar_relay_order_book import RadarRelayOrderBook
-from wings.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
+from wings.tracker.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
 
 TRADING_PAIR_FILTER = re.compile(r"(TUSD|ETH|DAI)$")
 

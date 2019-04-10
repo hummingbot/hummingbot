@@ -2,7 +2,6 @@
 
 import asyncio
 import aiohttp
-import json
 import logging
 import pandas as pd
 from typing import (
@@ -17,7 +16,7 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from wings.ddex_active_order_tracker import DDEXActiveOrderTracker
+from wings.tracker.ddex_active_order_tracker import DDEXActiveOrderTracker
 from wings.orderbook.ddex_order_book import DDEXOrderBook
 from .order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.order_book_tracker_entry import (

@@ -1,7 +1,7 @@
 from wings.event_reporter cimport EventReporter
 from wings.order_book cimport OrderBook
 from wings.time_iterator cimport TimeIterator
-from .wallet_base cimport WalletBase
+from wings.wallet.wallet_base cimport WalletBase
 
 
 cdef class MarketBase(TimeIterator):
