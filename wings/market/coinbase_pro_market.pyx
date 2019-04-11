@@ -2,7 +2,6 @@ import aiohttp
 import asyncio
 from async_timeout import timeout
 import hmac, hashlib, base64
-from requests.auth import AuthBase
 from decimal import (
     Decimal
 )
@@ -47,18 +46,13 @@ s_logger = None
 s_decimal_0 = Decimal(0)
 
 
-class CoinbaseProAuth(AuthBase):
+class CoinbaseProAuth:
     def __init__(self, api_key, secret_key, passphrase):
         self.api_key = api_key
         self.secret_key = secret_key
         self.passphrase = passphrase
 
-    def __call__(self, request):
-        body = "" if request.body is None else request.body.decode("utf8")
-        request.headers.update(self.get_headers(request.method, request.path_url, body))
-        return request
-
-    def get_headers(self, method: str, path_url: str, body: str = "") -> Dict[str, any]:
+    def generate_auth_dict(self, method: str, path_url: str, body: str = "") -> Dict[str, any]:
         timestamp = str(time.time())
         message = timestamp + method.upper() + path_url + body
         hmac_key = base64.b64decode(self.secret_key)
@@ -66,10 +60,19 @@ class CoinbaseProAuth(AuthBase):
         signature_b64 = base64.b64encode(bytes(signature.digest())).decode('utf8')
 
         return {
-            'CB-ACCESS-SIGN': signature_b64,
-            'CB-ACCESS-TIMESTAMP': timestamp,
-            'CB-ACCESS-KEY': self.api_key,
-            'CB-ACCESS-PASSPHRASE': self.passphrase,
+            'signature': signature_b64,
+            'timestamp': timestamp,
+            'key': self.api_key,
+            'passphrase': self.passphrase,
+        }
+
+    def get_headers(self, method: str, path_url: str, body: str = "") -> Dict[str, any]:
+        header_dict = self.generate_auth_dict(method, path_url, body)
+        return {
+            'CB-ACCESS-SIGN': header_dict["signature"],
+            'CB-ACCESS-TIMESTAMP': header_dict["timestamp"],
+            'CB-ACCESS-KEY': header_dict["key"],
+            'CB-ACCESS-PASSPHRASE': header_dict["passphrase"],
             'Content-Type': 'application/json',
         }
 
