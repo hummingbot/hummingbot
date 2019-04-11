@@ -310,16 +310,6 @@ cdef class CoinbaseProMarket(MarketBase):
                 self._poll_notifier.set()
         self._last_timestamp = timestamp
 
-    # async def _api_request(self,
-    #                        http_method: str,
-    #                        url: str,
-    #                        data: Optional[Dict[str, any]] = None,
-    #                        headers: Optional[Dict[str, str]] = None,
-    #                        auth: any = None) -> Dict[str, any]:
-    #     auth = auth or self.coinbase_auth
-    #     response = requests.request(http_method, url=url, timeout=self.API_CALL_TIMEOUT, json=data, auth=auth)
-    #     return response.json()
-
     async def _http_client(self) -> aiohttp.ClientSession:
         if self._shared_client is None:
             self._shared_client = aiohttp.ClientSession()
@@ -412,11 +402,13 @@ cdef class CoinbaseProMarket(MarketBase):
             return
 
         tracked_orders = list(self._in_flight_orders.values())
-        tasks = [self.get_order(o.client_order_id) for o in tracked_orders]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        results = await self.list_orders()
+        order_dict = dict((result["id"], result) for result in results)
 
-        for order_update, tracked_order in zip(results, tracked_orders):
-            if isinstance(order_update, Exception):
+        for tracked_order in tracked_orders:
+            exchange_order_id = await tracked_order.get_exchange_order_id()
+            order_update = order_dict.get(exchange_order_id)
+            if order_update is None:
                 self.logger().error(f"Error fetching status update for the order {tracked_order.client_order_id}: "
                                     f"{order_update}.")
                 continue
@@ -652,6 +644,11 @@ cdef class CoinbaseProMarket(MarketBase):
         order = self._in_flight_orders.get(client_order_id)
         exchange_order_id = await order.get_exchange_order_id()
         path_url = f"/orders/{exchange_order_id}"
+        result = await self._api_request("get", path_url=path_url)
+        return result
+
+    async def list_orders(self) -> List[any]:
+        path_url = "/orders?status=all"
         result = await self._api_request("get", path_url=path_url)
         return result
 
