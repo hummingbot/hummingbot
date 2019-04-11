@@ -4,7 +4,6 @@ from os.path import join, realpath
 import sys
 sys.path.insert(0, realpath(join(__file__, "../../")))
 
-import asyncio
 import logging
 import unittest
 from typing import (
@@ -17,11 +16,11 @@ from wings.order_book import OrderBook
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.order_book_message import (
     CoinbaseProOrderBookMessage,
-    OrderBookMessageType
 )
 from wings.order_book_row import OrderBookRow
 
 test_symbol = "BTC-USD"
+
 class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
     order_book_tracker: Optional[CoinbaseProOrderBookTracker] = None
 
@@ -30,6 +29,7 @@ class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
         cls.order_book_tracker: CoinbaseProOrderBookTracker = CoinbaseProOrderBookTracker(
             OrderBookTrackerDataSourceType.EXCHANGE_API,
             symbols=[test_symbol])
+
     def test_diff_message_not_found(self):
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
         test_order_book: OrderBook = order_books[test_symbol]
