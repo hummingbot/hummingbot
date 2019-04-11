@@ -618,5 +618,14 @@ class HummingbotApplication:
             await asyncio.sleep(1)
         self.app.exit()
 
+    def export_private_key(self):
+        if self.acct is None:
+            self.app.log("Your wallet is currently locked. Please enter \"config wallet\""
+                         " to unlock your wallet first")
+        else:
+            self.app.log("Your private key:")
+            self.app.log(self.acct.privateKey.hex())
+
+
 
 
