@@ -12,6 +12,7 @@ from typing import (
     Dict,
     List,
     Optional,
+    AsyncIterable,
 )
 from web3 import Web3
 
@@ -37,6 +38,7 @@ from wings.order_book_tracker import (
 )
 from wings.order_book cimport OrderBook
 from wings.tracker.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
+from wings.tracker.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
 from wings.cancellation_result import CancellationResult
 from wings.transaction_tracker import TransactionTracker
 from wings.wallet.wallet_base import WalletBase
@@ -264,6 +266,8 @@ cdef class CoinbaseProMarket(MarketBase):
         self._coinbase_auth = CoinbaseProAuth(coinbase_pro_api_key, coinbase_pro_secret_key, coinbase_pro_passphrase)
         self._order_book_tracker = CoinbaseProOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
                                                                symbols=symbols)
+        self._user_stream_tracker = CoinbaseProUserStreamTracker(coinbase_pro_auth=self._coinbase_auth,
+                                                                 symbols=symbols)
         self._account_balances = {}
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
@@ -277,6 +281,8 @@ cdef class CoinbaseProMarket(MarketBase):
         self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
         self._order_tracker_task = None
+        self._user_stream_tracker_task = None
+        self._user_stream_event_listener_task = None
         self._shared_client = None
 
     @property
@@ -301,6 +307,8 @@ cdef class CoinbaseProMarket(MarketBase):
         MarketBase.c_start(self, clock, timestamp)
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
         self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
+        self._user_stream_tracker_task = asyncio.ensure_future(self._user_stream_tracker.start())
+        self._user_stream_event_listener_task = asyncio.ensure_future(self._user_stream_event_listener())
 
     cdef c_tick(self, double timestamp):
         cdef:
@@ -398,6 +406,9 @@ cdef class CoinbaseProMarket(MarketBase):
 
     async def _update_order_status(self):
         cdef:
+            # This is intended to be a backup measure to close straggler orders, in case Coinbase's user stream events
+            # are not working.
+            # The poll interval for order status is 10 seconds.
             int64_t last_tick = <int64_t>(self._last_timestamp / 10.0)
             int64_t current_tick = <int64_t>(self._current_timestamp / 10.0)
 
@@ -483,6 +494,28 @@ cdef class CoinbaseProMarket(MarketBase):
                                              tracked_order.client_order_id
                                          ))
                 self.c_stop_tracking_order(tracked_order.client_order_id)
+
+    async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
+        while True:
+            try:
+                yield await self._user_stream_tracker.user_stream.get()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unknown error. Retrying after 1 seconds.", exc_info=True)
+                await asyncio.sleep(1.0)
+
+    async def _user_stream_event_listener(self):
+        async for event_message in self._iter_user_event_queue():
+            try:
+                print(event_message)
+                event_type = event_message.get("type")
+                exchange_order_id = event_message.get("order_id")
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
+                await asyncio.sleep(5.0)
 
     async def place_order(self, order_id: str, symbol: str, amount: Decimal, is_buy: bool, order_type: OrderType,
                           price: float):
