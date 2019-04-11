@@ -7,6 +7,7 @@ import logging
 import math
 import time
 from typing import (
+    Any,
     Dict,
     List,
     Optional,
@@ -78,7 +79,7 @@ cdef class TradingRule:
         public int amount_decimals              # Max amount of decimals in quote token (amount)
 
     @classmethod
-    def parse_exchange_info(cls, markets: List[Dict[str, any]]) -> List[TradingRule]:
+    def parse_exchange_info(cls, markets: List[Dict[str, Any]]) -> List[TradingRule]:
         cdef:
             list retval = []
         for market in markets:
@@ -323,7 +324,7 @@ cdef class RadarRelayMarket(MarketBase):
     def _update_balances(self):
         self._account_balances = self.wallet.get_all_balances()
 
-    async def list_market(self) -> Dict[str, any]:
+    async def list_market(self) -> Dict[str, Any]:
         url = f"{RADAR_RELAY_REST_ENDPOINT}/markets?include=base"
         return await self._api_request(http_method="get", url=url)
 
@@ -339,6 +340,40 @@ cdef class RadarRelayMarket(MarketBase):
                 self._trading_rules[trading_rule.symbol] = trading_rule
             self._last_update_trading_rules_timestamp = current_timestamp
 
+    async def get_account_orders(self) -> List[Dict[str, Any]]:
+        list_account_orders_url = f"{RADAR_RELAY_REST_ENDPOINT}/accounts/{self._wallet.address}/orders"
+        return await self._api_request(http_method="get", url=list_account_orders_url)
+
+    async def get_order(self, order_hash: str) -> Dict[str, Any]:
+        order_url = f"{RADAR_RELAY_REST_ENDPOINT}/orders/{order_hash}"
+        return await self._api_request("get", url=order_url)
+
+    async def _get_order_updates(self) -> List[Dict[str, Any]]:
+        account_orders_list = await self.get_account_orders()
+        account_orders_map = {}
+        for account_order in account_orders_list:
+            account_orders_map[account_order["orderHash"]] = account_order
+
+        tracked_limit_orders = list(self._in_flight_limit_orders.values())
+        order_updates = []
+        tasks = []
+        tasks_index = []
+
+        for i, tracked_order in enumerate(tracked_limit_orders):
+            order_hash = tracked_order.exchange_order_id
+            order_update = account_orders_map.get(order_hash, None)
+            if order_update is None:
+                tasks.append(self.get_order(order_hash))
+                tasks_index.append(i)
+            order_updates.append(order_update)
+
+        res_order_updates = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for i, ou in enumerate(res_order_updates):
+            order_updates[tasks_index[i]] = ou
+
+        return order_updates
+
     async def _update_limit_order_status(self):
         cdef:
             double current_timestamp = self._current_timestamp
@@ -348,11 +383,9 @@ cdef class RadarRelayMarket(MarketBase):
         
         if len(self._in_flight_limit_orders) > 0:
             tracked_limit_orders = list(self._in_flight_limit_orders.values())
-            tasks = [self.get_order(o.exchange_order_id)
-                     for o in tracked_limit_orders
-                     if o.exchange_order_id]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            for order_update, tracked_limit_order in zip(results, tracked_limit_orders):
+            order_updates = await self._get_order_updates()
+            print('!!!!!', len(order_updates))
+            for order_update, tracked_limit_order in zip(order_updates, tracked_limit_orders):
                 if isinstance(order_update, Exception):
                     self.logger().error(f"Error fetching status update for the order "
                                         f"{tracked_limit_order.client_order_id}: {order_update}.")
@@ -537,7 +570,7 @@ cdef class RadarRelayMarket(MarketBase):
             finally:
                 await asyncio.sleep(interval)
 
-    async def schedule_async_call(self, coro) -> any:
+    async def schedule_async_call(self, coro) -> Any:
         fut = self._ev_loop.create_future()
         self._coro_queue.put_nowait((fut, coro))
         return await fut
@@ -545,8 +578,8 @@ cdef class RadarRelayMarket(MarketBase):
     async def _api_request(self,
                            http_method: str,
                            url: str,
-                           data: Optional[Dict[str, any]] = None,
-                           headers: Optional[Dict[str, str]] = None) -> Dict[str, any]:
+                           data: Optional[Dict[str, Any]] = None,
+                           headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         async with aiohttp.ClientSession() as client:
             async with client.request(http_method,
                                       url=url,
@@ -570,7 +603,7 @@ cdef class RadarRelayMarket(MarketBase):
                         raise IOError(f"Error fetching data from {url}. "
                                       f"HTTP status is {response.status} - {response_text}.")
 
-    async def request_signed_market_orders(self, symbol: str, side: TradeType, amount: str) -> Dict[str, any]:
+    async def request_signed_market_orders(self, symbol: str, side: TradeType, amount: str) -> Dict[str, Any]:
         if side is TradeType.BUY:
             order_type = "BUY"
         elif side is TradeType.SELL:
@@ -586,7 +619,7 @@ cdef class RadarRelayMarket(MarketBase):
         return response_data
 
     async def request_unsigned_limit_order(self, symbol: str, side: TradeType, amount: str, price: str, expires: int)\
-            -> Dict[str, any]:
+            -> Dict[str, Any]:
         if side is TradeType.BUY:
             order_type = "BUY"
         elif side is TradeType.SELL:
@@ -602,7 +635,7 @@ cdef class RadarRelayMarket(MarketBase):
         }
         return await self._api_request(http_method="post", url=url, data=data)
 
-    def get_order_hash_hex(self, unsigned_order: Dict[str, any]) -> str:
+    def get_order_hash_hex(self, unsigned_order: Dict[str, Any]) -> str:
         order_struct = jsdict_order_to_struct(unsigned_order)
         order_hash_hex = generate_order_hash_hex(order=order_struct,
                                                  exchange_address=ZERO_EX_MAINNET_EXCHANGE_ADDRESS.lower())
@@ -815,7 +848,7 @@ cdef class RadarRelayMarket(MarketBase):
                                                  expires=expires))
         return order_id
 
-    async def cancel_order(self, client_order_id: str) -> Dict[str, any]:
+    async def cancel_order(self, client_order_id: str) -> Dict[str, Any]:
         order = self._in_flight_limit_orders.get(client_order_id)
         if not order:
             self.logger().info(f"Failed to cancel order {client_order_id}. Order not found in tracked orders.")
@@ -834,15 +867,10 @@ cdef class RadarRelayMarket(MarketBase):
     def get_price(self, symbol: str, is_buy: bool) -> float:
         return self.c_get_price(symbol, is_buy)
 
-    async def get_order(self, order_hash: str) -> Dict[str, any]:
-        url = f"{RADAR_RELAY_REST_ENDPOINT}/orders/{order_hash}"
-        response_data = await self._api_request("get", url=url)
-        return response_data
-
-    def get_tx_hash_receipt(self, tx_hash: str) -> Dict[str, any]:
+    def get_tx_hash_receipt(self, tx_hash: str) -> Dict[str, Any]:
         return self._w3.eth.getTransactionReceipt(tx_hash)
 
-    async def list_account_orders(self) -> List[Dict[str, any]]:
+    async def list_account_orders(self) -> List[Dict[str, Any]]:
         url = f"{RADAR_RELAY_REST_ENDPOINT}/accounts/{self._wallet.address}/orders"
         response_data = await self._api_request("get", url=url)
         return response_data
