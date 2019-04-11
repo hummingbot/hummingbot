@@ -12,7 +12,7 @@ from typing import List
 import unittest
 
 import conf
-from wings.market_base import OrderType
+from wings.market.market_base import OrderType
 from wings.market.coinbase_pro_market import CoinbaseProMarket
 from wings.clock import (
     Clock,
@@ -29,7 +29,7 @@ from wings.events import (
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent)
 from wings.event_logger import EventLogger
-from wings.web3_wallet import Web3Wallet
+from wings.wallet.web3_wallet import Web3Wallet
 from wings.ethereum_chain import EthereumChain
 
 
@@ -103,6 +103,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
     def run_parallel(self, *tasks):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
+    # @unittest.skip
     def test_limit_buy(self):
         self.assertGreater(self.market.get_balance("ETH"), 0.1)
         symbol = "ETH-USDC"
@@ -134,6 +135,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         # Reset the logs
         self.market_logger.clear()
 
+    # @unittest.skip
     def test_limit_sell(self):
         symbol = "ETH-USDC"
         amount: float = 0.02
@@ -163,6 +165,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
+    @unittest.skip
     def test_market_buy(self):
         self.assertGreater(self.market.get_balance("ETH"), 0.1)
         symbol = "ETH-USD"
@@ -191,6 +194,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
+    @unittest.skip
     def test_market_sell(self):
         symbol = "ETH-USD"
         amount: float = 0.02
@@ -216,6 +220,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         # Reset the logs
         self.market_logger.clear()
 
+    @unittest.skip
     def test_cancel_order(self):
         self.assertGreater(self.market.get_balance("ETH"), 10)
         symbol = "ETH-USDC"
@@ -233,6 +238,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         order_cancelled_event: OrderCancelledEvent = order_cancelled_event
         self.assertEqual(order_cancelled_event.order_id, client_order_id)
 
+    @unittest.skip
     def test_cancel_all(self):
         symbol = "ETH-USDC"
         bid_price: float = self.market.get_price(symbol, True) * 0.5
@@ -251,8 +257,8 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
 
-    @unittest.skipUnless(any("test_get_order" in arg for arg in sys.argv), "Get order test requires manual action.")
-    def test_get_order(self):
+    @unittest.skipUnless(any("test_list_orders" in arg for arg in sys.argv), "List order test requires manual action.")
+    def test_list_orders(self):
         self.assertGreater(self.market.get_balance("ETH"), 0.1)
         symbol = "ETH-USDC"
         amount: float = 0.02
@@ -262,9 +268,10 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         bid_price: float = current_bid_price + 0.05 * current_bid_price
         quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
-        order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
-        [order_details] = self.run_parallel(self.market.get_order(order_id))
-        self.assertEqual(order_details["side"], "buy")
+        self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        self.run_parallel(asyncio.sleep(1))
+        [order_details] = self.run_parallel(self.market.list_orders())
+        self.assertGreaterEqual(len(order_details), 1)
 
         self.market_logger.clear()
 
