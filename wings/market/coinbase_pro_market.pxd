@@ -7,6 +7,7 @@ from wings.transaction_tracker cimport TransactionTracker
 cdef class CoinbaseProMarket(MarketBase):
     cdef:
         object _order_book_tracker
+        object _user_stream_tracker
         object _coinbase_auth
         dict _account_balances
         object _ev_loop
@@ -23,6 +24,8 @@ cdef class CoinbaseProMarket(MarketBase):
         public object _status_polling_task
         public object _order_tracker_task
         public object _coro_scheduler_task
+        public object _user_stream_tracker_task
+        public object _user_stream_event_listener_task
         public object _shared_client
 
     cdef c_start_tracking_order(self, str order_id, str exchange_order_id, str symbol, bint is_buy, object order_type,
