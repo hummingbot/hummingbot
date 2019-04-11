@@ -81,7 +81,7 @@ class BinanceTime:
         return cls._bt_shared_instance
 
     def __init__(self, check_interval: float = 60.0):
-        self._time_offset_ms = 0.0
+        self._time_offset_ms = []
         self._set_server_time_offset_task = None
         self._started = False
         self.SERVER_TIME_OFFSET_CHECK_INTERVAL = check_interval
@@ -92,7 +92,9 @@ class BinanceTime:
 
     @property
     def time_offset_ms(self):
-        return self._time_offset_ms
+        if not self._time_offset_ms:
+            return 0.0
+        return sum(self._time_offset_ms)/len(self._time_offset_ms)
 
     def set_time_offset_ms(self, offset):
         self._time_offset_ms = offset
