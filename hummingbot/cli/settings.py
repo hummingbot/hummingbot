@@ -183,6 +183,8 @@ def read_configs_from_yml(strategy_file_path: str = None):
                         continue
                     cvar = cm.get(key)
                     val_in_file = data.get(key)
+                    if cvar is None:
+                        raise ValueError(f"Cannot find corresponding config to key {key}.")
                     cvar.value = val_in_file
                     if val_in_file is not None and not cvar.validate(val_in_file):
                         logging.getLogger().error("Invalid value %s for config variable %s" %
@@ -427,8 +429,11 @@ def parse_cvar_value(cvar: ConfigVar, value: any):
     elif cvar.type == 'int':
         return int(value)
     elif cvar.type == 'bool':
-        if type(value) == str and value.lower() in ["true", "yes"]:
-            return True
+        if type(value) == str:
+            if value.lower() in ["true", "yes"]:
+                return True
+            elif value.lower() in ["false", "no"]:
+                return False
         else:
             return bool(value)
     else:
