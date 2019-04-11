@@ -21,7 +21,6 @@ import logging
 NaN = float("nan")
 as_logger = None
 
-
 cdef class BaseArbitrageStrategyEventListener(EventListener):
     cdef:
         ArbitrageStrategy _owner
@@ -44,11 +43,9 @@ cdef class OrderFailedListener(BaseArbitrageStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_fail_order(arg)
 
-
 cdef class OrderCancelledListener(BaseArbitrageStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_cancel_order(arg)
-
 
 cdef class ArbitrageStrategy(StrategyBase):
     BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
@@ -78,9 +75,9 @@ cdef class ArbitrageStrategy(StrategyBase):
                  logging_options: int = OPTION_LOG_ORDER_COMPLETED,
                  status_report_interval: float = 900,
                  next_trade_delay_interval: float = 15.0):
+
         if len(market_pairs) < 0:
             raise ValueError(f"market_pairs must not be empty.")
-
         super().__init__()
         self._logging_options = logging_options
         self._market_pairs = market_pairs
@@ -380,6 +377,8 @@ cdef class ArbitrageStrategy(StrategyBase):
         cdef:
             double total_bid_value = 0 # total revenue
             double total_ask_value = 0 # total cost
+            double total_bid_value_adjusted = 0 # total revenue adjusted with exchange rate conversion
+            double total_ask_value_adjusted = 0 # total cost adjusted with exchange rate conversion
             double total_profitable_base_amount = 0
             double final_profitability = 0
             double profitability
@@ -434,14 +433,17 @@ cdef class ArbitrageStrategy(StrategyBase):
                 )
             return
 
-        profitable_orders = self.c_find_profitable_arbitrage_orders(buy_order_book,
+        profitable_orders = self.c_find_profitable_arbitrage_orders(self._min_profitability,
+                                                                    buy_order_book,
                                                                     sell_order_book,
                                                                     buy_market_quote_currency,
                                                                     sell_market_quote_currency)
         # see if each step meets the profit level, and is within the wallet balance
-        for bid_price, ask_price, amount in profitable_orders:
+        for bid_price_adjusted, ask_price_adjusted, bid_price, ask_price, amount in profitable_orders:
             # accumulated profitability
-            profitability = (total_bid_value + bid_price * amount) / (total_ask_value + ask_price * amount)
+            profitability = (total_bid_value_adjusted + bid_price_adjusted * amount) / \
+                            (total_ask_value_adjusted + ask_price_adjusted * amount)
+
             buy_market_quote_asset = buy_market.c_get_balance(buy_market_quote_currency)
             sell_market_base_asset = sell_market.c_get_balance(sell_market_base_currency)
 
@@ -475,6 +477,8 @@ cdef class ArbitrageStrategy(StrategyBase):
 
             total_bid_value += bid_price * amount
             total_ask_value += ask_price * amount
+            total_bid_value_adjusted += bid_price_adjusted * amount
+            total_ask_value_adjusted += ask_price_adjusted * amount
             total_profitable_base_amount += amount
             final_profitability = profitability
 
@@ -547,10 +551,20 @@ cdef class ArbitrageStrategy(StrategyBase):
         return market.c_sell(symbol, amount, order_type=order_type, price=price)
 
     @classmethod
-    def find_profitable_arbitrage_orders(cls, sell_order_book: OrderBook, buy_order_book: OrderBook):
-        return cls.c_find_profitable_arbitrage_orders()
+    def find_profitable_arbitrage_orders(cls,
+                                         min_profitability,
+                                         sell_order_book: OrderBook,
+                                         buy_order_book: OrderBook,
+                                         buy_market_quote_currency,
+                                         sell_market_quote_currency):
+        return cls.c_find_profitable_arbitrage_orders(min_profitability,
+                                                      sell_order_book,
+                                                      buy_order_book,
+                                                      buy_market_quote_currency,
+                                                      sell_market_quote_currency)
 
     cdef list c_find_profitable_arbitrage_orders(self,
+                                                 double min_profitability,
                                                  OrderBook buy_order_book,
                                                  OrderBook sell_order_book,
                                                  str buy_market_quote_currency,
@@ -566,8 +580,8 @@ cdef class ArbitrageStrategy(StrategyBase):
             double ask_leftover_amount = 0
             object current_bid = None
             object current_ask = None
-            double current_bid_price
-            double current_ask_price
+            double current_bid_price_adjusted
+            double current_ask_price_adjusted
 
         profitable_orders = []
         bid_it = sell_order_book.bid_entries()
@@ -599,16 +613,20 @@ cdef class ArbitrageStrategy(StrategyBase):
                     break
 
                 # adjust price based on the quote token rates
-                current_bid_price = self.exchange_rate_conversion.adjust_token_rate(sell_market_quote_currency,
-                                                                                    current_bid.price)
-                current_ask_price = self.exchange_rate_conversion.adjust_token_rate(buy_market_quote_currency,
-                                                                                    current_ask.price)
+                current_bid_price_adjusted = self.exchange_rate_conversion.adjust_token_rate(sell_market_quote_currency,
+                                                                                             current_bid.price)
+                current_ask_price_adjusted = self.exchange_rate_conversion.adjust_token_rate(buy_market_quote_currency,
+                                                                                             current_ask.price)
                 # arbitrage not possible
-                if current_bid_price/current_ask_price < (1 + self._min_profitability):
+                if current_bid_price_adjusted/current_ask_price_adjusted < (1 + min_profitability):
                     break
 
                 step_amount = min(bid_leftover_amount, ask_leftover_amount)
-                profitable_orders.append((current_bid_price, current_ask_price, step_amount))
+                profitable_orders.append((current_bid_price_adjusted,
+                                          current_ask_price_adjusted,
+                                          current_bid.price,
+                                          current_ask.price,
+                                          step_amount))
 
                 ask_leftover_amount -= step_amount
                 bid_leftover_amount -= step_amount
