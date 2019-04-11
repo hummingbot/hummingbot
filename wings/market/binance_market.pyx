@@ -37,10 +37,14 @@ from wings.events import (
     OrderCancelledEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
-    MarketTransactionFailureEvent, TradeType)
+    MarketTransactionFailureEvent,
+    OrderType,
+    TradeType,
+    FeeType,
+    TradeFee
+)
 from wings.market.market_base import (
     MarketBase,
-    OrderType,
     NaN
 )
 from wings.order_book_tracker import (
@@ -462,6 +466,27 @@ cdef class BinanceMarket(MarketBase):
             if receipt.status == 0:
                 self.c_did_fail_tx(d.tracking_id)
             d.has_tx_receipt = True
+
+    async def calculate_fees(self,
+                             trading_pair: str,
+                             amount: str,
+                             price: str,
+                             order_type: OrderType,
+                             order_side: TradeType) -> TradeFee:
+        res = await self.query_api(self._binance_client.get_trade_fee, symbol=trading_pair)
+        print('******* res ', res)
+        maker_trade_fee = res["tradeFee"][0]["maker"]
+        taker_trade_fee = res["tradeFee"][0]["taker"]
+        trade_fee = maker_trade_fee if OrderType.LIMIT else taker_trade_fee
+        if order_side is TradeType.BUY:
+            fee_type = FeeType.SUB_BASE
+            fee_amount = float(Decimal(amount) * Decimal(trade_fee))
+        elif order_side is TradeType.SELL:
+            fee_type = FeeType.SUB_QUOTE
+            fee_amount = float(Decimal(amount) * Decimal(trade_fee) * Decimal(price))
+        else:
+            raise ValueError(f"Unable to calculate fees; invalid order side - {order_side}.")
+        return TradeFee(symbol=trading_pair, type=fee_type, fee_amount=fee_amount, price=price, trade_amount=amount)
 
     async def _check_deposit_completion(self):
         if len(self._in_flight_deposits) < 1:
