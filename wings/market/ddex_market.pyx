@@ -16,9 +16,6 @@ from web3 import Web3
 from wings.clock cimport Clock
 from wings.limit_order import LimitOrder
 from wings.market.market_base cimport MarketBase
-from wings.market.market_base import (
-    OrderType
-)
 from wings.wallet.web3_wallet import Web3Wallet
 from wings.order_book cimport OrderBook
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
@@ -29,10 +26,13 @@ from wings.events import (
     SellOrderCompletedEvent,
     OrderFilledEvent,
     OrderCancelledEvent,
-    TradeType,
     MarketTransactionFailureEvent,
     BuyOrderCreatedEvent,
-    SellOrderCreatedEvent
+    SellOrderCreatedEvent,
+    OrderType,
+    TradeType,
+    FeeType,
+    TradeFee
 )
 from wings.cancellation_result import CancellationResult
 
@@ -439,6 +439,18 @@ cdef class DDEXMarket(MarketBase):
                 raise IOError(f"Request to {url} has failed", data)
             self.logger().debug(f"{data}")
             return data
+
+    async def calculate_fees(self, trading_pair: str, amount: str, price: str, order_type: OrderType) -> Tuple[str, str]:
+        calc_fee_url = f"{self.DDEX_REST_ENDPOINT}/fees"
+        data = {
+            "amount": amount,
+            "marketId": trading_pair,
+            "price": price,
+        }
+        res = await self._api_request(http_method="get", url=calc_fee_url, data=data)
+        base_fee = "0"
+        quote_fee = res["data"]["asMakerTotalFeeAmount"] if order_type is OrderType.LIMIT else res["data"]["asTakerTotalFeeAmount"]
+        return base_fee, quote_fee
 
     async def build_unsigned_order(self, amount: str, price: str, side: str, symbol: str, order_type: OrderType,
                                    expires: int) -> Dict[str, any]:

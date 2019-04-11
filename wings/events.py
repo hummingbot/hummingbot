@@ -167,6 +167,21 @@ class OrderType(Enum):
     LIMIT = 2
 
 
+class FeeType(Enum):
+    ADD_BASE = 1
+    ADD_QUOTE = 2
+    SUB_BASE = 3
+    SUB_QUOTE = 4
+
+
+class TradeFee(NamedTuple):
+    trade_amount: float
+    fee_amount: float
+    price: float
+    symbol: str
+    type: FeeType
+
+
 class OrderBookTradeEvent(NamedTuple):
     symbol: str
     timestamp: float
