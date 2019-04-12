@@ -6,6 +6,7 @@ import argparse
 from eth_account.local import LocalAccount
 import pandas as pd
 import re
+from six import string_types
 from typing import (
     List,
     Dict,
@@ -267,15 +268,17 @@ class HummingbotApplication:
         self.placeholder_mode = True
         self.app.toggle_hide_input()
 
+        single_key = len(keys) == 1
+
         async def single_prompt(cvar: ConfigVar):
-            if cvar.required:
+            if cvar.required or single_key:
                 val = await self.app.prompt(prompt=cvar.prompt, is_password=cvar.is_secure)
                 if not cvar.validate(val):
                     self.app.log("%s is not a valid %s value" % (val, cvar.key))
                     val = await single_prompt(cvar)
             else:
                 val = cvar.value
-            if val is None or len(val) == 0:
+            if val is None or (isinstance(val, string_types) and len(val) == 0):
                 val = cvar.default
             return val
 
@@ -331,7 +334,6 @@ class HummingbotApplication:
         binance_api_secret = global_config_map.get("binance_api_secret").value
 
         for market_name, symbol in market_names:
-            market = None
             if market_name == "ddex" and self.wallet:
                 market = DDEXMarket(wallet=self.wallet,
                                     web3_url=ethereum_rpc_url,
