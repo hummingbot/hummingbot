@@ -77,4 +77,7 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     stop_parser = subparsers.add_parser('stop', help='Stop the bot\'s active strategy')
     stop_parser.set_defaults(func=lambda **kwargs: asyncio.ensure_future(hummingbot.stop(**kwargs)))
 
+    export_private_key_parser = subparsers.add_parser('export_private_key', help='Print your account private key')
+    export_private_key_parser.set_defaults(func=lambda: asyncio.ensure_future(hummingbot.export_private_key()))
+
     return parser
