@@ -1,7 +1,6 @@
 import aiohttp
 import asyncio
 from async_timeout import timeout
-import hmac, hashlib, base64
 from decimal import (
     Decimal
 )
@@ -15,6 +14,7 @@ from typing import (
     AsyncIterable,
 )
 from web3 import Web3
+from libc.stdint cimport int64_t
 
 from wings.clock cimport Clock
 from wings.events import (
@@ -37,6 +37,7 @@ from wings.order_book_tracker import (
     OrderBookTrackerDataSourceType
 )
 from wings.order_book cimport OrderBook
+from wings.market.coinbase_pro_auth import CoinbaseProAuth
 from wings.tracker.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from wings.tracker.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
 from wings.cancellation_result import CancellationResult
@@ -46,37 +47,6 @@ from wings.wallet.wallet_base cimport WalletBase
 
 s_logger = None
 s_decimal_0 = Decimal(0)
-
-
-class CoinbaseProAuth:
-    def __init__(self, api_key, secret_key, passphrase):
-        self.api_key = api_key
-        self.secret_key = secret_key
-        self.passphrase = passphrase
-
-    def generate_auth_dict(self, method: str, path_url: str, body: str = "") -> Dict[str, any]:
-        timestamp = str(time.time())
-        message = timestamp + method.upper() + path_url + body
-        hmac_key = base64.b64decode(self.secret_key)
-        signature = hmac.new(hmac_key, message.encode('utf8'), hashlib.sha256)
-        signature_b64 = base64.b64encode(bytes(signature.digest())).decode('utf8')
-
-        return {
-            'signature': signature_b64,
-            'timestamp': timestamp,
-            'key': self.api_key,
-            'passphrase': self.passphrase,
-        }
-
-    def get_headers(self, method: str, path_url: str, body: str = "") -> Dict[str, any]:
-        header_dict = self.generate_auth_dict(method, path_url, body)
-        return {
-            'CB-ACCESS-SIGN': header_dict["signature"],
-            'CB-ACCESS-TIMESTAMP': header_dict["timestamp"],
-            'CB-ACCESS-KEY': header_dict["key"],
-            'CB-ACCESS-PASSPHRASE': header_dict["passphrase"],
-            'Content-Type': 'application/json',
-        }
 
 
 cdef class InFlightOrder:
@@ -146,7 +116,7 @@ cdef class InFlightOrder:
     def order_type_description(self) -> str:
         order_type = "market" if self.order_type is OrderType.MARKET else "limit"
         side = "buy" if self.is_buy else "sell"
-        return f"{order_type}{side}"
+        return f"{order_type} {side}"
 
     def update_exchange_order_id(self, exchange_id: str):
         self.exchange_order_id = exchange_id
@@ -243,6 +213,7 @@ cdef class CoinbaseProMarket(MarketBase):
 
     DEPOSIT_TIMEOUT = 1800.0
     API_CALL_TIMEOUT = 10.0
+    UPDATE_ORDERS_INTERVAL = 10.0
 
     COINBASE_API_ENDPOINT = "https://api.pro.coinbase.com"
 
@@ -272,6 +243,7 @@ cdef class CoinbaseProMarket(MarketBase):
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
+        self._last_order_update_timestamp = 0
         self._poll_interval = poll_interval
         self._in_flight_deposits = {}
         self._in_flight_orders = {}
@@ -406,13 +378,9 @@ cdef class CoinbaseProMarket(MarketBase):
 
     async def _update_order_status(self):
         cdef:
-            # This is intended to be a backup measure to close straggler orders, in case Coinbase's user stream events
-            # are not working.
-            # The poll interval for order status is 10 seconds.
-            int64_t last_tick = <int64_t>(self._last_timestamp / 10.0)
-            int64_t current_tick = <int64_t>(self._current_timestamp / 10.0)
+            double current_timestamp = self._current_timestamp
 
-        if len(self._in_flight_orders) == 0:
+        if current_timestamp - self._last_order_update_timestamp <= self.UPDATE_ORDERS_INTERVAL:
             return
 
         tracked_orders = list(self._in_flight_orders.values())
@@ -428,7 +396,6 @@ cdef class CoinbaseProMarket(MarketBase):
                 continue
 
             # Calculate the newly executed amount for this update.
-            previous_is_done = tracked_order.is_done
             new_confirmed_amount = float(order_update["filled_size"])
             execute_amount_diff = new_confirmed_amount - float(tracked_order.executed_amount)
             execute_price = 0 if new_confirmed_amount == 0 \
@@ -494,6 +461,7 @@ cdef class CoinbaseProMarket(MarketBase):
                                              tracked_order.client_order_id
                                          ))
                 self.c_stop_tracking_order(tracked_order.client_order_id)
+        self._last_order_update_timestamp = current_timestamp
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
@@ -508,9 +476,102 @@ cdef class CoinbaseProMarket(MarketBase):
     async def _user_stream_event_listener(self):
         async for event_message in self._iter_user_event_queue():
             try:
-                print(event_message)
-                event_type = event_message.get("type")
-                exchange_order_id = event_message.get("order_id")
+                content = event_message.content
+                event_type = content.get("type")
+                exchange_order_ids = [content.get("order_id"),
+                                      content.get("maker_order_id"),
+                                      content.get("taker_order_id")]
+
+                tracked_order = None
+                # There should only be one matched order, but just in case
+                for client_order_id in self._in_flight_orders:
+                    order = self._in_flight_orders.get(client_order_id)
+                    if order.exchange_order_id in exchange_order_ids:
+                        tracked_order = order
+                        break
+
+                if tracked_order is None:
+                    continue
+
+                order_type_description = tracked_order.order_type_description
+                execute_price = float(content.get("price")) if content.get("price") is not None else 0.0
+                execute_amount_diff = 0.0
+
+                if event_type == "open":
+                    remaining_size = float(content.get("remaining_size"))
+                    new_confirmed_amount = float(tracked_order.amount) - remaining_size
+                    execute_amount_diff = new_confirmed_amount - float(tracked_order.executed_amount)
+                    tracked_order.executed_amount = Decimal(new_confirmed_amount)
+                    tracked_order.quote_asset_amount = tracked_order.quote_asset_amount + \
+                                                       Decimal(execute_amount_diff * execute_price)
+                elif event_type == "done":
+                    remaining_size = float(content.get("remaining_size"))
+                    reason = content.get("reason")
+                    if reason == "filled":
+                        new_confirmed_amount = float(tracked_order.amount) - remaining_size
+                        execute_amount_diff = new_confirmed_amount - float(tracked_order.executed_amount)
+                        tracked_order.executed_amount = Decimal(new_confirmed_amount)
+                        tracked_order.quote_asset_amount = tracked_order.quote_asset_amount + \
+                                                       Decimal(execute_amount_diff * execute_price)
+                        tracked_order.last_state = "done"
+
+                        if tracked_order.is_buy:
+                            self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
+                                               f"according to Coinbase Pro user stream.")
+                            self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
+                                                 BuyOrderCompletedEvent(self._current_timestamp,
+                                                                        tracked_order.client_order_id,
+                                                                        tracked_order.base_asset,
+                                                                        tracked_order.quote_asset,
+                                                                        (tracked_order.fee_asset
+                                                                         or tracked_order.base_asset),
+                                                                        float(tracked_order.executed_amount),
+                                                                        float(tracked_order.quote_asset_amount),
+                                                                        float(tracked_order.fee_paid)))
+                        else:
+                            self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
+                                               f"according to Coinbase Pro user stream.")
+                            self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
+                                                 SellOrderCompletedEvent(self._current_timestamp,
+                                                                         tracked_order.client_order_id,
+                                                                         tracked_order.base_asset,
+                                                                         tracked_order.quote_asset,
+                                                                         (tracked_order.fee_asset
+                                                                          or tracked_order.quote_asset),
+                                                                         float(tracked_order.executed_amount),
+                                                                         float(tracked_order.quote_asset_amount),
+                                                                         float(tracked_order.fee_paid)))
+                    else: # reason == "canceled":
+                        execute_amount_diff = 0
+                        tracked_order.last_state = "canceled"
+                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                            OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
+                        execute_amount_diff = 0
+                elif event_type == "match":
+                    execute_amount_diff = float(content.get("size"))
+                    tracked_order.executed_amount += Decimal(execute_amount_diff)
+                    tracked_order.quote_asset_amount = tracked_order.quote_asset_amount + \
+                                                       Decimal(execute_amount_diff * execute_price)
+                elif event_type == "change":
+                    new_size = content.get("new_size")
+                    old_size = content.get("old_size")
+                    tracked_order.amount = Decimal(new_size)
+
+                # Emit event if executed amount is greater than 0.
+                if execute_amount_diff > 0:
+                    order_filled_event = OrderFilledEvent(
+                        self._current_timestamp,
+                        tracked_order.client_order_id,
+                        tracked_order.symbol,
+                        TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
+                        OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT,
+                        execute_price,
+                        execute_amount_diff
+                    )
+                    self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
+                                       f"{order_type_description} order {client_order_id}.")
+                    self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
+
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -541,13 +602,14 @@ cdef class CoinbaseProMarket(MarketBase):
             TradingRule trading_rule = self._trading_rules[symbol]
 
         decimal_amount = self.quantize_order_amount(symbol, amount)
+        decimal_price = self.quantize_order_price(symbol, price)
         if decimal_amount < trading_rule.base_min_size:
             raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.base_min_size}.")
 
         try:
-            self.c_start_tracking_order(order_id, "", symbol, True, order_type, decimal_amount, price)
-            order_result = await self.place_order(order_id, symbol, decimal_amount, True, order_type, price)
+            self.c_start_tracking_order(order_id, "", symbol, True, order_type, decimal_amount, decimal_price)
+            order_result = await self.place_order(order_id, symbol, decimal_amount, True, order_type, decimal_price)
             self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
                                  BuyOrderCreatedEvent(self._current_timestamp, order_type, symbol, decimal_amount,
                                                       0.0 if price is None else price, order_id))
@@ -584,13 +646,14 @@ cdef class CoinbaseProMarket(MarketBase):
             TradingRule trading_rule = self._trading_rules[symbol]
 
         decimal_amount = self.quantize_order_amount(symbol, amount)
+        decimal_price = self.quantize_order_price(symbol, price)
         if decimal_amount < trading_rule.base_min_size:
             raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.base_min_size}.")
 
         try:
-            self.c_start_tracking_order(order_id, "", symbol, False, order_type, decimal_amount, price)
-            order_result = await self.place_order(order_id, symbol, decimal_amount, False, order_type, price)
+            self.c_start_tracking_order(order_id, "", symbol, False, order_type, decimal_amount, decimal_price)
+            order_result = await self.place_order(order_id, symbol, decimal_amount, False, order_type, decimal_price)
             self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
                                  SellOrderCreatedEvent(self._current_timestamp, order_type, symbol, decimal_amount,
                                                       0.0 if price is None else price, order_id))

@@ -12,7 +12,7 @@ from wings.user_stream_tracker import (
     UserStreamTracker
 )
 from wings.data_source.coinbase_pro_api_user_stream_data_source import CoinbaseProAPIUserStreamDataSource
-from wings.market.coinbase_pro_market import CoinbaseProAuth
+from wings.market.coinbase_pro_auth import CoinbaseProAuth
 
 
 class CoinbaseProUserStreamTracker(UserStreamTracker):
