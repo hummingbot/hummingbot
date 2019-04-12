@@ -6,6 +6,9 @@
 # Only fill out the credentials for the markets you are trading on
 binance_api_key: null
 binance_api_secret: null
+coinbase_pro_api_key: null
+coinbase_pro_secret_key: null
+coinbase_pro_passphrase: null
 
 # Ethereum wallet address: required for trading on a DEX
 wallet: null

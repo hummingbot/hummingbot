@@ -33,13 +33,14 @@ CONF_FILE_PATH = "conf/"
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
 
-EXCHANGES = ["binance", "ddex", "radar_relay"]
+EXCHANGES = ["binance", "ddex", "radar_relay", "coinbase_pro"]
 DEXES = ["ddex"]
 STRATEGIES = ["cross_exchange_market_making", "arbitrage"]
 EXAMPLE_PAIRS = {
     "binance": "ZRXETH",
     "ddex": "ZRX-WETH",
     "radar_relay": "ZRX-WETH",
+    "coinbase_pro": "ETH-USDC",
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
@@ -276,11 +277,13 @@ cross_exchange_market_making_config_map = {
                                                          "True, only set to False if maker market is Radar Relay) >>> ",
                                                   type_str="bool",
                                                   default=True),
+    # Setting the default threshold to -1.0 when to active_order_canceling is disabled
+    # prevent canceling orders after it has expired
     "cancel_order_threshold":           ConfigVar(key="cancel_order_threshold",
                                                   prompt="What is the minimum profitability to actively cancel orders? "
-                                                         "(Default to 0.0, only specify when active_order_canceling is "
-                                                         "disabled, value can be negative) >>> ",
-                                                  default=0.0,
+                                                         "(Default to -1.0, only specify when active_order_canceling "
+                                                         "is disabled, value can be negative) >>> ",
+                                                  default=-1.0,
                                                   type_str="float"),
     "limit_order_min_expiration":       ConfigVar(key="limit_order_min_expiration",
                                                   prompt="What is the minimum limit order expiration in seconds? "
@@ -389,6 +392,18 @@ global_config_map = {
     "binance_api_secret":               ConfigVar(key="binance_api_secret",
                                                   prompt="Enter your Binance API secret >>> ",
                                                   required_if=using_exchange("binance"),
+                                                  is_secure=True),
+    "coinbase_pro_api_key":             ConfigVar(key="coinbase_pro_api_key",
+                                                  prompt="Enter your Coinbase API key >>> ",
+                                                  required_if=using_exchange("coinbase_pro"),
+                                                  is_secure=True),
+    "coinbase_pro_secret_key":          ConfigVar(key="coinbase_pro_secret_key",
+                                                  prompt="Enter your Coinbase secret key >>> ",
+                                                  required_if=using_exchange("coinbase_pro"),
+                                                  is_secure=True),
+    "coinbase_pro_passphrase":          ConfigVar(key="coinbase_pro_passphrase",
+                                                  prompt="Enter your Coinbase passphrase >>> ",
+                                                  required_if=using_exchange("coinbase_pro"),
                                                   is_secure=True),
     "wallet":                           ConfigVar(key="wallet",
                                                   prompt="Would you like to import an existing wallet or create a new"
