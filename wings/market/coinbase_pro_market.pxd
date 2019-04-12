@@ -1,5 +1,3 @@
-from libc.stdint cimport int64_t
-
 from wings.market.market_base cimport MarketBase
 from wings.transaction_tracker cimport TransactionTracker
 
@@ -13,6 +11,7 @@ cdef class CoinbaseProMarket(MarketBase):
         object _ev_loop
         object _poll_notifier
         double _last_timestamp
+        double _last_order_update_timestamp
         double _poll_interval
         dict _in_flight_deposits
         dict _in_flight_orders
