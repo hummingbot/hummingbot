@@ -20,6 +20,7 @@ from wings.market.market_base import MarketBase
 from wings.market.binance_market import BinanceMarket
 from wings.market.radar_relay_market import RadarRelayMarket
 from wings.market.ddex_market import DDEXMarket
+from wings.market.coinbase_pro_market import CoinbaseProMarket
 from wings.clock import Clock, ClockMode
 from wings.ethereum_chain import EthereumChain
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
@@ -330,8 +331,6 @@ class HummingbotApplication:
 
     def _initialize_markets(self, market_names: List[Tuple[str, str]]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
-        binance_api_key = global_config_map.get("binance_api_key").value
-        binance_api_secret = global_config_map.get("binance_api_secret").value
 
         for market_name, symbol in market_names:
             if market_name == "ddex" and self.wallet:
@@ -341,6 +340,8 @@ class HummingbotApplication:
                                     symbols=[symbol])
 
             elif market_name == "binance":
+                binance_api_key = global_config_map.get("binance_api_key").value
+                binance_api_secret = global_config_map.get("binance_api_secret").value
                 market = BinanceMarket(web3_url=ethereum_rpc_url,
                                        binance_api_key=binance_api_key,
                                        binance_api_secret=binance_api_secret,
@@ -351,6 +352,16 @@ class HummingbotApplication:
                 market = RadarRelayMarket(wallet=self.wallet,
                                           web3_url=ethereum_rpc_url,
                                           symbols=[symbol])
+
+            elif market_name == "coinbase_pro" and self.wallet:
+                coinbase_pro_api_key = global_config_map.get("coinbase_pro_api_key").value
+                coinbase_pro_secret_key = global_config_map.get("coinbase_pro_secret_key").value
+                coinbase_pro_passphrase = global_config_map.get("coinbase_pro_passphrase").value
+                market = CoinbaseProMarket(web3_url=ethereum_rpc_url,
+                                           coinbase_pro_api_key=coinbase_pro_api_key,
+                                           coinbase_pro_secret_key=coinbase_pro_secret_key,
+                                           coinbase_pro_passphrase=coinbase_pro_passphrase,
+                                           symbols=[symbol])
 
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")

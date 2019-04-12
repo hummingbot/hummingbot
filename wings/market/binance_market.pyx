@@ -695,7 +695,6 @@ cdef class BinanceMarket(MarketBase):
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
 
-
     async def _status_polling_loop(self):
         while True:
             try:
