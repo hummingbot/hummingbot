@@ -9,6 +9,7 @@ from prompt_toolkit.document import Document
 from hummingbot.cli.settings import EXCHANGES, STRATEGIES
 from hummingbot.cli.ui.parser import ThrowingArgumentParser
 from hummingbot.cli.utils.symbol_fetcher import fetch_all
+from hummingbot.cli.utils.wallet_setup import list_wallets
 
 
 class HummingbotCompleter(Completer):
@@ -49,6 +50,10 @@ class HummingbotCompleter(Completer):
                 break
         return WordCompleter(self._symbols.get(market) or [], ignore_case=True)
 
+    @property
+    def _wallet_address_completer(self):
+        return WordCompleter(list_wallets(), ignore_case=True)
+
     def _complete_strategies(self, document: Document) -> bool:
         return "strategy" in self.prompt_text
 
@@ -63,6 +68,9 @@ class HummingbotCompleter(Completer):
 
     def _complete_paths(self, document: Document) -> bool:
         return "path" in self.prompt_text and "file" in self.prompt_text
+
+    def _complete_wallet_addresses(self, document: Document) -> bool:
+        return "Which wallet" in self.prompt_text
 
     def _complete_command(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -85,6 +93,10 @@ class HummingbotCompleter(Completer):
 
         if self._complete_strategies(document):
             for c in self._strategy_completer.get_completions(document, complete_event):
+                yield c
+
+        if self._complete_wallet_addresses(document):
+            for c in self._wallet_address_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_exchanges(document):

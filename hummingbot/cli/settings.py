@@ -183,6 +183,8 @@ def read_configs_from_yml(strategy_file_path: str = None):
                         continue
                     cvar = cm.get(key)
                     val_in_file = data.get(key)
+                    if cvar is None:
+                        raise ValueError(f"Cannot find corresponding config to key {key}.")
                     cvar.value = val_in_file
                     if val_in_file is not None and not cvar.validate(val_in_file):
                         logging.getLogger().error("Invalid value %s for config variable %s" %
@@ -399,12 +401,13 @@ global_config_map = {
                                                   required_if=lambda: True),
     # Whether or not to invoke cancel_all on exit if marketing making on a open order book DEX (e.g. Radar Relay)
     "on_chain_cancel_on_exit":          ConfigVar(key="on_chain_cancel_on_exit",
-                                                  prompt=None,
+                                                  prompt="Would you like to cancel transactions on chain if using an "
+                                                         "open order books exchanges? >>> ",
                                                   required_if=lambda: False,
                                                   type_str="bool",
                                                   default=False),
     "exchange_rate_conversion":         ConfigVar(key="exchange_rate_conversion",
-                                                  prompt=None,
+                                                  prompt="Enter your custom exchange rate conversion settings >>> ",
                                                   required_if=lambda: False,
                                                   type_str="list",
                                                   default=[["DAI", 1.0, "COINCAP_API"],
@@ -429,6 +432,8 @@ def parse_cvar_value(cvar: ConfigVar, value: any):
     elif cvar.type == 'bool':
         if type(value) == str and value.lower() in ["true", "yes"]:
             return True
+        elif type(value) == str and value.lower() in ["false", "no"]:
+            return False
         else:
             return bool(value)
     else:
