@@ -1,13 +1,12 @@
 import aiohttp
 import asyncio
 from async_timeout import timeout
-from decimal import (
-    Decimal
-)
+from decimal import Decimal
 import json
 import logging
 import time
 from typing import (
+    Any,
     Dict,
     List,
     Optional,
@@ -28,14 +27,13 @@ from wings.events import (
     SellOrderCreatedEvent,
     MarketReceivedAssetEvent,
     MarketWithdrawAssetEvent,
-    MarketTransactionFailureEvent)
+    MarketTransactionFailureEvent
+)
 from wings.market.market_base import (
     MarketBase,
     OrderType,
 )
-from wings.order_book_tracker import (
-    OrderBookTrackerDataSourceType
-)
+from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.order_book cimport OrderBook
 from wings.market.coinbase_pro_auth import CoinbaseProAuth
 from wings.tracker.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
@@ -86,7 +84,7 @@ cdef class InFlightOrder:
         self.quote_asset_amount = s_decimal_0
         self.fee_asset = None
         self.fee_paid = s_decimal_0
-        self.last_state = 'open'
+        self.last_state = "open"
         self.exchange_order_id_update_event = asyncio.Event()
 
     def __repr__(self) -> str:
@@ -98,11 +96,12 @@ cdef class InFlightOrder:
 
     @property
     def is_done(self) -> bool:
-        return self.last_state == "done"
+        return self.last_state in {"filled", "canceled" "done"}
 
     @property
     def is_failure(self) -> bool:
-        return self.last_state not in {"open", "active", "pending", "done"}
+        # This is the only known canceled state
+        return self.last_state == "canceled"
 
     @property
     def base_asset(self) -> str:
@@ -123,7 +122,7 @@ cdef class InFlightOrder:
         self.exchange_order_id_update_event.set()
 
     async def get_exchange_order_id(self):
-        if len(self.exchange_order_id) == 0 or self.exchange_order_id is None:
+        if self.exchange_order_id == "":
             await self.exchange_order_id_update_event.wait()
         return self.exchange_order_id
 
@@ -175,7 +174,7 @@ cdef class TradingRule:
         public object base_max_size
 
     @classmethod
-    def parse_exchange_info(cls, trading_rules: List[any]) -> List[TradingRule]:
+    def parse_exchange_info(cls, trading_rules: List[Any]) -> List[TradingRule]:
         cdef:
             list retval = []
         for rule in trading_rules:
@@ -302,7 +301,7 @@ cdef class CoinbaseProMarket(MarketBase):
                            http_method: str,
                            path_url: str = None,
                            url: str = None,
-                           data: Optional[Dict[str, any]] = None) -> Dict[str, any]:
+                           data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         assert path_url is not None or url is not None
 
         url = f"{self.COINBASE_API_ENDPOINT}{path_url}" if url is None else url
@@ -327,7 +326,7 @@ cdef class CoinbaseProMarket(MarketBase):
             set asset_names_to_remove
 
         path_url = "/accounts"
-        account_balances = await self._api_request('get', path_url=path_url)
+        account_balances = await self._api_request("get", path_url=path_url)
 
         for balance_entry in account_balances:
             asset_name = balance_entry["currency"]
@@ -370,7 +369,7 @@ cdef class CoinbaseProMarket(MarketBase):
             int64_t last_tick = <int64_t>(self._last_timestamp / 60.0)
             int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) <= 0:
-            product_info = await self._api_request('get', path_url="/products")
+            product_info = await self._api_request("get", path_url="/products")
             trading_rules_list = TradingRule.parse_exchange_info(product_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
@@ -395,10 +394,11 @@ cdef class CoinbaseProMarket(MarketBase):
                                     f"{order_update}.")
                 continue
 
+            done_reason = order_update.get("done_reason")
             # Calculate the newly executed amount for this update.
             new_confirmed_amount = float(order_update["filled_size"])
             execute_amount_diff = new_confirmed_amount - float(tracked_order.executed_amount)
-            execute_price = 0 if new_confirmed_amount == 0 \
+            execute_price = 0.0 if new_confirmed_amount == 0 \
                             else float(order_update["executed_value"]) / new_confirmed_amount
 
             client_order_id = tracked_order.client_order_id
@@ -420,7 +420,7 @@ cdef class CoinbaseProMarket(MarketBase):
                 self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
             # Update the tracked order
-            tracked_order.last_state = order_update["status"]
+            tracked_order.last_state = done_reason if done_reason in {"filled", "canceled"} else order_update["status"]
             tracked_order.executed_amount = Decimal(new_confirmed_amount)
             tracked_order.quote_asset_amount = Decimal(order_update["executed_value"])
             tracked_order.fee_paid = Decimal(order_update["fill_fees"])
@@ -463,7 +463,7 @@ cdef class CoinbaseProMarket(MarketBase):
                 self.c_stop_tracking_order(tracked_order.client_order_id)
         self._last_order_update_timestamp = current_timestamp
 
-    async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
+    async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, Any]]:
         while True:
             try:
                 yield await self._user_stream_tracker.user_stream.get()
@@ -612,7 +612,7 @@ cdef class CoinbaseProMarket(MarketBase):
             order_result = await self.place_order(order_id, symbol, decimal_amount, True, order_type, decimal_price)
             self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
                                  BuyOrderCreatedEvent(self._current_timestamp, order_type, symbol, decimal_amount,
-                                                      0.0 if price is None else price, order_id))
+                                                      price, order_id))
 
             exchange_order_id = order_result["id"]
             tracked_order = self._in_flight_orders.get(order_id)
@@ -656,7 +656,7 @@ cdef class CoinbaseProMarket(MarketBase):
             order_result = await self.place_order(order_id, symbol, decimal_amount, False, order_type, decimal_price)
             self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
                                  SellOrderCreatedEvent(self._current_timestamp, order_type, symbol, decimal_amount,
-                                                      0.0 if price is None else price, order_id))
+                                                       price, order_id))
 
             exchange_order_id = order_result["id"]
             tracked_order = self._in_flight_orders.get(order_id)
@@ -683,7 +683,6 @@ cdef class CoinbaseProMarket(MarketBase):
     async def execute_cancel(self, symbol: str, order_id: str):
         exchange_order_id = await self._in_flight_orders.get(order_id).get_exchange_order_id()
         path_url = f"/orders/{exchange_order_id}"
-        url = f"{self.COINBASE_API_ENDPOINT}{path_url}"
         try:
             [cancelled_id] = await self._api_request("delete", path_url=path_url)
             if cancelled_id == exchange_order_id:
@@ -705,7 +704,6 @@ cdef class CoinbaseProMarket(MarketBase):
 
         try:
             path_url = "/orders"
-            url = f"{self.COINBASE_API_ENDPOINT}{path_url}"
             async with timeout(timeout_seconds):
                 results = await self._api_request("delete", path_url=path_url)
 
@@ -739,19 +737,19 @@ cdef class CoinbaseProMarket(MarketBase):
             except Exception:
                 self.logger().error("Unexpected error while fetching account updates.", exc_info=True)
 
-    async def get_order(self, client_order_id: str) -> Dict[str, any]:
+    async def get_order(self, client_order_id: str) -> Dict[str, A]:
         order = self._in_flight_orders.get(client_order_id)
         exchange_order_id = await order.get_exchange_order_id()
         path_url = f"/orders/{exchange_order_id}"
         result = await self._api_request("get", path_url=path_url)
         return result
 
-    async def list_orders(self) -> List[any]:
+    async def list_orders(self) -> List[Any]:
         path_url = "/orders?status=all"
         result = await self._api_request("get", path_url=path_url)
         return result
 
-    async def get_transfers(self) -> Dict[str, any]:
+    async def get_transfers(self) -> Dict[str, Any]:
         path_url = "/transfers"
         result = await self._api_request("get", path_url=path_url)
         return result
@@ -767,7 +765,6 @@ cdef class CoinbaseProMarket(MarketBase):
         coinbase_account_id_dict = await self.list_coinbase_accounts()
         account_id = coinbase_account_id_dict.get(currency)
         path_url = f"/coinbase-accounts/{account_id}/addresses"
-        url = f"{self.COINBASE_API_ENDPOINT}{path_url}"
         deposit_result = await self._api_request("post", path_url=path_url)
         return deposit_result.get("address")
 
