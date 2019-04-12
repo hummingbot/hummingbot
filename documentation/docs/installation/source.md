@@ -48,7 +48,7 @@ In a Terminal or bash window, go to the root directory:
 cd hummingbot
 ```
 
-Eun the install script, which creates a custom Anaconda environment and installs the Python libraries and other dependencies needed by the bot:
+Run the install script, which creates a custom Anaconda environment and installs the Python libraries and other dependencies needed by the bot:
 
 ```
 ./install
