@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 from os.path import join, realpath
-import sys
-sys.path.insert(0, realpath(join(__file__, "../../")))
+import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
 import logging
 import unittest
@@ -18,6 +17,7 @@ from wings.order_book_message import CoinbaseProOrderBookMessage
 from wings.order_book_row import OrderBookRow
 
 test_symbol = "BTC-USD"
+
 
 class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
     order_book_tracker: Optional[CoinbaseProOrderBookTracker] = None
@@ -235,6 +235,7 @@ class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
     
         done_ob_row: OrderBookRow = test_active_order_tracker.convert_diff_message_to_order_book_row(done_message)
         self.assertEqual(done_ob_row[1], [OrderBookRow(price, done_size + open_size_2, done_sequence)])
+
 
 def main():
     logging.basicConfig(level=logging.INFO)

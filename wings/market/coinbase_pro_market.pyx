@@ -483,9 +483,7 @@ cdef class CoinbaseProMarket(MarketBase):
                                       content.get("taker_order_id")]
 
                 tracked_order = None
-                # There should only be one matched order, but just in case
-                for client_order_id in self._in_flight_orders:
-                    order = self._in_flight_orders.get(client_order_id)
+                for order in self._in_flight_orders.values():
                     if order.exchange_order_id in exchange_order_ids:
                         tracked_order = order
                         break
@@ -547,15 +545,20 @@ cdef class CoinbaseProMarket(MarketBase):
                         self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                             OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
                         execute_amount_diff = 0
+                    self.c_stop_tracking_order(tracked_order.client_order_id)
                 elif event_type == "match":
                     execute_amount_diff = float(content.get("size"))
                     tracked_order.executed_amount += Decimal(execute_amount_diff)
                     tracked_order.quote_asset_amount = tracked_order.quote_asset_amount + \
                                                        Decimal(execute_amount_diff * execute_price)
                 elif event_type == "change":
-                    new_size = content.get("new_size")
-                    old_size = content.get("old_size")
-                    tracked_order.amount = Decimal(new_size)
+                    if content.get("new_size") is not None:
+                        tracked_order.amount = Decimal(content.get("new_size"))
+                    elif content.get("new_funds") is not None:
+                        if tracked_order.price is not s_decimal_0:
+                            tracked_order.amount = Decimal(content.get("new_funds")) / tracked_order.price
+                    else:
+                        self.logger().error(f"Invalid change message - '{content}'. Aborting.")
 
                 # Emit event if executed amount is greater than 0.
                 if execute_amount_diff > 0:
@@ -569,7 +572,7 @@ cdef class CoinbaseProMarket(MarketBase):
                         execute_amount_diff
                     )
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
-                                       f"{order_type_description} order {client_order_id}.")
+                                       f"{order_type_description} order {tracked_order.client_order_id}.")
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
             except asyncio.CancelledError:
@@ -737,7 +740,7 @@ cdef class CoinbaseProMarket(MarketBase):
             except Exception:
                 self.logger().error("Unexpected error while fetching account updates.", exc_info=True)
 
-    async def get_order(self, client_order_id: str) -> Dict[str, A]:
+    async def get_order(self, client_order_id: str) -> Dict[str, Any]:
         order = self._in_flight_orders.get(client_order_id)
         exchange_order_id = await order.get_exchange_order_id()
         path_url = f"/orders/{exchange_order_id}"
