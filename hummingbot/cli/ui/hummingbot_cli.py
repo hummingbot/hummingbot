@@ -82,6 +82,7 @@ class HummingbotCLI:
 
     async def prompt(self, prompt: str, is_password: bool = False) -> str:
         self.change_prompt(prompt, is_password)
+        self.app.invalidate()
         self.input_event = asyncio.Event()
         await self.input_event.wait()
 
@@ -89,7 +90,7 @@ class HummingbotCLI:
         self.clear_input()
         self.input_event = None
 
-        if "password" in prompt or "secret" in prompt or "key" in prompt:
+        if is_password:
             masked_string = "*" * len(temp)
             self.log(f"{prompt}{masked_string}")
         else:
