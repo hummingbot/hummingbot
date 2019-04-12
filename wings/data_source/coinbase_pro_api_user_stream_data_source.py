@@ -13,7 +13,7 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 from wings.data_source.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from wings.market.coinbase_pro_market import CoinbaseProAuth
+from wings.market.coinbase_pro_auth import CoinbaseProAuth
 from wings.order_book_message import OrderBookMessage
 from wings.orderbook.coinbase_pro_order_book import CoinbaseProOrderBook
 
