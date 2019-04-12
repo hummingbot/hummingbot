@@ -618,14 +618,22 @@ class HummingbotApplication:
             await asyncio.sleep(1)
         self.app.exit()
 
-    def export_private_key(self):
+    async def export_private_key(self):
         if self.acct is None:
-            self.app.log("Your wallet is currently locked. Please enter \"config wallet\""
+            self.app.log("Your wallet is currently locked. Please enter \"config\""
                          " to unlock your wallet first")
         else:
-            self.app.log("Your private key:")
-            self.app.log(self.acct.privateKey.hex())
+            self.placeholder_mode = True
+            self.app.toggle_hide_input()
 
+            ans = await self.app.prompt("Are you sure you want to print your private key in plain text? (y/n) >>> ")
 
+            if ans.lower() in {"y" or "yes"}:
+                self.app.log("\nWarning: Never disclose this key. Anyone with your private keys can steal any assets "
+                             "held in your account.\n")
+                self.app.log("Your private key:")
+                self.app.log(self.acct.privateKey.hex())
 
-
+            self.app.change_prompt(prompt=">>> ")
+            self.app.toggle_hide_input()
+            self.placeholder_mode = False
