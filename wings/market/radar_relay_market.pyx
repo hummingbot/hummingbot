@@ -384,7 +384,6 @@ cdef class RadarRelayMarket(MarketBase):
         if len(self._in_flight_limit_orders) > 0:
             tracked_limit_orders = list(self._in_flight_limit_orders.values())
             order_updates = await self._get_order_updates()
-            print('!!!!!', len(order_updates))
             for order_update, tracked_limit_order in zip(order_updates, tracked_limit_orders):
                 if isinstance(order_update, Exception):
                     self.logger().error(f"Error fetching status update for the order "
