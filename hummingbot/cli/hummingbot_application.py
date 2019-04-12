@@ -603,6 +603,10 @@ class HummingbotApplication:
     async def stop(self, skip_order_cancellation: bool = False):
         self.app.log("\nWinding down...")
         if not skip_order_cancellation:
+            # Remove the strategy from clock before cancelling orders, to
+            # prevent race condition where the strategy tries to create more
+            # ordres during cancellation.
+            self.clock.remove_iterator(self.strategy)
             success = await self._cancel_outstanding_orders()
             if success:
                 # Only erase markets when cancellation has been successful
