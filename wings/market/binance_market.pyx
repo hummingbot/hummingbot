@@ -58,6 +58,8 @@ from wings.cancellation_result import CancellationResult
 from wings.transaction_tracker import TransactionTracker
 from wings.wallet.wallet_base import WalletBase
 from wings.wallet.wallet_base cimport WalletBase
+from collections import deque
+import statistics
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -85,10 +87,11 @@ class BinanceTime:
         return cls._bt_shared_instance
 
     def __init__(self, check_interval: float = 60.0):
-        self._time_offset_ms = 0.0
+        self._time_offset_ms = deque([])
         self._set_server_time_offset_task = None
         self._started = False
         self.SERVER_TIME_OFFSET_CHECK_INTERVAL = check_interval
+        self.median_window = 100
 
     @property
     def started(self):
@@ -96,13 +99,17 @@ class BinanceTime:
 
     @property
     def time_offset_ms(self):
-        return self._time_offset_ms
+        if not self._time_offset_ms or len(self._time_offset_ms) < 3:
+            return 0.0
+        return statistics.median(self._time_offset_ms)
 
     def set_time_offset_ms(self, offset):
-        self._time_offset_ms = offset
+        self._time_offset_ms.append(offset)
+        if len(self._time_offset_ms) > self.median_window :
+            self._time_offset_ms.popleft()
 
     def time(self):
-        return time.time() + self._time_offset_ms * 1e-3
+        return time.time() + self.time_offset_ms * 1e-3
 
     def start(self):
         if self._set_server_time_offset_task is None:
