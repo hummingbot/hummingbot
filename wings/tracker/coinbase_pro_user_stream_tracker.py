@@ -16,7 +16,7 @@ from wings.market.coinbase_pro_auth import CoinbaseProAuth
 
 
 class CoinbaseProUserStreamTracker(UserStreamTracker):
-    _bust_logger: Optional[logging.Logger] = None
+    _cbpust_logger: Optional[logging.Logger] = None
 
     @classmethod
     def logger(cls) -> logging.Logger:

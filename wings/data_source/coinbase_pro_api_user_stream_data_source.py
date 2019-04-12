@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import asyncio
-import aiohttp
 import logging
 from typing import (
     AsyncIterable,
@@ -28,7 +27,7 @@ class CoinbaseProAPIUserStreamDataSource(UserStreamTrackerDataSource):
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
-    _bausds_logger: Optional[logging.Logger] = None
+    _cbpausds_logger: Optional[logging.Logger] = None
 
     @classmethod
     def logger(cls) -> logging.Logger:
