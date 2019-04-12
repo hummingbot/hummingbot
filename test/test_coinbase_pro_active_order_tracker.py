@@ -14,9 +14,7 @@ from typing import (
 from wings.tracker.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from wings.order_book import OrderBook
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
-from wings.order_book_message import (
-    CoinbaseProOrderBookMessage,
-)
+from wings.order_book_message import CoinbaseProOrderBookMessage
 from wings.order_book_row import OrderBookRow
 
 test_symbol = "BTC-USD"
