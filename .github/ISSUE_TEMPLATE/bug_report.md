@@ -27,4 +27,5 @@ Here are the steps to reproduce the issue (see attachments in the section below)
 **Attachments**
 // Attach any relevant configuration files, logs, tx hashes, etc. here.
 
-// NOTE: We understand If you do not want to publish your config/log files. You can instead send them // privately to dev@coinalpha.com and drop a link of this issue in the email.
+// NOTE: We understand If you do not want to publish your config/log files. You can instead send them privately to dev@coinalpha.com and drop a link of this issue in the email.
+// WARNING: Do NOT publish any exchange API keys or your wallet's private key. Whoever has access to them may steal your assets!
