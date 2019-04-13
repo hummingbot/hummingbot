@@ -321,6 +321,23 @@ cdef class RadarRelayMarket(MarketBase):
                 self.logger().error("Unexpected error while fetching account updates.", exc_info=True)
                 await asyncio.sleep(0.5)
 
+    async def calculate_fees(self,
+                             trading_pair: str,
+                             amount: str,
+                             price: str,
+                             order_type: OrderType,
+                             order_side: TradeType) -> TradeFee:
+        calc_fee_url = f"{self.DDEX_REST_ENDPOINT}/fees"
+        data = {
+            "amount": amount,
+            "marketId": trading_pair,
+            "price": price,
+        }
+        res = await self._api_request(http_method="get", url=calc_fee_url, data=data)
+        fee_type = FeeType.ADD_QUOTE if order_side is TradeType.BUY else FeeType.SUB_QUOTE
+        fee_amount = res["data"]["asMakerTotalFeeAmount"] if order_type is OrderType.LIMIT else res["data"]["asTakerTotalFeeAmount"]
+        return TradeFee(symbol=trading_pair, type=fee_type, fee_amount=float(fee_amount), price=float(price), trade_amount=float(amount))
+
     def _update_balances(self):
         self._account_balances = self.wallet.get_all_balances()
 

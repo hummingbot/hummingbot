@@ -484,15 +484,13 @@ cdef class BinanceMarket(MarketBase):
         print('******* res ', res)
         maker_trade_fee = res["tradeFee"][0]["maker"]
         taker_trade_fee = res["tradeFee"][0]["taker"]
-        trade_fee = maker_trade_fee if OrderType.LIMIT else taker_trade_fee
+        trade_fee = maker_trade_fee if order_type is OrderType.LIMIT else taker_trade_fee
         if order_side is TradeType.BUY:
             fee_type = FeeType.SUB_BASE
             fee_amount = float(Decimal(amount) * Decimal(trade_fee))
-        elif order_side is TradeType.SELL:
+        else:
             fee_type = FeeType.SUB_QUOTE
             fee_amount = float(Decimal(amount) * Decimal(trade_fee) * Decimal(price))
-        else:
-            raise ValueError(f"Unable to calculate fees; invalid order side - {order_side}.")
         return TradeFee(symbol=trading_pair, type=fee_type, fee_amount=fee_amount, price=price, trade_amount=amount)
 
     async def _check_deposit_completion(self):
