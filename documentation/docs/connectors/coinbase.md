@@ -1,6 +1,7 @@
 # Coinbase Pro
 
-*Hummingbot support for Coinbase Pro is coming soon*
+!!! warning
+    The Coinbase Pro connector was recently added to Hummingbot and is still undergoing testing. Please check [Known Issues](/support/tips-issues) before using this connector.
 
 ## API keys
 In order to trade on <a href="https://pro.coinbase.com" target="_blank">Coinbase Pro</a>, you need an account and need to <a href="https://support.pro.coinbase.com/customer/en/portal/articles/2945320-how-do-i-create-an-api-key-for-coinbase-pro-" target="_blank">create an  API key</a>. 
