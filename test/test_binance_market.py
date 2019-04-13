@@ -109,7 +109,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
     def run_parallel(self, *tasks):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
-    def test_check_fee(self):
+    def test_calculate_fees(self):
         test = self.run_parallel(self.market.calculate_fees("BTCUSDT", "1", "1", OrderType.LIMIT, TradeType.SELL))
         print("************ test ", test)
         self.assertTrue(test)

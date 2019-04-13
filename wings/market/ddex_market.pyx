@@ -440,7 +440,12 @@ cdef class DDEXMarket(MarketBase):
             self.logger().debug(f"{data}")
             return data
 
-    async def calculate_fees(self, trading_pair: str, amount: str, price: str, order_type: OrderType) -> Tuple[str, str]:
+    async def calculate_fees(self,
+                             trading_pair: str,
+                             amount: str,
+                             price: str,
+                             order_type: OrderType,
+                             order_side: TradeType) -> TradeFee:
         calc_fee_url = f"{self.DDEX_REST_ENDPOINT}/fees"
         data = {
             "amount": amount,
@@ -448,9 +453,9 @@ cdef class DDEXMarket(MarketBase):
             "price": price,
         }
         res = await self._api_request(http_method="get", url=calc_fee_url, data=data)
-        base_fee = "0"
-        quote_fee = res["data"]["asMakerTotalFeeAmount"] if order_type is OrderType.LIMIT else res["data"]["asTakerTotalFeeAmount"]
-        return base_fee, quote_fee
+        fee_type = FeeType.ADD_QUOTE if order_side is TradeType.BUY else FeeType.SUB_QUOTE
+        fee_amount = res["data"]["asMakerTotalFeeAmount"] if order_type is OrderType.LIMIT else res["data"]["asTakerTotalFeeAmount"]
+        return TradeFee(symbol=trading_pair, type=fee_type, fee_amount=float(fee_amount), price=float(price), trade_amount=float(amount))
 
     async def build_unsigned_order(self, amount: str, price: str, side: str, symbol: str, order_type: OrderType,
                                    expires: int) -> Dict[str, any]:
