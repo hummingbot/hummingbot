@@ -2,7 +2,7 @@
 
 ## Why does Hummingbot need my Ethereum wallet private key?
 
-Strategies that transact on decentralized exchanges (such as [Radar Relay](/connectors/radar-relay) and [DDEX](/connectors/ddex)) are direct interactions with that exchange’s smart contracts on the Ethereum blockchain.  Therefore, transactions must be signed and authorized, which requires your private key.
+Strategies that transact on decentralized exchanges (such as [Radar Relay](/connectors/radar-relay) and [DDEX](/connectors/ddex)) directly interact with smart contracts on the Ethereum blockchain. Therefore, transactions must be signed and authorized, which requires your private key.
 
 ## Importing and creating your wallet
 
