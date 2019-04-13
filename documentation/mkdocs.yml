@@ -91,6 +91,7 @@ nav:
     - Connectors:
       - Connectors: connectors.md
       - Binance: connectors/binance.md
+      - Coinbase Pro: connectors/coinbase.md
       - DDEX: connectors/ddex.md
       - Radar Relay: connectors/radar-relay.md
       - 0x open order book relayers: connectors/0x.md
