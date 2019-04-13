@@ -1,16 +1,19 @@
 # Installing Hummingbot
 
-## What do I need to do to start using Hummingbot?
+Hummingbot is tested and supported on the following 64-bit systems:
 
-1. **Inventory of crypto assets**: To run market making and arbitrage strategies, you need some crypto assets on the exchanges or in your Ethereum wallet. 
+* Ubuntu 16.04 or later
+* macOS 10.12.6 (Sierra) or later
+* Windows 11 or later (via <a href="https://docs.microsoft.com/en-us/windows/wsl/faq" target="_blank">Windows Subsystem for Linux</a>)
 
-2. **The Hummingbot client**: You can install `hummingbot` from either [Docker](installation/docker.md) or from [source](installation/source.md)
+## Installation options
 
-3. **Exchange API keys**: To trade on centralized exchanges like Binance, you need exchange-specific API keys. See [API Keys](installation/api-keys.md) for more information.
+### [Run a Docker image](/installation/docker)
+Hummingbot Docker images include all dependencies and run in a virtual environment in any OS.
 
-4. **Ethereum wallet**: To trade on decentralized exchanges like Radar Relay and DDEX, you need an Ethereum wallet. See [Ethereum wallet](installation/wallet.md) for more information.
+*Estimated installation time: 5 minutes*
 
-5. **Ethereum node**: lastly, you will need access to an Ethereum node.  You can either run your own locally or use a publicly available service such as [Alchemy Insights](https://alchemyinsights.io/hummingbot), [QuikNode](https://quiknode.io/) or [Infura](https://infura.io/).
+### [Install from source](/installation/source)
+Installing from source gives you full access to the codebase and allows you to edit strategy and connector files on the fly.
 
-!!! note
-    Since on-chain Ethereum transactions cost gas, make sure that your wallet contains some ETH.
+*Estimated installation time: 10 minutes*
