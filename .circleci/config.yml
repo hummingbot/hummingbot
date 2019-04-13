@@ -11,13 +11,6 @@ jobs:
     steps:
       - checkout
 
-      # Download and cache dependencies
-      # - restore_cache:
-      #     keys:
-      #       - v1-dependencies-{{ checksum ".circleci/requirements-linux.txt" }}
-      #       # fallback to using the latest cache if no exact match is found
-      #       # - v1-dependencies-
-
       - run:
           name: Install Linux Dependencies
           command: |
@@ -36,11 +29,6 @@ jobs:
           command: |
             source activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)
             ./compile
-
-      # - save_cache:
-      #     paths:
-      #       - ./hummingbot
-      #     key: v1-dependencies-{{ checksum ".circleci/requirements-linux.txt" }}
 
       # 
       # Run Tests
