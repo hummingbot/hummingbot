@@ -4,12 +4,19 @@
 version: 2
 jobs:
   build:
-    working_directory: ~/hummingbot
+    working_directory: ~/hummingbot-circleci
     docker:
       # Specify base image: using Anaconda
       - image: continuumio/anaconda3:2018.12
     steps:
       - checkout
+
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum ".circleci/requirements-linux.txt" }}
+            # fallback to using the latest cache if no exact match is found
+            # - v1-dependencies-
 
       - run:
           name: Install Linux Dependencies
@@ -29,6 +36,11 @@ jobs:
           command: |
             source activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)
             ./compile
+
+      - save_cache:
+          paths:
+            - ./hummingbot-circleci
+          key: v1-dependencies-{{ checksum ".circleci/requirements-linux.txt" }}
 
       # 
       # Run Tests
