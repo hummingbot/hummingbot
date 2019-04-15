@@ -502,9 +502,11 @@ cdef class ArbitrageStrategy(StrategyBase):
                 self.log_with_clock(logging.DEBUG,
                     "\n" + pd.DataFrame(
                         data=[
-                            [b_price/a_price, b_price, a_price, amount]
-                            for b_price, a_price, amount in profitable_orders],
-                        columns=['raw_profitability', 'bid_price', 'ask_price', 'step_amount']
+                            [b_price_adjusted/a_price_adjusted,
+                             b_price_adjusted, a_price_adjusted, b_price, a_price, amount]
+                            for b_price_adjusted, a_price_adjusted, b_price, a_price, amount in profitable_orders],
+                        columns=['raw_profitability', 'bid_price_adjusted', 'ask_price_adjusted',
+                                 'bid_price', 'ask_price', 'step_amount']
                     ).to_string()
                 )
 
