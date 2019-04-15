@@ -38,7 +38,8 @@ from wings.events import (
     OrderFilledEvent,
     OrderCancelledEvent,
     MarketTransactionFailureEvent,
-    TradeType
+    TradeType,
+    TradeFee
 )
 from zero_ex.order_utils import (
     generate_order_hash_hex,
@@ -322,21 +323,32 @@ cdef class RadarRelayMarket(MarketBase):
                 await asyncio.sleep(0.5)
 
     async def calculate_fees(self,
-                             trading_pair: str,
+                             trading_pair: str, 
                              amount: str,
                              price: str,
                              order_type: OrderType,
                              order_side: TradeType) -> TradeFee:
-        calc_fee_url = f"{self.DDEX_REST_ENDPOINT}/fees"
-        data = {
-            "amount": amount,
-            "marketId": trading_pair,
-            "price": price,
-        }
-        res = await self._api_request(http_method="get", url=calc_fee_url, data=data)
-        fee_type = FeeType.ADD_QUOTE if order_side is TradeType.BUY else FeeType.SUB_QUOTE
-        fee_amount = res["data"]["asMakerTotalFeeAmount"] if order_type is OrderType.LIMIT else res["data"]["asTakerTotalFeeAmount"]
-        return TradeFee(symbol=trading_pair, type=fee_type, fee_amount=float(fee_amount), price=float(price), trade_amount=float(amount))
+        # there are no fees for makers on Radar Relay
+        if order_type is OrderType.LIMIT:
+            return TradeFee(symbol=trading_pair, type=FeeType.SUB_QUOTE, fee_amount=0.0, price=float(price), trade_amount=float(amount))
+        # only fee for takers is gas cost of transaction
+        response = await self.request_signed_market_orders(symbol=symbol,
+                                                           side=side,
+                                                           amount=str(amount))
+        signed_market_orders = response["orders"]
+        average_price = float(response["averagePrice"])
+        base_asset_decimals = self.trading_rules.get(symbol).amount_decimals
+        amt_with_decimals = int(Decimal(amount) * Decimal(f"1e{base_asset_decimals}"))
+
+        signatures = []
+        orders = []
+        for order in signed_market_orders:
+            signatures.append(order["signature"])
+            del order["signature"]
+            orders.append(jsdict_order_to_struct(order))
+        tx_hash = self._exchange.estimate_gas(orders, amt_with_decimals, signatures)
+
+        return TradeFee(symbol=trading_pair, type=FeeType.SUB_QUOTE, fee_amount=0.0, price=float(price), trade_amount=float(amount))
 
     def _update_balances(self):
         self._account_balances = self.wallet.get_all_balances()
