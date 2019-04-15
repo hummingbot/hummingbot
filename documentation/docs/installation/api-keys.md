@@ -1,3 +1,8 @@
-This is a stub. Help our community expand it.
+# API keys
 
-Please use the [Contributor's Guide](https://github.com/coinalpha/hummingbot/blob/master/CONTRIBUTING.md) to ensure your pull request gets accepted.
+In order to trade on a centralized exchange, you will need to import its API key related credentials to Hummingbot.
+
+Please see below for instructions to find the API key for each exchange:
+
+* [Binance](/connectors/binance)
+* [Coinbase Pro](/connectors/coinbase)

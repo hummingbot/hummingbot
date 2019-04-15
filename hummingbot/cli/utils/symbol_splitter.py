@@ -29,7 +29,7 @@ class SymbolSplitter:
             if market == "binance":
                 m = BINANCE_SYMBOL_SPLITTER.match(symbol)
                 result: Tuple = (m.group(1), m.group(2))
-            elif market in ["ddex", "radar_relay"]:
+            elif market in ["ddex", "radar_relay", "coinbase_pro"]:
                 result: Tuple = tuple(symbol.split('-'))
             else:
                 raise ValueError("Market %s not supported" % (market,))

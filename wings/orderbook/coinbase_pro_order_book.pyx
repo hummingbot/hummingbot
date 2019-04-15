@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 import ujson
-from decimal import Decimal
 import logging
 from typing import (
     Dict,
     List,
     Optional,
-    Tuple
 )
 
 from sqlalchemy.engine import RowProxy
@@ -17,7 +15,7 @@ from wings.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType
 )
-from wings.order_book_row import OrderBookRow
+
 _cbpob_logger = None
 
 
@@ -51,7 +49,7 @@ cdef class CoinbaseProOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         if "time" in msg:
-            msg_time: float = pd.Timestamp(msg["time"]).timestamp()
+            msg_time = pd.Timestamp(msg["time"]).timestamp()
         return CoinbaseProOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=msg,
