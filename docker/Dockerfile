@@ -9,6 +9,7 @@ ARG LINUX_PACKAGE
 
 COPY dist/${LINUX_PACKAGE} .
 COPY setup/environment-dist.yml setup/
+COPY LICENSE .
 
 # Update Conda
 RUN conda update -n base -c defaults conda
