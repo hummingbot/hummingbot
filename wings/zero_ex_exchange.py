@@ -65,3 +65,19 @@ class ZeroExExchange:
     def cancel_orders_up_to(self, target_order_epoch: int) -> str:
         tx_hash: str = self._wallet.execute_transaction(self._contract.functions.cancelOrdersUpTo(target_order_epoch))
         return tx_hash
+
+    def estimate_gas(self, orders: List[Order], asset_fill_amount: Decimal, signatures: List[str], is_buy: bool) -> int:
+        order_tuples: List[tuple] = [convert_order_to_tuple(order) for order in orders]
+        signatures: List[bytes] = [self._w3.toBytes(hexstr=signature) for signature in signatures]
+        if is_buy:
+            return self._wallet.estimate_gas(
+                self._contract.functions.marketBuyOrders(order_tuples,
+                                                        int(asset_fill_amount),
+                                                        signatures)
+                )
+        else:
+            return self._wallet.estimate_gas(
+                self._contract.functions.marketSellOrders(order_tuples,
+                                                        int(asset_fill_amount),
+                                                        signatures)
+            )
