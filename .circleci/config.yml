@@ -4,7 +4,7 @@
 version: 2
 jobs:
   build:
-    working_directory: ~/hummingbot
+    working_directory: ~/hummingbot-circleci
     docker:
       # Specify base image: using Anaconda
       - image: continuumio/anaconda3:2018.12
@@ -39,7 +39,7 @@ jobs:
 
       - save_cache:
           paths:
-            - ./hummingbot
+            - ./hummingbot-circleci
           key: v1-dependencies-{{ checksum ".circleci/requirements-linux.txt" }}
 
       # 

@@ -17,7 +17,7 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 
 from wings.orderbook.coinbase_pro_order_book import CoinbaseProOrderBook
-from wings.order_book_tracker_data_source import OrderBookTrackerDataSource
+from wings.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.order_book_tracker_entry import (
     CoinbaseProOrderBookTrackerEntry,
     OrderBookTrackerEntry
@@ -205,11 +205,14 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         elif msg_type == "error":
                             raise ValueError(f"Coinbase Pro Websocket received error message - {msg['message']}")
                         elif msg_type in ["open", "match", "change", "done"]:
+                            if msg_type == "done" and "price" not in msg:
+                                # done messages with no price are completed market orders which can be ignored
+                                continue
                             order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(msg)
                             output.put_nowait(order_book_message)
                         elif msg_type in ["received", "activate", "subscriptions"]:
                             # these messages are not needed to track the order book
-                            pass
+                            continue
                         else:
                             raise ValueError(f"Unrecognized Coinbase Pro Websocket message received - {msg}")
             except asyncio.CancelledError:
