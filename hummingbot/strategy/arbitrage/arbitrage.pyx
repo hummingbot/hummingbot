@@ -144,6 +144,10 @@ cdef class ArbitrageStrategy(StrategyBase):
             market_2_base = market_pair.market_2_base_currency
             market_2_quote = market_pair.market_2_quote_currency
             market_2_ob = market_2.c_get_order_book(market_2_symbol)
+            #market1_base_balance = market_1.get_balance(market_1_base)
+            #market1_quote_balance = market_1.get_balance(market_1_quote)
+            #market2_base_balance = market_2.get_balance(market_2_base)
+            #market2_quote_balance = market_2.get_balance(market_2_quote)
 
             market_1_bid_price = self.exchange_rate_conversion.adjust_token_rate(
                 market_pair.market_1_quote_currency, market_1_ob.get_price(False))
