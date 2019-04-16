@@ -140,6 +140,11 @@ class HummingbotApplication:
             self.app.log("Invalid command: %s" % (str(e),))
         except ArgumentParserError as e:
             self.app.log(str(e))
+        except EnvironmentError as e:
+            # Handle order book too thin error more gracefully
+            if "no price quote is possible" in str(e):
+                self.logger().error(f"Order book error: Not enough volume on order book. Please consider choosing a "
+                                    f"trading pair with more volume or trade on a different exchange. {e}")
         except NotImplementedError:
             self.app.log("Command not yet implemented. This feature is currently under development.")
         except Exception as e:
