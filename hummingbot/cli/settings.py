@@ -429,7 +429,7 @@ global_config_map = {
                                                            ["USDT", 1.0],
                                                            ["USDC", 1.0],
                                                            ["TUSD", 1.0]]),
-    "exchange_rate_fetcher":         ConfigVar(key="exchange_rate_conversion",
+    "exchange_rate_fetcher":            ConfigVar(key="exchange_rate_fetcher",
                                                   prompt="Enter your tokens to fetch for exchange rates. >>> ",
                                                   required_if=lambda: False,
                                                   type_str="list",
