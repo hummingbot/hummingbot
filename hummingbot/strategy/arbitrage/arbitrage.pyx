@@ -144,6 +144,10 @@ cdef class ArbitrageStrategy(StrategyBase):
             market_2_base = market_pair.market_2_base_currency
             market_2_quote = market_pair.market_2_quote_currency
             market_2_ob = market_2.c_get_order_book(market_2_symbol)
+            market_1_base_balance = market_1.get_balance(market_1_base)
+            market_1_quote_balance = market_1.get_balance(market_1_quote)
+            market_2_base_balance = market_2.get_balance(market_2_base)
+            market_2_quote_balance = market_2.get_balance(market_2_quote)
 
             market_1_bid_price = self.exchange_rate_conversion.adjust_token_rate(
                 market_pair.market_1_quote_currency, market_1_ob.get_price(False))
@@ -198,13 +202,13 @@ cdef class ArbitrageStrategy(StrategyBase):
                 lines.extend(["", "  No pending market orders."])
 
             # Add warning lines on null balances.
-            if market1_base_balance <= 0:
+            if market_1_base_balance <= 0:
                 warning_lines.append(f"  Primary market {market_1_base} balance is 0. Cannot place order.")
-            if market1_quote_balance <= 0:
+            if market_1_quote_balance <= 0:
                 warning_lines.append(f"  Primary market {market_1_quote} balance is 0. Cannot place order.")
-            if market2_base_balance <= 0:
+            if market_2_base_balance <= 0:
                 warning_lines.append(f"  Secondary market {market_2_base} balance is 0. Cannot place order.")
-            if market2_quote_balance <= 0:
+            if market_2_quote_balance <= 0:
                 warning_lines.append(f"  Secondary market {market_2_quote} balance is 0.Cannot place order.")
 
         if len(warning_lines) > 0:
