@@ -103,7 +103,7 @@ class HummingbotApplication:
             completer=load_completer(self))
 
         self.acct: Optional[LocalAccount] = None
-        self.markets: Dict = {}
+        self.markets: Dict[str, MarketBase] = {}
         self.wallet: Optional[Web3Wallet] = None
         self.strategy_task: Optional[asyncio.Task] = None
         self.strategy: Optional[CrossExchangeMarketMakingStrategy] = None
@@ -273,7 +273,17 @@ class HummingbotApplication:
 
         async def single_prompt(cvar: ConfigVar):
             if cvar.required or single_key:
-                val = await self.app.prompt(prompt=cvar.prompt, is_password=cvar.is_secure)
+                if cvar.key == "strategy_file_path":
+                    val = await self._import_or_create_strategy_config()
+                elif cvar.key == "wallet":
+                    wallets = list_wallets()
+                    if len(wallets) > 0:
+                        val = await self._unlock_wallet()
+                    else:
+                        val = await self._create_or_import_wallet()
+                    logging.getLogger("hummingbot.public_eth_address").info(val)
+                else:
+                    val = await self.app.prompt(prompt=cvar.prompt, is_password=cvar.is_secure)
                 if not cvar.validate(val):
                     self.app.log("%s is not a valid %s value" % (val, cvar.key))
                     val = await single_prompt(cvar)
@@ -293,17 +303,8 @@ class HummingbotApplication:
                     cv: ConfigVar = global_config_map.get(key)
                 else:
                     cv: ConfigVar = strategy_cm.get(key)
-                if key == "wallet":
-                    wallets = list_wallets()
-                    if len(wallets) > 0:
-                        value = await self._unlock_wallet()
-                    else:
-                        value = await self._create_or_import_wallet()
-                    logging.getLogger("hummingbot.public_eth_address").info(value)
-                elif key == "strategy_file_path":
-                    value = await self._import_or_create_strategy_config()
-                else:
-                    value = await single_prompt(cv)
+
+                value = await single_prompt(cv)
                 cv.value = parse_cvar_value(cv, value)
             if not self.config_complete:
                 await inner_loop(self._get_empty_configs())
@@ -353,10 +354,11 @@ class HummingbotApplication:
                                           web3_url=ethereum_rpc_url,
                                           symbols=[symbol])
 
-            elif market_name == "coinbase_pro" and self.wallet:
+            elif market_name == "coinbase_pro":
                 coinbase_pro_api_key = global_config_map.get("coinbase_pro_api_key").value
                 coinbase_pro_secret_key = global_config_map.get("coinbase_pro_secret_key").value
                 coinbase_pro_passphrase = global_config_map.get("coinbase_pro_passphrase").value
+
                 market = CoinbaseProMarket(web3_url=ethereum_rpc_url,
                                            coinbase_pro_api_key=coinbase_pro_api_key,
                                            coinbase_pro_secret_key=coinbase_pro_secret_key,
@@ -562,7 +564,6 @@ class HummingbotApplication:
             raw_primary_symbol = strategy_cm.get("primary_market_symbol").value.upper()
             raw_secondary_symbol = strategy_cm.get("secondary_market_symbol").value.upper()
             min_profitability = strategy_cm.get("min_profitability").value
-
             try:
                 primary_assets: Tuple[str, str] = SymbolSplitter.split(primary_market, raw_primary_symbol)
                 secondary_assets: Tuple[str, str] = SymbolSplitter.split(secondary_market, raw_secondary_symbol)
@@ -570,9 +571,11 @@ class HummingbotApplication:
             except ValueError as e:
                 self.app.log(str(e))
                 return
+
             market_names: List[Tuple[str, str]] = [(primary_market, raw_primary_symbol),
                                                    (secondary_market, raw_secondary_symbol)]
             self._initialize_wallet(token_symbols=list(set(primary_assets + secondary_assets)))
+
             self._initialize_markets(market_names)
             self.market_pair = ArbitrageMarketPair(*([self.markets[primary_market], raw_primary_symbol] +
                                                      list(primary_assets) +
@@ -590,9 +593,11 @@ class HummingbotApplication:
 
         try:
             self.clock = Clock(ClockMode.REALTIME)
-            self.clock.add_iterator(self.wallet)
+            if self.wallet is not None:
+                self.clock.add_iterator(self.wallet)
             for market in self.markets.values():
-                self.clock.add_iterator(market)
+                if market is not None:
+                    self.clock.add_iterator(market)
             self.clock.add_iterator(self.strategy)
             self.strategy_task: asyncio.Task = asyncio.ensure_future(self.clock.run())
             self.app.log(f"\n'{strategy_name}' strategy started.\n"
