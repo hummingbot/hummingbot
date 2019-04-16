@@ -476,12 +476,11 @@ cdef class BinanceMarket(MarketBase):
 
     async def calculate_fees(self,
                              trading_pair: str,
-                             amount: str,
-                             price: str,
+                             amount: float,
+                             price: float,
                              order_type: OrderType,
                              order_side: TradeType) -> TradeFee:
         res = await self.query_api(self._binance_client.get_trade_fee, symbol=trading_pair)
-        print('******* res ', res)
         maker_trade_fee = res["tradeFee"][0]["maker"]
         taker_trade_fee = res["tradeFee"][0]["taker"]
         trade_fee = maker_trade_fee if order_type is OrderType.LIMIT else taker_trade_fee
@@ -491,7 +490,7 @@ cdef class BinanceMarket(MarketBase):
         else:
             fee_type = FeeType.SUB_QUOTE
             fee_amount = float(Decimal(amount) * Decimal(trade_fee) * Decimal(price))
-        return TradeFee(symbol=trading_pair, type=fee_type, fee_amount=fee_amount, price=price, trade_amount=amount)
+        return TradeFee(type=fee_type, amount=fee_amount)
 
     async def _check_deposit_completion(self):
         if len(self._in_flight_deposits) < 1:

@@ -39,7 +39,8 @@ from wings.events import (
     OrderCancelledEvent,
     MarketTransactionFailureEvent,
     TradeType,
-    TradeFee
+    TradeFee,
+    FeeType
 )
 from zero_ex.order_utils import (
     generate_order_hash_hex,
@@ -322,33 +323,37 @@ cdef class RadarRelayMarket(MarketBase):
                 self.logger().error("Unexpected error while fetching account updates.", exc_info=True)
                 await asyncio.sleep(0.5)
 
-    async def calculate_fees(self,
-                             trading_pair: str, 
-                             amount: str,
-                             price: str,
-                             order_type: OrderType,
-                             order_side: TradeType) -> TradeFee:
-        # there are no fees for makers on Radar Relay
+         # there are no fees for makers on Radar Relay
         if order_type is OrderType.LIMIT:
-            return TradeFee(symbol=trading_pair, type=FeeType.SUB_QUOTE, fee_amount=0.0, price=float(price), trade_amount=float(amount))
+            return TradeFee(type=FeeType.SUB_QUOTE, amount=0.0)
         # only fee for takers is gas cost of transaction
-        response = await self.request_signed_market_orders(symbol=symbol,
-                                                           side=side,
+        response = await self.request_signed_market_orders(symbol=trading_pair,
+                                                           side=order_side,
                                                            amount=str(amount))
         signed_market_orders = response["orders"]
-        average_price = float(response["averagePrice"])
-        base_asset_decimals = self.trading_rules.get(symbol).amount_decimals
-        amt_with_decimals = int(Decimal(amount) * Decimal(f"1e{base_asset_decimals}"))
-
+        base_asset_decimals = self.trading_rules.get(trading_pair).amount_decimals
+        amt_with_decimals = Decimal(amount) * Decimal(f"1e{base_asset_decimals}")
         signatures = []
         orders = []
         for order in signed_market_orders:
             signatures.append(order["signature"])
             del order["signature"]
             orders.append(jsdict_order_to_struct(order))
-        tx_hash = self._exchange.estimate_gas(orders, amt_with_decimals, signatures)
-
-        return TradeFee(symbol=trading_pair, type=FeeType.SUB_QUOTE, fee_amount=0.0, price=float(price), trade_amount=float(amount))
+        is_buy = order_side is TradeType.BUY
+        try: 
+            transaction_cost_wei = self._exchange.estimate_transaction_cost(orders, amt_with_decimals, signatures, is_buy)
+        except Exception as e:
+            raise ValueError(f"eth_estimateGas RPC Method Error: {e}")
+        # Radar Relay only uses WETH and DAI as the quote currency
+        quote_symbol = trading_pair.split('-')[1]
+        transaction_cost_eth = transaction_cost_wei / 1e18
+        if quote_symbol == "WETH":
+            fee_type = FeeType.SUB_QUOTE
+        elif quote_symbol == "DAI":
+            fee_type = FeeType.ADD_BASE
+        else:
+            raise ValueError(f"Unrecognized quote symbol: {quote_symbol}. Aborting.")
+        return TradeFee(type=fee_type, amount=transaction_cost_eth)
 
     def _update_balances(self):
         self._account_balances = self.wallet.get_all_balances()
@@ -684,7 +689,7 @@ cdef class RadarRelayMarket(MarketBase):
         signed_market_orders = response["orders"]
         average_price = float(response["averagePrice"])
         base_asset_decimals = self.trading_rules.get(symbol).amount_decimals
-        amt_with_decimals = int(Decimal(amount) * Decimal(f"1e{base_asset_decimals}"))
+        amt_with_decimals = Decimal(amount) * Decimal(f"1e{base_asset_decimals}")
 
         signatures = []
         orders = []

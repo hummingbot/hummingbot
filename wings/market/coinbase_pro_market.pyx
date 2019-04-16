@@ -316,6 +316,19 @@ cdef class CoinbaseProMarket(MarketBase):
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {data}")
             return data
 
+    async def calculate_fees(self,
+                             trading_pair: str,
+                             amount: float,
+                             price: float,
+                             order_type: OrderType,
+                             order_side: TradeType) -> TradeFee:
+        maker_trade_fee = 0.0015
+        taker_trade_fee = 0.0025
+        fee_type = FeeType.ADD_QUOTE if order_side is TradeType.BUY else FeeType.SUB_QUOTE
+        trade_fee = maker_trade_fee if order_type is OrderType.LIMIT else taker_trade_fee
+        fee_amount = float(Decimal(amount) * Decimal(price) * Decimal(trade_fee))
+        return TradeFee(type=fee_type, amount=fee_amount)
+
     async def _update_balances(self):
         cdef:
             dict account_info

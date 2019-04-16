@@ -313,7 +313,7 @@ class Web3WalletBackend(PubSub):
         signature: str = signature_dict["signature"].hex()
         return signature
 
-    def estimate_gas(self, contract_function: ContractFunction, **kwargs) -> int:
+    def estimate_transaction_cost(self, contract_function: ContractFunction, **kwargs) -> int:
         transaction_args: Dict[str, Any] = {
             "from": self.address,
             "nonce": self.nonce,
@@ -322,7 +322,8 @@ class Web3WalletBackend(PubSub):
         }
         transaction_args.update(kwargs)
         transaction: Dict[str, Any] = contract_function.buildTransaction(transaction_args)
-        return self._w3.eth.estimateGas(transaction)
+        gas_estimate = self._w3.eth.estimateGas(transaction)
+        return gas_estimate * self.gas_price
 
     def execute_transaction(self, contract_function: ContractFunction, **kwargs) -> str:
         gas_price: int = self.gas_price

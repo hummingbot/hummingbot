@@ -20,7 +20,11 @@ from wings.events import (
     SellOrderCompletedEvent,
     WalletWrappedEthEvent,
     WalletUnwrappedEthEvent,
-    BuyOrderCreatedEvent, SellOrderCreatedEvent, OrderFilledEvent)
+    BuyOrderCreatedEvent,
+    SellOrderCreatedEvent,
+    OrderFilledEvent,
+    TradeType
+)
 from wings.event_logger import EventLogger
 from wings.market.market_base import OrderType
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
@@ -103,9 +107,8 @@ class DDEXMarketUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_calculate_fees(self):
-        test = self.run_parallel(self.market.calculate_fees("WETH-DAI", "1", "1", OrderType.LIMIT, TradeType.SELL))
-        print("************ test ", test)
-        self.assertTrue(test)
+        [trade_fee] = self.run_parallel(self.market.calculate_fees("ZRX-WETH", 10000, 0.001, OrderType.LIMIT, TradeType.BUY))
+        self.assertGreater(trade_fee.fee_amount, 0)
 
     # def test_get_wallet_balances(self):
     #     balances = self.market.get_all_balances()

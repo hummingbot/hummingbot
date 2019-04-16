@@ -6,6 +6,7 @@ import logging
 import math
 import time
 from typing import (
+    Any,
     Dict,
     List,
     Optional
@@ -65,7 +66,7 @@ cdef class TradingRule:
         public bint supports_market_orders      # if market order is allowed for this trading pair
 
     @classmethod
-    def parse_exchange_info(cls, markets: List[Dict[str, any]]) -> List[TradingRule]:
+    def parse_exchange_info(cls, markets: List[Dict[str, Any]]) -> List[TradingRule]:
         cdef:
             list retval = []
         for market in markets:
@@ -427,10 +428,11 @@ cdef class DDEXMarket(MarketBase):
     async def _api_request(self,
                            http_method: str,
                            url: str,
-                           data: Optional[Dict[str, any]] = None,
-                           headers: Optional[Dict[str, str]] = None) -> Dict[str, any]:
+                           data: Optional[Dict[str, Any]] = None,
+                           params: Optional[Dict[str, Any]] = None,
+                           headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         client = await self._http_client()
-        async with client.request(http_method, url=url, timeout=self.API_CALL_TIMEOUT, data=data,
+        async with client.request(http_method, url=url, timeout=self.API_CALL_TIMEOUT, data=data, params=params,
                                   headers=headers) as response:
             if response.status != 200:
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
@@ -442,23 +444,25 @@ cdef class DDEXMarket(MarketBase):
 
     async def calculate_fees(self,
                              trading_pair: str,
-                             amount: str,
-                             price: str,
+                             amount: float,
+                             price: float,
                              order_type: OrderType,
                              order_side: TradeType) -> TradeFee:
         calc_fee_url = f"{self.DDEX_REST_ENDPOINT}/fees"
-        data = {
-            "amount": amount,
+        params = {
+            "amount": str(amount),
             "marketId": trading_pair,
-            "price": price,
+            "price": str(price),
         }
-        res = await self._api_request(http_method="get", url=calc_fee_url, data=data)
+        res = await self._api_request(http_method="get", url=calc_fee_url, params=params)
         fee_type = FeeType.ADD_QUOTE if order_side is TradeType.BUY else FeeType.SUB_QUOTE
-        fee_amount = res["data"]["asMakerTotalFeeAmount"] if order_type is OrderType.LIMIT else res["data"]["asTakerTotalFeeAmount"]
-        return TradeFee(symbol=trading_pair, type=fee_type, fee_amount=float(fee_amount), price=float(price), trade_amount=float(amount))
+        maker_trade_fee = res["data"]["asMakerTotalFeeAmount"]
+        taker_trade_fee = res["data"]["asTakerTotalFeeAmount"]
+        trade_fee = maker_trade_fee if order_type is OrderType.LIMIT else taker_trade_fee
+        return TradeFee(type=fee_type, amount=float(trade_fee))
 
     async def build_unsigned_order(self, amount: str, price: str, side: str, symbol: str, order_type: OrderType,
-                                   expires: int) -> Dict[str, any]:
+                                   expires: int) -> Dict[str, Any]:
         url = "%s/orders/build" % (self.DDEX_REST_ENDPOINT,)
         headers = self._generate_auth_headers()
         data = {
@@ -474,7 +478,7 @@ cdef class DDEXMarket(MarketBase):
         return response_data["data"]["order"]
 
     async def place_order(self, amount: str, price: str, side: str, symbol: str, order_type: OrderType,
-                          expires: int = 0) -> Dict[str, any]:
+                          expires: int = 0) -> Dict[str, Any]:
         unsigned_order = await self.build_unsigned_order(symbol=symbol, amount=amount, price=price, side=side,
                                                          order_type=order_type, expires=expires)
         order_id = unsigned_order["id"]
@@ -486,7 +490,7 @@ cdef class DDEXMarket(MarketBase):
         response_data = await self._api_request('post', url=url, data=data, headers=self._generate_auth_headers())
         return response_data["data"]["order"]
 
-    async def cancel_order(self, client_order_id: str) -> Dict[str, any]:
+    async def cancel_order(self, client_order_id: str) -> Dict[str, Any]:
         order = self.in_flight_orders.get(client_order_id)
         if not order:
             self.logger().info(f"Failed to cancel order {client_order_id}. Order not found in tracked orders.")
@@ -501,32 +505,32 @@ cdef class DDEXMarket(MarketBase):
         response_data["client_order_id"] = client_order_id
         return response_data
 
-    async def list_orders(self) -> Dict[str, any]:
+    async def list_orders(self) -> Dict[str, Any]:
         url = "%s/orders?status=all" % (self.DDEX_REST_ENDPOINT,)
         response_data = await self._api_request('get', url=url, headers=self._generate_auth_headers())
         return response_data["data"]["orders"]
 
-    async def get_order(self, order_id: str) -> Dict[str, any]:
+    async def get_order(self, order_id: str) -> Dict[str, Any]:
         url = "%s/orders/%s" % (self.DDEX_REST_ENDPOINT, order_id)
         response_data = await self._api_request('get', url, headers=self._generate_auth_headers())
         return response_data["data"]["order"]
 
-    async def list_locked_balances(self) -> Dict[str, any]:
+    async def list_locked_balances(self) -> Dict[str, Any]:
         url = "%s/account/lockedBalances" % (self.DDEX_REST_ENDPOINT,)
         response_data = await self._api_request('get', url=url, headers=self._generate_auth_headers())
         return response_data["data"]["lockedBalances"]
 
-    async def get_market(self, symbol: str) -> Dict[str, any]:
+    async def get_market(self, symbol: str) -> Dict[str, Any]:
         url = "%s/markets/%s" % (self.DDEX_REST_ENDPOINT, symbol)
         response_data = await self._api_request('get', url=url)
         return response_data["data"]["market"]
 
-    async def list_market(self) -> Dict[str, any]:
+    async def list_market(self) -> Dict[str, Any]:
         url = "%s/markets" % (self.DDEX_REST_ENDPOINT,)
         response_data = await self._api_request('get', url=url)
         return response_data["data"]["markets"]
 
-    async def get_ticker(self, symbol: str) -> Dict[str, any]:
+    async def get_ticker(self, symbol: str) -> Dict[str, Any]:
         url = "%s/markets/%s/ticker" % (self.DDEX_REST_ENDPOINT, symbol)
         response_data = await self._api_request('get', url=url)
         return response_data["data"]["ticker"]

@@ -175,12 +175,8 @@ class FeeType(Enum):
 
 
 class TradeFee(NamedTuple):
-    symbol: str
     type: FeeType
-    fee_amount: float
-    price: float
-    trade_amount: float
-
+    amount: float
 
 class OrderBookTradeEvent(NamedTuple):
     symbol: str
@@ -244,4 +240,3 @@ class SellOrderCreatedEvent(NamedTuple):
     amount: float
     price: float
     order_id: str
-
