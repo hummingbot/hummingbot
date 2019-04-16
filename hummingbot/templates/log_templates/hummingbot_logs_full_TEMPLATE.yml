@@ -1,5 +1,6 @@
 ---
 version: 1
+template_version: 1
 
 formatters:
     simple:
@@ -57,11 +58,7 @@ loggers:
         level: WARNING
         propagate: no
         handlers: [console, report_proxy_handler, file_handler]
-    hummingbot.strategy.arbitrage:
-        level: INFO
-        handlers: [console, report_proxy_handler, file_handler]
-        propagate: no
-    hummingbot.strategy.cross_exchange_market_making:
+    hummingbot.strategy:
         level: INFO
         handlers: [console, report_proxy_handler, file_handler]
         propagate: no
@@ -77,23 +74,11 @@ loggers:
         level: WARNING
         handlers: [console_warning, report_proxy_handler, file_handler]
         propagate: no
-    wings.ddex_active_order_tracker:
-        level: WARNING
-        handlers: [console_warning, report_proxy_handler, file_handler]
-        propagate: no
-    wings.web3_wallet:
+    wings.wallet:
         level: INFO
         handlers: [console, report_proxy_handler, file_handler]
         propagate: no
-    wings.web3_wallet_backend:
-        level: INFO
-        handlers: [console, report_proxy_handler, file_handler]
-        propagate: no
-    wings.ddex_market:
-        level: INFO
-        handlers: [console, report_proxy_handler, file_handler]
-        propagate: no
-    wings.binance_market:
+    wings.market:
         level: INFO
         handlers: [console, report_proxy_handler, file_handler]
         propagate: no
