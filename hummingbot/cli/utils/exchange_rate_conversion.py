@@ -36,8 +36,8 @@ class ExchangeRateConversion:
             exchange_rate_conversion_config = global_config_map["exchange_rate_conversion"].value
             exchange_rate_fetcher_config = global_config_map["exchange_rate_fetcher"].value
             self.exchange_rate_conversion_list = {e[0] for e in exchange_rate_conversion_config}
-            self.exchange_rate_config = {e[0]: {"default": e[1], "source": e[2]} for e in exchange_rate_fetcher_config}
-            self.exchange_rate = {k: float(v.get("default", 1.0)) for k, v in self.exchange_rate_config.items()}
+            self.exchange_rate_config = {e[0]: {"source": e[1]} for e in exchange_rate_fetcher_config}
+            self.exchange_rate = {k: float(v.get("default", 1.0)) for k, v in exchange_rate_conversion_config}
         except Exception:
             self.logger().error("Error initiating config for exchange rate conversion.")
 
