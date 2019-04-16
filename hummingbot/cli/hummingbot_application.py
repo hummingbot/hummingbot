@@ -448,13 +448,32 @@ class HummingbotApplication:
                 self.app.log('Wallet not available. Please configure your wallet (Enter "config wallet")')
             else:
                 self.app.log('\n'.join(wallets))
+
         elif obj == "exchanges":
             if len(EXCHANGES) == 0:
                 self.app.log("No exchanges available")
             else:
                 self.app.log('\n'.join(EXCHANGES))
+
         elif obj == "configs":
-            self.app.log('\n'.join(load_required_configs().keys()))
+            columns: List[str] = ["config_key", "current_value"]
+            data = []
+            for key in load_required_configs().keys():
+                if key in in_memory_config_map:
+                    cv: ConfigVar = in_memory_config_map.get(key)
+                elif key in global_config_map:
+                    cv: ConfigVar = global_config_map.get(key)
+                else:
+                    strategy = in_memory_config_map.get("strategy").value
+                    cv: ConfigVar = get_strategy_config_map(strategy).get(key)
+                value_str = str(cv.value)
+                val = len(value_str) * "*" if cv.is_secure else value_str
+                data.append([key, val])
+            df = pd.DataFrame(data=data, columns=columns)
+            self.app.log("\nConfigs:")
+            self.app.log(str(df))
+            self.app.log("\n")
+
         elif obj == "trades":
             lines = []
             if self.strategy is None:
