@@ -225,9 +225,9 @@ cdef class CoinbaseProMarket(MarketBase):
 
     def __init__(self,
                  web3_url: str,
-                 coinbase_pro_api_key,
-                 coinbase_pro_secret_key,
-                 coinbase_pro_passphrase,
+                 coinbase_pro_api_key: str,
+                 coinbase_pro_secret_key: str,
+                 coinbase_pro_passphrase: str,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                     OrderBookTrackerDataSourceType.EXCHANGE_API,
