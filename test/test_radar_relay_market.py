@@ -29,7 +29,9 @@ from wings.events import (
     WalletUnwrappedEthEvent,
     OrderCancelledEvent,
     OrderExpiredEvent,
-    OrderFilledEvent
+    OrderFilledEvent,
+    TradeType,
+    FeeType
 )
 
 
@@ -110,145 +112,152 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
     def run_parallel(self, *tasks):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
-    def test_get_wallet_balances(self):
-        balances = self.market.get_all_balances()
-        self.assertGreaterEqual((balances["ETH"]), 0)
-        self.assertGreaterEqual((balances["WETH"]), 0)
+    def test_calculate_fees(self):
+        [maker_buy_trade_fee] = self.run_parallel(self.market.calculate_fees("ZRX-WETH", 20, 0.01, OrderType.LIMIT, TradeType.BUY))
+        self.assertEqual(maker_buy_trade_fee.fee_amount, 0)
+        [taker_buy_trade_fee] = self.run_parallel(self.market.calculate_fees("ZRX-WETH", 20, 0.01, OrderType.MARKET, TradeType.BUY))
+        self.assertGreater(taker_buy_trade_fee.fee_amount, 0)
+        self.assertEqual(taker_buy_trade_fee.type, FeeType.SUB_QUOTE)
 
-    def test_single_limit_order_cancel(self):
-        symbol: str = "ZRX-WETH"
-        current_price: float = self.market.get_price(symbol, True)
-        amount: float = 10
-        expires = int(time.time() + 60 * 5)
-        quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
-        buy_order_id = self.market.buy(symbol=symbol,
-                                       amount=amount,
-                                       order_type=OrderType.LIMIT,
-                                       price=current_price - 0.2 * current_price,
-                                       expiration_ts=expires)
-        [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
-        self.assertEqual("ZRX-WETH", buy_order_opened_event.symbol)
-        self.assertEqual(OrderType.LIMIT, buy_order_opened_event.type)
-        self.assertEqual(quantized_amount, Decimal(buy_order_opened_event.amount))
+    # def test_get_wallet_balances(self):
+    #     balances = self.market.get_all_balances()
+    #     self.assertGreaterEqual((balances["ETH"]), 0)
+    #     self.assertGreaterEqual((balances["WETH"]), 0)
 
-        self.run_parallel(self.market.cancel_order(buy_order_id))
-        [buy_order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
-        self.assertEqual(buy_order_opened_event.order_id, buy_order_cancelled_event.order_id)
+    # def test_single_limit_order_cancel(self):
+    #     symbol: str = "ZRX-WETH"
+    #     current_price: float = self.market.get_price(symbol, True)
+    #     amount: float = 10
+    #     expires = int(time.time() + 60 * 5)
+    #     quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+    #     buy_order_id = self.market.buy(symbol=symbol,
+    #                                    amount=amount,
+    #                                    order_type=OrderType.LIMIT,
+    #                                    price=current_price - 0.2 * current_price,
+    #                                    expiration_ts=expires)
+    #     [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+    #     self.assertEqual("ZRX-WETH", buy_order_opened_event.symbol)
+    #     self.assertEqual(OrderType.LIMIT, buy_order_opened_event.type)
+    #     self.assertEqual(quantized_amount, Decimal(buy_order_opened_event.amount))
 
-        # Reset the logs
-        self.market_logger.clear()
+    #     self.run_parallel(self.market.cancel_order(buy_order_id))
+    #     [buy_order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+    #     self.assertEqual(buy_order_opened_event.order_id, buy_order_cancelled_event.order_id)
 
-    def test_limit_buy_and_sell_and_cancel_all(self):
-        symbol: str = "ZRX-WETH"
-        current_price: float = self.market.get_price(symbol, True)
-        amount: float = 10
-        expires = int(time.time() + 60 * 5)
-        quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
-        buy_order_id = self.market.buy(symbol=symbol,
-                                       amount=amount,
-                                       order_type=OrderType.LIMIT,
-                                       price=current_price - 0.2 * current_price,
-                                       expiration_ts=expires)
-        [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
-        self.assertEqual(buy_order_id, buy_order_opened_event.order_id)
-        self.assertEqual(quantized_amount, Decimal(buy_order_opened_event.amount))
-        self.assertEqual("ZRX-WETH", buy_order_opened_event.symbol)
-        self.assertEqual(OrderType.LIMIT, buy_order_opened_event.type)
+    #     # Reset the logs
+    #     self.market_logger.clear()
 
-        # Reset the logs
-        self.market_logger.clear()
+    # def test_limit_buy_and_sell_and_cancel_all(self):
+    #     symbol: str = "ZRX-WETH"
+    #     current_price: float = self.market.get_price(symbol, True)
+    #     amount: float = 10
+    #     expires = int(time.time() + 60 * 5)
+    #     quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+    #     buy_order_id = self.market.buy(symbol=symbol,
+    #                                    amount=amount,
+    #                                    order_type=OrderType.LIMIT,
+    #                                    price=current_price - 0.2 * current_price,
+    #                                    expiration_ts=expires)
+    #     [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+    #     self.assertEqual(buy_order_id, buy_order_opened_event.order_id)
+    #     self.assertEqual(quantized_amount, Decimal(buy_order_opened_event.amount))
+    #     self.assertEqual("ZRX-WETH", buy_order_opened_event.symbol)
+    #     self.assertEqual(OrderType.LIMIT, buy_order_opened_event.type)
 
-        sell_order_id = self.market.sell(symbol=symbol,
-                                         amount=amount,
-                                         order_type=OrderType.LIMIT,
-                                         price=current_price + 0.2 * current_price,
-                                         expiration_ts=expires)
-        [sell_order_opened_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
-        self.assertEqual(sell_order_id, sell_order_opened_event.order_id)
-        self.assertEqual(quantized_amount, Decimal(sell_order_opened_event.amount))
-        self.assertEqual("ZRX-WETH", sell_order_opened_event.symbol)
-        self.assertEqual(OrderType.LIMIT, sell_order_opened_event.type)
+    #     # Reset the logs
+    #     self.market_logger.clear()
 
-        [cancellation_results] = self.run_parallel(self.market.cancel_all(60 * 5))
-        self.assertEqual(cancellation_results[0], CancellationResult(buy_order_id, True))
-        self.assertEqual(cancellation_results[1], CancellationResult(sell_order_id, True))
-        # Reset the logs
-        self.market_logger.clear()
+    #     sell_order_id = self.market.sell(symbol=symbol,
+    #                                      amount=amount,
+    #                                      order_type=OrderType.LIMIT,
+    #                                      price=current_price + 0.2 * current_price,
+    #                                      expiration_ts=expires)
+    #     [sell_order_opened_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
+    #     self.assertEqual(sell_order_id, sell_order_opened_event.order_id)
+    #     self.assertEqual(quantized_amount, Decimal(sell_order_opened_event.amount))
+    #     self.assertEqual("ZRX-WETH", sell_order_opened_event.symbol)
+    #     self.assertEqual(OrderType.LIMIT, sell_order_opened_event.type)
 
-    def test_order_expire(self):
-        symbol: str = "ZRX-WETH"
-        current_price: float = self.market.get_price(symbol, True)
-        amount: float = 10
-        expires = int(time.time() + 60 * 2) # expires in 2 min
-        quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
-        buy_order_id = self.market.buy(symbol=symbol,
-                                       amount=amount,
-                                       order_type=OrderType.LIMIT,
-                                       price=current_price - 0.2 * current_price,
-                                       expiration_ts=expires)
-        [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+    #     [cancellation_results] = self.run_parallel(self.market.cancel_all(60 * 5))
+    #     self.assertEqual(cancellation_results[0], CancellationResult(buy_order_id, True))
+    #     self.assertEqual(cancellation_results[1], CancellationResult(sell_order_id, True))
+    #     # Reset the logs
+    #     self.market_logger.clear()
 
-        self.assertEqual("ZRX-WETH", buy_order_opened_event.symbol)
-        self.assertEqual(OrderType.LIMIT, buy_order_opened_event.type)
-        [buy_order_expired_event] = self.run_parallel(self.market_logger.wait_for(OrderExpiredEvent, 60 * 3))
-        self.assertEqual(buy_order_opened_event.order_id, buy_order_expired_event.order_id)
+    # def test_order_expire(self):
+    #     symbol: str = "ZRX-WETH"
+    #     current_price: float = self.market.get_price(symbol, True)
+    #     amount: float = 10
+    #     expires = int(time.time() + 60 * 2) # expires in 2 min
+    #     quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+    #     buy_order_id = self.market.buy(symbol=symbol,
+    #                                    amount=amount,
+    #                                    order_type=OrderType.LIMIT,
+    #                                    price=current_price - 0.2 * current_price,
+    #                                    expiration_ts=expires)
+    #     [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
 
-        # Reset the logs
-        self.market_logger.clear()
+    #     self.assertEqual("ZRX-WETH", buy_order_opened_event.symbol)
+    #     self.assertEqual(OrderType.LIMIT, buy_order_opened_event.type)
+    #     [buy_order_expired_event] = self.run_parallel(self.market_logger.wait_for(OrderExpiredEvent, 60 * 3))
+    #     self.assertEqual(buy_order_opened_event.order_id, buy_order_expired_event.order_id)
 
-    def test_market_buy(self):
-        amount: float = 5
-        quantized_amount: Decimal = self.market.quantize_order_amount("ZRX-WETH", amount)
-        order_id = self.market.buy("ZRX-WETH", amount, OrderType.MARKET)
+    #     # Reset the logs
+    #     self.market_logger.clear()
 
-        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
-        order_completed_event: BuyOrderCompletedEvent = order_completed_event
-        order_filled_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
-                                                       if isinstance(t, OrderFilledEvent)]
+    # def test_market_buy(self):
+    #     amount: float = 5
+    #     quantized_amount: Decimal = self.market.quantize_order_amount("ZRX-WETH", amount)
+    #     order_id = self.market.buy("ZRX-WETH", amount, OrderType.MARKET)
 
-        self.assertTrue([evt.order_type == OrderType.MARKET for evt in order_filled_events])
-        self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertEqual(float(quantized_amount), float(order_completed_event.base_asset_amount))
-        self.assertEqual("ZRX", order_completed_event.base_asset)
-        self.assertEqual("WETH", order_completed_event.quote_asset)
-        self.market_logger.clear()
+    #     [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
+    #     order_completed_event: BuyOrderCompletedEvent = order_completed_event
+    #     order_filled_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
+    #                                                    if isinstance(t, OrderFilledEvent)]
 
-    def test_market_sell(self):
-        amount: float = 5
-        quantized_amount: Decimal = self.market.quantize_order_amount("ZRX-WETH", amount)
-        order_id = self.market.sell("ZRX-WETH", amount, OrderType.MARKET)
+    #     self.assertTrue([evt.order_type == OrderType.MARKET for evt in order_filled_events])
+    #     self.assertEqual(order_id, order_completed_event.order_id)
+    #     self.assertEqual(float(quantized_amount), float(order_completed_event.base_asset_amount))
+    #     self.assertEqual("ZRX", order_completed_event.base_asset)
+    #     self.assertEqual("WETH", order_completed_event.quote_asset)
+    #     self.market_logger.clear()
 
-        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
-        order_completed_event: SellOrderCompletedEvent = order_completed_event
-        order_filled_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
-                                                       if isinstance(t, OrderFilledEvent)]
+    # def test_market_sell(self):
+    #     amount: float = 5
+    #     quantized_amount: Decimal = self.market.quantize_order_amount("ZRX-WETH", amount)
+    #     order_id = self.market.sell("ZRX-WETH", amount, OrderType.MARKET)
 
-        self.assertTrue([evt.order_type == OrderType.MARKET for evt in order_filled_events])
-        self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertEqual(float(quantized_amount), float(order_completed_event.base_asset_amount))
-        self.assertEqual("ZRX", order_completed_event.base_asset)
-        self.assertEqual("WETH", order_completed_event.quote_asset)
-        self.market_logger.clear()
+    #     [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
+    #     order_completed_event: SellOrderCompletedEvent = order_completed_event
+    #     order_filled_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
+    #                                                    if isinstance(t, OrderFilledEvent)]
 
-    def test_wrap_eth(self):
-        amount_to_wrap = 0.01
-        tx_hash = self.wallet.wrap_eth(amount_to_wrap)
-        [tx_completed_event] = self.run_parallel(self.wallet_logger.wait_for(WalletWrappedEthEvent))
-        tx_completed_event: WalletWrappedEthEvent = tx_completed_event
+    #     self.assertTrue([evt.order_type == OrderType.MARKET for evt in order_filled_events])
+    #     self.assertEqual(order_id, order_completed_event.order_id)
+    #     self.assertEqual(float(quantized_amount), float(order_completed_event.base_asset_amount))
+    #     self.assertEqual("ZRX", order_completed_event.base_asset)
+    #     self.assertEqual("WETH", order_completed_event.quote_asset)
+    #     self.market_logger.clear()
 
-        self.assertEqual(tx_hash, tx_completed_event.tx_hash)
-        self.assertEqual(amount_to_wrap, tx_completed_event.amount)
-        self.assertEqual(self.wallet.address, tx_completed_event.address)
+    # def test_wrap_eth(self):
+    #     amount_to_wrap = 0.01
+    #     tx_hash = self.wallet.wrap_eth(amount_to_wrap)
+    #     [tx_completed_event] = self.run_parallel(self.wallet_logger.wait_for(WalletWrappedEthEvent))
+    #     tx_completed_event: WalletWrappedEthEvent = tx_completed_event
 
-    def test_unwrap_eth(self):
-        amount_to_unwrap = 0.01
-        tx_hash = self.wallet.unwrap_eth(amount_to_unwrap)
-        [tx_completed_event] = self.run_parallel(self.wallet_logger.wait_for(WalletUnwrappedEthEvent))
-        tx_completed_event: WalletUnwrappedEthEvent = tx_completed_event
+    #     self.assertEqual(tx_hash, tx_completed_event.tx_hash)
+    #     self.assertEqual(amount_to_wrap, tx_completed_event.amount)
+    #     self.assertEqual(self.wallet.address, tx_completed_event.address)
 
-        self.assertEqual(tx_hash, tx_completed_event.tx_hash)
-        self.assertEqual(amount_to_unwrap, tx_completed_event.amount)
-        self.assertEqual(self.wallet.address, tx_completed_event.address)
+    # def test_unwrap_eth(self):
+    #     amount_to_unwrap = 0.01
+    #     tx_hash = self.wallet.unwrap_eth(amount_to_unwrap)
+    #     [tx_completed_event] = self.run_parallel(self.wallet_logger.wait_for(WalletUnwrappedEthEvent))
+    #     tx_completed_event: WalletUnwrappedEthEvent = tx_completed_event
+
+    #     self.assertEqual(tx_hash, tx_completed_event.tx_hash)
+    #     self.assertEqual(amount_to_unwrap, tx_completed_event.amount)
+    #     self.assertEqual(self.wallet.address, tx_completed_event.address)
 
 
 def main():
