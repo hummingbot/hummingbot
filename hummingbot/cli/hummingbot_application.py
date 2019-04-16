@@ -306,12 +306,15 @@ class HummingbotApplication:
 
                 value = await single_prompt(cv)
                 cv.value = parse_cvar_value(cv, value)
+                if single_key:
+                    self.app.log(f"\nNew config saved:\n{key}: {str(value)}")
             if not self.config_complete:
                 await inner_loop(self._get_empty_configs())
         try:
             await inner_loop(keys)
             await write_config_to_yml()
-            self.app.log("\nConfig process complete. Enter \"start\" to start market making.")
+            if not single_key:
+                self.app.log("\nConfig process complete. Enter \"start\" to start market making.")
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
         except Exception as err:
@@ -456,22 +459,27 @@ class HummingbotApplication:
                 self.app.log('\n'.join(EXCHANGES))
 
         elif obj == "configs":
-            columns: List[str] = ["config_key", "current_value"]
-            data = []
-            for key in load_required_configs().keys():
-                if key in in_memory_config_map:
-                    cv: ConfigVar = in_memory_config_map.get(key)
-                elif key in global_config_map:
-                    cv: ConfigVar = global_config_map.get(key)
-                else:
-                    strategy = in_memory_config_map.get("strategy").value
-                    cv: ConfigVar = get_strategy_config_map(strategy).get(key)
-                value_str = str(cv.value)
-                val = len(value_str) * "*" if cv.is_secure else value_str
-                data.append([key, val])
-            df = pd.DataFrame(data=data, columns=columns)
-            self.app.log("\nConfigs:")
-            self.app.log(str(df))
+            columns: List[str] = ["Key", "Current Value"]
+
+            global_cvs: List[ConfigVar] = list(in_memory_config_map.values()) + list(global_config_map.values())
+            global_data: List[List[str, Any]] = [
+                [cv.key, len(str(cv.value)) * "*" if cv.is_secure else str(cv.value)]
+                for cv in global_cvs]
+            global_df: pd.DataFrame = pd.DataFrame(data=global_data, columns=columns)
+            self.app.log("\nglobal configs:")
+            self.app.log(str(global_df))
+
+            strategy = in_memory_config_map.get("strategy").value
+            if strategy:
+                strategy_cvs: List[ConfigVar] = get_strategy_config_map(strategy).values()
+                strategy_data: List[List[str, Any]] = [
+                    [cv.key, len(str(cv.value)) * "*" if cv.is_secure else str(cv.value)]
+                    for cv in strategy_cvs]
+                strategy_df: pd.DataFrame = pd.DataFrame(data=strategy_data, columns=columns)
+
+                self.app.log(f"\n{strategy} strategy configs:")
+                self.app.log(str(strategy_df))
+
             self.app.log("\n")
 
         elif obj == "trades":
