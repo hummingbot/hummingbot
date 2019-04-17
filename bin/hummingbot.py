@@ -56,7 +56,6 @@ async def main():
     read_configs_from_yml()
 
     init_logging("hummingbot_logs.yml")
-
     hb = HummingbotApplication()
     with patch_stdout(log_field=hb.app.log_field):
         init_logging("hummingbot_logs.yml",
