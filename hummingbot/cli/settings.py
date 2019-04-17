@@ -34,7 +34,7 @@ CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
 
 EXCHANGES = ["binance", "ddex", "radar_relay", "coinbase_pro"]
-DEXES = ["ddex"]
+DEXES = ["ddex", "radar_relay"]
 STRATEGIES = ["cross_exchange_market_making", "arbitrage"]
 EXAMPLE_PAIRS = {
     "binance": "ZRXETH",
@@ -364,12 +364,9 @@ global_config_map = {
     "logger_override_whitelist":        ConfigVar(key="logger_override_whitelist",
                                                   prompt=None,
                                                   required_if=lambda: False,
-                                                  default=["hummingbot.strategy.arbitrage",
-                                                           "hummingbot.strategy.cross_exchange_market_making",
-                                                           "wings.web3_wallet",
-                                                           "wings.web3_wallet_backend",
-                                                           "wings.ddex_market",
-                                                           "wings.binance_market",
+                                                  default=["hummingbot.strategy",
+                                                           "wings.wallet",
+                                                           "wings.market",
                                                            "conf"
                                                            ],
                                                   type_str="list"),
@@ -467,10 +464,22 @@ async def create_yml_files():
         # Only copy `hummingbot_logs.yml` and `conf_global.yml` on start up
         if "_TEMPLATE" in fname and CONF_POSTFIX not in fname:
             stripped_fname = fname.replace("_TEMPLATE", "")
-            old_path = join(TEMPLATE_PATH, fname)
-            new_path = join(CONF_FILE_PATH, stripped_fname)
-            if not isfile(new_path):
-                shutil.copy(old_path, new_path)
+            template_path = join(TEMPLATE_PATH, fname)
+            conf_path = join(CONF_FILE_PATH, stripped_fname)
+            if not isfile(conf_path):
+                shutil.copy(template_path, conf_path)
+            with open(template_path, "r") as template_fd:
+                template_data = yaml.load(template_fd)
+                template_version = template_data.get("template_version", 0)
+            with open(conf_path, "r") as conf_fd:
+                conf_version = 0
+                try:
+                    conf_data = yaml.load(conf_fd)
+                    conf_version = conf_data.get("template_version", 0)
+                except Exception:
+                    pass
+            if conf_version < template_version:
+                shutil.copy(template_path, conf_path)
 
 
 async def copy_strategy_template(strategy: str) -> str:
