@@ -487,15 +487,15 @@ cdef class BinanceMarket(MarketBase):
             self._last_update_trade_fees_timestamp = current_timestamp
 
     def calculate_fees(self,
-                       trading_pair: str,
+                       symbol: str,
                        amount: float,
                        price: float,
                        order_type: OrderType,
                        order_side: TradeType) -> List[TradeFee]:
-        return self.c_calculate_fees(trading_pair, amount, price, order_type, order_side)
+        return self.c_calculate_fees(symbol, amount, price, order_type, order_side)
 
     cdef list c_calculate_fees(self,
-                               str trading_pair,
+                               str symbol,
                                double amount,
                                double price,
                                object order_type,
@@ -507,11 +507,11 @@ cdef class BinanceMarket(MarketBase):
             object fee_type
             double fee_amount
 
-        if trading_pair not in self._trade_fees:
+        if symbol not in self._trade_fees:
             # https://www.binance.com/en/fee/schedule
-            self.logger().warning(f"Unable to find trade fee for {trading_pair}. Using default 0.1% maker/taker fee.")
+            self.logger().warning(f"Unable to find trade fee for {symbol}. Using default 0.1% maker/taker fee.")
         else:
-            maker_trade_fee, taker_trade_fee = self._trade_fees.get(trading_pair)
+            maker_trade_fee, taker_trade_fee = self._trade_fees.get(symbol)
         trade_fee = maker_trade_fee if order_type is OrderType.LIMIT else taker_trade_fee
         if order_side is TradeType.BUY:
             fee_type = FeeType.SUB_BASE

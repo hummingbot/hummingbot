@@ -319,7 +319,7 @@ cdef class CoinbaseProMarket(MarketBase):
             return data
 
     async def calculate_fees(self,
-                             trading_pair: str,
+                             symbol: str,
                              amount: float,
                              price: float,
                              order_type: OrderType,

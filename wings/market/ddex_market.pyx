@@ -203,7 +203,7 @@ cdef class DDEXMarket(MarketBase):
 
     API_CALL_TIMEOUT = 10.0
     DDEX_REST_ENDPOINT = "https://api.ddex.io/v3"
-
+    UPDATE_TRADE_FEES_INTERVAL = 60 * 60
     ORDER_EXPIRY_TIME = 3600.0
 
     @classmethod
@@ -460,7 +460,7 @@ cdef class DDEXMarket(MarketBase):
         cdef:
             double current_timestamp = self._current_timestamp
 
-        if current_timestamp - self._last_update_trade_fees_timestamp > 60.0 * 60.0 or self._gas_fee_usd == NaN:
+        if current_timestamp - self._last_update_trade_fees_timestamp > self.UPDATE_TRADE_FEES_INTERVAL or self._gas_fee_usd == NaN:
             calc_fee_url = f"{self.DDEX_REST_ENDPOINT}/fees"
             params = {
                 "amount": "1",
@@ -484,15 +484,15 @@ cdef class DDEXMarket(MarketBase):
             self._last_update_trade_fees_timestamp = current_timestamp
 
     def calculate_fees(self,
-                       trading_pair: str,
+                       symbol: str,
                        amount: float,
                        price: float,
                        order_type: OrderType,
                        order_side: TradeType) -> List[TradeFee]:
-        return self.c_calculate_fees(trading_pair, amount, price, order_type, order_side)
+        return self.c_calculate_fees(symbol, amount, price, order_type, order_side)
 
     cdef list c_calculate_fees(self,
-                               str trading_pair,
+                               str symbol,
                                double amount,
                                double price,
                                object order_type,
@@ -503,7 +503,7 @@ cdef class DDEXMarket(MarketBase):
             object fee_type
             double trade_fee
 
-        quote_token = trading_pair.split("-")[1]
+        quote_token = symbol.split("-")[1]
         gas_fee = self._gas_fee_weth if quote_token == "WETH" else self._gas_fee_usd
         fee_type = FeeType.ADD_QUOTE if order_side is TradeType.BUY else FeeType.SUB_QUOTE
         trade_fee = self._maker_trade_fee if order_type is OrderType.LIMIT else self._taker_trade_fee

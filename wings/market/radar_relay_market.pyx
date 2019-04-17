@@ -324,15 +324,15 @@ cdef class RadarRelayMarket(MarketBase):
                 await asyncio.sleep(0.5)
 
     def calculate_fees(self,
-                       trading_pair: str,
+                       symbol: str,
                        amount: float,
                        price: float,
                        order_type: OrderType,
                        order_side: TradeType) -> List[TradeFee]:
-        return self.c_calculate_fees(trading_pair, amount, price, order_type, order_side)
+        return self.c_calculate_fees(symbol, amount, price, order_type, order_side)
 
     cdef list c_calculate_fees(self,
-                               str trading_pair,
+                               str symbol,
                                double amount,
                                double price,
                                object order_type,
@@ -357,7 +357,7 @@ cdef class RadarRelayMarket(MarketBase):
 
     async def _update_trading_rules(self):
         cdef:
-                current_timestamp = self._current_timestamp
+            double current_timestamp = self._current_timestamp
 
         if current_timestamp - self._last_update_trading_rules_timestamp > self.UPDATE_RULES_INTERVAL or len(self._trading_rules) < 1:
             markets = await self.list_market()

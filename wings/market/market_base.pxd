@@ -20,7 +20,7 @@ cdef class MarketBase(TimeIterator):
     cdef object c_quantize_order_price(self, str symbol, double price)
     cdef object c_quantize_order_amount(self, str symbol, double amount)
     cdef list c_calculate_fees(self,
-                               str trading_pair,
+                               str symbol,
                                double amount,
                                double price,
                                object order_type,

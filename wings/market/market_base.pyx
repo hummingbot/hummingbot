@@ -80,7 +80,7 @@ cdef class MarketBase(TimeIterator):
         raise NotImplementedError
 
     def calculate_fees(self,
-                       trading_pair: str, 
+                       symbol: str, 
                        amount: float,
                        price: float,
                        order_type: OrderType,
@@ -109,7 +109,7 @@ cdef class MarketBase(TimeIterator):
         raise NotImplementedError
 
     cdef list c_calculate_fees(self,
-                               str trading_pair,
+                               str symbol,
                                double amount,
                                double price,
                                object order_type,

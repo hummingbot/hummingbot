@@ -72,6 +72,7 @@ class ExchangeRateConversion:
                 async with aiohttp.ClientSession(loop=loop,
                                                  connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
                     await self.update_exchange_rates_from_coincap(session)
+                    print('@@@@@@@@', self.exchange_rate)
             except asyncio.CancelledError:
                 raise
             except Exception:
