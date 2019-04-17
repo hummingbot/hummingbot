@@ -799,6 +799,7 @@ cdef class RadarRelayMarket(MarketBase):
 
             return order_id
         except Exception:
+            self.c_stop_tracking_order(order_id)
             self.logger().error(f"Error submitting trade order to Radar Relay for {str(q_amt)} {symbol}.", exc_info=True)
             self.c_trigger_event(
                 self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
