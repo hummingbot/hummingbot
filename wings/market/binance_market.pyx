@@ -951,9 +951,18 @@ cdef class BinanceMarket(MarketBase):
         return order_id
 
     async def execute_cancel(self, symbol: str, order_id: str):
-        cancel_result = await self.query_api(self._binance_client.cancel_order,
-                                             symbol=symbol,
-                                             origClientOrderId=order_id)
+        try:
+            cancel_result = await self.query_api(self._binance_client.cancel_order,
+                                                 symbol=symbol,
+                                                 origClientOrderId=order_id)
+        except BinanceAPIException as e:
+            if "Unknown order sent" in e.message:
+                # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
+                self.logger().info(f"The order {order_id} does not exist on Binance. No cancellation needed.")
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp, order_id))
+                return {}
+
         if isinstance(cancel_result, dict) and cancel_result.get("status") == "CANCELED":
             self.logger().info(f"Successfully cancelled order {order_id}.")
             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
