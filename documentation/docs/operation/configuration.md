@@ -51,12 +51,9 @@ strategy_report_interval: 900.0
 reporting_aggregation_interval: 60.0
 reporting_log_interval: 60.0
 logger_override_whitelist:
-- hummingbot.strategy.arbitrage
-- hummingbot.strategy.cross_exchange_market_making
-- wings.web3_wallet
-- wings.web3_wallet_backend
-- wings.ddex_market
-- wings.binance_market
+- hummingbot.strategy
+- wings.wallet
+- wings.market
 - conf
 key_file_path: conf/
 log_file_path: logs/
