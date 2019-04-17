@@ -72,7 +72,8 @@ class ZeroExExchange:
     def estimate_transaction_cost(self,
                                   orders: List[Order],
                                   asset_fill_amount: Decimal,
-                                  signatures: List[str], is_buy: bool) -> int:
+                                  signatures: List[str],
+                                  is_buy: bool) -> int:
         order_tuples: List[Tuple] = [convert_order_to_tuple(order) for order in orders]
         signatures: List[bytes] = [self._w3.toBytes(hexstr=signature) for signature in signatures]
         if is_buy:
