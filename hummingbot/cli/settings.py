@@ -34,7 +34,7 @@ CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
 
 EXCHANGES = ["binance", "ddex", "radar_relay", "coinbase_pro"]
-DEXES = ["ddex"]
+DEXES = ["ddex", "radar_relay"]
 STRATEGIES = ["cross_exchange_market_making", "arbitrage"]
 EXAMPLE_PAIRS = {
     "binance": "ZRXETH",
