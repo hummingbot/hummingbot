@@ -871,6 +871,7 @@ cdef class BinanceMarket(MarketBase):
         except asyncio.CancelledError:
             raise
         except Exception:
+            self.c_stop_tracking_order(order_id)
             order_type_str = 'MARKET' if order_type == OrderType.MARKET else 'LIMIT'
             self.logger().error(f"Error submitting buy {order_type_str} order to Binance for "
                                 f"{decimal_amount} {symbol} {price}.",
@@ -935,6 +936,7 @@ cdef class BinanceMarket(MarketBase):
         except asyncio.CancelledError:
             raise
         except Exception:
+            self.c_stop_tracking_order(order_id)
             order_type_str = 'MARKET' if order_type == OrderType.MARKET else 'LIMIT'
             self.logger().error(f"Error submitting sell {order_type_str} order to Binance for "
                                 f"{decimal_amount} {symbol} {price}.",
