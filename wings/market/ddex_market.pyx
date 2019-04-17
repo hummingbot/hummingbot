@@ -40,6 +40,7 @@ from wings.cancellation_result import CancellationResult
 
 s_logger = None
 s_decimal_0 = Decimal(0)
+NaN = float("nan")
 
 
 cdef class DDEXMarketTransactionTracker(TransactionTracker):
@@ -229,6 +230,7 @@ cdef class DDEXMarket(MarketBase):
         self._last_timestamp = 0
         self._last_update_order_timestamp = 0
         self._last_update_trading_rules_timestamp = 0
+        self._last_update_trade_fees_timestamp = 0
         self._poll_interval = poll_interval
         self._in_flight_orders = {}
         self._order_expiry_queue = deque()
@@ -243,13 +245,21 @@ cdef class DDEXMarket(MarketBase):
         self._wallet = wallet
         self._wallet_spender_address = wallet_spender_address
         self._shared_client = None
+        self._maker_trade_fee = NaN
+        self._taker_trade_fee = NaN
+        self._gas_fee_weth = NaN
+        self._gas_fee_usd = NaN
 
     @property
     def ready(self) -> bool:
         return len(self._account_balances) > 0 \
                and len(self._trading_rules) > 0 \
                and len(self._order_book_tracker.order_books) > 0 \
-               and len(self._pending_approval_tx_hashes) == 0
+               and len(self._pending_approval_tx_hashes) == 0 \
+               and self._maker_trade_fee != NaN \
+               and self._taker_trade_fee != NaN \
+               and self._gas_fee_weth != NaN \
+               and self._gas_fee_usd != NaN
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -295,7 +305,11 @@ cdef class DDEXMarket(MarketBase):
                 await self._poll_notifier.wait()
 
                 self._update_balances()
-                await asyncio.gather(self._update_trading_rules(), self._update_order_status())
+                await asyncio.gather(
+                    self._update_trading_rules(),
+                    self._update_order_status(),
+                    self._update_trade_fees()
+                )
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -442,24 +456,59 @@ cdef class DDEXMarket(MarketBase):
             self.logger().debug(f"{data}")
             return data
 
-    async def calculate_fees(self,
-                             trading_pair: str,
-                             amount: float,
-                             price: float,
-                             order_type: OrderType,
-                             order_side: TradeType) -> TradeFee:
-        calc_fee_url = f"{self.DDEX_REST_ENDPOINT}/fees"
-        params = {
-            "amount": str(amount),
-            "marketId": trading_pair,
-            "price": str(price),
-        }
-        res = await self._api_request(http_method="get", url=calc_fee_url, params=params)
+    async def _update_trade_fees(self):
+        cdef:
+            double current_timestamp = self._current_timestamp
+
+        if current_timestamp - self._last_update_trade_fees_timestamp > 60.0 * 60.0 or self._gas_fee_usd == NaN:
+            calc_fee_url = f"{self.DDEX_REST_ENDPOINT}/fees"
+            params = {
+                "amount": "1",
+                "marketId": "HOT-WETH",
+                "price": "1",
+            }
+            res = await self._api_request(http_method="get", url=calc_fee_url, params=params)
+            # maker / taker trade fees are same regardless of pair
+            self._maker_trade_fee = float(res["data"]["asMakerFeeRate"])
+            self._taker_trade_fee = float(res["data"]["asTakerFeeRate"])
+            # gas fee from api is in quote token amount
+            self._gas_fee_weth = float(res["data"]["gasFeeAmount"])
+            params = {
+                "amount": "1",
+                "marketId": "WETH-DAI",
+                "price": "1",
+            }
+            res = await self._api_request(http_method="get", url=calc_fee_url, params=params)
+            # DDEX charges same gas fee for both DAI and TUSD
+            self._gas_fee_usd = float(res["data"]["gasFeeAmount"])
+            print('********* !!!!! ', self._maker_trade_fee, self._taker_trade_fee, self._gas_fee_weth, self._gas_fee_usd)
+            self._last_update_trade_fees_timestamp = current_timestamp
+
+    def calculate_fees(self,
+                       trading_pair: str,
+                       amount: float,
+                       price: float,
+                       order_type: OrderType,
+                       order_side: TradeType) -> List[TradeFee]:
+        return self.c_calculate_fees(trading_pair, amount, price, order_type, order_side)
+
+    cdef list c_calculate_fees(self,
+                               str trading_pair,
+                               double amount,
+                               double price,
+                               object order_type,
+                               object order_side):
+        cdef:
+            str quote_token
+            double gas_fee
+            object fee_type
+            double trade_fee
+
+        quote_token = trading_pair.split("-")[1]
+        gas_fee = self._gas_fee_weth if quote_token == "WETH" else self._gas_fee_usd
         fee_type = FeeType.ADD_QUOTE if order_side is TradeType.BUY else FeeType.SUB_QUOTE
-        maker_trade_fee = res["data"]["asMakerTotalFeeAmount"]
-        taker_trade_fee = res["data"]["asTakerTotalFeeAmount"]
-        trade_fee = maker_trade_fee if order_type is OrderType.LIMIT else taker_trade_fee
-        return TradeFee(type=fee_type, amount=float(trade_fee))
+        trade_fee = self._maker_trade_fee if order_type is OrderType.LIMIT else self._taker_trade_fee
+        return [TradeFee(type=fee_type, amount=trade_fee)]
 
     async def build_unsigned_order(self, amount: str, price: str, side: str, symbol: str, order_type: OrderType,
                                    expires: int) -> Dict[str, Any]:

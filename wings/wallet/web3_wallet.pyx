@@ -113,6 +113,10 @@ cdef class Web3Wallet(WalletBase):
         return self._best_backend.block_number
 
     @property
+    def gas_price(self) -> int:
+        return self._best_backend.gas_price
+
+    @property
     def current_backend(self) -> Web3WalletBackend:
         return self._best_backend
 
