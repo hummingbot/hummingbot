@@ -202,7 +202,7 @@ cdef class DDEXMarket(MarketBase):
     API_CALL_TIMEOUT = 10.0
     DDEX_REST_ENDPOINT = "https://api.ddex.io/v3"
 
-    ORDER_EXPIRY_TIME = 3600.0
+    ORDER_EXPIRY_TIME = 15 * 60.0
 
     @classmethod
     def logger(cls) -> logging.Logger:
