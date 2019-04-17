@@ -323,37 +323,30 @@ cdef class RadarRelayMarket(MarketBase):
                 self.logger().error("Unexpected error while fetching account updates.", exc_info=True)
                 await asyncio.sleep(0.5)
 
-         # there are no fees for makers on Radar Relay
+    def calculate_fees(self,
+                       trading_pair: str,
+                       amount: float,
+                       price: float,
+                       order_type: OrderType,
+                       order_side: TradeType) -> List[TradeFee]:
+        return self.c_calculate_fees(trading_pair, amount, price, order_type, order_side)
+
+    cdef list c_calculate_fees(self,
+                               str trading_pair,
+                               double amount,
+                               double price,
+                               object order_type,
+                               object order_side):
+        # there are no fees for makers on Radar Relay
+        cdef:
+            int gas_estimate = 130000 # approximate gas used for typical market orders
+            double transaction_cost_eth
+
         if order_type is OrderType.LIMIT:
-            return TradeFee(type=FeeType.SUB_QUOTE, amount=0.0)
+            return [TradeFee(type=FeeType.SUB_QUOTE, amount=0.0)]
         # only fee for takers is gas cost of transaction
-        response = await self.request_signed_market_orders(symbol=trading_pair,
-                                                           side=order_side,
-                                                           amount=str(amount))
-        signed_market_orders = response["orders"]
-        base_asset_decimals = self.trading_rules.get(trading_pair).amount_decimals
-        amt_with_decimals = Decimal(amount) * Decimal(f"1e{base_asset_decimals}")
-        signatures = []
-        orders = []
-        for order in signed_market_orders:
-            signatures.append(order["signature"])
-            del order["signature"]
-            orders.append(jsdict_order_to_struct(order))
-        is_buy = order_side is TradeType.BUY
-        try: 
-            transaction_cost_wei = self._exchange.estimate_transaction_cost(orders, amt_with_decimals, signatures, is_buy)
-        except Exception as e:
-            raise ValueError(f"eth_estimateGas RPC Method Error: {e}")
-        # Radar Relay only uses WETH and DAI as the quote currency
-        quote_symbol = trading_pair.split('-')[1]
-        transaction_cost_eth = transaction_cost_wei / 1e18
-        if quote_symbol == "WETH":
-            fee_type = FeeType.SUB_QUOTE
-        elif quote_symbol == "DAI":
-            fee_type = FeeType.ADD_BASE
-        else:
-            raise ValueError(f"Unrecognized quote symbol: {quote_symbol}. Aborting.")
-        return TradeFee(type=fee_type, amount=transaction_cost_eth)
+        transaction_cost_eth = self._wallet.gas_price * gas_estimate / 1e18
+        return [TradeFee(type=FeeType.ADD_OTHER, amount=transaction_cost_eth, other_symbol="ETH")]
 
     def _update_balances(self):
         self._account_balances = self.wallet.get_all_balances()
@@ -364,7 +357,7 @@ cdef class RadarRelayMarket(MarketBase):
 
     async def _update_trading_rules(self):
         cdef:
-            double current_timestamp = self._current_timestamp
+                current_timestamp = self._current_timestamp
 
         if current_timestamp - self._last_update_trading_rules_timestamp > self.UPDATE_RULES_INTERVAL or len(self._trading_rules) < 1:
             markets = await self.list_market()

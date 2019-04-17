@@ -79,12 +79,13 @@ cdef class MarketBase(TimeIterator):
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         raise NotImplementedError
 
-    async def calculate_fees(self,
-                            trading_pair: str, 
-                            amount: float,
-                            price: float,
-                            order_type: OrderType,
-                            order_side: TradeType) -> TradeFee:
+    def calculate_fees(self,
+                       trading_pair: str, 
+                       amount: float,
+                       price: float,
+                       order_type: OrderType,
+                       order_side: TradeType) -> List[TradeFee]:
+        raise NotImplementedError
 
     def get_order_price_quantum(self, symbol: str, price: float) -> Decimal:
         return self.c_get_order_price_quantum(symbol, price)
@@ -105,6 +106,14 @@ cdef class MarketBase(TimeIterator):
         raise NotImplementedError
 
     cdef c_cancel(self, str symbol, str client_order_id):
+        raise NotImplementedError
+
+    cdef list c_calculate_fees(self,
+                               str trading_pair,
+                               double amount,
+                               double price,
+                               object order_type,
+                               object order_side):
         raise NotImplementedError
 
     cdef double c_get_balance(self, str currency) except? -1:

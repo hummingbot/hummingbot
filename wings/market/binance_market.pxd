@@ -20,6 +20,8 @@ cdef class BinanceMarket(MarketBase):
         object _w3
         dict _withdraw_rules
         dict _trading_rules
+        dict _trade_fees
+        double _last_update_trade_fees_timestamp
         object _data_source_type
         public object _status_polling_task
         public object _user_stream_event_listener_task

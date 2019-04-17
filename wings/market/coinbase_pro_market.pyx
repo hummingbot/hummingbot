@@ -18,6 +18,8 @@ from libc.stdint cimport int64_t
 from wings.clock cimport Clock
 from wings.events import (
     TradeType,
+    TradeFee,
+    FeeType,
     MarketEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
@@ -322,6 +324,8 @@ cdef class CoinbaseProMarket(MarketBase):
                              price: float,
                              order_type: OrderType,
                              order_side: TradeType) -> TradeFee:
+        # There is no API for checking user's fee tier
+        # Fee info from https://pro.coinbase.com/fees
         maker_trade_fee = 0.0015
         taker_trade_fee = 0.0025
         fee_type = FeeType.ADD_QUOTE if order_side is TradeType.BUY else FeeType.SUB_QUOTE

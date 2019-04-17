@@ -169,14 +169,17 @@ class OrderType(Enum):
 
 class FeeType(Enum):
     ADD_BASE = 1
-    ADD_QUOTE = 2
-    SUB_BASE = 3
+    SUB_BASE = 2
+    ADD_QUOTE = 3
     SUB_QUOTE = 4
+    ADD_OTHER = 5
+    SUB_OTHER = 6
 
 
 class TradeFee(NamedTuple):
     type: FeeType
     amount: float
+    other_symbol: str = None
 
 class OrderBookTradeEvent(NamedTuple):
     symbol: str

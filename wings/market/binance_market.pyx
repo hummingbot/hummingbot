@@ -356,6 +356,7 @@ cdef class BinanceMarket(MarketBase):
         self._w3 = Web3(Web3.HTTPProvider(web3_url))
         self._withdraw_rules = {}
         self._trading_rules = {}
+        self._trade_fees = {}
         self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
         self._user_stream_tracker_task = None
@@ -363,6 +364,7 @@ cdef class BinanceMarket(MarketBase):
         self._order_tracker_task = None
         self._coro_queue = asyncio.Queue()
         self._coro_scheduler_task = None
+        self._last_update_trade_fees_timestamp = 0
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -474,23 +476,50 @@ cdef class BinanceMarket(MarketBase):
                 self.c_did_fail_tx(d.tracking_id)
             d.has_tx_receipt = True
 
-    async def calculate_fees(self,
-                             trading_pair: str,
-                             amount: float,
-                             price: float,
-                             order_type: OrderType,
-                             order_side: TradeType) -> TradeFee:
-        res = await self.query_api(self._binance_client.get_trade_fee, symbol=trading_pair)
-        maker_trade_fee = res["tradeFee"][0]["maker"]
-        taker_trade_fee = res["tradeFee"][0]["taker"]
+    async def _update_trade_fees(self):
+        cdef:
+            double current_timestamp = self._current_timestamp
+
+        if current_timestamp - self._last_update_trade_fees_timestamp > 60.0 * 60.0 or len(self._trade_fees) < 1:
+            res = await self.query_api(self._binance_client.get_trade_fee)
+            for fee in res["tradeFee"]:
+                self._trade_fees[fee["symbol"]] = (fee["maker"], fee["taker"])
+            self._last_update_trade_fees_timestamp = current_timestamp
+
+    def calculate_fees(self,
+                       trading_pair: str,
+                       amount: float,
+                       price: float,
+                       order_type: OrderType,
+                       order_side: TradeType) -> List[TradeFee]:
+        return self.c_calculate_fees(trading_pair, amount, price, order_type, order_side)
+
+    cdef list c_calculate_fees(self,
+                               str trading_pair,
+                               double amount,
+                               double price,
+                               object order_type,
+                               object order_side):
+        cdef:
+            double maker_trade_fee = 0.001
+            double taker_trade_fee = 0.001
+            double trade_fee
+            object fee_type
+            double fee_amount
+
+        if trading_pair not in self._trade_fees:
+            # https://www.binance.com/en/fee/schedule
+            self.logger().warning(f"Unable to find trade fee for {trading_pair}. Using default 0.1% maker/taker fee.")
+        else:
+            maker_trade_fee, taker_trade_fee = self._trade_fees.get(trading_pair)
         trade_fee = maker_trade_fee if order_type is OrderType.LIMIT else taker_trade_fee
         if order_side is TradeType.BUY:
             fee_type = FeeType.SUB_BASE
             fee_amount = float(Decimal(amount) * Decimal(trade_fee))
         else:
             fee_type = FeeType.SUB_QUOTE
-            fee_amount = float(Decimal(amount) * Decimal(trade_fee) * Decimal(price))
-        return TradeFee(type=fee_type, amount=fee_amount)
+            fee_amount = float(Decimal(amount) * Decimal(price) * Decimal(trade_fee))
+        return [TradeFee(type=fee_type, amount=fee_amount)]
 
     async def _check_deposit_completion(self):
         if len(self._in_flight_deposits) < 1:
@@ -729,7 +758,8 @@ cdef class BinanceMarket(MarketBase):
                     self._check_deposit_completion(),
                     self._update_withdraw_rules(),
                     self._update_trading_rules(),
-                    self._update_order_status()
+                    self._update_order_status(),
+                    self._update_trade_fees()
                 )
             except asyncio.CancelledError:
                 raise
@@ -742,7 +772,8 @@ cdef class BinanceMarket(MarketBase):
         return (len(self._order_book_tracker.order_books) > 0 and
                 len(self._account_balances) > 0 and
                 len(self._withdraw_rules) > 0 and
-                len(self._trading_rules) > 0)
+                len(self._trading_rules) > 0 and
+                len(self._trade_fees) > 0)
 
     async def server_time(self) -> int:
         """
