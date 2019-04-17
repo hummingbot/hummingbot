@@ -140,6 +140,11 @@ class HummingbotApplication:
             self.app.log("Invalid command: %s" % (str(e),))
         except ArgumentParserError as e:
             self.app.log(str(e))
+        except EnvironmentError as e:
+            # Handle order book too thin error more gracefully
+            if "no price quote is possible" in str(e):
+                self.logger().error(f"Order book error: Not enough volume on order book. Please consider choosing a "
+                                    f"trading pair with more volume or trade on a different exchange. {e}")
         except NotImplementedError:
             self.app.log("Command not yet implemented. This feature is currently under development.")
         except Exception as e:
@@ -306,12 +311,15 @@ class HummingbotApplication:
 
                 value = await single_prompt(cv)
                 cv.value = parse_cvar_value(cv, value)
+                if single_key:
+                    self.app.log(f"\nNew config saved:\n{key}: {str(value)}")
             if not self.config_complete:
                 await inner_loop(self._get_empty_configs())
         try:
             await inner_loop(keys)
             await write_config_to_yml()
-            self.app.log("\nConfig process complete. Enter \"start\" to start market making.")
+            if not single_key:
+                self.app.log("\nConfig process complete. Enter \"start\" to start market making.")
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
         except Exception as err:
@@ -448,13 +456,37 @@ class HummingbotApplication:
                 self.app.log('Wallet not available. Please configure your wallet (Enter "config wallet")')
             else:
                 self.app.log('\n'.join(wallets))
+
         elif obj == "exchanges":
             if len(EXCHANGES) == 0:
                 self.app.log("No exchanges available")
             else:
                 self.app.log('\n'.join(EXCHANGES))
+
         elif obj == "configs":
-            self.app.log('\n'.join(load_required_configs().keys()))
+            columns: List[str] = ["Key", "Current Value"]
+
+            global_cvs: List[ConfigVar] = list(in_memory_config_map.values()) + list(global_config_map.values())
+            global_data: List[List[str, Any]] = [
+                [cv.key, len(str(cv.value)) * "*" if cv.is_secure else str(cv.value)]
+                for cv in global_cvs]
+            global_df: pd.DataFrame = pd.DataFrame(data=global_data, columns=columns)
+            self.app.log("\nglobal configs:")
+            self.app.log(str(global_df))
+
+            strategy = in_memory_config_map.get("strategy").value
+            if strategy:
+                strategy_cvs: List[ConfigVar] = get_strategy_config_map(strategy).values()
+                strategy_data: List[List[str, Any]] = [
+                    [cv.key, len(str(cv.value)) * "*" if cv.is_secure else str(cv.value)]
+                    for cv in strategy_cvs]
+                strategy_df: pd.DataFrame = pd.DataFrame(data=strategy_data, columns=columns)
+
+                self.app.log(f"\n{strategy} strategy configs:")
+                self.app.log(str(strategy_df))
+
+            self.app.log("\n")
+
         elif obj == "trades":
             lines = []
             if self.strategy is None:
