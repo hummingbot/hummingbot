@@ -481,7 +481,6 @@ cdef class DDEXMarket(MarketBase):
             res = await self._api_request(http_method="get", url=calc_fee_url, params=params)
             # DDEX charges same gas fee for both DAI and TUSD
             self._gas_fee_usd = float(res["data"]["gasFeeAmount"])
-            print('********* !!!!! ', self._maker_trade_fee, self._taker_trade_fee, self._gas_fee_weth, self._gas_fee_usd)
             self._last_update_trade_fees_timestamp = current_timestamp
 
     def calculate_fees(self,
