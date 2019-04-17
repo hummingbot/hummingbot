@@ -357,6 +357,7 @@ cdef class BinanceMarket(MarketBase):
         self._withdraw_rules = {}
         self._trading_rules = {}
         self._trade_fees = {}
+        self._last_update_trade_fees_timestamp = 0
         self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
         self._user_stream_tracker_task = None
@@ -364,7 +365,6 @@ cdef class BinanceMarket(MarketBase):
         self._order_tracker_task = None
         self._coro_queue = asyncio.Queue()
         self._coro_scheduler_task = None
-        self._last_update_trade_fees_timestamp = 0
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
