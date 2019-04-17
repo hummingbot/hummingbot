@@ -101,6 +101,7 @@ nav:
       - Arbitrage: strategies/arbitrage.md
     - Support:
       - Support: support.md
+      - Bug bounty program: support/bug-bounty-program.md
       - Tips & Known Issues: support/tips-issues.md
     - Release notes:
       - Release notes: release-notes.md
