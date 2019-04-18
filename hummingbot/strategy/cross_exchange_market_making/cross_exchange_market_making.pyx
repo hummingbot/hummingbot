@@ -305,9 +305,49 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
         return "\n".join(lines)
 
+    # The following exposed Python functions are meant for unit tests
+    # ---------------------------------------------------------------
     def get_market_making_price_and_size_limit(self, market_pair: CrossExchangeMarketPair, is_bid: bool,
                                                own_order_depth: float = 0.0) -> Tuple[Decimal, Decimal]:
         return self.c_get_market_making_price_and_size_limit(market_pair, is_bid, own_order_depth=own_order_depth)
+
+    def get_order_size_after_portfolio_ratio_limit(self, market_pair: CrossExchangeMarketPair,
+                                                   original_order_size: float) -> float:
+        return self.c_get_order_size_after_portfolio_ratio_limit(market_pair, original_order_size)
+
+    def get_adjusted_limit_order_size(self, market_pair: CrossExchangeMarketPair, price: float,
+                                      original_order_size: float) -> float:
+        return self.c_get_adjusted_limit_order_size(market_pair, price, original_order_size)
+
+    def has_market_making_profit_potential(self, market_pair: CrossExchangeMarketPair,
+                                           OrderBook maker_order_book,
+                                           OrderBook taker_order_book) -> Tuple[bool, bool]:
+        return self.c_has_market_making_profit_potential(market_pair, maker_order_book, taker_order_book)
+
+    def get_market_making_price_and_size_limit(self, market_pair: CrossExchangeMarketPair,
+                                               is_bid: bool,
+                                               own_order_depth: float = 0) -> Tuple[Decimal, Decimal]:
+        return self.c_get_market_making_price_and_size_limit(market_pair, is_bid, own_order_depth=own_order_depth)
+
+    def calculate_effective_hedging_price(self, OrderBook taker_order_book,
+                                          is_maker_bid: bool,
+                                          maker_order_size: float) -> float:
+        return self.c_calculate_effective_hedging_price(taker_order_book, is_maker_bid, maker_order_size)
+
+    def check_if_still_profitable(self, market_pair: CrossExchangeMarketPair,
+                                  LimitOrder active_order,
+                                  double current_hedging_price) -> bool:
+        return self.c_check_if_still_profitable(market_pair, active_order, current_hedging_price)
+
+    def check_if_sufficient_balance(self, market_pair: CrossExchangeMarketPair,
+                                    LimitOrder active_order) -> bool:
+        return self.c_check_if_sufficient_balance(market_pair, active_order)
+
+    def check_if_price_correct(self, market_pair: CrossExchangeMarketPair,
+                               LimitOrder active_order,
+                               double current_hedging_price) -> bool:
+        return self.c_check_if_price_correct(market_pair, active_order, current_hedging_price)
+    # ---------------------------------------------------------------
 
     cdef c_buy_with_specific_market(self, MarketBase market, str symbol, double amount,
                                     object order_type = OrderType.MARKET,
