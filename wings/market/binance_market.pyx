@@ -963,7 +963,10 @@ cdef class BinanceMarket(MarketBase):
                 self.logger().info(f"The order {order_id} does not exist on Binance. No cancellation needed.")
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
-                return {}
+                return {
+                    # Required by cancel_all() below.
+                    "origClientOrderId": order_id
+                }
 
         if isinstance(cancel_result, dict) and cancel_result.get("status") == "CANCELED":
             self.logger().info(f"Successfully cancelled order {order_id}.")
