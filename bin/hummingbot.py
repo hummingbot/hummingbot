@@ -23,9 +23,9 @@ from typing import (
     Coroutine
 )
 
-from hummingbot import (
-    init_logging
-)
+# This init_logging() call is important, to skip over the missing config
+# warnings.
+from hummingbot import init_logging; init_logging("hummingbot_logs.yml")
 
 from hummingbot.cli.hummingbot_application import HummingbotApplication
 from hummingbot.cli.settings import (
@@ -55,7 +55,6 @@ async def main():
     await create_yml_files()
     read_configs_from_yml()
 
-    init_logging("hummingbot_logs.yml")
     hb = HummingbotApplication()
     with patch_stdout(log_field=hb.app.log_field):
         init_logging("hummingbot_logs.yml",

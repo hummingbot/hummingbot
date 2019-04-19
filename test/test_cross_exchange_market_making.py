@@ -87,6 +87,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             order_size_portfolio_ratio_limit=0.3,
             logging_options=logging_options
         )
+        self.logging_options = logging_options
         self.clock.add_iterator(self.maker_market)
         self.clock.add_iterator(self.taker_market)
         self.clock.add_iterator(self.strategy)
@@ -334,6 +335,42 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             self.maker_market.get_balance(self.maker_symbols[2]) + self.taker_market.get_balance(self.taker_symbols[2]),
             10
         )
+
+    def test_profitability_estimates(self):
+        self.clock.remove_iterator(self.strategy)
+        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
+            [self.market_pair],
+            0.01,
+            order_size_portfolio_ratio_limit=0.3,
+            logging_options=self.logging_options
+        )
+        self.clock.add_iterator(self.strategy)
+
+        self.clock.backtest_til(self.start_timestamp + 5)
+        self.assertEqual(0, len(self.strategy.active_bids))
+        self.assertEqual(0, len(self.strategy.active_asks))
+        self.assertEqual((False, False), self.strategy.has_market_making_profit_potential(
+            self.market_pair,
+            self.maker_data.order_book,
+            self.taker_data.order_book
+        ))
+
+        self.clock.remove_iterator(self.strategy)
+        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
+            [self.market_pair],
+            0.004,
+            order_size_portfolio_ratio_limit=0.3,
+            logging_options=self.logging_options
+        )
+        self.clock.add_iterator(self.strategy)
+        self.clock.backtest_til(self.start_timestamp + 10)
+        self.assertEqual(1, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))
+        self.assertEqual((True, True), self.strategy.has_market_making_profit_potential(
+            self.market_pair,
+            self.maker_data.order_book,
+            self.taker_data.order_book
+        ))
 
 
 def main():
