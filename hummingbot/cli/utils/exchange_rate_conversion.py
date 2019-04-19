@@ -1,7 +1,11 @@
 import asyncio
 import logging
 import ujson
-from typing import Optional
+from typing import (
+    Optional,
+    List,
+    Tuple
+)
 import aiohttp
 from hummingbot.cli.settings import (
     global_config_map
@@ -11,6 +15,7 @@ from hummingbot.cli.settings import (
 class ExchangeRateConversion:
     erc_logger: Optional[logging.Logger] = None
     _erc_shared_instance: "ExchangeRateConversion" = None
+    _exchange_rate_config_override: Optional[List[Tuple[str, float, str]]] = None
 
     @classmethod
     def get_instance(cls) -> "ExchangeRateConversion":
@@ -24,6 +29,14 @@ class ExchangeRateConversion:
             cls.erc_logger = logging.getLogger(__name__)
         return cls.erc_logger
 
+    @classmethod
+    def set_global_exchange_rate_config(cls, config: List[Tuple[str, float, str]]):
+        if cls._exchange_rate_config_override is None:
+            cls._exchange_rate_config_override = config
+        else:
+            cls._exchange_rate_config_override.clear()
+            cls._exchange_rate_config_override.extend(config)
+
     def __init__(self):
         self.exchange_rate_config = {}
         self.exchange_rate = {}
@@ -31,13 +44,16 @@ class ExchangeRateConversion:
         self.update_interval = 60.0
         self.started = False
         try:
-            exchange_rate_config = global_config_map["exchange_rate_conversion"].value
+            if self._exchange_rate_config_override is None:
+                exchange_rate_config = global_config_map["exchange_rate_conversion"].value
+            else:
+                exchange_rate_config = self._exchange_rate_config_override
             self.exchange_rate_config = {e[0]: {"default": e[1], "source": e[2]} for e in exchange_rate_config}
             self.exchange_rate = {k: float(v.get("default", 1.0)) for k, v in self.exchange_rate_config.items()}
         except Exception:
             self.logger().error("Error initiating config for exchange rate conversion.")
 
-    def adjust_token_rate(self, symbol: str, price: float):
+    def adjust_token_rate(self, symbol: str, price: float) -> float:
         if not self.started:
             self.start()
 
