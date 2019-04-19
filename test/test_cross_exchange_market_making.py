@@ -4,11 +4,12 @@ from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
 from decimal import Decimal
-import logging
+import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
 from typing import List
 import unittest
 
+from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import (
     AssetType,
@@ -46,6 +47,13 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
     maker_symbols: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
     taker_symbols: List[str] = ["coinalpha/eth", "COINALPHA", "ETH"]
 
+    @classmethod
+    def setUpClass(cls):
+        ExchangeRateConversion.set_global_exchange_rate_config([
+            ("WETH", 1.0, "None"),
+            ("QETH", 0.95, "None"),
+        ])
+
     def setUp(self):
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1.0, self.start_timestamp, self.end_timestamp)
         self.maker_market: BacktestMarket = BacktestMarket()
@@ -58,6 +66,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.taker_market.add_data(self.taker_data)
         self.maker_market.set_balance("COINALPHA", 5)
         self.maker_market.set_balance("WETH", 5)
+        self.maker_market.set_balance("QETH", 5)
         self.taker_market.set_balance("COINALPHA", 5)
         self.taker_market.set_balance("ETH", 5)
         self.maker_market.set_quantization_param(
@@ -87,6 +96,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             order_size_portfolio_ratio_limit=0.3,
             logging_options=logging_options
         )
+        self.logging_options = logging_options
         self.clock.add_iterator(self.maker_market)
         self.clock.add_iterator(self.taker_market)
         self.clock.add_iterator(self.strategy)
@@ -335,10 +345,89 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             10
         )
 
+    def test_profitability_without_conversion(self):
+        self.clock.remove_iterator(self.strategy)
+        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
+            [self.market_pair],
+            0.01,
+            order_size_portfolio_ratio_limit=0.3,
+            logging_options=self.logging_options
+        )
+        self.clock.add_iterator(self.strategy)
+
+        self.clock.backtest_til(self.start_timestamp + 5)
+        self.assertEqual(0, len(self.strategy.active_bids))
+        self.assertEqual(0, len(self.strategy.active_asks))
+        self.assertEqual((False, False), self.strategy.has_market_making_profit_potential(
+            self.market_pair,
+            self.maker_data.order_book,
+            self.taker_data.order_book
+        ))
+
+        self.clock.remove_iterator(self.strategy)
+        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
+            [self.market_pair],
+            0.004,
+            order_size_portfolio_ratio_limit=0.3,
+            logging_options=self.logging_options
+        )
+        self.clock.add_iterator(self.strategy)
+        self.clock.backtest_til(self.start_timestamp + 10)
+        self.assertEqual(1, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))
+        self.assertEqual((True, True), self.strategy.has_market_making_profit_potential(
+            self.market_pair,
+            self.maker_data.order_book,
+            self.taker_data.order_book
+        ))
+
+    def test_profitability_with_conversion(self):
+        self.clock.remove_iterator(self.strategy)
+        self.market_pair: CrossExchangeMarketPair = CrossExchangeMarketPair(
+            *(
+                [self.maker_market] + ["COINALPHA-QETH", "COINALPHA", "QETH"] +
+                [self.taker_market] + self.taker_symbols +
+                [2]
+            )
+        )
+        self.maker_data: MockOrderBookLoader = MockOrderBookLoader("COINALPHA-QETH", "COINALPHA", "QETH")
+        self.maker_data.set_balanced_order_book(1.05263, 0.55, 1.55, 0.01, 10)
+        self.maker_market.add_data(self.maker_data)
+        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
+            [self.market_pair],
+            0.01,
+            order_size_portfolio_ratio_limit=0.3,
+            logging_options=self.logging_options
+        )
+        self.clock.add_iterator(self.strategy)
+        self.clock.backtest_til(self.start_timestamp + 5)
+        self.assertEqual(0, len(self.strategy.active_bids))
+        self.assertEqual(0, len(self.strategy.active_asks))
+        self.assertEqual((False, False), self.strategy.has_market_making_profit_potential(
+            self.market_pair,
+            self.maker_data.order_book,
+            self.taker_data.order_book
+        ))
+
+        self.clock.remove_iterator(self.strategy)
+        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
+            [self.market_pair],
+            0.003,
+            order_size_portfolio_ratio_limit=0.3,
+            logging_options=self.logging_options
+        )
+        self.clock.add_iterator(self.strategy)
+        self.clock.backtest_til(self.start_timestamp + 10)
+        self.assertEqual(1, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))
+        self.assertEqual((True, True), self.strategy.has_market_making_profit_potential(
+            self.market_pair,
+            self.maker_data.order_book,
+            self.taker_data.order_book
+        ))
+
 
 def main():
-    logging.basicConfig(level=logging.ERROR)
-    # logging.basicConfig(level=logging.DEBUG)
     unittest.main()
 
 
