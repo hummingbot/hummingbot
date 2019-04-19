@@ -193,13 +193,14 @@ class RadarRelayOrderBookMessage(OrderBookMessage):
             """
             return self.type.value < other.type.value
 
+
 class CoinbaseProOrderBookMessage(OrderBookMessage):
     def __new__(cls, message_type: OrderBookMessageType, content: Dict[str, any], timestamp: Optional[float] = None,
                 *args, **kwargs):
         if timestamp is None:
             if message_type is OrderBookMessageType.SNAPSHOT:
                 raise ValueError("timestamp must not be None when initializing snapshot messages.")
-            timestamp = content["time"]
+            timestamp = pd.Timestamp(content["time"], tz="UTC").timestamp()
         return super(CoinbaseProOrderBookMessage, cls).__new__(cls, message_type, content,
                                                         timestamp=timestamp, *args, **kwargs)
 
@@ -218,7 +219,10 @@ class CoinbaseProOrderBookMessage(OrderBookMessage):
 
     @property
     def symbol(self) -> str:
-        return self.content["product_id"]
+        if "product_id" in self.content:
+            return self.content["product_id"]
+        elif "symbol" in self.content:
+            return self.content["symbol"]
 
     @property
     def asks(self) -> List[OrderBookRow]:
