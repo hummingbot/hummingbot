@@ -1080,6 +1080,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             MarketBase taker_market = market_pair.taker_market
             OrderBook maker_order_book = maker_market.c_get_order_book(market_pair.maker_symbol)
             OrderBook taker_order_book = taker_market.c_get_order_book(market_pair.taker_symbol)
+            double effective_hedging_price
 
         # See if it's profitable to place a limit order on maker market.
         bid_profitable, ask_profitable = self.c_has_market_making_profit_potential(
@@ -1095,12 +1096,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 True,
                 own_order_depth=0
             )
-
             bid_size = self.c_get_adjusted_limit_order_size(
                         market_pair,
                         float(bid_price),
                         float(bid_size_limit)
                     )
+
+            effective_hedging_price = self.c_calculate_effective_hedging_price(
+                taker_order_book,
+                True,
+                float(bid_size)
+            )
 
             if bid_size > s_decimal_zero:
                 if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
@@ -1108,7 +1114,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         logging.INFO,
                         f"({market_pair.maker_symbol}) Creating limit bid order for "
                         f"{bid_size} {market_pair.maker_base_currency} at "
-                        f"{bid_price} {market_pair.maker_quote_currency}."
+                        f"{bid_price} {market_pair.maker_quote_currency}. "
+                        f"Current hedging price: {effective_hedging_price} {market_pair.taker_quote_currency}."
                     )
                 client_order_id = self.c_buy_with_specific_market(
                     maker_market,
@@ -1143,13 +1150,20 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         float(ask_size_limit)
                     )
 
+            effective_hedging_price = self.c_calculate_effective_hedging_price(
+                taker_order_book,
+                False,
+                float(ask_size)
+            )
+
             if ask_size > s_decimal_zero:
                 if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                     self.log_with_clock(
                         logging.INFO,
                         f"({market_pair.maker_symbol}) Creating limit ask order for "
                         f"{ask_size} {market_pair.maker_base_currency} at "
-                        f"{ask_price} {market_pair.maker_quote_currency}."
+                        f"{ask_price} {market_pair.maker_quote_currency}. "
+                        f"Current hedging price: {effective_hedging_price} {market_pair.maker_quote_currency}."
                     )
                 client_order_id = self.c_sell_with_specific_market(
                     maker_market,
