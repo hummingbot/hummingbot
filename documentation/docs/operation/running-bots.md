@@ -13,9 +13,12 @@ If you have previously configured Hummingbot using `config` but are in a new ses
 
 ## Inventory requirements
 
-Hummingbot uses your token balances to determine the size of each order. For decentralized exchanges like DDEX and Radar Relay, it uses the token balances in your Ethereum wallet. For centralized exchanges like Binance, it uses your token balances in the respective exchange.
+Hummingbot uses your token balances to determine the size of each order. For decentralized exchanges like DDEX and Radar Relay, it uses the token balances in your Ethereum wallet. For centralized exchanges like Binance, it uses your token balances in the respective exchange. The trade size Hummingbot makes will be always less than the lowest asset balance on any side. 
 
-For cross-exchange market making, we recommend that users start with roughly equivalent balances of the base asset and the quote asset on each exchange. Thus, there are four balances to track:
+![inventory1](/assets/img/inventory1.png)
+![inventory2](/assets/img/inventory2.png)
+
+For cross-exchange market making, we **recommend** that users start with roughly equivalent balances of the base asset and the quote asset on each exchange. Thus, there are four balances to track:
 
 * Base asset on the maker exchange
 * Quote asset on the maker exchange
