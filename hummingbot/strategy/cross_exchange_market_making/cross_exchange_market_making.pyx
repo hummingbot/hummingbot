@@ -156,7 +156,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._limit_order_min_expiration = limit_order_min_expiration
         self._cancel_order_threshold = cancel_order_threshold
         self._active_order_canceling = active_order_canceling
-        self.exchange_rate_conversion = ExchangeRateConversion.get_instance()
+        self._exchange_rate_conversion = ExchangeRateConversion.get_instance()
 
         cdef:
             MarketBase typed_market
@@ -209,6 +209,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     @logging_options.setter
     def logging_options(self, int64_t logging_options):
         self._logging_options = logging_options
+
+    @property
+    def exchange_rate_conversion(self) -> ExchangeRateConversion:
+        return self._exchange_rate_conversion
 
     def log_with_clock(self, log_level: int, msg: str, **kwargs):
         clock_timestamp = pd.Timestamp(self._current_timestamp, unit="s", tz="UTC")
@@ -268,8 +272,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     f"{taker_market.get_balance(taker_base)}/{taker_market.get_balance(taker_quote)}",
             ])
 
-            taker_quote_adjusted = self.exchange_rate_conversion.adjust_token_rate(taker_quote, 1.0)
-            maker_quote_adjusted = self.exchange_rate_conversion.adjust_token_rate(maker_quote, 1.0)
+            taker_quote_adjusted = self._exchange_rate_conversion.adjust_token_rate(taker_quote, 1.0)
+            maker_quote_adjusted = self._exchange_rate_conversion.adjust_token_rate(maker_quote, 1.0)
             if taker_quote_adjusted != 1.0 or maker_quote_adjusted != 1.0:
                 lines.extend([
                     f"  Stable Coin Exchange Rate Conversion:",
@@ -741,17 +745,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double taker_bid_price = taker_order_book.c_get_price(False)
             double taker_ask_price = taker_order_book.c_get_price(True)
 
-            double maker_bid_price_adjusted = self.exchange_rate_conversion.adjust_token_rate(
+            double maker_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.maker_quote_currency, maker_bid_price)
 
-            double maker_ask_price_adjusted = self.exchange_rate_conversion.adjust_token_rate(
+            double maker_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.maker_quote_currency, maker_ask_price)
 
-            double taker_bid_price_adjusted = self.exchange_rate_conversion.adjust_token_rate(
-                market_pair.maker_quote_currency, taker_bid_price)
+            double taker_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.taker_quote_currency, taker_bid_price)
 
-            double taker_ask_price_adjusted = self.exchange_rate_conversion.adjust_token_rate(
-                market_pair.maker_quote_currency, taker_ask_price)
+            double taker_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.taker_quote_currency, taker_ask_price)
 
         return (taker_bid_price_adjusted > maker_bid_price_adjusted * (1.0 + self._min_profitability),
                 maker_ask_price_adjusted > taker_ask_price_adjusted * (1.0 + self._min_profitability))
@@ -777,6 +781,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double maker_balance_size_limit
             double taker_balance_size_limit
             double taker_order_book_size_limit
+            double adjusted_taker_price
 
         # Get the top-of-order-book prices, taking the top depth tolerance into account.
         try:
@@ -803,7 +808,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             maker_balance_size_limit = maker_market.c_get_balance(market_pair.maker_quote_currency) / float(next_price)
             taker_balance_size_limit = (taker_market.c_get_balance(market_pair.taker_base_currency) *
                                         self._order_size_taker_balance_factor)
-            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(False, float(next_price)) *
+            adjusted_taker_price = (self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.maker_quote_currency,
+                float(next_price)
+            ) / self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.taker_quote_currency,
+                1.0
+            ))
+            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(False, adjusted_taker_price) *
                                            self._order_size_taker_volume_factor)
             raw_size_limit = min(
                 taker_order_book_size_limit,
@@ -822,7 +834,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             taker_balance_size_limit = (taker_market.c_get_balance(market_pair.taker_quote_currency) /
                                         float(next_price) *
                                         self._order_size_taker_balance_factor)
-            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(True, float(next_price)) *
+            adjusted_taker_price = (self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.maker_quote_currency,
+                float(next_price)
+            ) / self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.taker_quote_currency,
+                1.0
+            ))
+            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(True, adjusted_taker_price) *
                                            self._order_size_taker_volume_factor)
 
             raw_size_limit = min(
@@ -914,10 +933,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double cancel_order_threshold
             double order_price = float(active_order.price)
 
-            double order_price_adjusted = self.exchange_rate_conversion.adjust_token_rate(
+            double order_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.taker_quote_currency, float(active_order.price))
 
-            double current_hedging_price_adjusted = self.exchange_rate_conversion.adjust_token_rate(
+            double current_hedging_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.taker_quote_currency, current_hedging_price)
 
         # If active order canceling is disabled, only cancel order when the profitability goes below
