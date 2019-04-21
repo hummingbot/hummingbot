@@ -29,5 +29,12 @@ Here are some of the exposed properties you can access from the debug console:
 - `hb.acct`: The currently active Ethereum wallet object
 - `hb.clock`: The clock object that's driving all the Hummingbot components
 
+![Some exposed variables under 'hb'](/assets/img/debug4.png)
+
 ## Some examples
 
+Below is an example where a developer queries the currently active bids/asks under the strategy, and the current best ask price on DDEX.
+
+![Example](/assets/img/debug5.png)
+
+You should refer to the source code of the exposed objects to see what properties you can inspect and modify inside the debug console.
