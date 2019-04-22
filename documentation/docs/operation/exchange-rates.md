@@ -2,7 +2,9 @@
 
 When you run strategies on multiple exchanges, there may be instances where you need to utilize an **exchange rate** to convert between assets. 
 
-In particular, you may need to convert the value of one stablecoin to another when you use different stablecoins in multi-legged strategies like [cross-exchange market making](/strategies/cross-exchange-market-making) and [arbitrage](/strategies/arbitrage).
+In particular, you may need to convert the value of one stablecoin to another when you use different stablecoins in multi-legged strategies like [cross-exchange market making](/strategies/cross-exchange-market-making) and [arbitrage](/strategies/arbitrage). 
+
+For example, if you make a market in the ==WETH/DAI== pair on a decentralized exchange, you may want to hedge filled orders using the ==ETH/USD== pair on Coinbase or the ==ETH/USDT== pair on Binance. Using exchange rates for USDT and DAI against USD allows Hummingbot to take into account differences in prices between stablecoins.
 
 ## Exchange rate class
 To performance these conversions, Hummingbot includes an exchange rate class in `conf_global.yml` in the `/conf` directory. Here, you can either set a fixed exchange rate or tell Hummingbot to use a price feed API to dynamically set the exchange rates in real-time.
