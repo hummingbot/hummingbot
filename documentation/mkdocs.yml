@@ -89,6 +89,7 @@ nav:
       - Configuration: operation/configuration.md
       - Running Bots: operation/running-bots.md
       - Logging: operation/logging.md
+      - Debug Console: operation/debug.md
     - Connectors:
       - Connectors: connectors.md
       - Binance: connectors/binance.md
