@@ -90,6 +90,7 @@ nav:
       - Running bots: operation/running-bots.md
       - Logging: operation/logging.md
       - Exchange rates: operation/exchange-rates.md
+      - Debug console: operation/debug.md
     - Connectors:
       - Connectors: connectors.md
       - Binance: connectors/binance.md
