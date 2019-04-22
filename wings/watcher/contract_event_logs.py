@@ -54,8 +54,8 @@ class ContractEventLogger:
         return self._contract_abi
 
     async def get_new_entries_from_logs(self,
-                                  event_name: str,
-                                  block_hashes: List[HexBytes]) -> List[AttributeDict]:
+                                        event_name: str,
+                                        block_hashes: List[HexBytes]) -> List[AttributeDict]:
         event_abi: Dict[str, any] = self._event_abi_map.get(event_name, None)
         if event_abi is None:
             event_abi = find_matching_event_abi(self._contract_abi, event_name=event_name)
@@ -115,9 +115,12 @@ class ContractEventLogger:
                 break
             except asyncio.CancelledError:
                 raise
-            except Exception:
-                self.logger().debug(
-                    f"Block not found with filters: '{event_filter_params}'. Retrying..."
-                )
+            except Exception as e:
+                # This exception will never be resolve as the block here will not be found
+                # Alchemy nodes return a different error message
+                # if "message" in e and e["message"] == "unknown block":
+                #     break
+                # else:
+                self.logger().debug(f"Block not found with filters: '{event_filter_params}'. Retrying...")
                 await asyncio.sleep(0.5)
         return logs
