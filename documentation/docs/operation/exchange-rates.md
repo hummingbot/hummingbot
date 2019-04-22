@@ -5,9 +5,10 @@ When you run strategies on multiple exchanges, there may be instances where you 
 In particular, you may need to convert the value of one stablecoin to another when you use different stablecoins in multi-legged strategies like [cross-exchange market making](/strategies/cross-exchange-market-making) and [arbitrage](/strategies/arbitrage).
 
 ## Exchange rate class
-To performance these conversions, Hummingbot includes an exchange rate class in `conf_global.yml` in the `/conf` directory. Here, you can set USD exchange rates, either statically or dynamically via API) for various crypto-assets 
+To performance these conversions, Hummingbot includes an exchange rate class in `conf_global.yml` in the `/conf` directory. Here, you can either set a fixed exchange rate or tell Hummingbot to use a price feed API to dynamically set the exchange rates in real-time.
 
-### Default configuration
+### Example: default configuration
+In the file `conf/conf_global.yml`:
 ```
 exchange_rate_conversion:
 - - DAI
@@ -25,15 +26,19 @@ exchange_rate_conversion:
 ```
 By default, Hummingbot uses the <a href="https://docs.coincap.io/" target="_blank">CoinCap API</a> to set the USD exchange rate for the stablecoins above.
 
-### Custom configuration example
+When you run Hummingbot using either DAI and/or USDT, the exchange rates are displayed in the `status` command:
+![Exchange rate default](/assets/img/exchange-rate-default.png)
+
+### Example: custom configuration
+In the file `conf/conf_global.yml`:
 ```
 exchange_rate_conversion:
 - - DAI
   - 0.97
-  - DEFAULT
+  - OVERRIDE
 - - USDT
   - 1.0
-  - DEFAULT
+  - OVERRIDE
 - - USDC
   - 1.0
   - COINCAP_API
@@ -44,3 +49,11 @@ exchange_rate_conversion:
   - 1.0
   - COINCAP_API
 ```
+
+To set a fixed exchange rate, replace `COINCAP_API` with `OVERRIDE` and set the fixed exchange rate. In the example  above, 1 DAI is assumed to equal $0.97 USD, and 1 USDT is assumed to equal $1.00.
+
+You can also add new crypto-assets. In the example above, the addition of PAX allows Hummingbot to use the PAX/USD exchange rate from CoinCap.
+
+You can see these custom exchange rates in the `status` command:
+![Exchange rate custom](/assets/img/exchange-rate-custom.png)
+
