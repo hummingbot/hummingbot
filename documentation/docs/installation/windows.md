@@ -1,17 +1,17 @@
-# Installing Hummingbot on Windows
+# Windows installation
 
 The Hummingbot code base is designed and optimized for UNIX-based systems such as macOS and Linux. We recommend that Windows users either:
 
 * Install the [Docker version](/installation/docker): note that this uses Docker Toolbox which may require Windows Pro
-* Install from source using VirtualBox or Windows Subsystem for Linux
+* Install from source using Windows Subsystem for Linux or VirtualBox.
 
-## Installation walkthough
+## Installing Hummingbot on Windows Subsystems for Linux
 
-Below, we summarize instructions for installing Hummingbot from source on Windows 10, using Windows Subsystem for Linux. Users may also want to refer to the full instructions for [installing from source](installation/source).
+Below, we summarize instructions for installing Hummingbot from source on Windows 10, using Windows Subsystem for Linux (WSL). Users may use <a href="ttps://www.virtualbox.org/" target="_blank">VirtualBox</a> rather than WSL.
 
 ### 1. Install Ubuntu in Windows Subsystem for Linux
 
-Follow these <a href="https://docs.microsoft.com/en-us/windows/wsl/install-win10" target="_blank">instructions</a> for installing Windows Subsystem for Linux. Then, install your favorite Linux distribution; Hummingbot has been tested on Ubuntu so we recommend that if possible.
+Follow these <a href="https://docs.microsoft.com/en-us/windows/wsl/install-win10" target="_blank">instructions</a> for installing Windows Subsystem for Linux, and then Ubuntu.
 
 ### 2. Get the `build-essential` package
 
