@@ -487,9 +487,6 @@ cdef class ArbitrageStrategy(StrategyBase):
                             (total_ask_value_adjusted * (1 + buy_fee.percent) + total_buy_flat_fees)
             profitability_nf = (total_bid_value_adjusted * (1 - 0) - 0) / \
                             (total_ask_value_adjusted * (1 + 0) + 0)
-            print('****** bid', total_bid_value_adjusted, total_sell_flat_fees)
-            print('****** ask', total_ask_value_adjusted, total_buy_flat_fees)
-            print('******* profitability', profitability_nf, profitability)
 
             buy_market_quote_asset = buy_market.c_get_balance(buy_market_quote_currency)
             sell_market_base_asset = sell_market.c_get_balance(sell_market_base_currency)
@@ -666,7 +663,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                 current_ask_price_adjusted = self.exchange_rate_conversion.adjust_token_rate(buy_market_quote_currency,
                                                                                              current_ask.price)
                 # arbitrage not possible
-                if current_bid_price_adjusted/current_ask_price_adjusted < (1 - 0.1 + min_profitability):
+                if current_bid_price_adjusted/current_ask_price_adjusted < (1 + min_profitability):
                     break
 
                 step_amount = min(bid_leftover_amount, ask_leftover_amount)
