@@ -39,8 +39,7 @@ from wings.events import (
     OrderCancelledEvent,
     MarketTransactionFailureEvent,
     TradeType,
-    TradeFee,
-    FeeType
+    TradeFee
 )
 from zero_ex.order_utils import (
     generate_order_hash_hex,
@@ -323,30 +322,22 @@ cdef class RadarRelayMarket(MarketBase):
                 self.logger().error("Unexpected error while fetching account updates.", exc_info=True)
                 await asyncio.sleep(0.5)
 
-    def calculate_fees(self,
-                       symbol: str,
-                       amount: float,
-                       price: float,
-                       order_type: OrderType,
-                       order_side: TradeType) -> List[TradeFee]:
-        return self.c_calculate_fees(symbol, amount, price, order_type, order_side)
-
-    cdef list c_calculate_fees(self,
-                               str symbol,
-                               double amount,
-                               double price,
-                               object order_type,
-                               object order_side):
+    cdef object c_get_fee(self,
+                          str symbol,
+                          object order_type,
+                          object order_side,
+                          double amount,
+                          double price):
         # there are no fees for makers on Radar Relay
         cdef:
-            int gas_estimate = 130000 # approximate gas used for typical market orders
+            int gas_estimate = 130000 # approximate gas used for 0x market orders
             double transaction_cost_eth
 
         if order_type is OrderType.LIMIT:
-            return [TradeFee(type=FeeType.SUB_QUOTE, amount=0.0)]
+            return TradeFee(percent=0.0)
         # only fee for takers is gas cost of transaction
         transaction_cost_eth = self._wallet.gas_price * gas_estimate / 1e18
-        return [TradeFee(type=FeeType.ADD_OTHER, amount=transaction_cost_eth, other_symbol="ETH")]
+        return TradeFee(percent=0.0, flat_fees=[("ETH", transaction_cost_eth)])
 
     def _update_balances(self):
         self._account_balances = self.wallet.get_all_balances()
@@ -769,7 +760,7 @@ cdef class RadarRelayMarket(MarketBase):
                                  f"{trading_rule.max_order_size}")
 
             if order_type is OrderType.LIMIT:
-                if price == NaN:
+                if math.isnan(price):
                     raise ValueError(f"Limit orders require a price. Aborting.")
                 elif expires is None:
                     raise ValueError(f"Limit orders require an expiration timestamp 'expiration_ts'. Aborting.")

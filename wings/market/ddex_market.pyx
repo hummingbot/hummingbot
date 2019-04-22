@@ -32,7 +32,6 @@ from wings.events import (
     SellOrderCreatedEvent,
     OrderType,
     TradeType,
-    FeeType,
     TradeFee
 )
 from wings.cancellation_result import CancellationResult
@@ -256,10 +255,10 @@ cdef class DDEXMarket(MarketBase):
                and len(self._trading_rules) > 0 \
                and len(self._order_book_tracker.order_books) > 0 \
                and len(self._pending_approval_tx_hashes) == 0 \
-               and self._maker_trade_fee != NaN \
-               and self._taker_trade_fee != NaN \
-               and self._gas_fee_weth != NaN \
-               and self._gas_fee_usd != NaN
+               and not math.isnan(self._maker_trade_fee) \
+               and not math.isnan(self._taker_trade_fee) \
+               and not math.isnan(self._gas_fee_weth) \
+               and not math.isnan(self._gas_fee_usd)
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -483,31 +482,29 @@ cdef class DDEXMarket(MarketBase):
             self._gas_fee_usd = float(res["data"]["gasFeeAmount"])
             self._last_update_trade_fees_timestamp = current_timestamp
 
-    def calculate_fees(self,
-                       symbol: str,
-                       amount: float,
-                       price: float,
-                       order_type: OrderType,
-                       order_side: TradeType) -> List[TradeFee]:
-        return self.c_calculate_fees(symbol, amount, price, order_type, order_side)
-
-    cdef list c_calculate_fees(self,
-                               str symbol,
-                               double amount,
-                               double price,
-                               object order_type,
-                               object order_side):
+    cdef object c_get_fee(self,
+                          str symbol,
+                          object order_type,
+                          object order_side,
+                          double amount,
+                          double price):
         cdef:
             str quote_token
-            double gas_fee
+            double gas_fee = 0.0
             object fee_type
             double trade_fee
 
-        quote_token = symbol.split("-")[1]
-        gas_fee = self._gas_fee_weth if quote_token == "WETH" else self._gas_fee_usd
-        fee_type = FeeType.ADD_QUOTE if order_side is TradeType.BUY else FeeType.SUB_QUOTE
-        trade_fee = self._maker_trade_fee if order_type is OrderType.LIMIT else self._taker_trade_fee
-        return [TradeFee(type=fee_type, amount=trade_fee)]
+        quote_currency = symbol.split("-")[1]
+        # DDEX only quotes with WETH or stable coins
+        if quote_currency == "WETH":
+            gas_fee = self._gas_fee_weth
+        elif quote_currency in ["DAI", "TUSD", "USDC", "PAX", "USDT"]:
+            gas_fee = self._gas_fee_usd
+        else:
+            self.logger().warning(f"Unrecognized quote token symbol - {quote_currency}. Assuming gas fee is in stable coin units.")
+            gas_fee = self._gas_fee_usd
+        percent = self._maker_trade_fee if order_type is OrderType.LIMIT else self._taker_trade_fee
+        return TradeFee(percent, flat_fees = [(quote_currency, gas_fee)])
 
     async def build_unsigned_order(self, amount: str, price: str, side: str, symbol: str, order_type: OrderType,
                                    expires: int) -> Dict[str, Any]:
@@ -585,11 +582,25 @@ cdef class DDEXMarket(MarketBase):
 
     cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0,
                    dict kwargs = {}):
+        # DDEX takes fees in addition to what you want to spend
+        # if you want to buy 10 ZRX with 1 DAI and the fee is 2%, required DAI balance is 1.02 DAI
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"buy-{symbol}-{tracking_nonce}")
+            str quote_currency = symbol.split("-")[1]
+            object buy_fee = self.c_get_fee(symbol, order_type, TradeType.BUY, amount, price)
+            double total_flat_fees = 0.0
+            double adjusted_amount
 
-        asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
+        for flat_fee_currency, flat_fee_amount in buy_fee.flat_fees:
+            if flat_fee_currency == quote_currency:
+                total_flat_fees += flat_fee_amount
+            else:
+                raise ValueError("TODO: Quote conversion")
+
+        # adjust amount so fees are taken from your order instead of in addition to your order
+        adjusted_amount = amount / (1 + buy_fee.percent) - total_flat_fees / price
+        asyncio.ensure_future(self.execute_buy(order_id, symbol, adjusted_amount, order_type, price))
         return order_id
 
     async def execute_buy(self, order_id: str, symbol: str, amount: float, order_type: OrderType, price: float) -> str:
