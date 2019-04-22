@@ -19,7 +19,6 @@ from wings.clock cimport Clock
 from wings.events import (
     TradeType,
     TradeFee,
-    FeeType,
     MarketEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
@@ -318,20 +317,19 @@ cdef class CoinbaseProMarket(MarketBase):
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {data}")
             return data
 
-    async def calculate_fees(self,
-                             symbol: str,
-                             amount: float,
-                             price: float,
-                             order_type: OrderType,
-                             order_side: TradeType) -> TradeFee:
+    cdef object c_get_fee(self,
+                          str symbol,
+                          object order_type,
+                          object order_side,
+                          double amount,
+                          double price):
         # There is no API for checking user's fee tier
         # Fee info from https://pro.coinbase.com/fees
-        maker_trade_fee = 0.0015
-        taker_trade_fee = 0.0025
-        fee_type = FeeType.ADD_QUOTE if order_side is TradeType.BUY else FeeType.SUB_QUOTE
-        trade_fee = maker_trade_fee if order_type is OrderType.LIMIT else taker_trade_fee
-        fee_amount = float(Decimal(amount) * Decimal(price) * Decimal(trade_fee))
-        return TradeFee(type=fee_type, amount=fee_amount)
+        cdef:
+            double maker_fee = 0.0015
+            double taker_fee = 0.0025
+
+        return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
 
     async def _update_balances(self):
         cdef:
@@ -653,7 +651,17 @@ cdef class CoinbaseProMarket(MarketBase):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"buy-{symbol}-{tracking_nonce}")
-        asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
+            object buy_fee
+            double adjusted_amount
+
+        # Coinbase Pro charges additional fees for buy limit orders
+        # limit buy 10 XLM for 1 USDC and the fee is 2%, balance requires 1.02 USDC
+        adjusted_amount = amount
+        if order_type is OrderType.LIMIT:
+            buy_fee = self.c_get_fee(symbol, order_type, TradeType.BUY, amount, price)
+            adjusted_amount = amount / (1 + buy_fee.percent)
+
+        asyncio.ensure_future(self.execute_buy(order_id, symbol, adjusted_amount, order_type, price))
         return order_id
 
     async def execute_sell(self,

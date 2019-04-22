@@ -40,7 +40,6 @@ from wings.events import (
     MarketTransactionFailureEvent,
     OrderType,
     TradeType,
-    FeeType,
     TradeFee
 )
 from wings.market.market_base import (
@@ -486,40 +485,22 @@ cdef class BinanceMarket(MarketBase):
                 self._trade_fees[fee["symbol"]] = (fee["maker"], fee["taker"])
             self._last_update_trade_fees_timestamp = current_timestamp
 
-    def calculate_fees(self,
-                       symbol: str,
-                       amount: float,
-                       price: float,
-                       order_type: OrderType,
-                       order_side: TradeType) -> List[TradeFee]:
-        return self.c_calculate_fees(symbol, amount, price, order_type, order_side)
-
-    cdef list c_calculate_fees(self,
-                               str symbol,
-                               double amount,
-                               double price,
-                               object order_type,
-                               object order_side):
+    cdef object c_get_fee(self,
+                          str symbol,
+                          object order_type,
+                          object order_side,
+                          double amount,
+                          double price):
         cdef:
             double maker_trade_fee = 0.001
             double taker_trade_fee = 0.001
-            double trade_fee
-            object fee_type
-            double fee_amount
 
         if symbol not in self._trade_fees:
             # https://www.binance.com/en/fee/schedule
             self.logger().warning(f"Unable to find trade fee for {symbol}. Using default 0.1% maker/taker fee.")
         else:
             maker_trade_fee, taker_trade_fee = self._trade_fees.get(symbol)
-        trade_fee = maker_trade_fee if order_type is OrderType.LIMIT else taker_trade_fee
-        if order_side is TradeType.BUY:
-            fee_type = FeeType.SUB_BASE
-            fee_amount = float(Decimal(amount) * Decimal(trade_fee))
-        else:
-            fee_type = FeeType.SUB_QUOTE
-            fee_amount = float(Decimal(amount) * Decimal(price) * Decimal(trade_fee))
-        return [TradeFee(type=fee_type, amount=fee_amount)]
+        return TradeFee(percent=maker_trade_fee if order_type is OrderType.LIMIT else taker_trade_fee)
 
     async def _check_deposit_completion(self):
         if len(self._in_flight_deposits) < 1:
