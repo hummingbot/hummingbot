@@ -11,6 +11,13 @@ If any configuration settings are missing, you will be prompted to add them (see
 
 If you have previously configured Hummingbot using `config` but are in a new session of the CLI, you will need to run `config` again to unlock your Ethereum wallet.
 
+## Automatic approvals
+
+In order to trade on an Ethereum-based decentralized exchange (DEX), you may need to send an Ethereum transaction to approve your tokens for trading on the exchange if it is the first time that you are trading that token. Hummingbot checks if tokens are approved and automatically handles the approval transaction before it begins operation.
+
+!!! note
+    While Hummingbot automatically handles approvals, it does not automatically wrap ETH or unwrap WETH.
+
 ## Inventory requirements
 
 Hummingbot uses your token balances to determine the size of each order. For decentralized exchanges like DDEX and Radar Relay, it uses the token balances in your Ethereum wallet. For centralized exchanges like Binance, it uses your token balances in the respective exchange. The trade size Hummingbot makes will be always less than the lowest asset balance on any side. 
