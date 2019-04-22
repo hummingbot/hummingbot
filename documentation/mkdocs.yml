@@ -80,16 +80,17 @@ nav:
       - Installation: installation.md
       - Install from Docker: installation/docker.md
       - Install from source: installation/source.md
-      - Install on Windows: installation/windows.md
+      - Windows installation: installation/windows.md
       - API keys: installation/api-keys.md
       - Ethereum wallet: installation/wallet.md
       - Ethereum node: installation/node.md
     - Operation:
       - Client: operation/client.md
       - Configuration: operation/configuration.md
-      - Running Bots: operation/running-bots.md
+      - Running bots: operation/running-bots.md
       - Logging: operation/logging.md
-      - Debug Console: operation/debug.md
+      - Exchange rates: operation/exchange-rates.md
+      - Debug console: operation/debug.md
     - Connectors:
       - Connectors: connectors.md
       - Binance: connectors/binance.md
