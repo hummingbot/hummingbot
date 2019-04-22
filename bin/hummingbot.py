@@ -23,10 +23,7 @@ from typing import (
     Coroutine
 )
 
-# This init_logging() call is important, to skip over the missing config
-# warnings.
-from hummingbot import init_logging; init_logging("hummingbot_logs.yml")
-
+from hummingbot import init_logging
 from hummingbot.cli.hummingbot_application import HummingbotApplication
 from hummingbot.cli.settings import (
     global_config_map,
@@ -53,6 +50,10 @@ def detect_available_port(starting_port: int) -> int:
 
 async def main():
     await create_yml_files()
+
+    # This init_logging() call is important, to skip over the missing config warnings.
+    init_logging("hummingbot_logs.yml")
+
     read_configs_from_yml()
 
     hb = HummingbotApplication()
