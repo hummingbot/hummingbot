@@ -95,7 +95,7 @@ class ContractEventLogger:
 
     async def _get_logs(self,
                         event_filter_params: Dict[str, any],
-                        max_tries: Optional[int] = 100) -> List[Dict[str, any]]:
+                        max_tries: Optional[int] = 30) -> List[Dict[str, any]]:
         ev_loop: asyncio.BaseEventLoop = self._ev_loop
         count: int = 0
         logs = []
@@ -103,7 +103,7 @@ class ContractEventLogger:
             try:
                 count += 1
                 if count > max_tries:
-                    self.logger().error(
+                    self.logger().debug(
                         f"Error fetching logs from block with filters: '{event_filter_params}'."
                     )
                     break
@@ -116,10 +116,6 @@ class ContractEventLogger:
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                # The "unknown block" exception will never be resolved -- the block hash is not found
-                if "unknown block" in str(e):
-                    break
-                else:
-                    self.logger().debug(f"Block not found with filters: '{event_filter_params}'. Retrying...")
-                    await asyncio.sleep(0.5)
+                self.logger().debug(f"Block not found with filters: '{event_filter_params}'. Retrying...")
+                await asyncio.sleep(0.5)
         return logs
