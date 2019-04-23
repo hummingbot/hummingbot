@@ -1,11 +1,11 @@
 from wings.event_reporter cimport EventReporter
 from wings.event_logger cimport EventLogger
 from wings.order_book cimport OrderBook
-from wings.time_iterator cimport TimeIterator
+from wings.network_iterator cimport NetworkIterator
 from wings.wallet.wallet_base cimport WalletBase
 
 
-cdef class MarketBase(TimeIterator):
+cdef class MarketBase(NetworkIterator):
     cdef:
         EventReporter event_reporter
         EventLogger event_logger

@@ -17,14 +17,9 @@ from typing import (
 from decimal import Decimal
 from libc.stdint cimport int64_t
 from web3 import Web3
+
+from wings.cancellation_result import CancellationResult
 from wings.clock cimport Clock
-from wings.data_source.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
-from wings.limit_order import LimitOrder
-from wings.market.market_base cimport MarketBase
-from wings.wallet.web3_wallet import Web3Wallet
-from wings.order_book cimport OrderBook
-from wings.order_book_tracker import OrderBookTrackerDataSourceType
-from wings.tracker.ddex_order_book_tracker import DDEXOrderBookTracker
 from wings.events import (
     MarketEvent,
     BuyOrderCompletedEvent,
@@ -38,7 +33,19 @@ from wings.events import (
     TradeType,
     TradeFee
 )
-from wings.cancellation_result import CancellationResult
+from wings.limit_order import LimitOrder
+from wings.market.market_base cimport MarketBase
+from wings.market.market_base import (
+    OrderType
+)
+from wings.network_iterator import (
+    NetworkIterator,
+    NetworkStatus
+)
+from wings.order_book cimport OrderBook
+from wings.order_book_tracker import OrderBookTrackerDataSourceType
+from wings.tracker.ddex_order_book_tracker import DDEXOrderBookTracker
+from wings.wallet.web3_wallet import Web3Wallet
 
 
 s_logger = None
@@ -837,14 +844,33 @@ cdef class DDEXMarket(MarketBase):
 
         return order_book.c_get_price(is_buy)
 
-    cdef c_start(self, Clock clock, double timestamp):
-        MarketBase.c_start(self, clock, timestamp)
+    async def start_network(self):
+        await super().start_network()
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
         self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
         tx_hashes = self.wallet.current_backend.check_and_fix_approval_amounts(
             spender=self._wallet_spender_address)
         self._pending_approval_tx_hashes.update(tx_hashes)
         self._approval_tx_polling_task = asyncio.ensure_future(self._approval_tx_polling_loop())
+
+    async def stop_network(self):
+        await super().stop_network()
+        if self._order_tracker_task is not None:
+            self._order_tracker_task.cancel()
+            self._status_polling_task.cancel()
+            self._pending_approval_tx_hashes.clear()
+            self._approval_tx_polling_task.cancel()
+        self._order_tracker_task = self._status_polling_task = self._approval_tx_polling_task = None
+
+    async def check_network(self) -> NetworkStatus:
+        url = f"{self.DDEX_REST_ENDPOINT}/markets/tickers"
+        try:
+            await self._api_request("GET", url)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return NetworkStatus.NOT_CONNECTED
+        return NetworkStatus.CONNECTED
 
     cdef c_tick(self, double timestamp):
         cdef:
