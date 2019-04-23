@@ -47,6 +47,7 @@ from wings.market.market_base import (
     MarketBase,
     NaN
 )
+from wings.network_iterator import NetworkStatus
 from wings.order_book_tracker import (
     OrderBookTrackerDataSourceType
 )
@@ -411,7 +412,10 @@ cdef class BinanceMarket(MarketBase):
                 async with timeout(timeout_seconds):
                     fut.set_result(await coro)
             except asyncio.CancelledError:
-                self.logger().error("coro_scheduler has been cancelled! This shouldn't happen!", exc_info=True)
+                try:
+                    fut.cancel()
+                except Exception as e:
+                    pass
                 raise
             except Exception as e:
                 self.logger().error("API call error.", exc_info=True)
@@ -849,11 +853,38 @@ cdef class BinanceMarket(MarketBase):
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
         MarketBase.c_start(self, clock, timestamp)
+
+    async def start_network(self):
+        await super().start_network()
+        if self._order_tracker_task is not None:
+            self._stop_network()
+
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
         self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
         self._user_stream_tracker_task = asyncio.ensure_future(self._user_stream_tracker.start())
         self._user_stream_event_listener_task = asyncio.ensure_future(self._user_stream_event_listener())
         self._coro_scheduler_task = asyncio.ensure_future(self.coro_scheduler(self._coro_queue))
+
+    def _stop_network(self):
+        if self._order_tracker_task is not None:
+            self._order_tracker_task.cancel()
+            self._status_polling_task.cancel()
+            self._user_stream_tracker_task.cancel()
+            self._user_stream_event_listener_task.cancel()
+            self._coro_scheduler_task.cancel()
+
+    async def stop_network(self):
+        await super().stop_network()
+        self._stop_network()
+
+    async def check_network(self) -> NetworkStatus:
+        try:
+            await self.query_api(self._binance_client.ping)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return NetworkStatus.NOT_CONNECTED
+        return NetworkStatus.CONNECTED
 
     cdef c_tick(self, double timestamp):
         cdef:

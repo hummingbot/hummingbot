@@ -846,6 +846,9 @@ cdef class DDEXMarket(MarketBase):
 
     async def start_network(self):
         await super().start_network()
+        if self._order_tracker_task is not None:
+            self._stop_network()
+
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
         self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
         tx_hashes = self.wallet.current_backend.check_and_fix_approval_amounts(
@@ -853,14 +856,17 @@ cdef class DDEXMarket(MarketBase):
         self._pending_approval_tx_hashes.update(tx_hashes)
         self._approval_tx_polling_task = asyncio.ensure_future(self._approval_tx_polling_loop())
 
-    async def stop_network(self):
-        await super().stop_network()
+    def _stop_network(self):
         if self._order_tracker_task is not None:
             self._order_tracker_task.cancel()
             self._status_polling_task.cancel()
             self._pending_approval_tx_hashes.clear()
             self._approval_tx_polling_task.cancel()
         self._order_tracker_task = self._status_polling_task = self._approval_tx_polling_task = None
+
+    async def stop_network(self):
+        await super().stop_network()
+        self._stop_network()
 
     async def check_network(self) -> NetworkStatus:
         url = f"{self.DDEX_REST_ENDPOINT}/markets/tickers"
