@@ -426,6 +426,12 @@ global_config_map = {
                                                            ["USDT", 1.0, "COINCAP_API"],
                                                            ["USDC", 1.0, "COINCAP_API"],
                                                            ["TUSD", 1.0, "COINCAP_API"]]),
+    "exchange_rate_fetcher":            ConfigVar(key="exchange_rate_fetcher",
+                                                  prompt="Enter your custom exchange rate fetcher settings >>> ",
+                                                  required_if=lambda: False,
+                                                  type_str="list",
+                                                  default=[["ETH", "COINCAP_API"],
+                                                           ["DAI", "COINCAP_API"]])
 }
 
 

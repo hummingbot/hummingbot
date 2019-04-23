@@ -473,13 +473,20 @@ cdef class ArbitrageStrategy(StrategyBase):
                 if sell_flat_fee_currency == sell_market_quote_currency:
                     total_sell_flat_fees += sell_flat_fee_amount
                 else:
-                    raise ValueError("OOPS CANT CONVERT")
+                    total_sell_flat_fees += self.exchange_rate_conversion.convert_token_value(
+                        amount=sell_flat_fee_amount,
+                        from_currency=sell_flat_fee_currency,
+                        to_currency=sell_market_quote_currency
+                    )
             for buy_flat_fee_currency, buy_flat_fee_amount in buy_fee.flat_fees:
                 if buy_flat_fee_currency == buy_market_quote_currency:
                     total_buy_flat_fees += buy_flat_fee_amount
                 else:
-                    raise ValueError("OOPS CANT CONVERT")
-
+                    total_buy_flat_fees += self.exchange_rate_conversion.convert_token_value(
+                        amount=buy_flat_fee_amount,
+                        from_currency=buy_flat_fee_currency,
+                        to_currency=buy_market_quote_currency
+                    )
             # accumulated profitability
             total_bid_value_adjusted += bid_price_adjusted * amount
             total_ask_value_adjusted += ask_price_adjusted * amount
