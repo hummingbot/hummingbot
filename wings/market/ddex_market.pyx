@@ -587,16 +587,13 @@ cdef class DDEXMarket(MarketBase):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"buy-{symbol}-{tracking_nonce}")
-            str quote_currency = symbol.split("-")[1]
             object buy_fee = self.c_get_fee(symbol, order_type, TradeType.BUY, amount, price)
             double total_flat_fees = 0.0
             double adjusted_amount
 
         for flat_fee_currency, flat_fee_amount in buy_fee.flat_fees:
-            if flat_fee_currency == quote_currency:
-                total_flat_fees += flat_fee_amount
-            else:
-                raise ValueError("TODO: Quote conversion")
+            # DDEX fees are always in quote currency so no conversion is needed
+            total_flat_fees += flat_fee_amount
 
         # adjust amount so fees are taken from your order instead of in addition to your order
         adjusted_amount = amount / (1 + buy_fee.percent) - total_flat_fees / price
