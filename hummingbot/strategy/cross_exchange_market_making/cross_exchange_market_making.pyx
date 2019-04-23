@@ -157,7 +157,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._limit_order_min_expiration = limit_order_min_expiration
         self._cancel_order_threshold = cancel_order_threshold
         self._active_order_canceling = active_order_canceling
-        self.exchange_rate_conversion = ExchangeRateConversion.get_instance()
+        self._exchange_rate_conversion = ExchangeRateConversion.get_instance()
 
         cdef:
             MarketBase typed_market
@@ -210,6 +210,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     @logging_options.setter
     def logging_options(self, int64_t logging_options):
         self._logging_options = logging_options
+
+    @property
+    def exchange_rate_conversion(self) -> ExchangeRateConversion:
+        return self._exchange_rate_conversion
 
     def log_with_clock(self, log_level: int, msg: str, **kwargs):
         clock_timestamp = pd.Timestamp(self._current_timestamp, unit="s", tz="UTC")
@@ -269,8 +273,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     f"{taker_market.get_balance(taker_base)}/{taker_market.get_balance(taker_quote)}",
             ])
 
-            taker_quote_adjusted = self.exchange_rate_conversion.adjust_token_rate(taker_quote, 1.0)
-            maker_quote_adjusted = self.exchange_rate_conversion.adjust_token_rate(maker_quote, 1.0)
+            taker_quote_adjusted = self._exchange_rate_conversion.adjust_token_rate(taker_quote, 1.0)
+            maker_quote_adjusted = self._exchange_rate_conversion.adjust_token_rate(maker_quote, 1.0)
             if taker_quote_adjusted != 1.0 or maker_quote_adjusted != 1.0:
                 lines.extend([
                     f"  Stable Coin Exchange Rate Conversion:",
@@ -306,9 +310,49 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
         return "\n".join(lines)
 
+    # The following exposed Python functions are meant for unit tests
+    # ---------------------------------------------------------------
     def get_market_making_price_and_size_limit(self, market_pair: CrossExchangeMarketPair, is_bid: bool,
                                                own_order_depth: float = 0.0) -> Tuple[Decimal, Decimal]:
         return self.c_get_market_making_price_and_size_limit(market_pair, is_bid, own_order_depth=own_order_depth)
+
+    def get_order_size_after_portfolio_ratio_limit(self, market_pair: CrossExchangeMarketPair,
+                                                   original_order_size: float) -> float:
+        return self.c_get_order_size_after_portfolio_ratio_limit(market_pair, original_order_size)
+
+    def get_adjusted_limit_order_size(self, market_pair: CrossExchangeMarketPair, price: float,
+                                      original_order_size: float) -> float:
+        return self.c_get_adjusted_limit_order_size(market_pair, price, original_order_size)
+
+    def has_market_making_profit_potential(self, market_pair: CrossExchangeMarketPair,
+                                           OrderBook maker_order_book,
+                                           OrderBook taker_order_book) -> Tuple[bool, bool]:
+        return self.c_has_market_making_profit_potential(market_pair, maker_order_book, taker_order_book)
+
+    def get_market_making_price_and_size_limit(self, market_pair: CrossExchangeMarketPair,
+                                               is_bid: bool,
+                                               own_order_depth: float = 0) -> Tuple[Decimal, Decimal]:
+        return self.c_get_market_making_price_and_size_limit(market_pair, is_bid, own_order_depth=own_order_depth)
+
+    def calculate_effective_hedging_price(self, OrderBook taker_order_book,
+                                          is_maker_bid: bool,
+                                          maker_order_size: float) -> float:
+        return self.c_calculate_effective_hedging_price(taker_order_book, is_maker_bid, maker_order_size)
+
+    def check_if_still_profitable(self, market_pair: CrossExchangeMarketPair,
+                                  LimitOrder active_order,
+                                  double current_hedging_price) -> bool:
+        return self.c_check_if_still_profitable(market_pair, active_order, current_hedging_price)
+
+    def check_if_sufficient_balance(self, market_pair: CrossExchangeMarketPair,
+                                    LimitOrder active_order) -> bool:
+        return self.c_check_if_sufficient_balance(market_pair, active_order)
+
+    def check_if_price_correct(self, market_pair: CrossExchangeMarketPair,
+                               LimitOrder active_order,
+                               double current_hedging_price) -> bool:
+        return self.c_check_if_price_correct(market_pair, active_order, current_hedging_price)
+    # ---------------------------------------------------------------
 
     cdef c_buy_with_specific_market(self, MarketBase market, str symbol, double amount,
                                     object order_type = OrderType.MARKET,
@@ -702,17 +746,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double taker_bid_price = taker_order_book.c_get_price(False)
             double taker_ask_price = taker_order_book.c_get_price(True)
 
-            double maker_bid_price_adjusted = self.exchange_rate_conversion.adjust_token_rate(
+            double maker_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.maker_quote_currency, maker_bid_price)
 
-            double maker_ask_price_adjusted = self.exchange_rate_conversion.adjust_token_rate(
+            double maker_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.maker_quote_currency, maker_ask_price)
 
-            double taker_bid_price_adjusted = self.exchange_rate_conversion.adjust_token_rate(
-                market_pair.maker_quote_currency, taker_bid_price)
+            double taker_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.taker_quote_currency, taker_bid_price)
 
-            double taker_ask_price_adjusted = self.exchange_rate_conversion.adjust_token_rate(
-                market_pair.maker_quote_currency, taker_ask_price)
+            double taker_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.taker_quote_currency, taker_ask_price)
 
         return (taker_bid_price_adjusted > maker_bid_price_adjusted * (1.0 + self._min_profitability),
                 maker_ask_price_adjusted > taker_ask_price_adjusted * (1.0 + self._min_profitability))
@@ -738,6 +782,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double maker_balance_size_limit
             double taker_balance_size_limit
             double taker_order_book_size_limit
+            double adjusted_taker_price
 
         # Get the top-of-order-book prices, taking the top depth tolerance into account.
         try:
@@ -764,7 +809,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             maker_balance_size_limit = maker_market.c_get_balance(market_pair.maker_quote_currency) / float(next_price)
             taker_balance_size_limit = (taker_market.c_get_balance(market_pair.taker_base_currency) *
                                         self._order_size_taker_balance_factor)
-            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(False, float(next_price)) *
+            adjusted_taker_price = (self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.maker_quote_currency,
+                float(next_price)
+            ) / self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.taker_quote_currency,
+                1.0
+            ))
+            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(False, adjusted_taker_price) *
                                            self._order_size_taker_volume_factor)
             raw_size_limit = min(
                 taker_order_book_size_limit,
@@ -783,7 +835,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             taker_balance_size_limit = (taker_market.c_get_balance(market_pair.taker_quote_currency) /
                                         float(next_price) *
                                         self._order_size_taker_balance_factor)
-            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(True, float(next_price)) *
+            adjusted_taker_price = (self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.maker_quote_currency,
+                float(next_price)
+            ) / self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.taker_quote_currency,
+                1.0
+            ))
+            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(True, adjusted_taker_price) *
                                            self._order_size_taker_volume_factor)
 
             raw_size_limit = min(
@@ -875,10 +934,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double cancel_order_threshold
             double order_price = float(active_order.price)
 
-            double order_price_adjusted = self.exchange_rate_conversion.adjust_token_rate(
+            double order_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.taker_quote_currency, float(active_order.price))
 
-            double current_hedging_price_adjusted = self.exchange_rate_conversion.adjust_token_rate(
+            double current_hedging_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.taker_quote_currency, current_hedging_price)
 
         # If active order canceling is disabled, only cancel order when the profitability goes below
@@ -1041,6 +1100,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             MarketBase taker_market = market_pair.taker_market
             OrderBook maker_order_book = maker_market.c_get_order_book(market_pair.maker_symbol)
             OrderBook taker_order_book = taker_market.c_get_order_book(market_pair.taker_symbol)
+            double effective_hedging_price
 
         # See if it's profitable to place a limit order on maker market.
         bid_profitable, ask_profitable = self.c_has_market_making_profit_potential(
@@ -1056,12 +1116,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 True,
                 own_order_depth=0
             )
-
             bid_size = self.c_get_adjusted_limit_order_size(
                         market_pair,
                         float(bid_price),
                         float(bid_size_limit)
                     )
+
+            effective_hedging_price = self.c_calculate_effective_hedging_price(
+                taker_order_book,
+                True,
+                float(bid_size)
+            )
 
             if bid_size > s_decimal_zero:
                 if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
@@ -1069,7 +1134,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         logging.INFO,
                         f"({market_pair.maker_symbol}) Creating limit bid order for "
                         f"{bid_size} {market_pair.maker_base_currency} at "
-                        f"{bid_price} {market_pair.maker_quote_currency}."
+                        f"{bid_price} {market_pair.maker_quote_currency}. "
+                        f"Current hedging price: {effective_hedging_price} {market_pair.taker_quote_currency}."
                     )
                 client_order_id = self.c_buy_with_specific_market(
                     maker_market,
@@ -1104,13 +1170,20 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         float(ask_size_limit)
                     )
 
+            effective_hedging_price = self.c_calculate_effective_hedging_price(
+                taker_order_book,
+                False,
+                float(ask_size)
+            )
+
             if ask_size > s_decimal_zero:
                 if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                     self.log_with_clock(
                         logging.INFO,
                         f"({market_pair.maker_symbol}) Creating limit ask order for "
                         f"{ask_size} {market_pair.maker_base_currency} at "
-                        f"{ask_price} {market_pair.maker_quote_currency}."
+                        f"{ask_price} {market_pair.maker_quote_currency}. "
+                        f"Current hedging price: {effective_hedging_price} {market_pair.maker_quote_currency}."
                     )
                 client_order_id = self.c_sell_with_specific_market(
                     maker_market,

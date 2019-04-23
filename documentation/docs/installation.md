@@ -1,10 +1,12 @@
 # Installing Hummingbot
 
+## System requirements
+
 Hummingbot is tested and supported on the following 64-bit systems:
 
 * Ubuntu 16.04 or later
 * macOS 10.12.6 (Sierra) or later
-* Windows 11 or later (via <a href="https://docs.microsoft.com/en-us/windows/wsl/faq" target="_blank">Windows Subsystem for Linux</a>)
+* Windows 10 or later (**see Windows section below**)
 
 ## Installation options
 

@@ -640,6 +640,7 @@ cdef class CoinbaseProMarket(MarketBase):
         except asyncio.CancelledError:
             raise
         except Exception:
+            self.c_stop_tracking_order(order_id)
             order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
             self.logger().error(f"Error submitting buy {order_type_str} order to Coinbase Pro for "
                                 f"{decimal_amount} {symbol} {price}.", exc_info=True)
@@ -694,6 +695,7 @@ cdef class CoinbaseProMarket(MarketBase):
         except asyncio.CancelledError:
             raise
         except Exception:
+            self.c_stop_tracking_order(order_id)
             order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
             self.logger().error(f"Error submitting sell {order_type_str} order to Coinbase Pro for "
                                 f"{decimal_amount} {symbol} {price}.", exc_info=True)
