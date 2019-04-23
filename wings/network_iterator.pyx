@@ -71,20 +71,16 @@ cdef class NetworkIterator(TimeIterator):
         self._check_network_timeout = timeout
 
     async def start_network(self):
-        self._check_network_task = asyncio.ensure_future(self._check_network_loop())
+        pass
 
     async def stop_network(self):
-        if self._check_network_task is not None:
-            self._check_network_task.cancel()
-            self._check_network_task = None
-        self._network_status = NetworkStatus.STOPPED
+        pass
 
     async def check_network(self) -> NetworkStatus:
         self.logger().warning("check_network() has not been implemented!")
         return NetworkStatus.NOT_CONNECTED
 
     async def _check_network_loop(self):
-        self._network_status = NetworkStatus.NOT_CONNECTED
         while True:
             new_status = self._network_status
 
@@ -108,8 +104,13 @@ cdef class NetworkIterator(TimeIterator):
 
     cdef c_start(self, Clock clock, double timestamp):
         TimeIterator.c_start(self, clock, timestamp)
+        self._check_network_task = asyncio.ensure_future(self._check_network_loop())
         asyncio.ensure_future(self.start_network())
 
     cdef c_stop(self, Clock clock):
         TimeIterator.c_stop(self, clock)
         asyncio.ensure_future(self.stop_network())
+        if self._check_network_task is not None:
+            self._check_network_task.cancel()
+            self._check_network_task = None
+        self._network_status = NetworkStatus.STOPPED
