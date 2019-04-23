@@ -54,8 +54,8 @@ class ContractEventLogger:
         return self._contract_abi
 
     async def get_new_entries_from_logs(self,
-                                  event_name: str,
-                                  block_hashes: List[HexBytes]) -> List[AttributeDict]:
+                                        event_name: str,
+                                        block_hashes: List[HexBytes]) -> List[AttributeDict]:
         event_abi: Dict[str, any] = self._event_abi_map.get(event_name, None)
         if event_abi is None:
             event_abi = find_matching_event_abi(self._contract_abi, event_name=event_name)
@@ -95,7 +95,7 @@ class ContractEventLogger:
 
     async def _get_logs(self,
                         event_filter_params: Dict[str, any],
-                        max_tries: Optional[int] = 100) -> List[Dict[str, any]]:
+                        max_tries: Optional[int] = 30) -> List[Dict[str, any]]:
         ev_loop: asyncio.BaseEventLoop = self._ev_loop
         count: int = 0
         logs = []
@@ -103,7 +103,7 @@ class ContractEventLogger:
             try:
                 count += 1
                 if count > max_tries:
-                    self.logger().error(
+                    self.logger().debug(
                         f"Error fetching logs from block with filters: '{event_filter_params}'."
                     )
                     break
@@ -115,9 +115,7 @@ class ContractEventLogger:
                 break
             except asyncio.CancelledError:
                 raise
-            except Exception:
-                self.logger().debug(
-                    f"Block not found with filters: '{event_filter_params}'. Retrying..."
-                )
+            except Exception as e:
+                self.logger().debug(f"Block not found with filters: '{event_filter_params}'. Retrying...")
                 await asyncio.sleep(0.5)
         return logs

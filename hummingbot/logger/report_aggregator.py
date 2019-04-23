@@ -8,6 +8,7 @@ REPORT_EVENT_QUEUE = asyncio.Queue()
 
 class ReportAggregator:
     ra_logger: Optional[StructLogger] = None
+
     @classmethod
     def logger(cls) -> StructLogger:
         if cls.ra_logger is None:
@@ -39,34 +40,36 @@ class ReportAggregator:
     async def log_report(self):
         while True:
             try:
-                for metric_name, value_list in self.stats.items():
-                    if not value_list:
-                        continue
-                    namespaces = metric_name.split(".")
+                # Handle clock is None error when the bot stops and restarts
+                if self.hummingbot_app.clock is not None:
+                    for metric_name, value_list in self.stats.items():
+                        if not value_list:
+                            continue
+                        namespaces = metric_name.split(".")
 
-                    if namespaces[0] == "open_order_quote_volume_sum":
-                        avg_volume = float(sum([value[1] for value in value_list]) / len(value_list))
-                        self.logger().metric_log({
-                            "metric": "hummingbot_client.open_order_quote_volume_sum",
-                            "type": "gauge",
-                            "points": [[self.hummingbot_app.clock.current_timestamp, avg_volume]],
-                            "tags": [f"symbol:{namespaces[2]}",
-                                     f"market:{namespaces[1]}"]
-                        })
-                        self.stats[metric_name] = []
-                    if namespaces[0] == "order_filled_quote_volume":
-                        sum_volume = float(sum([value[1] for value in value_list]))
-                        self.logger().metric_log({
-                            "metric": "hummingbot_client.order_filled_quote_volume",
-                            "type": "gauge",
-                            "points": [[self.hummingbot_app.clock.current_timestamp, sum_volume]],
-                            "tags": [f"symbol:{namespaces[4]}",
-                                     f"market:{namespaces[1]}",
-                                     f"order_side:{namespaces[2]}",
-                                     f"order_type:{namespaces[3]}"]
+                        if namespaces[0] == "open_order_quote_volume_sum":
+                            avg_volume = float(sum([value[1] for value in value_list]) / len(value_list))
+                            self.logger().metric_log({
+                                "metric": "hummingbot_client.open_order_quote_volume_sum",
+                                "type": "gauge",
+                                "points": [[self.hummingbot_app.clock.current_timestamp, avg_volume]],
+                                "tags": [f"symbol:{namespaces[2]}",
+                                         f"market:{namespaces[1]}"]
+                            })
+                            self.stats[metric_name] = []
+                        if namespaces[0] == "order_filled_quote_volume":
+                            sum_volume = float(sum([value[1] for value in value_list]))
+                            self.logger().metric_log({
+                                "metric": "hummingbot_client.order_filled_quote_volume",
+                                "type": "gauge",
+                                "points": [[self.hummingbot_app.clock.current_timestamp, sum_volume]],
+                                "tags": [f"symbol:{namespaces[4]}",
+                                         f"market:{namespaces[1]}",
+                                         f"order_side:{namespaces[2]}",
+                                         f"order_type:{namespaces[3]}"]
 
-                        })
-                        self.stats[metric_name] = []
+                            })
+                            self.stats[metric_name] = []
             except asyncio.CancelledError:
                 raise
             except Exception:
