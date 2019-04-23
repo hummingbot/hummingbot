@@ -83,6 +83,8 @@ cdef class NetworkIterator(TimeIterator):
     async def _check_network_loop(self):
         while True:
             new_status = self._network_status
+            last_status = self._network_status
+            has_unexpected_error = False
 
             try:
                 new_status = await asyncio.wait_for(self.check_network(), timeout=self._check_network_timeout)
@@ -93,24 +95,32 @@ cdef class NetworkIterator(TimeIterator):
                 new_status = NetworkStatus.NOT_CONNECTED
             except Exception:
                 self.logger().error("Unexpected error while checking for network status.", exc_info=True)
-                await asyncio.sleep(self._network_error_wait_time)
-                continue
+                new_status = NetworkStatus.NOT_CONNECTED
+                has_unexpected_error = True
 
-            if new_status != self._network_status:
-                self.logger().info(f"Network status has changed to {new_status}.")
             self._network_status = new_status
+            if new_status != last_status:
+                if new_status is NetworkStatus.CONNECTED:
+                    self.logger().info(f"Network status has changed to {new_status}. Starting networking...")
+                    await self.start_network()
+                else:
+                    self.logger().info(f"Network status has changed to {new_status}. Stopping networking...")
+                    await self.stop_network()
 
-            await asyncio.sleep(self._check_network_interval)
+            if not has_unexpected_error:
+                await asyncio.sleep(self._check_network_interval)
+            else:
+                await asyncio.sleep(self._network_error_wait_time)
 
     cdef c_start(self, Clock clock, double timestamp):
         TimeIterator.c_start(self, clock, timestamp)
         self._check_network_task = asyncio.ensure_future(self._check_network_loop())
-        asyncio.ensure_future(self.start_network())
+        self._network_status = NetworkStatus.NOT_CONNECTED
 
     cdef c_stop(self, Clock clock):
         TimeIterator.c_stop(self, clock)
-        asyncio.ensure_future(self.stop_network())
         if self._check_network_task is not None:
             self._check_network_task.cancel()
             self._check_network_task = None
         self._network_status = NetworkStatus.STOPPED
+        asyncio.ensure_future(self.stop_network())

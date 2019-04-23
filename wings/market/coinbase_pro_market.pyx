@@ -34,6 +34,7 @@ from wings.market.market_base import (
     MarketBase,
     OrderType,
 )
+from wings.network_iterator import NetworkStatus
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.order_book cimport OrderBook
 from wings.market.coinbase_pro_auth import CoinbaseProAuth
@@ -288,10 +289,36 @@ cdef class CoinbaseProMarket(MarketBase):
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
         MarketBase.c_start(self, clock, timestamp)
+
+    async def start_network(self):
+        if self._order_tracker_task is not None:
+            self._stop_network()
+
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
         self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
         self._user_stream_tracker_task = asyncio.ensure_future(self._user_stream_tracker.start())
         self._user_stream_event_listener_task = asyncio.ensure_future(self._user_stream_event_listener())
+
+    def _stop_network(self):
+        if self._order_tracker_task is not None:
+            self._order_tracker_task.cancel()
+            self._status_polling_task.cancel()
+            self._user_stream_tracker_task.cancel()
+            self._user_stream_event_listener_task.cancel()
+        self._order_tracker_task = self._status_polling_task = self._user_stream_tracker_task = \
+            self._user_stream_event_listener_task = None
+
+    async def stop_network(self):
+        self._stop_network()
+
+    async def check_network(self) -> NetworkStatus:
+        try:
+            await self._api_request("get", path_url="/time")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return NetworkStatus.NOT_CONNECTED
+        return NetworkStatus.CONNECTED
 
     cdef c_tick(self, double timestamp):
         cdef:

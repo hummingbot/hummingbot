@@ -855,7 +855,6 @@ cdef class BinanceMarket(MarketBase):
         MarketBase.c_start(self, clock, timestamp)
 
     async def start_network(self):
-        await super().start_network()
         if self._order_tracker_task is not None:
             self._stop_network()
 
@@ -872,9 +871,10 @@ cdef class BinanceMarket(MarketBase):
             self._user_stream_tracker_task.cancel()
             self._user_stream_event_listener_task.cancel()
             self._coro_scheduler_task.cancel()
+        self._order_tracker_task = self._status_polling_task = self._user_stream_tracker_task = \
+            self._user_stream_event_listener_task = self._coro_scheduler_task = None
 
     async def stop_network(self):
-        await super().stop_network()
         self._stop_network()
 
     async def check_network(self) -> NetworkStatus:
