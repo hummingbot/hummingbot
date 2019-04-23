@@ -118,7 +118,7 @@ class ContractEventLogger:
             except Exception as e:
                 # This exception will never be resolve as the block here will not be found
                 # Alchemy nodes return a different error message
-                if "message" in e and e["message"] == "unknown block":
+                if "unknown block" in str(e):
                     break
                 else:
                     self.logger().debug(f"Block not found with filters: '{event_filter_params}'. Retrying...")
