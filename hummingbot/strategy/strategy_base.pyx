@@ -41,7 +41,11 @@ cdef class StrategyBase(TimeIterator):
             Trade(order_filled_event.symbol,
                   order_filled_event.trade_type,
                   order_filled_event.price,
-                  order_filled_event.amount))
+                  order_filled_event.amount,
+                  order_filled_event.order_type,
+                  "order_filled_event.market",
+                  order_filled_event.timestamp,
+                  ))
 
     cdef c_start(self, Clock clock, double timestamp):
         cdef:
