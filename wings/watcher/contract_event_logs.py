@@ -116,8 +116,7 @@ class ContractEventLogger:
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                # This exception will never be resolve as the block here will not be found
-                # Alchemy nodes return a different error message
+                # The "unknown block" exception will never be resolved -- the block hash is not found
                 if "unknown block" in str(e):
                     break
                 else:
