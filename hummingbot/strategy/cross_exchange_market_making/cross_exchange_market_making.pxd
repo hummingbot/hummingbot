@@ -42,7 +42,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         EventListener _order_cancelled_listener
         EventListener _order_expired_listener
         int64_t _logging_options
-        object exchange_rate_conversion
+        object _exchange_rate_conversion
 
     cdef c_buy_with_specific_market(self, MarketBase market, str symbol, double amount,
                                     object order_type = *, double price = *, double expiration_seconds = *)

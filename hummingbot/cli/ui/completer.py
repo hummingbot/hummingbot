@@ -10,6 +10,7 @@ from hummingbot.cli.settings import EXCHANGES, STRATEGIES
 from hummingbot.cli.ui.parser import ThrowingArgumentParser
 from hummingbot.cli.utils.symbol_fetcher import fetch_all
 from hummingbot.cli.utils.wallet_setup import list_wallets
+from hummingbot.cli.settings import load_required_configs
 
 
 class HummingbotCompleter(Completer):
@@ -54,8 +55,16 @@ class HummingbotCompleter(Completer):
     def _wallet_address_completer(self):
         return WordCompleter(list_wallets(), ignore_case=True)
 
+    @property
+    def _config_completer(self):
+        return WordCompleter(load_required_configs(), ignore_case=True)
+
     def _complete_strategies(self, document: Document) -> bool:
         return "strategy" in self.prompt_text
+
+    def _complete_configs(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return "config" in text_before_cursor
 
     def _complete_exchanges(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -109,6 +118,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_command(document):
             for c in self._command_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_configs(document):
+            for c in self._config_completer.get_completions(document, complete_event):
                 yield c
 
         else:
