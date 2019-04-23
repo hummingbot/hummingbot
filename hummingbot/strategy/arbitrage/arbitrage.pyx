@@ -98,7 +98,7 @@ cdef class ArbitrageStrategy(StrategyBase):
         self._last_timestamp = 0
         self._next_trade_delay = next_trade_delay_interval
         self._last_trade_timestamps = {}
-        self.exchange_rate_conversion = ExchangeRateConversion.get_instance()
+        self._exchange_rate_conversion = ExchangeRateConversion.get_instance()
 
         cdef:
             MarketBase typed_market
@@ -153,16 +153,16 @@ cdef class ArbitrageStrategy(StrategyBase):
             market_2_base_balance = market_2.get_balance(market_2_base)
             market_2_quote_balance = market_2.get_balance(market_2_quote)
 
-            market_1_bid_price = self.exchange_rate_conversion.adjust_token_rate(
+            market_1_bid_price = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.market_1_quote_currency, market_1_ob.get_price(False))
 
-            market_1_ask_price = self.exchange_rate_conversion.adjust_token_rate(
+            market_1_ask_price = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.market_1_quote_currency, market_1_ob.get_price(True))
 
-            market_2_bid_price = self.exchange_rate_conversion.adjust_token_rate(
+            market_2_bid_price = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.market_2_quote_currency, market_2_ob.get_price(False))
 
-            market_2_ask_price = self.exchange_rate_conversion.adjust_token_rate(
+            market_2_ask_price = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.market_2_quote_currency, market_2_ob.get_price(True))
 
             profitability_buy_market_2_sell_market_1 = market_1_bid_price/market_2_ask_price
@@ -181,8 +181,8 @@ cdef class ArbitrageStrategy(StrategyBase):
                 f"  {market_2_base}/{market_2_quote} balance: "
                     f"{market_2.get_balance(market_2_base)}/{market_2.get_balance(market_2_quote)}"
             ])
-            market_1_quote_adjusted = self.exchange_rate_conversion.adjust_token_rate(market_1_quote, 1.0)
-            market_2_quote_adjusted = self.exchange_rate_conversion.adjust_token_rate(market_2_quote, 1.0)
+            market_1_quote_adjusted = self._exchange_rate_conversion.adjust_token_rate(market_1_quote, 1.0)
+            market_2_quote_adjusted = self._exchange_rate_conversion.adjust_token_rate(market_2_quote, 1.0)
             if market_1_quote_adjusted != 1.0 or market_2_quote_adjusted != 1.0:
                 lines.extend([
                     f"  Stable Coin Exchange Rate Conversion:",
@@ -312,16 +312,16 @@ cdef class ArbitrageStrategy(StrategyBase):
             OrderBook order_book_1 = market_1.c_get_order_book(market_pair.market_1_symbol)
             OrderBook order_book_2 = market_2.c_get_order_book(market_pair.market_2_symbol)
 
-            double market_1_bid_price = self.exchange_rate_conversion.adjust_token_rate(
+            double market_1_bid_price = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.market_1_quote_currency, order_book_1.get_price(False))
 
-            double market_1_ask_price = self.exchange_rate_conversion.adjust_token_rate(
+            double market_1_ask_price = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.market_1_quote_currency, order_book_1.get_price(True))
 
-            double market_2_bid_price = self.exchange_rate_conversion.adjust_token_rate(
+            double market_2_bid_price = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.market_2_quote_currency, order_book_2.get_price(False))
 
-            double market_2_ask_price = self.exchange_rate_conversion.adjust_token_rate(
+            double market_2_ask_price = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.market_2_quote_currency, order_book_2.get_price(True))
 
         profitability_buy_market_2_sell_market_1 = market_1_bid_price/market_2_ask_price
@@ -451,7 +451,13 @@ cdef class ArbitrageStrategy(StrategyBase):
                                                                     sell_order_book,
                                                                     buy_market_quote_currency,
                                                                     sell_market_quote_currency)
-        # see if each step meets the profit level, and is within the wallet balance
+
+        # check if each step meets the profit level after fees, and is within the wallet balance
+        # fee must be calculated at every step because fee might change a potentially profitable order to unprofitable
+        # market.c_get_fee returns a namedtuple with 2 keys "percent" and "flat_fees"
+        # "percent" is the percent in decimals the exchange charges for the particular trade
+        # "flat_fees" returns list of additional fees ie: [("ETH", 0.01), ("BNB", 2.5)]
+        # typically most exchanges will only have 1 flat fee (ie: gas cost of transaction in ETH)
         for bid_price_adjusted, ask_price_adjusted, bid_price, ask_price, amount in profitable_orders:
             buy_fee = buy_market.c_get_fee(
                 buy_market_symbol,
@@ -467,45 +473,45 @@ cdef class ArbitrageStrategy(StrategyBase):
                 total_previous_step_base_amount + amount,
                 bid_price
             )
-            total_sell_flat_fees = 0.0
+            # accumulated flat fees of exchange
             total_buy_flat_fees = 0.0
-            for sell_flat_fee_currency, sell_flat_fee_amount in sell_fee.flat_fees:
-                if sell_flat_fee_currency == sell_market_quote_currency:
-                    total_sell_flat_fees += sell_flat_fee_amount
-                else:
-                    total_sell_flat_fees += self.exchange_rate_conversion.convert_token_value(
-                        amount=sell_flat_fee_amount,
-                        from_currency=sell_flat_fee_currency,
-                        to_currency=sell_market_quote_currency
-                    )
+            total_sell_flat_fees = 0.0
             for buy_flat_fee_currency, buy_flat_fee_amount in buy_fee.flat_fees:
                 if buy_flat_fee_currency == buy_market_quote_currency:
                     total_buy_flat_fees += buy_flat_fee_amount
                 else:
-                    total_buy_flat_fees += self.exchange_rate_conversion.convert_token_value(
+                    # if the flat fee currency symbol does not match quote symbol, convert to quote symbol
+                    total_buy_flat_fees += self._exchange_rate_conversion.convert_token_value(
                         amount=buy_flat_fee_amount,
                         from_currency=buy_flat_fee_currency,
                         to_currency=buy_market_quote_currency
                     )
-            # accumulated profitability
+            for sell_flat_fee_currency, sell_flat_fee_amount in sell_fee.flat_fees:
+                if sell_flat_fee_currency == sell_market_quote_currency:
+                    total_sell_flat_fees += sell_flat_fee_amount
+                else:
+                    total_sell_flat_fees += self._exchange_rate_conversion.convert_token_value(
+                        amount=sell_flat_fee_amount,
+                        from_currency=sell_flat_fee_currency,
+                        to_currency=sell_market_quote_currency
+                    )
             total_bid_value_adjusted += bid_price_adjusted * amount
             total_ask_value_adjusted += ask_price_adjusted * amount
+            # accumulated profitability with fees
             profitability = (total_bid_value_adjusted * (1 - sell_fee.percent) - total_sell_flat_fees) / \
                             (total_ask_value_adjusted * (1 + buy_fee.percent) + total_buy_flat_fees)
-            profitability_nf = (total_bid_value_adjusted * (1 - 0) - 0) / \
-                            (total_ask_value_adjusted * (1 + 0) + 0)
 
             buy_market_quote_asset = buy_market.c_get_balance(buy_market_quote_currency)
             sell_market_base_asset = sell_market.c_get_balance(sell_market_base_currency)
 
             # if current step is within minimum profibility set to best profitable order
-            # because the total amount is greater than last step
+            # because the total amount is greater than the previous step
             if profitability > (1 + self._min_profitability):
                 best_profitable_order_amount = total_previous_step_base_amount + amount
                 best_profitable_order_profibility = profitability
 
             if self._logging_options & self.OPTION_LOG_PROFITABILITY_STEP:
-                self.log_with_clock(logging.DEBUG, f"Total profitability: {profitability}, "
+                self.log_with_clock(logging.DEBUG, f"Total profitability with fees: {profitability}, "
                                                    f"Current step profitability: {bid_price/ask_price},"
                                                    f"bid, ask price, amount: {bid_price, ask_price, amount}")
 
@@ -665,9 +671,9 @@ cdef class ArbitrageStrategy(StrategyBase):
                     break
 
                 # adjust price based on the quote token rates
-                current_bid_price_adjusted = self.exchange_rate_conversion.adjust_token_rate(sell_market_quote_currency,
+                current_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(sell_market_quote_currency,
                                                                                              current_bid.price)
-                current_ask_price_adjusted = self.exchange_rate_conversion.adjust_token_rate(buy_market_quote_currency,
+                current_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(buy_market_quote_currency,
                                                                                              current_ask.price)
                 # arbitrage not possible
                 if current_bid_price_adjusted/current_ask_price_adjusted < (1 + min_profitability):
