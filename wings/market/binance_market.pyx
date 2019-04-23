@@ -713,7 +713,7 @@ cdef class BinanceMarket(MarketBase):
                 raise
             except Exception:
                 self.logger().error("Unexpected error while fetching account updates.", exc_info=True)
-                asyncio.sleep(0.5)
+                await asyncio.sleep(0.5)
 
     @property
     def ready(self) -> bool:
