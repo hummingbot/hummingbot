@@ -26,14 +26,19 @@ class ExchangeRateConversion:
 
     def __init__(self):
         self.exchange_rate_config = {}
+        self.exchange_rate_fetcher_config = {}
         self.exchange_rate = {}
+        self.exchange_rate_manual = {}
         self.fetch_exchange_rate_task = None
         self.update_interval = 60.0
         self.started = False
         try:
             exchange_rate_config = global_config_map["exchange_rate_conversion"].value
+            exchange_rate_fetcher_config = global_config_map["exchange_rate_fetcher"].value
             self.exchange_rate_config = {e[0]: {"default": e[1], "source": e[2]} for e in exchange_rate_config}
             self.exchange_rate = {k: float(v.get("default", 1.0)) for k, v in self.exchange_rate_config.items()}
+            self.exchange_rate_fetcher_config = {e[0]: {"default": None, "source": e[1]} for e in exchange_rate_fetcher_config}
+            self.exchange_rate_manual = {k: None for k, v in self.exchange_rate_fetcher_config.items()} 
         except Exception:
             self.logger().error("Error initiating config for exchange rate conversion.")
 
@@ -45,6 +50,18 @@ class ExchangeRateConversion:
             return self.exchange_rate[symbol] * price
         else:
             return price
+
+    def convert_token_value(self, amount: float, from_currency: str, to_currency: str):
+        if not self.started:
+            self.start()
+        # assume WETH and ETH are equal value
+        if from_currency == "ETH" and to_currency == "WETH" or from_currency == "WETH" and to_currency == "ETH":
+            return amount
+        from_currency_usd_rate = self.exchange_rate_manual.get(from_currency, None)
+        to_currency_usd_rate = self.exchange_rate_manual.get(to_currency, None)
+        if from_currency_usd_rate is None or to_currency_usd_rate is None:
+            raise ValueError(f"Unable to convert '{from_currency}' to '{to_currency}'. Aborting.")
+        return amount * from_currency_usd_rate / to_currency_usd_rate
 
     async def update_exchange_rates_from_coincap(self, session):
         try:
@@ -62,6 +79,8 @@ class ExchangeRateConversion:
                     symbol = rate_obj["symbol"]
                     if symbol in self.exchange_rate and self.exchange_rate_config[symbol]["source"] == "COINCAP_API":
                         self.exchange_rate[symbol] = float(rate_obj["rateUsd"])
+                    if symbol in self.exchange_rate_manual and self.exchange_rate_fetcher_config[symbol]["source"] == "COINCAP_API":
+                        self.exchange_rate_manual[symbol] = float(rate_obj["rateUsd"])
         except Exception:
             raise
 
