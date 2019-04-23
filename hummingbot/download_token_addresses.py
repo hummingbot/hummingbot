@@ -12,7 +12,6 @@ from web3 import Web3
 
 DDEX_ENDPOINT = "https://api.ddex.io/v3/markets"
 RADAR_RELAY_ENDPOINT = "https://api.radarrelay.com/v2/markets?perPage=100&page=1"
-ETH_URL = "https://mainnet1.coinalpha.com/hummingbot-test-node"
 API_CALL_TIMEOUT = 5
 
 
