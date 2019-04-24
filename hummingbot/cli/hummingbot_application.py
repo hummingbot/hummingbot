@@ -110,6 +110,7 @@ class HummingbotApplication:
         self.market_pair: Optional[CrossExchangeMarketPair] = None
         self.clock: Optional[Clock] = None
 
+        self.starting_balances = {}
         self.placeholder_mode = False
         self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
         self.reporting_module: Optional[ReportAggregator] = None
@@ -416,6 +417,7 @@ class HummingbotApplication:
 
         self.app.log(" - All markets ready")
         self.app.log("\n" + self.strategy.format_status())
+        self.app.log("\n" + self.compare_balance_snapshots())
         return True
 
     def help(self, command):
@@ -566,7 +568,6 @@ class HummingbotApplication:
                 (maker_market, raw_maker_symbol),
                 (taker_market, raw_taker_symbol)
             ]
-
             self._initialize_wallet(token_symbols=list(set(maker_assets + taker_assets)))
             self._initialize_markets(market_names)
 
@@ -652,6 +653,7 @@ class HummingbotApplication:
             self.reporting_module.stop()
         if self.strategy_task is not None and not self.strategy_task.cancelled():
             self.strategy_task.cancel()
+        self.starting_balances = {}
         self.wallet = None
         self.strategy_task = None
         self.strategy = None
@@ -691,3 +693,32 @@ class HummingbotApplication:
             self.app.change_prompt(prompt=">>> ")
             self.app.toggle_hide_input()
             self.placeholder_mode = False
+
+    def balance_snapshot(self):
+        snapshot: Dict[str, Any] = {}
+        currency_set = set()
+        for market_name in self.markets:
+            market_currencies = set(self.markets[market_name].get_all_balances().keys())
+            if len(currency_set) == 0:
+                currency_set = market_currencies
+            else:
+                currency_set = currency_set.intersection(market_currencies)
+
+        for market_name in self.markets:
+            balance_dict = self.markets[market_name].get_all_balances()
+            for c in currency_set:
+                if c not in snapshot:
+                    snapshot[c] = {}
+                snapshot[c][market_name] = balance_dict[c]
+
+        return snapshot
+
+    def compare_balance_snapshots(self):
+        starting_df = pd.DataFrame.from_dict(data=self.starting_balances)
+        current_df = pd.DataFrame.from_dict(data=self.balance_snapshot())
+
+        self.app.log("\nStarting balance:")
+        self.app.log(starting_df)
+        self.app.log("\nCurrent balance:")
+        self.app.log(current_df)
+
