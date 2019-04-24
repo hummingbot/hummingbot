@@ -39,7 +39,7 @@ class NewBlocksWatcher(BaseWatcher):
         self._block_number_to_fetch: int = self._current_block_number
         self._blocks_window: Dict = {}
         self._block_number_to_hash_map: OrderedDict = OrderedDict()
-        self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         self._fetch_new_blocks_task: asyncio.Task = None
 
     @property

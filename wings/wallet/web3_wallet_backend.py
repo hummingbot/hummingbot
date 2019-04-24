@@ -183,7 +183,14 @@ class Web3WalletBackend(PubSub):
     def erc20_tokens(self) -> Dict[str, ERC20Token]:
         return self._erc20_tokens.copy()
 
+    @property
+    def started(self) -> bool:
+        return self._outgoing_transactions_task is not None
+
     def start(self):
+        if self.started:
+            self.stop()
+
         self._outgoing_transactions_task = asyncio.ensure_future(self.outgoing_eth_transactions_loop())
         self._check_transaction_receipts_task = asyncio.ensure_future(self.check_transaction_receipts_loop())
         self._new_blocks_watcher.start()
