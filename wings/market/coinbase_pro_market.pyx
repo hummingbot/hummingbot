@@ -172,6 +172,7 @@ cdef class TradingRule:
         public object quote_increment
         public object base_min_size
         public object base_max_size
+        public bint limit_only
 
     @classmethod
     def parse_exchange_info(cls, trading_rules: List[Any]) -> List[TradingRule]:
@@ -183,20 +184,26 @@ cdef class TradingRule:
                 retval.append(TradingRule(symbol,
                                           Decimal(rule.get("quote_increment")),
                                           Decimal(rule.get("base_min_size")),
-                                          Decimal(rule.get("base_max_size"))))
+                                          Decimal(rule.get("base_max_size")),
+                                          rule.get("limit_only")))
             except Exception:
                 CoinbaseProMarket.logger().error(f"Error parsing the symbol rule {rule}. Skipping.", exc_info=True)
         return retval
 
-    def __init__(self, symbol: str, quote_increment: Decimal, base_min_size: Decimal, base_max_size: Decimal):
+    def __init__(self, symbol: str,
+                 quote_increment: Decimal,
+                 base_min_size: Decimal,
+                 base_max_size: Decimal,
+                 limit_only: bool):
         self.symbol = symbol
         self.quote_increment = quote_increment
         self.base_min_size = base_min_size
         self.base_max_size = base_max_size
+        self.limit_only = limit_only
 
     def __repr__(self) -> str:
         return f"TradingRule(symbol='{self.symbol}', quote_increment={self.quote_increment}, " \
-               f"base_min_size={self.base_min_size}, base_max_size={self.base_max_size}"
+               f"base_min_size={self.base_min_size}, base_max_size={self.base_max_size}, limit_only={self.limit_only}"
 
 
 cdef class CoinbaseProMarket(MarketBase):
@@ -897,7 +904,10 @@ cdef class CoinbaseProMarket(MarketBase):
     cdef object c_get_order_size_quantum(self, str symbol, double order_size):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
-        return Decimal(0.01)
+
+        # Coinbase Pro is using the base_min_size as max_precision
+        # Order size must be a multiple of the base_min_size
+        return trading_rule.base_min_size
 
     cdef object c_quantize_order_amount(self, str symbol, double amount):
         cdef:
