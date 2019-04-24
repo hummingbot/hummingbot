@@ -859,16 +859,6 @@ cdef class BinanceMarket(MarketBase):
             if not self._poll_notifier.is_set():
                 self._poll_notifier.set()
         self._last_timestamp = timestamp
-        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                             OrderFilledEvent(
-                                self._current_timestamp,
-                                "client_order_id",
-                                "ETH-USDC",
-                                TradeType.BUY if random() > 0.5 else TradeType.SELL,
-                                OrderType.MARKET if random() > 0.5 else OrderType.LIMIT,
-                                0.001 * random(),
-                                0.002 * random(),
-                             ))
 
     async def execute_buy(self,
                           order_id: str,
