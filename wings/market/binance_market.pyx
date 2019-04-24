@@ -4,7 +4,6 @@ from aiokafka import (
     AIOKafkaConsumer,
     ConsumerRecord
 )
-from random import random
 import asyncio
 from async_timeout import timeout
 from binance.client import Client as BinanceClient
