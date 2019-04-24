@@ -64,6 +64,10 @@ conda activate hummingbot
 The environment has been activated when you see a `(hummingbot)` prefix before your Terminal command prompt:
 
 !!! note
+    Make sure you are on latest conda version. You can check by typing "conda --version". Next, you might have
+    to type "conda init bash" . Replace "bash" with your particular shell.
+
+!!! note
     Ensure that you have activated the `hummingbot` environment before **compiling** or **running the bot**.
 
 ## 5. Compile
