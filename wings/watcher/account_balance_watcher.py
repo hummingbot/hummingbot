@@ -35,29 +35,48 @@ class AccountBalanceWatcher(BaseWatcher):
                  account_address: str,
                  erc20_addresses: List[str],
                  erc20_abis: List[any]):
-        super().__init__()
-        self._w3: Web3 = w3
-        self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        super().__init__(w3)
         self._blocks_watcher: NewBlocksWatcher = blocks_watcher
         self._account_address: str = account_address
+        self._addresses_to_contracts: Dict[str, Contract] = {
+            address: w3.eth.contract(address=address, abi=abi)
+            for address, abi in zip(erc20_addresses, erc20_abis)
+        }
+
         self._erc20_contracts: Dict[str, Contract] = {}
         self._erc20_decimals: Dict[str, int] = {}
-        self._raw_account_balances: Dict[str, int] = {"ETH": w3.eth.getBalance(account_address)}
-
-        for address, abi in zip(erc20_addresses, erc20_abis):
-            contract: Contract = w3.eth.contract(address=address, abi=abi)
-            asset_name: str = ERC20Token.get_symbol_from_contract(contract)
-            decimals: int = contract.functions.decimals().call()
-            self._erc20_contracts[asset_name] = contract
-            self._erc20_decimals[asset_name] = decimals
-            self._raw_account_balances[asset_name] = contract.functions.balanceOf(account_address).call()
-
         self._event_forwarder: EventForwarder = EventForwarder(self.did_receive_new_blocks)
+        self._raw_account_balances: Dict[str, int] = {}
 
     def start(self):
-        self._blocks_watcher.add_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
+        pass
 
     def stop(self):
+        pass
+
+    async def start_network(self):
+        account_address: str = self._account_address
+        w3: Web3 = self._w3
+
+        self._blocks_watcher.add_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
+        self._raw_account_balances: Dict[str, int] = {
+            "ETH": await self.async_call(w3.eth.getBalance, account_address)
+        }
+
+        if len(self._erc20_contracts) < len(self._addresses_to_contracts):
+            for address, contract in self._addresses_to_contracts.items():
+                contract: Contract = contract
+                asset_name: str = await self.async_call(ERC20Token.get_symbol_from_contract, contract)
+                decimals: int = await self.async_call(contract.functions.decimals().call)
+                self._erc20_contracts[asset_name] = contract
+                self._erc20_decimals[asset_name] = decimals
+                self._raw_account_balances[asset_name] = await self.async_call(
+                    contract.functions.balanceOf(account_address).call
+                )
+
+        await self.update_balances()
+
+    async def stop_network(self):
         self._blocks_watcher.remove_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
 
     @property
