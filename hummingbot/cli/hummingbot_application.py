@@ -652,7 +652,6 @@ class HummingbotApplication:
             self.reporting_module.stop()
         if self.strategy_task is not None and not self.strategy_task.cancelled():
             self.strategy_task.cancel()
-        self.starting_balances = {}
         self.wallet = None
         self.strategy_task = None
         self.strategy = None
@@ -720,4 +719,5 @@ class HummingbotApplication:
         self.app.log(starting_df)
         self.app.log("\nCurrent balance:")
         self.app.log(current_df)
+
 
