@@ -105,7 +105,7 @@ nav:
     - Support:
       - Support: support.md
       - Bug bounty program: support/bug-bounty-program.md
-      - Tips & Known Issues: support/tips-issues.md
+      - Known issues: support/issues.md
     - Release notes:
       - Release notes: release-notes.md
       - 0.2.0: release-notes/0.2.0.md

@@ -42,3 +42,9 @@ Please see [Client: Commands](/operation/client#commands).
 ## Logs
 
 Hummingbot's right pane contains a log of all actions taken by the bot, including approvals, canncellations, fills, etc. When the user exits Hummingbot, it saves a log file containing all of the section's activity to the `logs/` folder.
+
+## Running multiple bots
+
+To run multiple bots, you need to start Hummingbot in a new instance of bash/Terminal, or in a new container if you are using Docker. 
+
+If you're using Docker, you still need separate folders to store your config files, and create your Docker container from each folder using the docker run command. To restart those containers, you use the command `docker start [name-of-your-container]` and `docker attach [name-of-your-container]`.

@@ -33,3 +33,7 @@ Make sure you store your Secret Key somewhere secure, and do not share it with a
 
 !!! tip
     If you lose your Secret Key, you can delete the API and create a new one. 
+
+## Minimum order sizes
+
+See [this page](https://support.binance.com/hc/en-us/articles/115000594711-Trading-Rule) for the minimum order size per trading pair.
