@@ -8,11 +8,9 @@ While we try to keep this list up to date, it may not contain the latest issues 
 
 ### [Coinbase Pro] USDC trading pairs may not work
 
-Hummingbot's **arbitrage** and **cross-exchange market making** strategies rely on the ability to place market orders. Certain Coinbase Pro trading pairs may be moved to limit-only mode, as described in this <a href="https://status.pro.coinbase.com/incidents/hyfyg5zsqk1w" target="_blank">incident report</a>. This m
+Hummingbot's **arbitrage** and **cross-exchange market making** strategies rely on the ability to place market orders. Certain Coinbase Pro trading pairs may be moved to limit-only mode, as described in this <a href="https://status.pro.coinbase.com/incidents/hyfyg5zsqk1w" target="_blank">incident report</a>. This prevents market orders from being placed in these markets.
 
-Currently, market orders for USDC trading pairs on Coinbase Pro cannot yet be placed via API. 
-
-This means that these pairs should not be used with the **arbitrage** strategy, nor as the `taker_market` in the **cross-exchange market making strategy**. Since USDC market orders will fail, the Coinbase Pro leg of the trade will not be executed.
+Currently, market orders for USDC trading pairs on Coinbase Pro may be impacted by this. This means that these pairs should not be used with the **arbitrage** strategy, nor as the `taker_market` in the **cross-exchange market making strategy**. Since USDC market orders will fail, the Coinbase Pro leg of the trade will not be executed.
 
 ### [Radar Relay] Phantom filled orders 
 
