@@ -2,14 +2,18 @@
 
 import asyncio
 from async_timeout import timeout
-from typing import List
+from typing import (
+    List,
+    Optional,
+)
 
-from wings.event_listener import EventListener
+from wings.event_listener cimport EventListener
 
 
-class EventLogger(EventListener):
-    def __init__(self):
+cdef class EventLogger(EventListener):
+    def __init__(self, event_source: Optional[str] = None):
         super().__init__()
+        self._event_source = event_source
         self._logged_events = []
         self._waiting = {}
         self._wait_returns = {}
@@ -17,6 +21,10 @@ class EventLogger(EventListener):
     @property
     def event_log(self) -> List[any]:
         return self._logged_events.copy()
+
+    @property
+    def event_source(self) -> str:
+        return self._event_source
 
     def clear(self):
         self._logged_events.clear()
@@ -34,10 +42,13 @@ class EventLogger(EventListener):
         return retval
 
     def __call__(self, event_object):
+        self.c_call(event_object)
+
+    cdef c_call(self, object event_object):
         self._logged_events.append(event_object)
         event_object_type = type(event_object)
 
-        should_notify: List[asyncio.Event] = []
+        should_notify = []
         for notifier, waiting_event_type in self._waiting.items():
             if event_object_type is waiting_event_type:
                 should_notify.append(notifier)
