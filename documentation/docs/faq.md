@@ -34,13 +34,21 @@ Hummingbot is licensed under [Apache 2.0](https://github.com/CoinAlpha/hummingbo
 
 ### How much cryptocurrency do I need to get started?
 
-There is no minimum amount of assets to use Hummingbot.  We would recommend initially starting with smaller amounts of assets while you are getting familiar with the bot.
+While there is no minimum amount of assets to use Hummingbot, users should pay heed to exchange-specific minimum order sizes. In our [exchange connectors](/connectors) documentation, we include links to the exchange's minimum order size page where available.
+
+We would recommend initially starting with smaller amounts of assets while you are getting familiar with the bot.
 
 ### Are my private keys and API keys secure?
 
 Since Hummingbot is a local client, your private keys and API keys are as secure as the computer you are running them on.  The keys are used to create authorized instructions locally on the local machine, and only the instructions which have already been signed or authorized are sent out from the client.
 
 Always use caution and make sure the computer you are running Hummingbot on is safe, secure, and free from unauthorized access.
+
+### Do I need an Ethereum node to run Hummingbot?
+
+You can use Hummingbot to create bots that trade on a centralized exchange, a decentralized exchange (DEX), or both. For Ethereum-based DEXs, you need access to an Ethereum node. 
+
+We describe [various ways](/installation/node) that you can get access to a node.
 
 ### What does it cost for me to run Hummingbot?
 
