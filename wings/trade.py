@@ -4,6 +4,7 @@ from collections import namedtuple
 from typing import List
 from datetime import datetime
 import pandas as pd
+
 from wings.events import (
     TradeType,
     OrderType,
