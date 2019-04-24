@@ -1,29 +1,14 @@
 from typing import List
-from wings.clock cimport Clock
 from wings.time_iterator cimport TimeIterator
 from wings.market.market_base cimport MarketBase
+from wings.event_logger cimport EventLogger
 from wings.trade import Trade
-from wings.event_listener cimport EventListener
-from wings.events import MarketEvent
-
-
-cdef class OrderFilledListener(EventListener):
-    cdef:
-        StrategyBase _owner
-
-    def __init__(self, StrategyBase owner):
-        super().__init__()
-        self._owner = owner
-
-    cdef c_call(self, object arg):
-        self._owner.c_record_trade(arg)
+from wings.events import OrderFilledEvent
 
 
 cdef class StrategyBase(TimeIterator):
     def __init__(self):
         super().__init__()
-        self._past_trades = []
-        self._trade_listener = OrderFilledListener(self)
 
     @property
     def active_markets(self) -> List[MarketBase]:
@@ -34,20 +19,19 @@ cdef class StrategyBase(TimeIterator):
 
     @property
     def trades(self) -> List[Trade]:
-        return self._past_trades
+        def event_to_trade(order_filled_event: OrderFilledEvent, market_name: str):
+            return Trade(order_filled_event.symbol,
+                         order_filled_event.trade_type,
+                         order_filled_event.price,
+                         order_filled_event.amount,
+                         order_filled_event.order_type,
+                         market_name,
+                         order_filled_event.timestamp)
 
-    cdef c_record_trade(self, object order_filled_event):
-        self._past_trades.append(
-            Trade(order_filled_event.symbol,
-                  order_filled_event.trade_type,
-                  order_filled_event.price,
-                  order_filled_event.amount))
+        past_trades = []
+        for market in self.active_markets:
+            event_logs = market.event_logs
+            order_filled_events = list(filter(lambda e: isinstance(e, OrderFilledEvent), event_logs))
+            past_trades += list(map(lambda ofe: event_to_trade(ofe, market.__class__.__name__), order_filled_events))
 
-    cdef c_start(self, Clock clock, double timestamp):
-        cdef:
-            MarketBase typed_market
-
-        TimeIterator.c_start(self, clock, timestamp)
-        for active_market in self.active_markets:
-            typed_market = active_market
-            typed_market.c_add_listener(MarketEvent.OrderFilled.value, self._trade_listener)
+        return sorted(past_trades, key=lambda x: x.timestamp)
