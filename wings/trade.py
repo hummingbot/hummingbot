@@ -22,14 +22,16 @@ class Trade(namedtuple("_Trade", "symbol, side, price, amount, order_type, marke
 
     @classmethod
     def to_pandas(cls, trades: List):
-        columns: List[str] = ["symbol", "trade_side", "price", "quantity", "order_type", "market", "timestamp"]
+        columns: List[str] = ["symbol", "price", "quantity", "trade_type", "market", "timestamp"]
         data = [[
             trade.symbol,
-            "BUY" if trade.side is TradeType.BUY else "SELL",
             trade.price,
             trade.amount,
-            "MARKET" if trade.order_type is OrderType.MARKET else "LIMIT",
+            (
+                "market" if trade.order_type is OrderType.MARKET else "limit" +
+                "buy" if trade.side is TradeType.BUY else "sell"
+            ),
             trade.market,
-            datetime.fromtimestamp(trade.timestamp).strftime("%Y-%m-%d-%H-%M-%S"),
+            datetime.fromtimestamp(trade.timestamp).strftime("%Y-%m-%d %H:%M:%S"),
         ] for trade in trades]
         return pd.DataFrame(data=data, columns=columns)
