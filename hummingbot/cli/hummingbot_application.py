@@ -585,6 +585,11 @@ class HummingbotApplication:
                                               min_profitability=min_profitability,
                                               logging_options=strategy_logging_options)
 
+        elif strategy_name == "pure_market_making":
+            # primary_market = strategy_cm.get("primary_market").value.lower()
+            raise ValueError("Not completed yet")
+
+
         else:
             raise NotImplementedError
 
