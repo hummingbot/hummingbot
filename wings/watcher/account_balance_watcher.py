@@ -48,12 +48,6 @@ class AccountBalanceWatcher(BaseWatcher):
         self._event_forwarder: EventForwarder = EventForwarder(self.did_receive_new_blocks)
         self._raw_account_balances: Dict[str, int] = {}
 
-    def start(self):
-        pass
-
-    def stop(self):
-        pass
-
     async def start_network(self):
         account_address: str = self._account_address
         w3: Web3 = self._w3

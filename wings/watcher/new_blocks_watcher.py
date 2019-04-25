@@ -32,15 +32,13 @@ class NewBlocksWatcher(BaseWatcher):
         return cls._nbw_logger
 
     def __init__(self, w3: Web3, block_window_size: Optional[int] = DEFAULT_BLOCK_WINDOW_SIZE):
-        super().__init__()
-        self._w3: Web3 = w3
+        super().__init__(w3)
         self._block_window_size = block_window_size
-        self._current_block_number: int = self._w3.eth.blockNumber
-        self._block_number_to_fetch: int = self._current_block_number
+        self._current_block_number: int = -1
+        self._block_number_to_fetch: int = -1
         self._blocks_window: Dict = {}
         self._block_number_to_hash_map: OrderedDict = OrderedDict()
-        self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-        self._fetch_new_blocks_task: asyncio.Task = None
+        self._fetch_new_blocks_task: Optional[asyncio.Task] = None
 
     @property
     def web3(self) -> Web3:
@@ -50,10 +48,15 @@ class NewBlocksWatcher(BaseWatcher):
     def block_number(self) -> int:
         return self._current_block_number
 
-    def start(self):
+    async def start_network(self):
+        if self._fetch_new_blocks_task is not None:
+            await self.stop_network()
+
+        self._current_block_number = await self.async_call(getattr, self._w3.eth, "blockNumber")
+        self._block_number_to_fetch = self._current_block_number
         self._fetch_new_blocks_task: asyncio.Task = asyncio.ensure_future(self.fetch_new_blocks_loop())
 
-    def stop(self):
+    async def stop_network(self):
         if self._fetch_new_blocks_task is not None:
             self._fetch_new_blocks_task.cancel()
             self._fetch_new_blocks_task = None
