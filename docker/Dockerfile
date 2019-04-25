@@ -4,32 +4,29 @@ FROM continuumio/anaconda3
 # Dockerfile author / maintainer 
 LABEL maintainer="CoinAlpha, Inc. <dev@coinalpha.com>"
 
-# Build Variables
-ARG LINUX_PACKAGE
-
-COPY dist/${LINUX_PACKAGE} .
-COPY setup/environment-dist.yml setup/
+COPY bin/ bin/
+COPY hummingbot/ hummingbot/
+COPY setup/environment-linux.yml setup/
+COPY wings/ wings/
+COPY setup.py .
 COPY LICENSE .
 
-# Update Conda
+# Update conda
 RUN conda update -n base -c defaults conda
 
-# Install Linux Dependencies
+# Install linux dependencies
 RUN apt update && \
     apt-get update && \
     apt-get install -y gcc build-essential
 
-# Install Hummingbot and Create Environment
-RUN conda env create -f setup/environment-dist.yml
+# ./install | create hummingbot environment
+RUN conda env create -f setup/environment-linux.yml
 
-# Install Hummingbot
-RUN /opt/conda/envs/$(head -1 setup/environment-dist.yml | cut -d' ' -f2)/bin/pip install ${LINUX_PACKAGE}
+# conda activate hummingbot
+RUN echo "source activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)" > ~/.bashrc
+ENV PATH /opt/conda/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin:$PATH
 
-# Pull the environment name out of the environment-linux.yml and activate
-RUN echo "source activate $(head -1 setup/environment-dist.yml | cut -d' ' -f2)" > ~/.bashrc
-ENV PATH /opt/conda/envs/$(head -1 setup/environment-dist.yml | cut -d' ' -f2)/bin:$PATH
+# ./compile
+RUN /opt/conda/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 setup.py build_ext --inplace -j 8
 
-# Clean-up: remove unnecessary file(s)
-RUN rm ${LINUX_PACKAGE}
-
-CMD [ "sh", "-c", "/opt/conda/envs/$(head -1 setup/environment-dist.yml | cut -d' ' -f2)/bin/hummingbot.py" ]
+CMD [ "sh", "-c", "/opt/conda/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 bin/hummingbot.py" ]
