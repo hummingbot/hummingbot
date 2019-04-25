@@ -72,6 +72,8 @@ class WethWatcher(BaseWatcher):
             self._poll_weth_logs_task = None
         self._new_blocks_queue = None
 
+    # TODO: write start_network() and stop_network()
+
     def did_receive_new_blocks(self, new_blocks: List[AttributeDict]):
         self._new_blocks_queue.put_nowait(new_blocks)
 

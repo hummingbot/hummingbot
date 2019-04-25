@@ -74,12 +74,14 @@ class Web3WalletBackend(PubSub):
             self._erc20_token_list.append(ERC20Token(self._w3, erc20_token_address, self._chain))
 
         self._erc20_tokens: OrderedDict[str, ERC20Token] = {
+            # TODO: refactor this out since symbols must be async
             erc20_token.symbol: erc20_token for erc20_token in self._erc20_token_list
         }
 
         self._weth_token = self._erc20_tokens["WETH"] if "WETH" in self._erc20_tokens else None
 
         self._asset_decimals: Dict[str, int] = {
+            # TODO: refactor this out since decimals must be async
             asset_name: erc20_token.decimals
             for asset_name, erc20_token in self._erc20_tokens.items()
         }
@@ -416,7 +418,7 @@ class Web3WalletBackend(PubSub):
     def _eth_unwrapped_event_listener(self, unwrapped_eth_event: WalletUnwrappedEthEvent):
         self.trigger_event(WalletEvent.UnwrappedEth, unwrapped_eth_event)
 
-    def check_and_fix_approval_amounts(self, spender: str) -> List[str]:
+    async def check_and_fix_approval_amounts(self, spender: str) -> List[str]:
         """
         Maintain the approve amounts for a token.
         This function will be used to ensure trade execution using exchange protocols such as 0x, but should be
@@ -436,7 +438,7 @@ class Web3WalletBackend(PubSub):
         # check and fix the approved amounts
         tx_hashes: List[str] = []
         for approved_amount, erc20_token in zip(approved_amounts, self._erc20_token_list):
-            token_name: str = erc20_token.name
+            token_name: str = await erc20_token.get_name()
             token_contract: Contract = erc20_token.contract
             if approved_amount >= min_approve_amount:
                 self.logger().info(f"Approval already exists for {token_name} from wallet address {self.address}.")

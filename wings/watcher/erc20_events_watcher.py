@@ -60,35 +60,42 @@ class ERC20EventsWatcher(BaseWatcher):
         if len(contract_addresses) != len(contract_abi):
             raise ValueError("Each entry in contract_addresses must have a corresponding entry in contract_abi.")
 
-        super().__init__()
-        self._w3 = w3
+        super().__init__(w3)
         self._blocks_watcher: NewBlocksWatcher = blocks_watcher
-        self._contract_addresses: List[str] = contract_addresses
+        self._addresses_to_contracts: Dict[str, Contract] = {
+            address: w3.eth.contract(address=address, abi=abi)
+            for address, abi in zip(contract_addresses, contract_abi)
+        }
         self._watch_addresses: Set[str] = set(watch_addresses)
         self._address_to_asset_name_map: Dict[str, str] = {}
         self._asset_decimals: Dict[str, int] = {}
         self._contract_event_loggers: Dict[str, ContractEventLogger] = {}
-        for address, abi in zip(contract_addresses, contract_abi):
-            contract: Contract = self._w3.eth.contract(address=address, abi=abi)
-            asset_name: str = ERC20Token.get_symbol_from_contract(contract)
-            self._address_to_asset_name_map[contract.address] = asset_name
-            self._asset_decimals[asset_name] = contract.functions.decimals().call()
-            self._contract_event_loggers[address] = ContractEventLogger(self._w3, address, abi)
-        self._poll_erc20_logs_task: asyncio.Task = None
+        self._new_blocks_queue: asyncio.Queue = asyncio.Queue()
         self._event_forwarder: EventForwarder = EventForwarder(self.did_receive_new_blocks)
-        self._new_blocks_queue: asyncio.Queue = None
+        self._poll_erc20_logs_task: Optional[asyncio.Task] = None
 
-    def start(self):
-        self._new_blocks_queue = asyncio.Queue()
+    async def start_network(self):
+        if len(self._address_to_asset_name_map) < len(self._addresses_to_contracts):
+            for address, contract in self._addresses_to_contracts.items():
+                contract: Contract = contract
+                asset_name: str = await self.async_call(ERC20Token.get_symbol_from_contract, contract)
+                decimals: int = await self.async_call(contract.functions.decimals().call)
+                self._address_to_asset_name_map[address] = asset_name
+                self._asset_decimals[asset_name] = decimals
+                self._contract_event_loggers[address] = ContractEventLogger(self._w3, address, contract.abi)
+
+        if self._poll_erc20_logs_task is not None:
+            await self.stop_network()
+
         self._blocks_watcher.add_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
         self._poll_erc20_logs_task = asyncio.ensure_future(self.poll_erc20_logs_loop())
 
-    def stop(self):
-        self._blocks_watcher.remove_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
+    async def stop_network(self):
+
         if self._poll_erc20_logs_task is not None:
             self._poll_erc20_logs_task.cancel()
             self._poll_erc20_logs_task = None
-        self._new_blocks_queue = None
+        self._blocks_watcher.remove_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
 
     def did_receive_new_blocks(self, new_blocks: List[AttributeDict]):
         self._new_blocks_queue.put_nowait(new_blocks)

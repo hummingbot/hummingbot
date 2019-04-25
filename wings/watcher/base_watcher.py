@@ -18,12 +18,6 @@ class BaseWatcher(PubSub):
         self._w3: Web3 = w3
         self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
-    def start(self):
-        raise NotImplementedError
-
-    def stop(self):
-        raise NotImplementedError
-
     @staticmethod
     async def schedule_async_call(coro: Coroutine, timeout_seconds: float) -> any:
         return await AsyncCallScheduler.shared_instance().schedule_async_call(coro, timeout_seconds)
