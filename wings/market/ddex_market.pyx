@@ -6,6 +6,7 @@ import logging
 import math
 import time
 from typing import (
+    Any,
     Dict,
     List,
     Optional
@@ -16,9 +17,6 @@ from web3 import Web3
 from wings.clock cimport Clock
 from wings.limit_order import LimitOrder
 from wings.market.market_base cimport MarketBase
-from wings.market.market_base import (
-    OrderType
-)
 from wings.wallet.web3_wallet import Web3Wallet
 from wings.order_book cimport OrderBook
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
@@ -29,16 +27,19 @@ from wings.events import (
     SellOrderCompletedEvent,
     OrderFilledEvent,
     OrderCancelledEvent,
-    TradeType,
     MarketTransactionFailureEvent,
     BuyOrderCreatedEvent,
-    SellOrderCreatedEvent
+    SellOrderCreatedEvent,
+    OrderType,
+    TradeType,
+    TradeFee
 )
 from wings.cancellation_result import CancellationResult
 
 
 s_logger = None
 s_decimal_0 = Decimal(0)
+NaN = float("nan")
 
 
 cdef class DDEXMarketTransactionTracker(TransactionTracker):
@@ -65,7 +66,7 @@ cdef class TradingRule:
         public bint supports_market_orders      # if market order is allowed for this trading pair
 
     @classmethod
-    def parse_exchange_info(cls, markets: List[Dict[str, any]]) -> List[TradingRule]:
+    def parse_exchange_info(cls, markets: List[Dict[str, Any]]) -> List[TradingRule]:
         cdef:
             list retval = []
         for market in markets:
@@ -201,7 +202,7 @@ cdef class DDEXMarket(MarketBase):
 
     API_CALL_TIMEOUT = 10.0
     DDEX_REST_ENDPOINT = "https://api.ddex.io/v3"
-
+    UPDATE_TRADE_FEES_INTERVAL = 60 * 60
     ORDER_EXPIRY_TIME = 15 * 60.0
 
     @classmethod
@@ -228,6 +229,7 @@ cdef class DDEXMarket(MarketBase):
         self._last_timestamp = 0
         self._last_update_order_timestamp = 0
         self._last_update_trading_rules_timestamp = 0
+        self._last_update_trade_fees_timestamp = 0
         self._poll_interval = poll_interval
         self._in_flight_orders = {}
         self._order_expiry_queue = deque()
@@ -242,13 +244,21 @@ cdef class DDEXMarket(MarketBase):
         self._wallet = wallet
         self._wallet_spender_address = wallet_spender_address
         self._shared_client = None
+        self._maker_trade_fee = NaN
+        self._taker_trade_fee = NaN
+        self._gas_fee_weth = NaN
+        self._gas_fee_usd = NaN
 
     @property
     def ready(self) -> bool:
         return len(self._account_balances) > 0 \
                and len(self._trading_rules) > 0 \
                and len(self._order_book_tracker.order_books) > 0 \
-               and len(self._pending_approval_tx_hashes) == 0
+               and len(self._pending_approval_tx_hashes) == 0 \
+               and not math.isnan(self._maker_trade_fee) \
+               and not math.isnan(self._taker_trade_fee) \
+               and not math.isnan(self._gas_fee_weth) \
+               and not math.isnan(self._gas_fee_usd)
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -294,7 +304,11 @@ cdef class DDEXMarket(MarketBase):
                 await self._poll_notifier.wait()
 
                 self._update_balances()
-                await asyncio.gather(self._update_trading_rules(), self._update_order_status())
+                await asyncio.gather(
+                    self._update_trading_rules(),
+                    self._update_order_status(),
+                    self._update_trade_fees()
+                )
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -427,10 +441,11 @@ cdef class DDEXMarket(MarketBase):
     async def _api_request(self,
                            http_method: str,
                            url: str,
-                           data: Optional[Dict[str, any]] = None,
-                           headers: Optional[Dict[str, str]] = None) -> Dict[str, any]:
+                           data: Optional[Dict[str, Any]] = None,
+                           params: Optional[Dict[str, Any]] = None,
+                           headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         client = await self._http_client()
-        async with client.request(http_method, url=url, timeout=self.API_CALL_TIMEOUT, data=data,
+        async with client.request(http_method, url=url, timeout=self.API_CALL_TIMEOUT, data=data, params=params,
                                   headers=headers) as response:
             if response.status != 200:
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
@@ -440,8 +455,59 @@ cdef class DDEXMarket(MarketBase):
             self.logger().debug(f"{data}")
             return data
 
+    async def _update_trade_fees(self):
+        cdef:
+            double current_timestamp = self._current_timestamp
+
+        if current_timestamp - self._last_update_trade_fees_timestamp > self.UPDATE_TRADE_FEES_INTERVAL or self._gas_fee_usd == NaN:
+            calc_fee_url = f"{self.DDEX_REST_ENDPOINT}/fees"
+            params = {
+                "amount": "1",
+                "marketId": "HOT-WETH",
+                "price": "1",
+            }
+            res = await self._api_request(http_method="get", url=calc_fee_url, params=params)
+            # maker / taker trade fees are same regardless of pair
+            self._maker_trade_fee = float(res["data"]["asMakerFeeRate"])
+            self._taker_trade_fee = float(res["data"]["asTakerFeeRate"])
+            # gas fee from api is in quote token amount
+            self._gas_fee_weth = float(res["data"]["gasFeeAmount"])
+            params = {
+                "amount": "1",
+                "marketId": "WETH-DAI",
+                "price": "1",
+            }
+            res = await self._api_request(http_method="get", url=calc_fee_url, params=params)
+            # DDEX charges same gas fee for both DAI and TUSD
+            self._gas_fee_usd = float(res["data"]["gasFeeAmount"])
+            self._last_update_trade_fees_timestamp = current_timestamp
+
+    cdef object c_get_fee(self,
+                          str symbol,
+                          object order_type,
+                          object order_side,
+                          double amount,
+                          double price):
+        cdef:
+            str quote_token
+            double gas_fee = 0.0
+            object fee_type
+            double trade_fee
+
+        quote_currency = symbol.split("-")[1]
+        # DDEX only quotes with WETH or stable coins
+        if quote_currency == "WETH":
+            gas_fee = self._gas_fee_weth
+        elif quote_currency in ["DAI", "TUSD", "USDC", "PAX", "USDT"]:
+            gas_fee = self._gas_fee_usd
+        else:
+            self.logger().warning(f"Unrecognized quote token symbol - {quote_currency}. Assuming gas fee is in stable coin units.")
+            gas_fee = self._gas_fee_usd
+        percent = self._maker_trade_fee if order_type is OrderType.LIMIT else self._taker_trade_fee
+        return TradeFee(percent, flat_fees = [(quote_currency, gas_fee)])
+
     async def build_unsigned_order(self, amount: str, price: str, side: str, symbol: str, order_type: OrderType,
-                                   expires: int) -> Dict[str, any]:
+                                   expires: int) -> Dict[str, Any]:
         url = "%s/orders/build" % (self.DDEX_REST_ENDPOINT,)
         headers = self._generate_auth_headers()
         data = {
@@ -457,7 +523,7 @@ cdef class DDEXMarket(MarketBase):
         return response_data["data"]["order"]
 
     async def place_order(self, amount: str, price: str, side: str, symbol: str, order_type: OrderType,
-                          expires: int = 0) -> Dict[str, any]:
+                          expires: int = 0) -> Dict[str, Any]:
         unsigned_order = await self.build_unsigned_order(symbol=symbol, amount=amount, price=price, side=side,
                                                          order_type=order_type, expires=expires)
         order_id = unsigned_order["id"]
@@ -469,7 +535,7 @@ cdef class DDEXMarket(MarketBase):
         response_data = await self._api_request('post', url=url, data=data, headers=self._generate_auth_headers())
         return response_data["data"]["order"]
 
-    async def cancel_order(self, client_order_id: str) -> Dict[str, any]:
+    async def cancel_order(self, client_order_id: str) -> Dict[str, Any]:
         order = self.in_flight_orders.get(client_order_id)
         if not order:
             self.logger().info(f"Failed to cancel order {client_order_id}. Order not found in tracked orders.")
@@ -484,43 +550,54 @@ cdef class DDEXMarket(MarketBase):
         response_data["client_order_id"] = client_order_id
         return response_data
 
-    async def list_orders(self) -> Dict[str, any]:
+    async def list_orders(self) -> Dict[str, Any]:
         url = "%s/orders?status=all" % (self.DDEX_REST_ENDPOINT,)
         response_data = await self._api_request('get', url=url, headers=self._generate_auth_headers())
         return response_data["data"]["orders"]
 
-    async def get_order(self, order_id: str) -> Dict[str, any]:
+    async def get_order(self, order_id: str) -> Dict[str, Any]:
         url = "%s/orders/%s" % (self.DDEX_REST_ENDPOINT, order_id)
         response_data = await self._api_request('get', url, headers=self._generate_auth_headers())
         return response_data["data"]["order"]
 
-    async def list_locked_balances(self) -> Dict[str, any]:
+    async def list_locked_balances(self) -> Dict[str, Any]:
         url = "%s/account/lockedBalances" % (self.DDEX_REST_ENDPOINT,)
         response_data = await self._api_request('get', url=url, headers=self._generate_auth_headers())
         return response_data["data"]["lockedBalances"]
 
-    async def get_market(self, symbol: str) -> Dict[str, any]:
+    async def get_market(self, symbol: str) -> Dict[str, Any]:
         url = "%s/markets/%s" % (self.DDEX_REST_ENDPOINT, symbol)
         response_data = await self._api_request('get', url=url)
         return response_data["data"]["market"]
 
-    async def list_market(self) -> Dict[str, any]:
+    async def list_market(self) -> Dict[str, Any]:
         url = "%s/markets" % (self.DDEX_REST_ENDPOINT,)
         response_data = await self._api_request('get', url=url)
         return response_data["data"]["markets"]
 
-    async def get_ticker(self, symbol: str) -> Dict[str, any]:
+    async def get_ticker(self, symbol: str) -> Dict[str, Any]:
         url = "%s/markets/%s/ticker" % (self.DDEX_REST_ENDPOINT, symbol)
         response_data = await self._api_request('get', url=url)
         return response_data["data"]["ticker"]
 
     cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0,
                    dict kwargs = {}):
+        # DDEX takes fees in addition to what you want to spend
+        # if you want to buy 10 ZRX with 1 DAI and the fee is 2%, required DAI balance is 1.02 DAI
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"buy-{symbol}-{tracking_nonce}")
+            object buy_fee = self.c_get_fee(symbol, order_type, TradeType.BUY, amount, price)
+            double total_flat_fees = 0.0
+            double adjusted_amount
 
-        asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
+        for flat_fee_currency, flat_fee_amount in buy_fee.flat_fees:
+            # DDEX fees are always in quote currency so no conversion is needed
+            total_flat_fees += flat_fee_amount
+
+        # adjust amount so fees are taken from your order instead of in addition to your order
+        adjusted_amount = amount / (1 + buy_fee.percent) - total_flat_fees / price
+        asyncio.ensure_future(self.execute_buy(order_id, symbol, adjusted_amount, order_type, price))
         return order_id
 
     async def execute_buy(self, order_id: str, symbol: str, amount: float, order_type: OrderType, price: float) -> str:

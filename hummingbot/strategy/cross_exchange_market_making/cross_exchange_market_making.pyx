@@ -4,6 +4,7 @@ from collections import (
 )
 from decimal import Decimal
 import logging
+import math
 import pandas as pd
 from typing import (
     List,
@@ -362,7 +363,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             dict kwargs = {}
 
-        if expiration_seconds != NaN:
+        if not math.isnan(expiration_seconds):
             kwargs["expiration_ts"] = self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
 
         if market not in self._markets:
@@ -377,7 +378,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             dict kwargs = {}
 
-        if expiration_seconds != NaN:
+        if not math.isnan(expiration_seconds):
             kwargs["expiration_ts"] = self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
 
         if market not in self._markets:

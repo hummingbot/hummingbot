@@ -19,3 +19,9 @@ cdef class MarketBase(TimeIterator):
     cdef object c_get_order_size_quantum(self, str symbol, double order_size)
     cdef object c_quantize_order_price(self, str symbol, double price)
     cdef object c_quantize_order_amount(self, str symbol, double amount)
+    cdef object c_get_fee(self,
+                          str symbol,
+                          object order_type,
+                          object order_side,
+                          double amount,
+                          double price)

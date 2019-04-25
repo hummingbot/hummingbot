@@ -27,7 +27,9 @@ from wings.events import (
     OrderFilledEvent,
     OrderCancelledEvent,
     BuyOrderCreatedEvent,
-    SellOrderCreatedEvent)
+    SellOrderCreatedEvent,
+    TradeFee
+)
 from wings.event_logger import EventLogger
 from wings.wallet.web3_wallet import Web3Wallet
 from wings.ethereum_chain import EthereumChain
@@ -102,6 +104,14 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
 
     def run_parallel(self, *tasks):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
+
+    def test_get_fee(self):
+        limit_fee: TradeFee = self.market.get_fee("ETH-USDC", OrderType.LIMIT, TradeType.BUY, 1, 1)
+        self.assertGreater(limit_fee.percent, 0)
+        self.assertEqual(len(limit_fee.flat_fees), 0)
+        market_fee: TradeFee = self.market.get_fee("ETH-USDC", OrderType.MARKET, TradeType.BUY, 1)
+        self.assertGreater(market_fee.percent, 0)
+        self.assertEqual(len(market_fee.flat_fees), 0)
 
     def test_limit_buy(self):
         self.assertGreater(self.market.get_balance("ETH"), 0.1)

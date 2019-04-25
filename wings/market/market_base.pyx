@@ -9,7 +9,11 @@ from wings.order_book import OrderBook
 from wings.cancellation_result import CancellationResult
 from wings.limit_order import LimitOrder
 from wings.event_reporter import EventReporter
-from wings.events import OrderType
+from wings.events import (
+    OrderType,
+    TradeType,
+    TradeFee
+)
 NaN = float("nan")
 
 
@@ -75,6 +79,14 @@ cdef class MarketBase(TimeIterator):
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         raise NotImplementedError
 
+    def get_fee(self,
+                symbol: str, 
+                order_type: OrderType,
+                order_side: TradeType,
+                amount: float,
+                price: float = NaN) -> TradeFee:
+        return self.c_get_fee(symbol, order_type, order_side, amount, price)
+
     def get_order_price_quantum(self, symbol: str, price: float) -> Decimal:
         return self.c_get_order_price_quantum(symbol, price)
 
@@ -94,6 +106,14 @@ cdef class MarketBase(TimeIterator):
         raise NotImplementedError
 
     cdef c_cancel(self, str symbol, str client_order_id):
+        raise NotImplementedError
+
+    cdef object c_get_fee(self,
+                          str symbol,
+                          object order_type,
+                          object order_side,
+                          double amount,
+                          double price):
         raise NotImplementedError
 
     cdef double c_get_balance(self, str currency) except? -1:
