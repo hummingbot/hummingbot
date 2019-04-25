@@ -293,15 +293,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 lines.extend(["", "  No active maker orders."])
 
             # Add warning lines on null balances.
-            if maker_base_balance <= 0:
-                warning_lines.append(f"  Maker market {maker_base} balance is 0. No ask order is possible.")
-            if maker_quote_balance <= 0:
-                warning_lines.append(f"  Maker market {maker_quote} balance is 0. No bid order is possible.")
-            if taker_base_balance <= 0:
-                warning_lines.append(f"  Taker market {taker_base} balance is 0. No bid order is possible because "
+            # TO-DO: Build min order size logic into exchange connector and expose maker_min_order and taker_min_order variables,
+            # which can replace the hard-coded 0.0001 value. 
+            if maker_base_balance <= 0.0001:
+                warning_lines.append(f"  Maker market {maker_base} balance is too low. No ask order is possible.")
+            if maker_quote_balance <= 0.0001:
+                warning_lines.append(f"  Maker market {maker_quote} balance is too low. No bid order is possible.")
+            if taker_base_balance <= 0.0001:
+                warning_lines.append(f"  Taker market {taker_base} balance is too low. No bid order is possible because "
                                      f"there's no {taker_base} available for hedging orders.")
-            if taker_quote_balance <= 0:
-                warning_lines.append(f"  Taker market {taker_quote} balance is 0. No ask order is possible because "
+            if taker_quote_balance <= 0.0001:
+                warning_lines.append(f"  Taker market {taker_quote} balance is too low. No ask order is possible because "
                                      f"there's no {taker_quote} available for hedging orders.")
 
         if len(warning_lines) > 0:
