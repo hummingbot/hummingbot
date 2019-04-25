@@ -15,7 +15,6 @@ from wings.events import (
     TradeFee
 )
 from wings.event_logger import EventLogger
-
 NaN = float("nan")
 
 
