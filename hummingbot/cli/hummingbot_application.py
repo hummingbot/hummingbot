@@ -717,7 +717,7 @@ class HummingbotApplication:
                 df.to_csv(path, header=True)
                 self.app.log(f"Successfully saved trades to {path}")
 
-    def performance(self):
+    def history(self):
         self.list("trades")
         self.compare_balance_snapshots()
 
