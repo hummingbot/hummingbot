@@ -366,6 +366,10 @@ cdef class BinanceMarket(MarketBase):
         self._coro_scheduler_task = None
 
     @property
+    def name(self) -> str:
+        return "binance"
+
+    @property
     def order_books(self) -> Dict[str, OrderBook]:
         return self._order_book_tracker.order_books
 
