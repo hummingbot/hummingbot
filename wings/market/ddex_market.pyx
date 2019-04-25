@@ -851,8 +851,9 @@ cdef class DDEXMarket(MarketBase):
 
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
         self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
-        tx_hashes = self.wallet.current_backend.check_and_fix_approval_amounts(
-            spender=self._wallet_spender_address)
+        tx_hashes = await self.wallet.current_backend.check_and_fix_approval_amounts(
+            spender=self._wallet_spender_address
+        )
         self._pending_approval_tx_hashes.update(tx_hashes)
         self._approval_tx_polling_task = asyncio.ensure_future(self._approval_tx_polling_loop())
 

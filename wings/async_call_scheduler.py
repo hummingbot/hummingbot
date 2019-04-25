@@ -6,8 +6,11 @@ import logging
 from typing import (
     Optional,
     Coroutine,
-    NamedTuple
+    NamedTuple,
+    Callable
 )
+
+import wings
 
 
 class AsyncCallSchedulerItem(NamedTuple):
@@ -83,11 +86,13 @@ class AsyncCallScheduler:
                     fut.set_exception(e)
                 except Exception:
                     pass
-            finally:
-                try:
-                    await asyncio.sleep(interval)
-                except Exception:
-                    self.logger().error("Scheduler sleep interrupted.", exc_info=True)
+
+            try:
+                await asyncio.sleep(interval)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Scheduler sleep interrupted.", exc_info=True)
 
     async def schedule_async_call(self, coro: Coroutine, timeout_seconds: float) -> any:
         fut: asyncio.Future = self._ev_loop.create_future()
@@ -95,3 +100,11 @@ class AsyncCallScheduler:
         if self._coro_scheduler_task is None:
             self.start()
         return await fut
+
+    async def call_async(self, func: Callable, *args, timeout_seconds: float = 5.0) -> any:
+        coro: Coroutine = self._ev_loop.run_in_executor(
+            wings.get_executor(),
+            func,
+            *args
+        )
+        return await self.schedule_async_call(coro, timeout_seconds)

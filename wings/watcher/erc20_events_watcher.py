@@ -78,8 +78,8 @@ class ERC20EventsWatcher(BaseWatcher):
         if len(self._address_to_asset_name_map) < len(self._addresses_to_contracts):
             for address, contract in self._addresses_to_contracts.items():
                 contract: Contract = contract
-                asset_name: str = await self.async_call(ERC20Token.get_symbol_from_contract, contract)
-                decimals: int = await self.async_call(contract.functions.decimals().call)
+                asset_name: str = await self.call_async(ERC20Token.get_symbol_from_contract, contract)
+                decimals: int = await self.call_async(contract.functions.decimals().call)
                 self._address_to_asset_name_map[address] = asset_name
                 self._asset_decimals[asset_name] = decimals
                 self._contract_event_loggers[address] = ContractEventLogger(self._w3, address, contract.abi)
