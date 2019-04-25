@@ -89,7 +89,7 @@ dependencies:
     - pyhamcrest==1.9.0
     - pyperclip==1.7.0
     - pypiwin32==223
-    - python-binance==0.6.9
+    - python-binance==0.7.1
     - pywin32==224
     - regex==2019.2.21
     - requests==2.21.0

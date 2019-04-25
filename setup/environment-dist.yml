@@ -97,7 +97,7 @@ dependencies:
     - pycryptodome==3.7.3
     - pyhamcrest==1.9.0
     - pyperclip==1.7.0
-    - python-binance==0.6.9
+    - python-binance==0.7.1
     - regex==2019.2.21
     - requests==2.21.0
     - rlp==1.1.0
