@@ -36,10 +36,14 @@ cdef class MarketBase(TimeIterator):
     def __init__(self):
         super().__init__()
         self.event_reporter = EventReporter(event_source=self.__class__.__name__)
-        self.event_logger = EventLogger(event_source=self.__class__.__name__)
+        self.event_logger = EventLogger(event_source=self.name)
         for event_tag in self.MARKET_EVENTS:
             self.c_add_listener(event_tag.value, self.event_reporter)
             self.c_add_listener(event_tag.value, self.event_logger)
+
+    @property
+    def name(self) -> str:
+        raise NotImplementedError
 
     @property
     def event_logs(self) -> Dict[str, OrderBook]:

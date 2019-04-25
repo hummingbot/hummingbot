@@ -254,6 +254,10 @@ cdef class RadarRelayMarket(MarketBase):
         self._latest_salt = -1
 
     @property
+    def name(self) -> str:
+        return "radar_relay"
+
+    @property
     def ready(self) -> bool:
         return len(self._account_balances) > 0 \
                and len(self._trading_rules) > 0 \
