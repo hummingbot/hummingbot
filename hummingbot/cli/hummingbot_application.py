@@ -574,12 +574,7 @@ class HummingbotApplication:
                                                   [self.markets[taker_market], raw_taker_symbol] + list(taker_assets) +
                                                   [top_depth_tolerance]))
 
-            strategy_logging_options = (CrossExchangeMarketMakingStrategy.OPTION_LOG_CREATE_ORDER |
-                                        CrossExchangeMarketMakingStrategy.OPTION_LOG_ADJUST_ORDER |
-                                        CrossExchangeMarketMakingStrategy.OPTION_LOG_MAKER_ORDER_FILLED |
-                                        CrossExchangeMarketMakingStrategy.OPTION_LOG_REMOVING_ORDER |
-                                        CrossExchangeMarketMakingStrategy.OPTION_LOG_STATUS_REPORT |
-                                        CrossExchangeMarketMakingStrategy.OPTION_LOG_MAKER_ORDER_HEDGED)
+            strategy_logging_options = CrossExchangeMarketMakingStrategy.OPTION_LOG_ALL
 
             self.strategy = CrossExchangeMarketMakingStrategy(market_pairs=[self.market_pair],
                                                               min_profitability=min_profitability,
