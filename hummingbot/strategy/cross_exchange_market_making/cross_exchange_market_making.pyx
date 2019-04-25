@@ -363,8 +363,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             dict kwargs = {}
 
-        if not math.isnan(expiration_seconds):
-            kwargs["expiration_ts"] = self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
+        kwargs["expiration_ts"] = self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
 
         if market not in self._markets:
             raise ValueError(f"market object for buy order is not in the whitelisted markets set.")
@@ -378,8 +377,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             dict kwargs = {}
 
-        if not math.isnan(expiration_seconds):
-            kwargs["expiration_ts"] = self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
+        kwargs["expiration_ts"] = self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
 
         if market not in self._markets:
             raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
