@@ -27,7 +27,7 @@ cdef class ArbitrageStrategy(StrategyBase):
         set _sell_markets
         set _buy_markets
         int64_t _logging_options
-        object exchange_rate_conversion
+        object _exchange_rate_conversion
 
     cdef c_buy_with_specific_market(self, MarketBase market, str symbol, double amount,
                                     object order_type = *, double price = *)
