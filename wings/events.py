@@ -7,6 +7,7 @@ from collections import (
 )
 from enum import Enum
 from typing import (
+    Tuple,
     List,
     Dict,
     NamedTuple,
@@ -167,6 +168,10 @@ class OrderType(Enum):
     LIMIT = 2
 
 
+class TradeFee(NamedTuple):
+    percent: float # 0.1 = 10%
+    flat_fees: List[Tuple[str, float]] = [] # list of (symbol, amount) ie: ("ETH", 0.05) 
+
 class OrderBookTradeEvent(NamedTuple):
     symbol: str
     timestamp: float
@@ -229,4 +234,3 @@ class SellOrderCreatedEvent(NamedTuple):
     amount: float
     price: float
     order_id: str
-

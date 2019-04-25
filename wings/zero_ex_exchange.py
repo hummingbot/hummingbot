@@ -1,6 +1,9 @@
 import os
 from decimal import Decimal
-from typing import List
+from typing import (
+    List,
+    Tuple
+)
 import ujson
 from web3 import Web3
 from web3.contract import Contract
@@ -40,7 +43,7 @@ class ZeroExExchange:
         return order_epoch
 
     def market_buy_orders(self, orders: List[Order], maker_asset_fill_amount: Decimal, signatures: List[str]) -> str:
-        order_tuples: List[tuple] = [convert_order_to_tuple(order) for order in orders]
+        order_tuples: List[Tuple] = [convert_order_to_tuple(order) for order in orders]
         signatures: List[bytes] = [self._w3.toBytes(hexstr=signature) for signature in signatures]
         tx_hash: str = self._wallet.execute_transaction(
             self._contract.functions.marketBuyOrders(order_tuples,
@@ -49,7 +52,7 @@ class ZeroExExchange:
         return tx_hash
 
     def market_sell_orders(self, orders: List[Order], taker_asset_fill_amount: Decimal, signatures: List[str]) -> str:
-        order_tuples: List[tuple] = [convert_order_to_tuple(order) for order in orders]
+        order_tuples: List[Tuple] = [convert_order_to_tuple(order) for order in orders]
         signatures: List[bytes] = [self._w3.toBytes(hexstr=signature) for signature in signatures]
         tx_hash: str = self._wallet.execute_transaction(
             self._contract.functions.marketSellOrders(order_tuples,
@@ -65,3 +68,23 @@ class ZeroExExchange:
     def cancel_orders_up_to(self, target_order_epoch: int) -> str:
         tx_hash: str = self._wallet.execute_transaction(self._contract.functions.cancelOrdersUpTo(target_order_epoch))
         return tx_hash
+
+    def estimate_transaction_cost(self,
+                                  orders: List[Order],
+                                  asset_fill_amount: Decimal,
+                                  signatures: List[str],
+                                  is_buy: bool) -> int:
+        order_tuples: List[Tuple] = [convert_order_to_tuple(order) for order in orders]
+        signatures: List[bytes] = [self._w3.toBytes(hexstr=signature) for signature in signatures]
+        if is_buy:
+            return self._wallet.estimate_transaction_cost(
+                self._contract.functions.marketBuyOrders(order_tuples,
+                                                        int(asset_fill_amount),
+                                                        signatures)
+                )
+        else:
+            return self._wallet.estimate_transaction_cost(
+                self._contract.functions.marketSellOrders(order_tuples,
+                                                        int(asset_fill_amount),
+                                                        signatures)
+            )
