@@ -753,10 +753,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 market_pair.maker_quote_currency, maker_ask_price)
 
             double taker_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.taker_quote_currency, taker_bid_price)
+                market_pair.maker_quote_currency, taker_bid_price)
 
             double taker_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.taker_quote_currency, taker_ask_price)
+                market_pair.maker_quote_currency, taker_ask_price)
 
         return (taker_bid_price_adjusted > maker_bid_price_adjusted * (1.0 + self._min_profitability),
                 maker_ask_price_adjusted > taker_ask_price_adjusted * (1.0 + self._min_profitability))
