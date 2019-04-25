@@ -739,7 +739,7 @@ class HummingbotApplication:
                 if c in balance_dict:
                     snapshot[c][market_name] = balance_dict[c]
                 else:
-                    snapshot[c][market_name] = "n/a"
+                    snapshot[c][market_name] = 0.0
         return snapshot
 
     def compare_balance_snapshots(self):
@@ -747,14 +747,15 @@ class HummingbotApplication:
             self.app.log("Balance snapshots are not available before bot starts")
             return
 
-        lines = []
-        starting_df = pd.DataFrame.from_dict(data=self.starting_balances)
-        current_df = pd.DataFrame.from_dict(data=self.balance_snapshot())
-        lines.extend(["", "  Starting balance:"] +
-                     ["    " + line for line in str(starting_df).split("\n")] +
-                     ["", "  Current balance:"] +
-                     ["    " + line for line in str(current_df).split("\n")])
+        rows = []
+        for market_name in self.markets:
+            for asset in self.assets:
+                starting_balance = self.starting_balances.get(asset).get(market_name)
+                current_balance = self.starting_balances.get(asset).get(market_name)
+                rows.append([market_name, asset, starting_balance, current_balance, current_balance - starting_balance])
 
+        df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Delta"])
+        lines = ["", "  Performance:"] + ["    " + line for line in str(df).split("\n")]
         self.app.log("\n".join(lines))
 
 
