@@ -202,13 +202,15 @@ cdef class ArbitrageStrategy(StrategyBase):
                 lines.extend(["", "  No pending market orders."])
 
             # Add warning lines on null balances.
-            if market_1_base_balance <= 0:
+            # TO-DO: Build min order size logic into exchange connector and expose maker_min_order and taker_min_order variables,
+            # which can replace the hard-coded 0.0001 value. 
+            if market_1_base_balance <= 0.0001:
                 warning_lines.append(f"  Primary market {market_1_base} balance is 0. Cannot place order.")
-            if market_1_quote_balance <= 0:
+            if market_1_quote_balance <= 0.0001:
                 warning_lines.append(f"  Primary market {market_1_quote} balance is 0. Cannot place order.")
-            if market_2_base_balance <= 0:
+            if market_2_base_balance <= 0.0001:
                 warning_lines.append(f"  Secondary market {market_2_base} balance is 0. Cannot place order.")
-            if market_2_quote_balance <= 0:
+            if market_2_quote_balance <= 0.0001:
                 warning_lines.append(f"  Secondary market {market_2_quote} balance is 0.Cannot place order.")
 
         if len(warning_lines) > 0:
