@@ -729,7 +729,7 @@ class HummingbotApplication:
             else:
                 return func(*args, **kwargs)
 
-    def balance_snapshot(self):
+    def balance_snapshot(self) -> Dict[str, Dict[str, float]]:
         snapshot: Dict[str, Any] = {}
         for market_name in self.markets:
             balance_dict = self.markets[market_name].get_all_balances()
@@ -751,7 +751,7 @@ class HummingbotApplication:
         for market_name in self.markets:
             for asset in self.assets:
                 starting_balance = self.starting_balances.get(asset).get(market_name)
-                current_balance = self.starting_balances.get(asset).get(market_name)
+                current_balance = self.balance_snapshot().get(asset).get(market_name)
                 rows.append([market_name, asset, starting_balance, current_balance, current_balance - starting_balance])
 
         df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Delta"])
