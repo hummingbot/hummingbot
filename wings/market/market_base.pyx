@@ -46,7 +46,7 @@ cdef class MarketBase(TimeIterator):
         raise NotImplementedError
 
     @property
-    def event_logs(self) -> Dict[str, OrderBook]:
+    def event_logs(self) -> List[any]:
         return self.event_logger.event_log
 
     @property
