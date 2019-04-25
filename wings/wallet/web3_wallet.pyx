@@ -178,6 +178,12 @@ cdef class Web3Wallet(WalletBase):
         for backend in self._wallet_backends:
             backend.start()
 
+    cdef c_stop(self, Clock clock):
+        WalletBase.c_stop(self, clock)
+        if self._select_best_backend_task is not None:
+            self._select_best_backend_task.cancel()
+            self._select_best_backend_task = None
+
     cdef str c_send(self, str address, str asset_name, double amount):
         return self._best_backend.send(address, asset_name, amount)
 

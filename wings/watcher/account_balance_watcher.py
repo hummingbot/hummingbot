@@ -54,17 +54,17 @@ class AccountBalanceWatcher(BaseWatcher):
 
         self._blocks_watcher.add_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
         self._raw_account_balances: Dict[str, int] = {
-            "ETH": await self.async_call(w3.eth.getBalance, account_address)
+            "ETH": await self.call_async(w3.eth.getBalance, account_address)
         }
 
         if len(self._erc20_contracts) < len(self._addresses_to_contracts):
             for address, contract in self._addresses_to_contracts.items():
                 contract: Contract = contract
-                asset_name: str = await self.async_call(ERC20Token.get_symbol_from_contract, contract)
-                decimals: int = await self.async_call(contract.functions.decimals().call)
+                asset_name: str = await self.call_async(ERC20Token.get_symbol_from_contract, contract)
+                decimals: int = await self.call_async(contract.functions.decimals().call)
                 self._erc20_contracts[asset_name] = contract
                 self._erc20_decimals[asset_name] = decimals
-                self._raw_account_balances[asset_name] = await self.async_call(
+                self._raw_account_balances[asset_name] = await self.call_async(
                     contract.functions.balanceOf(account_address).call
                 )
 

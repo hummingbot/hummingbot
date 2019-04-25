@@ -52,7 +52,7 @@ class NewBlocksWatcher(BaseWatcher):
         if self._fetch_new_blocks_task is not None:
             await self.stop_network()
 
-        self._current_block_number = await self.async_call(getattr, self._w3.eth, "blockNumber")
+        self._current_block_number = await self.call_async(getattr, self._w3.eth, "blockNumber")
         self._block_number_to_fetch = self._current_block_number
         self._fetch_new_blocks_task: asyncio.Task = asyncio.ensure_future(self.fetch_new_blocks_loop())
 
