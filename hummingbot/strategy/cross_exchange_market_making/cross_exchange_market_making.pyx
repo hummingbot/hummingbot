@@ -250,38 +250,70 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             maker_quote = market_pair.maker_quote_currency
             taker_order_book = taker_market.c_get_order_book(taker_symbol)
             maker_order_book = maker_market.c_get_order_book(maker_symbol)
+
             maker_base_balance = maker_market.c_get_balance(maker_base)
             maker_quote_balance = maker_market.c_get_balance(maker_quote)
             taker_base_balance = taker_market.c_get_balance(taker_base)
             taker_quote_balance = taker_market.c_get_balance(taker_quote)
 
-            bid_profitability, ask_profitability = self.c_has_market_making_profit_potential(
-                market_pair,
-                maker_order_book,
-                taker_order_book
-            )
-
-            lines.extend([
-                f"{market_pair.maker_symbol} vs. {market_pair.taker_symbol}:",
-                f"  {maker_symbol} bid/ask: {maker_order_book.get_price(False)}/{maker_order_book.get_price(True)}",
-                f"  {taker_symbol} bid/ask: {taker_order_book.get_price(False)}/{taker_order_book.get_price(True)}",
-                f"  Bid profitable: {bid_profitability}",
-                f"  Ask profitable: {ask_profitability}",
-                f"  {maker_base}/{maker_quote} balance: "
-                    f"{maker_market.get_balance(maker_base)}/{maker_market.get_balance(maker_quote)}",
-                f"  {taker_base}/{taker_quote} balance: "
-                    f"{taker_market.get_balance(taker_base)}/{taker_market.get_balance(taker_quote)}",
-            ])
-
-            taker_quote_adjusted = self._exchange_rate_conversion.adjust_token_rate(taker_quote, 1.0)
+            maker_base_adjusted = self._exchange_rate_conversion.adjust_token_rate(maker_base, 1.0)
+            taker_base_adjusted = self._exchange_rate_conversion.adjust_token_rate(taker_base, 1.0)
             maker_quote_adjusted = self._exchange_rate_conversion.adjust_token_rate(maker_quote, 1.0)
-            if taker_quote_adjusted != 1.0 or maker_quote_adjusted != 1.0:
-                lines.extend([
-                    f"  Stable Coin Exchange Rate Conversion:",
-                    f"      {taker_quote}: {taker_quote_adjusted}",
-                    f"      {maker_quote}: {maker_quote_adjusted}"
-                ])
+            taker_quote_adjusted = self._exchange_rate_conversion.adjust_token_rate(taker_quote, 1.0)
 
+            maker_bid_price = maker_order_book.get_price(False)
+            maker_ask_price = maker_order_book.get_price(True)
+            taker_bid_price = taker_order_book.get_price(False)
+            taker_ask_price = taker_order_book.get_price(True)
+
+            maker_bid_adjusted = maker_bid_price * maker_quote_adjusted
+            maker_ask_adjusted = maker_ask_price * maker_quote_adjusted
+            taker_bid_adjusted = taker_bid_price * taker_quote_adjusted
+            taker_ask_adjusted = taker_ask_price * taker_quote_adjusted
+
+            markets_columns = ["Market", "Symbol", "Bid Price", "Ask Price", "Adjusted Bid", "Adjusted Ask"]
+            markets_data = [
+                [
+                    maker_market.__class__.__name__,
+                    market_pair.maker_symbol,
+                    maker_bid_price,
+                    maker_ask_price,
+                    maker_bid_adjusted,
+                    maker_ask_adjusted,
+                ],
+                [
+                    taker_market.__class__.__name__,
+                    market_pair.taker_symbol,
+                    taker_bid_price,
+                    taker_ask_price,
+                    taker_bid_adjusted,
+                    taker_ask_adjusted,
+                ],
+            ]
+            markets_df = pd.DataFrame(data=markets_data, columns=markets_columns)
+            markets_df_lines = str(markets_df).split("\n")
+            lines.extend(["", "  Markets:"] +
+                         ["    " + line for line in markets_df_lines])
+
+            assets_columns = ["Market", "Asset", "Balance", "Conversion Rate"]
+            assets_data = [
+                [maker_market.__class__.__name__, maker_base, maker_base_balance, maker_base_adjusted],
+                [maker_market.__class__.__name__, maker_quote, maker_quote_balance, maker_quote_adjusted],
+                [taker_market.__class__.__name__, taker_base, taker_base_balance, taker_base_adjusted],
+                [taker_market.__class__.__name__, taker_quote, taker_quote_balance, taker_quote_adjusted],
+            ]
+            assets_df = pd.DataFrame(data=assets_data, columns=assets_columns)
+            assets_df_lines = str(assets_df).split("\n")
+            lines.extend(["", "  Assets:"] +
+                         ["    " + line for line in assets_df_lines])
+
+            bid_profitability = round((taker_bid_adjusted / maker_bid_adjusted - 1) * 100, 4)
+            ask_profitability = round((maker_ask_adjusted / taker_ask_adjusted - 1) * 100, 4)
+            lines.extend(["", "  Profitability:"] +
+                         [f"    make bid offer on {maker_market.__class__.__name__}, "
+                          f"take bid offer on {taker_market.__class__.__name__}: {bid_profitability} %"] +
+                         [f"    make ask offer on {maker_market.__class__.__name__}, "
+                          f"take ask offer on {taker_market.__class__.__name__}: {ask_profitability} %"])
 
             # See if there're any open orders.
             if market_pair in self._tracked_maker_orders and len(self._tracked_maker_orders[market_pair]) > 0:
@@ -297,18 +329,18 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             # TO-DO: Build min order size logic into exchange connector and expose maker_min_order and taker_min_order variables,
             # which can replace the hard-coded 0.0001 value. 
             if maker_base_balance <= 0.0001:
-                warning_lines.append(f"  Maker market {maker_base} balance is too low. No ask order is possible.")
+                warning_lines.append(f"    Maker market {maker_base} balance is too low. No ask order is possible.")
             if maker_quote_balance <= 0.0001:
-                warning_lines.append(f"  Maker market {maker_quote} balance is too low. No bid order is possible.")
+                warning_lines.append(f"    Maker market {maker_quote} balance is too low. No bid order is possible.")
             if taker_base_balance <= 0.0001:
-                warning_lines.append(f"  Taker market {taker_base} balance is too low. No bid order is possible because "
-                                     f"there's no {taker_base} available for hedging orders.")
+                warning_lines.append(f"    Taker market {taker_base} balance is too low. No bid order is possible "
+                                     f"because there's no {taker_base} available for hedging orders.")
             if taker_quote_balance <= 0.0001:
-                warning_lines.append(f"  Taker market {taker_quote} balance is too low. No ask order is possible because "
-                                     f"there's no {taker_quote} available for hedging orders.")
+                warning_lines.append(f"    Taker market {taker_quote} balance is too low. No ask order is possible "
+                                     f"because there's no {taker_quote} available for hedging orders.")
 
         if len(warning_lines) > 0:
-            lines.extend(["", "*** WARNINGS ***"] + warning_lines)
+            lines.extend(["", "  *** WARNINGS ***"] + warning_lines)
 
         return "\n".join(lines)
 
