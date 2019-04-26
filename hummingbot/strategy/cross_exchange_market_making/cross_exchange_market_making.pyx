@@ -769,10 +769,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 market_pair.maker_quote_currency, maker_ask_price)
 
             double taker_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.maker_quote_currency, taker_bid_price)
+                market_pair.taker_quote_currency, taker_bid_price)
 
             double taker_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.maker_quote_currency, taker_ask_price)
+                market_pair.taker_quote_currency, taker_ask_price)
 
         return (taker_bid_price_adjusted > maker_bid_price_adjusted * (1.0 + self._min_profitability),
                 maker_ask_price_adjusted > taker_ask_price_adjusted * (1.0 + self._min_profitability))
@@ -810,6 +810,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double maker_balance_size_limit
             double taker_balance_size_limit
             double taker_order_book_size_limit
+            double adjusted_taker_price
 
         # Get the top-of-order-book prices, taking the top depth tolerance into account.
         try:
@@ -833,12 +834,26 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 top_bid_price
             )
             next_price = (round(Decimal(top_bid_price) / price_quantum) + 1) * price_quantum
+
+            # Calculate the order size limit from maker and taker market balances.
             maker_balance_size_limit = maker_market.c_get_balance(market_pair.maker_quote_currency) / float(next_price)
             taker_balance_size_limit = (taker_market.c_get_balance(market_pair.taker_base_currency) *
                                         self._order_size_taker_balance_factor)
-            profitable_hedge_price = float(next_price) * (1 + self._min_profitability)
+
+            # Convert the proposed maker order price to the equivalent price on the taker market.
+            adjusted_taker_price = (self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.maker_quote_currency,
+                float(next_price)
+            ) / self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.taker_quote_currency,
+                1.0
+            ))
+
+            # Calculate the order size limit from the minimal profitable hedge on the taker market.
+            profitable_hedge_price = adjusted_taker_price * (1 + self._min_profitability)
             taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(False, profitable_hedge_price) *
                                            self._order_size_taker_volume_factor)
+
             raw_size_limit = min(
                 taker_order_book_size_limit,
                 maker_balance_size_limit,
@@ -852,11 +867,24 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 top_ask_price
             )
             next_price = (round(Decimal(top_ask_price) / price_quantum) - 1) * price_quantum
+
+            # Calculate the order size limit from maker and taker market balances.
             maker_balance_size_limit = maker_market.c_get_balance(market_pair.maker_base_currency)
             taker_balance_size_limit = (taker_market.c_get_balance(market_pair.taker_quote_currency) /
                                         float(next_price) *
                                         self._order_size_taker_balance_factor)
-            profitable_hedge_price = float(next_price) / (1 + self._min_profitability)
+
+            # Convert the proposed maker order price to the equivalent price on the taker market.
+            adjusted_taker_price = (self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.maker_quote_currency,
+                float(next_price)
+            ) / self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.taker_quote_currency,
+                1.0
+            ))
+
+            # Calculate the order size limit from the minimal profitable hedge on the taker market.
+            profitable_hedge_price = adjusted_taker_price / (1 + self._min_profitability)
             taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(True, float(next_price)) *
                                            self._order_size_taker_volume_factor)
 
