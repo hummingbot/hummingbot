@@ -501,7 +501,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             total_ask_value_adjusted += ask_price_adjusted * amount
             # accumulated profitability with fees
             profitability = (total_bid_value_adjusted * (1 - sell_fee.percent) - total_sell_flat_fees) / \
-                            (total_ask_value_adjusted * (1 + buy_fee.percent) + total_buy_flat_fees)
+                            (total_ask_value_adjusted / (1 - buy_fee.percent) + total_buy_flat_fees)
 
             buy_market_quote_asset = buy_market.c_get_balance(buy_market_quote_currency)
             sell_market_base_asset = sell_market.c_get_balance(sell_market_base_currency)
