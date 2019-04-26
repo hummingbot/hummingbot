@@ -11,7 +11,8 @@ from typing import (
     List,
     Dict,
     Optional,
-    Tuple
+    Tuple,
+    Any,
 )
 from web3 import Web3
 
@@ -379,26 +380,27 @@ class HummingbotApplication:
             self.markets[market_name]: MarketBase = market
 
     def status(self) -> bool:
+        self.app.log("\n  Preliminary checks:")
         if self.config_complete:
-            self.app.log(" - Config complete")
+            self.app.log("   - Config check: Config complete")
         else:
-            self.app.log(' x Pending config. Please enter "config" before starting the bot.')
+            self.app.log('   x Config check: Pending config. Please enter "config" before starting the bot.')
             return False
 
         eth_node_valid = check_web3(global_config_map.get("ethereum_rpc_url").value)
         if eth_node_valid:
-            self.app.log(" - Ethereum node running and current")
+            self.app.log("   - Node check: Ethereum node running and current")
         else:
-            self.app.log(' x Bad ethereum rpc url. Your node may be syncing. '
+            self.app.log('   x Node check: Bad ethereum rpc url. Your node may be syncing. '
                          'Please re-configure by entering "config ethereum_rpc_url"')
             return False
 
         if self.wallet is not None:
             has_minimum_eth = self.wallet.get_balance("ETH") > 0.01
             if has_minimum_eth:
-                self.app.log(" - Minimum ETH requirement satisfied")
+                self.app.log("   - Min ETH check: Minimum ETH requirement satisfied")
             else:
-                self.app.log(" x Not enough ETH in wallet. "
+                self.app.log("   x Min ETH check: Not enough ETH in wallet. "
                              "A small amount of Ether is required for sending transactions on Decentralized Exchanges")
 
         loading_markets: List[str] = []
@@ -410,12 +412,12 @@ class HummingbotApplication:
             return True
         elif len(loading_markets) > 0:
             for loading_market in loading_markets:
-                self.app.log(f" x Waiting for {loading_market} market to get ready for trading. "
+                self.app.log(f"   x Market check:  Waiting for {loading_market} market to get ready for trading. "
                              f"Please keep the bot running and try to start again in a few minutes")
             return False
 
-        self.app.log(" - All markets ready")
-        self.app.log("\n" + self.strategy.format_status())
+        self.app.log("   - Market check: All markets ready")
+        self.app.log(self.strategy.format_status() + "\n")
         return True
 
     def help(self, command):
@@ -530,7 +532,7 @@ class HummingbotApplication:
         ExchangeRateConversion.get_instance().start()
         strategy_name = in_memory_config_map.get("strategy").value
         self.init_reporting_module()
-        self.app.log(f"Status check complete. Starting '{strategy_name}' strategy...")
+        self.app.log(f"\n  Status check complete. Starting '{strategy_name}' strategy...")
         asyncio.ensure_future(self.start_market_making(strategy_name))
 
     async def start_market_making(self, strategy_name: str):
@@ -632,8 +634,8 @@ class HummingbotApplication:
                     self.clock.add_iterator(market)
             self.clock.add_iterator(self.strategy)
             self.strategy_task: asyncio.Task = asyncio.ensure_future(self.clock.run())
-            self.app.log(f"\n'{strategy_name}' strategy started.\n"
-                         f"You can use the `status` command to query the progress.")
+            self.app.log(f"\n  '{strategy_name}' strategy started.\n"
+                         f"  You can use the `status` command to query the progress.")
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
 
