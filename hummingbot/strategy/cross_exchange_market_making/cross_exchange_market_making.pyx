@@ -848,9 +848,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double order_row_price = 0
             double order_row_amount = 0
 
-        if maker_order_size <= 0:
-            raise ValueError(f"Maker order size ({maker_order_size}) must be greater than 0.")
-
         iter_func = taker_order_book.bid_entries
         if not is_maker_bid:
             iter_func = taker_order_book.ask_entries
@@ -1107,13 +1104,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         float(bid_size_limit)
                     )
 
-            effective_hedging_price = self.c_calculate_effective_hedging_price(
-                taker_order_book,
-                True,
-                float(bid_size)
-            )
-
             if bid_size > s_decimal_zero:
+                effective_hedging_price = self.c_calculate_effective_hedging_price(
+                    taker_order_book,
+                    True,
+                    float(bid_size)
+                )
                 if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                     self.log_with_clock(
                         logging.INFO,
@@ -1155,13 +1151,13 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         float(ask_size_limit)
                     )
 
-            effective_hedging_price = self.c_calculate_effective_hedging_price(
-                taker_order_book,
-                False,
-                float(ask_size)
-            )
 
             if ask_size > s_decimal_zero:
+                effective_hedging_price = self.c_calculate_effective_hedging_price(
+                    taker_order_book,
+                    False,
+                    float(ask_size)
+                )
                 if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                     self.log_with_clock(
                         logging.INFO,
