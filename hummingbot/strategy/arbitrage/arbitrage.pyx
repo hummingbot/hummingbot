@@ -329,6 +329,10 @@ cdef class ArbitrageStrategy(StrategyBase):
         profitability_buy_market_2_sell_market_1 = market_1_bid_price/market_2_ask_price
         profitability_buy_market_1_sell_market_2 = market_2_bid_price/market_1_ask_price
 
+        if profitability_buy_market_1_sell_market_2 < (1 + self._min_profitability) \
+            and profitability_buy_market_2_sell_market_1 < (1 + self._min_profitability):
+            return
+
         if profitability_buy_market_1_sell_market_2 > profitability_buy_market_2_sell_market_1:
             # it is more profitable to buy on market_1 and sell on market_2
             self.c_process_market_pair_inner(
