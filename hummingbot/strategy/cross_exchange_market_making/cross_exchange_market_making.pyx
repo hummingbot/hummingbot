@@ -785,6 +785,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double top_bid_price
             double top_ask_price
             double raw_size_limit
+            double profitable_hedge_price
             double maker_balance_size_limit
             double taker_balance_size_limit
             double taker_order_book_size_limit
@@ -814,7 +815,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             maker_balance_size_limit = maker_market.c_get_balance(market_pair.maker_quote_currency) / float(next_price)
             taker_balance_size_limit = (taker_market.c_get_balance(market_pair.taker_base_currency) *
                                         self._order_size_taker_balance_factor)
-            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(False, float(next_price)) *
+            profitable_hedge_price = float(next_price) * (1 + self._min_profitability)
+            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(False, profitable_hedge_price) *
                                            self._order_size_taker_volume_factor)
             raw_size_limit = min(
                 taker_order_book_size_limit,
@@ -833,6 +835,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             taker_balance_size_limit = (taker_market.c_get_balance(market_pair.taker_quote_currency) /
                                         float(next_price) *
                                         self._order_size_taker_balance_factor)
+            profitable_hedge_price = float(next_price) / (1 + self._min_profitability)
             taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(True, float(next_price)) *
                                            self._order_size_taker_volume_factor)
 
