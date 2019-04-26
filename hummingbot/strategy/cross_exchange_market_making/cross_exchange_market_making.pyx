@@ -95,6 +95,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     ORDER_ADJUST_SAMPLE_WINDOW = 12
 
     SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION = 60.0 * 15
+    CANCEL_EXPIRY_DURATION = 60.0
 
     @classmethod
     def logger(cls):
@@ -144,6 +145,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._order_fill_buy_events = {}
         self._order_fill_sell_events = {}
         self._suggested_price_samples = {}
+        self._in_flight_cancels = {}
         self._anti_hysteresis_duration = anti_hysteresis_duration
         self._buy_order_completed_listener = BuyOrderCompletedListener(self)
         self._sell_order_completed_listener = SellOrderCompletedListener(self)
@@ -388,6 +390,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             MarketBase maker_market = market_pair.maker_market
 
+        self._in_flight_cancels[order_id] = self._current_timestamp
         maker_market.c_cancel(market_pair.maker_symbol, order_id)
 
     cdef c_start(self, Clock clock, double timestamp):
@@ -415,7 +418,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                     f"The in-flight maker order in for the symbol '{limit_order.symbol}' "
                                     f"does not correspond to any whitelisted market pairs. Skipping.")
                 continue
-            market_pair_to_active_orders[market_pair].append(limit_order)
+
+            if (self._in_flight_cancels.get(limit_order.client_order_id, 0) <
+                    self._current_timestamp - self.CANCEL_EXPIRY_DURATION):
+                market_pair_to_active_orders[market_pair].append(limit_order)
 
         for market_pair in self._market_pairs.values():
             self.c_process_market_pair(market_pair, market_pair_to_active_orders[market_pair])

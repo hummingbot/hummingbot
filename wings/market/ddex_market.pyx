@@ -204,6 +204,7 @@ cdef class DDEXMarket(MarketBase):
     DDEX_REST_ENDPOINT = "https://api.ddex.io/v3"
     UPDATE_TRADE_FEES_INTERVAL = 60 * 60
     ORDER_EXPIRY_TIME = 15 * 60.0
+    CANCEL_EXPIRY_TIME = 60.0
 
     @classmethod
     def logger(cls) -> logging.Logger:
@@ -232,6 +233,7 @@ cdef class DDEXMarket(MarketBase):
         self._last_update_trade_fees_timestamp = 0
         self._poll_interval = poll_interval
         self._in_flight_orders = {}
+        self._in_flight_cancels = {}
         self._order_expiry_queue = deque()
         self._tx_tracker = DDEXMarketTransactionTracker(self)
         self._w3 = Web3(Web3.HTTPProvider(web3_url))
@@ -338,13 +340,21 @@ cdef class DDEXMarket(MarketBase):
 
         tracked_orders = list(self._in_flight_orders.values())
         tasks = [self.get_order(o.exchange_order_id)
-                 for o in (o for o in tracked_orders if o.exchange_order_id is not None)]
+                 for o in tracked_orders
+                 if o.exchange_order_id is not None]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for order_update, tracked_order in zip(results, tracked_orders):
             if isinstance(order_update, Exception):
                 self.logger().error(f"Error fetching status update for the order {tracked_order.client_order_id}: "
                                     f"{order_update}.")
+                continue
+
+            # Check the exchange order ID against the expected value.
+            exchange_order_id = order_update["id"]
+            if exchange_order_id != tracked_order.exchange_order_id:
+                self.logger().warning(f"Incorrect exchange order id '{exchange_order_id}' returned from get order "
+                                      f"request for '{tracked_order.exchange_order_id}'. Ignoring.")
                 continue
 
             # Calculate the newly executed amount for this update.
@@ -539,16 +549,22 @@ cdef class DDEXMarket(MarketBase):
         order = self.in_flight_orders.get(client_order_id)
         if not order:
             self.logger().info(f"Failed to cancel order {client_order_id}. Order not found in tracked orders.")
+            if client_order_id in self._in_flight_cancels:
+                del self._in_flight_cancels[client_order_id]
             return
-        exchange_order_id = await order.get_exchange_order_id()
-        url = "%s/orders/%s" % (self.DDEX_REST_ENDPOINT, exchange_order_id)
-        response_data = await self._api_request('delete', url=url, headers=self._generate_auth_headers())
-        if isinstance(response_data, dict) and response_data.get("desc") == "success":
-            self.logger().info(f"Successfully cancelled order {exchange_order_id}.")
-            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                 OrderCancelledEvent(self._current_timestamp, client_order_id))
-        response_data["client_order_id"] = client_order_id
-        return response_data
+
+        try:
+            exchange_order_id = await order.get_exchange_order_id()
+            url = "%s/orders/%s" % (self.DDEX_REST_ENDPOINT, exchange_order_id)
+            response_data = await self._api_request('delete', url=url, headers=self._generate_auth_headers())
+            if isinstance(response_data, dict) and response_data.get("desc") == "success":
+                self.logger().info(f"Successfully cancelled order {exchange_order_id}.")
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp, client_order_id))
+            response_data["client_order_id"] = client_order_id
+            return response_data
+        finally:
+            del self._in_flight_cancels[client_order_id]
 
     async def list_orders(self) -> Dict[str, Any]:
         url = "%s/orders?status=all" % (self.DDEX_REST_ENDPOINT,)
@@ -688,6 +704,10 @@ cdef class DDEXMarket(MarketBase):
                                  MarketTransactionFailureEvent(self._current_timestamp, order_id))
 
     cdef c_cancel(self, str symbol, str client_order_id):
+        # If there's an ongoing cancel on this order within the expiry time, don't do it again.
+        if self._in_flight_cancels.get(client_order_id, 0) > self._current_timestamp - self.CANCEL_EXPIRY_TIME:
+            return
+        self._in_flight_cancels[client_order_id] = self._current_timestamp
         asyncio.ensure_future(self.cancel_order(client_order_id))
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
