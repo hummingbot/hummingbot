@@ -782,7 +782,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double maker_balance_size_limit
             double taker_balance_size_limit
             double taker_order_book_size_limit
-            double adjusted_taker_price
 
         # Get the top-of-order-book prices, taking the top depth tolerance into account.
         try:
@@ -809,14 +808,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             maker_balance_size_limit = maker_market.c_get_balance(market_pair.maker_quote_currency) / float(next_price)
             taker_balance_size_limit = (taker_market.c_get_balance(market_pair.taker_base_currency) *
                                         self._order_size_taker_balance_factor)
-            adjusted_taker_price = (self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.maker_quote_currency,
-                float(next_price)
-            ) / self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.taker_quote_currency,
-                1.0
-            ))
-            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(False, adjusted_taker_price) *
+            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(False, float(next_price)) *
                                            self._order_size_taker_volume_factor)
             raw_size_limit = min(
                 taker_order_book_size_limit,
@@ -835,14 +827,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             taker_balance_size_limit = (taker_market.c_get_balance(market_pair.taker_quote_currency) /
                                         float(next_price) *
                                         self._order_size_taker_balance_factor)
-            adjusted_taker_price = (self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.maker_quote_currency,
-                float(next_price)
-            ) / self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.taker_quote_currency,
-                1.0
-            ))
-            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(True, adjusted_taker_price) *
+            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(True, float(next_price)) *
                                            self._order_size_taker_volume_factor)
 
             raw_size_limit = min(
