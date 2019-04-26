@@ -480,10 +480,13 @@ cdef class BinanceMarket(MarketBase):
             double current_timestamp = self._current_timestamp
 
         if current_timestamp - self._last_update_trade_fees_timestamp > 60.0 * 60.0 or len(self._trade_fees) < 1:
-            res = await self.query_api(self._binance_client.get_trade_fee)
-            for fee in res["tradeFee"]:
-                self._trade_fees[fee["symbol"]] = (fee["maker"], fee["taker"])
-            self._last_update_trade_fees_timestamp = current_timestamp
+            try:
+                res = await self.query_api(self._binance_client.get_trade_fee)
+                for fee in res["tradeFee"]:
+                    self._trade_fees[fee["symbol"]] = (fee["maker"], fee["taker"])
+                self._last_update_trade_fees_timestamp = current_timestamp
+            except Exception:
+                raise IOError("Error fetching Binance trade fees.")
 
     cdef object c_get_fee(self,
                           str symbol,
