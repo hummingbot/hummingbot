@@ -35,7 +35,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         dict _order_fill_buy_events
         dict _order_fill_sell_events
         dict _suggested_price_samples
-        dict _in_flight_cancels
+        object _in_flight_cancels
         EventListener _order_filled_listener
         EventListener _buy_order_completed_listener
         EventListener _sell_order_completed_listener
