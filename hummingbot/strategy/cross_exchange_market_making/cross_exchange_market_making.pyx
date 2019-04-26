@@ -772,6 +772,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                                         bint is_bid,
                                                         double own_order_depth = 0):
         """
+        Get the ideal market making order size and maximum order size given a market pair and a side.
+
+        This function does a few things:
+         1. Get the widest possible order price for market making on the maker market.
+         2. Calculate the largest order size possible given the current balances on both maker and taker markets.
+         3. Calculate the largest order size possible that's still profitable after hedging.
+
+        The price returned is calculated from step 1. The order size returned is the minimum from 2 and 3. If either
+        there's not enough balance for the maker order or the hedging trade; or if it's not possible to hedge the
+        trade profitably, then the returned order size will be 0.
+
         :param market_pair: The cross exchange market pair to calculate order price/size limits.
         :param is_bid: Whether the order to make will be bid or ask.
         :param own_order_depth: Market depth caused by existing order issued by ourselves.
