@@ -1,6 +1,7 @@
 from collections import (
     defaultdict,
-    deque
+    deque,
+    OrderedDict
 )
 from decimal import Decimal
 import logging
@@ -145,7 +146,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._order_fill_buy_events = {}
         self._order_fill_sell_events = {}
         self._suggested_price_samples = {}
-        self._in_flight_cancels = {}
+        self._in_flight_cancels = OrderedDict()
         self._anti_hysteresis_duration = anti_hysteresis_duration
         self._buy_order_completed_listener = BuyOrderCompletedListener(self)
         self._sell_order_completed_listener = SellOrderCompletedListener(self)
@@ -389,7 +390,16 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef c_cancel_order(self, object market_pair, str order_id):
         cdef:
             MarketBase maker_market = market_pair.maker_market
+            list keys_to_delete = []
 
+        # Maintain the cancel expiry time invariant
+        for k, cancel_timestamp in self._in_flight_cancels.items():
+            if cancel_timestamp < self._current_timestamp - self.CANCEL_EXPIRY_DURATION:
+                keys_to_delete.append(k)
+        for k in keys_to_delete:
+            del self._in_flight_cancels[k]
+
+        # Track the cancel and tell maker market to cancel the order.
         self._in_flight_cancels[order_id] = self._current_timestamp
         maker_market.c_cancel(market_pair.maker_symbol, order_id)
 
