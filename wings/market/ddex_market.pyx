@@ -555,7 +555,7 @@ cdef class DDEXMarket(MarketBase):
             self.logger().info(f"Failed to cancel order {client_order_id}. Order not found in tracked orders.")
             if client_order_id in self._in_flight_cancels:
                 del self._in_flight_cancels[client_order_id]
-            return
+            return {}
 
         try:
             exchange_order_id = await order.get_exchange_order_id()
@@ -568,7 +568,8 @@ cdef class DDEXMarket(MarketBase):
             response_data["client_order_id"] = client_order_id
             return response_data
         finally:
-            del self._in_flight_cancels[client_order_id]
+            if client_order_id in self._in_flight_cancels:
+                del self._in_flight_cancels[client_order_id]
 
     async def list_orders(self) -> Dict[str, Any]:
         url = "%s/orders?status=all" % (self.DDEX_REST_ENDPOINT,)
