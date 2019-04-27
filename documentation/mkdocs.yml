@@ -102,6 +102,7 @@ nav:
       - Strategies: strategies.md
       - Cross-exchange market making: strategies/cross-exchange-market-making.md
       - Arbitrage: strategies/arbitrage.md
+      - Pure market making: strategies/pure-market-making.md
     - Support:
       - Support: support.md
       - Bug bounty program: support/bug-bounty-program.md
