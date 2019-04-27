@@ -228,6 +228,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             MarketBase maker_market
             OrderBook taker_order_book
             OrderBook maker_order_book
+            str maker_name
+            str taker_name
             str maker_symbol
             str taker_symbol
             str maker_base
@@ -238,6 +240,18 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double maker_quote_balance
             double taker_base_balance
             double taker_quote_balance
+            double maker_base_adjusted
+            double taker_base_adjusted
+            double maker_quote_adjusted
+            double taker_quote_adjusted
+            double maker_bid_price
+            double maker_ask_price
+            double taker_bid_price
+            double taker_ask_price
+            double maker_bid_adjusted
+            double maker_ask_adjusted
+            double taker_bid_adjusted
+            double taker_ask_adjusted
             list lines = []
             list warning_lines = []
 
@@ -247,6 +261,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             maker_market = market_pair.maker_market
             taker_symbol = market_pair.taker_symbol
             maker_symbol = market_pair.maker_symbol
+            taker_name = taker_market.__class__.__name__
+            maker_name = maker_market.__class__.__name__
             taker_base = market_pair.taker_base_currency
             taker_quote = market_pair.taker_quote_currency
             maker_base = market_pair.maker_base_currency
@@ -257,34 +273,45 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             maker_quote_balance = maker_market.c_get_balance(maker_quote)
             taker_base_balance = taker_market.c_get_balance(taker_base)
             taker_quote_balance = taker_market.c_get_balance(taker_quote)
-
-            bid_profitability, ask_profitability = self.c_has_market_making_profit_potential(
-                market_pair,
-                maker_order_book,
-                taker_order_book
-            )
-
-            lines.extend([
-                f"{market_pair.maker_symbol} vs. {market_pair.taker_symbol}:",
-                f"  {maker_symbol} bid/ask: {maker_order_book.get_price(False)}/{maker_order_book.get_price(True)}",
-                f"  {taker_symbol} bid/ask: {taker_order_book.get_price(False)}/{taker_order_book.get_price(True)}",
-                f"  Bid profitable: {bid_profitability}",
-                f"  Ask profitable: {ask_profitability}",
-                f"  {maker_base}/{maker_quote} balance: "
-                    f"{maker_market.get_balance(maker_base)}/{maker_market.get_balance(maker_quote)}",
-                f"  {taker_base}/{taker_quote} balance: "
-                    f"{taker_market.get_balance(taker_base)}/{taker_market.get_balance(taker_quote)}",
-            ])
-
-            taker_quote_adjusted = self._exchange_rate_conversion.adjust_token_rate(taker_quote, 1.0)
+            maker_base_adjusted = self._exchange_rate_conversion.adjust_token_rate(maker_base, 1.0)
+            taker_base_adjusted = self._exchange_rate_conversion.adjust_token_rate(taker_base, 1.0)
             maker_quote_adjusted = self._exchange_rate_conversion.adjust_token_rate(maker_quote, 1.0)
-            if taker_quote_adjusted != 1.0 or maker_quote_adjusted != 1.0:
-                lines.extend([
-                    f"  Stable Coin Exchange Rate Conversion:",
-                    f"      {taker_quote}: {taker_quote_adjusted}",
-                    f"      {maker_quote}: {maker_quote_adjusted}"
-                ])
+            taker_quote_adjusted = self._exchange_rate_conversion.adjust_token_rate(taker_quote, 1.0)
+            maker_bid_price = maker_order_book.get_price(False)
+            maker_ask_price = maker_order_book.get_price(True)
+            taker_bid_price = taker_order_book.get_price(False)
+            taker_ask_price = taker_order_book.get_price(True)
+            maker_bid_adjusted = maker_bid_price * maker_quote_adjusted
+            maker_ask_adjusted = maker_ask_price * maker_quote_adjusted
+            taker_bid_adjusted = taker_bid_price * taker_quote_adjusted
+            taker_ask_adjusted = taker_ask_price * taker_quote_adjusted
 
+            markets_columns = ["Market", "Symbol", "Bid Price", "Ask Price", "Adjusted Bid", "Adjusted Ask"]
+            markets_data = [
+                [maker_name, maker_symbol, maker_bid_price, maker_ask_price, maker_bid_adjusted, maker_ask_adjusted],
+                [taker_name, taker_symbol, taker_bid_price, taker_ask_price, taker_bid_adjusted, taker_ask_adjusted],
+            ]
+            markets_df = pd.DataFrame(data=markets_data, columns=markets_columns)
+            lines.extend(["", "  Markets:"] + ["    " + line for line in str(markets_df).split("\n")])
+
+            assets_columns = ["Market", "Asset", "Balance", "Conversion Rate"]
+            assets_data = [
+                [maker_name, maker_base, maker_base_balance, maker_base_adjusted],
+                [maker_name, maker_quote, maker_quote_balance, maker_quote_adjusted],
+                [taker_name, taker_base, taker_base_balance, taker_base_adjusted],
+                [taker_name, taker_quote, taker_quote_balance, taker_quote_adjusted],
+            ]
+            assets_df = pd.DataFrame(data=assets_data, columns=assets_columns)
+            lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
+
+            bid_profitability, ask_profitability = self.c_calculate_market_making_profitability(market_pair,
+                                                                                                maker_order_book,
+                                                                                                taker_order_book)
+            lines.extend(["", "  Profitability:"] +
+                         [f"    make bid offer on {maker_name}, "
+                          f"take bid offer on {taker_name}: {round(bid_profitability * 100, 4)} %"] +
+                         [f"    make ask offer on {maker_name}, "
+                          f"take ask offer on {taker_name}: {round(ask_profitability * 100, 4)} %"])
 
             # See if there're any open orders.
             if market_pair in self._tracked_maker_orders and len(self._tracked_maker_orders[market_pair]) > 0:
@@ -300,18 +327,18 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             # TO-DO: Build min order size logic into exchange connector and expose maker_min_order and taker_min_order variables,
             # which can replace the hard-coded 0.0001 value. 
             if maker_base_balance <= 0.0001:
-                warning_lines.append(f"  Maker market {maker_base} balance is too low. No ask order is possible.")
+                warning_lines.append(f"    Maker market {maker_base} balance is too low. No ask order is possible.")
             if maker_quote_balance <= 0.0001:
-                warning_lines.append(f"  Maker market {maker_quote} balance is too low. No bid order is possible.")
+                warning_lines.append(f"    Maker market {maker_quote} balance is too low. No bid order is possible.")
             if taker_base_balance <= 0.0001:
-                warning_lines.append(f"  Taker market {taker_base} balance is too low. No bid order is possible because "
-                                     f"there's no {taker_base} available for hedging orders.")
+                warning_lines.append(f"    Taker market {taker_base} balance is too low. No bid order is possible "
+                                     f"because there's no {taker_base} available for hedging orders.")
             if taker_quote_balance <= 0.0001:
-                warning_lines.append(f"  Taker market {taker_quote} balance is too low. No ask order is possible because "
-                                     f"there's no {taker_quote} available for hedging orders.")
+                warning_lines.append(f"    Taker market {taker_quote} balance is too low. No ask order is possible "
+                                     f"because there's no {taker_quote} available for hedging orders.")
 
         if len(warning_lines) > 0:
-            lines.extend(["", "*** WARNINGS ***"] + warning_lines)
+            lines.extend(["", "  *** WARNINGS ***"] + warning_lines)
 
         return "\n".join(lines)
 
@@ -738,18 +765,16 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             )
         return maker_market.c_quantize_order_amount(symbol, adjusted_order_size)
 
-    cdef tuple c_has_market_making_profit_potential(self,
-                                                    object market_pair,
-                                                    OrderBook maker_order_book,
-                                                    OrderBook taker_order_book):
+    cdef tuple c_calculate_market_making_profitability(self,
+                                                       object market_pair,
+                                                       OrderBook maker_order_book,
+                                                       OrderBook taker_order_book):
         """
         :param market_pair: The hedging market pair.
         :param maker_order_book: Order book on the maker side.
         :param taker_order_book: Order book on the taker side.
-        :return: a (boolean, boolean) tuple. First item indicates whether bid limit order is profitable. Second item
-                 indicates whether ask limit order is profitable.
+        :return: a (double, double) tuple. Calculates the profitability ratio of bid limit orders and ask limit orders
         """
-
         cdef:
             double maker_bid_price = maker_order_book.c_get_price_for_quote_volume(
                 False,
@@ -774,8 +799,24 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double taker_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.taker_quote_currency, taker_ask_price)
 
-        return (taker_bid_price_adjusted > maker_bid_price_adjusted * (1.0 + self._min_profitability),
-                maker_ask_price_adjusted > taker_ask_price_adjusted * (1.0 + self._min_profitability))
+        return (taker_bid_price_adjusted / maker_bid_price_adjusted - 1.0,
+                maker_ask_price_adjusted / taker_ask_price_adjusted - 1.0)
+
+    cdef tuple c_has_market_making_profit_potential(self,
+                                                    object market_pair,
+                                                    OrderBook maker_order_book,
+                                                    OrderBook taker_order_book):
+        """
+        :param market_pair: The hedging market pair.
+        :param maker_order_book: Order book on the maker side.
+        :param taker_order_book: Order book on the taker side.
+        :return: a (boolean, boolean) tuple. First item indicates whether bid limit order is profitable. Second item
+                 indicates whether ask limit order is profitable.
+        """
+        bid_profitability, ask_profitability = \
+            self.c_calculate_market_making_profitability(market_pair, maker_order_book, taker_order_book)
+
+        return bid_profitability > self._min_profitability, ask_profitability > self._min_profitability
 
     cdef tuple c_get_market_making_price_and_size_limit(self,
                                                         object market_pair,
