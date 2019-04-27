@@ -304,7 +304,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             bid_profitability, ask_profitability = self.c_calculate_market_making_profitability(market_pair,
                                                                                                 maker_order_book,
                                                                                                 taker_order_book)
-            ask_profitability = round((maker_ask_adjusted / taker_ask_adjusted - 1) * 100, 4)
             lines.extend(["", "  Profitability:"] +
                          [f"    make bid offer on {maker_name}, "
                           f"take bid offer on {taker_name}: {round(bid_profitability * 100, 4)} %"] +
@@ -798,9 +797,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         :return: a (boolean, boolean) tuple. First item indicates whether bid limit order is profitable. Second item
                  indicates whether ask limit order is profitable.
         """
-        cdef:
-            double bid_profitability, ask_profitability = \
-                self.c_calculate_market_making_profitability(market_pair, maker_order_book, taker_order_book)
+        bid_profitability, ask_profitability = \
+            self.c_calculate_market_making_profitability(market_pair, maker_order_book, taker_order_book)
 
         return bid_profitability > self._min_profitability, ask_profitability > self._min_profitability
 
