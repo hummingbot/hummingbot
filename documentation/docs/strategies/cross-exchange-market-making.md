@@ -6,7 +6,7 @@ Cross exchange market making is described in [Strategies](/strategies/), with a 
 
 ### Schematic
 
-The diagram illustrates how cross exchange market making works.  The transaction involves two exchanges, a **taker exchange** and a **maker exchange**.  Hummingbot uses the market levels available on the taker exchange to create bid and ask orders (act as a market maker) on the maker exchange (*Figure 1*).
+The diagrams below illustrate how cross exchange market making works.  The transaction involves two exchanges, a **taker exchange** and a **maker exchange**.  Hummingbot uses the market levels available on the taker exchange to create bid and ask orders (act as a market maker) on the maker exchange (*Figure 1*).
 
 <small><center>***Figure 1: Hummingbot acts as market maker on maker exchange***</center></small>
 
