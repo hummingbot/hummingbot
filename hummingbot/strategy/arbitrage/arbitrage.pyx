@@ -12,10 +12,7 @@ from wings.market.market_base import (
     MarketBase,
     OrderType
 )
-from wings.events import (
-    TradeType,
-    TradeFee
-)
+from wings.events import TradeType
 from wings.order_book import OrderBook
 from hummingbot.strategy.strategy_base import StrategyBase
 from .arbitrage_market_pair import ArbitrageMarketPair
@@ -123,28 +120,42 @@ cdef class ArbitrageStrategy(StrategyBase):
             OrderBook market_1_ob
             OrderBook market_2_ob
             str market_1_symbol
+            str market_1_name
             str market_1_base
             str market_1_quote
             str market_2_symbol
+            str market_2_name
             str market_2_base
             str market_2_quote
-            double max_profitability
-            double market1_base_balance
-            double market1_quote_balance
-            double market2_base_balance
-            double market2_quote_balance
+            double market_1_base_balance
+            double market_1_quote_balance
+            double market_2_base_balance
+            double market_2_quote_balance
+            double market_1_bid_price
+            double market_1_ask_price
+            double market_2_bid_price
+            double market_2_ask_price
+            double market_1_bid_adjusted
+            double market_1_ask_adjusted
+            double market_2_bid_adjusted
+            double market_2_ask_adjusted
+            double market_1_base_adjusted
+            double market_1_quote_adjusted
+            double market_2_base_adjusted
+            double market_2_quote_adjusted
             list lines = []
             list warning_lines = []
 
         for market_pair in self._market_pairs:
             market_1 = market_pair.market_1
             market_2 = market_pair.market_2
-
             market_1_symbol = market_pair.market_1_symbol
+            market_1_name = market_1.__class__.__name__
             market_1_base = market_pair.market_1_base_currency
             market_1_quote = market_pair.market_1_quote_currency
             market_1_ob = market_1.c_get_order_book(market_1_symbol)
             market_2_symbol = market_pair.market_2_symbol
+            market_2_name = market_2_name
             market_2_base = market_pair.market_2_base_currency
             market_2_quote = market_pair.market_2_quote_currency
             market_2_ob = market_2.c_get_order_book(market_2_symbol)
@@ -152,43 +163,63 @@ cdef class ArbitrageStrategy(StrategyBase):
             market_1_quote_balance = market_1.get_balance(market_1_quote)
             market_2_base_balance = market_2.get_balance(market_2_base)
             market_2_quote_balance = market_2.get_balance(market_2_quote)
-
-            market_1_bid_price = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.market_1_quote_currency, market_1_ob.get_price(False))
-
-            market_1_ask_price = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.market_1_quote_currency, market_1_ob.get_price(True))
-
-            market_2_bid_price = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.market_2_quote_currency, market_2_ob.get_price(False))
-
-            market_2_ask_price = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.market_2_quote_currency, market_2_ob.get_price(True))
-
-            profitability_buy_market_2_sell_market_1 = market_1_bid_price/market_2_ask_price
-            profitability_buy_market_1_sell_market_2 = market_2_bid_price/market_1_ask_price
-
-            max_profitability = max(profitability_buy_market_2_sell_market_1,
-                                    profitability_buy_market_1_sell_market_2)
-            lines.extend([
-                f"{market_1.__class__.__name__}:{market_1_symbol} vs. {market_2.__class__.__name__}:{market_2_symbol}:",
-                f"  {market_1_symbol} bid/ask: {market_1_ob.get_price(False)}/{market_1_ob.get_price(True)}",
-                f"  {market_2_symbol} bid/ask: {market_2_ob.get_price(False)}/{market_2_ob.get_price(True)}",
-                f"  Max profitability: {(max_profitability - 1)*100} %",
-                f"  Profitable: {max_profitability - 1 > self._min_profitability}",
-                f"  {market_1_base}/{market_1_quote} balance: "
-                    f"{market_1.get_balance(market_1_base)}/{market_1.get_balance(market_1_quote)}",
-                f"  {market_2_base}/{market_2_quote} balance: "
-                    f"{market_2.get_balance(market_2_base)}/{market_2.get_balance(market_2_quote)}"
-            ])
+            market_1_bid_price = market_1_ob.get_price(False)
+            market_1_ask_price = market_1_ob.get_price(True)
+            market_2_bid_price = market_2_ob.get_price(False)
+            market_2_ask_price = market_2_ob.get_price(True)
+            market_1_bid_adjusted = self._exchange_rate_conversion.adjust_token_rate(market_1_quote, market_1_bid_price)
+            market_1_ask_adjusted = self._exchange_rate_conversion.adjust_token_rate(market_1_quote, market_1_ask_price)
+            market_2_bid_adjusted = self._exchange_rate_conversion.adjust_token_rate(market_2_quote, market_2_bid_price)
+            market_2_ask_adjusted = self._exchange_rate_conversion.adjust_token_rate(market_2_quote, market_2_ask_price)
+            market_1_base_adjusted = self._exchange_rate_conversion.adjust_token_rate(market_1_base, 1.0)
             market_1_quote_adjusted = self._exchange_rate_conversion.adjust_token_rate(market_1_quote, 1.0)
+            market_2_base_adjusted = self._exchange_rate_conversion.adjust_token_rate(market_2_base, 1.0)
             market_2_quote_adjusted = self._exchange_rate_conversion.adjust_token_rate(market_2_quote, 1.0)
-            if market_1_quote_adjusted != 1.0 or market_2_quote_adjusted != 1.0:
-                lines.extend([
-                    f"  Stable Coin Exchange Rate Conversion:",
-                    f"      {market_1_quote}: {market_1_quote_adjusted}",
-                    f"      {market_2_quote}: {market_2_quote_adjusted}"
-                ])
+
+            profitability_buy_2_sell_1, profitability_buy_1_sell_2 = \
+                self.c_calculate_arbitrage_profitability(market_pair, market_1_ob, market_2_ob)
+
+            markets_columns = ["Market", "Symbol", "Bid Price", "Ask Price", "Adjusted Bid", "Adjusted Ask"]
+            markets_data = [
+                [
+                    market_1_name,
+                    market_1_symbol,
+                    market_1_bid_price,
+                    market_1_ask_price,
+                    market_1_bid_adjusted,
+                    market_1_ask_adjusted,
+                ],
+                [
+                    market_2_name,
+                    market_2_symbol,
+                    market_2_bid_price,
+                    market_2_ask_price,
+                    market_2_bid_adjusted,
+                    market_2_ask_adjusted,
+                ],
+            ]
+            markets_df = pd.DataFrame(data=markets_data, columns=markets_columns)
+            markets_df_lines = str(markets_df).split("\n")
+            lines.extend(["", "  Markets:"] +
+                         ["    " + line for line in markets_df_lines])
+
+            assets_columns = ["Market", "Asset", "Balance", "Conversion Rate"]
+            assets_data = [
+                [market_1_name, market_1_base, market_1_base_balance, market_1_base_adjusted],
+                [market_1_name, market_1_quote, market_1_quote_balance, market_1_quote_adjusted],
+                [market_2_name, market_2_base, market_2_base_balance, market_2_base_adjusted],
+                [market_2_name, market_2_quote, market_2_quote_balance, market_2_quote_adjusted],
+            ]
+            assets_df = pd.DataFrame(data=assets_data, columns=assets_columns)
+            assets_df_lines = str(assets_df).split("\n")
+            lines.extend(["", "  Assets:"] +
+                         ["    " + line for line in assets_df_lines])
+
+            lines.extend(["", "  Profitability:"] +
+                         [f"    make bid offer on {market_1_name}, "
+                          f"take bid offer on {market_2_name}: {round(profitability_buy_2_sell_1 * 100, 4)} %"] +
+                         [f"    make ask offer on {market_1_name}, "
+                          f"take ask offer on {market_2_name}: {round(profitability_buy_1_sell_2 * 100, 4)} %"])
 
             # See if there're any pending market orders.
             if self._tracked_market_orders:
@@ -218,7 +249,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                 warning_lines.append(f"  Secondary market {market_2_quote} balance is 0.Cannot place order.")
 
         if len(warning_lines) > 0:
-            lines.extend(["", "*** WARNINGS ***"] + warning_lines)
+            lines.extend(["", "  *** WARNINGS ***"] + warning_lines)
 
         return "\n".join(lines)
 
@@ -302,18 +333,17 @@ cdef class ArbitrageStrategy(StrategyBase):
             if market_pair in self._tracked_market_orders:
                 del self._tracked_market_orders[market_pair]
 
-    cdef c_process_market_pair(self, object market_pair):
+    cdef tuple c_calculate_arbitrage_profitability(self,
+                                                   object market_pair,
+                                                   OrderBook order_book_1,
+                                                   OrderBook order_book_2):
         """
-        Execute strategy for market paris
         :param market_pair: 
-        :return: 
+        :param order_book_1: 
+        :param order_book_2: 
+        :return: (double, double) that indicates profitability of arbitraging on each side
         """
         cdef:
-            MarketBase market_1 = market_pair.market_1
-            MarketBase market_2 = market_pair.market_2
-            OrderBook order_book_1 = market_1.c_get_order_book(market_pair.market_1_symbol)
-            OrderBook order_book_2 = market_2.c_get_order_book(market_pair.market_2_symbol)
-
             double market_1_bid_price = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.market_1_quote_currency, order_book_1.get_price(False))
 
@@ -326,14 +356,25 @@ cdef class ArbitrageStrategy(StrategyBase):
             double market_2_ask_price = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.market_2_quote_currency, order_book_2.get_price(True))
 
-        profitability_buy_market_2_sell_market_1 = market_1_bid_price/market_2_ask_price
-        profitability_buy_market_1_sell_market_2 = market_2_bid_price/market_1_ask_price
+        profitability_buy_2_sell_1 = market_1_bid_price / market_2_ask_price - 1
+        profitability_buy_1_sell_2 = market_2_bid_price / market_1_ask_price - 1
+        return profitability_buy_2_sell_1, profitability_buy_1_sell_2
 
-        if profitability_buy_market_1_sell_market_2 < (1 + self._min_profitability) \
-            and profitability_buy_market_2_sell_market_1 < (1 + self._min_profitability):
+    cdef c_process_market_pair(self, object market_pair):
+        cdef:
+            MarketBase market_1 = market_pair.market_1
+            MarketBase market_2 = market_pair.market_2
+            OrderBook order_book_1 = market_1.c_get_order_book(market_pair.market_1_symbol)
+            OrderBook order_book_2 = market_2.c_get_order_book(market_pair.market_2_symbol)
+
+            double profitability_buy_2_sell_1, profitability_buy_1_sell_2 = \
+                    self.c_calculate_arbitrage_profitability(market_pair, order_book_1, order_book_2)
+
+        if profitability_buy_1_sell_2 < self._min_profitability \
+                and profitability_buy_2_sell_1 < self._min_profitability:
             return
 
-        if profitability_buy_market_1_sell_market_2 > profitability_buy_market_2_sell_market_1:
+        if profitability_buy_1_sell_2 > profitability_buy_2_sell_1:
             # it is more profitable to buy on market_1 and sell on market_2
             self.c_process_market_pair_inner(
                 market_pair.market_1,
@@ -634,8 +675,11 @@ cdef class ArbitrageStrategy(StrategyBase):
                                                  str buy_market_quote_currency,
                                                  str sell_market_quote_currency):
         """
-        :param sell_order_book: 
+        :param min_profitability: 
         :param buy_order_book: 
+        :param sell_order_book: 
+        :param buy_market_quote_currency: 
+        :param sell_market_quote_currency: 
         :return: bid_price, ask_price, amount
         """
         cdef:
