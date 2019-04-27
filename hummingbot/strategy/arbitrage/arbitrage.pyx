@@ -155,7 +155,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             market_1_quote = market_pair.market_1_quote_currency
             market_1_ob = market_1.c_get_order_book(market_1_symbol)
             market_2_symbol = market_pair.market_2_symbol
-            market_2_name = market_2_name
+            market_2_name = market_2.__class__.__name__
             market_2_base = market_pair.market_2_base_currency
             market_2_quote = market_pair.market_2_quote_currency
             market_2_ob = market_2.c_get_order_book(market_2_symbol)
@@ -367,8 +367,8 @@ cdef class ArbitrageStrategy(StrategyBase):
             OrderBook order_book_1 = market_1.c_get_order_book(market_pair.market_1_symbol)
             OrderBook order_book_2 = market_2.c_get_order_book(market_pair.market_2_symbol)
 
-            double profitability_buy_2_sell_1, profitability_buy_1_sell_2 = \
-                    self.c_calculate_arbitrage_profitability(market_pair, order_book_1, order_book_2)
+        profitability_buy_2_sell_1, profitability_buy_1_sell_2 = \
+            self.c_calculate_arbitrage_profitability(market_pair, order_book_1, order_book_2)
 
         if profitability_buy_1_sell_2 < self._min_profitability \
                 and profitability_buy_2_sell_1 < self._min_profitability:
