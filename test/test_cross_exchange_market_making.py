@@ -61,7 +61,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_symbols)
         self.taker_data: MockOrderBookLoader = MockOrderBookLoader(*self.taker_symbols)
         self.maker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.01, 10)
-        self.taker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.001, 3)
+        self.taker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.001, 4)
         self.maker_market.add_data(self.maker_data)
         self.taker_market.add_data(self.taker_data)
         self.maker_market.set_balance("COINALPHA", 5)
