@@ -501,16 +501,17 @@ cdef class ArbitrageStrategy(StrategyBase):
                         from_currency=sell_flat_fee_currency,
                         to_currency=sell_market_quote_currency
                     )
+            # accumulated profitability with fees
             total_bid_value_adjusted += bid_price_adjusted * amount
             total_ask_value_adjusted += ask_price_adjusted * amount
-            # accumulated profitability with fees
-            profitability = (total_bid_value_adjusted * (1 - sell_fee.percent) - total_sell_flat_fees) / \
-                            (total_ask_value_adjusted / (1 - buy_fee.percent) + total_buy_flat_fees)
+            net_sell_proceeds = total_bid_value_adjusted * (1 - sell_fee.percent) - total_sell_flat_fees
+            net_buy_costs = total_ask_value_adjusted / (1 - buy_fee.percent) + total_buy_flat_fees
+            profitability = net_sell_proceeds / net_buy_costs
 
             buy_market_quote_asset = buy_market.c_get_balance(buy_market_quote_currency)
             sell_market_base_asset = sell_market.c_get_balance(sell_market_base_currency)
 
-            # if current step is within minimum profibility set to best profitable order
+            # if current step is within minimum profitability set to best profitable order
             # because the total amount is greater than the previous step
             if profitability > (1 + self._min_profitability):
                 best_profitable_order_amount = total_previous_step_base_amount + amount
@@ -524,7 +525,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             # stop current step if buy/sell market does not have enough asset
             if buy_market_quote_asset < (total_ask_value + ask_price * amount) or \
                     sell_market_base_asset < (total_previous_step_base_amount + amount):
-                # use previous step as best profitable order if below min profibility
+                # use previous step as best profitable order if below min profitability
                 if profitability < (1 + self._min_profitability):
                     break
                 if self._logging_options & self.OPTION_LOG_INSUFFICIENT_ASSET:
