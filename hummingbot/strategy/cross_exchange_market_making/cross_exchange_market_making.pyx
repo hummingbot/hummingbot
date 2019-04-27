@@ -1,6 +1,7 @@
 from collections import (
     defaultdict,
-    deque
+    deque,
+    OrderedDict
 )
 from decimal import Decimal
 import logging
@@ -95,6 +96,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     ORDER_ADJUST_SAMPLE_WINDOW = 12
 
     SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION = 60.0 * 15
+    CANCEL_EXPIRY_DURATION = 60.0
 
     @classmethod
     def logger(cls):
@@ -144,6 +146,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._order_fill_buy_events = {}
         self._order_fill_sell_events = {}
         self._suggested_price_samples = {}
+        self._in_flight_cancels = OrderedDict()
         self._anti_hysteresis_duration = anti_hysteresis_duration
         self._buy_order_completed_listener = BuyOrderCompletedListener(self)
         self._sell_order_completed_listener = SellOrderCompletedListener(self)
@@ -387,7 +390,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef c_cancel_order(self, object market_pair, str order_id):
         cdef:
             MarketBase maker_market = market_pair.maker_market
+            list keys_to_delete = []
 
+        # Maintain the cancel expiry time invariant
+        for k, cancel_timestamp in self._in_flight_cancels.items():
+            if cancel_timestamp < self._current_timestamp - self.CANCEL_EXPIRY_DURATION:
+                keys_to_delete.append(k)
+        for k in keys_to_delete:
+            del self._in_flight_cancels[k]
+
+        # Track the cancel and tell maker market to cancel the order.
+        self._in_flight_cancels[order_id] = self._current_timestamp
         maker_market.c_cancel(market_pair.maker_symbol, order_id)
 
     cdef c_start(self, Clock clock, double timestamp):
@@ -415,7 +428,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                     f"The in-flight maker order in for the symbol '{limit_order.symbol}' "
                                     f"does not correspond to any whitelisted market pairs. Skipping.")
                 continue
-            market_pair_to_active_orders[market_pair].append(limit_order)
+
+            if (self._in_flight_cancels.get(limit_order.client_order_id, 0) <
+                    self._current_timestamp - self.CANCEL_EXPIRY_DURATION):
+                market_pair_to_active_orders[market_pair].append(limit_order)
 
         for market_pair in self._market_pairs.values():
             self.c_process_market_pair(market_pair, market_pair_to_active_orders[market_pair])
@@ -753,10 +769,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 market_pair.maker_quote_currency, maker_ask_price)
 
             double taker_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.maker_quote_currency, taker_bid_price)
+                market_pair.taker_quote_currency, taker_bid_price)
 
             double taker_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.maker_quote_currency, taker_ask_price)
+                market_pair.taker_quote_currency, taker_ask_price)
 
         return (taker_bid_price_adjusted > maker_bid_price_adjusted * (1.0 + self._min_profitability),
                 maker_ask_price_adjusted > taker_ask_price_adjusted * (1.0 + self._min_profitability))
@@ -766,6 +782,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                                         bint is_bid,
                                                         double own_order_depth = 0):
         """
+        Get the ideal market making order size and maximum order size given a market pair and a side.
+
+        This function does a few things:
+         1. Get the widest possible order price for market making on the maker market.
+         2. Calculate the largest order size possible given the current balances on both maker and taker markets.
+         3. Calculate the largest order size possible that's still profitable after hedging.
+
+        The price returned is calculated from step 1. The order size returned is the minimum from 2 and 3. If either
+        there's not enough balance for the maker order or the hedging trade; or if it's not possible to hedge the
+        trade profitably, then the returned order size will be 0.
+
         :param market_pair: The cross exchange market pair to calculate order price/size limits.
         :param is_bid: Whether the order to make will be bid or ask.
         :param own_order_depth: Market depth caused by existing order issued by ourselves.
@@ -779,9 +806,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double top_bid_price
             double top_ask_price
             double raw_size_limit
+            double profitable_hedge_price
             double maker_balance_size_limit
             double taker_balance_size_limit
             double taker_order_book_size_limit
+            double adjusted_taker_price
 
         # Get the top-of-order-book prices, taking the top depth tolerance into account.
         try:
@@ -805,11 +834,26 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 top_bid_price
             )
             next_price = (round(Decimal(top_bid_price) / price_quantum) + 1) * price_quantum
+
+            # Calculate the order size limit from maker and taker market balances.
             maker_balance_size_limit = maker_market.c_get_balance(market_pair.maker_quote_currency) / float(next_price)
             taker_balance_size_limit = (taker_market.c_get_balance(market_pair.taker_base_currency) *
                                         self._order_size_taker_balance_factor)
-            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(False, float(next_price)) *
+
+            # Convert the proposed maker order price to the equivalent price on the taker market.
+            adjusted_taker_price = (self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.maker_quote_currency,
+                float(next_price)
+            ) / self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.taker_quote_currency,
+                1.0
+            ))
+
+            # Calculate the order size limit from the minimal profitable hedge on the taker market.
+            profitable_hedge_price = adjusted_taker_price * (1 + self._min_profitability)
+            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(False, profitable_hedge_price) *
                                            self._order_size_taker_volume_factor)
+
             raw_size_limit = min(
                 taker_order_book_size_limit,
                 maker_balance_size_limit,
@@ -823,10 +867,24 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 top_ask_price
             )
             next_price = (round(Decimal(top_ask_price) / price_quantum) - 1) * price_quantum
+
+            # Calculate the order size limit from maker and taker market balances.
             maker_balance_size_limit = maker_market.c_get_balance(market_pair.maker_base_currency)
             taker_balance_size_limit = (taker_market.c_get_balance(market_pair.taker_quote_currency) /
                                         float(next_price) *
                                         self._order_size_taker_balance_factor)
+
+            # Convert the proposed maker order price to the equivalent price on the taker market.
+            adjusted_taker_price = (self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.maker_quote_currency,
+                float(next_price)
+            ) / self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.taker_quote_currency,
+                1.0
+            ))
+
+            # Calculate the order size limit from the minimal profitable hedge on the taker market.
+            profitable_hedge_price = adjusted_taker_price / (1 + self._min_profitability)
             taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(True, float(next_price)) *
                                            self._order_size_taker_volume_factor)
 

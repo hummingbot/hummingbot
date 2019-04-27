@@ -18,6 +18,7 @@ cdef class DDEXMarket(MarketBase):
         double _last_update_trade_fees_timestamp
         double _poll_interval
         dict _in_flight_orders
+        object _in_flight_cancels
         object _order_expiry_queue
         TransactionTracker _tx_tracker
         object _w3
