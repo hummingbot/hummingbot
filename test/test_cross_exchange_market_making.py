@@ -426,6 +426,52 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             self.taker_data.order_book
         ))
 
+    def test_price_and_size_limit_calculation(self):
+        # Test the case where the profitable hedging depth is less than order size limit based on balance.
+        self.taker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.001, 3)
+        bid_price, bid_size_limit = self.strategy.get_market_making_price_and_size_limit(
+            self.market_pair,
+            True
+        )
+        ask_price, ask_size_limit = self.strategy.get_market_making_price_and_size_limit(
+            self.market_pair,
+            False
+        )
+        self.assertEqual((Decimal("0.99501"), Decimal("2.25")), (bid_price, bid_size_limit))
+        self.assertEqual((Decimal("1.0049"), Decimal("2.25")), (ask_price, ask_size_limit))
+
+        # Test the case where the profitable hedging depth is equal to order size limit based on balance.
+        self.taker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.001, 4)
+        bid_price, bid_size_limit = self.strategy.get_market_making_price_and_size_limit(
+            self.market_pair,
+            True
+        )
+        ask_price, ask_size_limit = self.strategy.get_market_making_price_and_size_limit(
+            self.market_pair,
+            False
+        )
+        self.assertEqual((Decimal("0.99501"), Decimal("3")), (bid_price, bid_size_limit))
+        self.assertEqual((Decimal("1.0049"), Decimal("3")), (ask_price, ask_size_limit))
+
+        # Test the case where the hedging trade is numerically profitable but below the min profit setting.
+        self.simulate_order_book_widening(self.taker_data.order_book, 0.9975, 1.0025)
+        bid_price, bid_size_limit = self.strategy.get_market_making_price_and_size_limit(
+            self.market_pair,
+            True
+        )
+        ask_price, ask_size_limit = self.strategy.get_market_making_price_and_size_limit(
+            self.market_pair,
+            False
+        )
+        self.assertEqual((Decimal("0.99501"), Decimal("0")), (bid_price, bid_size_limit))
+        self.assertEqual((Decimal("1.0049"), Decimal("0")), (ask_price, ask_size_limit))
+
+        # Make sure the strategy doesn't emit any orders in this case
+        self.clock.backtest_til(self.start_timestamp + 5)
+        self.assertEqual(0, len(self.strategy.active_bids))
+        self.assertEqual(0, len(self.strategy.active_asks))
+        self.assertEqual(0, len(self.cancel_order_logger.event_log))
+
 
 def main():
     unittest.main()
