@@ -29,7 +29,7 @@ To manage Python and Python library dependencies, Hummingbot uses Anaconda, an o
 
 From Bash, download the Anaconda for Linux installer:
 ```
-wget -o https://repo.anaconda.com/archive/Anaconda3-2019.03-Linux-x86_64.sh
+wget https://repo.anaconda.com/archive/Anaconda3-2019.03-Linux-x86_64.sh
 ```
 
 Run the installer:
