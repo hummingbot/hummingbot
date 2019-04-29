@@ -926,7 +926,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             # Calculate the order size limit from the minimal profitable hedge on the taker market.
             profitable_hedge_price = adjusted_taker_price / (1 + self._min_profitability)
-            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(True, float(next_price)) *
+            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(True, profitable_hedge_price) *
                                            self._order_size_taker_volume_factor)
 
             raw_size_limit = min(
