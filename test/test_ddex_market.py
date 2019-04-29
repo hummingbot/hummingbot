@@ -219,8 +219,9 @@ class DDEXMarketUnitTest(unittest.TestCase):
     def test_market_buy_and_sell(self):
         self.assertGreater(self.market.get_balance("WETH"), 0.01)
 
-        amount: float = 30
+        amount: float = 1200.0      # Min order size is 1000 HOT
         quantized_amount: Decimal = self.market.quantize_order_amount("HOT-WETH", amount)
+
         order_id = self.market.buy("HOT-WETH", amount, OrderType.MARKET)
 
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
@@ -230,12 +231,16 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
         self.assertTrue([evt.order_type == OrderType.MARKET for evt in order_filled_events])
         self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertEqual(float(quantized_amount), order_completed_event.base_asset_amount)
+
+        # This is because some of the tokens are deducted in the trading fees.
+        self.assertTrue(
+            float(quantized_amount) > order_completed_event.base_asset_amount > float(quantized_amount) * 0.9
+        )
         self.assertEqual("HOT", order_completed_event.base_asset)
         self.assertEqual("WETH", order_completed_event.quote_asset)
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
-                         for event in self.market_logger.event_log]))
+                             for event in self.market_logger.event_log]))
         # Reset the logs
         self.market_logger.clear()
 
@@ -255,7 +260,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
         self.assertEqual("WETH", order_completed_event.quote_asset)
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
-                         for event in self.market_logger.event_log]))
+                             for event in self.market_logger.event_log]))
 
     @unittest.skipUnless(any("test_wrap_eth" in arg for arg in sys.argv), "Wrap Eth test requires manual action.")
     def test_wrap_eth(self):
