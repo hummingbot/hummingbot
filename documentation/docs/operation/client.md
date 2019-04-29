@@ -40,12 +40,13 @@ The CLI is divided into three panes:
 | Command | Function |
 |---------|----------|
 | `help` | Prints a list of available commands.
-| `config` | Configure the bot.  When running for the first time, initializes the bot.  If the bot has already been initialized, unlocks the Ethereum wallet.
 | `start` | Starts the bot. If any configuration settings are missing, it will automatically prompt you for them.
-| `stop` | Cancels all outstanding orders and stops the bot.
+| `config` | Configure the bot.  When running for the first time, initializes the bot.  If the bot has already been initialized, unlocks the Ethereum wallet.
 | `status` | Get a status report about price differential between the two exchanges, as well as current orders.
-| `list` | List wallets, exchanges, orders, and configs.<br/><br/>*Example usage: `list [wallets|exchanges|orders]`*
+| `list` | List wallets, exchanges, configs, and completed trades.<br/><br/>*Example usage: `list [wallets|exchanges|configs|trades]`*
 | `describe` | Get detailed information about wallets, exchanges, and orders.<br/><br/>*Example usage: `describe [-w|-e binance|-e ddex]` to show details of wallets, binance positions, wallet balances (available for DDEX), respectively*.
 | `get_balance` | Gets the balance of an exchange or wallet.<br/><br/>*Example usage: `get_balance [-c WETH -w|-c ETH -e binance]` to show available WETH balance in the Ethereum wallet and ETH balance in Binance, respectively*.
 | `exit` \| `CTRL + C` | Cancels all orders, saves the log, and exits Hummingbot.
 |`exit -f`| Force quit without cancelling orders.
+| `stop` | Cancels all outstanding orders and stops the bot.
+|`export_private_key`| Print your ethereum wallet private key.
