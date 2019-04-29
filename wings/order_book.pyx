@@ -322,6 +322,31 @@ cdef class OrderBook(PubSub):
         raise EnvironmentError(f"Requested quote volume {quote_volume} is beyond order book depth - no price quote is "
                                f"possible")
 
+    cdef double c_get_quote_volume_for_base_amount(self, bint is_buy, double base_amount) except? -1:
+        cdef:
+            double cumulative_volume = 0
+            double cumulative_base_amount = 0
+            double row_amount = 0
+        if is_buy:
+            for order_book_row in self.ask_entries():
+                row_amount = order_book_row.amount
+                if row_amount + cumulative_base_amount >= base_amount:
+                    row_amount = base_amount - cumulative_base_amount
+                cumulative_base_amount += row_amount
+                cumulative_volume += row_amount * order_book_row.price
+                if cumulative_base_amount >= base_amount:
+                    break
+        else:
+            for order_book_row in self.bid_entries():
+                row_amount = order_book_row.amount
+                if row_amount + cumulative_base_amount >= base_amount:
+                    row_amount = base_amount - cumulative_base_amount
+                cumulative_base_amount += row_amount
+                cumulative_volume += row_amount * order_book_row.price
+                if cumulative_base_amount >= base_amount:
+                    break
+        return cumulative_volume
+
     def get_price_for_volume(self, is_buy: bool, volume: float) -> float:
         return self.c_get_price_for_volume(is_buy, volume)
 
@@ -330,6 +355,9 @@ cdef class OrderBook(PubSub):
 
     def get_price_for_quote_volume(self, is_buy: bool, quote_volume: float) -> float:
         return self.c_get_price_for_quote_volume(is_buy, quote_volume)
+
+    def get_quote_volume_for_base_amount(self, is_buy: bool, base_amount: float) -> float:
+        return self.c_get_quote_volume_for_base_amount(is_buy, base_amount)
 
     cdef double c_get_volume_for_price(self, bint is_buy, double price) except? -1:
         cdef:
