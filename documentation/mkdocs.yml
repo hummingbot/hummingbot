@@ -109,7 +109,8 @@ nav:
       - Known issues: support/issues.md
     - Release notes:
       - Release notes: release-notes.md
-      - 0.2.0: release-notes/0.2.0.md
-      - 0.3.0: release-notes/0.3.0.md
+      - 0.5.0: release-notes/0.5.0.md
+      - 0.4.0: release-notes/0.4.0.md
       - 0.3.1 (beta): release-notes/0.3.1.md
-      - 0.4.0: release-notes/0.4.0.md   
+      - 0.3.0: release-notes/0.3.0.md
+      - 0.2.0: release-notes/0.2.0.md
