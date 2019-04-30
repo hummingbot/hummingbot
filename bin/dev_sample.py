@@ -23,8 +23,8 @@ from typing import (
 from hummingbot import init_logging
 from hummingbot.cli.hummingbot_application import HummingbotApplication
 from hummingbot.cli.config.global_config_map import global_config_map
-from hummingbot.cli.config.in_memory_config_map import (
-    in_memory_config_map,
+from hummingbot.cli.config.in_memory_config_map import in_memory_config_map
+from hummingbot.cli.config.helpers import (
     create_yml_files,
     read_configs_from_yml
 )
