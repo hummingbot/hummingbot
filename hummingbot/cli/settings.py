@@ -6,7 +6,7 @@ from os.path import (
 from typing import List
 
 
-# Static values
+# Global static values
 KEYFILE_PREFIX = "key_file_"
 KEYFILE_POSTFIX = ".json"
 GLOBAL_CONFIG_PATH = "conf/conf_global.yml"
@@ -33,6 +33,6 @@ MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
 MAXIMUM_LOG_PANE_LINE_COUNT = 1000
 
 
-# Global variable
+# Global variables
 required_exchanges: List[str] = []
 
