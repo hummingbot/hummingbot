@@ -113,6 +113,7 @@ cdef class InFlightOrder:
         public object price
         public object executed_amount
         public object available_amount
+        public object pending_amount
         public object quote_asset_amount
         public object gas_fee_amount
         public str last_state
@@ -135,6 +136,7 @@ cdef class InFlightOrder:
         self.available_amount = amount
         self.price = price
         self.executed_amount = s_decimal_0
+        self.pending_amount = s_decimal_0
         self.quote_asset_amount = s_decimal_0
         self.gas_fee_amount = s_decimal_0
         self.last_state = "NEW"
@@ -149,7 +151,7 @@ cdef class InFlightOrder:
 
     @property
     def is_done(self) -> bool:
-        return self.available_amount == s_decimal_0
+        return self.available_amount == s_decimal_0 and self.pending_amount == s_decimal_0
 
     @property
     def is_cancelled(self) -> bool:
@@ -364,7 +366,8 @@ cdef class DDEXMarket(MarketBase):
             previous_is_done = tracked_order.is_done
             new_confirmed_amount = float(order_update["confirmedAmount"])
             execute_amount_diff = new_confirmed_amount - float(tracked_order.executed_amount)
-            execute_price = float(order_update["averagePrice"])
+            execute_price = float(order_update["price"])
+            is_market_buy = order_update["side"] == "buy" and order_update["type"] == "market"
 
             client_order_id = tracked_order.client_order_id
             order_type_description = (("market" if tracked_order.order_type == OrderType.MARKET else "limit") +
@@ -373,6 +376,11 @@ cdef class DDEXMarket(MarketBase):
 
             # Emit event if executed amount is greater than 0.
             if execute_amount_diff > 0:
+                fill_size = execute_amount_diff
+                if is_market_buy:
+                    # Special rules for market buy orders, in which all reported amounts are in quote asset.
+                    fill_size = execute_amount_diff / execute_price
+
                 order_filled_event = OrderFilledEvent(
                     self._current_timestamp,
                     tracked_order.client_order_id,
@@ -380,9 +388,9 @@ cdef class DDEXMarket(MarketBase):
                     TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
                     OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT,
                     execute_price,
-                    execute_amount_diff
+                    fill_size
                 )
-                self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
+                self.logger().info(f"Filled {fill_size} out of {tracked_order.amount} of the "
                                    f"{order_type_description} order {client_order_id}.")
                 self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
@@ -390,21 +398,29 @@ cdef class DDEXMarket(MarketBase):
             tracked_order.last_state = order_update["status"]
             tracked_order.executed_amount = Decimal(order_update["confirmedAmount"])
             tracked_order.available_amount = Decimal(order_update["availableAmount"])
+            tracked_order.pending_amount = Decimal(order_update["pendingAmount"])
             tracked_order.quote_asset_amount = tracked_order.executed_amount * Decimal(order_update["price"])
             tracked_order.gas_fee_amount = Decimal(order_update["gasFeeAmount"])
             if not previous_is_done and tracked_order.is_done:
+                executed_amount = float(tracked_order.executed_amount)
+                quote_asset_amount = float(tracked_order.quote_asset_amount)
                 if not tracked_order.is_cancelled:
                     if tracked_order.is_buy:
                         self.logger().info(f"The {order_type_description} order {client_order_id} has "
                                            f"completed according to order status API.")
+                        if is_market_buy:
+                            # Special rules for market buy orders, in which all reported amounts are in quote asset.
+                            executed_amount = float(tracked_order.executed_amount) / execute_price
+                            quote_asset_amount = float(tracked_order.executed_amount)
+
                         self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
                                              BuyOrderCompletedEvent(self._current_timestamp,
                                                                     tracked_order.client_order_id,
                                                                     tracked_order.base_asset,
                                                                     tracked_order.quote_asset,
                                                                     tracked_order.quote_asset,
-                                                                    float(tracked_order.executed_amount),
-                                                                    float(tracked_order.quote_asset_amount),
+                                                                    executed_amount,
+                                                                    quote_asset_amount,
                                                                     float(tracked_order.gas_fee_amount)))
                     else:
                         self.logger().info(f"The {order_type_description} order {client_order_id} has "
@@ -415,8 +431,8 @@ cdef class DDEXMarket(MarketBase):
                                                                      tracked_order.base_asset,
                                                                      tracked_order.quote_asset,
                                                                      tracked_order.quote_asset,
-                                                                     float(tracked_order.executed_amount),
-                                                                     float(tracked_order.quote_asset_amount),
+                                                                     executed_amount,
+                                                                     quote_asset_amount,
                                                                      float(tracked_order.gas_fee_amount)))
                 else:
                     if (self._in_flight_cancels.get(client_order_id, 0) >
@@ -619,7 +635,12 @@ cdef class DDEXMarket(MarketBase):
             total_flat_fees += flat_fee_amount
 
         # adjust amount so fees are taken from your order instead of in addition to your order
+        if order_type == OrderType.MARKET:
+            price = (<OrderBook>self.c_get_order_book(symbol)).c_get_price_for_volume(True, amount)
+
         adjusted_amount = amount / (1 + buy_fee.percent) - total_flat_fees / price
+
+        # send the order.
         asyncio.ensure_future(self.execute_buy(order_id, symbol, adjusted_amount, order_type, price))
         return order_id
 
@@ -628,10 +649,24 @@ cdef class DDEXMarket(MarketBase):
             str q_price = str(self.c_quantize_order_price(symbol, price))
             str q_amt = str(self.c_quantize_order_amount(symbol, amount))
             TradingRule trading_rule = self._trading_rules[symbol]
+            double quote_amount
+
+        # Convert the amount to quote tokens amount, for market buy orders, as required by DDEX order API.
+        if order_type is OrderType.MARKET:
+            quote_amount = (<OrderBook>self.c_get_order_book(symbol)).c_get_quote_volume_for_base_amount(
+                True, amount)
+
+            # Quantize according to price rules, not base token amount rules.
+            q_amt = str(self.c_quantize_order_price(symbol, quote_amount))
 
         try:
-            if float(q_amt) < trading_rule.min_order_size:
-                raise ValueError(f"Buy order amount {amount} is lower than the minimum order size ")
+            if order_type is OrderType.LIMIT:
+                if float(q_amt) < trading_rule.min_order_size:
+                    raise ValueError(f"Buy order amount {amount} is lower than the minimum order size")
+            else:
+                if amount < trading_rule.min_order_size:
+                    raise ValueError(f"Buy order amount {amount} is lower than the minimum order size")
+
             if order_type is OrderType.LIMIT and trading_rule.supports_limit_orders is False:
                 raise ValueError(f"Limit order is not supported for trading pair {symbol}")
             if order_type is OrderType.MARKET and trading_rule.supports_market_orders is False:
