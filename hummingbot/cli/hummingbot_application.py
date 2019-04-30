@@ -327,6 +327,7 @@ class HummingbotApplication:
             await write_config_to_yml()
             if not single_key:
                 self.app.log("\nConfig process complete. Enter \"start\" to start market making.")
+                self.app.set_text("start")
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
         except Exception as err:

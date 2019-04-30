@@ -11,7 +11,7 @@ def load_key_bindings(hb) -> KeyBindings:
 
     @bindings.add("c-c", "c-c")
     def _(event):
-        hb.app.log("\n[CTRL + C] keyboard exit")
+        hb.app.log("\n[Double CTRL + C] keyboard exit")
         asyncio.ensure_future(hb.exit())
 
     @bindings.add("c-s")
