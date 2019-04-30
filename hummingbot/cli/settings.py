@@ -16,9 +16,13 @@ from typing import (
     Optional,
     Callable,
 )
+from hummingbot.cli.utils.symbol_fetcher import SymbolFetcher
+
 # Use ruamel.yaml to preserve order and comments in .yml file
 yaml = ruamel.yaml.YAML()
 
+# Use one single symbol fetcher
+symbol_fetcher = SymbolFetcher()
 
 # Static values
 KEYFILE_PREFIX = "key_file_"
@@ -156,6 +160,33 @@ def is_path(value: str) -> bool:
     return isfile(value) and value.endswith('.yml')
 
 
+def is_valid_market_symbol(market: str, value: str) -> bool:
+    if symbol_fetcher.ready:
+        market_symbols = symbol_fetcher.symbols.get(market, [])
+        return value in symbol_fetcher.symbols.get(market) if len(market_symbols) > 0 else True
+
+
+def is_valid_maker_market_symbol(value: str) -> bool:
+    maker_market = cross_exchange_market_making_config_map.get("maker_market").value
+    return is_valid_market_symbol(maker_market, value)
+
+
+def is_valid_taker_market_symbol(value: str) -> bool:
+    taker_market = cross_exchange_market_making_config_map.get("taker_market").value
+    return is_valid_market_symbol(taker_market, value)
+
+
+def is_valid_primary_market_symbol(value: str) -> bool:
+    primary_market = arbitrage_config_map.get("primary_market").value
+    return is_valid_market_symbol(primary_market, value)
+
+
+def is_valid_secondary_market_symbol(value: str) -> bool:
+    secondary_market = arbitrage_config_map.get("secondary_market").value
+    return is_valid_market_symbol(secondary_market, value)
+
+
+# Config setup
 def load_required_configs(*args) -> OrderedDict:
     current_strategy = in_memory_config_map.get("strategy").value
     current_strategy_file_path = in_memory_config_map.get("strategy_file_path").value
@@ -248,9 +279,11 @@ cross_exchange_market_making_config_map = {
                                                   validator=is_exchange,
                                                   on_validated=lambda value: required_exchanges.append(value)),
     "maker_market_symbol":              ConfigVar(key="maker_market_symbol",
-                                                  prompt=maker_symbol_prompt),
+                                                  prompt=maker_symbol_prompt,
+                                                  validator=is_valid_maker_market_symbol),
     "taker_market_symbol":              ConfigVar(key="taker_market_symbol",
-                                                  prompt=taker_symbol_prompt),
+                                                  prompt=taker_symbol_prompt,
+                                                  validator=is_valid_taker_market_symbol),
     "min_profitability":                ConfigVar(key="min_profitability",
                                                   prompt="What is the minimum profitability for you to make a trade? "\
                                                          "(Enter 0.01 to indicate 1%) >>> ",
@@ -303,9 +336,11 @@ arbitrage_config_map = {
                                                   validator=is_exchange,
                                                   on_validated=lambda value: required_exchanges.append(value)),
     "primary_market_symbol":            ConfigVar(key="primary_market_symbol",
-                                                  prompt=primary_symbol_prompt),
+                                                  prompt=primary_symbol_prompt,
+                                                  validator=is_valid_primary_market_symbol),
     "secondary_market_symbol":          ConfigVar(key="secondary_market_symbol",
-                                                  prompt=secondary_symbol_prompt),
+                                                  prompt=secondary_symbol_prompt,
+                                                  validator=is_valid_secondary_market_symbol),
     "min_profitability":                ConfigVar(key="min_profitability",
                                                   prompt="What is the minimum profitability for you to make a trade? "\
                                                          "(Enter 0.01 to indicate 1%) >>> ",
