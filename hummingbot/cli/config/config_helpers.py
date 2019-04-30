@@ -10,7 +10,10 @@ from os.path import (
     isfile,
 )
 from collections import OrderedDict
-from typing import Dict
+from typing import (
+    Dict,
+    Optional,
+)
 from os import listdir
 import shutil
 
@@ -84,9 +87,17 @@ def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
     return result
 
 
-def get_strategy_config_map(strategy: str) -> Dict[str, ConfigVar]:
+def get_strategy_config_map(strategy: str) -> Optional[Dict[str, ConfigVar]]:
     # Get the right config map from this file by its variable name
-    return globals().get(f"{strategy}_config_map")
+    if strategy is None:
+        return None
+    try:
+        cm_key = f"{strategy}_config_map"
+        strategy_module = __import__(f"hummingbot.strategy.{strategy}.{cm_key}",
+                                     fromlist=[f"hummingbot.strategy.{strategy}"])
+        return getattr(strategy_module, cm_key)
+    except Exception as e:
+        logging.getLogger().error(e, exc_info=True)
 
 
 def load_required_configs(*args) -> OrderedDict:
