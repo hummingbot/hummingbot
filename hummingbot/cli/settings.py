@@ -157,7 +157,7 @@ def is_strategy(value: str) -> bool:
 
 
 def is_path(value: str) -> bool:
-    return isfile(value) and value.endswith('.yml')
+    return isfile(join(CONF_FILE_PATH, value)) and value.endswith('.yml')
 
 
 def is_valid_market_symbol(market: str, value: str) -> bool:
@@ -226,7 +226,7 @@ def read_configs_from_yml(strategy_file_path: str = None):
 
     load_yml_into_cm(GLOBAL_CONFIG_PATH, global_config_map)
     if strategy_file_path:
-        load_yml_into_cm(strategy_file_path, strategy_config_map)
+        load_yml_into_cm(join(CONF_FILE_PATH, strategy_file_path), strategy_config_map)
 
 
 async def write_config_to_yml():
@@ -548,7 +548,7 @@ def get_strategy_template_path(strategy: str) -> str:
 
 
 def get_default_strategy_config_yml_path(strategy: str) -> str:
-    return join(CONF_FILE_PATH, f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_0.yml")
+    return f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_0.yml"
 
 
 def get_strategy_config_map(strategy: str) -> Dict[str, ConfigVar]:
