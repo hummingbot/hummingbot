@@ -7,9 +7,7 @@ from typing import (
     Tuple
 )
 import aiohttp
-from hummingbot.cli.settings import (
-    global_config_map
-)
+from hummingbot.cli.config.global_config_map import global_config_map
 
 
 class ExchangeRateConversion:
