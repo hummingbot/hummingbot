@@ -10,7 +10,7 @@ from hummingbot.cli.settings import EXCHANGES, STRATEGIES
 from hummingbot.cli.ui.parser import ThrowingArgumentParser
 from hummingbot.cli.utils.symbol_fetcher import fetch_all
 from hummingbot.cli.utils.wallet_setup import list_wallets
-from hummingbot.cli.settings import load_required_configs
+from hummingbot.cli.config.in_memory_config_map import load_required_configs
 
 
 class HummingbotCompleter(Completer):
