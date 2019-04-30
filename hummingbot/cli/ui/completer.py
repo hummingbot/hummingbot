@@ -1,15 +1,10 @@
-import asyncio
 import re
-from typing import (
-    List,
-    Dict,
-)
+from typing import List
 from prompt_toolkit.completion import Completer, WordCompleter, PathCompleter, CompleteEvent
 from prompt_toolkit.document import Document
 
-from hummingbot.cli.settings import EXCHANGES, STRATEGIES
+from hummingbot.cli.settings import EXCHANGES, STRATEGIES, symbol_fetcher
 from hummingbot.cli.ui.parser import ThrowingArgumentParser
-from hummingbot.cli.utils.symbol_fetcher import fetch_all
 from hummingbot.cli.utils.wallet_setup import list_wallets
 from hummingbot.cli.config.in_memory_config_map import load_required_configs
 
@@ -18,18 +13,12 @@ class HummingbotCompleter(Completer):
     def __init__(self, hummingbot_application):
         super(HummingbotCompleter, self).__init__()
         self.hummingbot_application = hummingbot_application
-        self._symbols: Dict[str, List[str]] = {}
 
         # static completers
         self._path_completer = PathCompleter()
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
         self._exchange_completer = WordCompleter(EXCHANGES, ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
-
-        asyncio.ensure_future(self._fetch_symbols())
-
-    async def _fetch_symbols(self):
-        self._symbols: Dict[str, List[str]] = await fetch_all()
 
     @property
     def prompt_text(self) -> str:
@@ -50,7 +39,8 @@ class HummingbotCompleter(Completer):
             if exchange in self.prompt_text:
                 market = exchange
                 break
-        return WordCompleter(self._symbols.get(market) or [], ignore_case=True)
+        symbols = symbol_fetcher.symbols.get(market, []) if symbol_fetcher.ready else []
+        return WordCompleter(symbols, ignore_case=True)
 
     @property
     def _wallet_address_completer(self):
