@@ -3,7 +3,7 @@ from typing import List
 from prompt_toolkit.completion import Completer, WordCompleter, PathCompleter, CompleteEvent
 from prompt_toolkit.document import Document
 
-from hummingbot.cli.settings import EXCHANGES, STRATEGIES, symbol_fetcher
+from hummingbot.cli.settings import EXCHANGES, STRATEGIES, CONF_FILE_PATH, symbol_fetcher
 from hummingbot.cli.ui.parser import ThrowingArgumentParser
 from hummingbot.cli.utils.wallet_setup import list_wallets
 from hummingbot.cli.settings import load_required_configs
@@ -15,7 +15,8 @@ class HummingbotCompleter(Completer):
         self.hummingbot_application = hummingbot_application
 
         # static completers
-        self._path_completer = PathCompleter()
+        self._path_completer = PathCompleter(get_paths=lambda: ["./conf/"],
+                                             file_filter=lambda fname: fname.endswith(".yml"))
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
         self._exchange_completer = WordCompleter(EXCHANGES, ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
@@ -100,6 +101,7 @@ class HummingbotCompleter(Completer):
         if self._complete_paths(document):
             for c in self._path_completer.get_completions(document, complete_event):
                 yield c
+            return
 
         if self._complete_strategies(document):
             for c in self._strategy_completer.get_completions(document, complete_event):
