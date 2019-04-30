@@ -1,0 +1,76 @@
+node {
+    def app
+    def tag = 'development'
+    def buildMessage = 'Building and pushing to docker hub... '
+    def dockerImage = "coinalpha/hummingbot"
+    def dockerTag = "coinalpha/hummingbot:${tag}-${env.BUILD_NUMBER}"
+
+    try {
+      notifyBuild('STARTED')
+
+      stage('Clone repository') {
+          /* Clone repository to jenkins workspace */
+          checkout scm
+      }
+
+      stage('Build image') {
+          /* Build docker image */
+
+          // Compose version label
+          sh 'git rev-parse HEAD > commit'
+          def commit = readFile('commit').trim()
+          def version = readFile('hummingbot/VERSION').trim()
+
+          // Update VERSION
+          sh "echo dev-${version}:${commit}[${env.BUILD_TIMESTAMP}] > hummingbot/VERSION"
+
+          app = docker.build(dockerImage)
+      }
+
+      stage('Test image') {
+          /* Testing place holder */
+          app.inside {
+              sh 'echo "python test"'
+          }
+      }
+
+      stage('Push image') {
+          /* Push docker image */
+          docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
+              app.push("${tag}-${env.BUILD_NUMBER}")
+              app.push("${tag}")
+          }
+          def description = "Successfully pushed to `${dockerTag}|${tag}`"
+          discordSend (webhookURL: env.DISCORD_URL, description: description, result: 'SUCCESS')
+      }
+    } catch (c) {
+      // If there was an exception thrown, the build failed
+      currentBuild.result = "FAILED"
+      throw e      
+    } finally {
+      // Success or failure, always send notifications
+      notifyBuild(currentBuild.result)
+    }
+}
+
+def notifyBuild(String buildStatus = 'STARTED') {
+  // build status of null means successful
+  buildStatus =  buildStatus ?: 'SUCCESSFUL'
+
+  // Default values
+  def result = 'FAILURE'
+
+  // Override default values based on build status
+  if (buildStatus == 'STARTED') {
+    buildStatus = 'Building and pushing to docker hub... '
+    result = 'UNSTABLE'
+  } else if (buildStatus == 'SUCCESSFUL') {
+    result = 'SUCCESS'
+  }
+
+  def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
+  def description = "${subject} (${env.BUILD_URL})"
+
+  // Send notifications
+  discordSend (webhookURL: env.DISCORD_URL, description: description, result: result)
+}
