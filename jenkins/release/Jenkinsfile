@@ -15,15 +15,6 @@ node {
 
       stage('Build image') {
           /* Build docker image */
-
-          // Compose version label
-          sh 'git rev-parse HEAD > commit'
-          def commit = readFile('commit').trim()
-          def version = readFile('hummingbot/VERSION').trim()
-
-          // Update VERSION
-          sh "echo dev-${version}:${commit}[${env.BUILD_TIMESTAMP}] > hummingbot/VERSION"
-
           app = docker.build(dockerImage)
       }
 
@@ -37,9 +28,10 @@ node {
 
       stage('Push image') {
           /* Push docker image */
+          def version = readFile('hummingbot/VERSION').trim()
           docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
-              app.push("${tag}-${env.BUILD_NUMBER}")
-              app.push("${tag}")
+              app.push("${version}")
+              app.push("latest")
           }
           def description = "Successfully pushed to `${dockerTag}`"
           discordSend (webhookURL: env.DISCORD_URL, description: description, result: 'SUCCESS')
