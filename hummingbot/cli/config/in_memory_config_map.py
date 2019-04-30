@@ -1,7 +1,7 @@
 from os.path import join
 
 from hummingbot.cli.config.config_var import ConfigVar
-from hummingbot.cli.config.validators import (
+from hummingbot.cli.config.config_validators import (
     is_strategy,
     is_path,
 )
@@ -10,7 +10,7 @@ from hummingbot.cli.settings import (
     CONF_POSTFIX,
     CONF_PREFIX,
 )
-from hummingbot.cli.config.helpers import (
+from hummingbot.cli.config.config_helpers import (
     load_required_configs,
     read_configs_from_yml,
 )
