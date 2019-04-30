@@ -235,7 +235,7 @@ async def write_config_to_yml():
     """
     current_strategy = in_memory_config_map.get("strategy").value
     strategy_config_map = get_strategy_config_map(current_strategy)
-    strategy_file_path = in_memory_config_map.get("strategy_file_path").value
+    strategy_file_path = join(CONF_FILE_PATH, in_memory_config_map.get("strategy_file_path").value)
 
     def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
         try:
