@@ -216,10 +216,10 @@ cdef class ArbitrageStrategy(StrategyBase):
                          ["    " + line for line in assets_df_lines])
 
             lines.extend(["", "  Profitability:"] +
-                         [f"    make bid offer on {market_1_name}, "
-                          f"take bid offer on {market_2_name}: {round(profitability_buy_2_sell_1 * 100, 4)} %"] +
-                         [f"    make ask offer on {market_1_name}, "
-                          f"take ask offer on {market_2_name}: {round(profitability_buy_1_sell_2 * 100, 4)} %"])
+                         [f"    take bid on {market_1_name}, "
+                          f"take ask on {market_2_name}: {round(profitability_buy_2_sell_1 * 100, 4)} %"] +
+                         [f"    take ask on {market_1_name}, "
+                          f"take bid on {market_2_name}: {round(profitability_buy_1_sell_2 * 100, 4)} %"])
 
             # See if there're any pending market orders.
             if self._tracked_market_orders:
