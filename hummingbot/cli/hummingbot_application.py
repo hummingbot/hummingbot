@@ -46,6 +46,7 @@ from hummingbot.cli.errors import (
     InvalidCommandError,
     ArgumentParserError
 )
+from hummingbot.cli.config.config_var import ConfigVar
 from hummingbot.cli.settings import (
     in_memory_config_map,
     global_config_map,
@@ -53,7 +54,6 @@ from hummingbot.cli.settings import (
     write_config_to_yml,
     load_required_configs,
     EXCHANGES,
-    ConfigVar,
     parse_cvar_value,
     copy_strategy_template,
 )
