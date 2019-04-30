@@ -24,6 +24,8 @@ from wings.order_book_tracker_entry import (
     OrderBookTrackerEntry
 )
 from wings.order_book_message import DDEXOrderBookMessage
+import cachetools
+import functools
 
 TRADING_PAIR_FILTER = re.compile(r"(TUSD|WETH|DAI)$")
 
@@ -31,6 +33,23 @@ REST_URL = "https://api.ddex.io/v3"
 WS_URL = "wss://ws.ddex.io/v3"
 TICKERS_URL = f"{REST_URL}/markets/tickers"
 SNAPSHOT_URL = f"{REST_URL}/markets"
+MARKETS_URL = f"{REST_URL}/markets"
+
+
+def async_ttl_cache(ttl: int = 3600, maxsize: int = 1):
+    cache = cachetools.TTLCache(ttl=ttl, maxsize=maxsize)
+    def decorator(fn):
+        @functools.wraps(fn)
+        async def memoize(*args, **kwargs):
+            key = str((args, kwargs))
+            try:
+                cache[key] = cache.pop(key)
+            except KeyError:
+                cache[key] = await fn(*args, **kwargs)
+            return cache[key]
+        return memoize
+
+    return decorator
 
 
 class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -49,31 +68,55 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(self, symbols: Optional[List[str]] = None):
         super().__init__()
         self._symbols: Optional[List[str]] = symbols
+        self._get_tracking_pair_done_event: asyncio.Event = asyncio.Event()
 
     @classmethod
+    @async_ttl_cache(ttl=300, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
+        """
+        Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
+        """
         async with aiohttp.ClientSession() as client:
-            async with client.get(TICKERS_URL) as response:
-                response: aiohttp.ClientResponse = response
-                if response.status != 200:
-                    raise IOError(f"Error fetching active DDex markets. HTTP status is {response.status}.")
-                data = await response.json()
-                all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data["data"]["tickers"],
-                                                                      index="marketId")
-                filtered_markets: pd.DataFrame = all_markets[
-                    [TRADING_PAIR_FILTER.search(i) is not None for i in all_markets.index]].copy()
-                dai_to_eth_price: float = float(all_markets.loc["DAI-WETH"].price)
-                weth_to_usd_price: float = float(all_markets.loc["WETH-TUSD"].price)
-                usd_volume: float = [
-                    (
-                        quoteVolume * dai_to_eth_price * weth_to_usd_price if symbol.endswith("DAI") else
-                        quoteVolume * weth_to_usd_price if symbol.endswith("WETH") else
-                        quoteVolume
-                    )
-                    for symbol, quoteVolume in zip(filtered_markets.index,
-                                                   filtered_markets.volume.astype("float"))]
-                filtered_markets["USDVolume"] = usd_volume
-                return filtered_markets.sort_values("USDVolume", ascending=False)
+            market_response, ticker_response = await asyncio.gather(
+                client.get(MARKETS_URL),
+                client.get(TICKERS_URL)
+            )
+            market_response: aiohttp.ClientResponse = market_response
+            ticker_response: aiohttp.ClientResponse = ticker_response
+
+            if market_response.status != 200:
+                raise IOError(f"Error fetching active DDEX markets. HTTP status is {market_response.status}.")
+            if ticker_response.status != 200:
+                raise IOError(f"Error fetching active DDEX Ticker. HTTP status is {ticker_response.status}.")
+
+            ticker_data = await ticker_response.json()
+            market_data = await market_response.json()
+
+            attr_name_map = {"baseToken": "baseAsset", "quoteToken": "quoteAsset"}
+
+            market_data: Dict[str, any] = {
+                item["id"]: {attr_name_map[k]: item[k] for k in ["baseToken", "quoteToken"]}
+                for item in market_data["data"]["markets"]}
+
+            ticker_data: List[Dict[str, any]] = [{**ticker_item, **market_data[ticker_item["marketId"]]}
+                                                 for ticker_item in ticker_data["data"]["tickers"]
+                                                 if ticker_item["marketId"] in market_data]
+
+            all_markets: pd.DataFrame = pd.DataFrame.from_records(data=ticker_data,
+                                                                  index="marketId")
+
+            dai_to_eth_price: float = float(all_markets.loc["DAI-WETH"].price)
+            weth_to_usd_price: float = float(all_markets.loc["WETH-TUSD"].price)
+            usd_volume: float = [
+                (
+                    quoteVolume * dai_to_eth_price * weth_to_usd_price if symbol.endswith("DAI") else
+                    quoteVolume * weth_to_usd_price if symbol.endswith("WETH") else
+                    quoteVolume
+                )
+                for symbol, quoteVolume in zip(all_markets.index,
+                                               all_markets.volume.astype("float"))]
+            all_markets["USDVolume"] = usd_volume
+            return all_markets.sort_values("USDVolume", ascending=False)
 
     @property
     def order_book_class(self) -> DDEXOrderBook:
@@ -83,32 +126,38 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if self._symbols is None:
             active_markets: pd.DataFrame = await self.get_active_exchange_markets()
             trading_pairs: List[str] = active_markets.index.tolist()
+            self._symbols = trading_pairs
         else:
             trading_pairs: List[str] = self._symbols
         return trading_pairs
 
-    @staticmethod
-    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, level: int = 3) -> Dict[str, any]:
+    async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str, level: int = 3) -> Dict[str, any]:
             params: Dict = {"level": level}
-            async with client.get(f"{REST_URL}/markets/{trading_pair}/orderbook", params=params) as response:
-                response: aiohttp.ClientResponse = response
-                if response.status != 200:
-                    raise IOError(f"Error fetching DDex market snapshot for {trading_pair}. "
-                                  f"HTTP status is {response.status}.")
-                data: Dict[str, any] = await response.json()
-
-                # Need to add the symbol into the snapshot message for the Kafka message queue.
-                # Because otherwise, there'd be no way for the receiver to know which market the
-                # snapshot belongs to.
-
-                return data
+            retry: int = 3
+            while retry > 0:
+                try:
+                    async with client.get(f"{REST_URL}/markets/{trading_pair}/orderbook", params=params) as response:
+                        response: aiohttp.ClientResponse = response
+                        if response.status != 200:
+                            raise IOError(f"Error fetching DDex market snapshot for {trading_pair}. "
+                                          f"HTTP status is {response.status}.")
+                        data: Dict[str, any] = await response.json()
+                        return data
+                except Exception:
+                    self.logger().error(f"Error getting snapshot for {trading_pair}. Retrying {retry} more times.",
+                                        exc_info=True)
+                    await asyncio.sleep(10)
+                    retry -= 1
+                    if retry == 0:
+                        raise
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         # Get the currently active markets
         async with aiohttp.ClientSession() as client:
             trading_pairs: List[str] = await self.get_trading_pairs()
             retval: Dict[str, DDEXOrderBookTrackerEntry] = {}
-            for trading_pair in trading_pairs:
+            number_of_pairs: int = len(trading_pairs)
+            for index, trading_pair in enumerate(trading_pairs):
                 try:
                     snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, 3)
                     snapshot_timestamp: float = time.time()
@@ -130,10 +179,16 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         ddex_active_order_tracker
                     )
 
-                    # await asyncio.sleep(0.5)
+                    self.logger().info(f"Initialized order book for {trading_pair}. "
+                                       f"{index+1}/{number_of_pairs} completed.")
+                    await asyncio.sleep(1.3)
 
                 except Exception:
-                    self.logger().error(f"Error getting snapshot for {trading_pair}. ", exc_info=True)
+                    self.logger().error(f"Error getting snapshot for {trading_pair} in get_tracking_pairs.",
+                                        exc_info=True)
+                    await asyncio.sleep(5)
+
+            self._get_tracking_pair_done_event.set()
             return retval
 
     async def _inner_messages(self,
@@ -186,6 +241,7 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await asyncio.sleep(30.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        await self._get_tracking_pair_done_event.wait()
         while True:
             try:
                 trading_pairs: List[str] = await self.get_trading_pairs()
