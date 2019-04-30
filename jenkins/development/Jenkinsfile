@@ -4,7 +4,6 @@ node {
     def buildMessage = 'Building and pushing to docker hub... '
     def dockerImage = "coinalpha/hummingbot"
     def dockerTag = "coinalpha/hummingbot:${tag}-${env.BUILD_NUMBER}"
-    def gitCommit = env.GIT_COMMIT
 
     try {
       notifyBuild('STARTED')
@@ -18,8 +17,12 @@ node {
           /* This builds the actual image; synonymous to
           * docker build on the command line */
 
+          sh 'git rev-parse HEAD > commit'
+          def commit = readFile('commit').trim()
+          def version = readFile('hummingbot/VERSION').trim()
+
           // Update VERSION
-          sh "echo dev-${env.GIT_COMMIT}-${env.BUILD_TIMESTAMP} > hummingbot/VERSION"
+          sh "echo dev-${version}:${commit}[${env.BUILD_TIMESTAMP}] > hummingbot/VERSION"
 
           app = docker.build(dockerImage)
       }
