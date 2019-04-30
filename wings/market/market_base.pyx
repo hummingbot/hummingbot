@@ -38,6 +38,10 @@ cdef class MarketBase(TimeIterator):
             self.c_add_listener(event_tag.value, self.event_reporter)
 
     @property
+    def market_name(self) -> str:
+        return self.__class__.__name__
+
+    @property
     def order_books(self) -> Dict[str, OrderBook]:
         raise NotImplementedError
 

@@ -27,6 +27,7 @@ from web3 import Web3
 import conf
 import wings
 from wings.clock cimport Clock
+from wings.data_source.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from wings.events import (
     MarketEvent,
     MarketReceivedAssetEvent,
@@ -366,6 +367,10 @@ cdef class BinanceMarket(MarketBase):
         self._coro_scheduler_task = None
 
     @property
+    def market_name(self) -> str:
+        return "Binance"
+
+    @property
     def order_books(self) -> Dict[str, OrderBook]:
         return self._order_book_tracker.order_books
 
@@ -396,6 +401,9 @@ cdef class BinanceMarket(MarketBase):
     @property
     def coro_scheduler_task(self) -> asyncio.Task:
         return self._coro_scheduler_task
+
+    async def get_active_exchange_markets(self):
+        return await BinanceAPIOrderBookDataSource.get_active_exchange_markets()
 
     async def coro_scheduler(self, coro_queue: asyncio.Queue, interval: float = 0.5):
         while True:
@@ -486,7 +494,8 @@ cdef class BinanceMarket(MarketBase):
                     self._trade_fees[fee["symbol"]] = (fee["maker"], fee["taker"])
                 self._last_update_trade_fees_timestamp = current_timestamp
             except Exception:
-                raise IOError("Error fetching Binance trade fees.")
+                self.logger().error("Error fetching Binance trade fees.", exc_info=True)
+                raise
 
     cdef object c_get_fee(self,
                           str symbol,
