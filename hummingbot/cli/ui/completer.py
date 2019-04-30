@@ -1,4 +1,5 @@
 import asyncio
+import re
 from typing import (
     List,
     Dict,
@@ -56,6 +57,13 @@ class HummingbotCompleter(Completer):
         return WordCompleter(list_wallets(), ignore_case=True)
 
     @property
+    def _option_completer(self):
+        outer = re.compile("\((.+)\)")
+        inner_str = outer.search(self.prompt_text).group(1)
+        options = inner_str.split("/") if "/" in inner_str else []
+        return WordCompleter(options, ignore_case=True)
+
+    @property
     def _config_completer(self):
         return WordCompleter(load_required_configs(), ignore_case=True)
 
@@ -65,6 +73,9 @@ class HummingbotCompleter(Completer):
     def _complete_configs(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return "config" in text_before_cursor
+
+    def _complete_options(self, document: Document) -> bool:
+        return "(" in self.prompt_text and ")" in self.prompt_text and "/" in self.prompt_text
 
     def _complete_exchanges(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -122,6 +133,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_configs(document):
             for c in self._config_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_options(document):
+            for c in self._option_completer.get_completions(document, complete_event):
                 yield c
 
         else:
