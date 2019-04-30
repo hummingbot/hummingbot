@@ -19,21 +19,22 @@ node {
       }
 
       stage('Test image') {
-          /* Ideally, we would run a test framework against our image.
-          * For this example, we're using a Volkswagen-type approach ;-) */
+          /* Testing place holder */
           app.inside {
               sh 'echo "python test"'
           }
       }
 
       stage('Push image') {
-          /* Push docker image */
+          // Get VERSION for tag labeling
           def version = readFile('hummingbot/VERSION').trim()
+
+          /* Push docker image */
           docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
               app.push("${version}")
               app.push("latest")
           }
-          def description = "Successfully pushed to `${dockerTag}`"
+          def description = "Successfully pushed to `${dockerImage}:[latest|${version}]`"
           discordSend (webhookURL: env.DISCORD_URL, description: description, result: 'SUCCESS')
       }
     } catch (c) {

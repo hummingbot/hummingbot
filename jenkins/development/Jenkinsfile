@@ -28,8 +28,7 @@ node {
       }
 
       stage('Test image') {
-          /* Ideally, we would run a test framework against our image.
-          * For this example, we're using a Volkswagen-type approach ;-) */
+          /* Testing place holder */
           app.inside {
               sh 'echo "python test"'
           }
@@ -41,7 +40,7 @@ node {
               app.push("${tag}-${env.BUILD_NUMBER}")
               app.push("${tag}")
           }
-          def description = "Successfully pushed to `${dockerTag}`"
+          def description = "Successfully pushed to `${dockerTag}|${tag}`"
           discordSend (webhookURL: env.DISCORD_URL, description: description, result: 'SUCCESS')
       }
     } catch (c) {
