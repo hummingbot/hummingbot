@@ -49,7 +49,7 @@ from hummingbot.cli.errors import (
 from hummingbot.cli.config.config_var import ConfigVar
 from hummingbot.cli.config.in_memory_config_map import in_memory_config_map
 from hummingbot.cli.config.global_config_map import global_config_map
-from hummingbot.cli.config.helpers import (
+from hummingbot.cli.config.config_helpers import (
     get_strategy_config_map,
     write_config_to_yml,
     load_required_configs,
