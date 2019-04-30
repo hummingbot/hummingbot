@@ -219,8 +219,7 @@ def read_configs_from_yml(strategy_file_path: str = None):
                         raise ValueError(f"Cannot find corresponding config to key {key}.")
                     cvar.value = val_in_file
                     if val_in_file is not None and not cvar.validate(val_in_file):
-                        logging.getLogger().error("Invalid value %s for config variable %s" %
-                                                  (val_in_file, cvar.key), exc_info=True)
+                        raise ValueError("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
         except Exception as e:
             logging.getLogger().error("Error loading configs. Your config file may be corrupt. %s" % (e,),
                                       exc_info=True)
@@ -439,7 +438,7 @@ global_config_map = {
                                                   is_secure=True),
     "wallet":                           ConfigVar(key="wallet",
                                                   prompt="Would you like to import an existing wallet or create a new"
-                                                         " wallet? (import / create) >>> ",
+                                                         " wallet? (import/create) >>> ",
                                                   required_if=using_wallet,
                                                   is_secure=True),
     "ethereum_rpc_url":                 ConfigVar(key="ethereum_rpc_url",
