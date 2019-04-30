@@ -35,7 +35,9 @@ CONF_POSTFIX = "_strategy"
 
 EXCHANGES = ["binance", "ddex", "radar_relay", "coinbase_pro"]
 DEXES = ["ddex", "radar_relay"]
-STRATEGIES = ["cross_exchange_market_making", "arbitrage"]
+
+STRATEGIES = ["cross_exchange_market_making", "arbitrage", "discovery"]
+
 EXAMPLE_PAIRS = {
     "binance": "ZRXETH",
     "ddex": "ZRX-WETH",
@@ -124,6 +126,10 @@ def secondary_symbol_prompt():
            % (secondary_market, EXAMPLE_PAIRS[secondary_market])
 
 
+def discovery_symbol_list_prompt(market_name):
+    return "Enter list of token symbol on %s (e.g. ['%s'] or empty for all symbols.) >>> " \
+           % (market_name, EXAMPLE_PAIRS[market_name])
+
 # Helpers
 def generate_client_id() -> str:
     vals = [random.choice(range(0, 256)) for i in range(0, 20)]
@@ -133,6 +139,10 @@ def generate_client_id() -> str:
 # Required conditions
 def using_strategy(strategy: str) -> Callable:
     return lambda: global_config_map.get("strategy").value == strategy
+
+
+def credential_required(exchange: str) -> Callable:
+    return lambda: using_exchange(exchange) and not using_strategy("discovery")
 
 
 def using_exchange(exchange: str) -> Callable:
@@ -323,12 +333,53 @@ arbitrage_config_map = {
                                                   type_str="list",
                                                   required_if=lambda: False,
                                                   default=[
-                                                      ["^.+(USDT|USDC|USDS|DAI|PAX|TUSD)$", 1000],
+                                                      ["^.+(USDT|USDC|USDS|DAI|PAX|TUSD|USD)$", 1000],
                                                       ["^.+ETH$", 10],
                                                       ["^.+BTC$", 0.5],
                                                   ]),
 }
+discovery_config_map = {
+    "primary_market":                   ConfigVar(key="primary_market",
+                                                  prompt="Enter your first exchange name >>> ",
+                                                  validator=is_exchange,
+                                                  on_validated=lambda value: required_exchanges.append(value)),
+    "secondary_market":                 ConfigVar(key="secondary_market",
+                                                  prompt="Enter your second exchange name >>> ",
+                                                  validator=is_exchange,
+                                                  on_validated=lambda value: required_exchanges.append(value)),
 
+    "target_symbol_1":                  ConfigVar(key="target_symbol_1",
+                                                  prompt=lambda: discovery_symbol_list_prompt(
+                                                      discovery_config_map.get("primary_market").value
+                                                  ),
+                                                  type_str="list",
+                                                  default=[]),
+    "target_symbol_2":                  ConfigVar(key="target_symbol_2",
+                                                  prompt=lambda: discovery_symbol_list_prompt(
+                                                      discovery_config_map.get("secondary_market").value
+                                                  ),
+                                                  type_str="list",
+                                                  default=[]),
+    "equivalent_tokens":                ConfigVar(key="equivalent_tokens",
+                                                  prompt=None,
+                                                  type_str="list",
+                                                  required_if=lambda: False,
+                                                  default=[
+                                                      ["USDT", "USDC", "USDS", "DAI", "PAX", "TUSD", "USD"],
+                                                      ["ETH", "WETH"],
+                                                      ["BTC", "WBTC"]
+                                                  ]),
+    "target_profitability":             ConfigVar(key="target_profitability",
+                                                  prompt="What is the target profitability for discovery? (default to "
+                                                         "0.0 to list maximum profitable amounts)",
+                                                  default=0.0,
+                                                  type_str="float"),
+    "target_amount":                    ConfigVar(key="target_amount",
+                                                  prompt="What is the max order size for discovery? "
+                                                         "(default to infinity)",
+                                                  default=float("inf"),
+                                                  type_str="float"),
+}
 
 # Main global config store
 global_config_map = {

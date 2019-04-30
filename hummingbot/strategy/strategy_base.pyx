@@ -51,3 +51,6 @@ cdef class StrategyBase(TimeIterator):
         for active_market in self.active_markets:
             typed_market = active_market
             typed_market.c_add_listener(MarketEvent.OrderFilled.value, self._trade_listener)
+
+    def stop(self):
+        pass
