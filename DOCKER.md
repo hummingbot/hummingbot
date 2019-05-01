@@ -14,7 +14,7 @@ For instructions on operating `hummingbot` with Docker, navigate to [`hummingbot
 
 ```sh
 # Build docker image
-$ docker build -t coinalpha/hummingbot:$TAG -f ./docker/Dockerfile .
+$ docker build -t coinalpha/hummingbot:$TAG -f Dockerfile .
 
 # Push docker image to docker hub
 $ docker push coinalpha/hummingbot:$TAG
@@ -24,6 +24,6 @@ $ docker push coinalpha/hummingbot:$TAG
 
 ```sh
 $ docker image rm coinalpha/hummingbot:$TAG && \
-  docker build -t coinalpha/hummingbot:$TAG -f ./docker/Dockerfile \
+  docker build -t coinalpha/hummingbot:$TAG -f Dockerfile \
   docker push coinalpha/hummingbot:$TAG
 ```
