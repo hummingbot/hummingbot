@@ -20,7 +20,7 @@ Follow these <a href="https://docs.microsoft.com/en-us/windows/wsl/install-win10
 Start the Bash app and install the `build-essential` package which contains `gcc` and `make`, utility libraries used by Hummingbot's installation script:
 ```
 sudo apt-get update
-sudo apt-get build-essential
+sudo apt-get install build-essential
 ```
 
 ### 2. Download and run the Anaconda for Linux installer
