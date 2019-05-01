@@ -232,7 +232,7 @@ class HummingbotApplication:
 
     async def _unlock_wallet(self):
         choice = await self.app.prompt(prompt="Would you like to unlock your previously saved wallet? (y/n) >>> ")
-        if choice.lower() == "y":
+        if choice.lower() in {"y", "yes"}:
             wallets = list_wallets()
             self.app.log("Existing wallets:")
             self.list(obj="wallets")
@@ -327,6 +327,7 @@ class HummingbotApplication:
             await write_config_to_yml()
             if not single_key:
                 self.app.log("\nConfig process complete. Enter \"start\" to start market making.")
+                self.app.set_text("start")
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
         except Exception as err:
@@ -693,7 +694,7 @@ class HummingbotApplication:
 
             ans = await self.app.prompt("Are you sure you want to print your private key in plain text? (y/n) >>> ")
 
-            if ans.lower() in {"y" or "yes"}:
+            if ans.lower() in {"y", "yes"}:
                 self.app.log("\nWarning: Never disclose this key. Anyone with your private keys can steal any assets "
                              "held in your account.\n")
                 self.app.log("Your private key:")

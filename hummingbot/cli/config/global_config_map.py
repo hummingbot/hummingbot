@@ -101,7 +101,7 @@ global_config_map = {
                                                   is_secure=True),
     "wallet":                           ConfigVar(key="wallet",
                                                   prompt="Would you like to import an existing wallet or create a new"
-                                                         " wallet? (import / create) >>> ",
+                                                         " wallet? (import/create) >>> ",
                                                   required_if=using_wallet,
                                                   is_secure=True),
     "ethereum_rpc_url":                 ConfigVar(key="ethereum_rpc_url",
