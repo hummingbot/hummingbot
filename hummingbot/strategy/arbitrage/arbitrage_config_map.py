@@ -8,14 +8,16 @@ from hummingbot.cli.settings import (
 
 def primary_symbol_prompt():
     primary_market = arbitrage_config_map.get("primary_market").value
-    return "Enter the token symbol you would like to trade on %s (e.g. %s) >>> " \
-           % (primary_market, EXAMPLE_PAIRS[primary_market])
+    example = EXAMPLE_PAIRS.get(primary_market)
+    return "Enter the token symbol you would like to trade on %s%s >>> " \
+           % (primary_market, f" (e.g. {example})" if example else "")
 
 
 def secondary_symbol_prompt():
     secondary_market = arbitrage_config_map.get("secondary_market").value
-    return "Enter the token symbol you would like to trade on %s (e.g. %s) >>> " \
-           % (secondary_market, EXAMPLE_PAIRS[secondary_market])
+    example = EXAMPLE_PAIRS.get(secondary_market)
+    return "Enter the token symbol you would like to trade on %s%s >>> " \
+           % (secondary_market, f" (e.g. {example})" if example else "")
 
 
 arbitrage_config_map = {
