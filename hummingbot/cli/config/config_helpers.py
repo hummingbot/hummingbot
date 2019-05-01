@@ -133,15 +133,14 @@ def read_configs_from_yml(strategy_file_path: str = None):
                         raise ValueError(f"Cannot find corresponding config to key {key}.")
                     cvar.value = val_in_file
                     if val_in_file is not None and not cvar.validate(val_in_file):
-                        logging.getLogger().error("Invalid value %s for config variable %s" %
-                                                  (val_in_file, cvar.key), exc_info=True)
+                        raise ValueError("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
         except Exception as e:
             logging.getLogger().error("Error loading configs. Your config file may be corrupt. %s" % (e,),
                                       exc_info=True)
 
     load_yml_into_cm(GLOBAL_CONFIG_PATH, global_config_map)
     if strategy_file_path:
-        load_yml_into_cm(strategy_file_path, strategy_config_map)
+        load_yml_into_cm(join(CONF_FILE_PATH, strategy_file_path), strategy_config_map)
 
 
 async def write_config_to_yml():
@@ -151,7 +150,7 @@ async def write_config_to_yml():
     from hummingbot.cli.config.in_memory_config_map import in_memory_config_map
     current_strategy = in_memory_config_map.get("strategy").value
     strategy_config_map = get_strategy_config_map(current_strategy)
-    strategy_file_path = in_memory_config_map.get("strategy_file_path").value
+    strategy_file_path = join(CONF_FILE_PATH, in_memory_config_map.get("strategy_file_path").value)
 
     def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
         try:

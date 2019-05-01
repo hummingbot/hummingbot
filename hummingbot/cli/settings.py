@@ -2,12 +2,14 @@ from os.path import (
     realpath,
     join,
 )
-
 from typing import List
-
+from hummingbot.cli.utils.symbol_fetcher import SymbolFetcher
 
 # Global variables
 required_exchanges: List[str] = []
+
+# Use one single symbol fetcher
+symbol_fetcher: SymbolFetcher = SymbolFetcher()
 
 
 # Global static values
@@ -49,4 +51,3 @@ EXAMPLE_PAIRS = {
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
 MAXIMUM_LOG_PANE_LINE_COUNT = 1000
-

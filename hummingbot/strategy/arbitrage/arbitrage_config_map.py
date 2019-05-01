@@ -1,9 +1,22 @@
 from hummingbot.cli.config.config_var import ConfigVar
-from hummingbot.cli.config.config_validators import is_exchange
+from hummingbot.cli.config.config_validators import (
+    is_exchange,
+    is_valid_market_symbol,
+)
 from hummingbot.cli.settings import (
     required_exchanges,
     EXAMPLE_PAIRS,
 )
+
+
+def is_valid_primary_market_symbol(value: str) -> bool:
+    primary_market = arbitrage_config_map.get("primary_market").value
+    return is_valid_market_symbol(primary_market, value)
+
+
+def is_valid_secondary_market_symbol(value: str) -> bool:
+    secondary_market = arbitrage_config_map.get("secondary_market").value
+    return is_valid_market_symbol(secondary_market, value)
 
 
 def primary_symbol_prompt():
