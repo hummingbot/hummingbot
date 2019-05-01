@@ -257,6 +257,10 @@ cdef class DDEXMarket(MarketBase):
         self._gas_fee_usd = NaN
 
     @property
+    def name(self) -> str:
+        return "ddex"
+
+    @property
     def ready(self) -> bool:
         return len(self._account_balances) > 0 \
                and len(self._trading_rules) > 0 \
