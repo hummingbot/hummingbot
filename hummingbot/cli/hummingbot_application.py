@@ -46,17 +46,18 @@ from hummingbot.cli.errors import (
     InvalidCommandError,
     ArgumentParserError
 )
-from hummingbot.cli.settings import (
-    in_memory_config_map,
-    global_config_map,
+from hummingbot.cli.config.config_var import ConfigVar
+from hummingbot.cli.config.in_memory_config_map import in_memory_config_map
+from hummingbot.cli.config.global_config_map import global_config_map
+from hummingbot.cli.config.config_helpers import (
     get_strategy_config_map,
     write_config_to_yml,
     load_required_configs,
-    EXCHANGES,
-    ConfigVar,
     parse_cvar_value,
     copy_strategy_template,
+    get_erc20_token_addresses,
 )
+from hummingbot.cli.settings import EXCHANGES
 from hummingbot.logger.report_aggregator import ReportAggregator
 from hummingbot.strategy.cross_exchange_market_making import (
     CrossExchangeMarketMakingStrategy,
@@ -66,7 +67,6 @@ from hummingbot.strategy.arbitrage import (
     ArbitrageStrategy,
     ArbitrageMarketPair
 )
-from hummingbot.cli.settings import get_erc20_token_addresses
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 
 s_logger = None
@@ -232,7 +232,7 @@ class HummingbotApplication:
 
     async def _unlock_wallet(self):
         choice = await self.app.prompt(prompt="Would you like to unlock your previously saved wallet? (y/n) >>> ")
-        if choice.lower() == "y":
+        if choice.lower() in {"y", "yes"}:
             wallets = list_wallets()
             self.app.log("Existing wallets:")
             self.list(obj="wallets")
@@ -327,6 +327,7 @@ class HummingbotApplication:
             await write_config_to_yml()
             if not single_key:
                 self.app.log("\nConfig process complete. Enter \"start\" to start market making.")
+                self.app.set_text("start")
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
         except Exception as err:
@@ -693,7 +694,7 @@ class HummingbotApplication:
 
             ans = await self.app.prompt("Are you sure you want to print your private key in plain text? (y/n) >>> ")
 
-            if ans.lower() in {"y" or "yes"}:
+            if ans.lower() in {"y", "yes"}:
                 self.app.log("\nWarning: Never disclose this key. Anyone with your private keys can steal any assets "
                              "held in your account.\n")
                 self.app.log("Your private key:")
