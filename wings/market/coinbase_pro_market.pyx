@@ -265,7 +265,7 @@ cdef class CoinbaseProMarket(MarketBase):
         self._shared_client = None
 
     @property
-    def market_name(self) -> str:
+    def name(self) -> str:
         return "CoinbasePro"
 
     @property

@@ -255,7 +255,7 @@ cdef class RadarRelayMarket(MarketBase):
         self._latest_salt = -1
 
     @property
-    def market_name(self) -> str:
+    def name(self) -> str:
         return "RadarRelay"
 
     @property
