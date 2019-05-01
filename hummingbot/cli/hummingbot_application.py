@@ -46,17 +46,18 @@ from hummingbot.cli.errors import (
     InvalidCommandError,
     ArgumentParserError
 )
-from hummingbot.cli.settings import (
-    in_memory_config_map,
-    global_config_map,
+from hummingbot.cli.config.config_var import ConfigVar
+from hummingbot.cli.config.in_memory_config_map import in_memory_config_map
+from hummingbot.cli.config.global_config_map import global_config_map
+from hummingbot.cli.config.config_helpers import (
     get_strategy_config_map,
     write_config_to_yml,
     load_required_configs,
-    EXCHANGES,
-    ConfigVar,
     parse_cvar_value,
     copy_strategy_template,
+    get_erc20_token_addresses,
 )
+from hummingbot.cli.settings import EXCHANGES
 from hummingbot.logger.report_aggregator import ReportAggregator
 from hummingbot.strategy.cross_exchange_market_making import (
     CrossExchangeMarketMakingStrategy,
@@ -66,7 +67,6 @@ from hummingbot.strategy.arbitrage import (
     ArbitrageStrategy,
     ArbitrageMarketPair
 )
-from hummingbot.cli.settings import get_erc20_token_addresses
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 
 s_logger = None
