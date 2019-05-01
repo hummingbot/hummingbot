@@ -80,4 +80,11 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     export_private_key_parser = subparsers.add_parser('export_private_key', help='Print your account private key')
     export_private_key_parser.set_defaults(func=lambda: asyncio.ensure_future(hummingbot.export_private_key()))
 
+    history_parser = subparsers.add_parser('history', help='Get your bot\'s past trades and performance analytics')
+    history_parser.set_defaults(func=hummingbot.history)
+
+    export_trades_parser = subparsers.add_parser('export_trades', help='Export your trades to a csv file')
+    export_trades_parser.add_argument('-p', '--path', help='Save csv to specific path')
+    export_trades_parser.set_defaults(func=hummingbot.export_trades)
+
     return parser

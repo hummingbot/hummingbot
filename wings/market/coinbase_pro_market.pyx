@@ -265,6 +265,10 @@ cdef class CoinbaseProMarket(MarketBase):
         self._shared_client = None
 
     @property
+    def name(self) -> str:
+        return "coinbase_pro"
+
+    @property
     def order_books(self) -> Dict[str, OrderBook]:
         return self._order_book_tracker.order_books
 
