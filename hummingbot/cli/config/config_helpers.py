@@ -27,6 +27,9 @@ from hummingbot.cli.settings import (
     CONF_PREFIX,
 )
 
+# Use ruamel.yaml to preserve order and comments in .yml file
+yaml = ruamel.yaml.YAML()
+
 
 def parse_cvar_value(cvar: ConfigVar, value: any):
     if cvar.type == 'str':
@@ -74,10 +77,6 @@ def get_erc20_token_addresses(symbols: List[str]):
             return addresses
         except Exception as e:
             logging.getLogger().error(e, exc_info=True)
-
-
-# Use ruamel.yaml to preserve order and comments in .yml file
-yaml = ruamel.yaml.YAML()
 
 
 def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:

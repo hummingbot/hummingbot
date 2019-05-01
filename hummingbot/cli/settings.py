@@ -6,6 +6,10 @@ from os.path import (
 from typing import List
 
 
+# Global variables
+required_exchanges: List[str] = []
+
+
 # Global static values
 KEYFILE_PREFIX = "key_file_"
 KEYFILE_POSTFIX = ".json"
@@ -19,9 +23,23 @@ CONF_FILE_PATH = "conf/"
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
 
-EXCHANGES = ["binance", "ddex", "radar_relay", "coinbase_pro"]
-DEXES = ["ddex", "radar_relay"]
-STRATEGIES = ["cross_exchange_market_making", "arbitrage"]
+EXCHANGES = {
+    "binance",
+    "ddex",
+    "radar_relay",
+    "coinbase_pro"
+}
+
+DEXES = {
+    "ddex",
+    "radar_relay",
+}
+
+STRATEGIES = {
+    "cross_exchange_market_making",
+    "arbitrage",
+}
+
 EXAMPLE_PAIRS = {
     "binance": "ZRXETH",
     "ddex": "ZRX-WETH",
@@ -31,8 +49,4 @@ EXAMPLE_PAIRS = {
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
 MAXIMUM_LOG_PANE_LINE_COUNT = 1000
-
-
-# Global variables
-required_exchanges: List[str] = []
 
