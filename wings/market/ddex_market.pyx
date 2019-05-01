@@ -633,6 +633,7 @@ cdef class DDEXMarket(MarketBase):
             object buy_fee = self.c_get_fee(symbol, order_type, TradeType.BUY, amount, price)
             double total_flat_fees = 0.0
             double adjusted_amount
+            double price_for_fee_calc
 
         for flat_fee_currency, flat_fee_amount in buy_fee.flat_fees:
             # DDEX fees are always in quote currency so no conversion is needed
@@ -640,10 +641,12 @@ cdef class DDEXMarket(MarketBase):
 
         # adjust amount so fees are taken from your order instead of in addition to your order
         if order_type == OrderType.MARKET:
-            price = (<OrderBook>self.c_get_order_book(symbol)).c_get_price_for_volume(True, amount)
+            # get price estimate for valuing fees
+            price_for_fee_calc = (<OrderBook>self.c_get_order_book(symbol)).c_get_price_for_volume(True, amount)
+        else:
+            price_for_fee_calc = price
 
-        adjusted_amount = amount / (1 + buy_fee.percent) - total_flat_fees / price
-
+        adjusted_amount = amount / (1 + buy_fee.percent) - total_flat_fees / price_for_fee_calc
         # send the order.
         asyncio.ensure_future(self.execute_buy(order_id, symbol, adjusted_amount, order_type, price))
         return order_id
