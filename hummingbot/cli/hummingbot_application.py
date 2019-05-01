@@ -57,9 +57,7 @@ from hummingbot.cli.config.config_helpers import (
     copy_strategy_template,
     get_erc20_token_addresses,
 )
-from hummingbot.cli.settings import (
-    EXCHANGES,
-)
+from hummingbot.cli.settings import EXCHANGES
 from hummingbot.logger.report_aggregator import ReportAggregator
 from hummingbot.strategy.cross_exchange_market_making import (
     CrossExchangeMarketMakingStrategy,
