@@ -370,8 +370,8 @@ cdef class DDEXMarket(MarketBase):
             previous_is_done = tracked_order.is_done
             new_confirmed_amount = float(order_update["confirmedAmount"])
             execute_amount_diff = new_confirmed_amount - float(tracked_order.executed_amount)
-            execute_price = float(order_update["price"])
             is_market_buy = order_update["side"] == "buy" and order_update["type"] == "market"
+            execute_price = float(order_update["averagePrice"]) if is_market_buy else float(order_update["price"])
 
             client_order_id = tracked_order.client_order_id
             order_type_description = (("market" if tracked_order.order_type == OrderType.MARKET else "limit") +
