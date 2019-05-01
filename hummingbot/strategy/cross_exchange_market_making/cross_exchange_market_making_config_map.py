@@ -8,14 +8,16 @@ from hummingbot.cli.settings import (
 
 def maker_symbol_prompt():
     maker_market = cross_exchange_market_making_config_map.get("maker_market").value
-    return "Enter the token symbol you would like to trade on %s (e.g. %s) >>> " \
-           % (maker_market, EXAMPLE_PAIRS[maker_market])
+    example = EXAMPLE_PAIRS.get(maker_market)
+    return "Enter the token symbol you would like to trade on %s%s >>> " \
+           % (maker_market, f" (e.g. {example})" if example else "")
 
 
 def taker_symbol_prompt():
     taker_market = cross_exchange_market_making_config_map.get("taker_market").value
-    return "Enter the token symbol you would like to trade on %s (e.g. %s) >>> " \
-           % (taker_market, EXAMPLE_PAIRS[taker_market])
+    example = EXAMPLE_PAIRS.get(taker_market)
+    return "Enter the token symbol you would like to trade on %s%s >>> " \
+           % (taker_market, f" (e.g. {example})" if example else "")
 
 
 cross_exchange_market_making_config_map = {
