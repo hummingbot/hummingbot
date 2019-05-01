@@ -102,13 +102,15 @@ nav:
       - Strategies: strategies.md
       - Cross-exchange market making: strategies/cross-exchange-market-making.md
       - Arbitrage: strategies/arbitrage.md
+      - Pure market making: strategies/pure-market-making.md
     - Support:
       - Support: support.md
       - Bug bounty program: support/bug-bounty-program.md
       - Known issues: support/issues.md
     - Release notes:
       - Release notes: release-notes.md
-      - 0.2.0: release-notes/0.2.0.md
-      - 0.3.0: release-notes/0.3.0.md
+      - 0.5.0: release-notes/0.5.0.md
+      - 0.4.0: release-notes/0.4.0.md
       - 0.3.1 (beta): release-notes/0.3.1.md
-      - 0.4.0: release-notes/0.4.0.md   
+      - 0.3.0: release-notes/0.3.0.md
+      - 0.2.0: release-notes/0.2.0.md
