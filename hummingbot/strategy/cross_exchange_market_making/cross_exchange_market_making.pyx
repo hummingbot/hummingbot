@@ -308,10 +308,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                                                                                 maker_order_book,
                                                                                                 taker_order_book)
             lines.extend(["", "  Profitability:"] +
-                         [f"    make bid offer on {maker_name}, "
-                          f"take bid offer on {taker_name}: {round(bid_profitability * 100, 4)} %"] +
-                         [f"    make ask offer on {maker_name}, "
-                          f"take ask offer on {taker_name}: {round(ask_profitability * 100, 4)} %"])
+                         [f"    make bid on {maker_name}, "
+                          f"take bid on {taker_name}: {round(bid_profitability * 100, 4)} %"] +
+                         [f"    make ask on {maker_name}, "
+                          f"take ask on {taker_name}: {round(ask_profitability * 100, 4)} %"])
 
             # See if there're any open orders.
             if market_pair in self._tracked_maker_orders and len(self._tracked_maker_orders[market_pair]) > 0:
