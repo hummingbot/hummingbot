@@ -267,7 +267,7 @@ cdef class DDEXMarket(MarketBase):
                and not math.isnan(self._gas_fee_usd)
 
     @property
-    def market_name(self) -> str:
+    def name(self) -> str:
         return "DDEX"
 
     @property

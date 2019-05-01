@@ -367,7 +367,7 @@ cdef class BinanceMarket(MarketBase):
         self._coro_scheduler_task = None
 
     @property
-    def market_name(self) -> str:
+    def name(self) -> str:
         return "Binance"
 
     @property
