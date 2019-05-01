@@ -23,6 +23,7 @@ from wings.events import (
 from wings.event_listener cimport EventListener
 from wings.limit_order cimport LimitOrder
 from wings.limit_order import LimitOrder
+from wings.network_iterator import NetworkStatus
 from wings.market.market_base import (
     MarketBase,
     OrderType
@@ -286,6 +287,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             taker_bid_adjusted = taker_bid_price * taker_quote_adjusted
             taker_ask_adjusted = taker_ask_price * taker_quote_adjusted
 
+            if not (maker_market.network_status is NetworkStatus.CONNECTED and
+                    taker_market.network_status is NetworkStatus.CONNECTED):
+                warning_lines.extend([
+                    f"  Markets are offline for the {maker_symbol} // {taker_symbol} pair. Continued market making "
+                    f"with these markets may be dangerous.",
+                    ""
+                ])
+
             markets_columns = ["Market", "Symbol", "Bid Price", "Ask Price", "Adjusted Bid", "Adjusted Ask"]
             markets_data = [
                 [maker_name, maker_symbol, maker_bid_price, maker_ask_price, maker_bid_adjusted, maker_ask_adjusted],
@@ -437,43 +446,47 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef c_tick(self, double timestamp):
         StrategyBase.c_tick(self, timestamp)
 
-        if not self._all_markets_ready:
-            self._all_markets_ready = all([market.ready for market in self._markets])
-            if not self._all_markets_ready:
-                # Markets not ready yet. Don't do anything.
-                return
-
         cdef:
+            int64_t current_tick = <int64_t>(timestamp // self._status_report_interval)
+            int64_t last_tick = <int64_t>(self._last_timestamp // self._status_report_interval)
+            bint should_report_warnings = ((current_tick > last_tick) and
+                                           (self._logging_options & self.OPTION_LOG_STATUS_REPORT))
             list active_maker_orders = self.active_maker_orders
 
-        market_pair_to_active_orders = defaultdict(list)
+        try:
+            if not self._all_markets_ready:
+                self._all_markets_ready = all([market.ready for market in self._markets])
+                if not self._all_markets_ready:
+                    # Markets not ready yet. Don't do anything.
+                    if should_report_warnings:
+                        self.logger().warning(f"Markets are not ready. No market making trades are permitted.")
+                    return
 
-        for maker_market, limit_order in active_maker_orders:
-            market_pair = self._market_pairs.get((maker_market, limit_order.symbol))
-            if market_pair is None:
-                self.log_with_clock(logging.WARNING,
-                                    f"The in-flight maker order in for the symbol '{limit_order.symbol}' "
-                                    f"does not correspond to any whitelisted market pairs. Skipping.")
-                continue
+            if should_report_warnings:
+                if not all([market.network_status is NetworkStatus.CONNECTED for market in self._markets]):
+                    self.logger().warning(f"WARNING: Some markets are not connected or are down at the moment. Market "
+                                          f"making may be dangerous when markets or networks are unstable.")
 
-            if (self._in_flight_cancels.get(limit_order.client_order_id, 0) <
-                    self._current_timestamp - self.CANCEL_EXPIRY_DURATION):
-                market_pair_to_active_orders[market_pair].append(limit_order)
+            market_pair_to_active_orders = defaultdict(list)
 
-        for market_pair in self._market_pairs.values():
-            self.c_process_market_pair(market_pair, market_pair_to_active_orders[market_pair])
+            for maker_market, limit_order in active_maker_orders:
+                market_pair = self._market_pairs.get((maker_market, limit_order.symbol))
+                if market_pair is None:
+                    self.log_with_clock(logging.WARNING,
+                                        f"The in-flight maker order in for the symbol '{limit_order.symbol}' "
+                                        f"does not correspond to any whitelisted market pairs. Skipping.")
+                    continue
 
-        cdef:
-            int64_t current_tick
-            int64_t last_tick
-        if self._logging_options & self.OPTION_LOG_STATUS_REPORT:
-            current_tick = <int64_t>(timestamp // self._status_report_interval)
-            last_tick = <int64_t>(self._last_timestamp // self._status_report_interval)
-            if current_tick < last_tick:
-                self.logger().info(self.format_status())
+                if (self._in_flight_cancels.get(limit_order.client_order_id, 0) <
+                        self._current_timestamp - self.CANCEL_EXPIRY_DURATION):
+                    market_pair_to_active_orders[market_pair].append(limit_order)
 
-        self.c_check_and_cleanup_shadow_records()
-        self._last_timestamp = timestamp
+            for market_pair in self._market_pairs.values():
+                self.c_process_market_pair(market_pair, market_pair_to_active_orders[market_pair])
+
+            self.c_check_and_cleanup_shadow_records()
+        finally:
+            self._last_timestamp = timestamp
 
     cdef c_process_market_pair(self, object market_pair, list active_orders):
         cdef:

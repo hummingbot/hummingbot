@@ -8,6 +8,7 @@ cdef class Web3Wallet(WalletBase):
     cdef:
         object _local_account
         list _wallet_backends
+        list _last_backend_network_states
         object _best_backend
         object _select_best_backend_task
         object _event_dedup_window

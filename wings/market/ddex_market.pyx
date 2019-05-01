@@ -19,7 +19,7 @@ from libc.stdint cimport int64_t
 from web3 import Web3
 
 from wings.cancellation_result import CancellationResult
-from wings.clock cimport Clock
+from wings.data_source.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
 from wings.events import (
     MarketEvent,
     BuyOrderCompletedEvent,
@@ -29,7 +29,6 @@ from wings.events import (
     MarketTransactionFailureEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
-    OrderType,
     TradeType,
     TradeFee
 )
@@ -39,7 +38,6 @@ from wings.market.market_base import (
     OrderType
 )
 from wings.network_iterator import (
-    NetworkIterator,
     NetworkStatus
 )
 from wings.order_book cimport OrderBook
@@ -870,6 +868,9 @@ cdef class DDEXMarket(MarketBase):
         self._stop_network()
 
     async def check_network(self) -> NetworkStatus:
+        if self._wallet.network_status is not NetworkStatus.CONNECTED:
+            return NetworkStatus.NOT_CONNECTED
+
         url = f"{self.DDEX_REST_ENDPOINT}/markets/tickers"
         try:
             await self._api_request("GET", url)

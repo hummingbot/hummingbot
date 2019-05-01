@@ -108,7 +108,7 @@ class ERC20EventsWatcher(BaseWatcher):
 
                 transfer_tasks = []
                 approval_tasks = []
-                for address in self._contract_addresses:
+                for address in self._addresses_to_contracts.keys():
                     contract_event_logger: ContractEventLogger = self._contract_event_loggers[address]
                     transfer_tasks.append(
                         contract_event_logger.get_new_entries_from_logs(TRANSFER_EVENT_NAME,
