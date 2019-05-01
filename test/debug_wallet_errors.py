@@ -6,7 +6,7 @@ import logging; logging.basicConfig(level=logging.INFO)
 import asyncio
 import time
 
-from hummingbot.cli.settings import get_erc20_token_addresses
+from hummingbot.cli.config.config_helpers import get_erc20_token_addresses
 from wings.wallet.web3_wallet import Web3Wallet
 from wings.clock import Clock, ClockMode
 from wings.market.ddex_market import DDEXMarket
@@ -19,11 +19,13 @@ pkey = "7BB21B1C4C9C0A474BCD08C1BA3C31ACEA8B6840AC72A67EDD38CB32899CBF87"
 server = "http://aws-mainnet-1.mainnet-rpc-headless.mainnet:8545"
 clock = Clock(ClockMode.REALTIME)
 wallet = Web3Wallet(pkey, [server], token_addresses, chain=EthereumChain.MAIN_NET)
-market = DDEXMarket(wallet, server,
-        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-        symbols=["WETH-DAI"])
+market = DDEXMarket(wallet,
+                    server,
+                    order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                    symbols=["WETH-DAI"])
 clock.add_iterator(wallet)
 clock.add_iterator(market)
+
 
 async def main():
     begin = time.time() // 1
