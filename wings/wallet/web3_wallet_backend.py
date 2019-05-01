@@ -253,12 +253,14 @@ class Web3WalletBackend(PubSub):
 
     async def stop_network(self):
         # Disconnect the event forwarders.
-        self._erc20_events_watcher.remove_listener(ERC20WatcherEvent.ReceivedToken,
-                                                   self._received_asset_event_forwarder)
-        self._erc20_events_watcher.remove_listener(ERC20WatcherEvent.ApprovedToken,
-                                                   self._approved_token_event_forwarder)
-        self._incoming_eth_watcher.remove_listener(IncomingEthWatcherEvent.ReceivedEther,
-                                                   self._received_asset_event_forwarder)
+        if self._erc20_events_watcher is not None:
+            self._erc20_events_watcher.remove_listener(ERC20WatcherEvent.ReceivedToken,
+                                                       self._received_asset_event_forwarder)
+            self._erc20_events_watcher.remove_listener(ERC20WatcherEvent.ApprovedToken,
+                                                       self._approved_token_event_forwarder)
+        if self._incoming_eth_watcher is not None:
+            self._incoming_eth_watcher.remove_listener(IncomingEthWatcherEvent.ReceivedEther,
+                                                       self._received_asset_event_forwarder)
         if self._weth_watcher is not None:
             self._weth_watcher.remove_listener(WalletEvent.WrappedEth,
                                                self._wrapped_eth_event_forwarder)
@@ -266,10 +268,14 @@ class Web3WalletBackend(PubSub):
                                                self._unwrapped_eth_event_forwarder)
 
         # Stop the event watchers.
-        await self._new_blocks_watcher.stop_network()
-        await self._account_balance_watcher.stop_network()
-        await self._erc20_events_watcher.stop_network()
-        await self._incoming_eth_watcher.stop_network()
+        if self._new_blocks_watcher is not None:
+            await self._new_blocks_watcher.stop_network()
+        if self._account_balance_watcher is not None:
+            await self._account_balance_watcher.stop_network()
+        if self._erc20_events_watcher is not None:
+            await self._erc20_events_watcher.stop_network()
+        if self._incoming_eth_watcher is not None:
+            await self._incoming_eth_watcher.stop_network()
         if self._weth_watcher is not None:
             await self._weth_watcher.stop_network()
 
@@ -407,16 +413,25 @@ class Web3WalletBackend(PubSub):
         self._local_nonce += 1
 
     def get_balance(self, symbol: str) -> float:
-        return self._account_balance_watcher.get_balance(symbol)
+        if self._account_balance_watcher is not None:
+            return self._account_balance_watcher.get_balance(symbol)
+        else:
+            return 0.0
 
     def get_all_balances(self) -> Dict[str, float]:
-        return self._account_balance_watcher.get_all_balances()
+        if self._account_balance_watcher is not None:
+            return self._account_balance_watcher.get_all_balances()
+        return {}
 
     def get_raw_balance(self, symbol: str) -> int:
-        return self._account_balance_watcher.get_raw_balance(symbol)
+        if self._account_balance_watcher is not None:
+            return self._account_balance_watcher.get_raw_balance(symbol)
+        return 0
 
     def get_raw_balances(self) -> Dict[str, int]:
-        return self._account_balance_watcher.get_raw_balances()
+        if self._account_balance_watcher is not None:
+            return self._account_balance_watcher.get_raw_balances()
+        return {}
 
     def sign_hash(self, text: str = None, hexstr: str = None) -> str:
         msg_hash: str = defunct_hash_message(hexstr=hexstr, text=text)

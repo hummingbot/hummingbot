@@ -930,6 +930,9 @@ cdef class RadarRelayMarket(MarketBase):
         self._stop_network()
 
     async def check_network(self) -> NetworkStatus:
+        if self._wallet.network_status is not NetworkStatus.CONNECTED:
+            return NetworkStatus.NOT_CONNECTED
+
         try:
             await self._api_request("GET", f"{RADAR_RELAY_REST_ENDPOINT}/tokens")
         except asyncio.CancelledError:

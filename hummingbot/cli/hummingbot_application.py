@@ -19,16 +19,20 @@ from typing import (
 )
 from web3 import Web3
 
-from wings.wallet.web3_wallet import Web3Wallet
-from wings.market.market_base import MarketBase
-from wings.market.binance_market import BinanceMarket
-from wings.market.radar_relay_market import RadarRelayMarket
-from wings.market.ddex_market import DDEXMarket
-from wings.market.coinbase_pro_market import CoinbaseProMarket
-from wings.clock import Clock, ClockMode
+from wings.clock import (
+    Clock,
+    ClockMode
+)
 from wings.ethereum_chain import EthereumChain
+from wings.market.binance_market import BinanceMarket
+from wings.market.coinbase_pro_market import CoinbaseProMarket
+from wings.market.ddex_market import DDEXMarket
+from wings.market.market_base import MarketBase
+from wings.market.radar_relay_market import RadarRelayMarket
+from wings.network_iterator import NetworkStatus
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.trade import Trade
+from wings.wallet.web3_wallet import Web3Wallet
 
 from hummingbot import init_logging
 from hummingbot.cli.ui.keybindings import load_key_bindings
@@ -406,12 +410,16 @@ class HummingbotApplication:
             return False
 
         if self.wallet is not None:
-            has_minimum_eth = self.wallet.get_balance("ETH") > 0.01
-            if has_minimum_eth:
-                self.app.log("   - Min ETH check: Minimum ETH requirement satisfied")
+            if self.wallet.network_status is NetworkStatus.CONNECTED:
+                has_minimum_eth = self.wallet.get_balance("ETH") > 0.01
+                if has_minimum_eth:
+                    self.app.log("   - ETH wallet check: Minimum ETH requirement satisfied")
+                else:
+                    self.app.log("   x ETH wallet check: Not enough ETH in wallet. "
+                                 "A small amount of Ether is required for sending transactions on "
+                                 "Decentralized Exchanges")
             else:
-                self.app.log("   x Min ETH check: Not enough ETH in wallet. "
-                             "A small amount of Ether is required for sending transactions on Decentralized Exchanges")
+                self.app.log("   x ETH wallet check: ETH wallet is not connected.")
 
         loading_markets: List[str] = []
         for market_name, market in self.markets.items():
@@ -426,6 +434,15 @@ class HummingbotApplication:
                 self.app.log(f"   x Market check:  Waiting for {loading_market} market to get ready for trading. "
                              f"Please keep the bot running and try to start again in a few minutes")
             return False
+        elif not all([market.network_status is NetworkStatus.CONNECTED for market in self.markets.values()]):
+            offline_markets: List[str] = [
+                market_name
+                for market_name, market
+                in self.markets.items()
+                if market.network_status is not NetworkStatus.CONNECTED
+            ]
+            for offline_market in offline_markets:
+                self.app.log(f"   x Market check:  {offline_market} is currently offline.")
 
         self.app.log("   - Market check: All markets ready")
         self.app.log(self.strategy.format_status() + "\n")
@@ -545,6 +562,10 @@ class HummingbotApplication:
         self.init_reporting_module()
         self.app.log(f"\n  Status check complete. Starting '{strategy_name}' strategy...")
         asyncio.ensure_future(self.start_market_making(strategy_name))
+
+    async def _run_clock(self):
+        with self.clock as clock:
+            await clock.run()
 
     async def start_market_making(self, strategy_name: str):
         strategy_cm = get_strategy_config_map(strategy_name)
@@ -682,8 +703,7 @@ class HummingbotApplication:
                 if market is not None:
                     self.clock.add_iterator(market)
             self.clock.add_iterator(self.strategy)
-            
-            self.strategy_task: asyncio.Task = asyncio.ensure_future(self.clock.run())
+            self.strategy_task: asyncio.Task = asyncio.ensure_future(self._run_clock())
             self.app.log(f"\n  '{strategy_name}' strategy started.\n"
                          f"  You can use the `status` command to query the progress.")
             self.starting_balances = await self.wait_till_ready(self.balance_snapshot)
@@ -803,5 +823,3 @@ class HummingbotApplication:
         df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Delta"])
         lines = ["", "  Performance:"] + ["    " + line for line in str(df).split("\n")]
         self.app.log("\n".join(lines))
-
-
