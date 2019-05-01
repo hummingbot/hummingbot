@@ -3,6 +3,7 @@ import asyncio
 from typing import (
     List,
     Dict,
+    Any,
 )
 
 
@@ -16,7 +17,7 @@ API_CALL_TIMEOUT = 5
 class SymbolFetcher:
     def __init__(self):
         self.ready = False
-        self.symbols = {}
+        self.symbols: Dict[str, Any] = {}
         asyncio.ensure_future(self.fetch_all())
 
     @staticmethod
@@ -30,8 +31,9 @@ class SymbolFetcher:
                         symbols = list(map(lambda symbol_details: symbol_details.get('symbol'), symbol_structs))
                         return symbols
                     except Exception:
+                        pass
                         # Do nothing if the request fails -- there will be no autocomplete for binance symbols
-                        return []
+                return []
 
     @staticmethod
     async def fetch_ddex_symbols() -> List[str]:
@@ -44,8 +46,9 @@ class SymbolFetcher:
                         symbols = list(map(lambda symbol_details: symbol_details.get('id'), markets))
                         return symbols
                     except Exception:
-                        # Do nothing if the request fails -- there will be no autocomplete for ddex symbols
-                        return []
+                        pass
+                        # Do nothing if the request fails -- there will be no autocomplete for binance symbols
+                return []
 
     @staticmethod
     async def fetch_radar_relay_symbols() -> List[str]:
@@ -79,10 +82,11 @@ class SymbolFetcher:
                         symbols = list(map(lambda symbol_details: symbol_details.get('id'), markets))
                         return symbols
                     except Exception:
-                        # Do nothing if the request fails -- there will be no autocomplete for coinbase symbols
-                        return []
+                        pass
+                        # Do nothing if the request fails -- there will be no autocomplete for binance symbols
+                return []
 
-    async def fetch_all(self) -> Dict[str, List[str]]:
+    async def fetch_all(self):
         binance_symbols = await self.fetch_binance_symbols()
         ddex_symbols = await self.fetch_ddex_symbols()
         radar_relay_symbols = await self.fetch_radar_relay_symbols()
