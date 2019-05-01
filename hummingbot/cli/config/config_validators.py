@@ -1,7 +1,12 @@
-from os.path import isfile
+from os.path import (
+    isfile,
+    join,
+)
 from hummingbot.cli.settings import (
     EXCHANGES,
     STRATEGIES,
+    CONF_FILE_PATH,
+    symbol_fetcher,
 )
 
 
@@ -15,7 +20,7 @@ def is_strategy(value: str) -> bool:
 
 
 def is_path(value: str) -> bool:
-    return isfile(value) and value.endswith('.yml')
+    return isfile(join(CONF_FILE_PATH, value)) and value.endswith('.yml')
 
 
 def is_valid_market_symbol(market: str, value: str) -> bool:

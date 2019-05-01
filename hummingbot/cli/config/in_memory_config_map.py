@@ -17,7 +17,7 @@ from hummingbot.cli.config.config_helpers import (
 
 
 def get_default_strategy_config_yml_path(strategy: str) -> str:
-    return join(CONF_FILE_PATH, f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_0.yml")
+    return f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_0.yml"
 
 
 # Prompt generators
