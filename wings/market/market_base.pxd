@@ -1,4 +1,5 @@
 from wings.event_reporter cimport EventReporter
+from wings.event_logger cimport EventLogger
 from wings.order_book cimport OrderBook
 from wings.time_iterator cimport TimeIterator
 from wings.wallet.wallet_base cimport WalletBase
@@ -7,6 +8,7 @@ from wings.wallet.wallet_base cimport WalletBase
 cdef class MarketBase(TimeIterator):
     cdef:
         EventReporter event_reporter
+        EventLogger event_logger
     cdef str c_buy(self, str symbol, double amount, object order_type=*, double price=*, dict kwargs=*)
     cdef str c_sell(self, str symbol, double amount, object order_type=*, double price=*, dict kwargs=*)
     cdef c_cancel(self, str symbol, str client_order_id)

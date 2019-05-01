@@ -331,13 +331,12 @@ cdef class BinanceMarket(MarketBase):
                  binance_api_secret: str,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                    OrderBookTrackerDataSourceType.LOCAL_CLUSTER,
+                    OrderBookTrackerDataSourceType.EXCHANGE_API,
                  user_stream_tracker_data_source_type: UserStreamTrackerDataSourceType =
                     UserStreamTrackerDataSourceType.EXCHANGE_API,
                  symbols: Optional[List[str]] = None):
 
         self.monkey_patch_binance_time()
-
         super().__init__()
         self._order_book_tracker = BinanceOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
                                                            symbols=symbols)
@@ -364,6 +363,10 @@ cdef class BinanceMarket(MarketBase):
         self._order_tracker_task = None
         self._coro_queue = asyncio.Queue()
         self._coro_scheduler_task = None
+
+    @property
+    def name(self) -> str:
+        return "binance"
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:

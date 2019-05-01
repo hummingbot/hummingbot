@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import asyncio
+from os.path import join, dirname
 import logging
 import argparse
 from eth_account.local import LocalAccount
@@ -13,6 +14,8 @@ from typing import (
     Optional,
     Tuple,
     Any,
+    Set,
+    Callable,
 )
 from web3 import Web3
 
@@ -65,6 +68,7 @@ from hummingbot.strategy.arbitrage import (
 )
 from hummingbot.cli.settings import get_erc20_token_addresses
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
+
 s_logger = None
 
 
@@ -111,6 +115,8 @@ class HummingbotApplication:
         self.market_pair: Optional[CrossExchangeMarketPair] = None
         self.clock: Optional[Clock] = None
 
+        self.assets: Optional[Set[str]] = None
+        self.starting_balances = {}
         self.placeholder_mode = False
         self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
         self.reporting_module: Optional[ReportAggregator] = None
@@ -568,9 +574,9 @@ class HummingbotApplication:
                 (maker_market, raw_maker_symbol),
                 (taker_market, raw_taker_symbol)
             ]
-
             self._initialize_wallet(token_symbols=list(set(maker_assets + taker_assets)))
             self._initialize_markets(market_names)
+            self.assets = set(maker_assets + taker_assets)
 
             self.market_pair = CrossExchangeMarketPair(*([self.markets[maker_market], raw_maker_symbol] + list(maker_assets) +
                                                   [self.markets[taker_market], raw_taker_symbol] + list(taker_assets) +
@@ -608,9 +614,11 @@ class HummingbotApplication:
 
             market_names: List[Tuple[str, str]] = [(primary_market, raw_primary_symbol),
                                                    (secondary_market, raw_secondary_symbol)]
-            self._initialize_wallet(token_symbols=list(set(primary_assets + secondary_assets)))
 
+            self._initialize_wallet(token_symbols=list(set(primary_assets + secondary_assets)))
             self._initialize_markets(market_names)
+            self.assets = set(primary_assets + secondary_assets)
+
             self.market_pair = ArbitrageMarketPair(*([self.markets[primary_market], raw_primary_symbol] +
                                                      list(primary_assets) +
                                                      [self.markets[secondary_market], raw_secondary_symbol] +
@@ -636,6 +644,7 @@ class HummingbotApplication:
             self.strategy_task: asyncio.Task = asyncio.ensure_future(self.clock.run())
             self.app.log(f"\n  '{strategy_name}' strategy started.\n"
                          f"  You can use the `status` command to query the progress.")
+            self.starting_balances = await self.wait_till_ready(self.balance_snapshot)
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
 
@@ -644,7 +653,7 @@ class HummingbotApplication:
         if not skip_order_cancellation:
             # Remove the strategy from clock before cancelling orders, to
             # prevent race condition where the strategy tries to create more
-            # ordres during cancellation.
+            # orders during cancellation.
             self.clock.remove_iterator(self.strategy)
             success = await self._cancel_outstanding_orders()
             if success:
@@ -693,3 +702,60 @@ class HummingbotApplication:
             self.app.change_prompt(prompt=">>> ")
             self.app.toggle_hide_input()
             self.placeholder_mode = False
+
+    def export_trades(self, path: str = ""):
+        if not path:
+            fname = f"trades_{pd.Timestamp.now().strftime('%Y-%m-%d-%H-%M-%S')}.csv"
+            path = join(dirname(__file__), f"../../logs/{fname}")
+
+        if self.strategy is None:
+            self.app.log("No strategy available, cannot export past trades.")
+
+        else:
+            if len(self.strategy.trades) > 0:
+                df: pd.DataFrame = Trade.to_pandas(self.strategy.trades)
+                df.to_csv(path, header=True)
+                self.app.log(f"Successfully saved trades to {path}")
+
+    def history(self):
+        self.list("trades")
+        self.compare_balance_snapshots()
+
+    async def wait_till_ready(self, func: Callable, *args, **kwargs):
+        while True:
+            all_ready = all([market.ready for market in self.markets.values()])
+            if not all_ready:
+                await asyncio.sleep(0.5)
+            else:
+                return func(*args, **kwargs)
+
+    def balance_snapshot(self) -> Dict[str, Dict[str, float]]:
+        snapshot: Dict[str, Any] = {}
+        for market_name in self.markets:
+            balance_dict = self.markets[market_name].get_all_balances()
+            for c in self.assets:
+                if c not in snapshot:
+                    snapshot[c] = {}
+                if c in balance_dict:
+                    snapshot[c][market_name] = balance_dict[c]
+                else:
+                    snapshot[c][market_name] = 0.0
+        return snapshot
+
+    def compare_balance_snapshots(self):
+        if len(self.starting_balances) == 0:
+            self.app.log("Balance snapshots are not available before bot starts")
+            return
+
+        rows = []
+        for market_name in self.markets:
+            for asset in self.assets:
+                starting_balance = self.starting_balances.get(asset).get(market_name)
+                current_balance = self.balance_snapshot().get(asset).get(market_name)
+                rows.append([market_name, asset, starting_balance, current_balance, current_balance - starting_balance])
+
+        df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Delta"])
+        lines = ["", "  Performance:"] + ["    " + line for line in str(df).split("\n")]
+        self.app.log("\n".join(lines))
+
+
