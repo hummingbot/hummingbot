@@ -26,7 +26,7 @@ def init_logging(conf_filename: str, override_log_level: Optional[str] = None):
     from typing import Dict
     from ruamel.yaml import YAML
 
-    from hummingbot.cli.settings import global_config_map
+    from hummingbot.cli.config.global_config_map import global_config_map
     from hummingbot.logger import reporting_proxy_handler
     from wings.logger.struct_logger import (
         StructLogRecord,
