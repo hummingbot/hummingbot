@@ -15,7 +15,7 @@ if os.name == "posix":
 
 
 def main():
-    version = "20190429"
+    version = "20190502"
     packages = [
         "wings",
         "wings.logger",
@@ -32,6 +32,7 @@ def main():
         "hummingbot.strategy.arbitrage",
         "hummingbot.strategy.cross_exchange_market_making",
         "hummingbot.cli",
+        "hummingbot.cli.config",
         "hummingbot.cli.ui",
         "hummingbot.cli.utils",
         "hummingbot.logger",

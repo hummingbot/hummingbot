@@ -8,7 +8,17 @@ from os.path import (
 )
 from typing import Dict, List
 from eth_account import Account
-from hummingbot.cli.settings import get_key_file_path, KEYFILE_PREFIX, KEYFILE_POSTFIX
+from hummingbot.cli.settings import (
+    KEYFILE_PREFIX,
+    KEYFILE_POSTFIX,
+    DEFAULT_KEY_FILE_PATH,
+)
+from hummingbot.cli.config.global_config_map import global_config_map
+
+
+def get_key_file_path() -> str:
+    path = global_config_map["key_file_path"].value
+    return path if path is not None else DEFAULT_KEY_FILE_PATH
 
 
 def create_and_save_wallet(password: str, extra_entropy: str = "") -> Account:
