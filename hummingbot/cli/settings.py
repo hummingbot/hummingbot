@@ -36,6 +36,7 @@ DEXES = {
 STRATEGIES = {
     "cross_exchange_market_making",
     "arbitrage",
+    "discovery",
 }
 
 EXAMPLE_PAIRS = {
@@ -47,3 +48,4 @@ EXAMPLE_PAIRS = {
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
 MAXIMUM_LOG_PANE_LINE_COUNT = 1000
+

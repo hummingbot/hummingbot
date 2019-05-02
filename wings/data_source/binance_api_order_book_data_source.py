@@ -49,6 +49,9 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
+        """
+        Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
+        """
         async with aiohttp.ClientSession() as client:
 
             market_response, exchange_response = await asyncio.gather(
@@ -68,18 +71,16 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             market_data = await market_response.json()
             exchange_data = await exchange_response.json()
 
-            # Build a filter from exchange_data, s.t. we include only pairs that are trading.
-            trading_pairs: Set[str] = set(item["symbol"]
-                                          for item in exchange_data["symbols"]
-                                          if item["status"] == "TRADING")
-            market_data: List[Dict[str, any]] = [item
+            trading_pairs: Dict[str, any] = {item["symbol"]: {k: item[k] for k in ["baseAsset", "quoteAsset"]}
+                                             for item in exchange_data["symbols"]
+                                             if item["status"] == "TRADING"}
+
+            market_data: List[Dict[str, any]] = [{**item, **trading_pairs[item["symbol"]]}
                                                  for item in market_data
                                                  if item["symbol"] in trading_pairs]
 
             # Build the data frame.
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index="symbol")
-            filtered_markets: pd.DataFrame = all_markets[
-                [TRADING_PAIR_FILTER.search(i) is not None for i in all_markets.index]].copy()
             btc_price: float = float(all_markets.loc["BTCUSDT"].lastPrice)
             eth_price: float = float(all_markets.loc["ETHUSDT"].lastPrice)
             usd_volume: float = [
@@ -88,10 +89,12 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     quoteVolume * eth_price if symbol.endswith("ETH") else
                     quoteVolume
                 )
-                for symbol, quoteVolume in zip(filtered_markets.index,
-                                               filtered_markets.quoteVolume.astype("float"))]
-            filtered_markets["USDVolume"] = usd_volume
-            return filtered_markets.sort_values("USDVolume", ascending=False)
+                for symbol, quoteVolume in zip(all_markets.index,
+                                               all_markets.quoteVolume.astype("float"))]
+            all_markets.loc[:, "USDVolume"] = usd_volume
+            all_markets.loc[:, "volume"] = all_markets.quoteVolume
+
+            return all_markets.sort_values("USDVolume", ascending=False)
 
     @property
     def order_book_class(self) -> BinanceOrderBook:
@@ -143,6 +146,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     await asyncio.sleep(0.6)
                 except Exception:
                     self.logger().error(f"Error getting snapshot for {trading_pair}. ", exc_info=True)
+                    await asyncio.sleep(5)
             return retval
 
     async def _inner_messages(self,
@@ -173,6 +177,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 trading_pairs: List[str] = await self.get_trading_pairs()
                 ws_path: str = "/".join([f"{trading_pair.lower()}@depth" for trading_pair in trading_pairs])
                 stream_url: str = f"{DIFF_STREAM_URL}/{ws_path}"
+
                 async with websockets.connect(stream_url) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     async for raw_msg in self._inner_messages(ws):
