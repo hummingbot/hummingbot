@@ -274,7 +274,7 @@ cdef class DDEXMarket(MarketBase):
 
     @property
     def name(self) -> str:
-        return "DDEX"
+        return "ddex"
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
