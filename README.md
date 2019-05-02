@@ -24,11 +24,11 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | [![DDEX](https://i.ibb.co/Lrpps2G/Screen-Shot-2019-03-14-at-10-39-23-AM.png)](https://ddex.io/) | ddex | [DDEX](https://ddex.io/) | 3 | [API](https://docs.ddex.io/) |
 | [![COINBASE](https://i.ibb.co/h9JdGDW/cbp.jpg)](https://pro.coinbase.com/) | coinbase_pro | [Coinbase Pro](https://pro.coinbase.com/) | * | [API](https://docs.pro.coinbase.com/) |
 
-## Installation
+## Install Hummingbot
 See [Installation Guide](https://docs.hummingbot.io/installation/).
 
-## Quick Start
-See [Starting Hummingbot](https://docs.hummingbot.io/operation/client/).
+## Learn more
+See [FAQs](https://docs.hummingbot.io/faq/).
 
 ## Contributing
 
