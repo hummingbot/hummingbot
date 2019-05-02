@@ -21,6 +21,7 @@ from wings.tracker.radar_relay_active_order_tracker import RadarRelayActiveOrder
 from .order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.order_book_tracker_entry import OrderBookTrackerEntry, RadarRelayOrderBookTrackerEntry
 from wings.order_book_message import OrderBookMessage, RadarRelayOrderBookMessage
+from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 
 TRADING_PAIR_FILTER = re.compile(r"(WETH|DAI)$")
 
@@ -71,28 +72,37 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
+        """
+        Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
+        """
         client: aiohttp.ClientSession = cls.http_client()
         async with client.get(f"{MARKETS_URL}?include=ticker,stats") as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching active Radar Relay markets. HTTP status is {response.status}.")
             data = await response.json()
-            all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data, index="id")
-            fetch_markets: pd.DataFrame = all_markets[
-                lambda df: [TRADING_PAIR_FILTER.search(i) is not None for i in df.index]
+            data: List[Dict[str, any]] = [
+                {**item, **{"baseAsset": item["id"].split("-")[0], "quoteAsset": item["id"].split("-")[1]}}
+                for item in data
             ]
-            weth_dai_price: float = float(fetch_markets.loc["WETH-DAI"]["ticker"]["price"])
-            dai_volume: List[float] = []
-            for row in fetch_markets.itertuples():
+            all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data, index="id")
+
+            weth_dai_price: float = float(all_markets.loc["WETH-DAI"]["ticker"]["price"])
+            dai_usd_price: float = ExchangeRateConversion.get_instance().adjust_token_rate("DAI", weth_dai_price)
+            usd_volume: List[float] = []
+            quote_volume: List[float] = []
+            for row in all_markets.itertuples():
                 product_name: str = row.Index
                 base_volume: float = float(row.stats["volume24Hour"])
+                quote_volume.append(base_volume)
                 if product_name.endswith("WETH"):
-                    dai_volume.append(weth_dai_price * base_volume)
+                    usd_volume.append(dai_usd_price * base_volume)
                 else:
-                    dai_volume.append(base_volume)
-            fetch_markets.loc[:, "DAIVolume"] = dai_volume
+                    usd_volume.append(base_volume)
 
-            return fetch_markets.sort_values("DAIVolume", ascending=False)
+            all_markets.loc[:, "USDVolume"] = usd_volume
+            all_markets.loc[:, "volume"] = quote_volume
+            return all_markets.sort_values("USDVolume", ascending=False)
 
     @property
     def order_book_class(self) -> RadarRelayOrderBook:
@@ -143,7 +153,7 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         radar_relay_active_order_tracker
                     )
 
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(0.7)
 
                 except Exception:
                     self.logger().error(f"Error getting snapshot for {trading_pair}. ", exc_info=True)

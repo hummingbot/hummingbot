@@ -55,9 +55,8 @@ cdef class ArbitrageStrategy(StrategyBase):
                                      OrderBook sell_order_book
                                      )
 
-    cdef list c_find_profitable_arbitrage_orders(self,
-                                                 double min_profitability,
-                                                 OrderBook buy_order_book,
-                                                 OrderBook sell_order_book,
-                                                 str buy_market_quote_currency,
-                                                 str sell_market_quote_currency)
+cdef list c_find_profitable_arbitrage_orders(double min_profitability,
+                                             OrderBook buy_order_book,
+                                             OrderBook sell_order_book,
+                                             str buy_market_quote_currency,
+                                             str sell_market_quote_currency)

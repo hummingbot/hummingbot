@@ -16,7 +16,10 @@ cdef class StrategyBase(TimeIterator):
 
     def format_status(self):
         raise NotImplementedError
-
+    
+    def stop(self):
+        pass
+    
     @property
     def trades(self) -> List[Trade]:
         def event_to_trade(order_filled_event: OrderFilledEvent, market_name: str):
