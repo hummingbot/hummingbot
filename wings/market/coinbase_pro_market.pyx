@@ -266,7 +266,7 @@ cdef class CoinbaseProMarket(MarketBase):
 
     @property
     def name(self) -> str:
-        return "CoinbasePro"
+        return "coinbase_pro"
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
