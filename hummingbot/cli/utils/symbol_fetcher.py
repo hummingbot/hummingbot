@@ -15,6 +15,14 @@ API_CALL_TIMEOUT = 5
 
 
 class SymbolFetcher:
+    _sf_shared_instance: "SymbolFetcher" = None
+
+    @classmethod
+    def get_instance(cls) -> "SymbolFetcher":
+        if cls._sf_shared_instance is None:
+            cls._sf_shared_instance = SymbolFetcher()
+        return cls._sf_shared_instance
+
     def __init__(self):
         self.ready = False
         self.symbols: Dict[str, Any] = {}

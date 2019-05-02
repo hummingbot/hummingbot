@@ -3,13 +3,9 @@ from os.path import (
     join,
 )
 from typing import List
-from hummingbot.cli.utils.symbol_fetcher import SymbolFetcher
 
 # Global variables
 required_exchanges: List[str] = []
-
-# Use one single symbol fetcher
-symbol_fetcher: SymbolFetcher = SymbolFetcher()
 
 
 # Global static values
