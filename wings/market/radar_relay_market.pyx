@@ -256,7 +256,7 @@ cdef class RadarRelayMarket(MarketBase):
 
     @property
     def name(self) -> str:
-        return "RadarRelay"
+        return "radar_relay"
 
     @property
     def ready(self) -> bool:
