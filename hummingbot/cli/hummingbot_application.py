@@ -17,7 +17,6 @@ from typing import (
     Set,
     Callable,
 )
-from web3 import Web3
 
 from wings.wallet.web3_wallet import Web3Wallet
 from wings.market.market_base import MarketBase
@@ -68,25 +67,9 @@ from hummingbot.strategy.arbitrage import (
     ArbitrageMarketPair
 )
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.cli.utils.ethereum import check_web3
 
 s_logger = None
-
-
-def check_web3(ethereum_rpc_url: str) -> bool:
-    try:
-        w3: Web3 = Web3(Web3.HTTPProvider(ethereum_rpc_url, request_kwargs={"timeout": 2.0}))
-        ret = w3.isConnected()
-    except Exception:
-        ret = False
-
-    if not ret:
-        if ethereum_rpc_url.startswith("http://mainnet.infura.io"):
-            logging.getLogger().warning("You are connecting to an Infura using an insecure network protocol "
-                                        "(\"http\"), which may not be allowed by Infura. "
-                                        "Try using \"https://\" instead.")
-        if ethereum_rpc_url.startswith("mainnet.infura.io"):
-            logging.getLogger().warning("Please add \"https://\" to your Infura node url.")
-    return ret
 
 
 class HummingbotApplication:
