@@ -50,6 +50,10 @@ cdef class MarketBase(TimeIterator):
         return self.event_logger.event_log
 
     @property
+    def name(self) -> str:
+        return self.__class__.__name__
+
+    @property
     def order_books(self) -> Dict[str, OrderBook]:
         raise NotImplementedError
 

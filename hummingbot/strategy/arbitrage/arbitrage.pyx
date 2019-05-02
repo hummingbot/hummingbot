@@ -95,7 +95,6 @@ cdef class ArbitrageStrategy(StrategyBase):
         self._last_timestamp = 0
         self._next_trade_delay = next_trade_delay_interval
         self._last_trade_timestamps = {}
-        self._exchange_rate_conversion = ExchangeRateConversion.get_instance()
 
         cdef:
             MarketBase typed_market
@@ -163,18 +162,23 @@ cdef class ArbitrageStrategy(StrategyBase):
             market_1_quote_balance = market_1.get_balance(market_1_quote)
             market_2_base_balance = market_2.get_balance(market_2_base)
             market_2_quote_balance = market_2.get_balance(market_2_quote)
+
             market_1_bid_price = market_1_ob.get_price(False)
             market_1_ask_price = market_1_ob.get_price(True)
             market_2_bid_price = market_2_ob.get_price(False)
             market_2_ask_price = market_2_ob.get_price(True)
-            market_1_bid_adjusted = self._exchange_rate_conversion.adjust_token_rate(market_1_quote, market_1_bid_price)
-            market_1_ask_adjusted = self._exchange_rate_conversion.adjust_token_rate(market_1_quote, market_1_ask_price)
-            market_2_bid_adjusted = self._exchange_rate_conversion.adjust_token_rate(market_2_quote, market_2_bid_price)
-            market_2_ask_adjusted = self._exchange_rate_conversion.adjust_token_rate(market_2_quote, market_2_ask_price)
-            market_1_base_adjusted = self._exchange_rate_conversion.adjust_token_rate(market_1_base, 1.0)
-            market_1_quote_adjusted = self._exchange_rate_conversion.adjust_token_rate(market_1_quote, 1.0)
-            market_2_base_adjusted = self._exchange_rate_conversion.adjust_token_rate(market_2_base, 1.0)
-            market_2_quote_adjusted = self._exchange_rate_conversion.adjust_token_rate(market_2_quote, 1.0)
+            market_1_bid_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(market_1_quote,
+                                                                                            market_1_bid_price)
+            market_1_ask_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(market_1_quote,
+                                                                                            market_1_ask_price)
+            market_2_bid_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(market_2_quote,
+                                                                                            market_2_bid_price)
+            market_2_ask_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(market_2_quote,
+                                                                                            market_2_ask_price)
+            market_1_base_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(market_1_base, 1.0)
+            market_1_quote_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(market_1_quote, 1.0)
+            market_2_base_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(market_2_base, 1.0)
+            market_2_quote_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(market_2_quote, 1.0)
 
             profitability_buy_2_sell_1, profitability_buy_1_sell_2 = \
                 self.c_calculate_arbitrage_profitability(market_pair, market_1_ob, market_2_ob)
@@ -220,6 +224,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                           f"take ask on {market_2_name}: {round(profitability_buy_2_sell_1 * 100, 4)} %"] +
                          [f"    take ask on {market_1_name}, "
                           f"take bid on {market_2_name}: {round(profitability_buy_1_sell_2 * 100, 4)} %"])
+
 
             # See if there're any pending market orders.
             if self._tracked_market_orders:
@@ -344,16 +349,16 @@ cdef class ArbitrageStrategy(StrategyBase):
         :return: (double, double) that indicates profitability of arbitraging on each side
         """
         cdef:
-            double market_1_bid_price = self._exchange_rate_conversion.adjust_token_rate(
+            double market_1_bid_price = ExchangeRateConversion.get_instance().adjust_token_rate(
                 market_pair.market_1_quote_currency, order_book_1.get_price(False))
 
-            double market_1_ask_price = self._exchange_rate_conversion.adjust_token_rate(
+            double market_1_ask_price = ExchangeRateConversion.get_instance().adjust_token_rate(
                 market_pair.market_1_quote_currency, order_book_1.get_price(True))
 
-            double market_2_bid_price = self._exchange_rate_conversion.adjust_token_rate(
+            double market_2_bid_price = ExchangeRateConversion.get_instance().adjust_token_rate(
                 market_pair.market_2_quote_currency, order_book_2.get_price(False))
 
-            double market_2_ask_price = self._exchange_rate_conversion.adjust_token_rate(
+            double market_2_ask_price = ExchangeRateConversion.get_instance().adjust_token_rate(
                 market_pair.market_2_quote_currency, order_book_2.get_price(True))
 
         profitability_buy_2_sell_1 = market_1_bid_price / market_2_ask_price - 1
@@ -663,85 +668,91 @@ cdef class ArbitrageStrategy(StrategyBase):
                                          buy_order_book: OrderBook,
                                          buy_market_quote_currency,
                                          sell_market_quote_currency):
-        return cls.c_find_profitable_arbitrage_orders(min_profitability,
-                                                      sell_order_book,
-                                                      buy_order_book,
-                                                      buy_market_quote_currency,
-                                                      sell_market_quote_currency)
 
-    cdef list c_find_profitable_arbitrage_orders(self,
-                                                 double min_profitability,
-                                                 OrderBook buy_order_book,
-                                                 OrderBook sell_order_book,
-                                                 str buy_market_quote_currency,
-                                                 str sell_market_quote_currency):
-        """
-        :param min_profitability: 
-        :param buy_order_book: 
-        :param sell_order_book: 
-        :param buy_market_quote_currency: 
-        :param sell_market_quote_currency: 
-        :return: bid_price, ask_price, amount
-        """
-        cdef:
-            double step_amount = 0
-            double bid_leftover_amount = 0
-            double ask_leftover_amount = 0
-            object current_bid = None
-            object current_ask = None
-            double current_bid_price_adjusted
-            double current_ask_price_adjusted
-
-        profitable_orders = []
-        bid_it = sell_order_book.bid_entries()
-        ask_it = buy_order_book.ask_entries()
-        try:
-            while True:
-                if bid_leftover_amount == 0 and ask_leftover_amount == 0:
-                    # both current ask and bid orders are filled, advance to the next bid and ask order
-                    current_bid = next(bid_it)
-                    current_ask = next(ask_it)
-                    ask_leftover_amount = current_ask.amount
-                    bid_leftover_amount = current_bid.amount
-
-                elif bid_leftover_amount > 0 and ask_leftover_amount == 0:
-                    # current ask order filled completely, advance to the next ask order
-                    current_ask = next(ask_it)
-                    ask_leftover_amount = current_ask.amount
-
-                elif ask_leftover_amount > 0 and bid_leftover_amount == 0:
-                    # current bid order filled completely, advance to the next bid order
-                    current_bid = next(bid_it)
-                    bid_leftover_amount = current_bid.amount
-
-                elif bid_leftover_amount > 0 and ask_leftover_amount > 0:
-                    # current ask and bid orders are not completely filled, no need to advance iterators
-                    pass
-                else:
-                    # something went wrong if leftover amount is negative
-                    break
-
-                # adjust price based on the quote token rates
-                current_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(sell_market_quote_currency,
-                                                                                             current_bid.price)
-                current_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(buy_market_quote_currency,
-                                                                                             current_ask.price)
-                # arbitrage not possible
-                if current_bid_price_adjusted/current_ask_price_adjusted < (1 + min_profitability):
-                    break
-
-                step_amount = min(bid_leftover_amount, ask_leftover_amount)
-                profitable_orders.append((current_bid_price_adjusted,
-                                          current_ask_price_adjusted,
-                                          current_bid.price,
-                                          current_ask.price,
-                                          step_amount))
-
-                ask_leftover_amount -= step_amount
-                bid_leftover_amount -= step_amount
+        return c_find_profitable_arbitrage_orders(min_profitability,
+                                                  sell_order_book,
+                                                  buy_order_book,
+                                                  buy_market_quote_currency,
+                                                  sell_market_quote_currency)
 
 
-        except StopIteration:
-            pass
+cdef list c_find_profitable_arbitrage_orders(double min_profitability,
+                                             OrderBook buy_order_book,
+                                             OrderBook sell_order_book,
+                                             str buy_market_quote_currency,
+                                             str sell_market_quote_currency):
+    """
+    :param sell_order_book: 
+    :param buy_order_book: 
+    :return: bid_price, ask_price, amount
+    """
+    cdef:
+        double step_amount = 0
+        double bid_leftover_amount = 0
+        double ask_leftover_amount = 0
+        object current_bid = None
+        object current_ask = None
+        double current_bid_price_adjusted
+        double current_ask_price_adjusted
 
-        return profitable_orders
+    profitable_orders = []
+    bid_it = sell_order_book.bid_entries()
+    ask_it = buy_order_book.ask_entries()
+    try:
+        while True:
+            if bid_leftover_amount == 0 and ask_leftover_amount == 0:
+                # both current ask and bid orders are filled, advance to the next bid and ask order
+                current_bid = next(bid_it)
+                current_ask = next(ask_it)
+                ask_leftover_amount = current_ask.amount
+                bid_leftover_amount = current_bid.amount
+
+            elif bid_leftover_amount > 0 and ask_leftover_amount == 0:
+                # current ask order filled completely, advance to the next ask order
+                current_ask = next(ask_it)
+                ask_leftover_amount = current_ask.amount
+
+            elif ask_leftover_amount > 0 and bid_leftover_amount == 0:
+                # current bid order filled completely, advance to the next bid order
+                current_bid = next(bid_it)
+                bid_leftover_amount = current_bid.amount
+
+            elif bid_leftover_amount > 0 and ask_leftover_amount > 0:
+                # current ask and bid orders are not completely filled, no need to advance iterators
+                pass
+            else:
+                # something went wrong if leftover amount is negative
+                break
+
+            # adjust price based on the quote token rates
+            current_bid_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(
+                sell_market_quote_currency,
+                current_bid.price
+            )
+            current_ask_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(
+                buy_market_quote_currency,
+                current_ask.price
+            )
+            # arbitrage not possible
+            if current_bid_price_adjusted < current_ask_price_adjusted:
+                break
+            # allow negative profitability for debugging
+            if min_profitability<0 and current_bid_price_adjusted/current_ask_price_adjusted < (1 + min_profitability):
+                break
+
+            step_amount = min(bid_leftover_amount, ask_leftover_amount)
+            profitable_orders.append((current_bid_price_adjusted,
+                                      current_ask_price_adjusted,
+                                      current_bid.price,
+                                      current_ask.price,
+                                      step_amount))
+
+            ask_leftover_amount -= step_amount
+            bid_leftover_amount -= step_amount
+
+
+    except StopIteration:
+        pass
+
+    return profitable_orders
+

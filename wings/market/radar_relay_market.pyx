@@ -17,6 +17,7 @@ from decimal import Decimal
 from libc.stdint cimport int64_t
 from web3 import Web3
 from wings.clock cimport Clock
+from wings.data_source.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
 from wings.limit_order import LimitOrder
 from wings.market.market_base cimport MarketBase
 from wings.market.market_base import (
@@ -307,6 +308,9 @@ cdef class RadarRelayMarket(MarketBase):
                 Decimal(in_flight_order.amount)
             ))
         return retval
+
+    async def get_active_exchange_markets(self):
+        return await RadarRelayAPIOrderBookDataSource.get_active_exchange_markets()
 
     async def _status_polling_loop(self):
         while True:
