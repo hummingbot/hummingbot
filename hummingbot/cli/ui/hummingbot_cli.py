@@ -97,6 +97,9 @@ class HummingbotCLI:
             self.log(f"{prompt}{temp}")
         return temp
 
+    def set_text(self, new_text: str):
+        self.input_field.document = Document(text=new_text, cursor_position=len(new_text))
+
     def toggle_hide_input(self):
         self.hide_input = not self.hide_input
 
