@@ -45,13 +45,14 @@ class ExchangeRateConversion:
         self._started = False
         try:
             if self._exchange_rate_config_override is None:
-                exchange_rate_config = global_config_map["exchange_rate_conversion"].value
+                exchange_rate_config = global_config_map["exchange_rate_conversion"].value or {}
             else:
                 exchange_rate_config = self._exchange_rate_config_override
             exchange_rate_fetcher_config = global_config_map["exchange_rate_fetcher"].value or {}
             self._exchange_rate_config = {e[0]: {"default": e[1], "source": e[2]} for e in exchange_rate_config}
             self._exchange_rate = {k: float(v.get("default", 1.0)) for k, v in self._exchange_rate_config.items()}
-            self._exchange_rate_fetcher_config = {e[0]: {"default": None, "source": e[1]} for e in exchange_rate_fetcher_config}
+            self._exchange_rate_fetcher_config = {e[0]: {"default": None, "source": e[1]}
+                                                  for e in exchange_rate_fetcher_config}
             self._exchange_rate_manual = {k: None for k, v in self._exchange_rate_fetcher_config.items()} 
         except Exception:
             self.logger().error("Error initiating config for exchange rate conversion.", exc_info=True)
@@ -103,7 +104,7 @@ class ExchangeRateConversion:
             loop = asyncio.get_event_loop()
             try:
                 async with aiohttp.ClientSession(loop=loop,
-                                                 connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+                                                 connector=aiohttp.TCPConnector(ssl=False)) as session:
                     await self.update_exchange_rates_from_coincap(session)
             except asyncio.CancelledError:
                 raise
