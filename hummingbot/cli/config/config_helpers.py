@@ -57,12 +57,13 @@ def parse_cvar_value(cvar: ConfigVar, value: any):
 async def copy_strategy_template(strategy: str) -> str:
     old_path = get_strategy_template_path(strategy)
     i = 0
-    new_path = join(CONF_FILE_PATH, f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_{i}.yml")
+    new_fname = f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_{i}.yml"
+    new_path = join(CONF_FILE_PATH, new_fname)
     while isfile(new_path):
         new_path = join(CONF_FILE_PATH, f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_{i}.yml")
         i += 1
     shutil.copy(old_path, new_path)
-    return new_path
+    return new_fname
 
 
 def get_strategy_template_path(strategy: str) -> str:
