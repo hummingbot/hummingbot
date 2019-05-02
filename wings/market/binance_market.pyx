@@ -367,7 +367,7 @@ cdef class BinanceMarket(MarketBase):
 
     @property
     def name(self) -> str:
-        return "Binance"
+        return "binance"
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
