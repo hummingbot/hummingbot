@@ -99,7 +99,7 @@ def generate_layout(input_field: TextArea, output_field: TextArea, log_field: Te
                 Window(height=1, char='-', style='class:line'),
                 input_field,
                 TextArea(height=1,
-                         text=f'Version: {version}    [Ctrl + C] QUIT    '
+                         text=f'Version: {version}    [Double Ctrl + C] QUIT    '
                          f'Hold down "{copy_key}" for selecting and copying text',
                          style='class:label'),
             ]),
