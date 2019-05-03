@@ -214,8 +214,8 @@ cdef class DiscoveryStrategy(Strategy):
                 total_profitable_base_amount = 0
                 profitability, next_profitability = 0, 0
 
-                buy_market_name = buy_market[0].market_name
-                sell_market_name = sell_market[0].market_name
+                buy_market_name = buy_market[0].name
+                sell_market_name = sell_market[0].name
                 buy_market_symbol, buy_market_base, buy_market_quote = buy_market[1]
                 sell_market_symbol, sell_market_base, sell_market_quote = sell_market[1]
 
@@ -314,7 +314,7 @@ cdef class DiscoveryStrategy(Strategy):
             str exchange_name
         for exchange_class, market_info in exchange_market_info.items():
             trading_pairs = market_info["markets"]
-            exchange_name = exchange_class.market_name
+            exchange_name = exchange_class.name
             for symbol, quote_volume, quote_token in zip(trading_pairs.index,
                                                          trading_pairs.volume,
                                                          trading_pairs.quoteAsset):
