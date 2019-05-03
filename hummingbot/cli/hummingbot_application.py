@@ -72,6 +72,9 @@ from hummingbot.strategy.discovery import (
 )
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.cli.utils.ethereum import check_web3
+from hummingbot.data_feed.data_feed_base import DataFeedBase
+from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
+from hummingbot.cli.utils.stop_loss_tracker import StopLossTracker
 
 s_logger = None
 
@@ -103,10 +106,13 @@ class HummingbotApplication:
         self.clock: Optional[Clock] = None
 
         self.assets: Optional[Set[str]] = None
-        self.starting_balances = {}
+        self.data_feed: Optional[DataFeedBase] = None
+        self.starting_balances: Dict[str, float] = {}
+        self.starting_prices: Dict[str, float] = {}
         self.placeholder_mode = False
         self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
         self.reporting_module: Optional[ReportAggregator] = None
+        self.stop_loss_tracker: Optional[StopLossTracker] = None
 
     def init_reporting_module(self):
         if not self.reporting_module:
@@ -402,7 +408,7 @@ class HummingbotApplication:
                 loading_markets.append(market_name)
 
         if self.strategy is None:
-            self.app.log(" x initializing strategy.")
+            self.app.log("   x initializing strategy.")
             return True
         elif len(loading_markets) > 0:
             for loading_market in loading_markets:
@@ -565,10 +571,12 @@ class HummingbotApplication:
             self._initialize_wallet(token_symbols=list(set(maker_assets + taker_assets)))
             self._initialize_markets(market_names)
             self.assets = set(maker_assets + taker_assets)
+            self.data_feed: DataFeedBase = CoinCapDataFeed.get_instance()
 
-            self.market_pair = CrossExchangeMarketPair(*([self.markets[maker_market], raw_maker_symbol] + list(maker_assets) +
-                                                  [self.markets[taker_market], raw_taker_symbol] + list(taker_assets) +
-                                                  [top_depth_tolerance]))
+            self.market_pair = CrossExchangeMarketPair(*([self.markets[maker_market], raw_maker_symbol] +
+                                                         list(maker_assets) +
+                                                         [self.markets[taker_market], raw_taker_symbol] +
+                                                         list(taker_assets) + [top_depth_tolerance]))
 
             strategy_logging_options = (CrossExchangeMarketMakingStrategy.OPTION_LOG_CREATE_ORDER |
                                         CrossExchangeMarketMakingStrategy.OPTION_LOG_ADJUST_ORDER |
@@ -652,8 +660,6 @@ class HummingbotApplication:
             except Exception as e:
                 self.app.log(str(e))
                 self.logger().error("Error initializing strategy.", exc_info=True)
-            
-
         else:
             raise NotImplementedError
 
@@ -665,11 +671,19 @@ class HummingbotApplication:
                 if market is not None:
                     self.clock.add_iterator(market)
             self.clock.add_iterator(self.strategy)
-            
+
             self.strategy_task: asyncio.Task = asyncio.ensure_future(self.clock.run())
             self.app.log(f"\n  '{strategy_name}' strategy started.\n"
                          f"  You can use the `status` command to query the progress.")
+
             self.starting_balances = await self.wait_till_ready(self.balance_snapshot)
+            self.stop_loss_tracker = StopLossTracker(self.data_feed,
+                                                     list(self.assets),
+                                                     list(self.markets.values()),
+                                                     lambda *args, **kwargs: asyncio.ensure_future(
+                                                         self.stop(*args, **kwargs)
+                                                     ))
+            await self.wait_till_ready(self.stop_loss_tracker.start)
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
 
@@ -690,6 +704,8 @@ class HummingbotApplication:
             self.strategy_task.cancel()
         if self.strategy:
             self.strategy.stop()
+        ExchangeRateConversion.get_instance().stop()
+        self.stop_loss_tracker.stop()
         self.wallet = None
         self.strategy_task = None
         self.strategy = None
@@ -710,6 +726,7 @@ class HummingbotApplication:
                 return
             # Freeze screen 1 second for better UI
             await asyncio.sleep(1)
+        ExchangeRateConversion.get_instance().stop()
         self.app.exit()
 
     async def export_private_key(self):
@@ -773,7 +790,7 @@ class HummingbotApplication:
 
     def compare_balance_snapshots(self):
         if len(self.starting_balances) == 0:
-            self.app.log("Balance snapshots are not available before bot starts")
+            self.app.log("  Balance snapshots are not available before bot starts")
             return
 
         rows = []
