@@ -529,6 +529,9 @@ class HummingbotApplication:
         if log_level is not None:
             init_logging("hummingbot_logs.yml", override_log_level=log_level.upper())
 
+        # TODO add option to select data feed
+        self.data_feed: DataFeedBase = CoinCapDataFeed.get_instance()
+
         ExchangeRateConversion.get_instance().start()
         strategy_name = in_memory_config_map.get("strategy").value
         self.init_reporting_module()
@@ -571,7 +574,6 @@ class HummingbotApplication:
             self._initialize_wallet(token_symbols=list(set(maker_assets + taker_assets)))
             self._initialize_markets(market_names)
             self.assets = set(maker_assets + taker_assets)
-            self.data_feed: DataFeedBase = CoinCapDataFeed.get_instance()
 
             self.market_pair = CrossExchangeMarketPair(*([self.markets[maker_market], raw_maker_symbol] +
                                                          list(maker_assets) +

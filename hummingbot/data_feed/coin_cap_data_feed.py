@@ -68,6 +68,7 @@ class CoinCapDataFeed(DataFeedBase):
                     symbol = rate_obj["symbol"]
                     self._price_dict[symbol] = float(rate_obj["rateUsd"])
 
+            # CoinCap does not have a separate feed for WETH
             self._price_dict["WETH"] = self._price_dict["ETH"]
             self._ready = True
         except Exception:
