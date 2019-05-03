@@ -106,12 +106,11 @@ class HummingbotApplication:
         self.clock: Optional[Clock] = None
 
         self.assets: Optional[Set[str]] = None
-        self.data_feed: Optional[DataFeedBase] = None
-        self.starting_balances: Dict[str, float] = {}
-        self.starting_prices: Dict[str, float] = {}
+        self.starting_balances = {}
         self.placeholder_mode = False
         self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
         self.reporting_module: Optional[ReportAggregator] = None
+        self.data_feed: Optional[DataFeedBase] = None
         self.stop_loss_tracker: Optional[StopLossTracker] = None
 
     def init_reporting_module(self):
@@ -673,7 +672,6 @@ class HummingbotApplication:
                 if market is not None:
                     self.clock.add_iterator(market)
             self.clock.add_iterator(self.strategy)
-
             self.strategy_task: asyncio.Task = asyncio.ensure_future(self.clock.run())
             self.app.log(f"\n  '{strategy_name}' strategy started.\n"
                          f"  You can use the `status` command to query the progress.")
