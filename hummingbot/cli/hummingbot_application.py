@@ -105,7 +105,7 @@ class HummingbotApplication:
         self.market_pair: Optional[CrossExchangeMarketPair] = None
         self.clock: Optional[Clock] = None
 
-        self.assets: Optional[Set[str]] = None
+        self.assets: Optional[Set[str]] = set()
         self.starting_balances = {}
         self.placeholder_mode = False
         self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
