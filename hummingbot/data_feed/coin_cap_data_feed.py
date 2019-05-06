@@ -1,7 +1,7 @@
 import ujson
-import logging
 import aiohttp
 import asyncio
+import logging
 from typing import (
     Dict,
     Optional,
@@ -70,7 +70,7 @@ class CoinCapDataFeed(DataFeedBase):
 
             # CoinCap does not have a separate feed for WETH
             self._price_dict["WETH"] = self._price_dict["ETH"]
-            self._ready = True
+            self._ready_event.set()
         except Exception:
             raise IOError("Error fetching prices from Coin Cap API")
 
