@@ -338,9 +338,9 @@ cdef class ArbitrageStrategy(StrategyBase):
                 del self._tracked_market_orders[market_pair]
 
     cdef tuple c_calculate_arbitrage_top_order_profitability(self,
-                                                   object market_pair,
-                                                   OrderBook order_book_1,
-                                                   OrderBook order_book_2):
+                                                             object market_pair,
+                                                             OrderBook order_book_1,
+                                                             OrderBook order_book_2):
         cdef:
             double market_1_bid_price = ExchangeRateConversion.get_instance().adjust_token_rate(
                 market_pair.market_1_quote_currency, order_book_1.get_price(False))
