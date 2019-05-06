@@ -19,6 +19,7 @@ from libc.stdint cimport int64_t
 from web3 import Web3
 
 from wings.cancellation_result import CancellationResult
+from wings.clock cimport Clock
 from wings.data_source.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
 from wings.events import (
     MarketEvent,
@@ -866,6 +867,9 @@ cdef class DDEXMarket(MarketBase):
     async def stop_network(self):
         await super().stop_network()
         self._stop_network()
+        if self._shared_client is not None:
+            await self._shared_client.close()
+            self._shared_client = None
 
     async def check_network(self) -> NetworkStatus:
         if self._wallet.network_status is not NetworkStatus.CONNECTED:
