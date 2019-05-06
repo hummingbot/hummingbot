@@ -875,7 +875,15 @@ cdef class BinanceMarket(MarketBase):
                           price: Optional[float] = NaN):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
-        decimal_amount = self.quantize_order_amount(symbol, amount)
+            object buy_fee = self.c_get_fee(symbol, order_type, TradeType.BUY, amount, price)
+            double adjusted_amount
+
+        # Unlike most other exchanges, Binance takes fees out of requested base amount instead of
+        # charging additional fees for limit and market buy orders.
+        # To make the Binance market class function like other market classes, the amount base
+        # token requested is adjusted to account for fees.
+        adjusted_amount = amount / (1 - buy_fee.percent)
+        decimal_amount = self.quantize_order_amount(symbol, adjusted_amount)
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
