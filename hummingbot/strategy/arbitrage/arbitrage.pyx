@@ -225,6 +225,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                          [f"    take ask on {market_1_name}, "
                           f"take bid on {market_2_name}: {round(profitability_buy_1_sell_2 * 100, 4)} %"])
 
+
             # See if there're any pending market orders.
             if self._tracked_market_orders:
                 pending_orders = [[
@@ -778,7 +779,6 @@ cdef list c_find_profitable_arbitrage_orders(double min_profitability,
 
             ask_leftover_amount -= step_amount
             bid_leftover_amount -= step_amount
-
 
     except StopIteration:
         pass
