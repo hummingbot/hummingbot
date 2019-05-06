@@ -550,8 +550,8 @@ cdef class ArbitrageStrategy(StrategyBase):
             # accumulated profitability with fees
             total_bid_value_adjusted += bid_price_adjusted * amount
             total_ask_value_adjusted += ask_price_adjusted * amount
-            net_sell_proceeds = total_bid_value_adjusted * (1 - sell_fee.percent) - total_sell_flat_fees
-            net_buy_costs = total_ask_value_adjusted / (1 - buy_fee.percent) + total_buy_flat_fees
+            net_sell_proceeds = total_bid_value_adjusted / (1 + sell_fee.percent) - total_sell_flat_fees
+            net_buy_costs = total_ask_value_adjusted * (1 + buy_fee.percent) + total_buy_flat_fees
             profitability = net_sell_proceeds / net_buy_costs
 
             buy_market_quote_asset = buy_market.c_get_balance(buy_market_quote_currency)
@@ -569,7 +569,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                                                    f"bid, ask price, amount: {bid_price, ask_price, amount}")
 
             # stop current step if buy/sell market does not have enough asset
-            if buy_market_quote_asset < (total_ask_value + ask_price * amount) or \
+            if buy_market_quote_asset < net_buy_costs or \
                     sell_market_base_asset < (total_previous_step_base_amount + amount):
                 # use previous step as best profitable order if below min profitability
                 if profitability < (1 + self._min_profitability):
@@ -582,8 +582,10 @@ cdef class ArbitrageStrategy(StrategyBase):
                                     f"Base asset needed: {total_bid_value + bid_price * amount}. "
                                     f"Base asset balance: {sell_market_base_asset}. ")
 
+                # max market buys need to be reduced to account for additional fees
+                adjusted_buy_market_quote_asset = (buy_market_quote_asset - total_buy_flat_fees) / (1 + buy_fee.percent)
                 # buy and sell with the amount of available base or quote asset, whichever is smaller
-                best_profitable_order_amount = min(sell_market_base_asset, buy_market_quote_asset / ask_price)
+                best_profitable_order_amount = min(sell_market_base_asset, adjusted_buy_market_quote_asset / ask_price)
                 best_profitable_order_profibility = profitability
                 break
 
