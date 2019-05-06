@@ -582,10 +582,10 @@ cdef class ArbitrageStrategy(StrategyBase):
                                     f"Base asset needed: {total_bid_value + bid_price * amount}. "
                                     f"Base asset balance: {sell_market_base_asset}. ")
 
-                # max market buys need to be reduced to account for additional fees
-                adjusted_buy_market_quote_asset = (buy_market_quote_asset - total_buy_flat_fees) / (1 + buy_fee.percent)
+                # market buys need to be adjusted to account for additional fees
+                buy_market_adjusted_order_size = (buy_market_quote_asset / ask_price - total_buy_flat_fees) / (1 + buy_fee.percent)
                 # buy and sell with the amount of available base or quote asset, whichever is smaller
-                best_profitable_order_amount = min(sell_market_base_asset, adjusted_buy_market_quote_asset / ask_price)
+                best_profitable_order_amount = min(sell_market_base_asset, buy_market_adjusted_order_size)
                 best_profitable_order_profibility = profitability
                 break
 
