@@ -38,9 +38,9 @@ cdef class ArbitrageStrategy(StrategyBase):
     cdef c_did_fail_order(self, object fail_event)
     cdef c_did_cancel_order(self, object cancel_event)
     cdef tuple c_calculate_arbitrage_top_order_profitability(self,
-                                                   object market_pair,
-                                                   OrderBook order_book_1,
-                                                   OrderBook order_book_2)
+                                                             object market_pair,
+                                                             OrderBook order_book_1,
+                                                             OrderBook order_book_2)
     cdef c_process_market_pair(self, object market_pair)
     cdef c_process_market_pair_inner(self,
                                      MarketBase buy_market,
