@@ -343,6 +343,8 @@ cdef class ArbitrageStrategy(StrategyBase):
                                                    OrderBook order_book_1,
                                                    OrderBook order_book_2):
         """
+        Calculate the profitability of crossing the exchanges in both directions (buy on exchange 2 + sell
+        on exchange 1 | buy on exchange 1 + sell on exchange 2) using the best bid and ask price on each.
         :param market_pair: 
         :param order_book_1: 
         :param order_book_2: 
@@ -366,6 +368,10 @@ cdef class ArbitrageStrategy(StrategyBase):
         return profitability_buy_2_sell_1, profitability_buy_1_sell_2
 
     cdef c_process_market_pair(self, object market_pair):
+        """
+        Check which direction is more profitable (buy/sell on exchange 2/1 or 1/2) and send the more
+        profitable direction for execution.
+        """
         cdef:
             MarketBase market_1 = market_pair.market_1
             MarketBase market_2 = market_pair.market_2
@@ -421,7 +427,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                                      OrderBook sell_order_book
                                      ):
         """        
-        Execute strategy for market paris
+        Execute strategy for the input market pair
         :param buy_market: 
         :param buy_market_symbol: 
         :param buy_market_base_currency: 
@@ -435,9 +441,9 @@ cdef class ArbitrageStrategy(StrategyBase):
         :return: 
         """
         cdef:
-            double total_bid_value = 0 # total revenue
+            double total_bid_value = 0 # total sale proceeds
             double total_ask_value = 0 # total cost
-            double total_bid_value_adjusted = 0 # total revenue adjusted with exchange rate conversion
+            double total_bid_value_adjusted = 0 # total sale proceeds adjusted with exchange rate conversion
             double total_ask_value_adjusted = 0 # total cost adjusted with exchange rate conversion
             double total_previous_step_base_amount = 0
             double profitability
@@ -461,7 +467,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             double best_profitable_order_amount = 0.0
             double best_profitable_order_profibility = 0.0
 
-        # Do not continue if there are pending market order on buy market
+        # Do not continue if there are pending market orders on buy market
         if tracked_buy_market_order is not None:
             # consider market order completed if it was already x time old
             if tracked_buy_market_order[1] - time_now > self.MARKET_ORDER_MAX_TRACKING_TIME:
@@ -469,7 +475,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             else:
                 return
 
-        # Do not continue if there are pending market order on sell market
+        # Do not continue if there are pending market orders on sell market
         if tracked_sell_market_order is not None:
             # consider market order completed if it was already x time old
             if tracked_sell_market_order[1] - time_now > self.MARKET_ORDER_MAX_TRACKING_TIME:
@@ -532,7 +538,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                 if buy_flat_fee_currency == buy_market_quote_currency:
                     total_buy_flat_fees += buy_flat_fee_amount
                 else:
-                    # if the flat fee currency symbol does not match quote symbol, convert to quote symbol
+                    # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
                     total_buy_flat_fees += self._exchange_rate_conversion.convert_token_value(
                         amount=buy_flat_fee_amount,
                         from_currency=buy_flat_fee_currency,
@@ -557,7 +563,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             buy_market_quote_asset = buy_market.c_get_balance(buy_market_quote_currency)
             sell_market_base_asset = sell_market.c_get_balance(sell_market_base_currency)
 
-            # if current step is within minimum profitability set to best profitable order
+            # if current step is within minimum profitability, set to best profitable order
             # because the total amount is greater than the previous step
             if profitability > (1 + self._min_profitability):
                 best_profitable_order_amount = total_previous_step_base_amount + amount
@@ -668,7 +674,6 @@ cdef class ArbitrageStrategy(StrategyBase):
                                          buy_order_book: OrderBook,
                                          buy_market_quote_currency,
                                          sell_market_quote_currency):
-
         return c_find_profitable_arbitrage_orders(min_profitability,
                                                   sell_order_book,
                                                   buy_order_book,
@@ -682,9 +687,14 @@ cdef list c_find_profitable_arbitrage_orders(double min_profitability,
                                              str buy_market_quote_currency,
                                              str sell_market_quote_currency):
     """
-    :param sell_order_book: 
+    Iterates through sell and buy order books and returns a list of matched profitable sell and buy order
+    pairs with sizes.
+    :param min_profitability: 
     :param buy_order_book: 
-    :return: bid_price, ask_price, amount
+    :param sell_order_book: 
+    :param buy_market_quote_currency: 
+    :param sell_market_quote_currency: 
+    :return: ordered list of (bid_price, ask_price, amount) 
     """
     cdef:
         double step_amount = 0
