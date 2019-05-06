@@ -4,6 +4,7 @@ from async_timeout import timeout
 from decimal import Decimal
 import json
 import logging
+import pandas as pd
 import time
 from typing import (
     Any,
@@ -16,6 +17,7 @@ from web3 import Web3
 from libc.stdint cimport int64_t
 
 from wings.clock cimport Clock
+from wings.data_source.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
 from wings.events import (
     TradeType,
     TradeFee,
@@ -282,6 +284,9 @@ cdef class CoinbaseProMarket(MarketBase):
         return (len(self._order_book_tracker.order_books) > 0 and
                 len(self._account_balances) > 0 and
                 len(self._trading_rules) > 0)
+
+    async def get_active_exchange_markets(self) -> pd.DataFrame:
+        return await CoinbaseProAPIOrderBookDataSource.get_active_exchange_markets()
 
     def get_all_balances(self) -> Dict[str, float]:
         return self._account_balances.copy()

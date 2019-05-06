@@ -14,6 +14,7 @@ from decimal import (
 )
 from functools import partial
 import logging
+import pandas as pd
 import re
 import time
 from typing import (
@@ -393,6 +394,9 @@ cdef class BinanceMarket(MarketBase):
     @property
     def in_flight_deposits(self) -> Dict[str, InFlightDeposit]:
         return self._in_flight_deposits
+
+    async def get_active_exchange_markets(self) -> pd.DataFrame:
+        return await BinanceAPIOrderBookDataSource.get_active_exchange_markets()
 
     def monkey_patch_binance_time(self):
         if binance_client_module.time != BinanceTime.get_instance():
