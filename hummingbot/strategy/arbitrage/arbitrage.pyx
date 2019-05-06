@@ -550,7 +550,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             # accumulated profitability with fees
             total_bid_value_adjusted += bid_price_adjusted * amount
             total_ask_value_adjusted += ask_price_adjusted * amount
-            net_sell_proceeds = total_bid_value_adjusted / (1 + sell_fee.percent) - total_sell_flat_fees
+            net_sell_proceeds = total_bid_value_adjusted * (1 - sell_fee.percent) - total_sell_flat_fees
             net_buy_costs = total_ask_value_adjusted * (1 + buy_fee.percent) + total_buy_flat_fees
             profitability = net_sell_proceeds / net_buy_costs
 
