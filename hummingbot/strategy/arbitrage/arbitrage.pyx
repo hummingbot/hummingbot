@@ -674,96 +674,95 @@ cdef class ArbitrageStrategy(StrategyBase):
                                          buy_order_book: OrderBook,
                                          buy_market_quote_currency,
                                          sell_market_quote_currency):
-        return cls.c_find_profitable_arbitrage_orders(min_profitability,
+        return c_find_profitable_arbitrage_orders(min_profitability,
                                                   sell_order_book,
                                                   buy_order_book,
                                                   buy_market_quote_currency,
                                                   sell_market_quote_currency)
 
 
-    cdef list c_find_profitable_arbitrage_orders(self,
-                                                 double min_profitability,
-                                                 OrderBook buy_order_book,
-                                                 OrderBook sell_order_book,
-                                                 str buy_market_quote_currency,
-                                                 str sell_market_quote_currency):
-        """
-        Iterates through sell and buy order books and returns a list of matched profitable sell and buy order
-        pairs with sizes.
-        :param min_profitability: 
-        :param buy_order_book: 
-        :param sell_order_book: 
-        :param buy_market_quote_currency: 
-        :param sell_market_quote_currency: 
-        :return: ordered list of (bid_price, ask_price, amount) 
-        """
-        cdef:
-            double step_amount = 0
-            double bid_leftover_amount = 0
-            double ask_leftover_amount = 0
-            object current_bid = None
-            object current_ask = None
-            double current_bid_price_adjusted
-            double current_ask_price_adjusted
+cdef list c_find_profitable_arbitrage_orders(double min_profitability,
+                                             OrderBook buy_order_book,
+                                             OrderBook sell_order_book,
+                                             str buy_market_quote_currency,
+                                             str sell_market_quote_currency):
+    """
+    Iterates through sell and buy order books and returns a list of matched profitable sell and buy order
+    pairs with sizes.
+    :param min_profitability: 
+    :param buy_order_book: 
+    :param sell_order_book: 
+    :param buy_market_quote_currency: 
+    :param sell_market_quote_currency: 
+    :return: ordered list of (bid_price, ask_price, amount) 
+    """
+    cdef:
+        double step_amount = 0
+        double bid_leftover_amount = 0
+        double ask_leftover_amount = 0
+        object current_bid = None
+        object current_ask = None
+        double current_bid_price_adjusted
+        double current_ask_price_adjusted
 
-        profitable_orders = []
-        bid_it = sell_order_book.bid_entries()
-        ask_it = buy_order_book.ask_entries()
-        try:
-            while True:
-                if bid_leftover_amount == 0 and ask_leftover_amount == 0:
-                    # both current ask and bid orders are filled, advance to the next bid and ask order
-                    current_bid = next(bid_it)
-                    current_ask = next(ask_it)
-                    ask_leftover_amount = current_ask.amount
-                    bid_leftover_amount = current_bid.amount
+    profitable_orders = []
+    bid_it = sell_order_book.bid_entries()
+    ask_it = buy_order_book.ask_entries()
+    try:
+        while True:
+            if bid_leftover_amount == 0 and ask_leftover_amount == 0:
+                # both current ask and bid orders are filled, advance to the next bid and ask order
+                current_bid = next(bid_it)
+                current_ask = next(ask_it)
+                ask_leftover_amount = current_ask.amount
+                bid_leftover_amount = current_bid.amount
 
-                elif bid_leftover_amount > 0 and ask_leftover_amount == 0:
-                    # current ask order filled completely, advance to the next ask order
-                    current_ask = next(ask_it)
-                    ask_leftover_amount = current_ask.amount
+            elif bid_leftover_amount > 0 and ask_leftover_amount == 0:
+                # current ask order filled completely, advance to the next ask order
+                current_ask = next(ask_it)
+                ask_leftover_amount = current_ask.amount
 
-                elif ask_leftover_amount > 0 and bid_leftover_amount == 0:
-                    # current bid order filled completely, advance to the next bid order
-                    current_bid = next(bid_it)
-                    bid_leftover_amount = current_bid.amount
+            elif ask_leftover_amount > 0 and bid_leftover_amount == 0:
+                # current bid order filled completely, advance to the next bid order
+                current_bid = next(bid_it)
+                bid_leftover_amount = current_bid.amount
 
-                elif bid_leftover_amount > 0 and ask_leftover_amount > 0:
-                    # current ask and bid orders are not completely filled, no need to advance iterators
-                    pass
-                else:
-                    # something went wrong if leftover amount is negative
-                    break
+            elif bid_leftover_amount > 0 and ask_leftover_amount > 0:
+                # current ask and bid orders are not completely filled, no need to advance iterators
+                pass
+            else:
+                # something went wrong if leftover amount is negative
+                break
 
-                # adjust price based on the quote token rates
-                current_bid_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(
-                    sell_market_quote_currency,
-                    current_bid.price
-                )
-                current_ask_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(
-                    buy_market_quote_currency,
-                    current_ask.price
-                )
-                # arbitrage not possible
-                if current_bid_price_adjusted < current_ask_price_adjusted:
-                    break
-                # allow negative profitability for debugging
-                if min_profitability<0 and current_bid_price_adjusted/current_ask_price_adjusted < (1 + min_profitability):
-                    break
+            # adjust price based on the quote token rates
+            current_bid_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(
+                sell_market_quote_currency,
+                current_bid.price
+            )
+            current_ask_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(
+                buy_market_quote_currency,
+                current_ask.price
+            )
+            # arbitrage not possible
+            if current_bid_price_adjusted < current_ask_price_adjusted:
+                break
+            # allow negative profitability for debugging
+            if min_profitability<0 and current_bid_price_adjusted/current_ask_price_adjusted < (1 + min_profitability):
+                break
 
-                step_amount = min(bid_leftover_amount, ask_leftover_amount)
-                profitable_orders.append((current_bid_price_adjusted,
-                                          current_ask_price_adjusted,
-                                          current_bid.price,
-                                          current_ask.price,
-                                          step_amount))
+            step_amount = min(bid_leftover_amount, ask_leftover_amount)
+            profitable_orders.append((current_bid_price_adjusted,
+                                      current_ask_price_adjusted,
+                                      current_bid.price,
+                                      current_ask.price,
+                                      step_amount))
 
-                ask_leftover_amount -= step_amount
-                bid_leftover_amount -= step_amount
+            ask_leftover_amount -= step_amount
+            bid_leftover_amount -= step_amount
 
 
-        except StopIteration:
-            pass
+    except StopIteration:
+        pass
 
-        return profitable_orders
+    return profitable_orders
 
