@@ -18,6 +18,7 @@ from decimal import Decimal
 from libc.stdint cimport int64_t
 from web3 import Web3
 from wings.clock cimport Clock
+from wings.data_source.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
 from wings.limit_order import LimitOrder
 from wings.market.market_base cimport MarketBase
 from wings.wallet.web3_wallet import Web3Wallet
@@ -272,6 +273,10 @@ cdef class DDEXMarket(MarketBase):
                and not math.isnan(self._gas_fee_usd)
 
     @property
+    def name(self) -> str:
+        return "ddex"
+
+    @property
     def order_books(self) -> Dict[str, OrderBook]:
         return self._order_book_tracker.order_books
 
@@ -307,6 +312,9 @@ cdef class DDEXMarket(MarketBase):
         return [self._in_flight_orders[order_id].to_limit_order()
                 for _, order_id
                 in self._order_expiry_queue]
+
+    async def get_active_exchange_markets(self):
+        return await DDEXAPIOrderBookDataSource.get_active_exchange_markets()
 
     async def _status_polling_loop(self):
         while True:

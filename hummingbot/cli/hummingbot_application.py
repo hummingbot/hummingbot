@@ -67,6 +67,10 @@ from hummingbot.strategy.arbitrage import (
     ArbitrageStrategy,
     ArbitrageMarketPair
 )
+from hummingbot.strategy.discovery import (
+    DiscoveryStrategy,
+    DiscoveryMarketPair
+)
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 
 s_logger = None
@@ -115,7 +119,7 @@ class HummingbotApplication:
         self.market_pair: Optional[CrossExchangeMarketPair] = None
         self.clock: Optional[Clock] = None
 
-        self.assets: Optional[Set[str]] = None
+        self.assets: Optional[Set[str]] = set()
         self.starting_balances = {}
         self.placeholder_mode = False
         self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
@@ -346,15 +350,14 @@ class HummingbotApplication:
                                                  erc20_token_addresses=erc20_token_addresses,
                                                  chain=EthereumChain.MAIN_NET)
 
-    def _initialize_markets(self, market_names: List[Tuple[str, str]]):
+    def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
-
-        for market_name, symbol in market_names:
+        for market_name, symbols in market_names:
             if market_name == "ddex" and self.wallet:
                 market = DDEXMarket(wallet=self.wallet,
                                     web3_url=ethereum_rpc_url,
                                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                    symbols=[symbol])
+                                    symbols=symbols)
 
             elif market_name == "binance":
                 binance_api_key = global_config_map.get("binance_api_key").value
@@ -363,12 +366,12 @@ class HummingbotApplication:
                                        binance_api_key=binance_api_key,
                                        binance_api_secret=binance_api_secret,
                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                       symbols=[symbol])
+                                       symbols=symbols)
 
             elif market_name == "radar_relay" and self.wallet:
                 market = RadarRelayMarket(wallet=self.wallet,
                                           web3_url=ethereum_rpc_url,
-                                          symbols=[symbol])
+                                          symbols=symbols)
 
             elif market_name == "coinbase_pro":
                 coinbase_pro_api_key = global_config_map.get("coinbase_pro_api_key").value
@@ -379,7 +382,7 @@ class HummingbotApplication:
                                            coinbase_pro_api_key=coinbase_pro_api_key,
                                            coinbase_pro_secret_key=coinbase_pro_secret_key,
                                            coinbase_pro_passphrase=coinbase_pro_passphrase,
-                                           symbols=[symbol])
+                                           symbols=symbols)
 
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
@@ -416,6 +419,7 @@ class HummingbotApplication:
                 loading_markets.append(market_name)
 
         if self.strategy is None:
+            self.app.log(" x initializing strategy.")
             return True
         elif len(loading_markets) > 0:
             for loading_market in loading_markets:
@@ -571,9 +575,9 @@ class HummingbotApplication:
                 self.app.log(str(e))
                 return
 
-            market_names: List[Tuple[str, str]] = [
-                (maker_market, raw_maker_symbol),
-                (taker_market, raw_taker_symbol)
+            market_names: List[Tuple[str, List[str]]] = [
+                (maker_market, [raw_maker_symbol]),
+                (taker_market, [raw_taker_symbol])
             ]
             self._initialize_wallet(token_symbols=list(set(maker_assets + taker_assets)))
             self._initialize_markets(market_names)
@@ -613,9 +617,8 @@ class HummingbotApplication:
                 self.app.log(str(e))
                 return
 
-            market_names: List[Tuple[str, str]] = [(primary_market, raw_primary_symbol),
-                                                   (secondary_market, raw_secondary_symbol)]
-
+            market_names: List[Tuple[str, List[str]]] = [(primary_market, [raw_primary_symbol]),
+                                                         (secondary_market, [raw_secondary_symbol])]
             self._initialize_wallet(token_symbols=list(set(primary_assets + secondary_assets)))
             self._initialize_markets(market_names)
             self.assets = set(primary_assets + secondary_assets)
@@ -630,6 +633,43 @@ class HummingbotApplication:
             self.strategy = ArbitrageStrategy(market_pairs=[self.market_pair],
                                               min_profitability=min_profitability,
                                               logging_options=strategy_logging_options)
+        elif strategy_name == "discovery":
+            try:
+                market_1 = strategy_cm.get("primary_market").value.lower()
+                market_2 = strategy_cm.get("secondary_market").value.lower()
+                target_symbol_1 = list(strategy_cm.get("target_symbol_1").value)
+                target_symbol_2 = list(strategy_cm.get("target_symbol_2").value)
+                target_profitability = float(strategy_cm.get("target_profitability").value)
+                target_amount = float(strategy_cm.get("target_amount").value)
+                equivalent_token: List[List[str]] = list(strategy_cm.get("equivalent_tokens").value)
+
+                market_names: List[Tuple[str, str]] = [(market_1, target_symbol_1),
+                                                       (market_2, target_symbol_2)]
+
+                target_base_quote_1: List[Tuple[str, str]] = [
+                    SymbolSplitter.split(market_1, symbol) for symbol in target_symbol_1
+                ]
+                target_base_quote_2: List[Tuple[str, str]] = [
+                    SymbolSplitter.split(market_2, symbol) for symbol in target_symbol_2
+                ]
+
+                self._initialize_wallet([])
+
+                self._initialize_markets(market_names)
+                self.market_pair = DiscoveryMarketPair(
+                    *([self.markets[market_1], self.markets[market_1].get_active_exchange_markets] +
+                      [self.markets[market_2], self.markets[market_2].get_active_exchange_markets]))
+
+                self.strategy = DiscoveryStrategy(market_pairs=[self.market_pair],
+                                                  target_symbols=target_base_quote_1 + target_base_quote_2,
+                                                  equivalent_token=equivalent_token,
+                                                  target_profitability=target_profitability,
+                                                  target_amount=target_amount
+                                                  )
+            except Exception as e:
+                self.app.log(str(e))
+                self.logger().error("Error initializing strategy.", exc_info=True)
+            
 
         else:
             raise NotImplementedError
@@ -642,6 +682,7 @@ class HummingbotApplication:
                 if market is not None:
                     self.clock.add_iterator(market)
             self.clock.add_iterator(self.strategy)
+            
             self.strategy_task: asyncio.Task = asyncio.ensure_future(self.clock.run())
             self.app.log(f"\n  '{strategy_name}' strategy started.\n"
                          f"  You can use the `status` command to query the progress.")
@@ -664,6 +705,8 @@ class HummingbotApplication:
             self.reporting_module.stop()
         if self.strategy_task is not None and not self.strategy_task.cancelled():
             self.strategy_task.cancel()
+        if self.strategy:
+            self.strategy.stop()
         self.wallet = None
         self.strategy_task = None
         self.strategy = None
@@ -673,6 +716,8 @@ class HummingbotApplication:
     async def exit(self, force: bool = False):
         if self.strategy_task is not None and not self.strategy_task.cancelled():
             self.strategy_task.cancel()
+        if self.strategy:
+            self.strategy.stop()
         if force is False:
             success = await self._cancel_outstanding_orders()
             if not success:

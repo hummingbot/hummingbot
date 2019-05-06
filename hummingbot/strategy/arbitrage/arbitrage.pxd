@@ -68,6 +68,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                                              OrderBook sell_order_book)
     cdef c_ready_for_new_orders(self, object market_pair)
 
+
 cdef list c_find_profitable_arbitrage_orders(double min_profitability,
                                              OrderBook buy_order_book,
                                              OrderBook sell_order_book,
