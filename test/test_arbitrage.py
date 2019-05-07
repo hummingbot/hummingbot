@@ -1,96 +1,127 @@
 #!/usr/bin/env python
-import faulthandler; faulthandler.enable()
-import sys, os
-sys.path.insert(0, os.path.realpath(os.path.join(__file__, "../../")))
 
-import logging
-logging.basicConfig(level=logging.INFO)
+from os.path import join, realpath
+import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
-
+from decimal import Decimal
+import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
-import hummingsim
+from typing import List
+import unittest
+
+from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingsim.backtest.backtest_market import BacktestMarket
-from hummingsim.backtest.binance_order_book_loader_v2 import BinanceOrderBookLoaderV2
-from hummingsim.backtest.ddex_order_book_loader import DDEXOrderBookLoader
-from hummingsim.backtest.market import QuantizationParams
+from hummingsim.backtest.market import (
+    AssetType,
+    Market,
+    MarketConfig,
+    QuantizationParams
+)
+from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
 from wings.clock import (
     Clock,
     ClockMode
 )
-from hummingsim.backtest.market_config import (
-    MarketConfig,
-    AssetType
+from wings.event_logger import EventLogger
+from wings.events import (
+    MarketEvent,
+    OrderBookTradeEvent,
+    TradeType,
+    OrderType,
+    OrderFilledEvent,
+    BuyOrderCompletedEvent,
+    SellOrderCompletedEvent
 )
-
-# Define the data cache path.
-hummingsim.set_data_path(os.path.join(os.environ["PWD"], "data"))
-
-# Define the parameters for the backtest.
-start = pd.Timestamp("2018-12-21-00:29:06", tz="UTC")
-end = pd.Timestamp("2019-12-24-00:43:00", tz="UTC")
-binance_symbol = ("ETHUSDT", "ETH", "USDT")
-ddex_symbol = ("WETH-DAI", "WETH", "DAI")
+from wings.order_book import OrderBook
+from wings.order_book_row import OrderBookRow
+from wings.limit_order import LimitOrder
+from hummingbot.strategy.arbitrage.arbitrage import ArbitrageStrategy
+from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
 
 
-from hummingbot.strategy.arbitrage import (
-    ArbitrageStrategy,
-    ArbitrageMarketPair
-)
+class ArbitrageUnitTest(unittest.TestCase):
+    start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
+    end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
+    start_timestamp: float = start.timestamp()
+    end_timestamp: float = end.timestamp()
+    market_1_symbols: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
+    market_2_symbols: List[str] = ["coinalpha/eth", "COINALPHA", "ETH"]
 
-binance_market = BacktestMarket()
-ddex_market = BacktestMarket()
-binance_loader = BinanceOrderBookLoaderV2(*binance_symbol)
-ddex_loader = DDEXOrderBookLoader(*ddex_symbol)
+    @classmethod
+    def setUpClass(cls):
+        ExchangeRateConversion.set_global_exchange_rate_config([
+            ("WETH", 1.0, "None"),
+            ("QETH", 0.95, "None"),
+        ])
+
+    def setUp(self):
+        self.clock: Clock = Clock(ClockMode.BACKTEST, 1.0, self.start_timestamp, self.end_timestamp)
+        self.market_1: BacktestMarket = BacktestMarket()
+        self.market_2: BacktestMarket = BacktestMarket()
+        self.market_1_data: MockOrderBookLoader = MockOrderBookLoader(*self.market_1_symbols)
+        self.market_2_data: MockOrderBookLoader = MockOrderBookLoader(*self.market_2_symbols)
+        self.market_1_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.01, 10)
+        self.market_2_data.set_balanced_order_book(1.3, 0.5, 1.5, 0.001, 4)
+
+        self.market_1.add_data(self.market_1_data)
+        self.market_2.add_data(self.market_2_data)
+
+        self.market_1.set_balance("COINALPHA", 5)
+        self.market_1.set_balance("ETH", 5)
+
+        self.market_2.set_balance("COINALPHA", 5)
+        self.market_2.set_balance("WETH", 5)
+
+        self.market_1.set_quantization_param(
+            QuantizationParams(
+                self.market_1_symbols[0], 5, 5, 5, 5
+            )
+        )
+        self.market_2.set_quantization_param(
+            QuantizationParams(
+                self.market_2_symbols[0], 5, 5, 5, 5
+            )
+        )
+        self.market_pair: ArbitrageMarketPair = ArbitrageMarketPair(
+            *(
+                [self.market_1] + self.market_1_symbols + [self.market_2] + self.market_2_symbols
+            )
+        )
+
+        logging_options: int = ArbitrageStrategy.OPTION_LOG_ALL
+        self.strategy: ArbitrageStrategy = ArbitrageStrategy(
+            [self.market_pair],
+            min_profitability=0.01
+        )
+        self.logging_options = logging_options
+        self.clock.add_iterator(self.market_1)
+        self.clock.add_iterator(self.market_2)
+        self.clock.add_iterator(self.strategy)
+
+        self.market_1_order_fill_logger: EventLogger = EventLogger()
+        self.market_2_order_fill_logger: EventLogger = EventLogger()
+
+        self.market_1.add_listener(MarketEvent.OrderFilled, self.market_1_order_fill_logger)
+        self.market_2.add_listener(MarketEvent.OrderFilled, self.market_2_order_fill_logger)
+
+    def test_find_profitable_arbitrage_orders(self):
+        pass
+
+    def test_find_best_profitable_amount(self):
+        pass
+
+    def test_process_market_pair(self):
+        pass
+
+    def test_process_market_pair_inner(self):
+        pass
+
+    def test_ready_for_new_orders(self):
+        pass
+
+def main():
+    unittest.main()
 
 
-binance_market.config = MarketConfig(AssetType.BASE_CURRENCY, 0.001, AssetType.QUOTE_CURRENCY, 0.001, {})
-ddex_market.config = MarketConfig(AssetType.BASE_CURRENCY, 0.001, AssetType.QUOTE_CURRENCY, 0.001, {})
-
-binance_market.add_data(binance_loader)
-ddex_market.add_data(ddex_loader)
-
-binance_market.set_quantization_param(QuantizationParams("ETHUSDT", 5, 3, 5, 3))
-ddex_market.set_quantization_param(QuantizationParams("WETH-DAI", 5, 3, 5, 3))
-
-market_pair1 = ArbitrageMarketPair(*([ddex_market] + list(ddex_symbol) + [binance_market] + list(binance_symbol)))
-
-strategy = ArbitrageStrategy([market_pair1], 0.025,
-                             logging_options=ArbitrageStrategy.OPTION_LOG_CREATE_ORDER)
-
-clock = Clock(ClockMode.BACKTEST, start_time=start.timestamp(), end_time=end.timestamp())
-clock.add_iterator(binance_market)
-clock.add_iterator(ddex_market)
-clock.add_iterator(strategy)
-
-
-binance_market.set_balance("ETH", 100.0)
-binance_market.set_balance("USDT", 10000.0)
-ddex_market.set_balance("WETH", 100.0)
-ddex_market.set_balance("DAI", 10000.0)
-
-clock.backtest_til(start.timestamp() + 1)
-
-ddex_weth_price = ddex_market.get_price("WETH-DAI", False)
-binance_eth_price = binance_market.get_price("ETHUSDT", False)
-start_ddex_portfolio_value = ddex_market.get_balance("DAI") + ddex_market.get_balance("WETH") * ddex_weth_price
-start_binance_portfolio_value = binance_market.get_balance("USDT") + binance_market.get_balance("ETH") * binance_eth_price
-print(f"start DDEX portfolio value: {start_ddex_portfolio_value}\n"
-      f"start Binance portfolio value: {start_binance_portfolio_value}")
-
-clock.backtest_til(end.timestamp())
-
-ddex_weth_price = ddex_market.get_price("WETH-DAI", False)
-binance_eth_price = binance_market.get_price("ETHUSDT", False)
-ddex_portfolio_value = ddex_market.get_balance("DAI") + ddex_market.get_balance("WETH") * ddex_weth_price
-binance_portfolio_value = binance_market.get_balance("USDT") + binance_market.get_balance("ETH") * binance_eth_price
-print(f"DDEX portfolio value: {ddex_portfolio_value}\nBinance portfolio value: {binance_portfolio_value}\n")
-print(f"DDEX balances: {ddex_market.get_all_balances()}\nBinance balances: {binance_market.get_all_balances()}")
-
-print(f"start DDEX portfolio value: {start_ddex_portfolio_value}\n"
-      f"start Binance portfolio value: {start_binance_portfolio_value}")
-
-print(f"Profit DDEX {ddex_portfolio_value/start_ddex_portfolio_value}\n"
-      f"Profit Binance {binance_portfolio_value/start_binance_portfolio_value}\n"
-      f"Profit Total "
-      f"{(ddex_portfolio_value + binance_portfolio_value)/(start_ddex_portfolio_value + start_binance_portfolio_value)}")
-
+if __name__ == "__main__":
+    main()
