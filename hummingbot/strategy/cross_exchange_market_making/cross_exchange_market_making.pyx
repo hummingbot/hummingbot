@@ -1209,13 +1209,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     True,
                     float(bid_size)
                 )
+                effective_hedging_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
+                    market_pair.taker_quote_currency, effective_hedging_price
+                )
                 if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                     self.log_with_clock(
                         logging.INFO,
                         f"({market_pair.maker_symbol}) Creating limit bid order for "
                         f"{bid_size} {market_pair.maker_base_currency} at "
                         f"{bid_price} {market_pair.maker_quote_currency}. "
-                        f"Current hedging price: {effective_hedging_price} {market_pair.taker_quote_currency}."
+                        f"Current hedging price: {effective_hedging_price} {market_pair.taker_quote_currency} "
+                        f"(Rate adjusted: {effective_hedging_price_adjusted:.2f} {market_pair.taker_quote_currency})."
                     )
                 client_order_id = self.c_buy_with_specific_market(
                     maker_market,
@@ -1257,13 +1261,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     False,
                     float(ask_size)
                 )
+                effective_hedging_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
+                    market_pair.maker_quote_currency, effective_hedging_price
+                )
                 if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                     self.log_with_clock(
                         logging.INFO,
                         f"({market_pair.maker_symbol}) Creating limit ask order for "
                         f"{ask_size} {market_pair.maker_base_currency} at "
                         f"{ask_price} {market_pair.maker_quote_currency}. "
-                        f"Current hedging price: {effective_hedging_price} {market_pair.maker_quote_currency}."
+                        f"Current hedging price: {effective_hedging_price} {market_pair.maker_quote_currency} "
+                        f"(Rate adjusted: {effective_hedging_price_adjusted:.2f} {market_pair.maker_quote_currency})."
                     )
                 client_order_id = self.c_sell_with_specific_market(
                     maker_market,
