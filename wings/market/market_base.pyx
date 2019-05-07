@@ -43,7 +43,7 @@ cdef class MarketBase(TimeIterator):
 
     @property
     def name(self) -> str:
-        raise NotImplementedError
+        return self.__class__.__name__
 
     @property
     def event_logs(self) -> List[any]:
