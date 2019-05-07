@@ -846,7 +846,6 @@ cdef class DDEXMarket(MarketBase):
         return order_book.c_get_price(is_buy)
 
     async def start_network(self):
-        await super().start_network()
         if self._order_tracker_task is not None:
             self._stop_network()
 
@@ -867,7 +866,6 @@ cdef class DDEXMarket(MarketBase):
         self._order_tracker_task = self._status_polling_task = self._approval_tx_polling_task = None
 
     async def stop_network(self):
-        await super().stop_network()
         self._stop_network()
         if self._shared_client is not None:
             await self._shared_client.close()
