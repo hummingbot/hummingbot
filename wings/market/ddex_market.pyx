@@ -660,30 +660,11 @@ cdef class DDEXMarket(MarketBase):
 
     cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0,
                    dict kwargs = {}):
-        # DDEX takes fees in addition to what you want to spend
-        # if you want to buy 10 ZRX with 1 DAI and the fee is 2%, required DAI balance is 1.02 DAI
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"buy-{symbol}-{tracking_nonce}")
-            object buy_fee = self.c_get_fee(symbol, order_type, TradeType.BUY, amount, price)
-            double total_flat_fees = 0.0
-            double adjusted_amount
-            double price_for_fee_calc
 
-        for flat_fee_currency, flat_fee_amount in buy_fee.flat_fees:
-            # DDEX fees are always in quote currency so no conversion is needed
-            total_flat_fees += flat_fee_amount
-
-        # adjust amount so fees are taken from your order instead of in addition to your order
-        if order_type == OrderType.MARKET:
-            # get price estimate for valuing fees
-            price_for_fee_calc = (<OrderBook>self.c_get_order_book(symbol)).c_get_price_for_volume(True, amount)
-        else:
-            price_for_fee_calc = price
-
-        adjusted_amount = amount / (1 + buy_fee.percent) - total_flat_fees / price_for_fee_calc
-        # send the order.
-        asyncio.ensure_future(self.execute_buy(order_id, symbol, adjusted_amount, order_type, price))
+        asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
         return order_id
 
     async def execute_buy(self, order_id: str, symbol: str, amount: float, order_type: OrderType, price: float) -> str:

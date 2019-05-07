@@ -695,17 +695,8 @@ cdef class CoinbaseProMarket(MarketBase):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"buy-{symbol}-{tracking_nonce}")
-            object buy_fee
-            double adjusted_amount
 
-        # Coinbase Pro charges additional fees for buy limit orders
-        # limit buy 10 XLM for 1 USDC and the fee is 2%, balance requires 1.02 USDC
-        adjusted_amount = amount
-        if order_type is OrderType.LIMIT:
-            buy_fee = self.c_get_fee(symbol, order_type, TradeType.BUY, amount, price)
-            adjusted_amount = amount / (1 + buy_fee.percent)
-
-        asyncio.ensure_future(self.execute_buy(order_id, symbol, adjusted_amount, order_type, price))
+        asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
         return order_id
 
     async def execute_sell(self,
