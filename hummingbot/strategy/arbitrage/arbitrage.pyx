@@ -518,14 +518,16 @@ cdef class ArbitrageStrategy(StrategyBase):
         # typically most exchanges will only have 1 flat fee (ie: gas cost of transaction in ETH)
         for bid_price_adjusted, ask_price_adjusted, bid_price, ask_price, amount in profitable_orders:
             buy_fee = buy_market.c_get_fee(
-                buy_market_symbol,
+                buy_market_base_currency,
+                buy_market_quote_currency,
                 OrderType.MARKET,
                 TradeType.BUY,
                 total_previous_step_base_amount + amount,
                 ask_price
             )
             sell_fee = sell_market.c_get_fee(
-                sell_market_symbol,
+                sell_market_base_currency,
+                sell_market_quote_currency,
                 OrderType.MARKET,
                 TradeType.SELL,
                 total_previous_step_base_amount + amount,

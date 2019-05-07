@@ -106,10 +106,10 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        limit_fee: TradeFee = self.market.get_fee("ETH-USDC", OrderType.LIMIT, TradeType.BUY, 1, 1)
+        limit_fee: TradeFee = self.market.get_fee("ETH", "USDC", OrderType.LIMIT, TradeType.BUY, 1, 1)
         self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: TradeFee = self.market.get_fee("ETH-USDC", OrderType.MARKET, TradeType.BUY, 1)
+        market_fee: TradeFee = self.market.get_fee("ETH", "USDC", OrderType.MARKET, TradeType.BUY, 1)
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
 
