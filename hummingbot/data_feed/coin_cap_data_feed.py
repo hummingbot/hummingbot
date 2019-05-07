@@ -1,4 +1,3 @@
-import ujson
 import aiohttp
 import asyncio
 import logging
