@@ -60,6 +60,8 @@ class StopLossTracker:
                 if self._current_pnl <= -self._stop_loss_pct:
                     self._stop_handler()
                     break
+            except asyncio.CancelledError:
+                raise
             except Exception as e:
                 self.logger().error(f"Error calculating stop loss percentage: {e}", exc_info=True)
 
