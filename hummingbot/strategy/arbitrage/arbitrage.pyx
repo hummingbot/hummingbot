@@ -149,12 +149,12 @@ cdef class ArbitrageStrategy(StrategyBase):
             market_1 = market_pair.market_1
             market_2 = market_pair.market_2
             market_1_symbol = market_pair.market_1_symbol
-            market_1_name = market_1.__class__.__name__
+            market_1_name = market_1.name
             market_1_base = market_pair.market_1_base_currency
             market_1_quote = market_pair.market_1_quote_currency
             market_1_ob = market_1.c_get_order_book(market_1_symbol)
             market_2_symbol = market_pair.market_2_symbol
-            market_2_name = market_2.__class__.__name__
+            market_2_name = market_2.name
             market_2_base = market_pair.market_2_base_currency
             market_2_quote = market_pair.market_2_quote_currency
             market_2_ob = market_2.c_get_order_book(market_2_symbol)
@@ -181,7 +181,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             market_2_quote_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(market_2_quote, 1.0)
 
             profitability_buy_2_sell_1, profitability_buy_1_sell_2 = \
-                self.c_calculate_arbitrage_profitability(market_pair, market_1_ob, market_2_ob)
+                self.c_calculate_arbitrage_top_order_profitability(market_pair, market_1_ob, market_2_ob)
 
             markets_columns = ["Market", "Symbol", "Bid Price", "Ask Price", "Adjusted Bid", "Adjusted Ask"]
             markets_data = [
@@ -243,15 +243,15 @@ cdef class ArbitrageStrategy(StrategyBase):
 
             # Add warning lines on null balances.
             # TO-DO: Build min order size logic into exchange connector and expose maker_min_order and taker_min_order variables,
-            # which can replace the hard-coded 0.0001 value. 
+            # which can replace the hard-coded 0.0001 value.
             if market_1_base_balance <= 0.0001:
-                warning_lines.append(f"  Primary market {market_1_base} balance is 0. Cannot place order.")
+                warning_lines.append(f"  {market_1.name} market {market_1_base} balance is 0. Cannot place order.")
             if market_1_quote_balance <= 0.0001:
-                warning_lines.append(f"  Primary market {market_1_quote} balance is 0. Cannot place order.")
+                warning_lines.append(f"  {market_1.name} market {market_1_quote} balance is 0. Cannot place order.")
             if market_2_base_balance <= 0.0001:
-                warning_lines.append(f"  Secondary market {market_2_base} balance is 0. Cannot place order.")
+                warning_lines.append(f"  {market_2.name} market {market_2_base} balance is 0. Cannot place order.")
             if market_2_quote_balance <= 0.0001:
-                warning_lines.append(f"  Secondary market {market_2_quote} balance is 0.Cannot place order.")
+                warning_lines.append(f"  {market_2.name} market {market_2_quote} balance is 0. Cannot place order.")
 
         if len(warning_lines) > 0:
             lines.extend(["", "  *** WARNINGS ***"] + warning_lines)
@@ -338,10 +338,10 @@ cdef class ArbitrageStrategy(StrategyBase):
             if market_pair in self._tracked_market_orders:
                 del self._tracked_market_orders[market_pair]
 
-    cdef tuple c_calculate_arbitrage_profitability(self,
-                                                   object market_pair,
-                                                   OrderBook order_book_1,
-                                                   OrderBook order_book_2):
+    cdef tuple c_calculate_arbitrage_top_order_profitability(self,
+                                                             object market_pair,
+                                                             OrderBook order_book_1,
+                                                             OrderBook order_book_2):
         """
         Calculate the profitability of crossing the exchanges in both directions (buy on exchange 2 + sell
         on exchange 1 | buy on exchange 1 + sell on exchange 2) using the best bid and ask price on each.
@@ -350,6 +350,7 @@ cdef class ArbitrageStrategy(StrategyBase):
         :param order_book_2: 
         :return: (double, double) that indicates profitability of arbitraging on each side
         """
+
         cdef:
             double market_1_bid_price = ExchangeRateConversion.get_instance().adjust_token_rate(
                 market_pair.market_1_quote_currency, order_book_1.get_price(False))
@@ -367,6 +368,38 @@ cdef class ArbitrageStrategy(StrategyBase):
         profitability_buy_1_sell_2 = market_2_bid_price / market_1_ask_price - 1
         return profitability_buy_2_sell_1, profitability_buy_1_sell_2
 
+
+    cdef c_ready_for_new_orders(self, object market_pair):
+        cdef:
+            tuple market_1_key = (market_pair.market_1, market_pair.market_1_symbol)
+            tuple market_2_key = (market_pair.market_2, market_pair.market_2_symbol)
+            double time_now = time.time()
+            object tracked_market_1_order = self._tracked_market_orders.get(market_1_key)
+            object tracked_market_2_order = self._tracked_market_orders.get(market_2_key)
+            double time_left
+
+        # Do not continue if there are pending market order
+        for tracked_market_order in [tracked_market_1_order, tracked_market_2_order]:
+            if tracked_market_order is not None:
+                # consider market order completed if it was already x time old
+                if tracked_market_order[1] - time_now > self.MARKET_ORDER_MAX_TRACKING_TIME:
+                    pass
+                else:
+                    return False
+
+        # Wait for the cool off interval before the next trade, so wallet balance is up to date
+        for market_key in [market_1_key, market_2_key]:
+            ready_to_trade_time = self._last_trade_timestamps.get(market_key, 0) + self._next_trade_delay
+            if market_key in self._last_trade_timestamps and ready_to_trade_time > self._current_timestamp:
+                time_left = self._current_timestamp - self._last_trade_timestamps[market_key] - self._next_trade_delay
+                self.log_with_clock(
+                    logging.INFO,
+                    f"Cooling off from previous trade on {market_key}. "
+                    f"Resuming in {int(time_left)} seconds."
+                )
+                return False
+        return True
+
     cdef c_process_market_pair(self, object market_pair):
         """
         Check which direction is more profitable (buy/sell on exchange 2/1 or 1/2) and send the more
@@ -378,11 +411,13 @@ cdef class ArbitrageStrategy(StrategyBase):
             OrderBook order_book_1 = market_1.c_get_order_book(market_pair.market_1_symbol)
             OrderBook order_book_2 = market_2.c_get_order_book(market_pair.market_2_symbol)
 
-        profitability_buy_2_sell_1, profitability_buy_1_sell_2 = \
-            self.c_calculate_arbitrage_profitability(market_pair, order_book_1, order_book_2)
+        if not self.c_ready_for_new_orders(market_pair):
+            return
 
-        if profitability_buy_1_sell_2 < self._min_profitability \
-                and profitability_buy_2_sell_1 < self._min_profitability:
+        profitability_buy_2_sell_1, profitability_buy_1_sell_2 = \
+            self.c_calculate_arbitrage_top_order_profitability(market_pair, order_book_1, order_book_2)
+
+        if profitability_buy_1_sell_2 < self._min_profitability and profitability_buy_2_sell_1 < self._min_profitability:
             return
 
         if profitability_buy_1_sell_2 > profitability_buy_2_sell_1:
@@ -413,6 +448,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                 market_pair.market_1_quote_currency,
                 order_book_1
             )
+
 
     cdef c_process_market_pair_inner(self,
                                      MarketBase buy_market,
@@ -460,145 +496,21 @@ cdef class ArbitrageStrategy(StrategyBase):
             object tracked_buy_market_order = self._tracked_market_orders.get(buy_market_key)
             object tracked_sell_market_order = self._tracked_market_orders.get(sell_market_key)
             double time_left
-            object buy_fee
-            object sell_fee
-            double total_sell_flat_fees
-            double total_buy_flat_fees
             double best_profitable_order_amount = 0.0
-            double best_profitable_order_profibility = 0.0
+            double best_profitable_order_profitability = 0.0
 
-        # Do not continue if there are pending market orders on buy market
-        if tracked_buy_market_order is not None:
-            # consider market order completed if it was already x time old
-            if tracked_buy_market_order[1] - time_now > self.MARKET_ORDER_MAX_TRACKING_TIME:
-                pass
-            else:
-                return
-
-        # Do not continue if there are pending market orders on sell market
-        if tracked_sell_market_order is not None:
-            # consider market order completed if it was already x time old
-            if tracked_sell_market_order[1] - time_now > self.MARKET_ORDER_MAX_TRACKING_TIME:
-                pass
-            else:
-                return
-
-        # Wait for the cool off interval before the next trade, so wallet balance is up to date
-        if buy_market_key in self._last_trade_timestamps and \
-                self._last_trade_timestamps[buy_market_key] + self._next_trade_delay > self._current_timestamp:
-            time_left = self._current_timestamp - self._last_trade_timestamps[buy_market_key] - self._next_trade_delay
-            self.log_with_clock(
-                logging.INFO,
-                f"Cooling off from previous trade on {buy_market.__class__.__name__}:{buy_market_symbol}. "
-                f"Resuming in {int(time_left)} seconds."
-                )
-            return
-
-        if sell_market_key in self._last_trade_timestamps and \
-                self._last_trade_timestamps[sell_market_key] + self._next_trade_delay > self._current_timestamp:
-            time_left = self._current_timestamp - self._last_trade_timestamps[sell_market_key] - self._next_trade_delay
-            self.log_with_clock(
-                logging.INFO,
-                f"Cooling off from previous trade on {sell_market.__class__.__name__}:{sell_market_symbol}. "
-                f"Resuming in {int(time_left)} seconds."
-                )
-            return
-
-        profitable_orders = self.c_find_profitable_arbitrage_orders(self._min_profitability,
-                                                                    buy_order_book,
-                                                                    sell_order_book,
-                                                                    buy_market_quote_currency,
-                                                                    sell_market_quote_currency)
-
-        # check if each step meets the profit level after fees, and is within the wallet balance
-        # fee must be calculated at every step because fee might change a potentially profitable order to unprofitable
-        # market.c_get_fee returns a namedtuple with 2 keys "percent" and "flat_fees"
-        # "percent" is the percent in decimals the exchange charges for the particular trade
-        # "flat_fees" returns list of additional fees ie: [("ETH", 0.01), ("BNB", 2.5)]
-        # typically most exchanges will only have 1 flat fee (ie: gas cost of transaction in ETH)
-        for bid_price_adjusted, ask_price_adjusted, bid_price, ask_price, amount in profitable_orders:
-            buy_fee = buy_market.c_get_fee(
-                buy_market_symbol,
-                OrderType.MARKET,
-                TradeType.BUY,
-                total_previous_step_base_amount + amount,
-                ask_price
-            )
-            sell_fee = sell_market.c_get_fee(
-                sell_market_symbol,
-                OrderType.MARKET,
-                TradeType.SELL,
-                total_previous_step_base_amount + amount,
-                bid_price
-            )
-            # accumulated flat fees of exchange
-            total_buy_flat_fees = 0.0
-            total_sell_flat_fees = 0.0
-            for buy_flat_fee_currency, buy_flat_fee_amount in buy_fee.flat_fees:
-                if buy_flat_fee_currency == buy_market_quote_currency:
-                    total_buy_flat_fees += buy_flat_fee_amount
-                else:
-                    # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
-                    total_buy_flat_fees += self._exchange_rate_conversion.convert_token_value(
-                        amount=buy_flat_fee_amount,
-                        from_currency=buy_flat_fee_currency,
-                        to_currency=buy_market_quote_currency
-                    )
-            for sell_flat_fee_currency, sell_flat_fee_amount in sell_fee.flat_fees:
-                if sell_flat_fee_currency == sell_market_quote_currency:
-                    total_sell_flat_fees += sell_flat_fee_amount
-                else:
-                    total_sell_flat_fees += self._exchange_rate_conversion.convert_token_value(
-                        amount=sell_flat_fee_amount,
-                        from_currency=sell_flat_fee_currency,
-                        to_currency=sell_market_quote_currency
-                    )
-            # accumulated profitability with fees
-            total_bid_value_adjusted += bid_price_adjusted * amount
-            total_ask_value_adjusted += ask_price_adjusted * amount
-            net_sell_proceeds = total_bid_value_adjusted * (1 - sell_fee.percent) - total_sell_flat_fees
-            net_buy_costs = total_ask_value_adjusted * (1 + buy_fee.percent) + total_buy_flat_fees
-            profitability = net_sell_proceeds / net_buy_costs
-
-            buy_market_quote_asset = buy_market.c_get_balance(buy_market_quote_currency)
-            sell_market_base_asset = sell_market.c_get_balance(sell_market_base_currency)
-
-            # if current step is within minimum profitability, set to best profitable order
-            # because the total amount is greater than the previous step
-            if profitability > (1 + self._min_profitability):
-                best_profitable_order_amount = total_previous_step_base_amount + amount
-                best_profitable_order_profibility = profitability
-
-            if self._logging_options & self.OPTION_LOG_PROFITABILITY_STEP:
-                self.log_with_clock(logging.DEBUG, f"Total profitability with fees: {profitability}, "
-                                                   f"Current step profitability: {bid_price/ask_price},"
-                                                   f"bid, ask price, amount: {bid_price, ask_price, amount}")
-
-            # stop current step if buy/sell market does not have enough asset
-            if buy_market_quote_asset < net_buy_costs or \
-                    sell_market_base_asset < (total_previous_step_base_amount + amount):
-                # use previous step as best profitable order if below min profitability
-                if profitability < (1 + self._min_profitability):
-                    break
-                if self._logging_options & self.OPTION_LOG_INSUFFICIENT_ASSET:
-                    self.log_with_clock(logging.DEBUG,
-                                    f"Not enough asset to complete this step. "
-                                    f"Quote asset needed: {total_ask_value + ask_price * amount}. "
-                                    f"Quote asset balance: {buy_market_quote_asset}. "
-                                    f"Base asset needed: {total_bid_value + bid_price * amount}. "
-                                    f"Base asset balance: {sell_market_base_asset}. ")
-
-                # market buys need to be adjusted to account for additional fees
-                buy_market_adjusted_order_size = (buy_market_quote_asset / ask_price - total_buy_flat_fees) / (1 + buy_fee.percent)
-                # buy and sell with the amount of available base or quote asset, whichever is smaller
-                best_profitable_order_amount = min(sell_market_base_asset, buy_market_adjusted_order_size)
-                best_profitable_order_profibility = profitability
-                break
-
-            total_bid_value += bid_price * amount
-            total_ask_value += ask_price * amount
-            total_previous_step_base_amount += amount
-
+        best_profitable_order_amount, best_profitable_order_profitability = self.c_find_best_profitable_amount(
+            buy_market,
+            buy_market_symbol,
+            buy_market_base_currency,
+            buy_market_quote_currency,
+            buy_order_book,
+            sell_market,
+            sell_market_symbol,
+            sell_market_base_currency,
+            sell_market_quote_currency,
+            sell_order_book
+        )
         buy_market_size_limit = buy_market.c_quantize_order_amount(buy_market_symbol,
                                                                    best_profitable_order_amount)
         sell_market_size_limit = sell_market.c_quantize_order_amount(sell_market_symbol,
@@ -613,19 +525,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                                     f"and sell of {sell_market_symbol} "
                                     f"at {sell_market.__class__.__name__} "
                                     f"with amount {quantized_profitable_base_amount}, "
-                                    f"and profitability {best_profitable_order_profibility}")
-
-            if self._logging_options & self.OPTION_LOG_FULL_PROFITABILITY_STEP:
-                self.log_with_clock(logging.DEBUG,
-                    "\n" + pd.DataFrame(
-                        data=[
-                            [b_price_adjusted/a_price_adjusted,
-                             b_price_adjusted, a_price_adjusted, b_price, a_price, amount]
-                            for b_price_adjusted, a_price_adjusted, b_price, a_price, amount in profitable_orders],
-                        columns=['raw_profitability', 'bid_price_adjusted', 'ask_price_adjusted',
-                                 'bid_price', 'ask_price', 'step_amount']
-                    ).to_string()
-                )
+                                    f"and profitability {best_profitable_order_profitability}")
 
             buy_order_id = self.c_buy_with_specific_market(
                 buy_market,
@@ -676,12 +576,168 @@ cdef class ArbitrageStrategy(StrategyBase):
                                          buy_order_book: OrderBook,
                                          buy_market_quote_currency,
                                          sell_market_quote_currency):
+
         return c_find_profitable_arbitrage_orders(min_profitability,
                                                   sell_order_book,
                                                   buy_order_book,
                                                   buy_market_quote_currency,
                                                   sell_market_quote_currency)
 
+
+    cdef tuple c_find_best_profitable_amount(self,
+                                             MarketBase buy_market,
+                                             str buy_market_symbol,
+                                             str buy_market_base_currency,
+                                             str buy_market_quote_currency,
+                                             OrderBook buy_order_book,
+                                             MarketBase sell_market,
+                                             str sell_market_symbol,
+                                             str sell_market_base_currency,
+                                             str sell_market_quote_currency,
+                                             OrderBook sell_order_book):
+        cdef:
+            double total_bid_value = 0 # total revenue
+            double total_ask_value = 0 # total cost
+            double total_bid_value_adjusted = 0 # total revenue adjusted with exchange rate conversion
+            double total_ask_value_adjusted = 0 # total cost adjusted with exchange rate conversion
+            double total_previous_step_base_amount = 0
+            double profitability
+            double best_profitable_order_amount = 0.0
+            double best_profitable_order_profibility = 0.0
+            object buy_fee
+            object sell_fee
+            double total_sell_flat_fees
+            double total_buy_flat_fees
+            double quantized_profitable_base_amount
+            double net_sell_proceeds
+            double net_buy_costs
+            double buy_market_quote_asset
+            double sell_market_base_asset
+
+        profitable_orders = c_find_profitable_arbitrage_orders(self._min_profitability,
+                                                               buy_order_book,
+                                                               sell_order_book,
+                                                               buy_market_quote_currency,
+                                                               sell_market_quote_currency)
+
+        # check if each step meets the profit level after fees, and is within the wallet balance
+        # fee must be calculated at every step because fee might change a potentially profitable order to unprofitable
+        # market.c_get_fee returns a namedtuple with 2 keys "percent" and "flat_fees"
+        # "percent" is the percent in decimals the exchange charges for the particular trade
+        # "flat_fees" returns list of additional fees ie: [("ETH", 0.01), ("BNB", 2.5)]
+        # typically most exchanges will only have 1 flat fee (ie: gas cost of transaction in ETH)
+        for bid_price_adjusted, ask_price_adjusted, bid_price, ask_price, amount in profitable_orders:
+            buy_fee = buy_market.c_get_fee(
+                buy_market_symbol,
+                OrderType.MARKET,
+                TradeType.BUY,
+                total_previous_step_base_amount + amount,
+                ask_price
+            )
+            sell_fee = sell_market.c_get_fee(
+                sell_market_symbol,
+                OrderType.MARKET,
+                TradeType.SELL,
+                total_previous_step_base_amount + amount,
+                bid_price
+            )
+            # accumulated flat fees of exchange
+            total_buy_flat_fees = 0.0
+            total_sell_flat_fees = 0.0
+            for buy_flat_fee_currency, buy_flat_fee_amount in buy_fee.flat_fees:
+                if buy_flat_fee_currency == buy_market_quote_currency:
+                    total_buy_flat_fees += buy_flat_fee_amount
+                else:
+                    # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
+                    total_buy_flat_fees += ExchangeRateConversion.get_instance().adjust_token_rate(
+                        amount=buy_flat_fee_amount,
+                        from_currency=buy_flat_fee_currency,
+                        to_currency=buy_market_quote_currency
+                    )
+            for sell_flat_fee_currency, sell_flat_fee_amount in sell_fee.flat_fees:
+                if sell_flat_fee_currency == sell_market_quote_currency:
+                    total_sell_flat_fees += sell_flat_fee_amount
+                else:
+                    total_sell_flat_fees += ExchangeRateConversion.get_instance().adjust_token_rate(
+                        amount=sell_flat_fee_amount,
+                        from_currency=sell_flat_fee_currency,
+                        to_currency=sell_market_quote_currency
+                    )
+            # accumulated profitability with fees
+            total_bid_value_adjusted += bid_price_adjusted * amount
+            total_ask_value_adjusted += ask_price_adjusted * amount
+            net_sell_proceeds = total_bid_value_adjusted * (1 - sell_fee.percent) - total_sell_flat_fees
+            net_buy_costs = total_ask_value_adjusted * (1 + buy_fee.percent) + total_buy_flat_fees
+            profitability = net_sell_proceeds / net_buy_costs
+
+            buy_market_quote_asset = buy_market.c_get_balance(buy_market_quote_currency)
+            sell_market_base_asset = sell_market.c_get_balance(sell_market_base_currency)
+
+            # if current step is within minimum profitability, set to best profitable order
+            # because the total amount is greater than the previous step
+            if profitability > (1 + self._min_profitability):
+                best_profitable_order_amount = total_previous_step_base_amount + amount
+                best_profitable_order_profibility = profitability
+
+            if self._logging_options & self.OPTION_LOG_PROFITABILITY_STEP:
+                self.log_with_clock(logging.DEBUG, f"Total profitability with fees: {profitability}, "
+                                                   f"Current step profitability: {bid_price/ask_price},"
+                                                   f"bid, ask price, amount: {bid_price, ask_price, amount}")
+
+            # stop current step if buy/sell market does not have enough asset
+            if buy_market_quote_asset < net_buy_costs or \
+                    sell_market_base_asset < (total_previous_step_base_amount + amount):
+                # use previous step as best profitable order if below min profitability
+                if profitability < (1 + self._min_profitability):
+                    break
+                if self._logging_options & self.OPTION_LOG_INSUFFICIENT_ASSET:
+                    self.log_with_clock(logging.DEBUG,
+                                    f"Not enough asset to complete this step. "
+                                    f"Quote asset needed: {total_ask_value + ask_price * amount}. "
+                                    f"Quote asset balance: {buy_market_quote_asset}. "
+                                    f"Base asset needed: {total_bid_value + bid_price * amount}. "
+                                    f"Base asset balance: {sell_market_base_asset}. ")
+
+                # market buys need to be adjusted to account for additional fees
+                buy_market_adjusted_order_size = (buy_market_quote_asset / ask_price - total_buy_flat_fees) / (1 + buy_fee.percent)
+                # buy and sell with the amount of available base or quote asset, whichever is smaller
+                best_profitable_order_amount = min(sell_market_base_asset, buy_market_adjusted_order_size)
+                best_profitable_order_profibility = profitability
+                break
+
+            total_bid_value += bid_price * amount
+            total_ask_value += ask_price * amount
+            total_previous_step_base_amount += amount
+
+        if self._logging_options & self.OPTION_LOG_FULL_PROFITABILITY_STEP:
+            self.log_with_clock(logging.DEBUG,
+                "\n" + pd.DataFrame(
+                    data=[
+                        [b_price_adjusted/a_price_adjusted,
+                         b_price_adjusted, a_price_adjusted, b_price, a_price, amount]
+                        for b_price_adjusted, a_price_adjusted, b_price, a_price, amount in profitable_orders],
+                    columns=['raw_profitability', 'bid_price_adjusted', 'ask_price_adjusted',
+                             'bid_price', 'ask_price', 'step_amount']
+                ).to_string()
+            )
+
+        return best_profitable_order_amount, best_profitable_order_profibility
+
+    # The following exposed Python functions are meant for unit tests
+    # ---------------------------------------------------------------
+    def find_best_profitable_amount(self,
+                                    buy_market: MarketBase, buy_market_symbol: str, buy_market_base_currency: str,
+                                    buy_market_quote_currency: str, buy_order_book: OrderBook,
+                                    sell_market: MarketBase, sell_market_symbol: str, sell_market_base_currency: str,
+                                    sell_market_quote_currency: str, sell_order_book: OrderBook):
+        return self.c_find_best_profitable_amount(buy_market, buy_market_symbol, buy_market_base_currency,
+                                                  buy_market_quote_currency, buy_order_book,
+                                                  sell_market, sell_market_symbol, sell_market_base_currency,
+                                                  sell_market_quote_currency, sell_order_book
+                                                  )
+    def ready_for_new_orders(self, market_pair):
+        return self.c_ready_for_new_orders(market_pair)
+    # ---------------------------------------------------------------
 
 cdef list c_find_profitable_arbitrage_orders(double min_profitability,
                                              OrderBook buy_order_book,
@@ -762,9 +818,7 @@ cdef list c_find_profitable_arbitrage_orders(double min_profitability,
             ask_leftover_amount -= step_amount
             bid_leftover_amount -= step_amount
 
-
     except StopIteration:
         pass
 
     return profitable_orders
-
