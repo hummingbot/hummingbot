@@ -47,23 +47,23 @@ class CoinCapDataFeed(DataFeedBase):
             try:
                 await self.fetch_prices()
             except asyncio.CancelledError:
-                pass
+                raise
             except Exception as e:
                 self.logger().error(e, exc_info=True)
-            finally:
-                await asyncio.sleep(self._update_interval)
+
+            await asyncio.sleep(self._update_interval)
 
     async def fetch_prices(self):
         try:
             async with self._session.request("GET", f"{self.COIN_CAP_BASE_URL}/assets") as resp:
-                rates_dict = ujson.loads(await resp.text())
+                rates_dict = await resp.json()
                 for rate_obj in rates_dict["data"]:
                     symbol = rate_obj["symbol"]
                     self._price_dict[symbol] = float(rate_obj["priceUsd"])
 
             # coincap does not include all coins in assets
             async with self._session.request("GET", f"{self.COIN_CAP_BASE_URL}/rates") as resp:
-                rates_dict = ujson.loads(await resp.text())
+                rates_dict = await resp.json()
                 for rate_obj in rates_dict["data"]:
                     symbol = rate_obj["symbol"]
                     self._price_dict[symbol] = float(rate_obj["rateUsd"])
