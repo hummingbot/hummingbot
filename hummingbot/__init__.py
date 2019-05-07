@@ -24,7 +24,7 @@ def init_logging(conf_filename: str, override_log_level: Optional[str] = None):
     from os.path import join
     import pandas as pd
     from typing import Dict
-    import yaml
+    from ruamel.yaml import YAML
 
     from hummingbot.cli.settings import global_config_map
     from hummingbot.logger import reporting_proxy_handler
@@ -43,12 +43,13 @@ def init_logging(conf_filename: str, override_log_level: Optional[str] = None):
     logging.raiseExceptions = False
 
     file_path: str = join(prefix_path(), "conf", conf_filename)
+    yaml_parser: YAML = YAML()
     with open(file_path) as fd:
         yml_source: str = fd.read()
         yml_source = yml_source.replace("$PROJECT_DIR", prefix_path())
         yml_source = yml_source.replace("$DATETIME", pd.Timestamp.now().strftime("%Y-%m-%d-%H-%M-%S"))
         io_stream: io.StringIO = io.StringIO(yml_source)
-        config_dict: Dict = yaml.load(io_stream)
+        config_dict: Dict = yaml_parser.load(io_stream)
         if override_log_level is not None and "loggers" in config_dict:
             for logger in config_dict["loggers"]:
                 if global_config_map["logger_override_whitelist"].value and \

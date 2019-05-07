@@ -20,7 +20,12 @@ from wings.events import (
     SellOrderCompletedEvent,
     WalletWrappedEthEvent,
     WalletUnwrappedEthEvent,
-    BuyOrderCreatedEvent, SellOrderCreatedEvent, OrderFilledEvent)
+    BuyOrderCreatedEvent,
+    SellOrderCreatedEvent,
+    OrderFilledEvent,
+    TradeType,
+    TradeFee
+)
 from wings.event_logger import EventLogger
 from wings.market.market_base import OrderType
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
@@ -101,6 +106,16 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
     def run_parallel(self, *tasks):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
+
+    def test_get_fee(self):
+        weth_trade_fee: TradeFee = self.market.get_fee("ZRX-WETH", OrderType.LIMIT, TradeType.BUY, 10000, 1)
+        self.assertGreater(weth_trade_fee.percent, 0)
+        self.assertEqual(len(weth_trade_fee.flat_fees), 1)
+        self.assertEqual(weth_trade_fee.flat_fees[0][0], "WETH")
+        dai_trade_fee: TradeFee = self.market.get_fee("WETH-DAI", OrderType.MARKET, TradeType.BUY, 10000)
+        self.assertGreater(dai_trade_fee.percent, 0)
+        self.assertEqual(len(dai_trade_fee.flat_fees), 1)
+        self.assertEqual(dai_trade_fee.flat_fees[0][0], "DAI")
 
     def test_get_wallet_balances(self):
         balances = self.market.get_all_balances()
@@ -204,8 +219,9 @@ class DDEXMarketUnitTest(unittest.TestCase):
     def test_market_buy_and_sell(self):
         self.assertGreater(self.market.get_balance("WETH"), 0.01)
 
-        amount: float = 30
+        amount: float = 1200.0      # Min order size is 1000 HOT
         quantized_amount: Decimal = self.market.quantize_order_amount("HOT-WETH", amount)
+
         order_id = self.market.buy("HOT-WETH", amount, OrderType.MARKET)
 
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
@@ -215,12 +231,16 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
         self.assertTrue([evt.order_type == OrderType.MARKET for evt in order_filled_events])
         self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertEqual(float(quantized_amount), order_completed_event.base_asset_amount)
+
+        # This is because some of the tokens are deducted in the trading fees.
+        self.assertTrue(
+            float(quantized_amount) > order_completed_event.base_asset_amount > float(quantized_amount) * 0.9
+        )
         self.assertEqual("HOT", order_completed_event.base_asset)
         self.assertEqual("WETH", order_completed_event.quote_asset)
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
-                         for event in self.market_logger.event_log]))
+                             for event in self.market_logger.event_log]))
         # Reset the logs
         self.market_logger.clear()
 
@@ -240,7 +260,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
         self.assertEqual("WETH", order_completed_event.quote_asset)
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
-                         for event in self.market_logger.event_log]))
+                             for event in self.market_logger.event_log]))
 
     @unittest.skipUnless(any("test_wrap_eth" in arg for arg in sys.argv), "Wrap Eth test requires manual action.")
     def test_wrap_eth(self):

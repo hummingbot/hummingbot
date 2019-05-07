@@ -35,6 +35,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         dict _order_fill_buy_events
         dict _order_fill_sell_events
         dict _suggested_price_samples
+        object _in_flight_cancels
         EventListener _order_filled_listener
         EventListener _buy_order_completed_listener
         EventListener _sell_order_completed_listener
@@ -42,7 +43,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         EventListener _order_cancelled_listener
         EventListener _order_expired_listener
         int64_t _logging_options
-        object exchange_rate_conversion
+        object _exchange_rate_conversion
 
     cdef c_buy_with_specific_market(self, MarketBase market, str symbol, double amount,
                                     object order_type = *, double price = *, double expiration_seconds = *)
@@ -61,6 +62,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef c_stop_tracking_order(self, object market_pair, str order_id)
     cdef object c_get_order_size_after_portfolio_ratio_limit(self, object market_pair, double original_order_size)
     cdef object c_get_adjusted_limit_order_size(self, object market_pair, double price, double original_order_size)
+    cdef tuple c_calculate_market_making_profitability(self,
+                                                       object market_pair,
+                                                       OrderBook maker_order_book,
+                                                       OrderBook taker_order_book)
     cdef tuple c_has_market_making_profit_potential(self,
                                                     object market_pair,
                                                     OrderBook maker_order_book,

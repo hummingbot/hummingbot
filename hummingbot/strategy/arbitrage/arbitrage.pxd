@@ -27,7 +27,7 @@ cdef class ArbitrageStrategy(StrategyBase):
         set _sell_markets
         set _buy_markets
         int64_t _logging_options
-        object exchange_rate_conversion
+        object _exchange_rate_conversion
 
     cdef c_buy_with_specific_market(self, MarketBase market, str symbol, double amount,
                                     object order_type = *, double price = *)
@@ -37,6 +37,10 @@ cdef class ArbitrageStrategy(StrategyBase):
     cdef c_did_complete_sell_order(self, object sell_order_completed_event)
     cdef c_did_fail_order(self, object fail_event)
     cdef c_did_cancel_order(self, object cancel_event)
+    cdef tuple c_calculate_arbitrage_profitability(self,
+                                                   object market_pair,
+                                                   OrderBook order_book_1,
+                                                   OrderBook order_book_2)
     cdef c_process_market_pair(self, object market_pair)
     cdef c_process_market_pair_inner(self,
                                      MarketBase buy_market,

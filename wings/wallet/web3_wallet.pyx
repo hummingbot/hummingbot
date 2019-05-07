@@ -113,6 +113,10 @@ cdef class Web3Wallet(WalletBase):
         return self._best_backend.block_number
 
     @property
+    def gas_price(self) -> int:
+        return self._best_backend.gas_price
+
+    @property
     def current_backend(self) -> Web3WalletBackend:
         return self._best_backend
 
@@ -153,6 +157,9 @@ cdef class Web3Wallet(WalletBase):
 
     def unwrap_eth(self, amount: float) -> str:
         return self._best_backend.unwrap_eth(amount)
+
+    def estimate_transaction_cost(self, contract_function: ContractFunction, **kwargs) -> int:
+        return self._best_backend.estimate_transaction_cost(contract_function, **kwargs)
 
     def execute_transaction(self, contract_function: ContractFunction, **kwargs) -> str:
         return self._best_backend.execute_transaction(contract_function, **kwargs)

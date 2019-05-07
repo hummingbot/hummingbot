@@ -37,10 +37,13 @@ from wings.events import (
     OrderCancelledEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
-    MarketTransactionFailureEvent, TradeType)
+    MarketTransactionFailureEvent,
+    OrderType,
+    TradeType,
+    TradeFee
+)
 from wings.market.market_base import (
     MarketBase,
-    OrderType,
     NaN
 )
 from wings.order_book_tracker import (
@@ -328,13 +331,12 @@ cdef class BinanceMarket(MarketBase):
                  binance_api_secret: str,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                    OrderBookTrackerDataSourceType.LOCAL_CLUSTER,
+                    OrderBookTrackerDataSourceType.EXCHANGE_API,
                  user_stream_tracker_data_source_type: UserStreamTrackerDataSourceType =
                     UserStreamTrackerDataSourceType.EXCHANGE_API,
                  symbols: Optional[List[str]] = None):
 
         self.monkey_patch_binance_time()
-
         super().__init__()
         self._order_book_tracker = BinanceOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
                                                            symbols=symbols)
@@ -352,6 +354,8 @@ cdef class BinanceMarket(MarketBase):
         self._w3 = Web3(Web3.HTTPProvider(web3_url))
         self._withdraw_rules = {}
         self._trading_rules = {}
+        self._trade_fees = {}
+        self._last_update_trade_fees_timestamp = 0
         self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
         self._user_stream_tracker_task = None
@@ -359,6 +363,10 @@ cdef class BinanceMarket(MarketBase):
         self._order_tracker_task = None
         self._coro_queue = asyncio.Queue()
         self._coro_scheduler_task = None
+
+    @property
+    def name(self) -> str:
+        return "binance"
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -469,6 +477,36 @@ cdef class BinanceMarket(MarketBase):
             if receipt.status == 0:
                 self.c_did_fail_tx(d.tracking_id)
             d.has_tx_receipt = True
+
+    async def _update_trade_fees(self):
+        cdef:
+            double current_timestamp = self._current_timestamp
+
+        if current_timestamp - self._last_update_trade_fees_timestamp > 60.0 * 60.0 or len(self._trade_fees) < 1:
+            try:
+                res = await self.query_api(self._binance_client.get_trade_fee)
+                for fee in res["tradeFee"]:
+                    self._trade_fees[fee["symbol"]] = (fee["maker"], fee["taker"])
+                self._last_update_trade_fees_timestamp = current_timestamp
+            except Exception:
+                raise IOError("Error fetching Binance trade fees.")
+
+    cdef object c_get_fee(self,
+                          str symbol,
+                          object order_type,
+                          object order_side,
+                          double amount,
+                          double price):
+        cdef:
+            double maker_trade_fee = 0.001
+            double taker_trade_fee = 0.001
+
+        if symbol not in self._trade_fees:
+            # https://www.binance.com/en/fee/schedule
+            self.logger().warning(f"Unable to find trade fee for {symbol}. Using default 0.1% maker/taker fee.")
+        else:
+            maker_trade_fee, taker_trade_fee = self._trade_fees.get(symbol)
+        return TradeFee(percent=maker_trade_fee if order_type is OrderType.LIMIT else taker_trade_fee)
 
     async def _check_deposit_completion(self):
         if len(self._in_flight_deposits) < 1:
@@ -707,20 +745,22 @@ cdef class BinanceMarket(MarketBase):
                     self._check_deposit_completion(),
                     self._update_withdraw_rules(),
                     self._update_trading_rules(),
-                    self._update_order_status()
+                    self._update_order_status(),
+                    self._update_trade_fees()
                 )
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error while fetching account updates.", exc_info=True)
-                asyncio.sleep(0.5)
+                await asyncio.sleep(0.5)
 
     @property
     def ready(self) -> bool:
         return (len(self._order_book_tracker.order_books) > 0 and
                 len(self._account_balances) > 0 and
                 len(self._withdraw_rules) > 0 and
-                len(self._trading_rules) > 0)
+                len(self._trading_rules) > 0 and
+                len(self._trade_fees) > 0)
 
     async def server_time(self) -> int:
         """
@@ -871,6 +911,7 @@ cdef class BinanceMarket(MarketBase):
         except asyncio.CancelledError:
             raise
         except Exception:
+            self.c_stop_tracking_order(order_id)
             order_type_str = 'MARKET' if order_type == OrderType.MARKET else 'LIMIT'
             self.logger().error(f"Error submitting buy {order_type_str} order to Binance for "
                                 f"{decimal_amount} {symbol} {price}.",
@@ -935,6 +976,7 @@ cdef class BinanceMarket(MarketBase):
         except asyncio.CancelledError:
             raise
         except Exception:
+            self.c_stop_tracking_order(order_id)
             order_type_str = 'MARKET' if order_type == OrderType.MARKET else 'LIMIT'
             self.logger().error(f"Error submitting sell {order_type_str} order to Binance for "
                                 f"{decimal_amount} {symbol} {price}.",
@@ -951,9 +993,21 @@ cdef class BinanceMarket(MarketBase):
         return order_id
 
     async def execute_cancel(self, symbol: str, order_id: str):
-        cancel_result = await self.query_api(self._binance_client.cancel_order,
-                                             symbol=symbol,
-                                             origClientOrderId=order_id)
+        try:
+            cancel_result = await self.query_api(self._binance_client.cancel_order,
+                                                 symbol=symbol,
+                                                 origClientOrderId=order_id)
+        except BinanceAPIException as e:
+            if "Unknown order sent" in e.message:
+                # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
+                self.logger().info(f"The order {order_id} does not exist on Binance. No cancellation needed.")
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp, order_id))
+                return {
+                    # Required by cancel_all() below.
+                    "origClientOrderId": order_id
+                }
+
         if isinstance(cancel_result, dict) and cancel_result.get("status") == "CANCELED":
             self.logger().info(f"Successfully cancelled order {order_id}.")
             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,

@@ -63,20 +63,19 @@ kafka_2 = {
 try:
     from .config_local import *
 except ModuleNotFoundError:
-    _logger.warning("Warning: local config not found. You need to define the API keys in config_local.py.")
+    pass
 
 try:
     from .web3_wallet_secret import *
 except ModuleNotFoundError:
-    _logger.warning("Warning: web3 wallet secret not found. You need to define the web3 wallet secret in "
-                    "web3_wallet_secret.py")
+    pass
 
 try:
     from .binance_secret import *
 except ModuleNotFoundError:
-    _logger.warning("Warning: binance secret not found. You need to define the binance secret in binance_secret.py")
+    pass
 
 try:
     from .coinbase_pro_secrets import *
 except ModuleNotFoundError:
-    _logger.warning("Warning: coinbase pro secret not found. You need to define the coinbase pro secret in coinbase_pro_secrets.py")
+    pass

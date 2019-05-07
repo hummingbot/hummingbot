@@ -81,7 +81,7 @@ class NewBlocksWatcher(BaseWatcher):
                 except TimeoutError:
                     self.logger().error("Timed out fetching new block - '{block_hash}'.", exc_info=True)
                 finally:
-                    asyncio.sleep(1.0)
+                    await asyncio.sleep(0.5)
             return block.timestamp
 
     async def fetch_new_blocks_loop(self):
@@ -143,7 +143,7 @@ class NewBlocksWatcher(BaseWatcher):
                         expected_parent_hash,
                         full_transactions=True))
                 if replacement_block is None:
-                    asyncio.sleep(1.0)
+                    await asyncio.sleep(0.5)
 
             replacement_block_number: int = replacement_block.number
             replacement_block_hash: HexBytes = replacement_block.hash

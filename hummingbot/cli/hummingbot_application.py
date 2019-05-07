@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import asyncio
+from os.path import join, dirname
 import logging
 import argparse
 from eth_account.local import LocalAccount
@@ -11,7 +12,10 @@ from typing import (
     List,
     Dict,
     Optional,
-    Tuple
+    Tuple,
+    Any,
+    Set,
+    Callable,
 )
 from web3 import Web3
 
@@ -64,6 +68,7 @@ from hummingbot.strategy.arbitrage import (
 )
 from hummingbot.cli.settings import get_erc20_token_addresses
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
+
 s_logger = None
 
 
@@ -103,13 +108,15 @@ class HummingbotApplication:
             completer=load_completer(self))
 
         self.acct: Optional[LocalAccount] = None
-        self.markets: Dict = {}
+        self.markets: Dict[str, MarketBase] = {}
         self.wallet: Optional[Web3Wallet] = None
         self.strategy_task: Optional[asyncio.Task] = None
         self.strategy: Optional[CrossExchangeMarketMakingStrategy] = None
         self.market_pair: Optional[CrossExchangeMarketPair] = None
         self.clock: Optional[Clock] = None
 
+        self.assets: Optional[Set[str]] = None
+        self.starting_balances = {}
         self.placeholder_mode = False
         self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
         self.reporting_module: Optional[ReportAggregator] = None
@@ -140,6 +147,11 @@ class HummingbotApplication:
             self.app.log("Invalid command: %s" % (str(e),))
         except ArgumentParserError as e:
             self.app.log(str(e))
+        except EnvironmentError as e:
+            # Handle order book too thin error more gracefully
+            if "no price quote is possible" in str(e):
+                self.logger().error(f"Order book error: Not enough volume on order book. Please consider choosing a "
+                                    f"trading pair with more volume or trade on a different exchange. {e}")
         except NotImplementedError:
             self.app.log("Command not yet implemented. This feature is currently under development.")
         except Exception as e:
@@ -273,7 +285,17 @@ class HummingbotApplication:
 
         async def single_prompt(cvar: ConfigVar):
             if cvar.required or single_key:
-                val = await self.app.prompt(prompt=cvar.prompt, is_password=cvar.is_secure)
+                if cvar.key == "strategy_file_path":
+                    val = await self._import_or_create_strategy_config()
+                elif cvar.key == "wallet":
+                    wallets = list_wallets()
+                    if len(wallets) > 0:
+                        val = await self._unlock_wallet()
+                    else:
+                        val = await self._create_or_import_wallet()
+                    logging.getLogger("hummingbot.public_eth_address").info(val)
+                else:
+                    val = await self.app.prompt(prompt=cvar.prompt, is_password=cvar.is_secure)
                 if not cvar.validate(val):
                     self.app.log("%s is not a valid %s value" % (val, cvar.key))
                     val = await single_prompt(cvar)
@@ -293,24 +315,18 @@ class HummingbotApplication:
                     cv: ConfigVar = global_config_map.get(key)
                 else:
                     cv: ConfigVar = strategy_cm.get(key)
-                if key == "wallet":
-                    wallets = list_wallets()
-                    if len(wallets) > 0:
-                        value = await self._unlock_wallet()
-                    else:
-                        value = await self._create_or_import_wallet()
-                    logging.getLogger("hummingbot.public_eth_address").info(value)
-                elif key == "strategy_file_path":
-                    value = await self._import_or_create_strategy_config()
-                else:
-                    value = await single_prompt(cv)
+
+                value = await single_prompt(cv)
                 cv.value = parse_cvar_value(cv, value)
+                if single_key:
+                    self.app.log(f"\nNew config saved:\n{key}: {str(value)}")
             if not self.config_complete:
                 await inner_loop(self._get_empty_configs())
         try:
             await inner_loop(keys)
             await write_config_to_yml()
-            self.app.log("\nConfig process complete. Enter \"start\" to start market making.")
+            if not single_key:
+                self.app.log("\nConfig process complete. Enter \"start\" to start market making.")
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
         except Exception as err:
@@ -353,10 +369,11 @@ class HummingbotApplication:
                                           web3_url=ethereum_rpc_url,
                                           symbols=[symbol])
 
-            elif market_name == "coinbase_pro" and self.wallet:
+            elif market_name == "coinbase_pro":
                 coinbase_pro_api_key = global_config_map.get("coinbase_pro_api_key").value
                 coinbase_pro_secret_key = global_config_map.get("coinbase_pro_secret_key").value
                 coinbase_pro_passphrase = global_config_map.get("coinbase_pro_passphrase").value
+
                 market = CoinbaseProMarket(web3_url=ethereum_rpc_url,
                                            coinbase_pro_api_key=coinbase_pro_api_key,
                                            coinbase_pro_secret_key=coinbase_pro_secret_key,
@@ -369,26 +386,27 @@ class HummingbotApplication:
             self.markets[market_name]: MarketBase = market
 
     def status(self) -> bool:
+        self.app.log("\n  Preliminary checks:")
         if self.config_complete:
-            self.app.log(" - Config complete")
+            self.app.log("   - Config check: Config complete")
         else:
-            self.app.log(' x Pending config. Please enter "config" before starting the bot.')
+            self.app.log('   x Config check: Pending config. Please enter "config" before starting the bot.')
             return False
 
         eth_node_valid = check_web3(global_config_map.get("ethereum_rpc_url").value)
         if eth_node_valid:
-            self.app.log(" - Ethereum node running and current")
+            self.app.log("   - Node check: Ethereum node running and current")
         else:
-            self.app.log(' x Bad ethereum rpc url. Your node may be syncing. '
+            self.app.log('   x Node check: Bad ethereum rpc url. Your node may be syncing. '
                          'Please re-configure by entering "config ethereum_rpc_url"')
             return False
 
         if self.wallet is not None:
             has_minimum_eth = self.wallet.get_balance("ETH") > 0.01
             if has_minimum_eth:
-                self.app.log(" - Minimum ETH requirement satisfied")
+                self.app.log("   - Min ETH check: Minimum ETH requirement satisfied")
             else:
-                self.app.log(" x Not enough ETH in wallet. "
+                self.app.log("   x Min ETH check: Not enough ETH in wallet. "
                              "A small amount of Ether is required for sending transactions on Decentralized Exchanges")
 
         loading_markets: List[str] = []
@@ -400,12 +418,12 @@ class HummingbotApplication:
             return True
         elif len(loading_markets) > 0:
             for loading_market in loading_markets:
-                self.app.log(f" x Waiting for {loading_market} market to get ready for trading. "
+                self.app.log(f"   x Market check:  Waiting for {loading_market} market to get ready for trading. "
                              f"Please keep the bot running and try to start again in a few minutes")
             return False
 
-        self.app.log(" - All markets ready")
-        self.app.log("\n" + self.strategy.format_status())
+        self.app.log("   - Market check: All markets ready")
+        self.app.log(self.strategy.format_status() + "\n")
         return True
 
     def help(self, command):
@@ -446,13 +464,37 @@ class HummingbotApplication:
                 self.app.log('Wallet not available. Please configure your wallet (Enter "config wallet")')
             else:
                 self.app.log('\n'.join(wallets))
+
         elif obj == "exchanges":
             if len(EXCHANGES) == 0:
                 self.app.log("No exchanges available")
             else:
                 self.app.log('\n'.join(EXCHANGES))
+
         elif obj == "configs":
-            self.app.log('\n'.join(load_required_configs().keys()))
+            columns: List[str] = ["Key", "Current Value"]
+
+            global_cvs: List[ConfigVar] = list(in_memory_config_map.values()) + list(global_config_map.values())
+            global_data: List[List[str, Any]] = [
+                [cv.key, len(str(cv.value)) * "*" if cv.is_secure else str(cv.value)]
+                for cv in global_cvs]
+            global_df: pd.DataFrame = pd.DataFrame(data=global_data, columns=columns)
+            self.app.log("\nglobal configs:")
+            self.app.log(str(global_df))
+
+            strategy = in_memory_config_map.get("strategy").value
+            if strategy:
+                strategy_cvs: List[ConfigVar] = get_strategy_config_map(strategy).values()
+                strategy_data: List[List[str, Any]] = [
+                    [cv.key, len(str(cv.value)) * "*" if cv.is_secure else str(cv.value)]
+                    for cv in strategy_cvs]
+                strategy_df: pd.DataFrame = pd.DataFrame(data=strategy_data, columns=columns)
+
+                self.app.log(f"\n{strategy} strategy configs:")
+                self.app.log(str(strategy_df))
+
+            self.app.log("\n")
+
         elif obj == "trades":
             lines = []
             if self.strategy is None:
@@ -496,7 +538,7 @@ class HummingbotApplication:
         ExchangeRateConversion.get_instance().start()
         strategy_name = in_memory_config_map.get("strategy").value
         self.init_reporting_module()
-        self.app.log(f"Status check complete. Starting '{strategy_name}' strategy...")
+        self.app.log(f"\n  Status check complete. Starting '{strategy_name}' strategy...")
         asyncio.ensure_future(self.start_market_making(strategy_name))
 
     async def start_market_making(self, strategy_name: str):
@@ -532,9 +574,9 @@ class HummingbotApplication:
                 (maker_market, raw_maker_symbol),
                 (taker_market, raw_taker_symbol)
             ]
-
             self._initialize_wallet(token_symbols=list(set(maker_assets + taker_assets)))
             self._initialize_markets(market_names)
+            self.assets = set(maker_assets + taker_assets)
 
             self.market_pair = CrossExchangeMarketPair(*([self.markets[maker_market], raw_maker_symbol] + list(maker_assets) +
                                                   [self.markets[taker_market], raw_taker_symbol] + list(taker_assets) +
@@ -562,7 +604,6 @@ class HummingbotApplication:
             raw_primary_symbol = strategy_cm.get("primary_market_symbol").value.upper()
             raw_secondary_symbol = strategy_cm.get("secondary_market_symbol").value.upper()
             min_profitability = strategy_cm.get("min_profitability").value
-
             try:
                 primary_assets: Tuple[str, str] = SymbolSplitter.split(primary_market, raw_primary_symbol)
                 secondary_assets: Tuple[str, str] = SymbolSplitter.split(secondary_market, raw_secondary_symbol)
@@ -570,10 +611,14 @@ class HummingbotApplication:
             except ValueError as e:
                 self.app.log(str(e))
                 return
+
             market_names: List[Tuple[str, str]] = [(primary_market, raw_primary_symbol),
                                                    (secondary_market, raw_secondary_symbol)]
+
             self._initialize_wallet(token_symbols=list(set(primary_assets + secondary_assets)))
             self._initialize_markets(market_names)
+            self.assets = set(primary_assets + secondary_assets)
+
             self.market_pair = ArbitrageMarketPair(*([self.markets[primary_market], raw_primary_symbol] +
                                                      list(primary_assets) +
                                                      [self.markets[secondary_market], raw_secondary_symbol] +
@@ -595,13 +640,16 @@ class HummingbotApplication:
 
         try:
             self.clock = Clock(ClockMode.REALTIME)
-            self.clock.add_iterator(self.wallet)
+            if self.wallet is not None:
+                self.clock.add_iterator(self.wallet)
             for market in self.markets.values():
-                self.clock.add_iterator(market)
+                if market is not None:
+                    self.clock.add_iterator(market)
             self.clock.add_iterator(self.strategy)
             self.strategy_task: asyncio.Task = asyncio.ensure_future(self.clock.run())
-            self.app.log(f"\n'{strategy_name}' strategy started.\n"
-                         f"You can use the `status` command to query the progress.")
+            self.app.log(f"\n  '{strategy_name}' strategy started.\n"
+                         f"  You can use the `status` command to query the progress.")
+            self.starting_balances = await self.wait_till_ready(self.balance_snapshot)
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
 
@@ -610,7 +658,7 @@ class HummingbotApplication:
         if not skip_order_cancellation:
             # Remove the strategy from clock before cancelling orders, to
             # prevent race condition where the strategy tries to create more
-            # ordres during cancellation.
+            # orders during cancellation.
             self.clock.remove_iterator(self.strategy)
             success = await self._cancel_outstanding_orders()
             if success:
@@ -659,3 +707,60 @@ class HummingbotApplication:
             self.app.change_prompt(prompt=">>> ")
             self.app.toggle_hide_input()
             self.placeholder_mode = False
+
+    def export_trades(self, path: str = ""):
+        if not path:
+            fname = f"trades_{pd.Timestamp.now().strftime('%Y-%m-%d-%H-%M-%S')}.csv"
+            path = join(dirname(__file__), f"../../logs/{fname}")
+
+        if self.strategy is None:
+            self.app.log("No strategy available, cannot export past trades.")
+
+        else:
+            if len(self.strategy.trades) > 0:
+                df: pd.DataFrame = Trade.to_pandas(self.strategy.trades)
+                df.to_csv(path, header=True)
+                self.app.log(f"Successfully saved trades to {path}")
+
+    def history(self):
+        self.list("trades")
+        self.compare_balance_snapshots()
+
+    async def wait_till_ready(self, func: Callable, *args, **kwargs):
+        while True:
+            all_ready = all([market.ready for market in self.markets.values()])
+            if not all_ready:
+                await asyncio.sleep(0.5)
+            else:
+                return func(*args, **kwargs)
+
+    def balance_snapshot(self) -> Dict[str, Dict[str, float]]:
+        snapshot: Dict[str, Any] = {}
+        for market_name in self.markets:
+            balance_dict = self.markets[market_name].get_all_balances()
+            for c in self.assets:
+                if c not in snapshot:
+                    snapshot[c] = {}
+                if c in balance_dict:
+                    snapshot[c][market_name] = balance_dict[c]
+                else:
+                    snapshot[c][market_name] = 0.0
+        return snapshot
+
+    def compare_balance_snapshots(self):
+        if len(self.starting_balances) == 0:
+            self.app.log("Balance snapshots are not available before bot starts")
+            return
+
+        rows = []
+        for market_name in self.markets:
+            for asset in self.assets:
+                starting_balance = self.starting_balances.get(asset).get(market_name)
+                current_balance = self.balance_snapshot().get(asset).get(market_name)
+                rows.append([market_name, asset, starting_balance, current_balance, current_balance - starting_balance])
+
+        df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Delta"])
+        lines = ["", "  Performance:"] + ["    " + line for line in str(df).split("\n")]
+        self.app.log("\n".join(lines))
+
+

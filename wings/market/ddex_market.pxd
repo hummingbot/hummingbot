@@ -15,8 +15,10 @@ cdef class DDEXMarket(MarketBase):
         double _last_timestamp
         double _last_update_order_timestamp
         double _last_update_trading_rules_timestamp
+        double _last_update_trade_fees_timestamp
         double _poll_interval
         dict _in_flight_orders
+        object _in_flight_cancels
         object _order_expiry_queue
         TransactionTracker _tx_tracker
         object _w3
@@ -27,6 +29,10 @@ cdef class DDEXMarket(MarketBase):
         public object _user_stream_event_listener_task
         public object _order_tracker_task
         public object _approval_tx_polling_task
+        double _maker_trade_fee
+        double _taker_trade_fee
+        double _gas_fee_weth
+        double _gas_fee_usd
 
     cdef c_start_tracking_order(self,
                                 str order_id,

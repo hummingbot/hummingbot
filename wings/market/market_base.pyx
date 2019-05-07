@@ -9,7 +9,13 @@ from wings.order_book import OrderBook
 from wings.cancellation_result import CancellationResult
 from wings.limit_order import LimitOrder
 from wings.event_reporter import EventReporter
-from wings.events import OrderType
+from wings.events import (
+    OrderType,
+    TradeType,
+    TradeFee
+)
+from wings.event_logger import EventLogger
+
 NaN = float("nan")
 
 
@@ -30,8 +36,18 @@ cdef class MarketBase(TimeIterator):
     def __init__(self):
         super().__init__()
         self.event_reporter = EventReporter(event_source=self.__class__.__name__)
+        self.event_logger = EventLogger(event_source=self.name)
         for event_tag in self.MARKET_EVENTS:
             self.c_add_listener(event_tag.value, self.event_reporter)
+            self.c_add_listener(event_tag.value, self.event_logger)
+
+    @property
+    def name(self) -> str:
+        raise NotImplementedError
+
+    @property
+    def event_logs(self) -> List[any]:
+        return self.event_logger.event_log
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -75,6 +91,14 @@ cdef class MarketBase(TimeIterator):
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         raise NotImplementedError
 
+    def get_fee(self,
+                symbol: str, 
+                order_type: OrderType,
+                order_side: TradeType,
+                amount: float,
+                price: float = NaN) -> TradeFee:
+        return self.c_get_fee(symbol, order_type, order_side, amount, price)
+
     def get_order_price_quantum(self, symbol: str, price: float) -> Decimal:
         return self.c_get_order_price_quantum(symbol, price)
 
@@ -94,6 +118,14 @@ cdef class MarketBase(TimeIterator):
         raise NotImplementedError
 
     cdef c_cancel(self, str symbol, str client_order_id):
+        raise NotImplementedError
+
+    cdef object c_get_fee(self,
+                          str symbol,
+                          object order_type,
+                          object order_side,
+                          double amount,
+                          double price):
         raise NotImplementedError
 
     cdef double c_get_balance(self, str currency) except? -1:

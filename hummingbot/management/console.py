@@ -2,6 +2,7 @@
 
 import asyncio
 import aioconsole
+import logging
 from typing import Dict
 
 
@@ -15,4 +16,5 @@ async def start_management_console(local_vars: Dict = locals(),
 
     retval = await aioconsole.start_interactive_server(host=host, port=port, banner=banner,
                                                        factory=factory_method)
+    logging.getLogger(__name__).info(f"Started debug console at {host}:{port}.")
     return retval

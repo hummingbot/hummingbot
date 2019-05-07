@@ -66,7 +66,7 @@ class HummingbotCLI:
         self.pending_input = None
 
     def log(self, text: str):
-        self.log_lines.extend(text.split('\n'))
+        self.log_lines.extend(str(text).split('\n'))
         while len(self.log_lines) > MAXIMUM_OUTPUT_PANE_LINE_COUNT:
             self.log_lines.popleft()
         new_text: str = "\n".join(self.log_lines)

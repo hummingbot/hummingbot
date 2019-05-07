@@ -15,9 +15,13 @@ from decimal import Decimal
 import time
 from typing import List
 import unittest
+from binance.client import Client as BinanceClient
 
 import conf
-from wings.market.market_base import OrderType
+from wings.events import (
+    OrderType,
+    TradeType
+)
 from wings.market.binance_market import (
     BinanceMarket,
     BinanceTime
@@ -33,7 +37,10 @@ from wings.events import (
     MarketReceivedAssetEvent,
     MarketWithdrawAssetEvent,
     OrderFilledEvent,
-    BuyOrderCreatedEvent, SellOrderCreatedEvent)
+    BuyOrderCreatedEvent,
+    SellOrderCreatedEvent,
+    TradeFee
+)
 from wings.wallet.mock_wallet import MockWallet
 from wings.event_logger import EventLogger
 from wings.order_book_tracker import (
@@ -104,6 +111,17 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
     def run_parallel(self, *tasks):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
+
+    def test_get_fee(self):
+        maker_buy_trade_fee: TradeFee = self.market.get_fee("BTCUSDT", OrderType.LIMIT, TradeType.BUY, 1, 4000)
+        self.assertGreater(maker_buy_trade_fee.percent, 0)
+        self.assertEqual(len(maker_buy_trade_fee.flat_fees), 0)
+        taker_buy_trade_fee: TradeFee = self.market.get_fee("BTCUSDT", OrderType.MARKET, TradeType.BUY, 1)
+        self.assertGreater(taker_buy_trade_fee.percent, 0)
+        self.assertEqual(len(taker_buy_trade_fee.flat_fees), 0)
+        sell_trade_fee: TradeFee = self.market.get_fee("BTCUSDT", OrderType.LIMIT, TradeType.SELL, 1, 4000)
+        self.assertGreater(sell_trade_fee.percent, 0)
+        self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
     def test_buy_and_sell(self):
         self.assertGreater(self.market.get_balance("ETH"), 0.1)

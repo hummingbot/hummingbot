@@ -7,8 +7,8 @@ We provide users with binaries compiled for each operating systems. Below, we li
 OS | Notes
 ---|---
 **Mac OSX** | You may need to install [Xcode](https://developer.apple.com/xcode/) or Xcode command line tools.
-**Linux** | We recommend Ubuntu 18.04, though Hummingbot should work on other version of Linux as well. If you are installing Hummingbot on a fresh Linux virtual machine, we recommend installing the `build-essential` package beforehand, since Hummingbot uses the `gcc` compiler and other libraries it contains: <br/><br/> ```sudo apt install build-essential```
-**Windows** | Hummingbot is designed and optimized for Mac OS X and Linux. While a Windows binary is available, it is not actively supported. Instead, we recommend that Windows users install <a href="https://docs.microsoft.com/en-us/windows/wsl/faq" target="_blank">Windows Subsystem for Linux</a>, which allows you to run the Linux version.
+**Linux** | We recommend Ubuntu 18.04, though Hummingbot should work on other version of Linux as well. If you are installing Hummingbot on a fresh Linux virtual machine, we recommend installing the `build-essential` package beforehand, since Hummingbot uses the `gcc` compiler and other libraries it contains: <br/><br/> ```sudo apt-get update```<br/>```sudo apt-get install build-essential```
+**Windows** | Hummingbot is designed and optimized for macOS and Linux. While a Windows binary is available, it is not actively supported. Instead, we recommend that Windows users install <a href="https://docs.microsoft.com/en-us/windows/wsl/faq" target="_blank">Windows Subsystem for Linux</a>, which allows you to run the Linux version.
 
 ## 1. Install Anaconda
 
@@ -62,6 +62,10 @@ The installation script creates a custom Anaconda environment that manages depen
 conda activate hummingbot
 ```
 The environment has been activated when you see a `(hummingbot)` prefix before your Terminal command prompt:
+
+!!! note
+    Make sure you are on latest conda version. You can check by typing `conda --version`. In addition, you might have
+    to type `conda init bash` if you see a message saying that your shell is not configured to use `conda activate`.
 
 !!! note
     Ensure that you have activated the `hummingbot` environment before **compiling** or **running the bot**.

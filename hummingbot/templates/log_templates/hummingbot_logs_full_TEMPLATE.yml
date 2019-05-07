@@ -1,5 +1,6 @@
 ---
 version: 1
+template_version: 1
 
 formatters:
     simple:
@@ -39,68 +40,52 @@ handlers:
 loggers:
     hummingbot.public_eth_address:
         level: INFO
-        propagate: no
+        propagate: false
         handlers: [report_proxy_handler]
     hummingbot.command_history:
         level: INFO
-        propagate: no
+        propagate: false
         handlers: [report_proxy_handler]
     hummingbot.logger.report_aggregator:
         level: METRIC_LOG
         handlers: [report_proxy_handler, console_warning]
-        propagate: no
+        propagate: false
     hummingbot.logger.log_server_client:
         level: WARNING
-        propagate: no
+        propagate: false
         handlers: [console, report_proxy_handler, file_handler]
     hummingbot.logger.reporting_proxy_handler:
         level: WARNING
-        propagate: no
+        propagate: false
         handlers: [console, report_proxy_handler, file_handler]
-    hummingbot.strategy.arbitrage:
+    hummingbot.strategy:
         level: INFO
         handlers: [console, report_proxy_handler, file_handler]
-        propagate: no
-    hummingbot.strategy.cross_exchange_market_making:
-        level: INFO
-        handlers: [console, report_proxy_handler, file_handler]
-        propagate: no
+        propagate: false
     wings.event_reporter:
         level: EVENT_LOG
         handlers: [report_proxy_handler, file_handler]
-        propagate: no
+        propagate: false
     wings.tracker:
         level: WARNING
         handlers: [console_warning, report_proxy_handler, file_handler]
-        propagate: no
+        propagate: false
     wings.data_source:
         level: WARNING
         handlers: [console_warning, report_proxy_handler, file_handler]
-        propagate: no
-    wings.ddex_active_order_tracker:
-        level: WARNING
-        handlers: [console_warning, report_proxy_handler, file_handler]
-        propagate: no
-    wings.web3_wallet:
+        propagate: false
+    wings.wallet:
         level: INFO
         handlers: [console, report_proxy_handler, file_handler]
-        propagate: no
-    wings.web3_wallet_backend:
+        propagate: false
+    wings.market:
         level: INFO
         handlers: [console, report_proxy_handler, file_handler]
-        propagate: no
-    wings.ddex_market:
-        level: INFO
-        handlers: [console, report_proxy_handler, file_handler]
-        propagate: no
-    wings.binance_market:
-        level: INFO
-        handlers: [console, report_proxy_handler, file_handler]
-        propagate: no
+        propagate: false
     conf:
         level: INFO
         handlers: ["null", report_proxy_handler]
-        propagate: no
+        propagate: false
 
 root:
     level: INFO
