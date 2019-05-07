@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 from async_timeout import timeout
+from cachetools import TTLCache
 from collections import (
     deque,
     OrderedDict
@@ -262,6 +263,7 @@ cdef class DDEXMarket(MarketBase):
         self._taker_trade_fee = NaN
         self._gas_fee_weth = NaN
         self._gas_fee_usd = NaN
+        self._api_response_records = TTLCache(60000, ttl=600.0)
 
     @property
     def name(self) -> str:
@@ -378,6 +380,22 @@ cdef class DDEXMarket(MarketBase):
             if exchange_order_id != tracked_order.exchange_order_id:
                 self.logger().warning(f"Incorrect exchange order id '{exchange_order_id}' returned from get order "
                                       f"request for '{tracked_order.exchange_order_id}'. Ignoring.")
+
+                # Capture the incorrect request / response conversation for submitting to DDEX.
+                request_url = f"{self.DDEX_REST_ENDPOINT}/orders/{tracked_order.exchange_order_id}"
+                response = self._api_response_records.get(request_url)
+
+                if response is not None:
+                    self.logger().info(f"Captured erroneous order update request/response. "
+                                       f"Request URL={response.real_url}, "
+                                       f"Request headers={response.request_info.headers}, "
+                                       f"Response headers={response.headers}, "
+                                       f"Response data={repr(response._body)}, "
+                                       f"Decoded order update={order_update}.")
+                else:
+                    self.logger().info(f"Failed to capture the erroneous request/response for getting the order update "
+                                       f"of the order {tracked_order.exchange_order_id}.")
+
                 continue
 
             # Calculate the newly executed amount for this update.
@@ -506,7 +524,10 @@ cdef class DDEXMarket(MarketBase):
             data = await response.json()
             if data["status"] is not 0:
                 raise IOError(f"Request to {url} has failed", data)
-            self.logger().debug(f"{data}")
+
+            # Keep an auto-expired record of the response and the request URL for debugging and logging purpose.
+            self._api_response_records[url] = response
+
             return data
 
     async def _update_trade_fees(self):
