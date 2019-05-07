@@ -251,8 +251,10 @@ cdef class DiscoveryStrategy(Strategy):
 
                     if total_profitable_base_amount >= target_amount:
                         break
+
                 # for non profitable pairs calculate the negative profitability for their top bid and ask
-                if not profitable_orders:
+                # or for profitability lower than targeted, calculate with the best bid and ask
+                if not profitable_orders or profitability == 0:
                     sell_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(
                         sell_market_quote,
                         sell_market_order_book.get_price(False)
