@@ -55,11 +55,15 @@ class StopLossTracker:
 
     async def stop_loss_loop(self):
         while True:
-            self._current_pnl = self.calculate_profit_loss_pct(self._stop_loss_price_type)
-            if self._current_pnl <= -self._stop_loss_pct:
-                self._stop_handler()
-            else:
-                await asyncio.sleep(self._update_interval)
+            try:
+                self._current_pnl = self.calculate_profit_loss_pct(self._stop_loss_price_type)
+                if self._current_pnl <= -self._stop_loss_pct:
+                    self._stop_handler()
+                    break
+            except Exception as e:
+                self.logger().error(f"Error calculating stop loss percentage: {e}", exc_info=True)
+
+            await asyncio.sleep(self._update_interval)
 
     def calculate_profit_loss_pct(self, stop_loss_type: str) -> float:
         def calculate_total(balances, prices):
