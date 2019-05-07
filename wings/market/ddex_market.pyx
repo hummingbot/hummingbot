@@ -558,18 +558,16 @@ cdef class DDEXMarket(MarketBase):
             self._last_update_trade_fees_timestamp = current_timestamp
 
     cdef object c_get_fee(self,
-                          str symbol,
+                          str base_currency,
+                          str quote_currency,
                           object order_type,
                           object order_side,
                           double amount,
                           double price):
         cdef:
-            str quote_token
             double gas_fee = 0.0
-            object fee_type
-            double trade_fee
+            double percent
 
-        quote_currency = symbol.split("-")[1]
         # DDEX only quotes with WETH or stable coins
         if quote_currency == "WETH":
             gas_fee = self._gas_fee_weth

@@ -330,16 +330,17 @@ cdef class RadarRelayMarket(MarketBase):
                 await asyncio.sleep(0.5)
 
     cdef object c_get_fee(self,
-                          str symbol,
+                          str base_currency,
+                          str quote_currency,
                           object order_type,
                           object order_side,
                           double amount,
                           double price):
-        # there are no fees for makers on Radar Relay
         cdef:
             int gas_estimate = 130000 # approximate gas used for 0x market orders
             double transaction_cost_eth
 
+        # there are no fees for makers on Radar Relay
         if order_type is OrderType.LIMIT:
             return TradeFee(percent=0.0)
         # only fee for takers is gas cost of transaction
