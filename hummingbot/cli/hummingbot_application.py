@@ -6,6 +6,7 @@ import logging
 import argparse
 from eth_account.local import LocalAccount
 import pandas as pd
+import platform
 import re
 from six import string_types
 from typing import (
@@ -557,6 +558,11 @@ class HummingbotApplication:
         if log_level is not None:
             init_logging("hummingbot_logs.yml", override_log_level=log_level.upper())
 
+        # If macOS, disable App Nap.
+        if platform.system() == "Darwin":
+            import appnope
+            appnope.nope()
+
         ExchangeRateConversion.get_instance().start()
         strategy_name = in_memory_config_map.get("strategy").value
         self.init_reporting_module()
@@ -712,6 +718,12 @@ class HummingbotApplication:
 
     async def stop(self, skip_order_cancellation: bool = False):
         self.app.log("\nWinding down...")
+
+        # Restore App Nap on macOS.
+        if platform.system() == "Darwin":
+            import appnope
+            appnope.nap()
+
         if not skip_order_cancellation:
             # Remove the strategy from clock before cancelling orders, to
             # prevent race condition where the strategy tries to create more

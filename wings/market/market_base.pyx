@@ -104,12 +104,13 @@ cdef class MarketBase(NetworkIterator):
         raise NotImplementedError
 
     def get_fee(self,
-                symbol: str, 
+                base_currency: str,
+                quote_currency: str,
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: float,
                 price: float = NaN) -> TradeFee:
-        return self.c_get_fee(symbol, order_type, order_side, amount, price)
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
 
     def get_order_price_quantum(self, symbol: str, price: float) -> Decimal:
         return self.c_get_order_price_quantum(symbol, price)
@@ -133,7 +134,8 @@ cdef class MarketBase(NetworkIterator):
         raise NotImplementedError
 
     cdef object c_get_fee(self,
-                          str symbol,
+                          str base_currency,
+                          str quote_currency,
                           object order_type,
                           object order_side,
                           double amount,

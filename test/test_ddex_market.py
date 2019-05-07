@@ -108,11 +108,11 @@ class DDEXMarketUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        weth_trade_fee: TradeFee = self.market.get_fee("ZRX-WETH", OrderType.LIMIT, TradeType.BUY, 10000, 1)
+        weth_trade_fee: TradeFee = self.market.get_fee("ZRX", "WETH", OrderType.LIMIT, TradeType.BUY, 10000, 1)
         self.assertGreater(weth_trade_fee.percent, 0)
         self.assertEqual(len(weth_trade_fee.flat_fees), 1)
         self.assertEqual(weth_trade_fee.flat_fees[0][0], "WETH")
-        dai_trade_fee: TradeFee = self.market.get_fee("WETH-DAI", OrderType.MARKET, TradeType.BUY, 10000)
+        dai_trade_fee: TradeFee = self.market.get_fee("WETH", "DAI", OrderType.MARKET, TradeType.BUY, 10000)
         self.assertGreater(dai_trade_fee.percent, 0)
         self.assertEqual(len(dai_trade_fee.flat_fees), 1)
         self.assertEqual(dai_trade_fee.flat_fees[0][0], "DAI")

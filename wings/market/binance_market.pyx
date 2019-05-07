@@ -468,7 +468,8 @@ cdef class BinanceMarket(MarketBase):
                 raise
 
     cdef object c_get_fee(self,
-                          str symbol,
+                          str base_currency,
+                          str quote_currency,
                           object order_type,
                           object order_side,
                           double amount,
@@ -476,6 +477,7 @@ cdef class BinanceMarket(MarketBase):
         cdef:
             double maker_trade_fee = 0.001
             double taker_trade_fee = 0.001
+            str symbol = base_currency + quote_currency
 
         if symbol not in self._trade_fees:
             # https://www.binance.com/en/fee/schedule
@@ -875,7 +877,10 @@ cdef class BinanceMarket(MarketBase):
                           price: Optional[float] = NaN):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
-            object buy_fee = self.c_get_fee(symbol, order_type, TradeType.BUY, amount, price)
+            object m = self.SYMBOL_SPLITTER.match(self.symbol)
+            str base_currency = m.group(1)
+            str quote_currency = m.group(2)
+            object buy_fee = self.c_get_fee(base_currency, quote_currency, order_type, TradeType.BUY, amount, price)
             double adjusted_amount
 
         # Unlike most other exchanges, Binance takes fees out of requested base amount instead of
