@@ -11,31 +11,31 @@ from typing import (
 from web3 import Web3
 from web3.datastructures import AttributeDict
 
+import wings
 from wings.events import (
     NewBlocksWatcherEvent,
     IncomingEthWatcherEvent,
     WalletReceivedAssetEvent
 )
-from wings.pubsub import PubSub
 from wings.event_forwarder import EventForwarder
+from .base_watcher import BaseWatcher
 from .new_blocks_watcher import NewBlocksWatcher
 
 
-class IncomingEthWatcher(PubSub):
+class IncomingEthWatcher(BaseWatcher):
     def __init__(self,
                  w3: Web3,
                  blocks_watcher: NewBlocksWatcher,
                  watch_addresses: Iterable[str]):
-        super().__init__()
-        self._w3: Web3 = w3
+        super().__init__(w3)
         self._watch_addresses: Set[str] = set(watch_addresses)
         self._blocks_watcher: NewBlocksWatcher = blocks_watcher
         self._event_forwarder: EventForwarder = EventForwarder(self.did_receive_new_blocks)
 
-    def start(self):
+    async def start_network(self):
         self._blocks_watcher.add_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
 
-    def stop(self):
+    async def stop_network(self):
         self._blocks_watcher.remove_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
 
     def did_receive_new_blocks(self, new_blocks: List[AttributeDict]):
@@ -51,9 +51,18 @@ class IncomingEthWatcher(PubSub):
                                                           if ((t.get("to") in watch_addresses) and
                                                               (t.get("value", 0) > 0))]
 
-        for incoming_transaction in incoming_eth_transactions:
+        get_receipt_tasks: List[asyncio.Task] = [
+            self._ev_loop.run_in_executor(
+                wings.get_executor(),
+                self._w3.eth.getTransactionReceipt,
+                t.hash
+            )
+            for t in incoming_eth_transactions
+        ]
+        transaction_receipts: List[AttributeDict] = await asyncio.gather(*get_receipt_tasks)
+
+        for incoming_transaction, receipt in zip(incoming_eth_transactions, transaction_receipts):
             # Filter out failed transactions.
-            receipt: AttributeDict = self._w3.eth.getTransactionReceipt(incoming_transaction.hash)
             if receipt.status != 1:
                 continue
 

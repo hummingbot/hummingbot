@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 from async_timeout import timeout
+from cachetools import TTLCache
 from collections import (
     deque,
     OrderedDict
@@ -17,14 +18,10 @@ from typing import (
 from decimal import Decimal
 from libc.stdint cimport int64_t
 from web3 import Web3
+
+from wings.cancellation_result import CancellationResult
 from wings.clock cimport Clock
 from wings.data_source.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
-from wings.limit_order import LimitOrder
-from wings.market.market_base cimport MarketBase
-from wings.wallet.web3_wallet import Web3Wallet
-from wings.order_book cimport OrderBook
-from wings.order_book_tracker import OrderBookTrackerDataSourceType
-from wings.tracker.ddex_order_book_tracker import DDEXOrderBookTracker
 from wings.events import (
     MarketEvent,
     BuyOrderCompletedEvent,
@@ -34,11 +31,21 @@ from wings.events import (
     MarketTransactionFailureEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
-    OrderType,
     TradeType,
     TradeFee
 )
-from wings.cancellation_result import CancellationResult
+from wings.limit_order import LimitOrder
+from wings.market.market_base cimport MarketBase
+from wings.market.market_base import (
+    OrderType
+)
+from wings.network_iterator import (
+    NetworkStatus
+)
+from wings.order_book cimport OrderBook
+from wings.order_book_tracker import OrderBookTrackerDataSourceType
+from wings.tracker.ddex_order_book_tracker import DDEXOrderBookTracker
+from wings.wallet.web3_wallet import Web3Wallet
 
 
 s_logger = None
@@ -256,6 +263,7 @@ cdef class DDEXMarket(MarketBase):
         self._taker_trade_fee = NaN
         self._gas_fee_weth = NaN
         self._gas_fee_usd = NaN
+        self._api_response_records = TTLCache(60000, ttl=600.0)
 
     @property
     def name(self) -> str:
@@ -372,6 +380,22 @@ cdef class DDEXMarket(MarketBase):
             if exchange_order_id != tracked_order.exchange_order_id:
                 self.logger().warning(f"Incorrect exchange order id '{exchange_order_id}' returned from get order "
                                       f"request for '{tracked_order.exchange_order_id}'. Ignoring.")
+
+                # Capture the incorrect request / response conversation for submitting to DDEX.
+                request_url = f"{self.DDEX_REST_ENDPOINT}/orders/{tracked_order.exchange_order_id}"
+                response = self._api_response_records.get(request_url)
+
+                if response is not None:
+                    self.logger().info(f"Captured erroneous order update request/response. "
+                                       f"Request URL={response.real_url}, "
+                                       f"Request headers={response.request_info.headers}, "
+                                       f"Response headers={response.headers}, "
+                                       f"Response data={repr(response._body)}, "
+                                       f"Decoded order update={order_update}.")
+                else:
+                    self.logger().info(f"Failed to capture the erroneous request/response for getting the order update "
+                                       f"of the order {tracked_order.exchange_order_id}.")
+
                 continue
 
             # Calculate the newly executed amount for this update.
@@ -502,7 +526,10 @@ cdef class DDEXMarket(MarketBase):
             data = await response.json()
             if data["status"] is not 0:
                 raise IOError(f"Request to {url} has failed", data)
-            self.logger().debug(f"{data}")
+
+            # Keep an auto-expired record of the response and the request URL for debugging and logging purpose.
+            self._api_response_records[url] = response
+
             return data
 
     async def _update_trade_fees(self):
@@ -824,14 +851,44 @@ cdef class DDEXMarket(MarketBase):
 
         return order_book.c_get_price(is_buy)
 
-    cdef c_start(self, Clock clock, double timestamp):
-        MarketBase.c_start(self, clock, timestamp)
+    async def start_network(self):
+        if self._order_tracker_task is not None:
+            self._stop_network()
+
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
         self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
-        tx_hashes = self.wallet.current_backend.check_and_fix_approval_amounts(
-            spender=self._wallet_spender_address)
+        tx_hashes = await self.wallet.current_backend.check_and_fix_approval_amounts(
+            spender=self._wallet_spender_address
+        )
         self._pending_approval_tx_hashes.update(tx_hashes)
         self._approval_tx_polling_task = asyncio.ensure_future(self._approval_tx_polling_loop())
+
+    def _stop_network(self):
+        if self._order_tracker_task is not None:
+            self._order_tracker_task.cancel()
+            self._status_polling_task.cancel()
+            self._pending_approval_tx_hashes.clear()
+            self._approval_tx_polling_task.cancel()
+        self._order_tracker_task = self._status_polling_task = self._approval_tx_polling_task = None
+
+    async def stop_network(self):
+        self._stop_network()
+        if self._shared_client is not None:
+            await self._shared_client.close()
+            self._shared_client = None
+
+    async def check_network(self) -> NetworkStatus:
+        if self._wallet.network_status is not NetworkStatus.CONNECTED:
+            return NetworkStatus.NOT_CONNECTED
+
+        url = f"{self.DDEX_REST_ENDPOINT}/markets/tickers"
+        try:
+            await self._api_request("GET", url)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return NetworkStatus.NOT_CONNECTED
+        return NetworkStatus.CONNECTED
 
     cdef c_tick(self, double timestamp):
         cdef:

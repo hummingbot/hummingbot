@@ -60,7 +60,8 @@ async def copy_strategy_template(strategy: str) -> str:
     new_fname = f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_{i}.yml"
     new_path = join(CONF_FILE_PATH, new_fname)
     while isfile(new_path):
-        new_path = join(CONF_FILE_PATH, f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_{i}.yml")
+        new_fname = f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_{i}.yml"
+        new_path = join(CONF_FILE_PATH, new_fname)
         i += 1
     shutil.copy(old_path, new_path)
     return new_fname

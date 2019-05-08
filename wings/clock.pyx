@@ -33,6 +33,7 @@ cdef class Clock:
         self._end_time = end_time
         self._current_tick = start_time if clock_mode is ClockMode.BACKTEST else (time.time() // tick_size) * tick_size
         self._child_iterators = []
+        self._current_context = None
         self._started = False
 
     @property
@@ -55,10 +56,29 @@ cdef class Clock:
     def current_timestamp(self) -> float:
         return self._current_tick
 
+    def __enter__(self) -> Clock:
+        if self._current_context is not None:
+            raise EnvironmentError("Clock context is not re-entrant.")
+        self._current_context = self._child_iterators.copy()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._current_context is not None:
+            for iterator in self._current_context:
+                (<TimeIterator>iterator).c_stop(self)
+        self._current_context = None
+
     def add_iterator(self, iterator: TimeIterator):
+        if self._current_context is not None:
+            self._current_context.append(iterator)
+        if self._started:
+            (<TimeIterator>iterator).c_start(self, self._current_tick)
         self._child_iterators.append(iterator)
 
     def remove_iterator(self, iterator: TimeIterator):
+        if self._current_context is not None and iterator in self._current_context:
+            (<TimeIterator>iterator).c_stop(self)
+            self._current_context.remove(iterator)
         self._child_iterators.remove(iterator)
 
     async def run(self):
@@ -70,9 +90,12 @@ cdef class Clock:
             double now = time.time()
             double next_tick_time
 
+        if self._current_context is None:
+            raise EnvironmentError("run() and run_til() can only be used within the context of a `with...` statement.")
+
         self._current_tick = (now // self._tick_size) * self._tick_size
         if not self._started:
-            for ci in self._child_iterators:
+            for ci in self._current_context:
                 child_iterator = ci
                 child_iterator.c_start(self, self._current_tick)
             self._started = True
@@ -89,7 +112,7 @@ cdef class Clock:
                 self._current_tick = next_tick_time
 
                 # Run through all the child iterators.
-                for ci in self._child_iterators:
+                for ci in self._current_context:
                     child_iterator = ci
                     try:
                         child_iterator.c_tick(self._current_tick)
@@ -99,7 +122,7 @@ cdef class Clock:
                     except Exception:
                         self.logger().error("Unexpected error running clock tick.", exc_info=True)
         finally:
-            for ci in self._child_iterators:
+            for ci in self._current_context:
                 child_iterator = ci
                 child_iterator._clock = None
 
