@@ -34,8 +34,8 @@ node {
               app.push("${version}")
               app.push("latest")
           }
-          def description = "Successfully pushed to `${dockerImage}:[latest|${version}]`"
-          discordSend (webhookURL: env.DISCORD_URL, description: description, result: 'SUCCESS')
+          def description = "New Docker image pushed to `${dockerImage}:[latest|${version}]`"
+          discordSend (webhookURL: env.DISCORD_DEV_URL, description: description, result: 'SUCCESS')
       }
     } catch (c) {
       // If there was an exception thrown, the build failed
