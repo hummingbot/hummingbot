@@ -409,7 +409,7 @@ cdef class DDEXMarket(MarketBase):
             order_type_description = (("market" if tracked_order.order_type == OrderType.MARKET else "limit") +
                                       " " +
                                       ("buy" if tracked_order.is_buy else "sell"))
-
+            order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
             # Emit event if executed amount is greater than 0.
             if execute_amount_diff > 0:
                 fill_size = execute_amount_diff
@@ -422,7 +422,7 @@ cdef class DDEXMarket(MarketBase):
                     tracked_order.client_order_id,
                     tracked_order.symbol,
                     TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
-                    OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT,
+                    order_type,
                     execute_price,
                     fill_size
                 )
@@ -457,7 +457,8 @@ cdef class DDEXMarket(MarketBase):
                                                                     tracked_order.quote_asset,
                                                                     executed_amount,
                                                                     quote_asset_amount,
-                                                                    float(tracked_order.gas_fee_amount)))
+                                                                    float(tracked_order.gas_fee_amount),
+                                                                    order_type))
                     else:
                         self.logger().info(f"The {order_type_description} order {client_order_id} has "
                                            f"completed according to order status API.")
@@ -469,7 +470,8 @@ cdef class DDEXMarket(MarketBase):
                                                                      tracked_order.quote_asset,
                                                                      executed_amount,
                                                                      quote_asset_amount,
-                                                                     float(tracked_order.gas_fee_amount)))
+                                                                     float(tracked_order.gas_fee_amount),
+                                                                     order_type))
                 else:
                     if (self._in_flight_cancels.get(client_order_id, 0) >
                             self._current_timestamp - self.CANCEL_EXPIRY_TIME):
@@ -716,7 +718,10 @@ cdef class DDEXMarket(MarketBase):
             self.c_stop_tracking_order(order_id)
             self.logger().error(f"Error submitting buy order to DDEX for {amount} {symbol}.", exc_info=True)
             self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                                 MarketTransactionFailureEvent(self._current_timestamp, order_id))
+                                 MarketTransactionFailureEvent(self._current_timestamp,
+                                                               order_id,
+                                                               order_type)
+                                 )
 
     cdef str c_sell(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0,
                     dict kwargs = {}):
@@ -764,7 +769,10 @@ cdef class DDEXMarket(MarketBase):
             self.c_stop_tracking_order(order_id)
             self.logger().error(f"Error submitting sell order to DDEX for {amount} {symbol}.", exc_info=True)
             self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                                 MarketTransactionFailureEvent(self._current_timestamp, order_id))
+                                 MarketTransactionFailureEvent(self._current_timestamp,
+                                                               order_id,
+                                                               order_type)
+                                 )
 
     cdef c_cancel(self, str symbol, str client_order_id):
         # If there's an ongoing cancel on this order within the expiry time, don't do it again.

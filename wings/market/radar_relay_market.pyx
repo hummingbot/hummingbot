@@ -466,7 +466,9 @@ cdef class RadarRelayMarket(MarketBase):
                                        f"according to order status API.")
                     self.c_trigger_event(
                         self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                        MarketTransactionFailureEvent(self._current_timestamp, tracked_limit_order.client_order_id)
+                        MarketTransactionFailureEvent(self._current_timestamp,
+                                                      tracked_limit_order.client_order_id,
+                                                      OrderType.LIMIT)
                     )
                     self.c_expire_order(tracked_limit_order.client_order_id)
                 elif not previous_is_done and tracked_limit_order.is_done:
@@ -481,7 +483,8 @@ cdef class RadarRelayMarket(MarketBase):
                                                                     tracked_limit_order.quote_asset,
                                                                     float(tracked_limit_order.executed_amount),
                                                                     float(tracked_limit_order.quote_asset_amount),
-                                                                    float(tracked_limit_order.gas_fee_amount)))
+                                                                    float(tracked_limit_order.gas_fee_amount),
+                                                                    OrderType.LIMIT))
                     else:
                         self.logger().info(f"The limit sell order {tracked_limit_order.client_order_id}"
                                            f"has completed according to order status API.")
@@ -493,7 +496,8 @@ cdef class RadarRelayMarket(MarketBase):
                                                                      tracked_limit_order.quote_asset,
                                                                      float(tracked_limit_order.executed_amount),
                                                                      float(tracked_limit_order.quote_asset_amount),
-                                                                     float(tracked_limit_order.gas_fee_amount)))
+                                                                     float(tracked_limit_order.gas_fee_amount),
+                                                                     OrderType.LIMIT))
                     self.c_expire_order(tracked_limit_order.client_order_id)
         self._last_update_limit_order_timestamp = current_timestamp
 
@@ -544,7 +548,8 @@ cdef class RadarRelayMarket(MarketBase):
                                                                     tracked_market_order.quote_asset,
                                                                     float(tracked_market_order.amount),
                                                                     float(tracked_market_order.quote_asset_amount),
-                                                                    float(tracked_market_order.gas_fee_amount)))
+                                                                    float(tracked_market_order.gas_fee_amount),
+                                                                    OrderType.MARKET))
                     else:
                         self.logger().info(f"The market sell order "
                                            f"{tracked_market_order.client_order_id} has completed according to "
@@ -557,14 +562,17 @@ cdef class RadarRelayMarket(MarketBase):
                                                                      tracked_market_order.quote_asset,
                                                                      float(tracked_market_order.amount),
                                                                      float(tracked_market_order.quote_asset_amount),
-                                                                     float(tracked_market_order.gas_fee_amount)))
+                                                                     float(tracked_market_order.gas_fee_amount),
+                                                                     OrderType.MARKET))
                 else:
                     self.logger().error(f"Unrecognized transaction status for market order "
                                         f"{tracked_market_order.client_order_id}. Check transaction hash "
                                         f"{tracked_market_order.tx_hash} for more details.")
                     self.c_trigger_event(
                         self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                        MarketTransactionFailureEvent(self._current_timestamp, tracked_market_order.client_order_id)
+                        MarketTransactionFailureEvent(self._current_timestamp,
+                                                      tracked_market_order.client_order_id,
+                                                      OrderType.MARKET)
                     )
 
                 self.c_stop_tracking_order(tracked_market_order.tx_hash)
