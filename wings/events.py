@@ -57,9 +57,20 @@ class OrderBookEvent(Enum):
     TradeEvent = 901
 
 
+class TradeType(Enum):
+    BUY = 1
+    SELL = 2
+
+
+class OrderType(Enum):
+    MARKET = 1
+    LIMIT = 2
+
+
 class MarketTransactionFailureEvent(NamedTuple):
     timestamp: float
     order_id: str
+    order_type: OrderType
 
 
 class WalletReceivedAssetEvent(NamedTuple):
@@ -106,6 +117,7 @@ class BuyOrderCompletedEvent(NamedTuple):
     base_asset_amount: float
     quote_asset_amount: float
     fee_amount: float
+    order_type: OrderType
 
 
 class SellOrderCompletedEvent(NamedTuple):
@@ -117,6 +129,7 @@ class SellOrderCompletedEvent(NamedTuple):
     base_asset_amount: float
     quote_asset_amount: float
     fee_amount: float
+    order_type: OrderType
 
 
 class OrderCancelledEvent(NamedTuple):
@@ -158,19 +171,10 @@ class TokenApprovedEvent(NamedTuple):
     raw_amount: int
 
 
-class TradeType(Enum):
-    BUY = 1
-    SELL = 2
-
-
-class OrderType(Enum):
-    MARKET = 1
-    LIMIT = 2
-
-
 class TradeFee(NamedTuple):
     percent: float # 0.1 = 10%
     flat_fees: List[Tuple[str, float]] = [] # list of (symbol, amount) ie: ("ETH", 0.05) 
+
 
 class OrderBookTradeEvent(NamedTuple):
     symbol: str
