@@ -5,15 +5,21 @@ from typing import Optional
 
 from wings.clock import Clock
 
+NaN = float("nan")
+
 
 cdef class TimeIterator(PubSub):
     def __init__(self):
-        self._current_timestamp = float("NaN")
+        self._current_timestamp = NaN
         self._clock = None
 
     cdef c_start(self, Clock clock, double timestamp):
         self._clock = clock
         self._current_timestamp = timestamp
+
+    cdef c_stop(self, Clock clock):
+        self._current_timestamp = NaN
+        self._clock = None
 
     cdef c_tick(self, double timestamp):
         self._current_timestamp = timestamp
@@ -28,3 +34,6 @@ cdef class TimeIterator(PubSub):
 
     def start(self, clock: Clock):
         self.c_start(clock, clock.current_timestamp)
+
+    def stop(self, clock: Clock):
+        self.c_stop(clock)

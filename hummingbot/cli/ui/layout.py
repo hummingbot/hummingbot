@@ -9,6 +9,7 @@ from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer
 from hummingbot.cli.ui.custom_widgets import CustomTextArea as TextArea
+from prompt_toolkit.utils import is_windows
 
 
 HEADER = """
@@ -90,6 +91,7 @@ def create_log_field():
 
 
 def generate_layout(input_field: TextArea, output_field: TextArea, log_field: TextArea):
+    copy_key = "CTRL + SHIFT" if is_windows() else "fn"
     root_container = VSplit([
         FloatContainer(
             HSplit([
@@ -97,7 +99,8 @@ def generate_layout(input_field: TextArea, output_field: TextArea, log_field: Te
                 Window(height=1, char='-', style='class:line'),
                 input_field,
                 TextArea(height=1,
-                         text=f'Version: {version}    [Ctrl + C] QUIT    Hold down "fn" for selecting and copying text',
+                         text=f'Version: {version}    [Double Ctrl + C] QUIT    '
+                         f'Hold down "{copy_key}" for selecting and copying text',
                          style='class:label'),
             ]),
             [

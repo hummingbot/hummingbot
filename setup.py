@@ -32,6 +32,7 @@ def main():
         "hummingbot.strategy.arbitrage",
         "hummingbot.strategy.cross_exchange_market_making",
         "hummingbot.cli",
+        "hummingbot.cli.config",
         "hummingbot.cli.ui",
         "hummingbot.cli.utils",
         "hummingbot.logger",

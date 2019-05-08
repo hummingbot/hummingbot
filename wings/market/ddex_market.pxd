@@ -33,6 +33,7 @@ cdef class DDEXMarket(MarketBase):
         double _taker_trade_fee
         double _gas_fee_weth
         double _gas_fee_usd
+        object _api_response_records
 
     cdef c_start_tracking_order(self,
                                 str order_id,

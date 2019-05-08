@@ -1,9 +1,7 @@
 from typing import Dict
 
-from wings.time_iterator cimport TimeIterator
 
-
-cdef class WalletBase(TimeIterator):
+cdef class WalletBase(NetworkIterator):
     @property
     def address(self) -> str:
         raise NotImplementedError

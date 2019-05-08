@@ -113,10 +113,10 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        maker_buy_trade_fee: TradeFee = self.market.get_fee("ZRX-WETH", OrderType.LIMIT, TradeType.BUY, 20, 0.01)
+        maker_buy_trade_fee: TradeFee = self.market.get_fee("ZRX", "WETH", OrderType.LIMIT, TradeType.BUY, 20, 0.01)
         self.assertEqual(maker_buy_trade_fee.percent, 0)
         self.assertEqual(len(maker_buy_trade_fee.flat_fees), 0)
-        taker_buy_trade_fee: TradeFee = self.market.get_fee("ZRX-WETH", OrderType.MARKET, TradeType.BUY, 20)
+        taker_buy_trade_fee: TradeFee = self.market.get_fee("ZRX", "WETH", OrderType.MARKET, TradeType.BUY, 20)
         self.assertEqual(taker_buy_trade_fee.percent, 0)
         self.assertEqual(len(taker_buy_trade_fee.flat_fees), 1)
         self.assertEqual(taker_buy_trade_fee.flat_fees[0][0], "ETH")

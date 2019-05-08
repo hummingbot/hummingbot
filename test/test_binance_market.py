@@ -113,13 +113,13 @@ class BinanceMarketUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        maker_buy_trade_fee: TradeFee = self.market.get_fee("BTCUSDT", OrderType.LIMIT, TradeType.BUY, 1, 4000)
+        maker_buy_trade_fee: TradeFee = self.market.get_fee("BTC", "USDT", OrderType.LIMIT, TradeType.BUY, 1, 4000)
         self.assertGreater(maker_buy_trade_fee.percent, 0)
         self.assertEqual(len(maker_buy_trade_fee.flat_fees), 0)
-        taker_buy_trade_fee: TradeFee = self.market.get_fee("BTCUSDT", OrderType.MARKET, TradeType.BUY, 1)
+        taker_buy_trade_fee: TradeFee = self.market.get_fee("BTC", "USDT", OrderType.MARKET, TradeType.BUY, 1)
         self.assertGreater(taker_buy_trade_fee.percent, 0)
         self.assertEqual(len(taker_buy_trade_fee.flat_fees), 0)
-        sell_trade_fee: TradeFee = self.market.get_fee("BTCUSDT", OrderType.LIMIT, TradeType.SELL, 1, 4000)
+        sell_trade_fee: TradeFee = self.market.get_fee("BTC", "USDT", OrderType.LIMIT, TradeType.SELL, 1, 4000)
         self.assertGreater(sell_trade_fee.percent, 0)
         self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
