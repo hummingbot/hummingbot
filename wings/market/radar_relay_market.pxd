@@ -31,8 +31,6 @@ cdef class RadarRelayMarket(MarketBase):
         public object _user_stream_event_listener_task
         public object _approval_tx_polling_task
         public object _order_tracker_task
-        object _coro_queue
-        public object _coro_scheduler_task
         int64_t _latest_salt
 
     cdef c_start_tracking_limit_order(self,

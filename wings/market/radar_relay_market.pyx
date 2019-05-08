@@ -24,6 +24,7 @@ from wings.market.market_base import (
   OrderType,
   NaN
 )
+from wings.network_iterator import NetworkStatus
 from wings.wallet.web3_wallet import Web3Wallet
 from wings.order_book cimport OrderBook
 from wings.cancellation_result import CancellationResult
@@ -247,8 +248,6 @@ cdef class RadarRelayMarket(MarketBase):
         self._status_polling_task = None
         self._order_tracker_task = None
         self._approval_tx_polling_task = None
-        self._coro_queue = asyncio.Queue()
-        self._coro_scheduler_task = None
         self._wallet = wallet
         self._wallet_spender_address = wallet_spender_address
         self._exchange = ZeroExExchange(self._w3, ZERO_EX_MAINNET_EXCHANGE_ADDRESS, wallet)
@@ -584,22 +583,6 @@ cdef class RadarRelayMarket(MarketBase):
             finally:
                 await asyncio.sleep(1.0)
 
-    @staticmethod
-    async def coro_scheduler(coro_queue: asyncio.Queue, interval: float = 0.5):
-        while True:
-            fut, coro = await coro_queue.get()
-            try:
-                fut.set_result(await coro)
-            except Exception as e:
-                fut.set_exception(e)
-            finally:
-                await asyncio.sleep(interval)
-
-    async def schedule_async_call(self, coro) -> Any:
-        fut = self._ev_loop.create_future()
-        self._coro_queue.put_nowait((fut, coro))
-        return await fut
-
     async def _api_request(self,
                            http_method: str,
                            url: str,
@@ -924,15 +907,40 @@ cdef class RadarRelayMarket(MarketBase):
 
         return order_book.c_get_price(is_buy)
 
-    cdef c_start(self, Clock clock, double timestamp):
-        MarketBase.c_start(self, clock, timestamp)
+    async def start_network(self):
+        if self._order_tracker_task is not None:
+            self._stop_network()
+
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
         self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
-        self._coro_scheduler_task = asyncio.ensure_future(self.coro_scheduler(self._coro_queue))
-        tx_hashes = self.wallet.current_backend.check_and_fix_approval_amounts(
-            spender=self._wallet_spender_address)
+        tx_hashes = await self.wallet.current_backend.check_and_fix_approval_amounts(
+            spender=self._wallet_spender_address
+        )
         self._pending_approval_tx_hashes.update(tx_hashes)
         self._approval_tx_polling_task = asyncio.ensure_future(self._approval_tx_polling_loop())
+
+    def _stop_network(self):
+        if self._order_tracker_task is not None:
+            self._order_tracker_task.cancel()
+            self._status_polling_task.cancel()
+            self._pending_approval_tx_hashes.clear()
+            self._approval_tx_polling_task.cancel()
+        self._order_tracker_task = self._status_polling_task = self._approval_tx_polling_task = None
+
+    async def stop_network(self):
+        self._stop_network()
+
+    async def check_network(self) -> NetworkStatus:
+        if self._wallet.network_status is not NetworkStatus.CONNECTED:
+            return NetworkStatus.NOT_CONNECTED
+
+        try:
+            await self._api_request("GET", f"{RADAR_RELAY_REST_ENDPOINT}/tokens")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return NetworkStatus.NOT_CONNECTED
+        return NetworkStatus.CONNECTED
 
     cdef c_tick(self, double timestamp):
         cdef:
