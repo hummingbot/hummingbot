@@ -572,7 +572,7 @@ cdef class BinanceMarket(MarketBase):
                     continue
                 tracked_order.last_state = order_update["status"]
                 client_order_id = tracked_order.client_order_id
-
+                order_type = OrderType.LIMIT if order_update["type"]=="LIMIT" else OrderType.MARKET
                 if tracked_order.last_state in ["FILLED", "PARTIALLY_FILLED"]:
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                          OrderFilledEvent(
@@ -580,7 +580,7 @@ cdef class BinanceMarket(MarketBase):
                                             tracked_order.client_order_id,
                                             tracked_orders.symbol,
                                             TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
-                                            OrderType.LIMIT if order_update["type"]=="LIMIT" else OrderType.MARKET,
+                                            order_type,
                                             float(order_update["price"]),
                                             float(order_update["executedQty"])
                                          ))
@@ -598,7 +598,8 @@ cdef class BinanceMarket(MarketBase):
                                                                          or tracked_order.base_asset),
                                                                         float(tracked_order.executed_amount),
                                                                         float(tracked_order.quote_asset_amount),
-                                                                        float(tracked_order.fee_paid)))
+                                                                        float(tracked_order.fee_paid),
+                                                                        order_type))
                         else:
                             self.logger().info(f"The market sell order {client_order_id} has completed "
                                                f"according to order status API.")
@@ -611,14 +612,16 @@ cdef class BinanceMarket(MarketBase):
                                                                           or tracked_order.quote_asset),
                                                                          float(tracked_order.executed_amount),
                                                                          float(tracked_order.quote_asset_amount),
-                                                                         float(tracked_order.fee_paid)))
+                                                                         float(tracked_order.fee_paid),
+                                                                         order_type))
                     else:
                         self.logger().info(f"The market order {client_order_id} has failed according to "
                                            f"order status API.")
                         self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                                              MarketTransactionFailureEvent(
                                                  self._current_timestamp,
-                                                 tracked_order.client_order_id
+                                                 tracked_order.client_order_id,
+                                                 order_type
                                              ))
                     self.c_stop_tracking_order(tracked_order.client_order_id)
 
