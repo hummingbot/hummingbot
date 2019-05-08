@@ -15,11 +15,11 @@ class MarketOrder(NamedTuple):
     def to_pandas(cls, market_orders: List["MarketOrder"]) -> pd.DataFrame:
         columns = ["order_id", "symbol", "is_buy", "base_asset", "quote_asset", "quantity"]
         data = [[
-            limit_order.client_order_id,
-            limit_order.symbol,
-            limit_order.is_buy,
-            limit_order.base_currency,
-            limit_order.quote_currency,
-            limit_order.quantity
-        ] for limit_order in market_orders]
+            market_order.client_order_id,
+            market_order.symbol,
+            market_order.is_buy,
+            market_order.base_currency,
+            market_order.quote_currency,
+            market_order.quantity
+        ] for market_order in market_orders]
         return pd.DataFrame(data=data, columns=columns)
