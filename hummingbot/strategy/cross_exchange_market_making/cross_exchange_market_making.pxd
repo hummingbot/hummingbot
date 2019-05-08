@@ -62,14 +62,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef c_stop_tracking_order(self, object market_pair, str order_id)
     cdef object c_get_order_size_after_portfolio_ratio_limit(self, object market_pair, double original_order_size)
     cdef object c_get_adjusted_limit_order_size(self, object market_pair, double price, double original_order_size)
+    cdef double c_sum_flat_fees(self, str quote_currency, list flat_fees)
     cdef tuple c_calculate_market_making_profitability(self,
                                                        object market_pair,
                                                        OrderBook maker_order_book,
-                                                       OrderBook taker_order_book)
+                                                       OrderBook taker_order_book,
+                                                       double order_size = *)
     cdef tuple c_has_market_making_profit_potential(self,
                                                     object market_pair,
                                                     OrderBook maker_order_book,
-                                                    OrderBook taker_order_book)
+                                                    OrderBook taker_order_book,
+                                                    double order_size = *)
     cdef tuple c_get_market_making_price_and_size_limit(self,
                                                         object market_pair,
                                                         bint is_bid,
