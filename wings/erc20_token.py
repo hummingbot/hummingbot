@@ -1,15 +1,20 @@
 #!/usr/bin/env python
 
+import asyncio
 import os
 import json
+import logging
 from typing import (
     List,
-    Union
+    Union,
+    Optional
 )
 from web3 import Web3
 from web3.contract import (
     Contract,
 )
+
+import wings
 from wings.ethereum_chain import EthereumChain
 
 
@@ -28,6 +33,13 @@ MAINNET_DAI_ADDRESS = "0x89d24A6b4CcB1B6fAA2625fE562bDD9a23260359"
 
 
 class ERC20Token:
+    _e2t_logger: Optional[logging.Logger] = None
+
+    @classmethod
+    def logger(cls) -> logging.Logger:
+        if cls._e2t_logger is None:
+            cls._e2t_logger = logging.getLogger(__name__)
+        return cls._e2t_logger
 
     def __init__(self,
                  w3: Web3,
@@ -43,10 +55,10 @@ class ERC20Token:
             if self._address == MAINNET_DAI_ADDRESS:
                 self._abi = d_abi
 
-        self._contract = self._w3.eth.contract(address=self._address, abi=self._abi)
-        self._name = self.get_name_from_contract(self._contract)
-        self._symbol = self.get_symbol_from_contract(self._contract)
-        self._decimals = self._contract.functions.decimals().call()
+        self._contract: Contract = self._w3.eth.contract(address=self._address, abi=self._abi)
+        self._name: Optional[str] = None
+        self._symbol: Optional[str] = None
+        self._decimals: Optional[int] = None
 
     @classmethod
     def get_symbol_from_contract(cls, contract: Contract) -> str:
@@ -78,16 +90,43 @@ class ERC20Token:
     def is_weth(self) -> bool:
         return self._address == MAINNET_WETH_ADDRESS
 
-    @property
-    def name(self) -> str:
+    async def _get_contract_info(self):
+        if self._name is not None and self._symbol is not None and self._decimals is not None:
+            return
+
+        ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        tasks: List[asyncio.Task] = [
+            ev_loop.run_in_executor(wings.get_executor(), func, *args)
+            for func, args in [
+                (self.get_name_from_contract, [self._contract]),
+                (self.get_symbol_from_contract, [self._contract]),
+                (self._contract.functions.decimals().call, [])
+            ]
+        ]
+
+        try:
+            name, symbol, decimals = await asyncio.gather(*tasks)
+            self._name = name
+            self._symbol = symbol
+            self._decimals = decimals
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(f"Could not fetch token info for {self._contract.address}.", exc_info=True)
+
+    async def get_name(self) -> str:
+        if self._name is None:
+            await self._get_contract_info()
         return self._name
 
-    @property
-    def symbol(self) -> str:
+    async def get_symbol(self) -> str:
+        if self._symbol is None:
+            await self._get_contract_info()
         return self._symbol
 
-    @property
-    def decimals(self) -> str:
+    async def get_decimals(self) -> int:
+        if self._decimals is None:
+            await self._get_contract_info()
         return self._decimals
 
     @property
