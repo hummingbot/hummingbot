@@ -1,8 +1,6 @@
 # distutils: language=c++
 import asyncio
 import logging
-import time
-from collections import defaultdict
 
 import pandas as pd
 from typing import (
