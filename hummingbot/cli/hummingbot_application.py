@@ -66,6 +66,10 @@ from hummingbot.strategy.arbitrage import (
     ArbitrageStrategy,
     ArbitrageMarketPair
 )
+from hummingbot.strategy.pure_market_making import (
+    PureMarketMakingStrategy,
+    PureMarketPair
+)
 from hummingbot.cli.settings import get_erc20_token_addresses
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 
@@ -543,6 +547,7 @@ class HummingbotApplication:
 
     async def start_market_making(self, strategy_name: str):
         strategy_cm = get_strategy_config_map(strategy_name)
+        clock_tick_size: float = 1.0
         if strategy_name == "cross_exchange_market_making":
             maker_market = strategy_cm.get("maker_market").value.lower()
             taker_market = strategy_cm.get("taker_market").value.lower()
@@ -631,7 +636,25 @@ class HummingbotApplication:
                                               logging_options=strategy_logging_options)
 
         elif strategy_name == "pure_market_making":
-            # primary_market = strategy_cm.get("primary_market").value.lower()
+            primary_market = strategy_cm.get("primary_market").value.lower()
+            raw_primary_symbol = strategy_cm.get("primary_market_symbol").value.upper()
+            try:
+                primary_assets: Tuple[str, str] = SymbolSplitter.split(primary_market, raw_primary_symbol)
+
+            except ValueError as e:
+                self.app.log(str(e))
+                return
+
+            market_names: List[Tuple[str, str]] = [(primary_market, raw_primary_symbol)]
+
+            self._initialize_wallet(token_symbols=list(set(primary_assets)))
+            self._initialize_markets(market_names)
+            self.assets = set(primary_assets)
+
+            self.market_pair = PureMarketPair(*([self.markets[primary_market], raw_primary_symbol] +
+                                                     list(primary_assets)))
+            strategy_logging_options = ArbitrageStrategy.OPTION_LOG_ALL
+
             raise ValueError("Not completed yet")
 
 

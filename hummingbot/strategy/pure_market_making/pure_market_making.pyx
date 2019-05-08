@@ -101,14 +101,17 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             s_logger = logging.getLogger(__name__)
         return s_logger
 
-    def __init__(self, market_pairs: List[CrossExchangeMarketPair], min_profitability: float,
-                 order_size_portfolio_ratio_limit: float = 0.1667,
-                 limit_order_min_expiration: float = 130.0,
-                 cancel_order_threshold: float = -1,
-                 active_order_canceling: bint = True,
-                 anti_hysteresis_duration: float = 60.0,
+    def __init__(self, market_pairs: List[CrossExchangeMarketPair],
+                 total_size_commited: float = 0,
+                 order_size: float = 1.0,
+                 bid_place_threshold: float = 0.01,
+                 ask_place_threshold: float = 0.01,
+                 #volatility: float = 0.2
+                 #risk_aversion: float = 0.1
+                 #distance_from_mid: float = 0.05
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900):
+
         if len(market_pairs) < 0:
             raise ValueError(f"market_pairs must not be empty.")
         if not 0 <= order_size_taker_volume_factor <= 1:
