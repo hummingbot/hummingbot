@@ -40,7 +40,7 @@ node {
               app.push("${tag}-${env.BUILD_NUMBER}")
               app.push("${tag}")
           }
-          def description = "New docker image pushed to `${dockerImage}:${tag}`"
+          def description = "New Docker image pushed to `${dockerImage}:${tag}`"
           discordSend (webhookURL: env.DISCORD_DEV_URL, description: description, result: 'SUCCESS')
       }
     } catch (c) {
