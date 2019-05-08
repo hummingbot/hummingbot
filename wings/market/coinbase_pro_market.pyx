@@ -463,7 +463,7 @@ cdef class CoinbaseProMarket(MarketBase):
 
             client_order_id = tracked_order.client_order_id
             order_type_description = tracked_order.order_type_description
-
+            order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
             # Emit event if executed amount is greater than 0.
             if execute_amount_diff > 0:
                 order_filled_event = OrderFilledEvent(
@@ -471,7 +471,7 @@ cdef class CoinbaseProMarket(MarketBase):
                     tracked_order.client_order_id,
                     tracked_order.symbol,
                     TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
-                    OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT,
+                    order_type,
                     execute_price,
                     execute_amount_diff
                 )
@@ -498,7 +498,8 @@ cdef class CoinbaseProMarket(MarketBase):
                                                                      or tracked_order.base_asset),
                                                                     float(tracked_order.executed_amount),
                                                                     float(tracked_order.quote_asset_amount),
-                                                                    float(tracked_order.fee_paid)))
+                                                                    float(tracked_order.fee_paid),
+                                                                    order_type))
                     else:
                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
                                            f"according to order status API.")
@@ -511,14 +512,16 @@ cdef class CoinbaseProMarket(MarketBase):
                                                                       or tracked_order.quote_asset),
                                                                      float(tracked_order.executed_amount),
                                                                      float(tracked_order.quote_asset_amount),
-                                                                     float(tracked_order.fee_paid)))
+                                                                     float(tracked_order.fee_paid),
+                                                                     order_type))
                 else:
                     self.logger().info(f"The market order {tracked_order.client_order_id} has failed according to "
                                        f"order status API.")
                     self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                                          MarketTransactionFailureEvent(
                                              self._current_timestamp,
-                                             tracked_order.client_order_id
+                                             tracked_order.client_order_id,
+                                             order_type
                                          ))
                 self.c_stop_tracking_order(tracked_order.client_order_id)
         self._last_order_update_timestamp = current_timestamp
