@@ -102,9 +102,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         return s_logger
 
     def __init__(self, market_pairs: List[CrossExchangeMarketPair], min_profitability: float,
-                 trade_size_override: Optional[float] = 0.0,
-                 order_size_taker_volume_factor: float = 0.25,
-                 order_size_taker_balance_factor: float = 0.995,
                  order_size_portfolio_ratio_limit: float = 0.1667,
                  limit_order_min_expiration: float = 130.0,
                  cancel_order_threshold: float = -1,

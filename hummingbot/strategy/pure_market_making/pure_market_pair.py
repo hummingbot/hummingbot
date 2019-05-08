@@ -14,16 +14,18 @@ class PureMarketPair(NamedTuple):
                           binance, "ETHUSDT", "ETH", "USDT")
     """
     maker_market: MarketBase
-    maker_symbol: str
+    maker_trading_pair: str
     maker_base_currency: str
     maker_quote_currency: str
     price: float
     total_size_commited: float = 0
     order_size: float = 0
-    adjust_order_time: float = 15
+    adjust_order_time: float = 30
     #volatility: float = 0.2
     #risk_aversion: float = 0.1
-    distance_from_mid: float = 0.05
+    #distance_from_mid: float = 0.05
+    bid_place_threshold: float = 0.01
+    ask_place_threshold: float = 0.01
 
 
 
