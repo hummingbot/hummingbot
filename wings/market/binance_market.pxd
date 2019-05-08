@@ -27,8 +27,7 @@ cdef class BinanceMarket(MarketBase):
         public object _user_stream_event_listener_task
         public object _user_stream_tracker_task
         public object _order_tracker_task
-        object _coro_queue
-        public object _coro_scheduler_task
+        object _async_scheduler
         object _set_server_time_offset_task
 
     cdef c_did_timeout_tx(self, str tracking_id)
