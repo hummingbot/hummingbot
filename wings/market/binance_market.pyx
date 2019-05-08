@@ -14,6 +14,7 @@ from decimal import (
 )
 from functools import partial
 import logging
+import pandas as pd
 import re
 import time
 from typing import (
@@ -26,6 +27,7 @@ from typing import (
 from web3 import Web3
 import conf
 import wings
+from wings.async_call_scheduler import AsyncCallScheduler
 from wings.clock cimport Clock
 from wings.data_source.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from wings.events import (
@@ -47,6 +49,7 @@ from wings.market.market_base import (
     MarketBase,
     NaN
 )
+from wings.network_iterator import NetworkStatus
 from wings.order_book_tracker import (
     OrderBookTrackerDataSourceType
 )
@@ -362,8 +365,7 @@ cdef class BinanceMarket(MarketBase):
         self._user_stream_tracker_task = None
         self._user_stream_event_listener_task = None
         self._order_tracker_task = None
-        self._coro_queue = asyncio.Queue()
-        self._coro_scheduler_task = None
+        self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
 
     @property
     def name(self) -> str:
@@ -393,37 +395,8 @@ cdef class BinanceMarket(MarketBase):
     def in_flight_deposits(self) -> Dict[str, InFlightDeposit]:
         return self._in_flight_deposits
 
-    @property
-    def coro_queue(self) -> asyncio.Queue:
-        return self._coro_queue
-
-    @property
-    def coro_scheduler_task(self) -> asyncio.Task:
-        return self._coro_scheduler_task
-
-    async def get_active_exchange_markets(self):
+    async def get_active_exchange_markets(self) -> pd.DataFrame:
         return await BinanceAPIOrderBookDataSource.get_active_exchange_markets()
-
-    async def coro_scheduler(self, coro_queue: asyncio.Queue, interval: float = 0.5):
-        while True:
-            try:
-                fut, coro, timeout_seconds = await coro_queue.get()
-                async with timeout(timeout_seconds):
-                    fut.set_result(await coro)
-            except asyncio.CancelledError:
-                self.logger().error("coro_scheduler has been cancelled! This shouldn't happen!", exc_info=True)
-                raise
-            except Exception as e:
-                self.logger().error("API call error.", exc_info=True)
-                try:
-                    fut.set_exception(e)
-                except Exception as e:
-                    pass
-            finally:
-                try:
-                    await asyncio.sleep(interval)
-                except Exception as e:
-                    self.logger().error("Scheduler sleep interrupted.", exc_info=True)
 
     def monkey_patch_binance_time(self):
         if binance_client_module.time != BinanceTime.get_instance():
@@ -431,9 +404,7 @@ cdef class BinanceMarket(MarketBase):
             BinanceTime.get_instance().start()
 
     async def schedule_async_call(self, coro: Coroutine, timeout_seconds: float) -> any:
-        fut = self._ev_loop.create_future()
-        self._coro_queue.put_nowait((fut, coro, timeout_seconds))
-        return await fut
+        return await self._async_scheduler.schedule_async_call(coro, timeout_seconds)
 
     async def query_api(self, func, *args, **kwargs) -> Dict[str, any]:
         async with timeout(self.API_CALL_TIMEOUT):
@@ -851,11 +822,40 @@ cdef class BinanceMarket(MarketBase):
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
         MarketBase.c_start(self, clock, timestamp)
+
+    cdef c_stop(self, Clock clock):
+        MarketBase.c_stop(self, clock)
+        self._async_scheduler.stop()
+
+    async def start_network(self):
+        if self._order_tracker_task is not None:
+            self._stop_network()
+
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
         self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
         self._user_stream_tracker_task = asyncio.ensure_future(self._user_stream_tracker.start())
         self._user_stream_event_listener_task = asyncio.ensure_future(self._user_stream_event_listener())
-        self._coro_scheduler_task = asyncio.ensure_future(self.coro_scheduler(self._coro_queue))
+
+    def _stop_network(self):
+        if self._order_tracker_task is not None:
+            self._order_tracker_task.cancel()
+            self._status_polling_task.cancel()
+            self._user_stream_tracker_task.cancel()
+            self._user_stream_event_listener_task.cancel()
+        self._order_tracker_task = self._status_polling_task = self._user_stream_tracker_task = \
+            self._user_stream_event_listener_task = None
+
+    async def stop_network(self):
+        self._stop_network()
+
+    async def check_network(self) -> NetworkStatus:
+        try:
+            await self.query_api(self._binance_client.ping)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return NetworkStatus.NOT_CONNECTED
+        return NetworkStatus.CONNECTED
 
     cdef c_tick(self, double timestamp):
         cdef:
