@@ -39,6 +39,7 @@ from wings.order_book cimport OrderBook
 from wings.market.coinbase_pro_auth import CoinbaseProAuth
 from wings.tracker.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from wings.tracker.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
+from wings.data_source.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
 from wings.cancellation_result import CancellationResult
 from wings.transaction_tracker import TransactionTracker
 from wings.wallet.wallet_base import WalletBase
@@ -752,6 +753,9 @@ cdef class CoinbaseProMarket(MarketBase):
         failed_cancellations = [CancellationResult(order.client_order_id, False)
                                 for order in list(exchange_order_id_map.values())]
         return successful_cancellations + failed_cancellations
+
+    async def get_active_exchange_markets(self):
+        return await CoinbaseProAPIOrderBookDataSource.get_active_exchange_markets()
 
     async def _status_polling_loop(self):
         while True:
