@@ -12,10 +12,10 @@ from hummingbot.cli.settings import (
     EXCHANGES,
     STRATEGIES,
     CONF_FILE_PATH,
-    symbol_fetcher,
 )
 from hummingbot.cli.ui.parser import ThrowingArgumentParser
 from hummingbot.cli.utils.wallet_setup import list_wallets
+from hummingbot.cli.utils.symbol_fetcher import SymbolFetcher
 from hummingbot.cli.config.in_memory_config_map import load_required_configs
 
 
@@ -45,6 +45,7 @@ class HummingbotCompleter(Completer):
 
     @property
     def _symbol_completer(self) -> Completer:
+        symbol_fetcher = SymbolFetcher.get_instance()
         market = None
         for exchange in EXCHANGES:
             if exchange in self.prompt_text:
