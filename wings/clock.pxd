@@ -6,6 +6,7 @@ cdef class Clock:
         double _tick_size
         double _start_time
         double _end_time
-        object _child_iterators
+        list _child_iterators
+        list _current_context
         double _current_tick
         bint _started

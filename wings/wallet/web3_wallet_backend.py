@@ -1,7 +1,6 @@
 import asyncio
 from collections import OrderedDict
 from decimal import Decimal
-from enum import Enum
 from eth_account import Account
 from eth_account.local import LocalAccount
 from eth_account.messages import defunct_hash_message
@@ -24,6 +23,7 @@ from web3.contract import (
 from web3.datastructures import AttributeDict
 
 import wings
+from wings.async_call_scheduler import AsyncCallScheduler
 from wings.ethereum_chain import EthereumChain
 from wings.event_forwarder import EventForwarder
 from wings.events import (
@@ -36,6 +36,7 @@ from wings.events import (
     WalletWrappedEthEvent,
     WalletUnwrappedEthEvent,
 )
+from wings.network_iterator import NetworkStatus
 from wings.pubsub import PubSub
 from wings.watcher.new_blocks_watcher import NewBlocksWatcher
 from wings.watcher.account_balance_watcher import AccountBalanceWatcher
@@ -67,67 +68,17 @@ class Web3WalletBackend(PubSub):
         self._w3: Web3 = Web3(Web3.HTTPProvider(jsonrpc_url))
         self._chain: EthereumChain = chain
         self._account: LocalAccount = Account.privateKeyToAccount(private_key)
+        self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
-        # Get information about the ERC20 tokens.
+        # Initialize ERC20 tokens data structures.
         self._erc20_token_list: List[ERC20Token] = []
         for erc20_token_address in erc20_token_addresses:
             self._erc20_token_list.append(ERC20Token(self._w3, erc20_token_address, self._chain))
+        self._erc20_tokens: Dict[str, ERC20Token] = OrderedDict()
+        self._asset_decimals: Dict[str, int] = {"ETH": 18}
+        self._weth_token: Optional[ERC20Token] = None
 
-        self._erc20_tokens: OrderedDict[str, ERC20Token] = {
-            erc20_token.symbol: erc20_token for erc20_token in self._erc20_token_list
-        }
-
-        self._weth_token = self._erc20_tokens["WETH"] if "WETH" in self._erc20_tokens else None
-
-        self._asset_decimals: Dict[str, int] = {
-            asset_name: erc20_token.decimals
-            for asset_name, erc20_token in self._erc20_tokens.items()
-        }
-        self._asset_decimals["ETH"] = 18
-
-        # Create event watchers.
-        self._new_blocks_watcher: NewBlocksWatcher = NewBlocksWatcher(self._w3)
-        self._account_balance_watcher: AccountBalanceWatcher = AccountBalanceWatcher(
-            self._w3,
-            self._new_blocks_watcher,
-            self._account.address,
-            [erc20_token.address for erc20_token in self._erc20_tokens.values()],
-            [token.abi for token in self._erc20_tokens.values()]
-        )
-        self._erc20_events_watcher: ERC20EventsWatcher = ERC20EventsWatcher(
-            self._w3,
-            self._new_blocks_watcher,
-            [token.address for token in self._erc20_tokens.values()],
-            [token.abi for token in self._erc20_tokens.values()],
-            [self._account.address]
-        )
-
-        if self._weth_token is not None:
-            self._weth_watcher: Optional[WethWatcher] = WethWatcher(
-                self._w3,
-                self._weth_token,
-                self._new_blocks_watcher,
-                [self._account.address]
-            )
-        else:
-            self._weth_watcher: Optional[WethWatcher] = None
-        self._incoming_eth_watcher: IncomingEthWatcher = IncomingEthWatcher(
-            self._w3,
-            self._new_blocks_watcher,
-            [self._account.address]
-        )
-
-        # Create the outgoing transactions loop and local nonce.
-        self._local_nonce: int = self._w3.eth.getTransactionCount(self.address, block_identifier="pending")
-        self._outgoing_transactions_queue: asyncio.Queue = asyncio.Queue()
-        self._outgoing_transactions_task: Optional[asyncio.Task] = None
-        self._check_transaction_receipts_task: Optional[asyncio.Task] = None
-        self._pending_tx_dict: Dict[str, int] = {}
-
-        # Create a local cache for wallet states.
-        self._current_block_number: int = self._w3.eth.blockNumber
-
-        # Initialize event forwarders
+        # Initialize the event forwarders.
         self._received_asset_event_forwarder: EventForwarder = EventForwarder(
             self._received_asset_event_listener
         )
@@ -140,17 +91,24 @@ class Web3WalletBackend(PubSub):
         self._unwrapped_eth_event_forwarder: EventForwarder = EventForwarder(
             self._eth_unwrapped_event_listener
         )
-        self._erc20_events_watcher.add_listener(ERC20WatcherEvent.ReceivedToken,
-                                                self._received_asset_event_forwarder)
-        self._erc20_events_watcher.add_listener(ERC20WatcherEvent.ApprovedToken,
-                                                self._approved_token_event_forwarder)
-        if self._weth_watcher is not None:
-            self._weth_watcher.add_listener(WalletEvent.WrappedEth,
-                                            self._wrapped_eth_event_forwarder)
-            self._weth_watcher.add_listener(WalletEvent.UnwrappedEth,
-                                            self._unwrapped_eth_event_forwarder)
-        self._incoming_eth_watcher.add_listener(IncomingEthWatcherEvent.ReceivedEther,
-                                                self._received_asset_event_forwarder)
+
+        # Blockchain data
+        self._local_nonce: int = -1
+
+        # Watchers
+        self._new_blocks_watcher: Optional[NewBlocksWatcher] = None
+        self._account_balance_watcher: Optional[AccountBalanceWatcher] = None
+        self._erc20_events_watcher: Optional[ERC20EventsWatcher] = None
+        self._incoming_eth_watcher: Optional[IncomingEthWatcher] = None
+        self._weth_watcher: Optional[WethWatcher] = None
+
+        # Tasks and transactions
+        self._check_network_task: Optional[asyncio.Task] = None
+        self._network_status: NetworkStatus = NetworkStatus.STOPPED
+        self._outgoing_transactions_queue: asyncio.Queue = asyncio.Queue()
+        self._outgoing_transactions_task: Optional[asyncio.Task] = None
+        self._check_transaction_receipts_task: Optional[asyncio.Task] = None
+        self._pending_tx_dict: Dict[str, int] = {}
 
     @property
     def address(self) -> str:
@@ -158,11 +116,13 @@ class Web3WalletBackend(PubSub):
 
     @property
     def block_number(self) -> int:
-        return self._current_block_number
+        return self._new_blocks_watcher.block_number if self._new_blocks_watcher is not None else -1
 
     @property
     def gas_price(self) -> int:
         """
+        Warning: This property causes network access, even though it's synchronous.
+
         :return: Gas price in wei
         """
         # TODO: The gas price from Parity is not reliable. Convert to use internal gas price calculator
@@ -170,6 +130,11 @@ class Web3WalletBackend(PubSub):
 
     @property
     def nonce(self) -> int:
+        """
+        Warning: This property causes network access, even though it's synchronous.
+
+        :return: Gas price in wei
+        """
         remote_nonce: int = self._w3.eth.getTransactionCount(self.address, block_identifier="pending")
         retval: int = max(remote_nonce, self._local_nonce)
         self._local_nonce = retval
@@ -183,29 +148,178 @@ class Web3WalletBackend(PubSub):
     def erc20_tokens(self) -> Dict[str, ERC20Token]:
         return self._erc20_tokens.copy()
 
+    @property
+    def started(self) -> bool:
+        return self._check_network_task is not None
+
+    @property
+    def network_status(self) -> NetworkStatus:
+        return self._network_status
+
     def start(self):
-        self._outgoing_transactions_task = asyncio.ensure_future(self.outgoing_eth_transactions_loop())
-        self._check_transaction_receipts_task = asyncio.ensure_future(self.check_transaction_receipts_loop())
-        self._new_blocks_watcher.start()
-        self._account_balance_watcher.start()
-        self._erc20_events_watcher.start()
-        self._incoming_eth_watcher.start()
-        if self._weth_watcher is not None:
-            self._weth_watcher.start()
+        if self.started:
+            self.stop()
+
+        self._check_network_task = asyncio.ensure_future(self._check_network_loop())
+        self._network_status = NetworkStatus.NOT_CONNECTED
 
     def stop(self):
+        if self._check_network_task is not None:
+            self._check_network_task.cancel()
+            self._check_network_task = None
+        asyncio.ensure_future(self.stop_network())
+        self._network_status = NetworkStatus.STOPPED
+
+    async def start_network(self):
+        if self._outgoing_transactions_task is not None:
+            await self.stop_network()
+
+        async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()
+        if len(self._erc20_tokens) < len(self._erc20_token_list):
+            # Fetch token data.
+            fetch_symbols_tasks: List[asyncio.Task] = [
+                token.get_symbol()
+                for token in self._erc20_token_list
+            ]
+            fetch_decimals_tasks: List[asyncio.Task] = [
+                token.get_decimals()
+                for token in self._erc20_token_list
+            ]
+            token_symbols: List[str] = await asyncio.gather(*fetch_symbols_tasks)
+            token_decimals: List[int] = await asyncio.gather(*fetch_decimals_tasks)
+            for token, symbol, decimals in zip(self._erc20_token_list, token_symbols, token_decimals):
+                self._erc20_tokens[symbol] = token
+                self._asset_decimals[symbol] = decimals
+            self._weth_token = self._erc20_tokens.get("WETH")
+
+            # Fetch blockchain data.
+            self._local_nonce = await async_scheduler.call_async(
+                lambda: self._w3.eth.getTransactionCount(self.address, block_identifier="pending")
+            )
+
+            # Create event watchers.
+            self._new_blocks_watcher = NewBlocksWatcher(self._w3)
+            self._account_balance_watcher = AccountBalanceWatcher(
+                self._w3,
+                self._new_blocks_watcher,
+                self._account.address,
+                [erc20_token.address for erc20_token in self._erc20_tokens.values()],
+                [token.abi for token in self._erc20_tokens.values()]
+            )
+            self._erc20_events_watcher = ERC20EventsWatcher(
+                self._w3,
+                self._new_blocks_watcher,
+                [token.address for token in self._erc20_tokens.values()],
+                [token.abi for token in self._erc20_tokens.values()],
+                [self._account.address]
+            )
+            self._incoming_eth_watcher = IncomingEthWatcher(
+                self._w3,
+                self._new_blocks_watcher,
+                [self._account.address]
+            )
+            if self._weth_token is not None:
+                self._weth_watcher = WethWatcher(
+                    self._w3,
+                    self._weth_token,
+                    self._new_blocks_watcher,
+                    [self._account.address]
+                )
+
+        # Connect the event forwarders.
+        self._erc20_events_watcher.add_listener(ERC20WatcherEvent.ReceivedToken,
+                                                self._received_asset_event_forwarder)
+        self._erc20_events_watcher.add_listener(ERC20WatcherEvent.ApprovedToken,
+                                                self._approved_token_event_forwarder)
+        self._incoming_eth_watcher.add_listener(IncomingEthWatcherEvent.ReceivedEther,
+                                                self._received_asset_event_forwarder)
+        if self._weth_watcher is not None:
+            self._weth_watcher.add_listener(WalletEvent.WrappedEth,
+                                            self._wrapped_eth_event_forwarder)
+            self._weth_watcher.add_listener(WalletEvent.UnwrappedEth,
+                                            self._unwrapped_eth_event_forwarder)
+
+        # Start the transaction processing tasks.
+        self._outgoing_transactions_task = asyncio.ensure_future(self.outgoing_eth_transactions_loop())
+        self._check_transaction_receipts_task = asyncio.ensure_future(self.check_transaction_receipts_loop())
+
+        # Start the event watchers.
+        await self._new_blocks_watcher.start_network()
+        await self._account_balance_watcher.start_network()
+        await self._erc20_events_watcher.start_network()
+        await self._incoming_eth_watcher.start_network()
+        if self._weth_watcher is not None:
+            await self._weth_watcher.start_network()
+
+    async def stop_network(self):
+        # Disconnect the event forwarders.
+        if self._erc20_events_watcher is not None:
+            self._erc20_events_watcher.remove_listener(ERC20WatcherEvent.ReceivedToken,
+                                                       self._received_asset_event_forwarder)
+            self._erc20_events_watcher.remove_listener(ERC20WatcherEvent.ApprovedToken,
+                                                       self._approved_token_event_forwarder)
+        if self._incoming_eth_watcher is not None:
+            self._incoming_eth_watcher.remove_listener(IncomingEthWatcherEvent.ReceivedEther,
+                                                       self._received_asset_event_forwarder)
+        if self._weth_watcher is not None:
+            self._weth_watcher.remove_listener(WalletEvent.WrappedEth,
+                                               self._wrapped_eth_event_forwarder)
+            self._weth_watcher.remove_listener(WalletEvent.UnwrappedEth,
+                                               self._unwrapped_eth_event_forwarder)
+
+        # Stop the event watchers.
+        if self._new_blocks_watcher is not None:
+            await self._new_blocks_watcher.stop_network()
+        if self._account_balance_watcher is not None:
+            await self._account_balance_watcher.stop_network()
+        if self._erc20_events_watcher is not None:
+            await self._erc20_events_watcher.stop_network()
+        if self._incoming_eth_watcher is not None:
+            await self._incoming_eth_watcher.stop_network()
+        if self._weth_watcher is not None:
+            await self._weth_watcher.stop_network()
+
+        # Stop the transaction processing tasks.
         if self._outgoing_transactions_task is not None:
             self._outgoing_transactions_task.cancel()
             self._outgoing_transactions_task = None
         if self._check_transaction_receipts_task is not None:
             self._check_transaction_receipts_task.cancel()
             self._check_transaction_receipts_task = None
-        self._new_blocks_watcher.stop()
-        self._account_balance_watcher.stop()
-        self._erc20_events_watcher.stop()
-        self._incoming_eth_watcher.stop()
-        if self._weth_watcher is not None:
-            self._weth_watcher.stop()
+
+    async def check_network(self) -> NetworkStatus:
+        try:
+            await self._ev_loop.run_in_executor(wings.get_executor(),
+                                                getattr,
+                                                self._w3.eth,
+                                                "blockNumber")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return NetworkStatus.NOT_CONNECTED
+        return NetworkStatus.CONNECTED
+
+    async def _check_network_loop(self):
+        while True:
+            has_unexpected_error: bool = False
+
+            try:
+                new_status = await asyncio.wait_for(self.check_network(), timeout=10.0)
+            except asyncio.CancelledError:
+                raise
+            except asyncio.TimeoutError:
+                new_status = NetworkStatus.NOT_CONNECTED
+            except Exception:
+                self.logger().error("Unexpected error while checking for network status.", exc_info=True)
+                new_status = NetworkStatus.NOT_CONNECTED
+                has_unexpected_error = True
+
+            self._network_status = new_status
+
+            if not has_unexpected_error:
+                await asyncio.sleep(3.0)
+            else:
+                await asyncio.sleep(30.0)
 
     async def check_transaction_receipts_loop(self):
         while True:
@@ -267,7 +381,7 @@ class Web3WalletBackend(PubSub):
                 self._stop_tx_tracking(tx_hash)
 
     async def outgoing_eth_transactions_loop(self):
-        ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        ev_loop: asyncio.AbstractEventLoop = self._ev_loop
         while True:
             signed_transaction: AttributeDict = await self._outgoing_transactions_queue.get()
             tx_hash: str = signed_transaction.hash.hex()
@@ -290,22 +404,34 @@ class Web3WalletBackend(PubSub):
             del self._pending_tx_dict[tx_hash]
 
     def schedule_eth_transaction(self, signed_transaction: AttributeDict, gas_price: int):
+        if self._network_status is not NetworkStatus.CONNECTED:
+            raise EnvironmentError("Cannot send transactions when network status is not connected.")
+
         self._outgoing_transactions_queue.put_nowait(signed_transaction)
         tx_hash: str = signed_transaction.hash.hex()
         self._start_tx_tracking(tx_hash, gas_price)
         self._local_nonce += 1
 
     def get_balance(self, symbol: str) -> float:
-        return self._account_balance_watcher.get_balance(symbol)
+        if self._account_balance_watcher is not None:
+            return self._account_balance_watcher.get_balance(symbol)
+        else:
+            return 0.0
 
     def get_all_balances(self) -> Dict[str, float]:
-        return self._account_balance_watcher.get_all_balances()
+        if self._account_balance_watcher is not None:
+            return self._account_balance_watcher.get_all_balances()
+        return {}
 
     def get_raw_balance(self, symbol: str) -> int:
-        return self._account_balance_watcher.get_raw_balance(symbol)
+        if self._account_balance_watcher is not None:
+            return self._account_balance_watcher.get_raw_balance(symbol)
+        return 0
 
     def get_raw_balances(self) -> Dict[str, int]:
-        return self._account_balance_watcher.get_raw_balances()
+        if self._account_balance_watcher is not None:
+            return self._account_balance_watcher.get_raw_balances()
+        return {}
 
     def sign_hash(self, text: str = None, hexstr: str = None) -> str:
         msg_hash: str = defunct_hash_message(hexstr=hexstr, text=text)
@@ -326,6 +452,17 @@ class Web3WalletBackend(PubSub):
         return gas_estimate * self.gas_price
 
     def execute_transaction(self, contract_function: ContractFunction, **kwargs) -> str:
+        """
+        This function WILL result in immediate network calls (e.g. to get the gas price, nonce and gas cost), even
+        though it is written in sync manner.
+
+        :param contract_function:
+        :param kwargs:
+        :return:
+        """
+        if self._network_status is not NetworkStatus.CONNECTED:
+            raise EnvironmentError("Cannot send transactions when network status is not connected.")
+
         gas_price: int = self.gas_price
         transaction_args: Dict[str, Any] = {
             "from": self.address,
@@ -348,6 +485,17 @@ class Web3WalletBackend(PubSub):
         return tx_hash
 
     def send(self, address: str, asset_name: str, amount: float) -> str:
+        """
+        Warning: This function WILL result in immediate network calls, even though it is written in sync manner.
+
+        :param address:
+        :param asset_name:
+        :param amount:
+        :return:
+        """
+        if self._network_status is not NetworkStatus.CONNECTED:
+            raise EnvironmentError("Cannot send transactions when network status is not connected.")
+
         if asset_name == "ETH":
             gas_price: int = self.gas_price
             transaction: Dict[str, Any] = {
@@ -409,7 +557,7 @@ class Web3WalletBackend(PubSub):
     def _eth_unwrapped_event_listener(self, unwrapped_eth_event: WalletUnwrappedEthEvent):
         self.trigger_event(WalletEvent.UnwrappedEth, unwrapped_eth_event)
 
-    def check_and_fix_approval_amounts(self, spender: str) -> List[str]:
+    async def check_and_fix_approval_amounts(self, spender: str) -> List[str]:
         """
         Maintain the approve amounts for a token.
         This function will be used to ensure trade execution using exchange protocols such as 0x, but should be
@@ -421,15 +569,20 @@ class Web3WalletBackend(PubSub):
         min_approve_amount: int = int(Decimal("1e35"))
         target_approve_amount: int = int(Decimal("1e36"))
 
-        approved_amounts: List[int] = [
-            erc20_token.contract.functions.allowance(self.address, spender).call()
+        # Get currently approved amounts
+        get_approved_amounts_tasks: List[asyncio.Task] = [
+            self._ev_loop.run_in_executor(
+                wings.get_executor(),
+                erc20_token.contract.functions.allowance(self.address, spender).call
+            )
             for erc20_token in self._erc20_token_list
         ]
+        approved_amounts: List[int] = await asyncio.gather(*get_approved_amounts_tasks)
 
-        # check and fix the approved amounts
+        # Check and fix the approved amounts
         tx_hashes: List[str] = []
         for approved_amount, erc20_token in zip(approved_amounts, self._erc20_token_list):
-            token_name: str = erc20_token.name
+            token_name: str = await erc20_token.get_name()
             token_contract: Contract = erc20_token.contract
             if approved_amount >= min_approve_amount:
                 self.logger().info(f"Approval already exists for {token_name} from wallet address {self.address}.")
