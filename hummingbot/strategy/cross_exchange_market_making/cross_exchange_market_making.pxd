@@ -81,15 +81,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef tuple c_calculate_market_making_profitability(self,
                                                        object market_pair,
                                                        OrderBook maker_order_book,
-                                                       OrderBook taker_order_book,
-                                                       double bid_order_size = *,
-                                                       double ask_order_size = *)
+                                                       OrderBook taker_order_book)
     cdef tuple c_has_market_making_profit_potential(self,
                                                     object market_pair,
                                                     OrderBook maker_order_book,
-                                                    OrderBook taker_order_book,
-                                                    double bid_order_size = *,
-                                                    double ask_order_size = *)
+                                                    OrderBook taker_order_book)
     cdef tuple c_get_market_making_price_and_size_limit(self,
                                                         object market_pair,
                                                         bint is_bid,
