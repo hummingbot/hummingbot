@@ -315,10 +315,41 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             assets_df = pd.DataFrame(data=assets_data, columns=assets_columns)
             lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
 
-            bid_profitability, ask_profitability = self.c_calculate_market_making_profitability(market_pair,
-                                                                                                maker_order_book,
-                                                                                                taker_order_book)
-            lines.extend(["", "  Profitability:"] +
+            bid_price, bid_size_limit = self.c_get_market_making_price_and_size_limit(
+                market_pair,
+                True,
+                own_order_depth=0
+            )
+            bid_size = self.c_get_adjusted_limit_order_size(
+                        market_pair,
+                        float(bid_price),
+                        float(bid_size_limit)
+                    )
+
+            ask_price, ask_size_limit = self.c_get_market_making_price_and_size_limit(
+                market_pair,
+                False,
+                own_order_depth=0
+            )
+            ask_size = self.c_get_adjusted_limit_order_size(
+                        market_pair,
+                        float(ask_price),
+                        float(ask_size_limit)
+                    )
+            bid_profitable = self.c_has_market_making_profit_potential(
+                market_pair,
+                maker_order_book,
+                taker_order_book,
+                float(bid_size)
+            )[0]
+
+            ask_profitable = self.c_has_market_making_profit_potential(
+                market_pair,
+                maker_order_book,
+                taker_order_book,
+                float(ask_size)
+            )[1]
+                    lines.extend(["", "  Profitability:"] +
                          [f"    make bid on {maker_name}, "
                           f"take bid on {taker_name}: {round(bid_profitability * 100, 4)} %"] +
                          [f"    make ask on {maker_name}, "
@@ -370,7 +401,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     def has_market_making_profit_potential(self, market_pair: CrossExchangeMarketPair,
                                            OrderBook maker_order_book,
                                            OrderBook taker_order_book,
-                                           order_size: float = 0.0) -> Tuple[bool, bool]:
+                                           order_size: float = 1.0) -> Tuple[bool, bool]:
         return self.c_has_market_making_profit_potential(market_pair, maker_order_book, taker_order_book, order_size)
 
     def get_market_making_price_and_size_limit(self, market_pair: CrossExchangeMarketPair,
@@ -875,6 +906,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         :param taker_order_book: Order book on the taker side.
         :return: a (double, double) tuple. Calculates the profitability ratio of bid limit orders and ask limit orders
         """
+        if order_size == 0.0:
+            return (0, 0)
         cdef:
             # bid profitability calculation
             double maker_bid_price = maker_order_book.c_get_price_for_quote_volume(
@@ -890,7 +923,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 market_pair.taker_quote_currency,
                 taker_bid_price
             )
-            object maker_bid_fee = market_pair.maker_market.c_get_fee(
+            object maker_bid_fee = (<MarketBase>(market_pair.maker_market)).c_get_fee(
                 market_pair.maker_base_currency,
                 market_pair.maker_quote_currency,
                 OrderType.LIMIT,
@@ -902,7 +935,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 market_pair.maker_quote_currency,
                 maker_bid_fee.flat_fees
             )
-            object taker_bid_fee = market_pair.taker_market.c_get_fee(
+            object taker_bid_fee = (<MarketBase>(market_pair.taker_market)).c_get_fee(
                 market_pair.taker_base_currency,
                 market_pair.taker_quote_currency,
                 OrderType.MARKET,
@@ -932,7 +965,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 market_pair.taker_quote_currency,
                 taker_ask_price
             )
-            object maker_ask_fee = market_pair.maker_market.c_get_fee(
+            object maker_ask_fee = (<MarketBase>(market_pair.maker_market)).c_get_fee(
                 market_pair.maker_base_currency,
                 market_pair.maker_quote_currency,
                 OrderType.LIMIT,
@@ -944,7 +977,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 market_pair.maker_quote_currency,
                 maker_ask_fee.flat_fees
             )
-            object taker_ask_fee = market_pair.taker_market.c_get_fee(
+            object taker_ask_fee = (<MarketBase>(market_pair.taker_market)).c_get_fee(
                 market_pair.taker_base_currency,
                 market_pair.taker_quote_currency,
                 OrderType.MARKET,
@@ -959,7 +992,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double ask_net_sell_proceeds = maker_ask_price_adjusted * order_size * (1 - maker_ask_fee.percent) - maker_ask_fee_flat_fees
             double ask_net_buy_costs = taker_ask_price_adjusted * order_size * (1 + taker_ask_fee.percent) + taker_ask_fee_flat_fees
             double ask_profitability = ask_net_sell_proceeds / ask_net_buy_costs
-
         return (bid_profitability - 1.0, ask_profitability - 1.0)
 
     cdef tuple c_has_market_making_profit_potential(self,
@@ -1368,7 +1400,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     float(ask_price),
                     float(ask_size_limit)
                 )
-
         bid_profitable = self.c_has_market_making_profit_potential(
             market_pair,
             maker_order_book,
