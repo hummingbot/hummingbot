@@ -109,14 +109,14 @@ cdef class DiscoveryStrategy(Strategy):
         try:
             for market, fetch_market_info in [(market_pair.market_1, market_pair.market_1_fetch_market_info),
                                               (market_pair.market_2, market_pair.market_2_fetch_market_info)]:
-                    markets = self.filter_trading_pairs(self._target_symbols,
-                                                                await fetch_market_info(),
-                                                                self._equivalent_token)
-                    self._market_info[market] = {"markets": markets,
-                                                 "base_quote_to_symbol": {},
-                                                 "timestamp": self._current_timestamp}
-                    for trading_symbol, b, q in zip(markets.index, markets.baseAsset, markets.quoteAsset):
-                        self._market_info[market]["base_quote_to_symbol"][(b, q)] = (trading_symbol, b, q)
+                markets = self.filter_trading_pairs(self._target_symbols,
+                                                    await fetch_market_info(),
+                                                    self._equivalent_token)
+                self._market_info[market] = {"markets": markets,
+                                             "base_quote_to_symbol": {},
+                                             "timestamp": self._current_timestamp}
+                for trading_symbol, b, q in zip(markets.index, markets.baseAsset, markets.quoteAsset):
+                    self._market_info[market]["base_quote_to_symbol"][(b, q)] = (trading_symbol, b, q)
 
             self._matching_pairs = self.get_matching_pair(market_pair)
 
@@ -152,9 +152,10 @@ cdef class DiscoveryStrategy(Strategy):
             self._fetch_market_info_task_list = [asyncio.ensure_future(self.fetch_market_info(market_pair))
                                                 for market_pair in self._market_pairs]
 
-        if not all([market in self._market_info for market in self._markets]):
-            self.log_with_clock(logging.INFO, "Waiting to finish fetching trading pair information.")
-            return
+        for market in self._markets:
+            if not market in self._market_info:
+                self.log_with_clock(logging.INFO, f"Waiting to finish fetching trading pair from {market.name}.")
+                return
 
         if not self._all_markets_ready:
             self._all_markets_ready = all([market.ready for market in self._markets])
@@ -292,13 +293,12 @@ cdef class DiscoveryStrategy(Strategy):
             arbitrage_discovery.update(discovery_dict)
 
         arbitrage_discovery_df = pd.DataFrame(
-            data=[(names[0], names[1], names[2], names[3], stats[0], stats[1], stats[2])
-                  for names, stats in  arbitrage_discovery.items()],
-            columns=["buy_market", "buy_symbol", "sell_market", "sell_symbol",
-                     "amount (base)", "cost (quote)", "profit (%)"]
+            data=[(names[0], names[1], names[2], names[3], stats[2])
+                  for names, stats in arbitrage_discovery.items()],
+            columns=["buy_market", "buy_pair", "sell_market", "sell_pair", "profit (%)"]
         )
 
-        return arbitrage_discovery_df.sort_values(["amount (base)", "profit (%)"], ascending=False)
+        return arbitrage_discovery_df.sort_values(["profit (%)"], ascending=False)
 
     def calculate_market_stats(self, market_pair: DiscoveryMarketPair, exchange_market_info: List):
         return self.c_calculate_market_stats(market_pair, exchange_market_info)
@@ -328,11 +328,11 @@ cdef class DiscoveryStrategy(Strategy):
                     self.logger().debug(f"Error calculating market stats: {exchange_name}, {symbol}.", exc_info=True)
 
         market_stats_discovery_df = pd.DataFrame(
-            data=[(name[0], name[1], stats[0], stats[1], stats[2], stats[3]) for name, stats in  market_stats.items()],
-            columns=["market", "symbol", "spread (%)", "mid price", "24hr volume (quote)", "quote"]
+            data=[(name[0], name[1], stats[0], stats[1], stats[2], stats[3]) for name, stats in market_stats.items()],
+            columns=["market", "trading_pair", "spread (%)", "mid_price", "24h_volume", "quote_asset"]
         )
 
-        return market_stats_discovery_df.sort_values(["24hr volume (quote)", "spread (%)"], ascending=False)
+        return market_stats_discovery_df.sort_values(["24h_volume", "spread (%)"], ascending=False)
 
     cdef c_process_market_pair(self, object market_pair):
         self._discovery_stats["market_stats"] = self.c_calculate_market_stats(market_pair, self._market_info)
@@ -349,7 +349,7 @@ cdef class DiscoveryStrategy(Strategy):
         if "arbitrage" not in self._discovery_stats or self._discovery_stats["arbitrage"].empty:
             lines.extend(["", "Arbitrage discovery not ready yet."])
             return lines
-        df_lines = self._discovery_stats["arbitrage"].to_string(index=False, float_format='%.2f').split("\n")
+        df_lines = self._discovery_stats["arbitrage"].to_string(index=False, float_format='%.6f').split("\n")
 
         lines.extend(["", "  Arbitrage Opportunity Report:"] +
                      ["    " + line for line in df_lines])
@@ -362,7 +362,7 @@ cdef class DiscoveryStrategy(Strategy):
         if "market_stats" not in self._discovery_stats or self._discovery_stats["market_stats"].empty:
             lines.extend(["", "Market stats not ready yet."])
             return lines
-        df_lines = self._discovery_stats["market_stats"].to_string(index=False, float_format='%.2f').split("\n")
+        df_lines = self._discovery_stats["market_stats"].to_string(index=False, float_format='%.6f').split("\n")
 
         lines.extend(["", "  Market Stats:"] +
                      ["    " + line for line in df_lines])
@@ -374,6 +374,27 @@ cdef class DiscoveryStrategy(Strategy):
         lines.extend(["", "  Discovery Strategy Config:"])
         lines.extend(["    Equivalent Tokens:"] +
                      [f"      {equivalent_token}" for equivalent_token in self._equivalent_token])
+        return lines
+
+    def format_conversion_rate(self):
+        cdef:
+            list lines = []
+            list data = []
+            list columns = ["asset", "conversion_rate"]
+
+        asset_set = set()
+        for market in self._market_info:
+            market_info = self._market_info[market]
+            for asset_tuple in market_info["base_quote_to_symbol"].keys():
+                b, q = asset_tuple
+                asset_set.add(b)
+                asset_set.add(q)
+
+        for asset in asset_set:
+            data.append([asset, ExchangeRateConversion.get_instance().adjust_token_rate(asset, 1.0)])
+
+        assets_df = pd.DataFrame(data=data, columns=columns)
+        lines.extend(["", "  Conversion Rates:"] + ["    " + line for line in str(assets_df).split("\n")])
         return lines
 
     def format_status(self):
@@ -389,7 +410,8 @@ cdef class DiscoveryStrategy(Strategy):
         lines.extend(self.format_status_market_stats())
         if self._discovery_method == "arbitrage":
             lines.extend(self.format_status_arbitrage())
-        lines.extend(self.format_status_discovery_config())
+
+        lines.extend(self.format_conversion_rate())
         return "\n".join(lines)
 
     def stop(self):
