@@ -129,7 +129,7 @@ global_config_map = {
                                                   type_str="list",
                                                   default=[["ETH", "COINCAP_API"],
                                                            ["DAI", "COINCAP_API"]]),
-    "stop_loss_pct":                    ConfigVar(key="stop_upon_loss_pct",
+    "stop_loss_pct":                    ConfigVar(key="stop_loss_pct",
                                                   prompt="At what percentage of loss would you like the bot to stop "
                                                          "trading? (Enter 0.03 to mean 3%. Enter -1.0 to disable) >>> ",
                                                   default=-1.0,
@@ -137,9 +137,8 @@ global_config_map = {
     "stop_loss_price_type":             ConfigVar(key="stop_loss_price_type",
                                                   prompt="Would type of price data would you like to use for stop "
                                                          "loss (fixed/dynamic) ? >>> ",
-                                                  default="fixed",
                                                   required_if=lambda:
-                                                      global_config_map.get("stop_upon_loss_pct").value >= 0,
+                                                      global_config_map.get("stop_loss_pct").value >= 0,
                                                   validator=lambda v: v in {"fixed", "dynamic"}),
     "stop_loss_base_token":             ConfigVar(key="stop_loss_base_token",
                                                   prompt="Would base token would you like to use to calculate your "
