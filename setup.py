@@ -102,7 +102,7 @@ def main():
         ]
         package_data["wings"].append("cpp/*.cpp")
 
-    if sys.argv[1] == "build_ext":
+    if len(sys.argv) > 1 and sys.argv[1] == "build_ext":
         sys.argv.append(f"--parallel={cpu_count}")
 
     setup(name="hummingbot",
