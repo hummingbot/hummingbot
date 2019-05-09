@@ -315,32 +315,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             assets_df = pd.DataFrame(data=assets_data, columns=assets_columns)
             lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
 
-            bid_price, bid_size_limit = self.c_get_market_making_price_and_size_limit(
-                market_pair,
-                True,
-                own_order_depth=0
-            )
-            bid_size = self.c_get_adjusted_limit_order_size(
-                market_pair,
-                float(bid_price),
-                float(bid_size_limit)
-            )
-            ask_price, ask_size_limit = self.c_get_market_making_price_and_size_limit(
-                market_pair,
-                False,
-                own_order_depth=0
-            )
-            ask_size = self.c_get_adjusted_limit_order_size(
-                market_pair,
-                float(ask_price),
-                float(ask_size_limit)
-            )
             bid_profitability, ask_profitability = self.c_calculate_market_making_profitability(
                 market_pair,
                 maker_order_book,
-                taker_order_book,
-                float(bid_size),
-                float(ask_size)
+                taker_order_book
             )
             lines.extend(["", "  Profitability:"] +
                     [f"    make bid on {maker_name}, "
@@ -393,15 +371,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
     def has_market_making_profit_potential(self, market_pair: CrossExchangeMarketPair,
                                            OrderBook maker_order_book,
-                                           OrderBook taker_order_book,
-                                           bid_order_size: float = 1.0,
-                                           ask_order_size: float = 1.0) -> Tuple[bool, bool]:
+                                           OrderBook taker_order_book) -> Tuple[bool, bool]:
         return self.c_has_market_making_profit_potential(
             market_pair,
             maker_order_book,
-            taker_order_book,
-            bid_order_size,
-            ask_order_size
+            taker_order_book
         )
 
     def get_market_making_price_and_size_limit(self, market_pair: CrossExchangeMarketPair,
@@ -1005,15 +979,35 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef tuple c_calculate_market_making_profitability(self,
                                                        object market_pair,
                                                        OrderBook maker_order_book,
-                                                       OrderBook taker_order_book,
-                                                       double bid_order_size = 0.0,
-                                                       double ask_order_size = 0.0):
+                                                       OrderBook taker_order_book):
         """
         :param market_pair: The hedging market pair.
         :param maker_order_book: Order book on the maker side.
         :param taker_order_book: Order book on the taker side.
         :return: a (double, double) tuple. Calculates the profitability ratio of bid limit orders and ask limit orders
         """
+
+        bid_price, bid_size_limit = self.c_get_market_making_price_and_size_limit(
+            market_pair,
+            True,
+            own_order_depth=0
+        )
+        bid_order_size = float(self.c_get_adjusted_limit_order_size(
+            market_pair,
+            float(bid_price),
+            float(bid_size_limit)
+        ))
+        ask_price, ask_size_limit = self.c_get_market_making_price_and_size_limit(
+            market_pair,
+            False,
+            own_order_depth=0
+        )
+        ask_order_size = float(self.c_get_adjusted_limit_order_size(
+            market_pair,
+            float(ask_price),
+            float(ask_size_limit)
+        ))
+
         cdef:
             double bid_profitability = self.c_calculate_bid_profitability(
                 market_pair,
@@ -1032,9 +1026,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef tuple c_has_market_making_profit_potential(self,
                                                     object market_pair,
                                                     OrderBook maker_order_book,
-                                                    OrderBook taker_order_book,
-                                                    double bid_order_size = 0.0,
-                                                    double ask_order_size = 0.0):
+                                                    OrderBook taker_order_book):
         """
         :param market_pair: The hedging market pair.
         :param maker_order_book: Order book on the maker side.
@@ -1046,9 +1038,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         bid_profitability, ask_profitability = self.c_calculate_market_making_profitability(
             market_pair,
             maker_order_book,
-            taker_order_book,
-            bid_order_size,
-            ask_order_size
+            taker_order_book
         )
 
         return bid_profitability > self._min_profitability, ask_profitability > self._min_profitability
@@ -1420,36 +1410,24 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
         # See if it's profitable to place a limit order on maker market.
 
-        bid_price, bid_size_limit = self.c_get_market_making_price_and_size_limit(
-            market_pair,
-            True,
-            own_order_depth=0
-        )
-        bid_size = self.c_get_adjusted_limit_order_size(
-            market_pair,
-            float(bid_price),
-            float(bid_size_limit)
-        )
-        ask_price, ask_size_limit = self.c_get_market_making_price_and_size_limit(
-            market_pair,
-            False,
-            own_order_depth=0
-        )
-        ask_size = self.c_get_adjusted_limit_order_size(
-            market_pair,
-            float(ask_price),
-            float(ask_size_limit)
-        )
         is_bid_profitable, is_ask_profitable = self.c_has_market_making_profit_potential(
             market_pair,
             maker_order_book,
-            taker_order_book,
-            float(bid_size),
-            float(ask_size)
+            taker_order_book
         )
         bid_price_samples, ask_price_samples = self.c_get_suggested_price_samples(market_pair)
 
         if is_bid_profitable and not has_active_bid:
+            bid_price, bid_size_limit = self.c_get_market_making_price_and_size_limit(
+                market_pair,
+                True,
+                own_order_depth=0
+            )
+            bid_size = self.c_get_adjusted_limit_order_size(
+                market_pair,
+                float(bid_price),
+                float(bid_size_limit)
+            )
             if bid_size > s_decimal_zero:
                 effective_hedging_price = self.c_calculate_effective_hedging_price(
                     taker_order_book,
@@ -1490,6 +1468,16 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         f"bid size limit is 0. Skipping."
                     )
         if is_ask_profitable and not has_active_ask:
+            ask_price, ask_size_limit = self.c_get_market_making_price_and_size_limit(
+                market_pair,
+                False,
+                own_order_depth=0
+            )
+            ask_size = self.c_get_adjusted_limit_order_size(
+                market_pair,
+                float(ask_price),
+                float(ask_size_limit)
+            )
             if ask_size > s_decimal_zero:
                 effective_hedging_price = self.c_calculate_effective_hedging_price(
                     taker_order_book,
