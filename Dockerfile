@@ -1,5 +1,5 @@
 # Set the base image
-FROM continuumio/anaconda3
+FROM continuumio/anaconda3:2018.12
 
 # Dockerfile author / maintainer 
 LABEL maintainer="CoinAlpha, Inc. <dev@coinalpha.com>"

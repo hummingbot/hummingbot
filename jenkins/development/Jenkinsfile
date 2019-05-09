@@ -22,7 +22,7 @@ node {
           def version = readFile('hummingbot/VERSION').trim()
 
           // Update VERSION
-          sh "echo dev-${version}:${commit}[${env.BUILD_TIMESTAMP}] > hummingbot/VERSION"
+          sh "echo ${version}:${commit}[${env.BUILD_TIMESTAMP}] > hummingbot/VERSION"
 
           app = docker.build(dockerImage)
       }
