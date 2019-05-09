@@ -660,6 +660,10 @@ class HummingbotApplication:
                                               logging_options=strategy_logging_options)
 
         elif strategy_name == "pure_market_making":
+            total_size = strategy_cm.get("total_size_commited").value
+            order_size = strategy_cm.get("order_size").value
+            bid_place_threshold = strategy_cm.get("bid_place_threshold").value
+            ask_place_threshold = strategy_cm.get("ask_place_threshold").value
             primary_market = strategy_cm.get("primary_market").value.lower()
             raw_primary_symbol = strategy_cm.get("primary_market_symbol").value.upper()
             try:
@@ -677,7 +681,14 @@ class HummingbotApplication:
 
             self.market_pair = PureMarketPair(*([self.markets[primary_market], raw_primary_symbol] +
                                                      list(primary_assets)))
-            strategy_logging_options = ArbitrageStrategy.OPTION_LOG_ALL
+            strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
+
+            self.strategy = PureMarketMakingStrategy(market_pairs=[self.market_pair],
+                                                     total_size_commited= total_size,
+                                                     order_size = order_size,
+                                                     bid_place_threshold = bid_place_threshold,
+                                                     ask_place_threshold = ask_place_threshold,
+                                                     logging_options=strategy_logging_options)
 
             raise ValueError("Not completed yet")
 
@@ -722,7 +733,7 @@ class HummingbotApplication:
             raise NotImplementedError
 
         try:
-            self.clock = Clock(ClockMode.REALTIME)
+            self.clock = Clock(clock_mode=ClockMode.REALTIME, tick_size=clock_tick_size)
             if self.wallet is not None:
                 self.clock.add_iterator(self.wallet)
             for market in self.markets.values():

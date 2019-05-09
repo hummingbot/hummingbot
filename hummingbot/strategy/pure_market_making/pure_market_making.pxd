@@ -10,6 +10,26 @@ from hummingbot.strategy.strategy_base cimport StrategyBase
 
 cdef class PureMarketMakingStrategy(StrategyBase):
     cdef:
+        list _market_pairs
+        bint _all_markets_ready
+        dict _order_id_to_market
+        dict _tracked_market_orders
+        double _min_profitability
+        double _max_order_size
+        double _min_order_size
+        double _status_report_interval
+        double _last_timestamp
+        dict _last_trade_timestamps
+        double _next_trade_delay
+        EventListener _buy_order_completed_listener
+        EventListener _sell_order_completed_listener
+        EventListener _order_failed_listener
+        EventListener _order_canceled_listener
+        set _markets
+        set _sell_markets
+        set _buy_markets
+        int64_t _logging_options
+
         dict _market_pairs
         set _markets
         set _maker_markets
@@ -22,10 +42,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         double _anti_hysteresis_duration
         double _status_report_interval
         double _last_timestamp
-        double _trade_size_override
-        double _limit_order_min_expiration
-        double _cancel_order_threshold
-        bint _active_order_canceling
         dict _tracked_maker_orders
         dict _order_id_to_market_pair
         dict _shadow_tracked_maker_orders
