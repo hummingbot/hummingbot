@@ -899,7 +899,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                               object market_pair,
                                               OrderBook maker_order_book,
                                               OrderBook taker_order_book,
-                                              double bid_order_size = 0.0)
+                                              double bid_order_size = 0.0):
         if bid_order_size == 0.0:
             return 0.0
         cdef:
@@ -952,7 +952,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                               object market_pair,
                                               OrderBook maker_order_book,
                                               OrderBook taker_order_book,
-                                              double ask_order_size = 0.0)
+                                              double ask_order_size = 0.0):
         if ask_order_size == 0.0:
             return 0.0
         cdef:
@@ -1440,7 +1440,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             float(ask_price),
             float(ask_size_limit)
         )
-        bid_profitable, ask_profitable = self.c_has_market_making_profit_potential(
+        is_bid_profitable, is_ask_profitable = self.c_has_market_making_profit_potential(
             market_pair,
             maker_order_book,
             taker_order_book,
@@ -1449,7 +1449,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         )
         bid_price_samples, ask_price_samples = self.c_get_suggested_price_samples(market_pair)
 
-        if bid_profitable and not has_active_bid:
+        if is_bid_profitable and not has_active_bid:
             if bid_size > s_decimal_zero:
                 effective_hedging_price = self.c_calculate_effective_hedging_price(
                     taker_order_book,
@@ -1489,7 +1489,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         f"({market_pair.maker_symbol}) Attempting to place a limit bid but the "
                         f"bid size limit is 0. Skipping."
                     )
-        if ask_profitable and not has_active_ask:
+        if is_ask_profitable and not has_active_ask:
             if ask_size > s_decimal_zero:
                 effective_hedging_price = self.c_calculate_effective_hedging_price(
                     taker_order_book,
