@@ -401,7 +401,6 @@ class HummingbotApplication:
         if self.wallet is not None:
             if self.wallet.network_status is NetworkStatus.CONNECTED:
                 has_minimum_eth = self.wallet.get_balance("ETH") > 0.01
-                print()
                 if has_minimum_eth:
                     self.app.log("   - ETH wallet check: Minimum ETH requirement satisfied")
                 else:
