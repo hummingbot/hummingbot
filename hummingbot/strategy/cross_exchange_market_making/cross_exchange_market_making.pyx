@@ -321,10 +321,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 taker_order_book
             )
             lines.extend(["", "  Profitability:"] +
-                    [f"    make bid on {maker_name}, "
-                    f"take bid on {taker_name}: {round(bid_profitability * 100, 4)} %"] +
-                    [f"    make ask on {maker_name}, "
-                    f"take ask on {taker_name}: {round(ask_profitability * 100, 4)} %"])
+                         [f"    make bid on {maker_name}, "
+                          f"take bid on {taker_name}: {round(bid_profitability * 100, 4)} %"] +
+                         [f"    make ask on {maker_name}, "
+                          f"take ask on {taker_name}: {round(ask_profitability * 100, 4)} %"])
 
             # See if there're any open orders.
             if market_pair in self._tracked_maker_orders and len(self._tracked_maker_orders[market_pair]) > 0:
@@ -930,7 +930,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         if ask_order_size == 0.0:
             return 0.0
         cdef:
-            # ask profitability calculation
             double maker_ask_price = maker_order_book.c_get_price_for_quote_volume(
                 True,
                 market_pair.top_depth_tolerance
@@ -1409,7 +1408,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double effective_hedging_price
 
         # See if it's profitable to place a limit order on maker market.
-
         is_bid_profitable, is_ask_profitable = self.c_has_market_making_profit_potential(
             market_pair,
             maker_order_book,
