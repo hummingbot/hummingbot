@@ -71,9 +71,9 @@ class Web3WalletBackend(PubSub):
         self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
         # Initialize ERC20 tokens data structures.
-        self._erc20_token_list: List[ERC20Token] = []
-        for erc20_token_address in erc20_token_addresses:
-            self._erc20_token_list.append(ERC20Token(self._w3, erc20_token_address, self._chain))
+        self._erc20_token_list: List[ERC20Token] = [
+            ERC20Token(self._w3, erc20_token_address, self._chain) for erc20_token_address in erc20_token_addresses
+        ]
         self._erc20_tokens: Dict[str, ERC20Token] = OrderedDict()
         self._asset_decimals: Dict[str, int] = {"ETH": 18}
         self._weth_token: Optional[ERC20Token] = None
@@ -226,30 +226,31 @@ class Web3WalletBackend(PubSub):
                     [self._account.address]
                 )
 
-        # Connect the event forwarders.
-        self._erc20_events_watcher.add_listener(ERC20WatcherEvent.ReceivedToken,
-                                                self._received_asset_event_forwarder)
-        self._erc20_events_watcher.add_listener(ERC20WatcherEvent.ApprovedToken,
-                                                self._approved_token_event_forwarder)
-        self._incoming_eth_watcher.add_listener(IncomingEthWatcherEvent.ReceivedEther,
-                                                self._received_asset_event_forwarder)
-        if self._weth_watcher is not None:
-            self._weth_watcher.add_listener(WalletEvent.WrappedEth,
-                                            self._wrapped_eth_event_forwarder)
-            self._weth_watcher.add_listener(WalletEvent.UnwrappedEth,
-                                            self._unwrapped_eth_event_forwarder)
+            # Connect the event forwarders.
+            self._erc20_events_watcher.add_listener(ERC20WatcherEvent.ReceivedToken,
+                                                    self._received_asset_event_forwarder)
+            self._erc20_events_watcher.add_listener(ERC20WatcherEvent.ApprovedToken,
+                                                    self._approved_token_event_forwarder)
+            self._incoming_eth_watcher.add_listener(IncomingEthWatcherEvent.ReceivedEther,
+                                                    self._received_asset_event_forwarder)
 
-        # Start the transaction processing tasks.
-        self._outgoing_transactions_task = asyncio.ensure_future(self.outgoing_eth_transactions_loop())
-        self._check_transaction_receipts_task = asyncio.ensure_future(self.check_transaction_receipts_loop())
+            if self._weth_watcher is not None:
+                self._weth_watcher.add_listener(WalletEvent.WrappedEth,
+                                                self._wrapped_eth_event_forwarder)
+                self._weth_watcher.add_listener(WalletEvent.UnwrappedEth,
+                                                self._unwrapped_eth_event_forwarder)
 
-        # Start the event watchers.
-        await self._new_blocks_watcher.start_network()
-        await self._account_balance_watcher.start_network()
-        await self._erc20_events_watcher.start_network()
-        await self._incoming_eth_watcher.start_network()
-        if self._weth_watcher is not None:
-            await self._weth_watcher.start_network()
+            # Start the transaction processing tasks.
+            self._outgoing_transactions_task = asyncio.ensure_future(self.outgoing_eth_transactions_loop())
+            self._check_transaction_receipts_task = asyncio.ensure_future(self.check_transaction_receipts_loop())
+
+            # Start the event watchers.
+            await self._new_blocks_watcher.start_network()
+            await self._account_balance_watcher.start_network()
+            await self._erc20_events_watcher.start_network()
+            await self._incoming_eth_watcher.start_network()
+            if self._weth_watcher is not None:
+                await self._weth_watcher.start_network()
 
     async def stop_network(self):
         # Disconnect the event forwarders.

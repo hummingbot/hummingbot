@@ -166,7 +166,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 base_currency if config.buy_fees_asset is AssetType.BASE_CURRENCY else quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                0.0
+                0.0,
+                OrderType.LIMIT
             ))
         else:
             market.set_balance(quote_currency, market.get_balance(quote_currency) + quote_currency_traded)
@@ -188,7 +189,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 base_currency if config.sell_fees_asset is AssetType.BASE_CURRENCY else quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                0.0
+                0.0,
+                OrderType.LIMIT
             ))
 
     def test_both_sides_profitable(self):

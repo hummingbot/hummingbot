@@ -1,4 +1,3 @@
 #!/bin/bash
 
-python setup.py build_ext --inplace \
-    -j $(python -c "import os; print(os.cpu_count() or 8, end='')")
+python setup.py build_ext --inplace
