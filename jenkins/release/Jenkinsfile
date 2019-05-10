@@ -39,7 +39,7 @@ node {
               app.push("${version}")
               app.push("latest")
           }
-          def description = "New Docker image pushed to `${dockerImage}:[latest|${version}]`"
+          def description = "New Docker image pushed to `${dockerImage}:[latest|${version}]`\nhttps://hub.docker.com/r/coinalpha/hummingbot/tags"
           discordSend (webhookURL: env.DISCORD_DEV_URL, description: description, result: 'SUCCESS')
       }
     } catch (c) {
