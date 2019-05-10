@@ -13,6 +13,11 @@ node {
           checkout scm
       }
 
+      stage('Docker system prune') {
+          /* Clean up docker environment */
+          sh "docker system prune -fa"
+      }
+
       stage('Build image') {
           /* Build docker image */
           app = docker.build(dockerImage)
