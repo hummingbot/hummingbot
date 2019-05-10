@@ -4,9 +4,11 @@ from os.path import (
 )
 from typing import List
 
+from hummingbot.cli.utils.symbol_fetcher import SymbolFetcher
+
 # Global variables
 required_exchanges: List[str] = []
-
+symbol_fetcher = SymbolFetcher.get_instance()
 
 # Global static values
 KEYFILE_PREFIX = "key_file_"

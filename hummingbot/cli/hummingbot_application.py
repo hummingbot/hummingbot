@@ -662,8 +662,8 @@ class HummingbotApplication:
                 target_amount = float(strategy_cm.get("target_amount").value)
                 equivalent_token: List[List[str]] = list(strategy_cm.get("equivalent_tokens").value)
 
-                market_names: List[Tuple[str, str]] = [(market_1, target_symbol_1),
-                                                       (market_2, target_symbol_2)]
+                market_names: List[Tuple[str, List[str]]] = [(market_1, target_symbol_1),
+                                                             (market_2, target_symbol_2)]
 
                 target_base_quote_1: List[Tuple[str, str]] = [
                     SymbolSplitter.split(market_1, symbol) for symbol in target_symbol_1
@@ -672,8 +672,11 @@ class HummingbotApplication:
                     SymbolSplitter.split(market_2, symbol) for symbol in target_symbol_2
                 ]
 
-                self._initialize_wallet([])
+                for asset_tuple in (target_base_quote_1 + target_base_quote_2):
+                    self.assets.add(asset_tuple[0])
+                    self.assets.add(asset_tuple[1])
 
+                self._initialize_wallet(token_symbols=list(self.assets))
                 self._initialize_markets(market_names)
                 self.market_pair = DiscoveryMarketPair(
                     *([self.markets[market_1], self.markets[market_1].get_active_exchange_markets] +
