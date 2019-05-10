@@ -402,6 +402,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             #Cancel active orders
             self.c_cancel_order(market_pair, active_order.client_order_id)
 
+        # See if I still have enough balance on my wallet to place the bid and ask orders
+        # If not don't place orders
+        if not self.c_check_if_sufficient_balance(market_pair):
+            return
         # See if it's profitable to place a limit order on maker market.
         self.c_create_new_orders(market_pair)
 
@@ -528,31 +532,33 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             if order_id in self._shadow_order_id_to_market_pair:
                 del self._shadow_order_id_to_market_pair[order_id]
 
-    cdef bint c_check_if_sufficient_balance(self, object market_pair, LimitOrder active_order):
+    cdef bint c_check_if_sufficient_balance(self, object market_pair):
         cdef:
-            bint is_buy = active_order.is_buy
-            double order_price = float(active_order.price)
             MarketBase maker_market = market_pair.maker_market
-            MarketBase taker_market = market_pair.taker_market
-            double quote_asset_amount = maker_market.c_get_balance(market_pair.maker_quote_currency) if is_buy else \
-                taker_market.c_get_balance(market_pair.taker_quote_currency)
-            double base_asset_amount = taker_market.c_get_balance(market_pair.taker_base_currency) if is_buy else \
-                maker_market.c_get_balance(market_pair.maker_base_currency)
-            double order_size_limit
+            double quote_asset_amount = maker_market.c_get_balance(market_pair.maker_quote_currency)
+            double base_asset_amount = maker_market.c_get_balance(market_pair.maker_base_currency)
+            top_bid_price = maker_market.c_get_price(market_pair.maker_symbol, False)
 
-        order_size_limit = min(base_asset_amount, quote_asset_amount / order_price)
-        quantized_size_limit = maker_market.c_quantize_order_amount(active_order.symbol, order_size_limit)
-
-        if active_order.quantity > quantized_size_limit:
-            if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
+        if base_asset_amount < self.order_size:
+            if self._logging_options:
                 self.log_with_clock(
                     logging.INFO,
-                    f"({market_pair.maker_symbol}) Order size limit ({order_size_limit:.8g}) "
-                    f"is now less than the current active order amount ({active_order.quantity:.8g}). "
-                    f"Going to adjust the order."
+                    f"({market_pair.maker_base_currency}) balance of ({base_asset_amount:.8g}) "
+                    f"is less than the required size of: ({self.order_size:.8g}). "
+                    f"Running again"
                 )
-            self.c_cancel_order(market_pair, active_order.client_order_id)
             return False
+
+        if quote_asset_amount < (top_bid_price * self.order_size):
+            if self._logging_options:
+                self.log_with_clock(
+                    logging.INFO,
+                    f"({market_pair.maker_quote_currency}) balance of  ({quote_asset_amount:.8g}) "
+                    f"is now less than the required to place an ask order of size: ({self.order_size:.8g}). "
+                    f"Running again"
+                )
+            return False
+
         return True
 
     cdef c_create_new_orders(self, object market_pair):
