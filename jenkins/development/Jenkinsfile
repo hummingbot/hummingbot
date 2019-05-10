@@ -15,7 +15,7 @@ node {
 
       stage('Docker system prune') {
           /* Clean up docker environment */
-          sh "docker system prune -a"
+          sh "docker system prune -fa"
       }
 
       stage('Build image') {
