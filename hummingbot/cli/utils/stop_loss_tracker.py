@@ -72,7 +72,7 @@ class StopLossTracker:
             total_value: float = 0.0
             for asset in self._assets:
                 total_value += balances[asset] * prices[asset]
-            return total_value / prices[self._stop_loss_base_token]
+            return total_value
 
         starting_total = calculate_total(self._starting_balances, self._starting_prices)
         current_balances = self.get_balances()
@@ -81,12 +81,15 @@ class StopLossTracker:
             current_total = calculate_total(current_balances, self._starting_prices)
             return (current_total - starting_total) / starting_total
         elif stop_loss_type == "dynamic":
-            current_total = calculate_total(current_balances, current_prices)
+            starting_total /= self._starting_prices[self._stop_loss_base_token]
+            current_total = calculate_total(current_balances, current_prices) / \
+                            (current_prices[self._stop_loss_base_token])
             return (current_total - starting_total) / starting_total
         raise ValueError(f"Stop loss type {stop_loss_type} does not exist")
 
     def start(self):
-        asyncio.ensure_future(self.start_loop())
+        if self._stop_loss_pct >= 0:
+            asyncio.ensure_future(self.start_loop())
 
     async def start_loop(self):
         await self._data_feed.get_ready()
