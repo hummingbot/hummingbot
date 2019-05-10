@@ -131,7 +131,8 @@ global_config_map = {
                                                            ["DAI", "COINCAP_API"]]),
     "stop_loss_pct":                    ConfigVar(key="stop_loss_pct",
                                                   prompt="At what percentage of loss would you like the bot to stop "
-                                                         "trading? (Enter 0.03 to mean 3%. Enter -1.0 to disable) >>> ",
+                                                         "trading? (Enter 0.03 to indicate 3%. "
+                                                         "Enter -1.0 to disable) >>> ",
                                                   default=-1.0,
                                                   type_str="float"),
     "stop_loss_price_type":             ConfigVar(key="stop_loss_price_type",
