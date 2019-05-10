@@ -469,6 +469,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     if should_report_warnings:
                         self.logger().warning(f"Markets are not ready. No market making trades are permitted.")
                     return
+                else:
+                    if self.OPTION_LOG_STATUS_REPORT:
+                        self.logger().info(f"Markets are ready. Trading started.")
 
             if should_report_warnings:
                 if not all([market.network_status is NetworkStatus.CONNECTED for market in self._markets]):
