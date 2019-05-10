@@ -29,33 +29,35 @@ def main():
     hummingsim.set_data_path(os.path.join(os.environ["PWD"], "data"))
 
     # Define the parameters for the backtest.
-    start = pd.Timestamp("2018-12-12", tz="UTC")
-    end = pd.Timestamp("2019-01-12", tz="UTC")
+    start = pd.Timestamp("2019-01-01", tz="UTC")
+    end = pd.Timestamp("2019-01-02", tz="UTC")
     binance_symbol = ("ETHUSDT", "ETH", "USDT")
-    ddex_symbol = ("WETH-DAI", "WETH", "DAI")
+    #ddex_symbol = ("WETH-DAI", "WETH", "DAI")
 
     binance_market = BacktestMarket()
     ddex_market = BacktestMarket()
     binance_market.config = MarketConfig(AssetType.BASE_CURRENCY, 0.001, AssetType.QUOTE_CURRENCY, 0.001, {})
     ddex_market.config = MarketConfig(AssetType.BASE_CURRENCY, 0.001, AssetType.QUOTE_CURRENCY, 0.001, {})
     binance_loader = BinanceOrderBookLoaderV2(*binance_symbol)
-    ddex_loader = DDEXOrderBookLoader(*ddex_symbol)
+    #ddex_loader = DDEXOrderBookLoader(*ddex_symbol)
 
     binance_market.add_data(binance_loader)
-    ddex_market.add_data(ddex_loader)
+    #ddex_market.add_data(ddex_loader)
 
     binance_market.set_quantization_param(QuantizationParams("ETHUSDT", 5, 3, 5, 3))
-    ddex_market.set_quantization_param(QuantizationParams("WETH-DAI", 5, 3, 5, 3))
+    #ddex_market.set_quantization_param(QuantizationParams("WETH-DAI", 5, 3, 5, 3))
 
-    market_pair = CrossExchangeMarketPair(*(
-            [ddex_market] + list(ddex_symbol) + [binance_market] + list(binance_symbol)))
-    strategy = CrossExchangeMarketMakingStrategy([market_pair], 0.003,
-                                                 logging_options=
-                                                 CrossExchangeMarketMakingStrategy.OPTION_LOG_MAKER_ORDER_FILLED)
+    market_pair = PureMarketPair(*([binance_market] + list(binance_symbol)))
+    strategy = PureMarketMakingStrategy([market_pair],
+                                        order_size = 0.5,
+                                        bid_place_threshold = 0.001,
+                                        ask_place_threshold = 0.003,
+                                        logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL)
 
-    clock = Clock(ClockMode.BACKTEST, start_time=start.timestamp(), end_time=end.timestamp())
+    clock = Clock(ClockMode.BACKTEST, tick_size=60,
+                  start_time=start.timestamp(), end_time=end.timestamp() )
     clock.add_iterator(binance_market)
-    clock.add_iterator(ddex_market)
+    #clock.add_iterator(ddex_market)
     clock.add_iterator(strategy)
 
     binance_market.set_balance("ETH", 10.0)
@@ -63,9 +65,19 @@ def main():
     ddex_market.set_balance("WETH", 10.0)
     ddex_market.set_balance("DAI", 1000.0)
 
-    clock.backtest()
+    current = start.timestamp()
+    step = 60
+
+    while current <= end.timestamp():
+
+        current += step
+        clock.backtest_til(current)
+        print("clock ticked")
+
+
+
     binance_loader.close()
-    ddex_loader.close()
+    #ddex_loader.close()
 
 
 if __name__ == "__main__":

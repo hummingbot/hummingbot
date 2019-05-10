@@ -660,8 +660,8 @@ class HummingbotApplication:
                                               logging_options=strategy_logging_options)
 
         elif strategy_name == "pure_market_making":
-            total_size = strategy_cm.get("total_size_commited").value
             order_size = strategy_cm.get("order_size").value
+            clock_tick_size = strategy_cm.get("tick_size").value
             bid_place_threshold = strategy_cm.get("bid_place_threshold").value
             ask_place_threshold = strategy_cm.get("ask_place_threshold").value
             primary_market = strategy_cm.get("primary_market").value.lower()
@@ -684,7 +684,6 @@ class HummingbotApplication:
             strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
 
             self.strategy = PureMarketMakingStrategy(market_pairs=[self.market_pair],
-                                                     total_size_commited= total_size,
                                                      order_size = order_size,
                                                      bid_place_threshold = bid_place_threshold,
                                                      ask_place_threshold = ask_place_threshold,

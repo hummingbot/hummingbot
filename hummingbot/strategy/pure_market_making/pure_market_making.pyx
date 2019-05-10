@@ -584,8 +584,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     maker_market,
                     market_pair.maker_symbol,
                     float(self.order_size),
-                    order_type=OrderType.LIMIT,
-                    price=float(place_bid_price)
+                    float(place_bid_price),
+                    OrderType.LIMIT,
                 )
 
         self.c_start_tracking_order(
@@ -608,8 +608,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     maker_market,
                     market_pair.maker_symbol,
                     float(self.order_size),
-                    order_type=OrderType.LIMIT,
-                    price=float(place_ask_price)
+                    float(place_ask_price),
+                    OrderType.LIMIT
                 )
 
         self.c_start_tracking_order(
