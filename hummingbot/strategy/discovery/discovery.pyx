@@ -293,9 +293,9 @@ cdef class DiscoveryStrategy(Strategy):
             arbitrage_discovery.update(discovery_dict)
 
         arbitrage_discovery_df = pd.DataFrame(
-            data=[(names[0], names[1], names[2], names[3], stats[2])
+            data=[(names[0], names[1], names[2], names[3], stats[0] * stats[1], stats[2])
                   for names, stats in arbitrage_discovery.items()],
-            columns=["buy_market", "buy_pair", "sell_market", "sell_pair", "profit (%)"]
+            columns=["buy_market", "buy_pair", "sell_market", "sell_pair", "profit (quote)", "profit (%)"]
         )
 
         return arbitrage_discovery_df.sort_values(["profit (%)"], ascending=False)
