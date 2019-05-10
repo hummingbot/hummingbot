@@ -1,5 +1,7 @@
-from typing import List, Tuple
-
+from typing import (
+    List,
+    Tuple
+)
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 from wings.time_iterator cimport TimeIterator
 from wings.market.market_base cimport MarketBase
