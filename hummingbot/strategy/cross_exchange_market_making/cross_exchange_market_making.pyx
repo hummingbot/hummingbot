@@ -918,7 +918,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 (1 - taker_bid_fee.percent) - taker_bid_fee_flat_fees
             double bid_net_buy_costs = maker_bid_price_adjusted * bid_order_size * \
                 (1 + maker_bid_fee.percent) + maker_bid_fee_flat_fees
-            double bid_profitability = bid_net_sell_proceeds / bid_net_buy_costs
+            double bid_profitability = bid_net_sell_proceeds / bid_net_buy_costs - 1
         
         return bid_profitability
 
@@ -971,7 +971,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 ask_order_size * (1 - maker_ask_fee.percent) - maker_ask_fee_flat_fees
             double ask_net_buy_costs = taker_ask_price_adjusted * \
                 ask_order_size * (1 + taker_ask_fee.percent) + taker_ask_fee_flat_fees
-            double ask_profitability = ask_net_sell_proceeds / ask_net_buy_costs
+            double ask_profitability = ask_net_sell_proceeds / ask_net_buy_costs - 1
 
         return ask_profitability
 
@@ -1020,7 +1020,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 taker_order_book,
                 ask_order_size
             )
-        return (bid_profitability - 1.0, ask_profitability - 1.0)
+        return (bid_profitability, ask_profitability)
 
     cdef tuple c_has_market_making_profit_potential(self,
                                                     object market_pair,
