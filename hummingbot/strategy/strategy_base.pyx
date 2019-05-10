@@ -1,8 +1,9 @@
 from typing import (
     List,
-    Tuple
-)
+    Tuple,
+    NamedTuple)
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from wings.time_iterator cimport TimeIterator
 from wings.market.market_base cimport MarketBase
 from wings.event_logger cimport EventLogger
@@ -21,10 +22,10 @@ cdef class StrategyBase(TimeIterator):
 
     def format_status(self):
         raise NotImplementedError
-    
+
     def stop(self):
         pass
-    
+
     @property
     def trades(self) -> List[Trade]:
         def event_to_trade(order_filled_event: OrderFilledEvent, market_name: str):
@@ -44,7 +45,7 @@ cdef class StrategyBase(TimeIterator):
 
         return sorted(past_trades, key=lambda x: x.timestamp)
 
-    def market_status_data_frame(self, market_symbol_pairs: List[Tuple[MarketBase, str, str, str]]) -> pd.DataFrame:
+    def market_status_data_frame(self, market_symbol_pairs: List[MarketSymbolPair]) -> pd.DataFrame:
         cdef:
             MarketBase market
             double market_1_ask_price
@@ -79,10 +80,8 @@ cdef class StrategyBase(TimeIterator):
             self.logger().error("Error formatting market stats.", exc_info=True)
 
 
-    def wallet_balance_data_frame(self, market_symbol_pairs: List[Tuple[MarketBase, str, str, str]]) -> pd.DataFrame:
+    def wallet_balance_data_frame(self, market_symbol_pairs: List[MarketSymbolPair]) -> pd.DataFrame:
         cdef:
-            list assets_data = []
-            list assets_columns = ["Market", "Asset", "Balance", "Conversion Rate"]
             MarketBase market
             str base_asset
             str quote_asset
@@ -90,6 +89,8 @@ cdef class StrategyBase(TimeIterator):
             double quote_balance
             double base_asset_conversion_rate
             double quote_asset_conversion_rate
+            list assets_data = []
+            list assets_columns = ["Market", "Asset", "Balance", "Conversion Rate"]
         try:
             for market_symbol_pair in market_symbol_pairs:
                 market, trading_pair, base_asset, quote_asset = market_symbol_pair

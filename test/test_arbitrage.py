@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 import asyncio
 from os.path import join, realpath
-import sys;
-sys.path.insert(0, realpath(join(__file__, "../../")))
+import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
+
+from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
 from typing import List
 import unittest
-
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import (
@@ -85,11 +85,10 @@ class ArbitrageUnitTest(unittest.TestCase):
                 self.market_2_symbols[0], 5, 5, 5, 5
             )
         )
-
+        self.market_symbol_pair_1 = MarketSymbolPair(*([self.market_1] + self.market_1_symbols))
+        self.market_symbol_pair_2 = MarketSymbolPair(*([self.market_2] + self.market_2_symbols))
         self.market_pair: ArbitrageMarketPair = ArbitrageMarketPair(
-            *(
-                [self.market_1] + self.market_1_symbols + [self.market_2] + self.market_2_symbols
-            )
+            *(self.market_symbol_pair_1 + self.market_symbol_pair_2)
         )
 
         self.logging_options: int = ArbitrageStrategy.OPTION_LOG_ALL\
@@ -112,18 +111,17 @@ class ArbitrageUnitTest(unittest.TestCase):
 
     def test_ready_for_new_orders(self):
         # No pending orders
-        self.assertTrue(self.strategy.ready_for_new_orders(self.market_pair))
+        self.assertTrue(self.strategy.ready_for_new_orders([self.market_symbol_pair_1, self.market_symbol_pair_2]))
 
         self.clock.backtest_til(self.start_timestamp + 6)
         # prevent making new orders
         self.market_1.set_balance("COINALPHA", 0)
-
-        self.assertFalse(self.strategy.ready_for_new_orders(self.market_pair))
+        self.assertFalse(self.strategy.ready_for_new_orders([self.market_symbol_pair_1, self.market_symbol_pair_2]))
 
         # run till market orders complete and cool off period passes
         self.clock.backtest_til(self.start_timestamp + 20)
 
-        self.assertTrue(self.strategy.ready_for_new_orders(self.market_pair))
+        self.assertTrue(self.strategy.ready_for_new_orders([self.market_symbol_pair_1, self.market_symbol_pair_2]))
 
     def test_arbitrage_profitable(self):
         self.market_1.set_balance("COINALPHA", 5)
@@ -142,7 +140,6 @@ class ArbitrageUnitTest(unittest.TestCase):
         self.assertEqual(self.start_timestamp + 1, market_2_market_order.timestamp)
 
     def test_arbitrage_not_profitable(self):
-
         self.market_2_data.order_book.apply_diffs(
             [OrderBookRow(1.05, 1.0, 2)],
             [], 2)
@@ -161,7 +158,8 @@ class ArbitrageUnitTest(unittest.TestCase):
         0           1.039801               1.045               1.005        1.1      1.005         10.0
         1           1.029557               1.045               1.015        1.1      1.015         20.0
         """
-        amount, profitability = self.strategy.find_best_profitable_amount(*self.market_pair)
+        amount, profitability = self.strategy.find_best_profitable_amount(self.market_symbol_pair_1,
+                                                                          self.market_symbol_pair_2)
         self.assertEqual(30.0, amount)
         self.assertEqual(1.0329489291598024, profitability)
 
@@ -181,7 +179,8 @@ class ArbitrageUnitTest(unittest.TestCase):
             [],
             2
         )
-        amount, profitability = self.strategy.find_best_profitable_amount(*self.market_pair)
+        amount, profitability = self.strategy.find_best_profitable_amount(self.market_symbol_pair_1,
+                                                                          self.market_symbol_pair_2)
         self.assertEqual(30.0, amount)
         self.assertEqual(1.045, profitability)
 
@@ -201,7 +200,8 @@ class ArbitrageUnitTest(unittest.TestCase):
             [],
             2
         )
-        amount, profitability = self.strategy.find_best_profitable_amount(*self.market_pair)
+        amount, profitability = self.strategy.find_best_profitable_amount(self.market_symbol_pair_1,
+                                                                          self.market_symbol_pair_2)
         self.assertEqual(60.0, amount)
         self.assertEqual(1.0294946147473074, profitability)
 
@@ -213,13 +213,15 @@ class ArbitrageUnitTest(unittest.TestCase):
         )
         self.market_1.set_balance("COINALPHA", 40)
         self.market_2.set_balance("COINALPHA", 20)
-        amount, profitability = self.strategy.find_best_profitable_amount(*self.market_pair)
+        amount, profitability = self.strategy.find_best_profitable_amount(self.market_symbol_pair_1,
+                                                                          self.market_symbol_pair_2)
 
         self.assertEqual(20.0, amount)
         self.assertEqual(1.0329489291598024, profitability)
 
         self.market_2.set_balance("COINALPHA", 0)
-        amount, profitability = self.strategy.find_best_profitable_amount(*self.market_pair)
+        amount, profitability = self.strategy.find_best_profitable_amount(self.market_symbol_pair_1,
+                                                                          self.market_symbol_pair_2)
 
         self.assertEqual(0.0, amount)
         self.assertEqual(1.0398009950248757, profitability)

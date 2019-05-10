@@ -57,6 +57,7 @@ class ExchangeRateConversion:
         except Exception:
             self.logger().error("Error initiating config for exchange rate conversion.", exc_info=True)
 
+
     def adjust_token_rate(self, symbol: str, price: float) -> float:
         if not self._started:
             self.start()

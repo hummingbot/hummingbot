@@ -6,6 +6,8 @@ import pandas as pd
 from typing import (
     List,
     Tuple)
+
+from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from wings.events import MarketEvent
 from wings.event_listener cimport EventListener
 from wings.market.market_base import (
@@ -26,6 +28,7 @@ import logging
 NaN = float("nan")
 as_logger = None
 
+
 cdef class BaseArbitrageStrategyEventListener(EventListener):
     cdef:
         ArbitrageStrategy _owner
@@ -33,6 +36,7 @@ cdef class BaseArbitrageStrategyEventListener(EventListener):
     def __init__(self, ArbitrageStrategy owner):
         super().__init__()
         self._owner = owner
+
 
 cdef class BuyOrderCompletedListener(BaseArbitrageStrategyEventListener):
     cdef c_call(self, object arg):
@@ -48,9 +52,11 @@ cdef class OrderFailedListener(BaseArbitrageStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_fail_order(arg)
 
+
 cdef class OrderCancelledListener(BaseArbitrageStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_cancel_order(arg)
+
 
 cdef class ArbitrageStrategy(StrategyBase):
     BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
@@ -112,10 +118,20 @@ cdef class ArbitrageStrategy(StrategyBase):
                 typed_market.c_add_listener(self.TRANSACTION_FAILURE_EVENT_TAG, self._order_failed_listener)
                 typed_market.c_add_listener(self.ORDER_CANCELLED_EVENT_TAG, self._order_canceled_listener)
 
+
     @property
     def tracked_taker_orders(self) -> List[Tuple[MarketBase, MarketOrder]]:
         return [(market_symbol_pair[0], order) for market_symbol_pair, order_map in self._tracked_taker_orders.items()
                 for order in order_map.values()]
+    @property
+    def tracked_taker_orders_data_frame(self) -> List[pd.DataFrame]:
+        market_orders = [[market_symbol_pair.market.name, market_symbol_pair.trading_pair, order_id, order.amount,
+                          pd.Timestamp(order.timestamp, unit='s', tz='UTC').strftime('%Y-%m-%d %H:%M:%S')
+                          ]
+                         for market_symbol_pair, order_map in self._tracked_taker_orders.items()
+                         for order_id, order in order_map.items()]
+
+        return pd.DataFrame(data=market_orders, columns=["market", "symbol", "order_id", "quantity", "timestamp"])
 
     @property
     def active_markets(self) -> List[MarketBase]:
@@ -123,79 +139,60 @@ cdef class ArbitrageStrategy(StrategyBase):
 
     def format_status(self) -> str:
         cdef:
-            MarketBase market_1
-            MarketBase market_2
-            str market_1_trading_pair
-            str market_1_base
-            str market_1_quote
-            str market_2_trading_pair
-            str market_2_base
-            str market_2_quote
             double market_1_base_balance
             double market_1_quote_balance
             double market_2_base_balance
             double market_2_quote_balance
             list lines = []
             list warning_lines = []
-
+            object market_symbol_pair_1 # MarketSymbolPair
+            object market_symbol_pair_2 # MarketSymbolPair
         for market_pair in self._market_pairs:
-            market_1 = market_pair.market_1
-            market_2 = market_pair.market_2
-            market_1_trading_pair = market_pair.market_1_trading_pair
-            market_1_base = market_pair.market_1_base_asset
-            market_1_quote = market_pair.market_1_quote_asset
-            market_2_trading_pair = market_pair.market_2_trading_pair
-            market_2_base = market_pair.market_2_base_asset
-            market_2_quote = market_pair.market_2_quote_asset
-            market_1_base_balance = market_1.get_balance(market_1_base)
-            market_1_quote_balance = market_1.get_balance(market_1_quote)
-            market_2_base_balance = market_2.get_balance(market_2_base)
-            market_2_quote_balance = market_2.get_balance(market_2_quote)
+            market_symbol_pair_1 = MarketSymbolPair(market_pair.market_1,
+                                                    market_pair.market_1_trading_pair,
+                                                    market_pair.market_1_base_asset,
+                                                    market_pair.market_1_quote_asset)
+            market_symbol_pair_2 = MarketSymbolPair(market_pair.market_2,
+                                                    market_pair.market_2_trading_pair,
+                                                    market_pair.market_2_base_asset,
+                                                    market_pair.market_2_quote_asset)
+            market_1_base_balance = market_symbol_pair_1.market.get_balance(market_symbol_pair_1.base_asset)
+            market_1_quote_balance = market_symbol_pair_1.market.get_balance(market_symbol_pair_1.quote_asset)
+            market_2_base_balance = market_symbol_pair_2.market.get_balance(market_symbol_pair_1.base_asset)
+            market_2_quote_balance = market_symbol_pair_2.market.get_balance(market_symbol_pair_1.quote_asset)
 
-            if not (market_1.network_status is NetworkStatus.CONNECTED and
-                    market_2.network_status is NetworkStatus.CONNECTED):
+            if not (market_symbol_pair_1.market.network_status is NetworkStatus.CONNECTED and
+                    market_symbol_pair_2.market.network_status is NetworkStatus.CONNECTED):
                 warning_lines.extend([
-                    f"  Markets are offline for the {market_1_trading_pair} // {market_2_trading_pair} pair. "
+                    f"  Markets are offline for the {market_symbol_pair_1.trading_pair} // "
+                    f"{market_symbol_pair_1.trading_pair} pair. "
                     f"No arbitrage is possible.",
                     ""
                 ])
                 continue
 
-            markets_df = self.market_status_data_frame([
-                (market_1, market_1_trading_pair, market_1_base, market_1_quote),
-                (market_2, market_2_trading_pair, market_2_base, market_2_quote)]
-            )
+            markets_df = self.market_status_data_frame([market_symbol_pair_1, market_symbol_pair_2])
             lines.extend(["", "  Markets:"] +
                          ["    " + line for line in str(markets_df).split("\n")])
 
-            assets_df = self.wallet_balance_data_frame([
-                (market_1, market_1_trading_pair, market_1_base, market_1_quote),
-                (market_2, market_2_trading_pair, market_2_base, market_2_quote)]
-            )
+            assets_df = self.wallet_balance_data_frame([market_symbol_pair_1, market_symbol_pair_2])
             lines.extend(["", "  Assets:"] +
                          ["    " + line for line in str(assets_df).split("\n")])
 
             profitability_buy_2_sell_1, profitability_buy_1_sell_2 = \
                 self.c_calculate_arbitrage_top_order_profitability(market_pair)
 
-            lines.extend(["", "  Profitability:"] +
-                         [f"    take bid on {market_1.name}, "
-                          f"take ask on {market_2.name}: {round(profitability_buy_2_sell_1 * 100, 4)} %"] +
-                         [f"    take ask on {market_1.name}, "
-                          f"take bid on {market_2.name}: {round(profitability_buy_1_sell_2 * 100, 4)} %"])
+            lines.extend(
+                ["", "  Profitability:"] +
+                [f"    take bid on {market_symbol_pair_1.market.name}, "
+                 f"take ask on {market_symbol_pair_2.market.name}: {round(profitability_buy_2_sell_1 * 100, 4)} %"] +
+                [f"    take ask on {market_symbol_pair_1.market.name}, "
+                 f"take bid on {market_symbol_pair_2.market.name}: {round(profitability_buy_1_sell_2 * 100, 4)} %"])
 
 
             # See if there're any pending market orders.
             if self._tracked_taker_orders:
-                pending_orders = [[
-                    market_symbol_pair[0].name, market_symbol_pair[1], order_id, order.amount,
-                    pd.Timestamp(order.timestamp, unit='s', tz='UTC').strftime('%Y-%m-%d %H:%M:%S')
-                ] for market_symbol_pair, order_map in self._tracked_taker_orders.items()
-                    for order_id, order in order_map.items()]
-
-                pending_orders_df = pd.DataFrame(
-                    data=pending_orders, columns=["market", "symbol", "order_id", "quantity", "timestamp"])
-                df_lines = str(pending_orders_df).split("\n")
+                df_lines = str(self.tracked_taker_orders_data_frame).split("\n")
                 lines.extend(["", "  Pending market orders:"] +
                              ["    " + line for line in df_lines])
             else:
@@ -205,35 +202,41 @@ cdef class ArbitrageStrategy(StrategyBase):
             # TO-DO: Build min order size logic into exchange connector and expose maker_min_order and taker_min_order variables,
             # which can replace the hard-coded 0.0001 value.
             if market_1_base_balance <= 0.0001:
-                warning_lines.append(f"  {market_1.name} market {market_1_base} balance is 0. Cannot place order.")
+                warning_lines.append(f"  {market_symbol_pair_1.market.market.name} market "
+                                     f"{market_symbol_pair_1.base_asset} balance is 0. Cannot place order.")
             if market_1_quote_balance <= 0.0001:
-                warning_lines.append(f"  {market_1.name} market {market_1_quote} balance is 0. Cannot place order.")
+                warning_lines.append(f"  {market_symbol_pair_1.market.name} market "
+                                     f"{market_symbol_pair_1.quote_asset} balance is 0. Cannot place order.")
             if market_2_base_balance <= 0.0001:
-                warning_lines.append(f"  {market_2.name} market {market_2_base} balance is 0. Cannot place order.")
+                warning_lines.append(f"  {market_symbol_pair_1.market.name} market "
+                                     f"{market_symbol_pair_1.base_asset} balance is 0. Cannot place order.")
             if market_2_quote_balance <= 0.0001:
-                warning_lines.append(f"  {market_2.name} market {market_2_quote} balance is 0. Cannot place order.")
+                warning_lines.append(f"  {market_symbol_pair_1.market.name} market "
+                                     f"{market_symbol_pair_1.quote_asset} balance is 0. Cannot place order.")
 
         if len(warning_lines) > 0:
             lines.extend(["", "  *** WARNINGS ***"] + warning_lines)
 
         return "\n".join(lines)
 
-
-    cdef c_start_tracking_market_order(self, object market, str symbol, str base_asset, str quote_asset,
-                                       str order_id, bint is_buy, object quantity):
-        cdef:
-            tuple market_symbol_pair = (market, symbol)
+    cdef c_start_tracking_market_order(self, object market_symbol_pair, str order_id, bint is_buy, object quantity):
         if market_symbol_pair not in self._tracked_taker_orders:
             self._tracked_taker_orders[market_symbol_pair] = {}
         self._tracked_taker_orders[market_symbol_pair][order_id] = MarketOrder(
-            order_id, symbol, is_buy, base_asset, quote_asset, float(quantity), self._current_timestamp
+            order_id,
+            market_symbol_pair.trading_pair,
+            is_buy,
+            market_symbol_pair.base_asset,
+            market_symbol_pair.quote_asset,
+            float(quantity),
+            self._current_timestamp
         )
         self._order_id_to_market[order_id] = market_symbol_pair
         self._last_trade_timestamps[market_symbol_pair] = self._current_timestamp
 
     cdef c_stop_tracking_market_order(self, str order_id):
         cdef:
-            tuple market_symbol_pair = self._order_id_to_market[order_id]
+            object market_symbol_pair = self._order_id_to_market[order_id]
         if order_id in self._tracked_taker_orders.get(market_symbol_pair, {}):
             del self._tracked_taker_orders[market_symbol_pair][order_id]
             if len(self._tracked_taker_orders[market_symbol_pair]) < 1:
@@ -249,7 +252,6 @@ cdef class ArbitrageStrategy(StrategyBase):
             int64_t last_tick = <int64_t>(self._last_timestamp // self._status_report_interval)
             bint should_report_warnings = ((current_tick > last_tick) and
                                            (self._logging_options & self.OPTION_LOG_STATUS_REPORT))
-
         try:
             if not self._all_markets_ready:
                 self._all_markets_ready = all([market.ready for market in self._markets])
@@ -319,42 +321,34 @@ cdef class ArbitrageStrategy(StrategyBase):
             OrderBook order_book_2 = market_pair.market_2.get_order_book(market_pair.market_2_trading_pair)
             double market_1_bid_price = ExchangeRateConversion.get_instance().adjust_token_rate(
                 market_pair.market_1_quote_asset, order_book_1.get_price(False))
-
             double market_1_ask_price = ExchangeRateConversion.get_instance().adjust_token_rate(
                 market_pair.market_1_quote_asset, order_book_1.get_price(True))
-
             double market_2_bid_price = ExchangeRateConversion.get_instance().adjust_token_rate(
                 market_pair.market_2_quote_asset, order_book_2.get_price(False))
-
             double market_2_ask_price = ExchangeRateConversion.get_instance().adjust_token_rate(
                 market_pair.market_2_quote_asset, order_book_2.get_price(True))
-
         profitability_buy_2_sell_1 = market_1_bid_price / market_2_ask_price - 1
         profitability_buy_1_sell_2 = market_2_bid_price / market_1_ask_price - 1
         return profitability_buy_2_sell_1, profitability_buy_1_sell_2
 
-    cdef c_ready_for_new_orders(self, object market_pair):
+    cdef c_ready_for_new_orders(self, list market_symbol_pairs):
         cdef:
-            tuple market_1_key = (market_pair.market_1, market_pair.market_1_trading_pair)
-            tuple market_2_key = (market_pair.market_2, market_pair.market_2_trading_pair)
-            OrderBook order_book_1 = market_pair.market_1.get_order_book(market_pair.market_1_trading_pair)
-            OrderBook order_book_2 = market_pair.market_2.get_order_book(market_pair.market_2_trading_pair)
             double time_left
-
-        for market_key in [market_1_key, market_2_key]:
+        for market_symbol_pair in market_symbol_pairs:
             # Do not continue if there are pending market order
-            if len(self._tracked_taker_orders.get(market_key, {})) > 0:
+            if len(self._tracked_taker_orders.get(market_symbol_pair, {})) > 0:
                 # consider market order completed if it was already x time old
                 if any([order.timestamp - self._current_timestamp < self.MARKET_ORDER_MAX_TRACKING_TIME
-                       for order in self._tracked_taker_orders[market_key].values()]):
+                       for order in self._tracked_taker_orders[market_symbol_pair].values()]):
                     return False
             # Wait for the cool off interval before the next trade, so wallet balance is up to date
-            ready_to_trade_time = self._last_trade_timestamps.get(market_key, 0) + self._next_trade_delay
-            if market_key in self._last_trade_timestamps and ready_to_trade_time > self._current_timestamp:
-                time_left = self._current_timestamp - self._last_trade_timestamps[market_key] - self._next_trade_delay
+            ready_to_trade_time = self._last_trade_timestamps.get(market_symbol_pair, 0) + self._next_trade_delay
+            if market_symbol_pair in self._last_trade_timestamps and ready_to_trade_time > self._current_timestamp:
+                time_left = self._current_timestamp - self._last_trade_timestamps[market_symbol_pair] - self._next_trade_delay
                 self.log_with_clock(
                     logging.INFO,
-                    f"Cooling off from previous trade on {market_key}. Resuming in {int(time_left)} seconds."
+                    f"Cooling off from previous trade on {market_symbol_pair.market.name}. "
+                    f"Resuming in {int(time_left)} seconds."
                 )
                 return False
         return True
@@ -364,7 +358,17 @@ cdef class ArbitrageStrategy(StrategyBase):
         Check which direction is more profitable (buy/sell on exchange 2/1 or 1/2) and send the more
         profitable direction for execution.
         """
-        if not self.c_ready_for_new_orders(market_pair):
+        market_symbol_pair_1 = MarketSymbolPair(market_pair.market_1,
+                                                market_pair.market_1_trading_pair,
+                                                market_pair.market_1_base_asset,
+                                                market_pair.market_1_quote_asset,
+                                                )
+        market_symbol_pair_2 = MarketSymbolPair(market_pair.market_2,
+                                                market_pair.market_2_trading_pair,
+                                                market_pair.market_2_base_asset,
+                                                market_pair.market_2_quote_asset,
+                                                )
+        if not self.c_ready_for_new_orders([market_symbol_pair_1, market_symbol_pair_2]):
             return
 
         profitability_buy_2_sell_1, profitability_buy_1_sell_2 = \
@@ -375,120 +379,74 @@ cdef class ArbitrageStrategy(StrategyBase):
 
         if profitability_buy_1_sell_2 > profitability_buy_2_sell_1:
             # it is more profitable to buy on market_1 and sell on market_2
-            self.c_process_market_pair_inner(
-                market_pair.market_1,
-                market_pair.market_1_trading_pair,
-                market_pair.market_1_base_asset,
-                market_pair.market_1_quote_asset,
-                market_pair.market_2,
-                market_pair.market_2_trading_pair,
-                market_pair.market_2_base_asset,
-                market_pair.market_2_quote_asset
-            )
+            self.c_process_market_pair_inner(market_symbol_pair_1, market_symbol_pair_2)
 
         else:
-            self.c_process_market_pair_inner(
-                market_pair.market_2,
-                market_pair.market_2_trading_pair,
-                market_pair.market_2_base_asset,
-                market_pair.market_2_quote_asset,
-                market_pair.market_1,
-                market_pair.market_1_trading_pair,
-                market_pair.market_1_base_asset,
-                market_pair.market_1_quote_asset
-            )
+            self.c_process_market_pair_inner(market_symbol_pair_2, market_symbol_pair_1)
 
 
-    cdef c_process_market_pair_inner(self,
-                                     MarketBase buy_market,
-                                     str buy_market_trading_pair,
-                                     str buy_market_base_asset,
-                                     str buy_market_quote_asset,
-                                     MarketBase sell_market,
-                                     str sell_market_trading_pair,
-                                     str sell_market_base_asset,
-                                     str sell_market_quote_asset
-                                     ):
+    cdef c_process_market_pair_inner(self, object buy_market_symbol_pair, object sell_market_symbol_pair):
         """        
         Execute strategy for the input market pair
-        :param buy_market: 
-        :param buy_market_symbol: 
-        :param buy_market_base_asset: 
-        :param buy_market_quote_asset:         
-        :param sell_market: 
-        :param sell_market_symbol: 
-        :param sell_market_base_asset: 
-        :param sell_market_quote_asset:         
+        :param buy_market_symbol_pair: MarketSymbolPair
+        :param sell_market_symbol_pair: MarketSymbolPair               
         :return: 
         """
         cdef:
-            double buy_market_size_limit
-            double sell_market_size_limit
-            double quantized_base_amount
+            double quantized_buy_amount
+            double quantized_sell_amount
+            double quantized_order_amount
             str buy_order_id
             str sell_order_id
-            double best_profitable_order_amount = 0.0
-            double best_profitable_order_profitability = 0.0
+            double best_amount = 0.0 # best profitable order amount
+            double best_profitability = 0.0 # best profitable order amount
+            MarketBase buy_market = buy_market_symbol_pair.market
+            MarketBase sell_market = sell_market_symbol_pair.market
 
-        best_profitable_order_amount, best_profitable_order_profitability = self.c_find_best_profitable_amount(
-            buy_market,
-            buy_market_trading_pair,
-            buy_market_base_asset,
-            buy_market_quote_asset,
-            sell_market,
-            sell_market_trading_pair,
-            sell_market_base_asset,
-            sell_market_quote_asset
+        best_amount, best_profitability = self.c_find_best_profitable_amount(
+            buy_market_symbol_pair, sell_market_symbol_pair
         )
-        buy_market_size_limit = buy_market.c_quantize_order_amount(buy_market_trading_pair,
-                                                                   best_profitable_order_amount)
-        sell_market_size_limit = sell_market.c_quantize_order_amount(sell_market_trading_pair,
-                                                                     best_profitable_order_amount)
-        quantized_base_amount = min(buy_market_size_limit, sell_market_size_limit)
+        quantized_buy_amount = buy_market.c_quantize_order_amount(buy_market_symbol_pair.trading_pair, best_amount)
+        quantized_sell_amount = sell_market.c_quantize_order_amount(sell_market_symbol_pair.trading_pair, best_amount)
+        quantized_order_amount = min(quantized_buy_amount, quantized_sell_amount)
 
-        if quantized_base_amount:
+        if quantized_order_amount:
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                 self.log_with_clock(logging.INFO,
-                                    f"Executing market order buy of {buy_market_trading_pair} "
-                                    f"at {buy_market.name} "
-                                    f"and sell of {sell_market_trading_pair} "
-                                    f"at {sell_market.name} "
-                                    f"with amount {quantized_base_amount}, "
-                                    f"and profitability {best_profitable_order_profitability}")
+                                    f"Executing market order buy of {buy_market_symbol_pair.trading_pair} "
+                                    f"at {buy_market_symbol_pair.market.name} "
+                                    f"and sell of {sell_market_symbol_pair.trading_pair} "
+                                    f"at {sell_market_symbol_pair.market.name} "
+                                    f"with amount {quantized_order_amount}, "
+                                    f"and profitability {best_profitability}")
 
-            buy_order_id = self.c_buy_with_specific_market(
-                buy_market,
-                buy_market_trading_pair,
-                quantized_base_amount,
-                order_type=OrderType.MARKET
-            )
-            sell_order_id = self.c_sell_with_specific_market(
-                sell_market,
-                sell_market_trading_pair,
-                quantized_base_amount,
-                order_type=OrderType.MARKET
-            )
-            self.c_start_tracking_market_order(buy_market, buy_market_trading_pair, buy_market_base_asset,
-                                               buy_market_quote_asset, buy_order_id, True, quantized_base_amount)
-            self.c_start_tracking_market_order(sell_market, sell_market_trading_pair, sell_market_base_asset,
-                                               sell_market_quote_asset, sell_order_id, True, quantized_base_amount)
+            buy_order_id = self.c_buy_with_specific_market(buy_market_symbol_pair, quantized_order_amount,
+                                                           order_type=OrderType.MARKET)
+            sell_order_id = self.c_sell_with_specific_market(sell_market_symbol_pair, quantized_order_amount,
+                                                             order_type=OrderType.MARKET)
+            self.c_start_tracking_market_order(buy_market_symbol_pair, buy_order_id, True, quantized_order_amount)
+            self.c_start_tracking_market_order(sell_market_symbol_pair, sell_order_id, True, quantized_order_amount)
             self.logger().info(self.format_status())
 
     def log_with_clock(self, log_level: int, msg: str):
         clock_timestamp = pd.Timestamp(self._current_timestamp, unit="s", tz="UTC")
         self.logger().log(log_level, f"{msg} [clock={str(clock_timestamp)}]")
 
-    cdef c_buy_with_specific_market(self, MarketBase market, str symbol, double amount,
+    cdef c_buy_with_specific_market(self, object market_symbol_pair, double amount,
                                     object order_type = OrderType.MARKET, double price = 0.0):
+        cdef:
+            MarketBase market = market_symbol_pair.market
         if market not in self._markets:
             raise ValueError(f"market object for buy order is not in the whitelisted markets set.")
-        return market.c_buy(symbol, amount, order_type=order_type, price=price)
+        return market.c_buy(market_symbol_pair.trading_pair, amount, order_type=order_type, price=price)
 
-    cdef c_sell_with_specific_market(self, MarketBase market, str symbol, double amount,
+    cdef c_sell_with_specific_market(self, object market_symbol_pair, double amount,
                                      object order_type = OrderType.MARKET, double price = 0.0):
+        cdef:
+            MarketBase market = market_symbol_pair.market
         if market not in self._markets:
             raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
-        return market.c_sell(symbol, amount, order_type=order_type, price=price)
+        return market.c_sell(market_symbol_pair.trading_pair, amount, order_type=order_type, price=price)
 
     @classmethod
     def find_profitable_arbitrage_orders(cls,
@@ -505,15 +463,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                                                   sell_market_quote_asset)
 
 
-    cdef tuple c_find_best_profitable_amount(self,
-                                             MarketBase buy_market,
-                                             str buy_market_trading_pair,
-                                             str buy_market_base_asset,
-                                             str buy_market_quote_asset,
-                                             MarketBase sell_market,
-                                             str sell_market_trading_pair,
-                                             str sell_market_base_asset,
-                                             str sell_market_quote_asset):
+    cdef tuple c_find_best_profitable_amount(self, object buy_market_symbol_pair, object sell_market_symbol_pair):
         cdef:
             double total_bid_value = 0 # total revenue
             double total_ask_value = 0 # total cost
@@ -530,14 +480,16 @@ cdef class ArbitrageStrategy(StrategyBase):
             double quantized_profitable_base_amount
             double net_sell_proceeds
             double net_buy_costs
-            OrderBook buy_order_book = buy_market.c_get_order_book(buy_market_trading_pair)
-            OrderBook sell_order_book = sell_market.c_get_order_book(sell_market_trading_pair)
+            MarketBase buy_market = buy_market_symbol_pair.market
+            MarketBase sell_market = sell_market_symbol_pair.market
+            OrderBook buy_order_book = buy_market.c_get_order_book(buy_market_symbol_pair.trading_pair)
+            OrderBook sell_order_book = sell_market.c_get_order_book(sell_market_symbol_pair.trading_pair)
 
         profitable_orders = c_find_profitable_arbitrage_orders(self._min_profitability,
                                                                buy_order_book,
                                                                sell_order_book,
-                                                               buy_market_quote_asset,
-                                                               sell_market_quote_asset)
+                                                               buy_market_symbol_pair.quote_asset,
+                                                               sell_market_symbol_pair.quote_asset)
 
         # check if each step meets the profit level after fees, and is within the wallet balance
         # fee must be calculated at every step because fee might change a potentially profitable order to unprofitable
@@ -547,16 +499,16 @@ cdef class ArbitrageStrategy(StrategyBase):
         # typically most exchanges will only have 1 flat fee (ie: gas cost of transaction in ETH)
         for bid_price_adjusted, ask_price_adjusted, bid_price, ask_price, amount in profitable_orders:
             buy_fee = buy_market.c_get_fee(
-                buy_market_base_asset,
-                buy_market_quote_asset,
+                buy_market_symbol_pair.base_asset,
+                buy_market_symbol_pair.quote_asset,
                 OrderType.MARKET,
                 TradeType.BUY,
                 total_previous_step_base_amount + amount,
                 ask_price
             )
             sell_fee = sell_market.c_get_fee(
-                sell_market_base_asset,
-                sell_market_quote_asset,
+                sell_market_symbol_pair.base_asset,
+                sell_market_symbol_pair.quote_asset,
                 OrderType.MARKET,
                 TradeType.SELL,
                 total_previous_step_base_amount + amount,
@@ -566,23 +518,23 @@ cdef class ArbitrageStrategy(StrategyBase):
             total_buy_flat_fees = 0.0
             total_sell_flat_fees = 0.0
             for buy_flat_fee_asset, buy_flat_fee_amount in buy_fee.flat_fees:
-                if buy_flat_fee_asset == buy_market_quote_asset:
+                if buy_flat_fee_asset == buy_market_symbol_pair.quote_asset:
                     total_buy_flat_fees += buy_flat_fee_amount
                 else:
                     # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
                     total_buy_flat_fees += ExchangeRateConversion.get_instance().adjust_token_rate(
                         amount=buy_flat_fee_amount,
                         from_currency=buy_flat_fee_asset,
-                        to_currency=buy_market_quote_asset
+                        to_currency=buy_market_symbol_pair.quote_asset
                     )
             for sell_flat_fee_asset, sell_flat_fee_amount in sell_fee.flat_fees:
-                if sell_flat_fee_asset == sell_market_quote_asset:
+                if sell_flat_fee_asset == sell_market_symbol_pair.quote_asset:
                     total_sell_flat_fees += sell_flat_fee_amount
                 else:
                     total_sell_flat_fees += ExchangeRateConversion.get_instance().adjust_token_rate(
                         amount=sell_flat_fee_amount,
                         from_currency=sell_flat_fee_asset,
-                        to_currency=sell_market_quote_asset
+                        to_currency=sell_market_symbol_pair.quote_asset
                     )
             # accumulated profitability with fees
             total_bid_value_adjusted += bid_price_adjusted * amount
@@ -591,8 +543,8 @@ cdef class ArbitrageStrategy(StrategyBase):
             net_buy_costs = total_ask_value_adjusted * (1 + buy_fee.percent) + total_buy_flat_fees
             profitability = net_sell_proceeds / net_buy_costs
 
-            buy_market_quote_balance = buy_market.c_get_balance(buy_market_quote_asset)
-            sell_market_base_balance = sell_market.c_get_balance(sell_market_base_asset)
+            buy_market_quote_balance = buy_market.c_get_balance(buy_market_symbol_pair.quote_asset)
+            sell_market_base_balance = sell_market.c_get_balance(sell_market_symbol_pair.base_asset)
 
             # if current step is within minimum profitability, set to best profitable order
             # because the total amount is greater than the previous step
@@ -601,7 +553,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                 best_profitable_order_profitability = profitability
 
             if self._logging_options & self.OPTION_LOG_PROFITABILITY_STEP:
-                self.log_with_clock(logging.DEBUG, f"Total profitability with fees: {profitability}, {total_bid_value_adjusted} {sell_fee.percent} {total_sell_flat_fees}"
+                self.log_with_clock(logging.DEBUG, f"Total profitability with fees: {profitability}, "
                                                    f"Current step profitability: {bid_price/ask_price},"
                                                    f"bid, ask price, amount: {bid_price, ask_price, amount}")
 
@@ -647,22 +599,14 @@ cdef class ArbitrageStrategy(StrategyBase):
 
     # The following exposed Python functions are meant for unit tests
     # ---------------------------------------------------------------
-    def find_best_profitable_amount(self,
-                                    buy_market: MarketBase, buy_market_trading_pair: str, buy_market_base_asset: str,
-                                    buy_market_quote_asset: str, sell_market: MarketBase, sell_market_trading_pair: str,
-                                    sell_market_base_asset: str, sell_market_quote_asset: str):
-        return self.c_find_best_profitable_amount(buy_market, buy_market_trading_pair, buy_market_base_asset,
-                                                  buy_market_quote_asset, sell_market, sell_market_trading_pair,
-                                                  sell_market_base_asset, sell_market_quote_asset
-                                                  )
+    def find_best_profitable_amount(self, buy_market: MarketSymbolPair, sell_market: MarketSymbolPair):
+        return self.c_find_best_profitable_amount(buy_market, sell_market)
     def ready_for_new_orders(self, market_pair):
         return self.c_ready_for_new_orders(market_pair)
-
     # ---------------------------------------------------------------
 
-def find_profitable_arbitrage_orders(min_profitability: float, buy_order_book: OrderBook,
-                                     sell_order_book: OrderBook, buy_market_quote_asset: str,
-                                     sell_market_quote_asset: str):
+def find_profitable_arbitrage_orders(min_profitability: float, buy_order_book: OrderBook, sell_order_book: OrderBook,
+                                     buy_market_quote_asset: str, sell_market_quote_asset: str):
     return c_find_profitable_arbitrage_orders(min_profitability, buy_order_book, sell_order_book,
                                               buy_market_quote_asset, sell_market_quote_asset)
 
@@ -721,13 +665,9 @@ cdef list c_find_profitable_arbitrage_orders(double min_profitability,
 
             # adjust price based on the quote token rates
             current_bid_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(
-                sell_market_quote_asset,
-                current_bid.price
-            )
+                sell_market_quote_asset, current_bid.price)
             current_ask_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(
-                buy_market_quote_asset,
-                current_ask.price
-            )
+                buy_market_quote_asset,  current_ask.price)
             # arbitrage not possible
             if current_bid_price_adjusted < current_ask_price_adjusted:
                 break
