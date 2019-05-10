@@ -36,11 +36,6 @@ from wings.order_book_row import OrderBookRow
 from hummingbot.strategy.arbitrage.arbitrage import ArbitrageStrategy
 from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
 
-
-def run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
-
-
 class ArbitrageUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
@@ -91,7 +86,7 @@ class ArbitrageUnitTest(unittest.TestCase):
             *(self.market_symbol_pair_1 + self.market_symbol_pair_2)
         )
 
-        self.logging_options: int = ArbitrageStrategy.OPTION_LOG_ALL\
+        self.logging_options: int = ArbitrageStrategy.OPTION_LOG_ALL
 
         self.strategy: ArbitrageStrategy = ArbitrageStrategy(
             [self.market_pair],
@@ -161,7 +156,7 @@ class ArbitrageUnitTest(unittest.TestCase):
         amount, profitability = self.strategy.find_best_profitable_amount(self.market_symbol_pair_1,
                                                                           self.market_symbol_pair_2)
         self.assertEqual(30.0, amount)
-        self.assertEqual(1.0329489291598024, profitability)
+        self.assertAlmostEqual(1.0329489291598024, profitability)
 
     def test_min_profitability_limit_1(self):
         self.strategy: ArbitrageStrategy = ArbitrageStrategy(
@@ -182,7 +177,7 @@ class ArbitrageUnitTest(unittest.TestCase):
         amount, profitability = self.strategy.find_best_profitable_amount(self.market_symbol_pair_1,
                                                                           self.market_symbol_pair_2)
         self.assertEqual(30.0, amount)
-        self.assertEqual(1.045, profitability)
+        self.assertAlmostEqual(1.045, profitability)
 
     def test_min_profitability_limit_2(self):
         self.strategy: ArbitrageStrategy = ArbitrageStrategy(
@@ -203,7 +198,7 @@ class ArbitrageUnitTest(unittest.TestCase):
         amount, profitability = self.strategy.find_best_profitable_amount(self.market_symbol_pair_1,
                                                                           self.market_symbol_pair_2)
         self.assertEqual(60.0, amount)
-        self.assertEqual(1.0294946147473074, profitability)
+        self.assertAlmostEqual(1.0294946147473074, profitability)
 
     def test_asset_limit(self):
         self.market_2_data.order_book.apply_diffs(
@@ -217,14 +212,14 @@ class ArbitrageUnitTest(unittest.TestCase):
                                                                           self.market_symbol_pair_2)
 
         self.assertEqual(20.0, amount)
-        self.assertEqual(1.0329489291598024, profitability)
+        self.assertAlmostEqual(1.0329489291598024, profitability)
 
         self.market_2.set_balance("COINALPHA", 0)
         amount, profitability = self.strategy.find_best_profitable_amount(self.market_symbol_pair_1,
                                                                           self.market_symbol_pair_2)
 
         self.assertEqual(0.0, amount)
-        self.assertEqual(1.0398009950248757, profitability)
+        self.assertAlmostEqual(1.0398009950248757, profitability)
 
     def test_find_profitable_arbitrage_orders(self):
         self.market_2_data.order_book.apply_diffs(
