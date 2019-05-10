@@ -315,9 +315,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             assets_df = pd.DataFrame(data=assets_data, columns=assets_columns)
             lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
 
-            bid_profitability, ask_profitability = self.c_calculate_market_making_profitability(market_pair,
-                                                                                                maker_order_book,
-                                                                                                taker_order_book)
+            bid_profitability, ask_profitability = self.c_calculate_market_making_profitability(
+                market_pair,
+                maker_order_book,
+                taker_order_book
+            )
             lines.extend(["", "  Profitability:"] +
                          [f"    make bid on {maker_name}, "
                           f"take bid on {taker_name}: {round(bid_profitability * 100, 4)} %"] +
@@ -370,7 +372,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     def has_market_making_profit_potential(self, market_pair: CrossExchangeMarketPair,
                                            OrderBook maker_order_book,
                                            OrderBook taker_order_book) -> Tuple[bool, bool]:
-        return self.c_has_market_making_profit_potential(market_pair, maker_order_book, taker_order_book)
+        return self.c_has_market_making_profit_potential(
+            market_pair,
+            maker_order_book,
+            taker_order_book
+        )
 
     def get_market_making_price_and_size_limit(self, market_pair: CrossExchangeMarketPair,
                                                is_bid: bool,
@@ -844,6 +850,131 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             )
         return maker_market.c_quantize_order_amount(symbol, adjusted_order_size)
 
+    cdef double c_sum_flat_fees(self, str quote_currency, list flat_fees):
+        """
+        Converts flat fees to quote token and sums up all flat fees 
+        """
+        cdef:
+            double total_flat_fees = 0.0
+ 
+        for flat_fee_currency, flat_fee_amount in flat_fees:
+            if flat_fee_currency == quote_currency:
+                total_flat_fees += flat_fee_amount
+            else:
+                # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
+                total_flat_fees += ExchangeRateConversion.get_instance().adjust_token_rate(
+                    amount=flat_fee_amount,
+                    from_currency=flat_fee_currency,
+                    to_currency=quote_currency
+                )
+        return total_flat_fees
+
+    cdef double c_calculate_bid_profitability(self,
+                                              object market_pair,
+                                              OrderBook maker_order_book,
+                                              OrderBook taker_order_book,
+                                              double bid_order_size = 0.0):
+        if bid_order_size == 0.0:
+            return 0.0
+        cdef:
+            double maker_bid_price = maker_order_book.c_get_price_for_quote_volume(
+                False,
+                market_pair.top_depth_tolerance
+            )
+            double taker_bid_price = taker_order_book.c_get_price(False)
+            double maker_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.maker_quote_currency,
+                maker_bid_price
+            )
+            double taker_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.taker_quote_currency,
+                taker_bid_price
+            )
+            object maker_bid_fee = (<MarketBase>(market_pair.maker_market)).c_get_fee(
+                market_pair.maker_base_currency,
+                market_pair.maker_quote_currency,
+                OrderType.LIMIT,
+                TradeType.BUY,
+                bid_order_size,
+                maker_bid_price_adjusted
+            )
+            double maker_bid_fee_flat_fees = self.c_sum_flat_fees(
+                market_pair.maker_quote_currency,
+                maker_bid_fee.flat_fees
+            )
+            object taker_bid_fee = (<MarketBase>(market_pair.taker_market)).c_get_fee(
+                market_pair.taker_base_currency,
+                market_pair.taker_quote_currency,
+                OrderType.MARKET,
+                TradeType.SELL,
+                bid_order_size,
+                taker_bid_price_adjusted
+            )
+            double taker_bid_fee_flat_fees = self.c_sum_flat_fees(
+                market_pair.taker_quote_currency,
+                taker_bid_fee.flat_fees
+            )
+            double bid_net_sell_proceeds = taker_bid_price_adjusted * bid_order_size * \
+                (1 - taker_bid_fee.percent) - taker_bid_fee_flat_fees
+            double bid_net_buy_costs = maker_bid_price_adjusted * bid_order_size * \
+                (1 + maker_bid_fee.percent) + maker_bid_fee_flat_fees
+            double bid_profitability = bid_net_sell_proceeds / bid_net_buy_costs
+        
+        return bid_profitability
+
+    cdef double c_calculate_ask_profitability(self,
+                                              object market_pair,
+                                              OrderBook maker_order_book,
+                                              OrderBook taker_order_book,
+                                              double ask_order_size = 0.0):
+        if ask_order_size == 0.0:
+            return 0.0
+        cdef:
+            double maker_ask_price = maker_order_book.c_get_price_for_quote_volume(
+                True,
+                market_pair.top_depth_tolerance
+            )
+            double taker_ask_price = taker_order_book.c_get_price(True)
+            double maker_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.maker_quote_currency,
+                maker_ask_price
+            )
+            double taker_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
+                market_pair.taker_quote_currency,
+                taker_ask_price
+            )
+            object maker_ask_fee = (<MarketBase>(market_pair.maker_market)).c_get_fee(
+                market_pair.maker_base_currency,
+                market_pair.maker_quote_currency,
+                OrderType.LIMIT,
+                TradeType.SELL,
+                ask_order_size,
+                maker_ask_price_adjusted
+            )
+            double maker_ask_fee_flat_fees = self.c_sum_flat_fees(
+                market_pair.maker_quote_currency,
+                maker_ask_fee.flat_fees
+            )
+            object taker_ask_fee = (<MarketBase>(market_pair.taker_market)).c_get_fee(
+                market_pair.taker_base_currency,
+                market_pair.taker_quote_currency,
+                OrderType.MARKET,
+                TradeType.BUY,
+                ask_order_size,
+                taker_ask_price_adjusted
+            )
+            double taker_ask_fee_flat_fees = self.c_sum_flat_fees(
+                market_pair.taker_quote_currency,
+                taker_ask_fee.flat_fees
+            )
+            double ask_net_sell_proceeds = maker_ask_price_adjusted * \
+                ask_order_size * (1 - maker_ask_fee.percent) - maker_ask_fee_flat_fees
+            double ask_net_buy_costs = taker_ask_price_adjusted * \
+                ask_order_size * (1 + taker_ask_fee.percent) + taker_ask_fee_flat_fees
+            double ask_profitability = ask_net_sell_proceeds / ask_net_buy_costs
+
+        return ask_profitability
+
     cdef tuple c_calculate_market_making_profitability(self,
                                                        object market_pair,
                                                        OrderBook maker_order_book,
@@ -854,32 +985,42 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         :param taker_order_book: Order book on the taker side.
         :return: a (double, double) tuple. Calculates the profitability ratio of bid limit orders and ask limit orders
         """
+
+        bid_price, bid_size_limit = self.c_get_market_making_price_and_size_limit(
+            market_pair,
+            True,
+            own_order_depth=0
+        )
+        bid_order_size = float(self.c_get_adjusted_limit_order_size(
+            market_pair,
+            float(bid_price),
+            float(bid_size_limit)
+        ))
+        ask_price, ask_size_limit = self.c_get_market_making_price_and_size_limit(
+            market_pair,
+            False,
+            own_order_depth=0
+        )
+        ask_order_size = float(self.c_get_adjusted_limit_order_size(
+            market_pair,
+            float(ask_price),
+            float(ask_size_limit)
+        ))
+
         cdef:
-            double maker_bid_price = maker_order_book.c_get_price_for_quote_volume(
-                False,
-                market_pair.top_depth_tolerance
+            double bid_profitability = self.c_calculate_bid_profitability(
+                market_pair,
+                maker_order_book,
+                taker_order_book,
+                bid_order_size
             )
-            double maker_ask_price = maker_order_book.c_get_price_for_quote_volume(
-                True,
-                market_pair.top_depth_tolerance
+            double ask_profitability = self.c_calculate_ask_profitability(
+                market_pair,
+                maker_order_book,
+                taker_order_book,
+                ask_order_size
             )
-            double taker_bid_price = taker_order_book.c_get_price(False)
-            double taker_ask_price = taker_order_book.c_get_price(True)
-
-            double maker_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.maker_quote_currency, maker_bid_price)
-
-            double maker_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.maker_quote_currency, maker_ask_price)
-
-            double taker_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.taker_quote_currency, taker_bid_price)
-
-            double taker_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.taker_quote_currency, taker_ask_price)
-
-        return (taker_bid_price_adjusted / maker_bid_price_adjusted - 1.0,
-                maker_ask_price_adjusted / taker_ask_price_adjusted - 1.0)
+        return (bid_profitability - 1.0, ask_profitability - 1.0)
 
     cdef tuple c_has_market_making_profit_potential(self,
                                                     object market_pair,
@@ -889,11 +1030,15 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         :param market_pair: The hedging market pair.
         :param maker_order_book: Order book on the maker side.
         :param taker_order_book: Order book on the taker side.
+        :param order_size: Order size in base tokens.
         :return: a (boolean, boolean) tuple. First item indicates whether bid limit order is profitable. Second item
                  indicates whether ask limit order is profitable.
         """
-        bid_profitability, ask_profitability = \
-            self.c_calculate_market_making_profitability(market_pair, maker_order_book, taker_order_book)
+        bid_profitability, ask_profitability = self.c_calculate_market_making_profitability(
+            market_pair,
+            maker_order_book,
+            taker_order_book
+        )
 
         return bid_profitability > self._min_profitability, ask_profitability > self._min_profitability
 
@@ -1263,25 +1408,24 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double effective_hedging_price
 
         # See if it's profitable to place a limit order on maker market.
-        bid_profitable, ask_profitable = self.c_has_market_making_profit_potential(
+        is_bid_profitable, is_ask_profitable = self.c_has_market_making_profit_potential(
             market_pair,
             maker_order_book,
             taker_order_book
         )
         bid_price_samples, ask_price_samples = self.c_get_suggested_price_samples(market_pair)
 
-        if bid_profitable and not has_active_bid:
+        if is_bid_profitable and not has_active_bid:
             bid_price, bid_size_limit = self.c_get_market_making_price_and_size_limit(
                 market_pair,
                 True,
                 own_order_depth=0
             )
             bid_size = self.c_get_adjusted_limit_order_size(
-                        market_pair,
-                        float(bid_price),
-                        float(bid_size_limit)
-                    )
-
+                market_pair,
+                float(bid_price),
+                float(bid_size_limit)
+            )
             if bid_size > s_decimal_zero:
                 effective_hedging_price = self.c_calculate_effective_hedging_price(
                     taker_order_book,
@@ -1321,19 +1465,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         f"({market_pair.maker_symbol}) Attempting to place a limit bid but the "
                         f"bid size limit is 0. Skipping."
                     )
-        if ask_profitable and not has_active_ask:
+        if is_ask_profitable and not has_active_ask:
             ask_price, ask_size_limit = self.c_get_market_making_price_and_size_limit(
                 market_pair,
                 False,
                 own_order_depth=0
             )
             ask_size = self.c_get_adjusted_limit_order_size(
-                        market_pair,
-                        float(ask_price),
-                        float(ask_size_limit)
-                    )
-
-
+                market_pair,
+                float(ask_price),
+                float(ask_size_limit)
+            )
             if ask_size > s_decimal_zero:
                 effective_hedging_price = self.c_calculate_effective_hedging_price(
                     taker_order_book,
