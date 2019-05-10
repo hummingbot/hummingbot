@@ -18,9 +18,12 @@ def discovery_symbol_list_prompt(market_name):
 def trading_pair_array_validator(market: str, trading_pair_list: Any):
     try:
         trading_pair_list = eval(trading_pair_list) if type(trading_pair_list) is str else trading_pair_list
-        symbol_fetcher = SymbolFetcher.get_instance()
-        ans = all([trading_pair in symbol_fetcher.symbols.get(market, []) for trading_pair in trading_pair_list])
-        return ans
+
+        known_symbols = SymbolFetcher.get_instance().symbols.get(market, [])
+        if len(known_symbols) == 0:
+            return True
+        else:
+            return all([trading_pair in known_symbols for trading_pair in trading_pair_list])
     except Exception:
         return False
 
