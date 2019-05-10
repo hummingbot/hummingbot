@@ -32,7 +32,9 @@ yaml = ruamel.yaml.YAML()
 
 
 def parse_cvar_value(cvar: ConfigVar, value: any):
-    if cvar.type == 'str':
+    if value is None:
+        return None
+    elif cvar.type == 'str':
         return str(value)
     elif cvar.type in {"list", "dict"}:
         if isinstance(value, str):

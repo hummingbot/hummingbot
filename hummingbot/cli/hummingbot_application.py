@@ -181,7 +181,12 @@ class HummingbotApplication:
 
     @property
     def config_complete(self):
-        return len(self._get_empty_configs()) == 0
+        config_map = load_required_configs()
+        for key in self._get_empty_configs():
+            cvar = config_map.get(key)
+            if cvar.value is None and cvar.required:
+                return False
+        return True
 
     @staticmethod
     def _get_empty_configs() -> List[str]:
