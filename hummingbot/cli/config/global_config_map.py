@@ -139,6 +139,7 @@ global_config_map = {
                                                   prompt="Would type of price data would you like to use for stop "
                                                          "loss (fixed/dynamic) ? >>> ",
                                                   required_if=lambda:
+                                                      type(global_config_map.get("stop_loss_pct").value) is float and
                                                       global_config_map.get("stop_loss_pct").value >= 0,
                                                   validator=lambda v: v in {"fixed", "dynamic"}),
     "stop_loss_base_token":             ConfigVar(key="stop_loss_base_token",
