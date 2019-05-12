@@ -32,3 +32,8 @@ class DataFeedBase:
         except Exception as e:
             self.logger().error(e, exc_info=True)
 
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
