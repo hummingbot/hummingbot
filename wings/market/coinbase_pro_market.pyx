@@ -4,6 +4,7 @@ from async_timeout import timeout
 from decimal import Decimal
 import json
 import logging
+import pandas as pd
 import time
 from typing import (
     Any,
@@ -16,6 +17,7 @@ from web3 import Web3
 from libc.stdint cimport int64_t
 
 from wings.clock cimport Clock
+from wings.data_source.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
 from wings.events import (
     TradeType,
     TradeFee,
@@ -34,11 +36,13 @@ from wings.market.market_base import (
     MarketBase,
     OrderType,
 )
+from wings.network_iterator import NetworkStatus
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.order_book cimport OrderBook
 from wings.market.coinbase_pro_auth import CoinbaseProAuth
 from wings.tracker.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from wings.tracker.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
+from wings.data_source.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
 from wings.cancellation_result import CancellationResult
 from wings.transaction_tracker import TransactionTracker
 from wings.wallet.wallet_base import WalletBase
@@ -282,16 +286,45 @@ cdef class CoinbaseProMarket(MarketBase):
                 len(self._account_balances) > 0 and
                 len(self._trading_rules) > 0)
 
+    async def get_active_exchange_markets(self) -> pd.DataFrame:
+        return await CoinbaseProAPIOrderBookDataSource.get_active_exchange_markets()
+
     def get_all_balances(self) -> Dict[str, float]:
         return self._account_balances.copy()
 
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
         MarketBase.c_start(self, clock, timestamp)
+
+    async def start_network(self):
+        if self._order_tracker_task is not None:
+            self._stop_network()
+
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
         self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
         self._user_stream_tracker_task = asyncio.ensure_future(self._user_stream_tracker.start())
         self._user_stream_event_listener_task = asyncio.ensure_future(self._user_stream_event_listener())
+
+    def _stop_network(self):
+        if self._order_tracker_task is not None:
+            self._order_tracker_task.cancel()
+            self._status_polling_task.cancel()
+            self._user_stream_tracker_task.cancel()
+            self._user_stream_event_listener_task.cancel()
+        self._order_tracker_task = self._status_polling_task = self._user_stream_tracker_task = \
+            self._user_stream_event_listener_task = None
+
+    async def stop_network(self):
+        self._stop_network()
+
+    async def check_network(self) -> NetworkStatus:
+        try:
+            await self._api_request("get", path_url="/time")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return NetworkStatus.NOT_CONNECTED
+        return NetworkStatus.CONNECTED
 
     cdef c_tick(self, double timestamp):
         cdef:
@@ -329,7 +362,8 @@ cdef class CoinbaseProMarket(MarketBase):
             return data
 
     cdef object c_get_fee(self,
-                          str symbol,
+                          str base_currency,
+                          str quote_currency,
                           object order_type,
                           object order_side,
                           double amount,
@@ -429,7 +463,7 @@ cdef class CoinbaseProMarket(MarketBase):
 
             client_order_id = tracked_order.client_order_id
             order_type_description = tracked_order.order_type_description
-
+            order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
             # Emit event if executed amount is greater than 0.
             if execute_amount_diff > 0:
                 order_filled_event = OrderFilledEvent(
@@ -437,7 +471,7 @@ cdef class CoinbaseProMarket(MarketBase):
                     tracked_order.client_order_id,
                     tracked_order.symbol,
                     TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
-                    OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT,
+                    order_type,
                     execute_price,
                     execute_amount_diff
                 )
@@ -464,7 +498,8 @@ cdef class CoinbaseProMarket(MarketBase):
                                                                      or tracked_order.base_asset),
                                                                     float(tracked_order.executed_amount),
                                                                     float(tracked_order.quote_asset_amount),
-                                                                    float(tracked_order.fee_paid)))
+                                                                    float(tracked_order.fee_paid),
+                                                                    order_type))
                     else:
                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
                                            f"according to order status API.")
@@ -477,14 +512,16 @@ cdef class CoinbaseProMarket(MarketBase):
                                                                       or tracked_order.quote_asset),
                                                                      float(tracked_order.executed_amount),
                                                                      float(tracked_order.quote_asset_amount),
-                                                                     float(tracked_order.fee_paid)))
+                                                                     float(tracked_order.fee_paid),
+                                                                     order_type))
                 else:
                     self.logger().info(f"The market order {tracked_order.client_order_id} has failed according to "
                                        f"order status API.")
                     self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                                          MarketTransactionFailureEvent(
                                              self._current_timestamp,
-                                             tracked_order.client_order_id
+                                             tracked_order.client_order_id,
+                                             order_type
                                          ))
                 self.c_stop_tracking_order(tracked_order.client_order_id)
         self._last_order_update_timestamp = current_timestamp
@@ -663,17 +700,8 @@ cdef class CoinbaseProMarket(MarketBase):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"buy-{symbol}-{tracking_nonce}")
-            object buy_fee
-            double adjusted_amount
 
-        # Coinbase Pro charges additional fees for buy limit orders
-        # limit buy 10 XLM for 1 USDC and the fee is 2%, balance requires 1.02 USDC
-        adjusted_amount = amount
-        if order_type is OrderType.LIMIT:
-            buy_fee = self.c_get_fee(symbol, order_type, TradeType.BUY, amount, price)
-            adjusted_amount = amount / (1 + buy_fee.percent)
-
-        asyncio.ensure_future(self.execute_buy(order_id, symbol, adjusted_amount, order_type, price))
+        asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
         return order_id
 
     async def execute_sell(self,
@@ -760,6 +788,9 @@ cdef class CoinbaseProMarket(MarketBase):
         failed_cancellations = [CancellationResult(order.client_order_id, False)
                                 for order in list(exchange_order_id_map.values())]
         return successful_cancellations + failed_cancellations
+
+    async def get_active_exchange_markets(self):
+        return await CoinbaseProAPIOrderBookDataSource.get_active_exchange_markets()
 
     async def _status_polling_loop(self):
         while True:

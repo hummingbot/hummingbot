@@ -5,6 +5,7 @@ from Cython.Build import cythonize
 import numpy as np
 import os
 import subprocess
+import sys
 
 if os.name == "posix":
     os_name = subprocess.check_output("uname").decode("utf8")
@@ -15,7 +16,8 @@ if os.name == "posix":
 
 
 def main():
-    version = "20190502"
+    cpu_count = os.cpu_count() or 8
+    version = "20190513"
     packages = [
         "wings",
         "wings.logger",
@@ -32,6 +34,7 @@ def main():
         "hummingbot.strategy.arbitrage",
         "hummingbot.strategy.cross_exchange_market_making",
         "hummingbot.cli",
+        "hummingbot.cli.config",
         "hummingbot.cli.ui",
         "hummingbot.cli.utils",
         "hummingbot.logger",
@@ -99,6 +102,9 @@ def main():
         ]
         package_data["wings"].append("cpp/*.cpp")
 
+    if len(sys.argv) > 1 and sys.argv[1] == "build_ext":
+        sys.argv.append(f"--parallel={cpu_count}")
+
     setup(name="hummingbot",
           version=version,
           description="CoinAlpha Hummingbot",
@@ -112,7 +118,7 @@ def main():
           ext_modules=cythonize([
               "hummingbot/**/*.pyx",
               "wings/**/*.pyx",
-          ], language="c++", language_level=3),
+          ], language="c++", language_level=3, nthreads=cpu_count),
           include_dirs=[
               np.get_include(),
           ],

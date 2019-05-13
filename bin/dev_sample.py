@@ -22,13 +22,13 @@ from typing import (
 
 from hummingbot import init_logging
 from hummingbot.cli.hummingbot_application import HummingbotApplication
-from hummingbot.cli.settings import (
-    global_config_map,
+from hummingbot.cli.config.global_config_map import global_config_map
+from hummingbot.cli.config.in_memory_config_map import in_memory_config_map
+from hummingbot.cli.config.config_helpers import (
     create_yml_files,
     read_configs_from_yml
 )
 from hummingbot.cli.ui.stdout_redirection import patch_stdout
-from hummingbot.cli.settings import in_memory_config_map
 from hummingbot.cli.utils.wallet_setup import unlock_wallet
 
 

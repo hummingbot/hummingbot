@@ -1,11 +1,11 @@
 from wings.event_reporter cimport EventReporter
 from wings.event_logger cimport EventLogger
 from wings.order_book cimport OrderBook
-from wings.time_iterator cimport TimeIterator
+from wings.network_iterator cimport NetworkIterator
 from wings.wallet.wallet_base cimport WalletBase
 
 
-cdef class MarketBase(TimeIterator):
+cdef class MarketBase(NetworkIterator):
     cdef:
         EventReporter event_reporter
         EventLogger event_logger
@@ -22,7 +22,8 @@ cdef class MarketBase(TimeIterator):
     cdef object c_quantize_order_price(self, str symbol, double price)
     cdef object c_quantize_order_amount(self, str symbol, double amount)
     cdef object c_get_fee(self,
-                          str symbol,
+                          str base_currency,
+                          str quote_currency,
                           object order_type,
                           object order_side,
                           double amount,

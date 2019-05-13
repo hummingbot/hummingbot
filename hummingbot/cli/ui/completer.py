@@ -1,34 +1,35 @@
-import asyncio
-from typing import (
-    List,
-    Dict,
+import re
+from typing import List
+from prompt_toolkit.completion import (
+    Completer,
+    WordCompleter,
+    PathCompleter,
+    CompleteEvent,
 )
-from prompt_toolkit.completion import Completer, WordCompleter, PathCompleter, CompleteEvent
 from prompt_toolkit.document import Document
 
-from hummingbot.cli.settings import EXCHANGES, STRATEGIES
+from hummingbot.cli.settings import (
+    EXCHANGES,
+    STRATEGIES,
+    CONF_FILE_PATH,
+)
 from hummingbot.cli.ui.parser import ThrowingArgumentParser
-from hummingbot.cli.utils.symbol_fetcher import fetch_all
 from hummingbot.cli.utils.wallet_setup import list_wallets
-from hummingbot.cli.settings import load_required_configs
+from hummingbot.cli.utils.symbol_fetcher import SymbolFetcher
+from hummingbot.cli.config.in_memory_config_map import load_required_configs
 
 
 class HummingbotCompleter(Completer):
     def __init__(self, hummingbot_application):
         super(HummingbotCompleter, self).__init__()
         self.hummingbot_application = hummingbot_application
-        self._symbols: Dict[str, List[str]] = {}
 
         # static completers
-        self._path_completer = PathCompleter()
+        self._path_completer = PathCompleter(get_paths=lambda: [f"./{CONF_FILE_PATH}"],
+                                             file_filter=lambda fname: fname.endswith(".yml"))
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
         self._exchange_completer = WordCompleter(EXCHANGES, ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
-
-        asyncio.ensure_future(self._fetch_symbols())
-
-    async def _fetch_symbols(self):
-        self._symbols: Dict[str, List[str]] = await fetch_all()
 
     @property
     def prompt_text(self) -> str:
@@ -44,16 +45,25 @@ class HummingbotCompleter(Completer):
 
     @property
     def _symbol_completer(self) -> Completer:
+        symbol_fetcher = SymbolFetcher.get_instance()
         market = None
         for exchange in EXCHANGES:
             if exchange in self.prompt_text:
                 market = exchange
                 break
-        return WordCompleter(self._symbols.get(market) or [], ignore_case=True)
+        symbols = symbol_fetcher.symbols.get(market, []) if symbol_fetcher.ready else []
+        return WordCompleter(symbols, ignore_case=True)
 
     @property
     def _wallet_address_completer(self):
         return WordCompleter(list_wallets(), ignore_case=True)
+
+    @property
+    def _option_completer(self):
+        outer = re.compile("\((.+)\)")
+        inner_str = outer.search(self.prompt_text).group(1)
+        options = inner_str.split("/") if "/" in inner_str else []
+        return WordCompleter(options, ignore_case=True)
 
     @property
     def _config_completer(self):
@@ -65,6 +75,9 @@ class HummingbotCompleter(Completer):
     def _complete_configs(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return "config" in text_before_cursor
+
+    def _complete_options(self, document: Document) -> bool:
+        return "(" in self.prompt_text and ")" in self.prompt_text and "/" in self.prompt_text
 
     def _complete_exchanges(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -99,6 +112,7 @@ class HummingbotCompleter(Completer):
         if self._complete_paths(document):
             for c in self._path_completer.get_completions(document, complete_event):
                 yield c
+            return
 
         if self._complete_strategies(document):
             for c in self._strategy_completer.get_completions(document, complete_event):
@@ -122,6 +136,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_configs(document):
             for c in self._config_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_options(document):
+            for c in self._option_completer.get_completions(document, complete_event):
                 yield c
 
         else:

@@ -17,12 +17,14 @@ from decimal import Decimal
 from libc.stdint cimport int64_t
 from web3 import Web3
 from wings.clock cimport Clock
+from wings.data_source.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
 from wings.limit_order import LimitOrder
 from wings.market.market_base cimport MarketBase
 from wings.market.market_base import (
   OrderType,
   NaN
 )
+from wings.network_iterator import NetworkStatus
 from wings.wallet.web3_wallet import Web3Wallet
 from wings.order_book cimport OrderBook
 from wings.cancellation_result import CancellationResult
@@ -246,8 +248,6 @@ cdef class RadarRelayMarket(MarketBase):
         self._status_polling_task = None
         self._order_tracker_task = None
         self._approval_tx_polling_task = None
-        self._coro_queue = asyncio.Queue()
-        self._coro_scheduler_task = None
         self._wallet = wallet
         self._wallet_spender_address = wallet_spender_address
         self._exchange = ZeroExExchange(self._w3, ZERO_EX_MAINNET_EXCHANGE_ADDRESS, wallet)
@@ -308,6 +308,9 @@ cdef class RadarRelayMarket(MarketBase):
             ))
         return retval
 
+    async def get_active_exchange_markets(self):
+        return await RadarRelayAPIOrderBookDataSource.get_active_exchange_markets()
+
     async def _status_polling_loop(self):
         while True:
             try:
@@ -327,16 +330,17 @@ cdef class RadarRelayMarket(MarketBase):
                 await asyncio.sleep(0.5)
 
     cdef object c_get_fee(self,
-                          str symbol,
+                          str base_currency,
+                          str quote_currency,
                           object order_type,
                           object order_side,
                           double amount,
                           double price):
-        # there are no fees for makers on Radar Relay
         cdef:
             int gas_estimate = 130000 # approximate gas used for 0x market orders
             double transaction_cost_eth
 
+        # there are no fees for makers on Radar Relay
         if order_type is OrderType.LIMIT:
             return TradeFee(percent=0.0)
         # only fee for takers is gas cost of transaction
@@ -462,7 +466,9 @@ cdef class RadarRelayMarket(MarketBase):
                                        f"according to order status API.")
                     self.c_trigger_event(
                         self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                        MarketTransactionFailureEvent(self._current_timestamp, tracked_limit_order.client_order_id)
+                        MarketTransactionFailureEvent(self._current_timestamp,
+                                                      tracked_limit_order.client_order_id,
+                                                      OrderType.LIMIT)
                     )
                     self.c_expire_order(tracked_limit_order.client_order_id)
                 elif not previous_is_done and tracked_limit_order.is_done:
@@ -477,7 +483,8 @@ cdef class RadarRelayMarket(MarketBase):
                                                                     tracked_limit_order.quote_asset,
                                                                     float(tracked_limit_order.executed_amount),
                                                                     float(tracked_limit_order.quote_asset_amount),
-                                                                    float(tracked_limit_order.gas_fee_amount)))
+                                                                    float(tracked_limit_order.gas_fee_amount),
+                                                                    OrderType.LIMIT))
                     else:
                         self.logger().info(f"The limit sell order {tracked_limit_order.client_order_id}"
                                            f"has completed according to order status API.")
@@ -489,7 +496,8 @@ cdef class RadarRelayMarket(MarketBase):
                                                                      tracked_limit_order.quote_asset,
                                                                      float(tracked_limit_order.executed_amount),
                                                                      float(tracked_limit_order.quote_asset_amount),
-                                                                     float(tracked_limit_order.gas_fee_amount)))
+                                                                     float(tracked_limit_order.gas_fee_amount),
+                                                                     OrderType.LIMIT))
                     self.c_expire_order(tracked_limit_order.client_order_id)
         self._last_update_limit_order_timestamp = current_timestamp
 
@@ -540,7 +548,8 @@ cdef class RadarRelayMarket(MarketBase):
                                                                     tracked_market_order.quote_asset,
                                                                     float(tracked_market_order.amount),
                                                                     float(tracked_market_order.quote_asset_amount),
-                                                                    float(tracked_market_order.gas_fee_amount)))
+                                                                    float(tracked_market_order.gas_fee_amount),
+                                                                    OrderType.MARKET))
                     else:
                         self.logger().info(f"The market sell order "
                                            f"{tracked_market_order.client_order_id} has completed according to "
@@ -553,14 +562,17 @@ cdef class RadarRelayMarket(MarketBase):
                                                                      tracked_market_order.quote_asset,
                                                                      float(tracked_market_order.amount),
                                                                      float(tracked_market_order.quote_asset_amount),
-                                                                     float(tracked_market_order.gas_fee_amount)))
+                                                                     float(tracked_market_order.gas_fee_amount),
+                                                                     OrderType.MARKET))
                 else:
                     self.logger().error(f"Unrecognized transaction status for market order "
                                         f"{tracked_market_order.client_order_id}. Check transaction hash "
                                         f"{tracked_market_order.tx_hash} for more details.")
                     self.c_trigger_event(
                         self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                        MarketTransactionFailureEvent(self._current_timestamp, tracked_market_order.client_order_id)
+                        MarketTransactionFailureEvent(self._current_timestamp,
+                                                      tracked_market_order.client_order_id,
+                                                      OrderType.MARKET)
                     )
 
                 self.c_stop_tracking_order(tracked_market_order.tx_hash)
@@ -578,22 +590,6 @@ cdef class RadarRelayMarket(MarketBase):
                 self.logger().error("Unexpected error while fetching approval transactions.", exc_info=True)
             finally:
                 await asyncio.sleep(1.0)
-
-    @staticmethod
-    async def coro_scheduler(coro_queue: asyncio.Queue, interval: float = 0.5):
-        while True:
-            fut, coro = await coro_queue.get()
-            try:
-                fut.set_result(await coro)
-            except Exception as e:
-                fut.set_exception(e)
-            finally:
-                await asyncio.sleep(interval)
-
-    async def schedule_async_call(self, coro) -> Any:
-        fut = self._ev_loop.create_future()
-        self._coro_queue.put_nowait((fut, coro))
-        return await fut
 
     async def _api_request(self,
                            http_method: str,
@@ -919,15 +915,40 @@ cdef class RadarRelayMarket(MarketBase):
 
         return order_book.c_get_price(is_buy)
 
-    cdef c_start(self, Clock clock, double timestamp):
-        MarketBase.c_start(self, clock, timestamp)
+    async def start_network(self):
+        if self._order_tracker_task is not None:
+            self._stop_network()
+
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
         self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
-        self._coro_scheduler_task = asyncio.ensure_future(self.coro_scheduler(self._coro_queue))
-        tx_hashes = self.wallet.current_backend.check_and_fix_approval_amounts(
-            spender=self._wallet_spender_address)
+        tx_hashes = await self.wallet.current_backend.check_and_fix_approval_amounts(
+            spender=self._wallet_spender_address
+        )
         self._pending_approval_tx_hashes.update(tx_hashes)
         self._approval_tx_polling_task = asyncio.ensure_future(self._approval_tx_polling_loop())
+
+    def _stop_network(self):
+        if self._order_tracker_task is not None:
+            self._order_tracker_task.cancel()
+            self._status_polling_task.cancel()
+            self._pending_approval_tx_hashes.clear()
+            self._approval_tx_polling_task.cancel()
+        self._order_tracker_task = self._status_polling_task = self._approval_tx_polling_task = None
+
+    async def stop_network(self):
+        self._stop_network()
+
+    async def check_network(self) -> NetworkStatus:
+        if self._wallet.network_status is not NetworkStatus.CONNECTED:
+            return NetworkStatus.NOT_CONNECTED
+
+        try:
+            await self._api_request("GET", f"{RADAR_RELAY_REST_ENDPOINT}/tokens")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return NetworkStatus.NOT_CONNECTED
+        return NetworkStatus.CONNECTED
 
     cdef c_tick(self, double timestamp):
         cdef:
