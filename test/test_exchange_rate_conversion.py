@@ -58,13 +58,6 @@ def async_run(func):
 
 
 class ExchangeRateConverterUnitTest(unittest.TestCase):
-    start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
-    end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
-    start_timestamp: float = start.timestamp()
-    end_timestamp: float = end.timestamp()
-    market_1_symbols: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
-    market_2_symbols: List[str] = ["coinalpha/eth", "COINALPHA", "ETH"]
-
     @classmethod
     def setUpClass(cls):
         ExchangeRateConversion.set_global_exchange_rate_config({
