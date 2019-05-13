@@ -286,6 +286,9 @@ cdef class ArbitrageStrategy(StrategyBase):
                     if should_report_warnings:
                         self.logger().warning(f"Markets are not ready. No arbitrage trading is permitted.")
                     return
+                else:
+                    if self.OPTION_LOG_STATUS_REPORT:
+                        self.logger().info(f"Markets are ready. Trading started.")
 
             if not all([market.network_status is NetworkStatus.CONNECTED for market in self._markets]):
                 if should_report_warnings:

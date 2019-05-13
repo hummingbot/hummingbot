@@ -58,6 +58,7 @@ class StopLossTracker:
             try:
                 self._current_pnl = self.calculate_profit_loss_pct(self._stop_loss_price_type)
                 if self._current_pnl <= -self._stop_loss_pct:
+                    self.logger().info("Stop loss threshold reached. Stopping the bot...")
                     self._stop_handler()
                     break
             except asyncio.CancelledError:
