@@ -6,6 +6,7 @@ import logging
 import argparse
 from eth_account.local import LocalAccount
 import pandas as pd
+import platform
 import re
 from six import string_types
 from typing import (
@@ -17,18 +18,21 @@ from typing import (
     Set,
     Callable,
 )
-from web3 import Web3
 
-from wings.wallet.web3_wallet import Web3Wallet
-from wings.market.market_base import MarketBase
-from wings.market.binance_market import BinanceMarket
-from wings.market.radar_relay_market import RadarRelayMarket
-from wings.market.ddex_market import DDEXMarket
-from wings.market.coinbase_pro_market import CoinbaseProMarket
-from wings.clock import Clock, ClockMode
+from wings.clock import (
+    Clock,
+    ClockMode
+)
 from wings.ethereum_chain import EthereumChain
+from wings.market.binance_market import BinanceMarket
+from wings.market.coinbase_pro_market import CoinbaseProMarket
+from wings.market.ddex_market import DDEXMarket
+from wings.market.market_base import MarketBase
+from wings.market.radar_relay_market import RadarRelayMarket
+from wings.network_iterator import NetworkStatus
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.trade import Trade
+from wings.wallet.web3_wallet import Web3Wallet
 
 from hummingbot import init_logging
 from hummingbot.cli.ui.keybindings import load_key_bindings
@@ -46,17 +50,18 @@ from hummingbot.cli.errors import (
     InvalidCommandError,
     ArgumentParserError
 )
-from hummingbot.cli.settings import (
-    in_memory_config_map,
-    global_config_map,
+from hummingbot.cli.config.config_var import ConfigVar
+from hummingbot.cli.config.in_memory_config_map import in_memory_config_map
+from hummingbot.cli.config.global_config_map import global_config_map
+from hummingbot.cli.config.config_helpers import (
     get_strategy_config_map,
     write_config_to_yml,
     load_required_configs,
-    EXCHANGES,
-    ConfigVar,
     parse_cvar_value,
     copy_strategy_template,
+    get_erc20_token_addresses,
 )
+from hummingbot.cli.settings import EXCHANGES
 from hummingbot.logger.report_aggregator import ReportAggregator
 from hummingbot.strategy.cross_exchange_market_making import (
     CrossExchangeMarketMakingStrategy,
@@ -66,27 +71,17 @@ from hummingbot.strategy.arbitrage import (
     ArbitrageStrategy,
     ArbitrageMarketPair
 )
-from hummingbot.cli.settings import get_erc20_token_addresses
+from hummingbot.strategy.discovery import (
+    DiscoveryStrategy,
+    DiscoveryMarketPair
+)
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.cli.utils.ethereum import check_web3
+from hummingbot.data_feed.data_feed_base import DataFeedBase
+from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
+from hummingbot.cli.utils.stop_loss_tracker import StopLossTracker
 
 s_logger = None
-
-
-def check_web3(ethereum_rpc_url: str) -> bool:
-    try:
-        w3: Web3 = Web3(Web3.HTTPProvider(ethereum_rpc_url, request_kwargs={"timeout": 2.0}))
-        ret = w3.isConnected()
-    except Exception:
-        ret = False
-
-    if not ret:
-        if ethereum_rpc_url.startswith("http://mainnet.infura.io"):
-            logging.getLogger().warning("You are connecting to an Infura using an insecure network protocol "
-                                        "(\"http\"), which may not be allowed by Infura. "
-                                        "Try using \"https://\" instead.")
-        if ethereum_rpc_url.startswith("mainnet.infura.io"):
-            logging.getLogger().warning("Please add \"https://\" to your Infura node url.")
-    return ret
 
 
 class HummingbotApplication:
@@ -115,11 +110,13 @@ class HummingbotApplication:
         self.market_pair: Optional[CrossExchangeMarketPair] = None
         self.clock: Optional[Clock] = None
 
-        self.assets: Optional[Set[str]] = None
+        self.assets: Optional[Set[str]] = set()
         self.starting_balances = {}
         self.placeholder_mode = False
         self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
         self.reporting_module: Optional[ReportAggregator] = None
+        self.data_feed: Optional[DataFeedBase] = None
+        self.stop_loss_tracker: Optional[StopLossTracker] = None
 
     def init_reporting_module(self):
         if not self.reporting_module:
@@ -184,7 +181,12 @@ class HummingbotApplication:
 
     @property
     def config_complete(self):
-        return len(self._get_empty_configs()) == 0
+        config_map = load_required_configs()
+        for key in self._get_empty_configs():
+            cvar = config_map.get(key)
+            if cvar.value is None and cvar.required:
+                return False
+        return True
 
     @staticmethod
     def _get_empty_configs() -> List[str]:
@@ -232,7 +234,7 @@ class HummingbotApplication:
 
     async def _unlock_wallet(self):
         choice = await self.app.prompt(prompt="Would you like to unlock your previously saved wallet? (y/n) >>> ")
-        if choice.lower() == "y":
+        if choice.lower() in {"y", "yes"}:
             wallets = list_wallets()
             self.app.log("Existing wallets:")
             self.list(obj="wallets")
@@ -327,6 +329,7 @@ class HummingbotApplication:
             await write_config_to_yml()
             if not single_key:
                 self.app.log("\nConfig process complete. Enter \"start\" to start market making.")
+                self.app.set_text("start")
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
         except Exception as err:
@@ -345,15 +348,14 @@ class HummingbotApplication:
                                                  erc20_token_addresses=erc20_token_addresses,
                                                  chain=EthereumChain.MAIN_NET)
 
-    def _initialize_markets(self, market_names: List[Tuple[str, str]]):
+    def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
-
-        for market_name, symbol in market_names:
+        for market_name, symbols in market_names:
             if market_name == "ddex" and self.wallet:
                 market = DDEXMarket(wallet=self.wallet,
                                     web3_url=ethereum_rpc_url,
                                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                    symbols=[symbol])
+                                    symbols=symbols)
 
             elif market_name == "binance":
                 binance_api_key = global_config_map.get("binance_api_key").value
@@ -362,12 +364,12 @@ class HummingbotApplication:
                                        binance_api_key=binance_api_key,
                                        binance_api_secret=binance_api_secret,
                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                       symbols=[symbol])
+                                       symbols=symbols)
 
             elif market_name == "radar_relay" and self.wallet:
                 market = RadarRelayMarket(wallet=self.wallet,
                                           web3_url=ethereum_rpc_url,
-                                          symbols=[symbol])
+                                          symbols=symbols)
 
             elif market_name == "coinbase_pro":
                 coinbase_pro_api_key = global_config_map.get("coinbase_pro_api_key").value
@@ -378,7 +380,7 @@ class HummingbotApplication:
                                            coinbase_pro_api_key=coinbase_pro_api_key,
                                            coinbase_pro_secret_key=coinbase_pro_secret_key,
                                            coinbase_pro_passphrase=coinbase_pro_passphrase,
-                                           symbols=[symbol])
+                                           symbols=symbols)
 
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
@@ -402,12 +404,16 @@ class HummingbotApplication:
             return False
 
         if self.wallet is not None:
-            has_minimum_eth = self.wallet.get_balance("ETH") > 0.01
-            if has_minimum_eth:
-                self.app.log("   - Min ETH check: Minimum ETH requirement satisfied")
+            if self.wallet.network_status is NetworkStatus.CONNECTED:
+                has_minimum_eth = self.wallet.get_balance("ETH") > 0.01
+                if has_minimum_eth:
+                    self.app.log("   - ETH wallet check: Minimum ETH requirement satisfied")
+                else:
+                    self.app.log("   x ETH wallet check: Not enough ETH in wallet. "
+                                 "A small amount of Ether is required for sending transactions on "
+                                 "Decentralized Exchanges")
             else:
-                self.app.log("   x Min ETH check: Not enough ETH in wallet. "
-                             "A small amount of Ether is required for sending transactions on Decentralized Exchanges")
+                self.app.log("   x ETH wallet check: ETH wallet is not connected.")
 
         loading_markets: List[str] = []
         for market_name, market in self.markets.items():
@@ -415,12 +421,22 @@ class HummingbotApplication:
                 loading_markets.append(market_name)
 
         if self.strategy is None:
+            self.app.log("   x initializing strategy.")
             return True
         elif len(loading_markets) > 0:
             for loading_market in loading_markets:
                 self.app.log(f"   x Market check:  Waiting for {loading_market} market to get ready for trading. "
                              f"Please keep the bot running and try to start again in a few minutes")
             return False
+        elif not all([market.network_status is NetworkStatus.CONNECTED for market in self.markets.values()]):
+            offline_markets: List[str] = [
+                market_name
+                for market_name, market
+                in self.markets.items()
+                if market.network_status is not NetworkStatus.CONNECTED
+            ]
+            for offline_market in offline_markets:
+                self.app.log(f"   x Market check:  {offline_market} is currently offline.")
 
         self.app.log("   - Market check: All markets ready")
         self.app.log(self.strategy.format_status() + "\n")
@@ -535,11 +551,23 @@ class HummingbotApplication:
         if log_level is not None:
             init_logging("hummingbot_logs.yml", override_log_level=log_level.upper())
 
+        # If macOS, disable App Nap.
+        if platform.system() == "Darwin":
+            import appnope
+            appnope.nope()
+
+        # TODO add option to select data feed
+        self.data_feed: DataFeedBase = CoinCapDataFeed.get_instance()
+
         ExchangeRateConversion.get_instance().start()
         strategy_name = in_memory_config_map.get("strategy").value
         self.init_reporting_module()
         self.app.log(f"\n  Status check complete. Starting '{strategy_name}' strategy...")
         asyncio.ensure_future(self.start_market_making(strategy_name))
+
+    async def _run_clock(self):
+        with self.clock as clock:
+            await clock.run()
 
     async def start_market_making(self, strategy_name: str):
         strategy_cm = get_strategy_config_map(strategy_name)
@@ -570,17 +598,18 @@ class HummingbotApplication:
                 self.app.log(str(e))
                 return
 
-            market_names: List[Tuple[str, str]] = [
-                (maker_market, raw_maker_symbol),
-                (taker_market, raw_taker_symbol)
+            market_names: List[Tuple[str, List[str]]] = [
+                (maker_market, [raw_maker_symbol]),
+                (taker_market, [raw_taker_symbol])
             ]
             self._initialize_wallet(token_symbols=list(set(maker_assets + taker_assets)))
             self._initialize_markets(market_names)
             self.assets = set(maker_assets + taker_assets)
 
-            self.market_pair = CrossExchangeMarketPair(*([self.markets[maker_market], raw_maker_symbol] + list(maker_assets) +
-                                                  [self.markets[taker_market], raw_taker_symbol] + list(taker_assets) +
-                                                  [top_depth_tolerance]))
+            self.market_pair = CrossExchangeMarketPair(*([self.markets[maker_market], raw_maker_symbol] +
+                                                         list(maker_assets) +
+                                                         [self.markets[taker_market], raw_taker_symbol] +
+                                                         list(taker_assets) + [top_depth_tolerance]))
 
             strategy_logging_options = (CrossExchangeMarketMakingStrategy.OPTION_LOG_CREATE_ORDER |
                                         CrossExchangeMarketMakingStrategy.OPTION_LOG_ADJUST_ORDER |
@@ -612,9 +641,8 @@ class HummingbotApplication:
                 self.app.log(str(e))
                 return
 
-            market_names: List[Tuple[str, str]] = [(primary_market, raw_primary_symbol),
-                                                   (secondary_market, raw_secondary_symbol)]
-
+            market_names: List[Tuple[str, List[str]]] = [(primary_market, [raw_primary_symbol]),
+                                                         (secondary_market, [raw_secondary_symbol])]
             self._initialize_wallet(token_symbols=list(set(primary_assets + secondary_assets)))
             self._initialize_markets(market_names)
             self.assets = set(primary_assets + secondary_assets)
@@ -629,7 +657,45 @@ class HummingbotApplication:
             self.strategy = ArbitrageStrategy(market_pairs=[self.market_pair],
                                               min_profitability=min_profitability,
                                               logging_options=strategy_logging_options)
+        elif strategy_name == "discovery":
+            try:
+                market_1 = strategy_cm.get("primary_market").value.lower()
+                market_2 = strategy_cm.get("secondary_market").value.lower()
+                target_symbol_1 = list(strategy_cm.get("target_symbol_1").value)
+                target_symbol_2 = list(strategy_cm.get("target_symbol_2").value)
+                target_profitability = float(strategy_cm.get("target_profitability").value)
+                target_amount = float(strategy_cm.get("target_amount").value)
+                equivalent_token: List[List[str]] = list(strategy_cm.get("equivalent_tokens").value)
 
+                market_names: List[Tuple[str, List[str]]] = [(market_1, target_symbol_1),
+                                                             (market_2, target_symbol_2)]
+
+                target_base_quote_1: List[Tuple[str, str]] = [
+                    SymbolSplitter.split(market_1, symbol) for symbol in target_symbol_1
+                ]
+                target_base_quote_2: List[Tuple[str, str]] = [
+                    SymbolSplitter.split(market_2, symbol) for symbol in target_symbol_2
+                ]
+
+                for asset_tuple in (target_base_quote_1 + target_base_quote_2):
+                    self.assets.add(asset_tuple[0])
+                    self.assets.add(asset_tuple[1])
+
+                self._initialize_wallet(token_symbols=list(self.assets))
+                self._initialize_markets(market_names)
+                self.market_pair = DiscoveryMarketPair(
+                    *([self.markets[market_1], self.markets[market_1].get_active_exchange_markets] +
+                      [self.markets[market_2], self.markets[market_2].get_active_exchange_markets]))
+
+                self.strategy = DiscoveryStrategy(market_pairs=[self.market_pair],
+                                                  target_symbols=target_base_quote_1 + target_base_quote_2,
+                                                  equivalent_token=equivalent_token,
+                                                  target_profitability=target_profitability,
+                                                  target_amount=target_amount
+                                                  )
+            except Exception as e:
+                self.app.log(str(e))
+                self.logger().error("Error initializing strategy.", exc_info=True)
         else:
             raise NotImplementedError
 
@@ -641,15 +707,29 @@ class HummingbotApplication:
                 if market is not None:
                     self.clock.add_iterator(market)
             self.clock.add_iterator(self.strategy)
-            self.strategy_task: asyncio.Task = asyncio.ensure_future(self.clock.run())
+            self.strategy_task: asyncio.Task = asyncio.ensure_future(self._run_clock())
             self.app.log(f"\n  '{strategy_name}' strategy started.\n"
                          f"  You can use the `status` command to query the progress.")
+
             self.starting_balances = await self.wait_till_ready(self.balance_snapshot)
+            self.stop_loss_tracker = StopLossTracker(self.data_feed,
+                                                     list(self.assets),
+                                                     list(self.markets.values()),
+                                                     lambda *args, **kwargs: asyncio.ensure_future(
+                                                         self.stop(*args, **kwargs)
+                                                     ))
+            await self.wait_till_ready(self.stop_loss_tracker.start)
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
 
     async def stop(self, skip_order_cancellation: bool = False):
         self.app.log("\nWinding down...")
+
+        # Restore App Nap on macOS.
+        if platform.system() == "Darwin":
+            import appnope
+            appnope.nap()
+
         if not skip_order_cancellation:
             # Remove the strategy from clock before cancelling orders, to
             # prevent race condition where the strategy tries to create more
@@ -663,6 +743,10 @@ class HummingbotApplication:
             self.reporting_module.stop()
         if self.strategy_task is not None and not self.strategy_task.cancelled():
             self.strategy_task.cancel()
+        if self.strategy:
+            self.strategy.stop()
+        ExchangeRateConversion.get_instance().stop()
+        self.stop_loss_tracker.stop()
         self.wallet = None
         self.strategy_task = None
         self.strategy = None
@@ -672,6 +756,8 @@ class HummingbotApplication:
     async def exit(self, force: bool = False):
         if self.strategy_task is not None and not self.strategy_task.cancelled():
             self.strategy_task.cancel()
+        if self.strategy:
+            self.strategy.stop()
         if force is False:
             success = await self._cancel_outstanding_orders()
             if not success:
@@ -681,6 +767,7 @@ class HummingbotApplication:
                 return
             # Freeze screen 1 second for better UI
             await asyncio.sleep(1)
+        ExchangeRateConversion.get_instance().stop()
         self.app.exit()
 
     async def export_private_key(self):
@@ -693,7 +780,7 @@ class HummingbotApplication:
 
             ans = await self.app.prompt("Are you sure you want to print your private key in plain text? (y/n) >>> ")
 
-            if ans.lower() in {"y" or "yes"}:
+            if ans.lower() in {"y", "yes"}:
                 self.app.log("\nWarning: Never disclose this key. Anyone with your private keys can steal any assets "
                              "held in your account.\n")
                 self.app.log("Your private key:")
@@ -744,7 +831,7 @@ class HummingbotApplication:
 
     def compare_balance_snapshots(self):
         if len(self.starting_balances) == 0:
-            self.app.log("Balance snapshots are not available before bot starts")
+            self.app.log("  Balance snapshots are not available before bot starts")
             return
 
         rows = []
@@ -757,5 +844,3 @@ class HummingbotApplication:
         df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Delta"])
         lines = ["", "  Performance:"] + ["    " + line for line in str(df).split("\n")]
         self.app.log("\n".join(lines))
-
-

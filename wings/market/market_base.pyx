@@ -1,25 +1,26 @@
 from decimal import Decimal
+import pandas as pd
 from typing import (
     Dict,
     List,
 )
 
-from wings.events import MarketEvent
-from wings.order_book import OrderBook
 from wings.cancellation_result import CancellationResult
-from wings.limit_order import LimitOrder
-from wings.event_reporter import EventReporter
 from wings.events import (
+    MarketEvent,
     OrderType,
     TradeType,
     TradeFee
 )
 from wings.event_logger import EventLogger
+from wings.limit_order import LimitOrder
+from wings.network_iterator import NetworkIterator
+from wings.order_book import OrderBook
 
 NaN = float("nan")
 
 
-cdef class MarketBase(TimeIterator):
+cdef class MarketBase(NetworkIterator):
     MARKET_EVENTS = [
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
@@ -43,11 +44,15 @@ cdef class MarketBase(TimeIterator):
 
     @property
     def name(self) -> str:
-        raise NotImplementedError
+        return self.__class__.__name__
 
     @property
     def event_logs(self) -> List[any]:
         return self.event_logger.event_log
+
+    @property
+    def name(self) -> str:
+        return self.__class__.__name__
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -59,6 +64,13 @@ cdef class MarketBase(TimeIterator):
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
+        raise NotImplementedError
+
+    async def get_active_exchange_markets(self) -> pd.DataFrame:
+        """
+        :return: data frame with symbol as index, and at least the following columns --
+                 ["baseAsset", "quoteAsset", "volume", "USDVolume"]
+        """
         raise NotImplementedError
 
     def get_balance(self, currency: str) -> float:
@@ -92,12 +104,13 @@ cdef class MarketBase(TimeIterator):
         raise NotImplementedError
 
     def get_fee(self,
-                symbol: str, 
+                base_currency: str,
+                quote_currency: str,
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: float,
                 price: float = NaN) -> TradeFee:
-        return self.c_get_fee(symbol, order_type, order_side, amount, price)
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
 
     def get_order_price_quantum(self, symbol: str, price: float) -> Decimal:
         return self.c_get_order_price_quantum(symbol, price)
@@ -121,7 +134,8 @@ cdef class MarketBase(TimeIterator):
         raise NotImplementedError
 
     cdef object c_get_fee(self,
-                          str symbol,
+                          str base_currency,
+                          str quote_currency,
                           object order_type,
                           object order_side,
                           double amount,

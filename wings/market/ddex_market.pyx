@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 from async_timeout import timeout
+from cachetools import TTLCache
 from collections import (
     deque,
     OrderedDict
@@ -17,13 +18,10 @@ from typing import (
 from decimal import Decimal
 from libc.stdint cimport int64_t
 from web3 import Web3
+
+from wings.cancellation_result import CancellationResult
 from wings.clock cimport Clock
-from wings.limit_order import LimitOrder
-from wings.market.market_base cimport MarketBase
-from wings.wallet.web3_wallet import Web3Wallet
-from wings.order_book cimport OrderBook
-from wings.order_book_tracker import OrderBookTrackerDataSourceType
-from wings.tracker.ddex_order_book_tracker import DDEXOrderBookTracker
+from wings.data_source.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
 from wings.events import (
     MarketEvent,
     BuyOrderCompletedEvent,
@@ -33,11 +31,21 @@ from wings.events import (
     MarketTransactionFailureEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
-    OrderType,
     TradeType,
     TradeFee
 )
-from wings.cancellation_result import CancellationResult
+from wings.limit_order import LimitOrder
+from wings.market.market_base cimport MarketBase
+from wings.market.market_base import (
+    OrderType
+)
+from wings.network_iterator import (
+    NetworkStatus
+)
+from wings.order_book cimport OrderBook
+from wings.order_book_tracker import OrderBookTrackerDataSourceType
+from wings.tracker.ddex_order_book_tracker import DDEXOrderBookTracker
+from wings.wallet.web3_wallet import Web3Wallet
 
 
 s_logger = None
@@ -255,6 +263,7 @@ cdef class DDEXMarket(MarketBase):
         self._taker_trade_fee = NaN
         self._gas_fee_weth = NaN
         self._gas_fee_usd = NaN
+        self._api_response_records = TTLCache(60000, ttl=600.0)
 
     @property
     def name(self) -> str:
@@ -270,6 +279,10 @@ cdef class DDEXMarket(MarketBase):
                and not math.isnan(self._taker_trade_fee) \
                and not math.isnan(self._gas_fee_weth) \
                and not math.isnan(self._gas_fee_usd)
+
+    @property
+    def name(self) -> str:
+        return "ddex"
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -307,6 +320,9 @@ cdef class DDEXMarket(MarketBase):
         return [self._in_flight_orders[order_id].to_limit_order()
                 for _, order_id
                 in self._order_expiry_queue]
+
+    async def get_active_exchange_markets(self):
+        return await DDEXAPIOrderBookDataSource.get_active_exchange_markets()
 
     async def _status_polling_loop(self):
         while True:
@@ -364,6 +380,22 @@ cdef class DDEXMarket(MarketBase):
             if exchange_order_id != tracked_order.exchange_order_id:
                 self.logger().warning(f"Incorrect exchange order id '{exchange_order_id}' returned from get order "
                                       f"request for '{tracked_order.exchange_order_id}'. Ignoring.")
+
+                # Capture the incorrect request / response conversation for submitting to DDEX.
+                request_url = f"{self.DDEX_REST_ENDPOINT}/orders/{tracked_order.exchange_order_id}"
+                response = self._api_response_records.get(request_url)
+
+                if response is not None:
+                    self.logger().info(f"Captured erroneous order update request/response. "
+                                       f"Request URL={response.real_url}, "
+                                       f"Request headers={response.request_info.headers}, "
+                                       f"Response headers={response.headers}, "
+                                       f"Response data={repr(response._body)}, "
+                                       f"Decoded order update={order_update}.")
+                else:
+                    self.logger().info(f"Failed to capture the erroneous request/response for getting the order update "
+                                       f"of the order {tracked_order.exchange_order_id}.")
+
                 continue
 
             # Calculate the newly executed amount for this update.
@@ -377,7 +409,7 @@ cdef class DDEXMarket(MarketBase):
             order_type_description = (("market" if tracked_order.order_type == OrderType.MARKET else "limit") +
                                       " " +
                                       ("buy" if tracked_order.is_buy else "sell"))
-
+            order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
             # Emit event if executed amount is greater than 0.
             if execute_amount_diff > 0:
                 fill_size = execute_amount_diff
@@ -390,7 +422,7 @@ cdef class DDEXMarket(MarketBase):
                     tracked_order.client_order_id,
                     tracked_order.symbol,
                     TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
-                    OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT,
+                    order_type,
                     execute_price,
                     fill_size
                 )
@@ -425,7 +457,8 @@ cdef class DDEXMarket(MarketBase):
                                                                     tracked_order.quote_asset,
                                                                     executed_amount,
                                                                     quote_asset_amount,
-                                                                    float(tracked_order.gas_fee_amount)))
+                                                                    float(tracked_order.gas_fee_amount),
+                                                                    order_type))
                     else:
                         self.logger().info(f"The {order_type_description} order {client_order_id} has "
                                            f"completed according to order status API.")
@@ -437,7 +470,8 @@ cdef class DDEXMarket(MarketBase):
                                                                      tracked_order.quote_asset,
                                                                      executed_amount,
                                                                      quote_asset_amount,
-                                                                     float(tracked_order.gas_fee_amount)))
+                                                                     float(tracked_order.gas_fee_amount),
+                                                                     order_type))
                 else:
                     if (self._in_flight_cancels.get(client_order_id, 0) >
                             self._current_timestamp - self.CANCEL_EXPIRY_TIME):
@@ -492,7 +526,10 @@ cdef class DDEXMarket(MarketBase):
             data = await response.json()
             if data["status"] is not 0:
                 raise IOError(f"Request to {url} has failed", data)
-            self.logger().debug(f"{data}")
+
+            # Keep an auto-expired record of the response and the request URL for debugging and logging purpose.
+            self._api_response_records[url] = response
+
             return data
 
     async def _update_trade_fees(self):
@@ -523,18 +560,16 @@ cdef class DDEXMarket(MarketBase):
             self._last_update_trade_fees_timestamp = current_timestamp
 
     cdef object c_get_fee(self,
-                          str symbol,
+                          str base_currency,
+                          str quote_currency,
                           object order_type,
                           object order_side,
                           double amount,
                           double price):
         cdef:
-            str quote_token
             double gas_fee = 0.0
-            object fee_type
-            double trade_fee
+            double percent
 
-        quote_currency = symbol.split("-")[1]
         # DDEX only quotes with WETH or stable coins
         if quote_currency == "WETH":
             gas_fee = self._gas_fee_weth
@@ -625,30 +660,11 @@ cdef class DDEXMarket(MarketBase):
 
     cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0,
                    dict kwargs = {}):
-        # DDEX takes fees in addition to what you want to spend
-        # if you want to buy 10 ZRX with 1 DAI and the fee is 2%, required DAI balance is 1.02 DAI
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"buy-{symbol}-{tracking_nonce}")
-            object buy_fee = self.c_get_fee(symbol, order_type, TradeType.BUY, amount, price)
-            double total_flat_fees = 0.0
-            double adjusted_amount
-            double price_for_fee_calc
 
-        for flat_fee_currency, flat_fee_amount in buy_fee.flat_fees:
-            # DDEX fees are always in quote currency so no conversion is needed
-            total_flat_fees += flat_fee_amount
-
-        # adjust amount so fees are taken from your order instead of in addition to your order
-        if order_type == OrderType.MARKET:
-            # get price estimate for valuing fees
-            price_for_fee_calc = (<OrderBook>self.c_get_order_book(symbol)).c_get_price_for_volume(True, amount)
-        else:
-            price_for_fee_calc = price
-
-        adjusted_amount = amount / (1 + buy_fee.percent) - total_flat_fees / price_for_fee_calc
-        # send the order.
-        asyncio.ensure_future(self.execute_buy(order_id, symbol, adjusted_amount, order_type, price))
+        asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
         return order_id
 
     async def execute_buy(self, order_id: str, symbol: str, amount: float, order_type: OrderType, price: float) -> str:
@@ -702,7 +718,10 @@ cdef class DDEXMarket(MarketBase):
             self.c_stop_tracking_order(order_id)
             self.logger().error(f"Error submitting buy order to DDEX for {amount} {symbol}.", exc_info=True)
             self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                                 MarketTransactionFailureEvent(self._current_timestamp, order_id))
+                                 MarketTransactionFailureEvent(self._current_timestamp,
+                                                               order_id,
+                                                               order_type)
+                                 )
 
     cdef str c_sell(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0,
                     dict kwargs = {}):
@@ -750,7 +769,10 @@ cdef class DDEXMarket(MarketBase):
             self.c_stop_tracking_order(order_id)
             self.logger().error(f"Error submitting sell order to DDEX for {amount} {symbol}.", exc_info=True)
             self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                                 MarketTransactionFailureEvent(self._current_timestamp, order_id))
+                                 MarketTransactionFailureEvent(self._current_timestamp,
+                                                               order_id,
+                                                               order_type)
+                                 )
 
     cdef c_cancel(self, str symbol, str client_order_id):
         # If there's an ongoing cancel on this order within the expiry time, don't do it again.
@@ -829,14 +851,44 @@ cdef class DDEXMarket(MarketBase):
 
         return order_book.c_get_price(is_buy)
 
-    cdef c_start(self, Clock clock, double timestamp):
-        MarketBase.c_start(self, clock, timestamp)
+    async def start_network(self):
+        if self._order_tracker_task is not None:
+            self._stop_network()
+
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
         self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
-        tx_hashes = self.wallet.current_backend.check_and_fix_approval_amounts(
-            spender=self._wallet_spender_address)
+        tx_hashes = await self.wallet.current_backend.check_and_fix_approval_amounts(
+            spender=self._wallet_spender_address
+        )
         self._pending_approval_tx_hashes.update(tx_hashes)
         self._approval_tx_polling_task = asyncio.ensure_future(self._approval_tx_polling_loop())
+
+    def _stop_network(self):
+        if self._order_tracker_task is not None:
+            self._order_tracker_task.cancel()
+            self._status_polling_task.cancel()
+            self._pending_approval_tx_hashes.clear()
+            self._approval_tx_polling_task.cancel()
+        self._order_tracker_task = self._status_polling_task = self._approval_tx_polling_task = None
+
+    async def stop_network(self):
+        self._stop_network()
+        if self._shared_client is not None:
+            await self._shared_client.close()
+            self._shared_client = None
+
+    async def check_network(self) -> NetworkStatus:
+        if self._wallet.network_status is not NetworkStatus.CONNECTED:
+            return NetworkStatus.NOT_CONNECTED
+
+        url = f"{self.DDEX_REST_ENDPOINT}/markets/tickers"
+        try:
+            await self._api_request("GET", url)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return NetworkStatus.NOT_CONNECTED
+        return NetworkStatus.CONNECTED
 
     cdef c_tick(self, double timestamp):
         cdef:

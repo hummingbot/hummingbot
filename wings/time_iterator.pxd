@@ -11,4 +11,5 @@ cdef class TimeIterator(PubSub):
         Clock _clock
 
     cdef c_start(self, Clock clock, double timestamp)
+    cdef c_stop(self, Clock clock)
     cdef c_tick(self, double timestamp)

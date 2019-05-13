@@ -37,10 +37,10 @@ cdef class ArbitrageStrategy(StrategyBase):
     cdef c_did_complete_sell_order(self, object sell_order_completed_event)
     cdef c_did_fail_order(self, object fail_event)
     cdef c_did_cancel_order(self, object cancel_event)
-    cdef tuple c_calculate_arbitrage_profitability(self,
-                                                   object market_pair,
-                                                   OrderBook order_book_1,
-                                                   OrderBook order_book_2)
+    cdef tuple c_calculate_arbitrage_top_order_profitability(self,
+                                                             object market_pair,
+                                                             OrderBook order_book_1,
+                                                             OrderBook order_book_2)
     cdef c_process_market_pair(self, object market_pair)
     cdef c_process_market_pair_inner(self,
                                      MarketBase buy_market,
@@ -55,9 +55,22 @@ cdef class ArbitrageStrategy(StrategyBase):
                                      OrderBook sell_order_book
                                      )
 
-    cdef list c_find_profitable_arbitrage_orders(self,
-                                                 double min_profitability,
-                                                 OrderBook buy_order_book,
-                                                 OrderBook sell_order_book,
-                                                 str buy_market_quote_currency,
-                                                 str sell_market_quote_currency)
+    cdef tuple c_find_best_profitable_amount(self,
+                                             MarketBase buy_market,
+                                             str buy_market_symbol,
+                                             str buy_market_base_currency,
+                                             str buy_market_quote_currency,
+                                             OrderBook buy_order_book,
+                                             MarketBase sell_market,
+                                             str sell_market_symbol,
+                                             str sell_market_base_currency,
+                                             str sell_market_quote_currency,
+                                             OrderBook sell_order_book)
+    cdef c_ready_for_new_orders(self, object market_pair)
+
+
+cdef list c_find_profitable_arbitrage_orders(double min_profitability,
+                                             OrderBook buy_order_book,
+                                             OrderBook sell_order_book,
+                                             str buy_market_quote_currency,
+                                             str sell_market_quote_currency)

@@ -60,6 +60,8 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     raise IOError(f"Error fetching active Coinbase Pro markets. HTTP status is {products_response.status}.")
                 data = await products_response.json()
                 all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data, index="id")
+                all_markets.rename({"base_currency": "baseAsset", "quote_currency": "quoteAsset"},
+                                   axis="columns", inplace=True)
                 ids: List[str] = list(all_markets.index)
                 volumes: List[float] = []
                 prices: List[float] = []
@@ -103,8 +105,8 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         usd_volume.append(quote_volume * quote_price / btc_usd_price * btc_gbp_price)
                     else:
                         raise ValueError(f"Unable to convert volume to USD for market - {product_name}.")
-                all_markets["usd_volume"] = usd_volume
-                return all_markets.sort_values("usd_volume", ascending=False)
+                all_markets["USDVolume"] = usd_volume
+                return all_markets.sort_values("USDVolume", ascending=False)
 
     @property
     def order_book_class(self) -> CoinbaseProOrderBook:
