@@ -127,7 +127,7 @@ class ExchangeRateConversion:
             for price_feed in self._price_feeds:
                 source_name = price_feed.name
                 for symbol, config in self._exchange_rate_config["global_config"].items():
-                    if config["source"] == source_name:
+                    if config["source"].lower() == source_name.lower():
                         price = price_feed.get_price(symbol)
                         if price:
                             self._exchange_rate[symbol] = price
