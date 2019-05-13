@@ -19,6 +19,10 @@ class DataFeedBase:
         self._ready_event = asyncio.Event()
 
     @property
+    def name(self):
+        raise NotImplementedError
+
+    @property
     def price_dict(self) -> Dict[str, float]:
         raise NotImplementedError
 

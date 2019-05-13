@@ -85,7 +85,7 @@ class ExchangeRateConverterUnitTest(unittest.TestCase):
         time.sleep(1)
 
     def setUp(self):
-        async_run(ExchangeRateConversion.get_instance().update_exchange_rates_from_price_feeds())
+        async_run(ExchangeRateConversion.get_instance().update_exchange_rates_from_data_feeds())
 
     def test_adjust_token_rate(self):
         adjusted_cat = ExchangeRateConversion.get_instance().adjust_token_rate("cat", 10)
