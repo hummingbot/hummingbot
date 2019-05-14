@@ -1,3 +1,5 @@
+import io
+import traceback
 from typing import Optional
 import logging
 import json
@@ -46,14 +48,35 @@ class ReportingProxyHandler(logging.Handler):
 
         self.flush()
 
+    def formatException(self, ei):
+        """
+        Format and return the specified exception information as a string.
+
+        This default implementation just uses
+        traceback.print_exception()
+        """
+        sio = io.StringIO()
+        tb = ei[2]
+        # See issues #9427, #1553375 in python logging. Commented out for now.
+        #if getattr(self, 'fullstack', False):
+        #    traceback.print_stack(tb.tb_frame.f_back, file=sio)
+        traceback.print_exception(ei[0], ei[1], tb, None, sio)
+        s = sio.getvalue()
+        sio.close()
+        if s[-1:] == "\n":
+            s = s[:-1]
+        return s
+
     def process_log(self, log):
         message = {
             "name": log.name,
             "funcName": log.funcName,
             "msg": log.getMessage(),
             "created": log.created,
-            "level": log.levelname,
+            "level": log.levelname
         }
+        if log.exc_info:
+            message["exc_info"] = self.formatException(log.exc_info)
         self._log_queue.append(message)
 
     def process_event_log(self, log):
