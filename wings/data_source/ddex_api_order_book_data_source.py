@@ -16,6 +16,7 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+from hummingbot.cli.utils import async_ttl_cache
 from wings.tracker.ddex_active_order_tracker import DDEXActiveOrderTracker
 from wings.orderbook.ddex_order_book import DDEXOrderBook
 from .order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -24,8 +25,6 @@ from wings.order_book_tracker_entry import (
     OrderBookTrackerEntry
 )
 from wings.order_book_message import DDEXOrderBookMessage
-import cachetools
-import functools
 
 TRADING_PAIR_FILTER = re.compile(r"(TUSD|WETH|DAI)$")
 
@@ -34,22 +33,6 @@ WS_URL = "wss://ws.ddex.io/v3"
 TICKERS_URL = f"{REST_URL}/markets/tickers"
 SNAPSHOT_URL = f"{REST_URL}/markets"
 MARKETS_URL = f"{REST_URL}/markets"
-
-
-def async_ttl_cache(ttl: int = 3600, maxsize: int = 1):
-    cache = cachetools.TTLCache(ttl=ttl, maxsize=maxsize)
-    def decorator(fn):
-        @functools.wraps(fn)
-        async def memoize(*args, **kwargs):
-            key = str((args, kwargs))
-            try:
-                cache[key] = cache.pop(key)
-            except KeyError:
-                cache[key] = await fn(*args, **kwargs)
-            return cache[key]
-        return memoize
-
-    return decorator
 
 
 class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
