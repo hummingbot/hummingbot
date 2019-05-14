@@ -11,9 +11,9 @@ from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 
 from hummingbot.strategy.discovery.discovery_market_pair import DiscoveryMarketPair
 from hummingbot.strategy.arbitrage import ArbitrageStrategy
+from hummingbot.strategy.strategy_base cimport StrategyBase
 from wings.market.market_base import MarketBase
 
-from wings.strategy.strategy cimport Strategy
 from libc.stdint cimport int64_t
 from wings.order_book import OrderBook
 import itertools
@@ -22,7 +22,7 @@ NaN = float("nan")
 ds_logger = None
 
 
-cdef class DiscoveryStrategy(Strategy):
+cdef class DiscoveryStrategy(StrategyBase):
     OPTION_LOG_STATUS_REPORT = 1 << 0
     OPTION_LOG_ALL = 0xfffffffffffffff
 
@@ -147,7 +147,7 @@ cdef class DiscoveryStrategy(Strategy):
         return matching_pair
 
     cdef c_tick(self, double timestamp):
-        Strategy.c_tick(self, timestamp)
+        StrategyBase.c_tick(self, timestamp)
         if not self._fetch_market_info_task_list:
             self._fetch_market_info_task_list = [asyncio.ensure_future(self.fetch_market_info(market_pair))
                                                 for market_pair in self._market_pairs]
