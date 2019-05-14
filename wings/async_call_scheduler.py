@@ -80,6 +80,9 @@ class AsyncCallScheduler:
                 except Exception:
                     pass
                 raise
+            except asyncio.InvalidStateError:
+                # The future is already cancelled from outside. Ignore.
+                pass
             except Exception as e:
                 self.logger().error("API call error.", exc_info=True)
                 try:
