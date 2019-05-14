@@ -300,6 +300,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     def check_if_sufficient_balance(self, market_pair: PureMarketPair) -> bool:
         return self.c_check_if_sufficient_balance(market_pair)
 
+    def create_new_orders(self, market_pair: PureMarketPair):
+        return self.c_create_new_orders(market_pair)
+
     # ---------------------------------------------------------------
 
     cdef c_buy_with_specific_market(self, MarketBase market, str symbol, double amount,
