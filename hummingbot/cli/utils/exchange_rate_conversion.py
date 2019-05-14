@@ -89,6 +89,7 @@ class ExchangeRateConversion:
         except Exception:
             self.logger().error("Error initiating config for exchange rate conversion.", exc_info=True)
 
+
     def adjust_token_rate(self, symbol: str, price: float) -> float:
         """
         Returns the USD rate of a given token if it is found in conversion_required config
