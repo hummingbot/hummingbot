@@ -32,7 +32,12 @@ class CoinCapDataFeed(DataFeedBase):
         self._session = aiohttp.ClientSession(loop=self._ev_loop, connector=aiohttp.TCPConnector(ssl=False))
         self._price_dict: Dict[str, float] = {}
         self._update_interval = update_interval
-        self._fetch_price_task = asyncio.ensure_future(self.fetch_price_loop())
+        self._fetch_price_task: Optional[asyncio.Task] = None
+        self._started = False
+
+    @property
+    def name(self):
+        return "coincap_api"
 
     @property
     def price_dict(self):
@@ -73,3 +78,12 @@ class CoinCapDataFeed(DataFeedBase):
         except Exception:
             raise IOError("Error fetching prices from Coin Cap API")
 
+    def start(self):
+        self.stop()
+        self._fetch_price_task = asyncio.ensure_future(self.fetch_price_loop())
+        self._started = True
+
+    def stop(self):
+        if self._fetch_price_task and not self._fetch_price_task.done():
+            self._fetch_price_task.cancel()
+        self._started = False

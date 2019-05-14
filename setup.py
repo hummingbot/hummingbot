@@ -17,7 +17,7 @@ if os.name == "posix":
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20190509"
+    version = "20190513"
     packages = [
         "wings",
         "wings.logger",
