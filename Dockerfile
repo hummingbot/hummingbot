@@ -11,9 +11,6 @@ COPY wings/ wings/
 COPY setup.py .
 COPY LICENSE .
 
-# Update conda
-RUN conda update -n base -c defaults conda
-
 # Install linux dependencies
 RUN apt update && \
     apt-get update && \
