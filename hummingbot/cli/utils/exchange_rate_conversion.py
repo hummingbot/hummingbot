@@ -17,7 +17,7 @@ class ExchangeRateConversion:
     erc_logger: Optional[logging.Logger] = None
     _erc_shared_instance: "ExchangeRateConversion" = None
     _exchange_rate_config_override: Optional[Dict[str, Dict]] = None
-    _price_feeds_override: Optional[List[DataFeedBase]] = None
+    _data_feeds_override: Optional[List[DataFeedBase]] = None
     _update_interval: float = 5.0
 
     @classmethod
@@ -42,11 +42,11 @@ class ExchangeRateConversion:
 
     @classmethod
     def set_data_feeds(cls, data_feeds: List[DataFeedBase]):
-        if cls._price_feeds_override is None:
-            cls._price_feeds_override = data_feeds
+        if cls._data_feeds_override is None:
+            cls._data_feeds_override = data_feeds
         else:
-            cls._price_feeds_override.clear()
-            cls._price_feeds_override.extend(data_feeds)
+            cls._data_feeds_override.clear()
+            cls._data_feeds_override.extend(data_feeds)
 
     @classmethod
     def set_update_interval(cls, update_interval: float):
@@ -64,10 +64,10 @@ class ExchangeRateConversion:
         self._exchange_rate: Dict[str, int] = {}  # token: USD rate
 
         try:
-            if self._price_feeds_override is None:
-                self._price_feeds = [CoinCapDataFeed.get_instance()]
+            if self._data_feeds_override is None:
+                self._data_feeds = [CoinCapDataFeed.get_instance()]
             else:
-                self._price_feeds = self._price_feeds_override
+                self._data_feeds = self._data_feeds_override
 
             # Set default rate and source for token rates globally
             fetcher_global_config: List[List[str, str]] = global_config_map["exchange_rate_fetcher"].value or []
@@ -122,13 +122,13 @@ class ExchangeRateConversion:
             raise ValueError(f"Unable to convert '{from_currency}' to '{to_currency}'. Aborting.")
         return amount * from_currency_usd_rate / to_currency_usd_rate
 
-    async def update_exchange_rates_from_price_feeds(self):
+    async def update_exchange_rates_from_data_feeds(self):
         try:
-            for price_feed in self._price_feeds:
-                source_name = price_feed.name
+            for data_feed in self._data_feeds:
+                source_name = data_feed.name
                 for symbol, config in self._exchange_rate_config["global_config"].items():
-                    if config["source"] == source_name:
-                        price = price_feed.get_price(symbol)
+                    if config["source"].lower() == source_name.lower():
+                        price = data_feed.get_price(symbol)
                         if price:
                             self._exchange_rate[symbol] = price
                         else:
@@ -137,10 +137,15 @@ class ExchangeRateConversion:
             self.logger().warning(f"Error getting data from {source_name} data feed.", exc_info=True)
             raise
 
+    async def wait_till_ready(self):
+        for data_feed in self._data_feeds:
+            await data_feed.get_ready()
+
     async def request_loop(self):
         while True:
             try:
-                await self.update_exchange_rates_from_price_feeds()
+                await self.wait_till_ready()
+                await self.update_exchange_rates_from_data_feeds()
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -150,13 +155,13 @@ class ExchangeRateConversion:
 
     def start(self):
         self.stop()
-        for data_feed in self._price_feeds:
+        for data_feed in self._data_feeds:
             data_feed.start()
         self._fetch_exchange_rate_task = asyncio.ensure_future(self.request_loop())
         self._started = True
 
     def stop(self):
-        for data_feed in self._price_feeds:
+        for data_feed in self._data_feeds:
             data_feed.stop()
         if self._fetch_exchange_rate_task and not self._fetch_exchange_rate_task.done():
             self._fetch_exchange_rate_task.cancel()

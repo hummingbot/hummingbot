@@ -57,14 +57,7 @@ def async_run(func):
     loop.run_until_complete(func)
 
 
-class ArbitrageUnitTest(unittest.TestCase):
-    start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
-    end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
-    start_timestamp: float = start.timestamp()
-    end_timestamp: float = end.timestamp()
-    market_1_symbols: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
-    market_2_symbols: List[str] = ["coinalpha/eth", "COINALPHA", "ETH"]
-
+class ExchangeRateConverterUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         ExchangeRateConversion.set_global_exchange_rate_config({
@@ -85,7 +78,7 @@ class ArbitrageUnitTest(unittest.TestCase):
         time.sleep(1)
 
     def setUp(self):
-        async_run(ExchangeRateConversion.get_instance().update_exchange_rates_from_price_feeds())
+        async_run(ExchangeRateConversion.get_instance().update_exchange_rates_from_data_feeds())
 
     def test_adjust_token_rate(self):
         adjusted_cat = ExchangeRateConversion.get_instance().adjust_token_rate("cat", 10)

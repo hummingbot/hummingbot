@@ -28,7 +28,7 @@ class CoinMetricsDataFeed(DataFeedBase):
             cls.cmdf_logger = logging.getLogger(__name__)
         return cls.cmdf_logger
 
-    def __init__(self, update_interval: float = 5.0):
+    def __init__(self, update_interval: float = 30.0):
         super().__init__()
         self._ev_loop = asyncio.get_event_loop()
         self._session = None
@@ -67,7 +67,6 @@ class CoinMetricsDataFeed(DataFeedBase):
         except Exception:
             raise
 
-    @async_ttl_cache(ttl=60 * 60, maxsize=1)
     async def fetch_asset_price(self, asset, time_start, time_end):
         try:
             asset_price_url = f"get_asset_data_for_time_range/{asset}/price(usd)/{time_start}/{time_end}"
