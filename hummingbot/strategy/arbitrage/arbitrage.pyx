@@ -260,6 +260,9 @@ cdef class ArbitrageStrategy(StrategyBase):
                     if should_report_warnings:
                         self.logger().warning(f"Markets are not ready. No arbitrage trading is permitted.")
                     return
+                else:
+                    if self.OPTION_LOG_STATUS_REPORT:
+                        self.logger().info(f"Markets are ready. Trading started.")
 
             if not all([market.network_status is NetworkStatus.CONNECTED for market in self._markets]):
                 if should_report_warnings:
@@ -522,7 +525,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                     total_buy_flat_fees += buy_flat_fee_amount
                 else:
                     # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
-                    total_buy_flat_fees += ExchangeRateConversion.get_instance().adjust_token_rate(
+                    total_buy_flat_fees += ExchangeRateConversion.get_instance().convert_token_value(
                         amount=buy_flat_fee_amount,
                         from_currency=buy_flat_fee_asset,
                         to_currency=buy_market_symbol_pair.quote_asset
@@ -531,7 +534,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                 if sell_flat_fee_asset == sell_market_symbol_pair.quote_asset:
                     total_sell_flat_fees += sell_flat_fee_amount
                 else:
-                    total_sell_flat_fees += ExchangeRateConversion.get_instance().adjust_token_rate(
+                    total_sell_flat_fees += ExchangeRateConversion.get_instance().convert_token_value(
                         amount=sell_flat_fee_amount,
                         from_currency=sell_flat_fee_asset,
                         to_currency=sell_market_symbol_pair.quote_asset

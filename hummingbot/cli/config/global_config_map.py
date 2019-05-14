@@ -119,16 +119,16 @@ global_config_map = {
                                                   prompt="Enter your custom exchange rate conversion settings >>> ",
                                                   required_if=lambda: False,
                                                   type_str="list",
-                                                  default=[["DAI", 1.0, "COINCAP_API"],
-                                                           ["USDT", 1.0, "COINCAP_API"],
-                                                           ["USDC", 1.0, "COINCAP_API"],
-                                                           ["TUSD", 1.0, "COINCAP_API"]]),
+                                                  default=[["DAI", 1.0, "coincap_api"],
+                                                           ["USDT", 1.0, "coincap_api"],
+                                                           ["USDC", 1.0, "coincap_api"],
+                                                           ["TUSD", 1.0, "coincap_api"]]),
     "exchange_rate_fetcher":            ConfigVar(key="exchange_rate_fetcher",
                                                   prompt="Enter your custom exchange rate fetcher settings >>> ",
                                                   required_if=lambda: False,
                                                   type_str="list",
-                                                  default=[["ETH", "COINCAP_API"],
-                                                           ["DAI", "COINCAP_API"]]),
+                                                  default=[["ETH", "coincap_api"],
+                                                           ["DAI", "coincap_api"]]),
     "stop_loss_pct":                    ConfigVar(key="stop_loss_pct",
                                                   prompt="At what percentage of loss would you like the bot to stop "
                                                          "trading? (Enter 0.03 to indicate 3%. "
@@ -139,6 +139,7 @@ global_config_map = {
                                                   prompt="Would type of price data would you like to use for stop "
                                                          "loss (fixed/dynamic) ? >>> ",
                                                   required_if=lambda:
+                                                      type(global_config_map.get("stop_loss_pct").value) is float and
                                                       global_config_map.get("stop_loss_pct").value >= 0,
                                                   validator=lambda v: v in {"fixed", "dynamic"}),
     "stop_loss_base_token":             ConfigVar(key="stop_loss_base_token",
