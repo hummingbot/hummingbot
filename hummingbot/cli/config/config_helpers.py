@@ -42,9 +42,15 @@ def parse_cvar_value(cvar: ConfigVar, value: any):
         else:
             return value
     elif cvar.type == 'float':
-        return float(value)
+        try:
+            return float(value)
+        except Exception:
+            return 0.0
     elif cvar.type == 'int':
-        return int(value)
+        try:
+            return int(value)
+        except Exception:
+            return 0
     elif cvar.type == 'bool':
         if type(value) == str and value.lower() in ["true", "yes"]:
             return True

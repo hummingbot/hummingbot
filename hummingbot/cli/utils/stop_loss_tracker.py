@@ -76,6 +76,8 @@ class StopLossTracker:
             return total_value
 
         starting_total = calculate_total(self._starting_balances, self._starting_prices)
+        if starting_total == 0:
+            return 0.0
         current_balances = self.get_balances()
         current_prices = self._data_feed.price_dict
         if stop_loss_type == "fixed":
