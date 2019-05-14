@@ -49,8 +49,8 @@ def main():
 
     market_pair = PureMarketPair(*([binance_market] + list(binance_symbol)))
     strategy = PureMarketMakingStrategy([market_pair],
-                                        order_size = 0.5,
-                                        bid_place_threshold = 0.001,
+                                        order_size = 50000,
+                                        bid_place_threshold = 0.003,
                                         ask_place_threshold = 0.003,
                                         logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL)
 
@@ -60,9 +60,9 @@ def main():
     #clock.add_iterator(ddex_market)
     clock.add_iterator(strategy)
 
-    binance_market.set_balance("ETH", 10.0)
-    binance_market.set_balance("USDT", 1000.0)
-    ddex_market.set_balance("WETH", 10.0)
+    binance_market.set_balance("ETH", 100000.0)
+    binance_market.set_balance("USDT", 100000000.0)
+    ddex_market.set_balance("WETH", 100000.0)
     ddex_market.set_balance("DAI", 1000.0)
 
     current = start.timestamp()

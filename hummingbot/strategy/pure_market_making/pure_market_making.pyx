@@ -294,6 +294,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         return "\n".join(lines)
 
+    # The following exposed Python function is meant for unit tests
+    # ---------------------------------------------------------------
+
+    def check_if_sufficient_balance(self, market_pair: PureMarketPair) -> bool:
+        return self.c_check_if_sufficient_balance(market_pair)
+
+    # ---------------------------------------------------------------
+
     cdef c_buy_with_specific_market(self, MarketBase market, str symbol, double amount,
                                     double price,
                                     object order_type = OrderType.LIMIT,
