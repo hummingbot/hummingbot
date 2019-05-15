@@ -15,4 +15,5 @@ class CLIHandler(StreamHandler):
         retval: str = super().format(record)
         if exc_info:
             retval += " (See log file for stack trace dump)"
+        record.exc_info = exc_info
         return retval
