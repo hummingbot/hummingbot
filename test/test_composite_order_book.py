@@ -12,7 +12,7 @@ import unittest
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.ddex_order_book_loader import DDEXOrderBookLoader
 from hummingsim.backtest.market import Market
-from wings.clock import (
+from hummingbot.core.clock import (
     ClockMode,
     Clock
 )

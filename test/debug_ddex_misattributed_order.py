@@ -15,7 +15,7 @@ from typing import (
     List
 )
 
-from wings.clock import (
+from hummingbot.core.clock import (
     Clock,
     ClockMode
 )

@@ -20,7 +20,6 @@ from libc.stdint cimport int64_t
 from web3 import Web3
 
 from wings.cancellation_result import CancellationResult
-from wings.clock cimport Clock
 from wings.data_source.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
 from wings.events import (
     MarketEvent,
@@ -39,7 +38,7 @@ from wings.market.market_base cimport MarketBase
 from wings.market.market_base import (
     OrderType
 )
-from wings.network_iterator import (
+from hummingbot.core.network_iterator import (
     NetworkStatus
 )
 from wings.order_book cimport OrderBook

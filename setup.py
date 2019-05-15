@@ -29,6 +29,7 @@ def main():
         "wings.market",
         "wings.wallet",
         "hummingbot",
+        "hummingbot.core",
         "hummingbot.strategy",
         "hummingbot.strategy.arbitrage",
         "hummingbot.strategy.cross_exchange_market_making",

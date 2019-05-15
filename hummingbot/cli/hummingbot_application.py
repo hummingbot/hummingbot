@@ -19,7 +19,7 @@ from typing import (
     Callable,
 )
 
-from wings.clock import (
+from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
@@ -29,7 +29,7 @@ from wings.market.coinbase_pro_market import CoinbaseProMarket
 from wings.market.ddex_market import DDEXMarket
 from wings.market.market_base import MarketBase
 from wings.market.radar_relay_market import RadarRelayMarket
-from wings.network_iterator import NetworkStatus
+from hummingbot.core.network_iterator import NetworkStatus
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.trade import Trade
 from wings.wallet.web3_wallet import Web3Wallet

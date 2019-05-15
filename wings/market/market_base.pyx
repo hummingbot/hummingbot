@@ -14,7 +14,7 @@ from wings.events import (
 )
 from wings.event_logger import EventLogger
 from wings.limit_order import LimitOrder
-from wings.network_iterator import NetworkIterator
+from hummingbot.core.network_iterator import NetworkIterator
 from wings.order_book import OrderBook
 
 NaN = float("nan")
