@@ -43,10 +43,10 @@ def main():
     ]
     package_data = {
         "wings": [
-            "cpp/*.h",
             "abi/*.json",
         ],
         "hummingbot": [
+            "core/cpp/*.h",
             "erc20_tokens.json",
             "VERSION",
             "templates/*TEMPLATE.yml"
