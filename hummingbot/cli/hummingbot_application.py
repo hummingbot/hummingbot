@@ -75,7 +75,7 @@ from hummingbot.strategy.pure_market_making import (
     PureMarketMakingStrategy,
     PureMarketPair
 )
-from hummingbot.cli.settings import get_erc20_token_addresses
+#from hummingbot.cli.settings import get_erc20_token_addresses
 from hummingbot.strategy.discovery import (
     DiscoveryStrategy,
     DiscoveryMarketPair
@@ -665,26 +665,26 @@ class HummingbotApplication:
                                               logging_options=strategy_logging_options)
 
         elif strategy_name == "pure_market_making":
-            order_size = strategy_cm.get("order_size").value
+            order_size = strategy_cm.get("order_amount").value
             clock_tick_size = strategy_cm.get("tick_size").value
             bid_place_threshold = strategy_cm.get("bid_place_threshold").value
             ask_place_threshold = strategy_cm.get("ask_place_threshold").value
-            primary_market = strategy_cm.get("primary_market").value.lower()
-            raw_primary_symbol = strategy_cm.get("primary_market_symbol").value.upper()
+            maker_market = strategy_cm.get("maker_market").value.lower()
+            raw_maker_symbol = strategy_cm.get("maker_market_symbol").value.upper()
             try:
-                primary_assets: Tuple[str, str] = SymbolSplitter.split(primary_market, raw_primary_symbol)
+                primary_assets: Tuple[str, str] = SymbolSplitter.split(maker_market, raw_maker_symbol)
 
             except ValueError as e:
                 self.app.log(str(e))
                 return
 
-            market_names: List[Tuple[str, str]] = [(primary_market, raw_primary_symbol)]
+            market_names: List[Tuple[str, str]] = [(maker_market, raw_maker_symbol)]
 
             self._initialize_wallet(token_symbols=list(set(primary_assets)))
             self._initialize_markets(market_names)
             self.assets = set(primary_assets)
 
-            self.market_pair = PureMarketPair(*([self.markets[primary_market], raw_primary_symbol] +
+            self.market_pair = PureMarketPair(*([self.markets[maker_market], raw_maker_symbol] +
                                                      list(primary_assets)))
             strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
 
@@ -693,8 +693,6 @@ class HummingbotApplication:
                                                      bid_place_threshold = bid_place_threshold,
                                                      ask_place_threshold = ask_place_threshold,
                                                      logging_options=strategy_logging_options)
-
-            raise ValueError("Not completed yet")
 
 
         elif strategy_name == "discovery":

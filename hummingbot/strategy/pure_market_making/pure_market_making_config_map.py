@@ -23,11 +23,11 @@ def is_valid_maker_market_symbol(value: str) -> bool:
 
 
 pure_market_making_config_map = {
-    "primary_market":                     ConfigVar(key="primary_market",
+    "maker_market":                     ConfigVar(key="maker_market",
                                                   prompt="Enter your maker exchange name >>> ",
                                                   validator=is_exchange,
                                                   on_validated=lambda value: required_exchanges.append(value)),
-    "primary_market_symbol":              ConfigVar(key="primary_market_symbol",
+    "maker_market_symbol":              ConfigVar(key="primary_market_symbol",
                                                   prompt=maker_symbol_prompt,
                                                   validator=is_valid_maker_market_symbol),
     "order_amount":                     ConfigVar(key="order_amount",
@@ -47,7 +47,7 @@ pure_market_making_config_map = {
                                                  type_str="float",
                                                  required_if=lambda: False,
                                                  default=0.01),
-    "tick_size":                       ConfigVar(key="bid_place_threshold",
+    "tick_size":                       ConfigVar(key="tick_size",
                                                   prompt="How often do you want to cancel & replace bids and asks "
                                                          "(in seconds)? >>> ",
                                                   type_str="float",
