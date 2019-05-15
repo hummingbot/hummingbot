@@ -9,9 +9,10 @@ class CLIHandler(StreamHandler):
         return None
 
     def format(self, record) -> str:
-        if record.exc_text is not None:
-            record.exc_text = None
+        exc_info = record.exc_info
+        if record.exc_info is not None:
+            record.exc_info = None
         retval: str = super().format(record)
-        if record.exc_info:
-            retval += " (Stack trace dumped to log file)"
+        if exc_info:
+            retval += " (See log file for stack trace dump)"
         return retval
