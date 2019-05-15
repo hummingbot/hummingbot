@@ -45,11 +45,13 @@ def parse_cvar_value(cvar: ConfigVar, value: any):
         try:
             return float(value)
         except Exception:
+            logging.getLogger().error(f"\"{value}\" is not an integer.")
             return 0.0
     elif cvar.type == 'int':
         try:
             return int(value)
         except Exception:
+            logging.getLogger().error(f"\"{value}\" is not an integer.")
             return 0
     elif cvar.type == 'bool':
         if type(value) == str and value.lower() in ["true", "yes"]:
