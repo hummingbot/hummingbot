@@ -22,7 +22,6 @@ def main():
         "wings",
         "wings.logger",
         "wings.model",
-        "wings.strategy",
         "wings.watcher",
         "wings.data_source",
         "wings.orderbook",
