@@ -66,7 +66,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
                                 erc20_token_addresses=[conf.mn_zerox_token_address, conf.mn_weth_token_address],
                                 chain=EthereumChain.MAIN_NET)
         cls.market: RadarRelayMarket = RadarRelayMarket(wallet=cls.wallet,
-                                                        web3_url=conf.test_web3_provider_list[0],
+                                                        ethereum_rpc_url=conf.test_web3_provider_list[0],
                                                         order_book_tracker_data_source_type=
                                                             OrderBookTrackerDataSourceType.EXCHANGE_API,
                                                         symbols=["ZRX-WETH"])

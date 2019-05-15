@@ -330,7 +330,7 @@ cdef class BinanceMarket(MarketBase):
         return s_logger
 
     def __init__(self,
-                 web3_url: str,
+                 ethereum_rpc_url: str,
                  binance_api_key: str,
                  binance_api_secret: str,
                  poll_interval: float = 5.0,
@@ -355,7 +355,7 @@ cdef class BinanceMarket(MarketBase):
         self._in_flight_deposits = {}
         self._in_flight_orders = {}
         self._tx_tracker = BinanceMarketTransactionTracker(self)
-        self._w3 = Web3(Web3.HTTPProvider(web3_url))
+        self._w3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
         self._withdraw_rules = {}
         self._trading_rules = {}
         self._trade_fees = {}
