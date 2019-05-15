@@ -10,6 +10,7 @@ from typing import (
 BINANCE_ENDPOINT = "https://api.binance.com/api/v1/exchangeInfo"
 DDEX_ENDPOINT = "https://api.ddex.io/v3/markets"
 RADAR_RELAY_ENDPOINT = "https://api.radarrelay.com/v2/markets"
+BAMBOO_RELAY_ENDPOINT = "https://rest.bamboorelay.com/main/0x/markets"
 COINBASE_PRO_ENDPOINT = "https://api.pro.coinbase.com/products/"
 API_CALL_TIMEOUT = 5
 
@@ -81,6 +82,28 @@ class SymbolFetcher:
         return list(symbols)
 
     @staticmethod
+    async def fetch_bamboo_relay_symbols() -> List[str]:
+        symbols = set()
+        page_count = 1
+        while True:
+            async with aiohttp.ClientSession() as client:
+                async with client.get(f"{BAMBOO_RELAY_ENDPOINT}?perPage=1000&page={page_count}", timeout=API_CALL_TIMEOUT) \
+                        as response:
+                    if response.status == 200:
+                        try:
+                            markets = await response.json()
+                            new_symbols = set(map(lambda symbol_details: symbol_details.get('id'), markets))
+                            if len(new_symbols) == 0:
+                                break
+                            else:
+                                symbols = symbols.union(new_symbols)
+                            page_count += 1
+                        except Exception:
+                            # Do nothing if the request fails -- there will be no autocomplete for bamboo symbols
+                            break
+        return list(symbols)
+
+    @staticmethod
     async def fetch_coinbase_pro_symbols() -> List[str]:
         async with aiohttp.ClientSession() as client:
             async with client.get(COINBASE_PRO_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
@@ -98,11 +121,13 @@ class SymbolFetcher:
         binance_symbols = await self.fetch_binance_symbols()
         ddex_symbols = await self.fetch_ddex_symbols()
         radar_relay_symbols = await self.fetch_radar_relay_symbols()
+        bamboo_relay_symbols = await self.fetch_bamboo_relay_symbols()
         coinbase_pro_symbols = await self.fetch_coinbase_pro_symbols()
         self.symbols = {
             "binance": binance_symbols,
             "ddex": ddex_symbols,
             "radar_relay": radar_relay_symbols,
+            "bamboo_relay": bamboo_relay_symbols,
             "coinbase_pro": coinbase_pro_symbols,
         }
         self.ready = True
