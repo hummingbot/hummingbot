@@ -53,8 +53,6 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
         if not self._data_source:
             if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
                 self._data_source = BambooRelayAPIOrderBookDataSource(symbols=self._symbols)
-            elif self._data_source_type is OrderBookTrackerDataSourceType.LOCAL_CLUSTER:
-                self._data_source = BambooRelayLocalClusterOrderBookDataSource()
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source
