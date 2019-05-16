@@ -14,7 +14,7 @@ order_amount: null
 
 # Time in seconds before cancelling and rerunning strategy
 # If tick size is 60, the bot cancels active orders and reruns after a minute
-tick_size: null
+cancel_order_wait_time: null
 
 # How far away from mid price to place the bid order
 # Expressed in decimals : 0.01 = 1% away from mid price at that time

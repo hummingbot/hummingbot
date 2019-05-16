@@ -576,7 +576,6 @@ class HummingbotApplication:
 
     async def start_market_making(self, strategy_name: str):
         strategy_cm = get_strategy_config_map(strategy_name)
-        clock_tick_size: float = 1.0
         if strategy_name == "cross_exchange_market_making":
             maker_market = strategy_cm.get("maker_market").value.lower()
             taker_market = strategy_cm.get("taker_market").value.lower()
@@ -666,7 +665,7 @@ class HummingbotApplication:
 
         elif strategy_name == "pure_market_making":
             order_size = strategy_cm.get("order_amount").value
-            clock_tick_size = strategy_cm.get("tick_size").value
+            cancel_order_wait_time = strategy_cm.get("cancel_order_wait_time").value
             bid_place_threshold = strategy_cm.get("bid_place_threshold").value
             ask_place_threshold = strategy_cm.get("ask_place_threshold").value
             maker_market = strategy_cm.get("maker_market").value.lower()
@@ -678,7 +677,7 @@ class HummingbotApplication:
                 self.app.log(str(e))
                 return
 
-            market_names: List[Tuple[str, str]] = [(maker_market, raw_maker_symbol)]
+            market_names: List[Tuple[str, str]] = [(maker_market, [raw_maker_symbol])]
 
             self._initialize_wallet(token_symbols=list(set(primary_assets)))
             self._initialize_markets(market_names)
@@ -692,7 +691,10 @@ class HummingbotApplication:
                                                      order_size = order_size,
                                                      bid_place_threshold = bid_place_threshold,
                                                      ask_place_threshold = ask_place_threshold,
+                                                     cancel_order_wait_time = cancel_order_wait_time,
                                                      logging_options=strategy_logging_options)
+
+            #self.app.log("strategy assigned succesfully")
 
 
         elif strategy_name == "discovery":
@@ -738,7 +740,7 @@ class HummingbotApplication:
             raise NotImplementedError
 
         try:
-            self.clock = Clock(clock_mode=ClockMode.REALTIME, tick_size=clock_tick_size)
+            self.clock = Clock(clock_mode=ClockMode.REALTIME)
             if self.wallet is not None:
                 self.clock.add_iterator(self.wallet)
             for market in self.markets.values():

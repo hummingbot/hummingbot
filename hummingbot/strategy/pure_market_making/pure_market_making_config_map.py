@@ -41,13 +41,13 @@ pure_market_making_config_map = {
                                                   type_str="float",
                                                   required_if=lambda: False,
                                                   default=0.01),
-    "ask_place_threshold":             ConfigVar(key="ask_place_threshold",
+    "ask_place_threshold":              ConfigVar(key="ask_place_threshold",
                                                  prompt="How far away from the last trade price do you want to place the next ask"
                                                       "(Enter 0.01 to indicate 1%)? >>> ",
                                                  type_str="float",
                                                  required_if=lambda: False,
                                                  default=0.01),
-    "tick_size":                       ConfigVar(key="tick_size",
+    "cancel_order_wait_time":           ConfigVar(key="cancel_order_wait_time",
                                                   prompt="How often do you want to cancel & replace bids and asks "
                                                          "(in seconds)? >>> ",
                                                   type_str="float",

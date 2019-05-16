@@ -108,6 +108,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  order_size: float = 1.0,
                  bid_place_threshold: float = 0.01,
                  ask_place_threshold: float = 0.01,
+                 cancel_order_wait_time: float = 60,
                  #volatility: float = 0.2
                  #risk_aversion: float = 0.1
                  #distance_from_mid: float = 0.05
@@ -129,7 +130,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._bid_place_threshold = bid_place_threshold
         self._ask_place_threshold = ask_place_threshold
         self._order_size = order_size
-
+        self._cancel_order_wait_time = cancel_order_wait_time
         #tracking limit orders
         self._tracked_maker_orders = {}
         #a copy of limit orders for safety for sometime
@@ -150,6 +151,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._order_expired_listener = OrderExpiredListener(self)
         self._logging_options = <int64_t>logging_options
         self._last_timestamp = 0
+        self._time_to_cancel = 0
         self._status_report_interval = status_report_interval
         self._limit_order_min_expiration = limit_order_min_expiration
 
@@ -328,7 +330,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         kwargs["expiration_ts"] = self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
 
-
         if market not in self._markets:
             raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
         return market.c_sell(symbol, amount,
@@ -405,20 +406,34 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             MarketBase maker_market
             OrderBook maker_order_book
             bint is_buy
+            double current_timestamp = self._current_timestamp
 
         global s_decimal_zero
 
-        for active_order in active_orders:
+        #If there are no active orders
+        if not len(active_orders):
+            #Set cancellation time
+            self._time_to_cancel = current_timestamp + self._cancel_order_wait_time
 
-            #Cancel active orders
-            self.c_cancel_order(market_pair, active_order.client_order_id)
+            # See if I still have enough balance on my wallet to place the bid and ask orders
+            # If not don't place orders
+            if not self.c_check_if_sufficient_balance(market_pair):
+                return
 
-        # See if I still have enough balance on my wallet to place the bid and ask orders
-        # If not don't place orders
-        if not self.c_check_if_sufficient_balance(market_pair):
-            return
-        # See if it's profitable to place a limit order on maker market.
-        self.c_create_new_orders(market_pair)
+            # Create new bid and ask orders
+            self.c_create_new_orders(market_pair)
+
+        #If there are active orders check if the current timestamp exceeds time to cancel
+        else:
+            if current_timestamp >= self._time_to_cancel:
+
+                 for active_order in active_orders:
+                    #Cancel active orders
+                    self.c_cancel_order(market_pair, active_order.client_order_id)
+
+                 #Create new bid and ask orders after cancelling old orders
+                 self.c_create_new_orders(market_pair)
+
 
     cdef c_did_fill_order(self, object order_filled_event):
         cdef:
@@ -579,9 +594,12 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             top_bid_price = maker_market.c_get_price(market_pair.maker_symbol, False)
             top_ask_price = maker_market.c_get_price(market_pair.maker_symbol, True)
 
-        mid_price = round((top_ask_price + top_bid_price)/2, 4)
-        place_bid_price = round(mid_price * ( 1 - self.bid_place_threshold), 4)
-        place_ask_price = round(mid_price * ( 1 + self.ask_place_threshold), 4)
+        price_quant = maker_market.get_order_price_quantum(market_pair.maker_symbol, top_bid_price)
+        mid_price = (top_ask_price + top_bid_price) / 2
+        place_bid_price = mid_price * ( 1 - self.bid_place_threshold)
+        place_ask_price = mid_price * ( 1 + self.ask_place_threshold)
+        place_bid_price = round(Decimal(place_bid_price)/price_quant) * price_quant
+        place_ask_price = round(Decimal(place_ask_price)/price_quant) * price_quant
 
         if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                     self.log_with_clock(

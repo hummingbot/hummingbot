@@ -16,6 +16,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         bint _all_markets_ready
         double _bid_place_threshold
         double _ask_place_threshold
+        double _cancel_order_wait_time
+        double _time_to_cancel
         double _order_size
         double _status_report_interval
         double _last_timestamp
