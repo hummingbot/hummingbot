@@ -16,6 +16,7 @@ cdef class BinanceMarket(MarketBase):
         double _poll_interval
         dict _in_flight_deposits
         dict _in_flight_orders
+        object _SYMBOL_SPLITTER
         TransactionTracker _tx_tracker
         object _w3
         dict _withdraw_rules

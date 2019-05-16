@@ -431,9 +431,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     #Cancel active orders
                     self.c_cancel_order(market_pair, active_order.client_order_id)
 
-                 #Create new bid and ask orders after cancelling old orders
-                 self.c_create_new_orders(market_pair)
-
 
     cdef c_did_fill_order(self, object order_filled_event):
         cdef:

@@ -322,6 +322,8 @@ cdef class BinanceMarket(MarketBase):
     BINANCE_TRADE_TOPIC_NAME = "binance-trade.serialized"
     BINANCE_USER_STREAM_TOPIC_NAME = "binance-user-stream.serialized"
 
+
+
     @classmethod
     def logger(cls) -> logging.Logger:
         global s_logger
@@ -366,6 +368,7 @@ cdef class BinanceMarket(MarketBase):
         self._user_stream_event_listener_task = None
         self._order_tracker_task = None
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
+        self._SYMBOL_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|TUSD|PAX)$")
 
     @property
     def name(self) -> str:
@@ -880,7 +883,7 @@ cdef class BinanceMarket(MarketBase):
                           price: Optional[float] = NaN):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
-            object m = self.SYMBOL_SPLITTER.match(self.symbol)
+            object m = self._SYMBOL_SPLITTER.match(symbol)
             str base_currency = m.group(1)
             str quote_currency = m.group(2)
             object buy_fee = self.c_get_fee(base_currency, quote_currency, order_type, TradeType.BUY, amount, price)
@@ -890,14 +893,14 @@ cdef class BinanceMarket(MarketBase):
         # charging additional fees for limit and market buy orders.
         # To make the Binance market class function like other market classes, the amount base
         # token requested is adjusted to account for fees.
-        self.logger().info("Execute buy is called")
+
         adjusted_amount = amount / (1 - buy_fee.percent)
         decimal_amount = self.quantize_order_amount(symbol, adjusted_amount)
-        self.logger().info(f"Amount to buy is {decimal_amount} ")
-        self.logger().info(f"Params are {order_id}, {symbol}, {amount}, {order_type}, {price}")
-        # if decimal_amount < trading_rule.min_order_size:
-        #     raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
-        #                      f"{trading_rule.min_order_size}.")
+        # self.logger().info(f"Amount to buy is {decimal_amount} ")
+        # self.logger().info(f"Params are {order_id}, {symbol}, {amount}, {order_type}, {price}")
+        if decimal_amount < trading_rule.min_order_size:
+            raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
+                             f"{trading_rule.min_order_size}.")
 
         try:
             self.c_start_tracking_order(order_id, -1, symbol, True, decimal_amount)
@@ -962,9 +965,8 @@ cdef class BinanceMarket(MarketBase):
 
         decimal_amount = self.quantize_order_amount(symbol, amount)
 
-        self.logger().info("Execute sell is called")
-        self.logger().info(f"Amount to sell is {decimal_amount} ")
-        self.logger().info(f"Params are {order_id}, {symbol}, {amount}, {order_type}, {price}")
+        # self.logger().info(f"Amount to sell is {decimal_amount} ")
+        # self.logger().info(f"Params are {order_id}, {symbol}, {amount}, {order_type}, {price}")
 
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
