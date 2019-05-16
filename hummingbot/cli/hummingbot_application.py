@@ -29,6 +29,7 @@ from wings.market.coinbase_pro_market import CoinbaseProMarket
 from wings.market.ddex_market import DDEXMarket
 from wings.market.market_base import MarketBase
 from wings.market.radar_relay_market import RadarRelayMarket
+from wings.market.bamboo_relay_market import BambooRelayMarket
 from wings.network_iterator import NetworkStatus
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.trade import Trade
@@ -159,9 +160,9 @@ class HummingbotApplication:
         success = True
         self.app.log("Cancelling outstanding orders...")
         for market_name, market in self.markets.items():
-            # By default, the bot does not cancel orders on exit on Radar Relay, since all open orders will
+            # By default, the bot does not cancel orders on exit on Radar Relay or Bamboo Relay, since all open orders will
             # expire in a short window
-            if not on_chain_cancel_on_exit and market_name == "radar_relay":
+            if not on_chain_cancel_on_exit and (market_name == "radar_relay" or market_name == "bamboo_relay"):
                 continue
             cancellation_results = await market.cancel_all(self.KILL_TIMEOUT)
             uncancelled = list(filter(lambda cr: cr.success is False, cancellation_results))
@@ -369,6 +370,11 @@ class HummingbotApplication:
             elif market_name == "radar_relay" and self.wallet:
                 market = RadarRelayMarket(wallet=self.wallet,
                                           ethereum_rpc_url=ethereum_rpc_url,
+                                          symbols=symbols)
+
+            elif market_name == "bamboo_relay" and self.wallet:
+                market = BambooRelayMarket(wallet=self.wallet,
+                                          web3_url=ethereum_rpc_url,
                                           symbols=symbols)
 
             elif market_name == "coinbase_pro":
