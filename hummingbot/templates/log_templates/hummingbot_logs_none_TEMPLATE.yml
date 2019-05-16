@@ -1,6 +1,6 @@
 ---
 version: 1
-template_version: 1
+template_version: 2
 
 formatters:
     simple:
@@ -8,17 +8,17 @@ formatters:
 
 handlers:
     console:
-        class: logging.StreamHandler
+        class: hummingbot.logger.cli_handler.CLIHandler
         level: DEBUG
         formatter: simple
         stream: ext://sys.stdout
     console_warning:
-        class: logging.StreamHandler
+        class: hummingbot.logger.cli_handler.CLIHandler
         level: WARNING
         formatter: simple
         stream: ext://sys.stdout
     console_info:
-        class: logging.StreamHandler
+        class: hummingbot.logger.cli_handler.CLIHandler
         level: INFO
         formatter: simple
         stream: ext://sys.stdout
