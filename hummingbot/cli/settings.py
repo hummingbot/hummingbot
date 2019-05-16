@@ -27,12 +27,14 @@ EXCHANGES = {
     "binance",
     "ddex",
     "radar_relay",
+    "bamboo_relay",
     "coinbase_pro"
 }
 
 DEXES = {
     "ddex",
     "radar_relay",
+    "bamboo_relay",
 }
 
 STRATEGIES = {
@@ -46,6 +48,7 @@ EXAMPLE_PAIRS = {
     "binance": "ZRXETH",
     "ddex": "ZRX-WETH",
     "radar_relay": "ZRX-WETH",
+    "bamboo_relay": "ZRX-WETH",
     "coinbase_pro": "ETH-USDC",
 }
 

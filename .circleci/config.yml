@@ -84,6 +84,13 @@ jobs:
             # python test/test_radar_relay_order_book_tracker.py
 
       - run:
+          name: Run Bamboo Relay Tests
+          command: |
+            source activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)
+            # python test/test_bamboo_relay_order_book_loader.py
+            # python test/test_bamboo_relay_order_book_tracker.py
+
+      - run:
           name: Run Bittrex Tests
           command: |
             source activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)
