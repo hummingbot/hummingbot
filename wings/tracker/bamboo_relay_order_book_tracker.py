@@ -13,7 +13,6 @@ from typing import (
     Set
 )
 
-from wings.data_source.bamboo_relay_local_cluster_order_book_data_source import BambooRelayLocalClusterOrderBookDataSource
 from wings.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from wings.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.data_source.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
