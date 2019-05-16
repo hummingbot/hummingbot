@@ -28,4 +28,7 @@ Here are the steps to reproduce the issue (see attachments in the section below)
 // Please attach your config file and log file to help us debug. It would be difficult for us to help you without those! 
 
 
-// WARNING: Do NOT publish any exchange API keys or your wallet's private key. Whoever has access to them may steal your assets!
+*WARNING: Do NOT publish any exchange API keys or your wallet's private key. Whoever has access to them may steal your assets!*
+
+**Optional: your discord username:**
+

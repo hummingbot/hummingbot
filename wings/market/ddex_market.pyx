@@ -228,7 +228,7 @@ cdef class DDEXMarket(MarketBase):
 
     def __init__(self,
                  wallet: Web3Wallet,
-                 web3_url: str,
+                 ethereum_rpc_url: str,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                     OrderBookTrackerDataSourceType.LOCAL_CLUSTER,
@@ -249,7 +249,7 @@ cdef class DDEXMarket(MarketBase):
         self._in_flight_cancels = OrderedDict()
         self._order_expiry_queue = deque()
         self._tx_tracker = DDEXMarketTransactionTracker(self)
-        self._w3 = Web3(Web3.HTTPProvider(web3_url))
+        self._w3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
         self._withdraw_rules = {}
         self._trading_rules = {}
         self._pending_approval_tx_hashes = set()
