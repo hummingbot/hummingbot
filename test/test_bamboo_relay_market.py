@@ -14,8 +14,8 @@ from wings.cancellation_result import CancellationResult
 from wings.market.market_base import OrderType
 from wings.wallet.web3_wallet import Web3Wallet
 from wings.wallet.web3_wallet_backend import EthereumChain
-from hummingbot.core.clock import Clock, ClockMode
-from wings.market.radar_relay_market import RadarRelayMarket
+from wings.clock import Clock, ClockMode
+from wings.market.bamboo_relay_market import BambooRelayMarket
 from wings.event_logger import EventLogger
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.events import (
@@ -35,7 +35,7 @@ from wings.events import (
 )
 
 
-class RadarRelayMarketUnitTest(unittest.TestCase):
+class BambooRelayMarketUnitTest(unittest.TestCase):
     market_events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
@@ -54,23 +54,23 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
     ]
 
     wallet: Web3Wallet
-    market: RadarRelayMarket
+    market: BambooRelayMarket
     market_logger: EventLogger
     wallet_logger: EventLogger
 
     @classmethod
     def setUpClass(cls):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.wallet = Web3Wallet(private_key=conf.web3_private_key_radar,
+        cls.wallet = Web3Wallet(private_key=conf.web3_private_key_bamboo,
                                 backend_urls=conf.test_web3_provider_list,
                                 erc20_token_addresses=[conf.mn_zerox_token_address, conf.mn_weth_token_address],
                                 chain=EthereumChain.MAIN_NET)
-        cls.market: RadarRelayMarket = RadarRelayMarket(wallet=cls.wallet,
-                                                        ethereum_rpc_url=conf.test_web3_provider_list[0],
+        cls.market: BambooRelayMarket = BambooRelayMarket(wallet=cls.wallet,
+                                                        web3_url=conf.test_web3_provider_list[0],
                                                         order_book_tracker_data_source_type=
                                                             OrderBookTrackerDataSourceType.EXCHANGE_API,
                                                         symbols=["ZRX-WETH"])
-        print("Initializing Radar Relay market... ")
+        print("Initializing Bamboo Relay market... ")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.wallet)
         cls.clock.add_iterator(cls.market)

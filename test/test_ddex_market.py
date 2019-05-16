@@ -61,7 +61,8 @@ class DDEXMarketUnitTest(unittest.TestCase):
                                 erc20_token_addresses=[conf.test_ddex_erc20_token_address_1,
                                                        conf.test_ddex_erc20_token_address_2],
                                 chain=EthereumChain.MAIN_NET)
-        cls.market: DDEXMarket = DDEXMarket(wallet=cls.wallet, web3_url=conf.test_ddex_web3_provider_list[0],
+        cls.market: DDEXMarket = DDEXMarket(wallet=cls.wallet,
+                                            ethereum_rpc_url=conf.test_ddex_web3_provider_list[0],
                                             order_book_tracker_data_source_type=
                                             OrderBookTrackerDataSourceType.EXCHANGE_API,
                                             symbols=["HOT-WETH"])

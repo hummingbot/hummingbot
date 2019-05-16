@@ -29,11 +29,12 @@ from wings.market.coinbase_pro_market import CoinbaseProMarket
 from wings.market.ddex_market import DDEXMarket
 from wings.market.market_base import MarketBase
 from wings.market.radar_relay_market import RadarRelayMarket
-from hummingbot.core.network_iterator import NetworkStatus
+from wings.market.bamboo_relay_market import BambooRelayMarket
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.trade import Trade
 from wings.wallet.web3_wallet import Web3Wallet
 
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot import init_logging
 from hummingbot.cli.ui.keybindings import load_key_bindings
 from hummingbot.cli.ui.parser import load_parser, ThrowingArgumentParser
@@ -159,9 +160,9 @@ class HummingbotApplication:
         success = True
         self.app.log("Cancelling outstanding orders...")
         for market_name, market in self.markets.items():
-            # By default, the bot does not cancel orders on exit on Radar Relay, since all open orders will
+            # By default, the bot does not cancel orders on exit on Radar Relay or Bamboo Relay, since all open orders will
             # expire in a short window
-            if not on_chain_cancel_on_exit and market_name == "radar_relay":
+            if not on_chain_cancel_on_exit and (market_name == "radar_relay" or market_name == "bamboo_relay"):
                 continue
             cancellation_results = await market.cancel_all(self.KILL_TIMEOUT)
             uncancelled = list(filter(lambda cr: cr.success is False, cancellation_results))
@@ -353,14 +354,14 @@ class HummingbotApplication:
         for market_name, symbols in market_names:
             if market_name == "ddex" and self.wallet:
                 market = DDEXMarket(wallet=self.wallet,
-                                    web3_url=ethereum_rpc_url,
+                                    ethereum_rpc_url=ethereum_rpc_url,
                                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                     symbols=symbols)
 
             elif market_name == "binance":
                 binance_api_key = global_config_map.get("binance_api_key").value
                 binance_api_secret = global_config_map.get("binance_api_secret").value
-                market = BinanceMarket(web3_url=ethereum_rpc_url,
+                market = BinanceMarket(ethereum_rpc_url=ethereum_rpc_url,
                                        binance_api_key=binance_api_key,
                                        binance_api_secret=binance_api_secret,
                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
@@ -368,6 +369,11 @@ class HummingbotApplication:
 
             elif market_name == "radar_relay" and self.wallet:
                 market = RadarRelayMarket(wallet=self.wallet,
+                                          ethereum_rpc_url=ethereum_rpc_url,
+                                          symbols=symbols)
+
+            elif market_name == "bamboo_relay" and self.wallet:
+                market = BambooRelayMarket(wallet=self.wallet,
                                           web3_url=ethereum_rpc_url,
                                           symbols=symbols)
 
@@ -376,7 +382,7 @@ class HummingbotApplication:
                 coinbase_pro_secret_key = global_config_map.get("coinbase_pro_secret_key").value
                 coinbase_pro_passphrase = global_config_map.get("coinbase_pro_passphrase").value
 
-                market = CoinbaseProMarket(web3_url=ethereum_rpc_url,
+                market = CoinbaseProMarket(ethereum_rpc_url=ethereum_rpc_url,
                                            coinbase_pro_api_key=coinbase_pro_api_key,
                                            coinbase_pro_secret_key=coinbase_pro_secret_key,
                                            coinbase_pro_passphrase=coinbase_pro_passphrase,

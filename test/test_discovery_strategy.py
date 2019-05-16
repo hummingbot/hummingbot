@@ -18,6 +18,7 @@ from hummingsim.backtest.backtest_market import BacktestMarket
 from wings.order_book import OrderBook
 from wings.order_book_row import OrderBookRow
 from wings.data_source.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
+from wings.data_source.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
 from wings.data_source.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from wings.data_source.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
 import asyncio
@@ -78,6 +79,7 @@ class DiscoveryUnitTest(unittest.TestCase):
     def test_market_info_spec(self):
         exchange_get_market_func_list = [
             RadarRelayAPIOrderBookDataSource.get_active_exchange_markets,
+            BambooRelayAPIOrderBookDataSource.get_active_exchange_markets,
             BinanceAPIOrderBookDataSource.get_active_exchange_markets,
             DDEXAPIOrderBookDataSource.get_active_exchange_markets
         ]

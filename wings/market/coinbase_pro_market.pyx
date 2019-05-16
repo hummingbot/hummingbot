@@ -235,7 +235,7 @@ cdef class CoinbaseProMarket(MarketBase):
         return s_logger
 
     def __init__(self,
-                 web3_url: str,
+                 ethereum_rpc_url: str,
                  coinbase_pro_api_key: str,
                  coinbase_pro_secret_key: str,
                  coinbase_pro_passphrase: str,
@@ -258,7 +258,7 @@ cdef class CoinbaseProMarket(MarketBase):
         self._in_flight_deposits = {}
         self._in_flight_orders = {}
         self._tx_tracker = CoinbaseProMarketTransactionTracker(self)
-        self._w3 = Web3(Web3.HTTPProvider(web3_url))
+        self._w3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
         self._trading_rules = {}
         self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
