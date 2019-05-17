@@ -17,7 +17,7 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
-from wings.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.order_book_tracker_entry import (
     CoinbaseProOrderBookTrackerEntry,
     OrderBookTrackerEntry

@@ -11,7 +11,7 @@ from typing import (
 import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
-from wings.data_source.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.market.data_source.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.market.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
 from wings.order_book_message import OrderBookMessage
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook

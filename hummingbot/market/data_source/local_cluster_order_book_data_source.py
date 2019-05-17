@@ -18,7 +18,7 @@ import wings
 from wings.model.sql_connection_manager import SQLConnectionManager
 from wings.order_book import OrderBook
 from wings.order_book_message import OrderBookMessage
-from wings.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.order_book_tracker_entry import OrderBookTrackerEntry
 
 TRADING_PAIR_FILTER = re.compile(r"(BTC|ETH|USDT)$")

@@ -19,7 +19,7 @@ from websockets.exceptions import ConnectionClosed
 from hummingbot.cli.utils import async_ttl_cache
 from hummingbot.market.ddex.ddex_active_order_tracker import DDEXActiveOrderTracker
 from hummingbot.market.ddex.ddex_order_book import DDEXOrderBook
-from wings.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.order_book_tracker_entry import (
     DDEXOrderBookTrackerEntry,
     OrderBookTrackerEntry

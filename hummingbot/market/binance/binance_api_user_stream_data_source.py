@@ -10,8 +10,7 @@ from typing import (
 )
 import ujson
 import websockets
-from wings.data_source.user_stream_tracker_data_source import UserStreamTrackerDataSource
-import conf
+from hummingbot.market.data_source.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from binance.client import Client as BinanceClient
 
 BINANCE_API_ENDPOINT = "https://api.binance.com/api/v1/"

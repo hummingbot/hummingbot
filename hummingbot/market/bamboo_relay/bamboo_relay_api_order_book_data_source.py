@@ -18,7 +18,7 @@ from websockets.exceptions import ConnectionClosed
 
 from hummingbot.market.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
 from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
-from wings.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.order_book_tracker_entry import OrderBookTrackerEntry, BambooRelayOrderBookTrackerEntry
 from wings.order_book_message import OrderBookMessage, BambooRelayOrderBookMessage
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
