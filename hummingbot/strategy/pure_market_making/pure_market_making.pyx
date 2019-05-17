@@ -5,14 +5,10 @@ from collections import (
 )
 from decimal import Decimal
 import logging
-import math
 import pandas as pd
 from typing import (
     List,
     Tuple,
-    Optional,
-    Dict,
-    Deque
 )
 
 from wings.clock cimport Clock
@@ -109,9 +105,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  bid_place_threshold: float = 0.01,
                  ask_place_threshold: float = 0.01,
                  cancel_order_wait_time: float = 60,
-                 #volatility: float = 0.2
-                 #risk_aversion: float = 0.1
-                 #distance_from_mid: float = 0.05
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
                  status_report_interval: float = 900):
@@ -131,13 +124,13 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._ask_place_threshold = ask_place_threshold
         self._order_size = order_size
         self._cancel_order_wait_time = cancel_order_wait_time
-        #tracking limit orders
+        # For tracking limit orders
         self._tracked_maker_orders = {}
-        #a copy of limit orders for safety for sometime
+        # Preserving a copy of limit orders for safety for sometime
         self._shadow_tracked_maker_orders = {}
         self._order_id_to_market_pair = {}
         self._shadow_order_id_to_market_pair = {}
-        #cleaning up limit orders
+        # For cleaning up limit orders
         self._shadow_gc_requests = deque()
 
         self._order_fill_buy_events = {}
@@ -296,7 +289,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         return "\n".join(lines)
 
-    # The following exposed Python function is meant for unit tests
+    # The following exposed Python functions are meant for unit tests
     # ---------------------------------------------------------------
 
     def check_if_sufficient_balance(self, market_pair: PureMarketPair) -> bool:
@@ -304,6 +297,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     def create_new_orders(self, market_pair: PureMarketPair):
         return self.c_create_new_orders(market_pair)
+
+    def cancel_order(self, market_pair: PureMarketPair,order_id:str):
+        return self.c_cancel_order(market_pair,order_id)
 
     # ---------------------------------------------------------------
 
@@ -410,9 +406,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         global s_decimal_zero
 
-        #If there are no active orders
+        # If there are no active orders
         if not len(active_orders):
-            #Set cancellation time
+            # Set cancellation time to be current timestamp + cancel order wait time
             self._time_to_cancel = current_timestamp + self._cancel_order_wait_time
 
             # See if I still have enough balance on my wallet to place the bid and ask orders

@@ -9,7 +9,6 @@ import pandas as pd
 from typing import List
 import unittest
 
-from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import (
     AssetType,
@@ -46,21 +45,15 @@ class PureMarketMakingUnitTest(unittest.TestCase):
     end_timestamp: float = end.timestamp()
     maker_symbols: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
 
-    @classmethod
-    def setUpClass(cls):
-        ExchangeRateConversion.set_global_exchange_rate_config([
-            ("WETH", 1.0, "None"),
-            ("QETH", 0.95, "None"),
-        ])
-
     def setUp(self):
         self.clock: Clock = Clock(ClockMode.BACKTEST, 60.0, self.start_timestamp, self.end_timestamp)
-        self.clock_tick_size = 60.0
+        self.clock_tick_size = 60
         self.maker_market: BacktestMarket = BacktestMarket()
         self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_symbols)
         self.mid_price = 100
         self.bid_threshold = 0.01
         self.ask_threshold = 0.01
+        self.cancel_order_wait_time = 45
         self.maker_data.set_balanced_order_book(mid_price= self.mid_price, min_price= 1,
                                                 max_price= 200, price_step_size= 1, volume_step_size= 10)
         self.maker_market.add_data(self.maker_data)
@@ -86,6 +79,7 @@ class PureMarketMakingUnitTest(unittest.TestCase):
             order_size=1,
             bid_place_threshold=self.bid_threshold,
             ask_place_threshold=self.ask_threshold,
+            cancel_order_wait_time= 45,
             logging_options=logging_options
         )
         self.logging_options = logging_options
@@ -100,12 +94,11 @@ class PureMarketMakingUnitTest(unittest.TestCase):
     def simulate_maker_market_trade(self, is_buy: bool, quantity: float):
         maker_symbol: str = self.maker_symbols[0]
         order_book: OrderBook = self.maker_market.get_order_book(maker_symbol)
-        # trade_price: float = order_book.get_price(True) if is_buy else order_book.get_price(False)
         trade_event: OrderBookTradeEvent = OrderBookTradeEvent(
             maker_symbol,
             self.clock.current_timestamp,
             TradeType.BUY if is_buy else TradeType.SELL,
-            self.mid_price* (1-self.bid_threshold -0.01) if not is_buy else self.mid_price * (1+self.ask_threshold +0.01),
+            self.mid_price * (1-self.bid_threshold -0.01) if not is_buy else self.mid_price * (1+self.ask_threshold +0.01),
             quantity
         )
         order_book.apply_trade(trade_event)
@@ -132,7 +125,7 @@ class PureMarketMakingUnitTest(unittest.TestCase):
 
     @staticmethod
     def simulate_limit_order_fill(market: Market, limit_order: LimitOrder):
-        quote_currency_traded: float = float(limit_order.price * limit_order.quantity)
+        quote_currency_traded: float = float(float(limit_order.price) * float(limit_order.quantity))
         base_currency_traded: float = float(limit_order.quantity)
         quote_currency: str = limit_order.quote_currency
         base_currency: str = limit_order.base_currency
@@ -218,7 +211,7 @@ class PureMarketMakingUnitTest(unittest.TestCase):
         old_ask = self.strategy.active_asks[0][1]
         self.assertEqual(1, len(self.strategy.active_bids))
         self.assertEqual(1, len(self.strategy.active_asks))
-        end_ts += self.clock_tick_size
+        end_ts += self.clock_tick_size + 1
         self.clock.backtest_til(end_ts)
         new_bid = self.strategy.active_bids[0][1]
         new_ask = self.strategy.active_asks[0][1]
@@ -226,7 +219,7 @@ class PureMarketMakingUnitTest(unittest.TestCase):
         self.assertNotEqual(old_bid, new_bid)
 
     def test_order_fills(self):
-        self.clock.backtest_til(self.start_timestamp + 65)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
         self.assertEqual(1, len(self.strategy.active_bids))
         self.assertEqual(1, len(self.strategy.active_asks))
 
@@ -239,17 +232,16 @@ class PureMarketMakingUnitTest(unittest.TestCase):
 
         self.simulate_maker_market_trade(True, 5.0)
 
-        self.clock.backtest_til(self.start_timestamp + 65)
+        self.clock.backtest_til(self.start_timestamp + 2*self.clock_tick_size+1)
         self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
 
         maker_fill: OrderFilledEvent = self.maker_order_fill_logger.event_log[0]
         self.assertEqual(TradeType.SELL, maker_fill.trade_type)
-        #print(maker_fill)
         self.assertAlmostEqual(101, maker_fill.price)
         self.assertAlmostEqual(1.0, maker_fill.amount)
 
-    def test_market_became_wider(self):
-        self.clock.backtest_til(self.start_timestamp + 65)
+    def test_market_become_wider(self):
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
 
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_asks[0][1]
@@ -258,22 +250,22 @@ class PureMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.0"), bid_order.quantity)
         self.assertEqual(Decimal("1.0"), ask_order.quantity)
 
-        self.simulate_order_book_widening(self.maker_data.order_book, 0.99, 1.01)
+        self.simulate_order_book_widening(self.maker_data.order_book, 90, 110)
 
-        self.clock.backtest_til(self.start_timestamp + 90)
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
         self.assertEqual(2, len(self.cancel_order_logger.event_log))
         self.assertEqual(1, len(self.strategy.active_bids))
         self.assertEqual(1, len(self.strategy.active_asks))
 
-        bid_order = self.strategy.active_bids[0][1]
-        ask_order = self.strategy.active_asks[0][1]
+        bid_order: LimitOrder = self.strategy.active_bids[0][1]
+        ask_order: LimitOrder = self.strategy.active_asks[0][1]
         self.assertEqual(Decimal("99"), bid_order.price)
         self.assertEqual(Decimal("101"), ask_order.price)
         self.assertEqual(Decimal("1.0"), bid_order.quantity)
         self.assertEqual(Decimal("1.0"), ask_order.quantity)
 
     def test_market_became_narrower(self):
-        self.clock.backtest_til(self.start_timestamp + 5)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_asks[0][1]
         self.assertEqual(Decimal("99"), bid_order.price)
@@ -283,7 +275,7 @@ class PureMarketMakingUnitTest(unittest.TestCase):
 
         self.maker_data.order_book.apply_diffs([OrderBookRow(99.5, 30, 2)], [OrderBookRow(100.5, 30, 2)], 2)
 
-        self.clock.backtest_til(self.start_timestamp + 70)
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
         self.assertEqual(1, len(self.strategy.active_bids))
         self.assertEqual(1, len(self.strategy.active_asks))
 
@@ -295,7 +287,7 @@ class PureMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.0"), ask_order.quantity)
 
     def test_order_fills_after_cancellation(self):
-        self.clock.backtest_til(self.start_timestamp + 5)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_asks[0][1]
         self.assertEqual(Decimal("99"), bid_order.price)
@@ -303,9 +295,7 @@ class PureMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.0"), bid_order.quantity)
         self.assertEqual(Decimal("1.0"), ask_order.quantity)
 
-        self.maker_data.order_book.apply_diffs([OrderBookRow(99.5, 30, 2)], [OrderBookRow(100.5, 30, 2)], 2)
-
-        self.clock.backtest_til(self.start_timestamp + 70)
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
         self.assertEqual(2, len(self.cancel_order_logger.event_log))
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_asks[0][1]
@@ -314,11 +304,9 @@ class PureMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.0"), bid_order.quantity)
         self.assertEqual(Decimal("1.0"), ask_order.quantity)
 
-        #self.clock.backtest_til(self.start_timestamp + 0)
         self.simulate_limit_order_fill(self.maker_market, bid_order)
         self.simulate_limit_order_fill(self.maker_market, ask_order)
 
-        #self.clock.backtest_til(self.start_timestamp + 25)
         fill_events = self.maker_order_fill_logger.event_log
         self.assertEqual(2, len(fill_events))
         bid_fills: List[OrderFilledEvent] = [evt for evt in fill_events if evt.trade_type is TradeType.SELL]
@@ -328,7 +316,7 @@ class PureMarketMakingUnitTest(unittest.TestCase):
 
 
     def test_create_new_orders(self):
-        self.clock.backtest_til(self.start_timestamp + 65)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
         self.assertEqual(1, len(self.strategy.active_bids))
         self.assertEqual(1, len(self.strategy.active_asks))
 
@@ -362,6 +350,25 @@ class PureMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("101"), ask_order.price)
         self.assertEqual(Decimal("1.0"), bid_order.quantity)
         self.assertEqual(Decimal("1.0"), ask_order.quantity)
+
+    def test_strategy_after_user_cancels_orders(self):
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))
+
+        bid_order: LimitOrder = self.strategy.active_bids[0][1]
+        ask_order: LimitOrder = self.strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), bid_order.price)
+        self.assertEqual(Decimal("101"), ask_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+
+        self.strategy.cancel_order(self.market_pair, bid_order.client_order_id)
+        self.strategy.cancel_order(self.market_pair, ask_order.client_order_id)
+
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        self.assertEqual(0, len(self.strategy.active_bids))
+        self.assertEqual(0, len(self.strategy.active_asks))
 
 
 def main():

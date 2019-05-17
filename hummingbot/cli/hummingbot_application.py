@@ -76,7 +76,7 @@ from hummingbot.strategy.pure_market_making import (
     PureMarketMakingStrategy,
     PureMarketPair
 )
-#from hummingbot.cli.settings import get_erc20_token_addresses
+
 from hummingbot.strategy.discovery import (
     DiscoveryStrategy,
     DiscoveryMarketPair
@@ -683,7 +683,7 @@ class HummingbotApplication:
                 self.app.log(str(e))
                 return
 
-            market_names: List[Tuple[str, str]] = [(maker_market, [raw_maker_symbol])]
+            market_names: List[Tuple[str, List[str]]] = [(maker_market, [raw_maker_symbol])]
 
             self._initialize_wallet(token_symbols=list(set(primary_assets)))
             self._initialize_markets(market_names)
@@ -699,9 +699,6 @@ class HummingbotApplication:
                                                      ask_place_threshold = ask_place_threshold,
                                                      cancel_order_wait_time = cancel_order_wait_time,
                                                      logging_options=strategy_logging_options)
-
-            #self.app.log("strategy assigned succesfully")
-
 
         elif strategy_name == "discovery":
             try:

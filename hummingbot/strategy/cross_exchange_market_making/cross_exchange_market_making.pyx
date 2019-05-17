@@ -109,19 +109,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
     def __init__(self, market_pairs: List[CrossExchangeMarketPair], min_profitability: float,
                  trade_size_override: Optional[float] = 0.0,
-                 #adjust the size of taker volume for conservativeness
-                 #multiplies order book volume by this number
                  order_size_taker_volume_factor: float = 0.25,
                  order_size_taker_balance_factor: float = 0.995,
                  order_size_portfolio_ratio_limit: float = 0.1667,
                  limit_order_min_expiration: float = 130.0,
                  cancel_order_threshold: float = -1,
-                 #for radarrelay order expiration cancelling
                  active_order_canceling: bint = True,
-                 #dont' adjust orders for this duration after adjusting
                  anti_hysteresis_duration: float = 60.0,
                  logging_options: int = OPTION_LOG_ALL,
-                 #interval for logging current state to logger
                  status_report_interval: float = 900):
         if len(market_pairs) < 0:
             raise ValueError(f"market_pairs must not be empty.")
@@ -135,33 +130,22 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             (market_pair.maker_market, market_pair.maker_symbol): market_pair
             for market_pair in market_pairs
         }
-        #objects
         self._maker_markets = set([market_pair.maker_market for market_pair in market_pairs])
         self._taker_markets = set([market_pair.taker_market for market_pair in market_pairs])
         self._all_markets_ready = False
-        #objects
         self._markets = self._maker_markets | self._taker_markets
-
         self._min_profitability = min_profitability
-        #calculating order size
         self._order_size_taker_volume_factor = order_size_taker_volume_factor
-        #
         self._order_size_taker_balance_factor = order_size_taker_balance_factor
         self._trade_size_override = trade_size_override
-
         self._order_size_portfolio_ratio_limit = order_size_portfolio_ratio_limit
         self._anti_hysteresis_timers = {}
-
-        #tracking limit orders
         self._tracked_maker_orders = {}
-        #a copy of limit orders for safety for sometime
+        self._tracked_taker_orders = {}
         self._shadow_tracked_maker_orders = {}
         self._order_id_to_market_pair = {}
         self._shadow_order_id_to_market_pair = {}
-        #cleaning up limit orders
         self._shadow_gc_requests = deque()
-
-
         self._order_fill_buy_events = {}
         self._order_fill_sell_events = {}
         self._suggested_price_samples = {}
@@ -354,7 +338,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             # Add warning lines on null balances.
             # TO-DO: Build min order size logic into exchange connector and expose maker_min_order and taker_min_order variables,
-            # which can replace the hard-coded 0.0001 value. 
+            # which can replace the hard-coded 0.0001 value.
             if maker_base_balance <= 0.0001:
                 warning_lines.append(f"    Maker market {maker_base} balance is too low. No ask order is possible.")
             if maker_quote_balance <= 0.0001:
@@ -875,7 +859,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         """
         cdef:
             double total_flat_fees = 0.0
- 
+
         for flat_fee_currency, flat_fee_amount in flat_fees:
             if flat_fee_currency == quote_currency:
                 total_flat_fees += flat_fee_amount
@@ -938,7 +922,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double bid_net_buy_costs = maker_bid_price_adjusted * bid_order_size * \
                 (1 + maker_bid_fee.percent) + maker_bid_fee_flat_fees
             double bid_profitability = bid_net_sell_proceeds / bid_net_buy_costs - 1
-        
+
         return bid_profitability
 
     cdef double c_calculate_ask_profitability(self,

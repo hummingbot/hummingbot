@@ -31,22 +31,22 @@ pure_market_making_config_map = {
                                                   prompt=maker_symbol_prompt,
                                                   validator=is_valid_maker_market_symbol),
     "order_amount":                     ConfigVar(key="order_amount",
-                                                  prompt="What is your preferred quantity per order ? (denominated in "
-                                                         "the base asset, default is 1) >>> ",
+                                                  prompt="What is your preferred quantity per order (denominated in "
+                                                         "the base asset, default is 1)? >>> ",
                                                   default=1.0,
                                                   type_str="float"),
     "bid_place_threshold":              ConfigVar(key="bid_place_threshold",
-                                                  prompt="How far away from the last trade price do you want to place the next bid"
+                                                  prompt="How far away from the mid price do you want to place the next bid"
                                                          "(Enter 0.01 to indicate 1%)? >>> ",
                                                   type_str="float",
                                                   default=0.01),
     "ask_place_threshold":              ConfigVar(key="ask_place_threshold",
-                                                 prompt="How far away from the last trade price do you want to place the next ask"
+                                                 prompt="How far away from the mid price do you want to place the next ask"
                                                       "(Enter 0.01 to indicate 1%)? >>> ",
                                                  type_str="float",
                                                  default=0.01),
     "cancel_order_wait_time":           ConfigVar(key="cancel_order_wait_time",
-                                                  prompt="How often do you want to cancel & replace bids and asks "
+                                                  prompt="How often do you want to cancel and replace bids and asks "
                                                          "(in seconds)? >>> ",
                                                   type_str="float",
                                                   default=60)

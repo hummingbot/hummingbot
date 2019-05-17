@@ -322,8 +322,6 @@ cdef class BinanceMarket(MarketBase):
     BINANCE_TRADE_TOPIC_NAME = "binance-trade.serialized"
     BINANCE_USER_STREAM_TOPIC_NAME = "binance-user-stream.serialized"
 
-
-
     @classmethod
     def logger(cls) -> logging.Logger:
         global s_logger

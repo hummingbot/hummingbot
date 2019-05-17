@@ -10,8 +10,7 @@ class PureMarketPair(NamedTuple):
     Specifies a pair of markets for pure market making.
 
     e.g. If I want to market make on Binance ETH-USDT, then,
-         PureMarketPair(ddex, "WETH-DAI", "WETH", "DAI",
-                          binance, "ETHUSDT", "ETH", "USDT")
+         PureMarketPair(binance, "ETHUSDT", "ETH", "USDT")
     """
     maker_market: MarketBase
     maker_symbol: str
