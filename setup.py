@@ -46,7 +46,7 @@ def main():
             "abi/*.json",
         ],
         "hummingbot": [
-            "core/cpp/*.h",
+            "core/cpp/*",
             "erc20_tokens.json",
             "VERSION",
             "templates/*TEMPLATE.yml"
