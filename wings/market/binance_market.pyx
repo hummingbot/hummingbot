@@ -28,7 +28,7 @@ from web3 import Web3
 import conf
 import wings
 from wings.async_call_scheduler import AsyncCallScheduler
-from wings.clock cimport Clock
+from hummingbot.core.clock cimport Clock
 from wings.data_source.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from wings.events import (
     MarketEvent,
@@ -49,7 +49,7 @@ from wings.market.market_base import (
     MarketBase,
     NaN
 )
-from wings.network_iterator import NetworkStatus
+from hummingbot.core.network_iterator import NetworkStatus
 from wings.order_book_tracker import (
     OrderBookTrackerDataSourceType
 )

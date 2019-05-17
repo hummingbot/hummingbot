@@ -15,7 +15,6 @@ from decimal import Decimal
 import time
 from typing import List
 import unittest
-from binance.client import Client as BinanceClient
 
 import conf
 from wings.events import (
@@ -26,7 +25,7 @@ from wings.market.binance_market import (
     BinanceMarket,
     BinanceTime
 )
-from wings.clock import (
+from hummingbot.core.clock import (
     Clock,
     ClockMode
 )

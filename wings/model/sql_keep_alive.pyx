@@ -1,5 +1,5 @@
 from libc.stdint cimport int64_t
-from wings.clock cimport Clock
+from hummingbot.core.clock cimport Clock
 from wings.model.sql_connection_manager import SQLConnectionManager
 
 

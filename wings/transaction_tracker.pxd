@@ -1,4 +1,4 @@
-from wings.time_iterator cimport TimeIterator
+from hummingbot.core.time_iterator cimport TimeIterator
 
 
 cdef class TransactionTracker(TimeIterator):

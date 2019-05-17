@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import asyncio
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
@@ -11,27 +10,17 @@ import unittest
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import (
-    AssetType,
-    Market,
-    MarketConfig,
     QuantizationParams
 )
 from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
-from wings.clock import (
+from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
 from wings.event_logger import EventLogger
 from wings.events import (
-    MarketEvent,
-    OrderBookTradeEvent,
-    TradeType,
-    OrderType,
-    OrderFilledEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent
+    MarketEvent
 )
-from wings.order_book import OrderBook
 from wings.order_book_row import OrderBookRow
 from hummingbot.strategy.arbitrage.arbitrage import ArbitrageStrategy
 from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair

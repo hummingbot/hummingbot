@@ -5,7 +5,6 @@ from collections import (
 )
 from decimal import Decimal
 import logging
-import math
 import pandas as pd
 from typing import (
     List,
@@ -15,7 +14,7 @@ from typing import (
     Deque
 )
 
-from wings.clock cimport Clock
+from hummingbot.core.clock cimport Clock
 from wings.events import (
     MarketEvent,
     TradeType
@@ -23,7 +22,7 @@ from wings.events import (
 from wings.event_listener cimport EventListener
 from wings.limit_order cimport LimitOrder
 from wings.limit_order import LimitOrder
-from wings.network_iterator import NetworkStatus
+from hummingbot.core.network_iterator import NetworkStatus
 from wings.market.market_base import (
     MarketBase,
     OrderType

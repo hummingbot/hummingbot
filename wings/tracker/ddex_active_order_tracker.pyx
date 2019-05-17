@@ -1,5 +1,5 @@
 # distutils: language=c++
-# distutils: sources=wings/cpp/OrderBookEntry.cpp
+# distutils: sources=hummingbot/core/cpp/OrderBookEntry.cpp
 import logging
 
 import numpy as np

@@ -1,5 +1,5 @@
 # distutils: language=c++
-# distutils: sources=wings/cpp/OrderBookEntry.cpp
+# distutils: sources=hummingbot/core/cpp/OrderBookEntry.cpp
 import bisect
 import logging
 
@@ -27,7 +27,7 @@ from .events import (
 from sqlalchemy.engine import RowProxy
 
 from .order_book_message import OrderBookMessage
-from .OrderBookEntry cimport truncateOverlapEntries
+from hummingbot.core.OrderBookEntry cimport truncateOverlapEntries
 from .order_book_row import OrderBookRow
 
 ob_logger = None

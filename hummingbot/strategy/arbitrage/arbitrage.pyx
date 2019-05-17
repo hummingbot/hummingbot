@@ -1,7 +1,5 @@
 # distutils: language=c++
 
-import time
-
 import pandas as pd
 from typing import (
     List,
@@ -16,7 +14,7 @@ from wings.market.market_base import (
 )
 from wings.events import TradeType
 from wings.market_order import MarketOrder
-from wings.network_iterator import NetworkStatus
+from hummingbot.core.network_iterator import NetworkStatus
 from wings.order_book import OrderBook
 from hummingbot.strategy.strategy_base import StrategyBase
 from .arbitrage_market_pair import (

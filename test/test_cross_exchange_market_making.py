@@ -18,7 +18,7 @@ from hummingsim.backtest.market import (
     QuantizationParams
 )
 from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
-from wings.clock import (
+from hummingbot.core.clock import (
     Clock,
     ClockMode
 )

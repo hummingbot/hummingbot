@@ -16,8 +16,7 @@ from typing import (
 from web3 import Web3
 from libc.stdint cimport int64_t
 
-from wings.clock cimport Clock
-from wings.data_source.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
+from hummingbot.core.clock cimport Clock
 from wings.events import (
     TradeType,
     TradeFee,
@@ -36,7 +35,7 @@ from wings.market.market_base import (
     MarketBase,
     OrderType,
 )
-from wings.network_iterator import NetworkStatus
+from hummingbot.core.network_iterator import NetworkStatus
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.order_book cimport OrderBook
 from wings.market.coinbase_pro_auth import CoinbaseProAuth
