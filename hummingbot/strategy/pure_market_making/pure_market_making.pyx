@@ -260,7 +260,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
 
             lines.extend([
-                f"{market_pair.maker_symbol} vs. {market_pair.taker_symbol}:",
+                f"{market_pair.maker_symbol}:",
                 f"  {maker_symbol} bid/ask: {bid_price}/{ask_price}",
                 f"  Bid to be placed at: {bid_price * (1-self.bid_place_threshold)}",
                 f"  Ask to be placed at: {ask_price * (1+self.ask_place_threshold)}",
