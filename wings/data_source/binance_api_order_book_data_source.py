@@ -17,6 +17,7 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+from hummingbot.cli.utils import async_ttl_cache
 from wings.orderbook.binance_order_book import BinanceOrderBook
 from .order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.order_book_tracker_entry import OrderBookTrackerEntry
@@ -48,6 +49,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._symbols: Optional[List[str]] = symbols
 
     @classmethod
+    @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         """
         Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
@@ -130,7 +132,8 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             trading_pairs: List[str] = await self.get_trading_pairs()
             retval: Dict[str, OrderBookTrackerEntry] = {}
 
-            for trading_pair in trading_pairs:
+            number_of_pairs: int = len(trading_pairs)
+            for index, trading_pair in enumerate(trading_pairs):
                 try:
                     snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, 1000)
                     snapshot_timestamp: float = time.time()
@@ -141,9 +144,10 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     )
                     order_book: BinanceOrderBook = self.order_book_class.from_snapshot(snapshot_msg)
                     retval[trading_pair] = OrderBookTrackerEntry(trading_pair, snapshot_timestamp, order_book)
-
+                    self.logger().info(f"Initialized order book for {trading_pair}. "
+                                        f"{index+1}/{number_of_pairs} completed.")
                     # Each 1000 limit snapshot costs 10 requests and Binance rate limit is 20 requests per second.
-                    await asyncio.sleep(0.6)
+                    await asyncio.sleep(0.3)
                 except Exception:
                     self.logger().error(f"Error getting snapshot for {trading_pair}. ", exc_info=True)
                     await asyncio.sleep(5)
@@ -207,7 +211,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 metadata={"symbol": trading_pair}
                             )
                             output.put_nowait(snapshot_msg)
-                            self.logger().info(f"Saved order book snapshot for {trading_pair}")
+                            self.logger().debug(f"Saved order book snapshot for {trading_pair}")
                             # Be careful not to go above Binance's API rate limits.
                             await asyncio.sleep(5.0)
                         except asyncio.CancelledError:
