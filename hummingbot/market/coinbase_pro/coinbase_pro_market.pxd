@@ -1,4 +1,4 @@
-from wings.market.market_base cimport MarketBase
+from hummingbot.market.market_base cimport MarketBase
 from wings.transaction_tracker cimport TransactionTracker
 
 

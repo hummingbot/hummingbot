@@ -1,9 +1,9 @@
 from libc.stdint cimport int64_t
-from wings.market.market_base cimport MarketBase
+from hummingbot.market.market_base cimport MarketBase
 from wings.transaction_tracker cimport TransactionTracker
 
 
-cdef class RadarRelayMarket(MarketBase):
+cdef class BambooRelayMarket(MarketBase):
     cdef:
         str _wallet_spender_address
         object _wallet

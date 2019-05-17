@@ -1,6 +1,6 @@
 from typing import NamedTuple
 
-from wings.market.market_base import MarketBase
+from hummingbot.market import MarketBase
 
 
 class MarketSymbolPair(NamedTuple):

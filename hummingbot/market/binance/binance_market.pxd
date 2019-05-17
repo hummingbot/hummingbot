@@ -1,6 +1,6 @@
 from libc.stdint cimport int64_t
 
-from wings.market.market_base cimport MarketBase
+from hummingbot.market.market_base cimport MarketBase
 from wings.transaction_tracker cimport TransactionTracker
 
 

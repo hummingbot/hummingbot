@@ -31,16 +31,12 @@ from wings.events import (
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
     TradeType,
-    TradeFee
+    OrderType,
+    TradeFee,
 )
 from wings.limit_order import LimitOrder
-from wings.market.market_base cimport MarketBase
-from wings.market.market_base import (
-    OrderType
-)
-from hummingbot.core.network_iterator import (
-    NetworkStatus
-)
+from hummingbot.market.market_base cimport MarketBase
+from hummingbot.core.network_iterator import NetworkStatus
 from wings.order_book cimport OrderBook
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.tracker.ddex_order_book_tracker import DDEXOrderBookTracker

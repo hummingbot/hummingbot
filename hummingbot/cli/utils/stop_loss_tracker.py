@@ -9,7 +9,7 @@ from typing import (
 
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.cli.config.global_config_map import global_config_map
-from wings.market.market_base import MarketBase
+from hummingbot.market import MarketBase
 
 
 class StopLossTracker:

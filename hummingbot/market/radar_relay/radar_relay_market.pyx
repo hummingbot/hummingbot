@@ -16,19 +16,19 @@ from typing import (
 from decimal import Decimal
 from libc.stdint cimport int64_t
 from web3 import Web3
-from hummingbot.core.network_iterator import NetworkStatus
-from wings.data_source.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
+from wings.data_source.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
 from wings.limit_order import LimitOrder
-from wings.market.market_base cimport MarketBase
-from wings.market.market_base import (
+from hummingbot.market.market_base cimport MarketBase
+from hummingbot.market.market_base import (
   OrderType,
   NaN
 )
+from hummingbot.core.network_iterator import NetworkStatus
 from wings.wallet.web3_wallet import Web3Wallet
 from wings.order_book cimport OrderBook
 from wings.cancellation_result import CancellationResult
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
-from wings.tracker.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
+from wings.tracker.radar_relay_order_book_tracker import RadarRelayOrderBookTracker
 from wings.events import (
     MarketEvent,
     BuyOrderCreatedEvent,
@@ -55,14 +55,14 @@ s_decimal_0 = Decimal(0)
 
 ZERO_EX_MAINNET_ERC20_PROXY = "0x2240Dab907db71e64d3E0dbA4800c83B5C502d4E"
 ZERO_EX_MAINNET_EXCHANGE_ADDRESS = "0x4F833a24e1f95D70F028921e27040Ca56E09AB0b"
-BAMBOO_RELAY_REST_ENDPOINT = "https://rest.bamboorelay.com/main/0x"
+RADAR_RELAY_REST_ENDPOINT = "https://api.radarrelay.com/v2"
 
 
-cdef class BambooRelayTransactionTracker(TransactionTracker):
+cdef class RadarRelayTransactionTracker(TransactionTracker):
     cdef:
-        BambooRelayMarket _owner
+        RadarRelayMarket _owner
 
-    def __init__(self, owner: BambooRelayMarket):
+    def __init__(self, owner: RadarRelayMarket):
         super().__init__()
         self._owner = owner
 
@@ -94,7 +94,7 @@ cdef class TradingRule:
                                           market["quoteTokenDecimals"],
                                           market["baseTokenDecimals"]))
             except Exception:
-                BambooRelayMarket.logger().error(f"Error parsing the symbol {symbol}. Skipping.", exc_info=True)
+                RadarRelayMarket.logger().error(f"Error parsing the symbol {symbol}. Skipping.", exc_info=True)
         return retval
 
     def __init__(self,
@@ -191,7 +191,7 @@ cdef class InFlightOrder:
         return self.symbol.split('-')[1]
 
 
-cdef class BambooRelayMarket(MarketBase):
+cdef class RadarRelayMarket(MarketBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
@@ -218,14 +218,14 @@ cdef class BambooRelayMarket(MarketBase):
 
     def __init__(self,
                  wallet: Web3Wallet,
-                 web3_url: str,
+                 ethereum_rpc_url: str,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                     OrderBookTrackerDataSourceType.EXCHANGE_API,
                  wallet_spender_address: str = ZERO_EX_MAINNET_ERC20_PROXY,
                  symbols: Optional[List[str]] = None):
         super().__init__()
-        self._order_book_tracker = BambooRelayOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
+        self._order_book_tracker = RadarRelayOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
                                                               symbols=symbols)
         self._account_balances = {}
         self._ev_loop = asyncio.get_event_loop()
@@ -238,9 +238,9 @@ cdef class BambooRelayMarket(MarketBase):
         self._in_flight_limit_orders = {} # limit orders are off chain
         self._in_flight_market_orders = {} # market orders are on chain
         self._order_expiry_queue = deque()
-        self._tx_tracker = BambooRelayTransactionTracker(self)
-        self._w3 = Web3(Web3.HTTPProvider(web3_url))
-        self._provider = Web3.HTTPProvider(web3_url)
+        self._tx_tracker = RadarRelayTransactionTracker(self)
+        self._w3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
+        self._provider = Web3.HTTPProvider(ethereum_rpc_url)
         self._withdraw_rules = {}
         self._trading_rules = {}
         self._pending_approval_tx_hashes = set()
@@ -254,7 +254,7 @@ cdef class BambooRelayMarket(MarketBase):
 
     @property
     def name(self) -> str:
-        return "bamboo_relay"
+        return "radar_relay"
 
     @property
     def ready(self) -> bool:
@@ -308,7 +308,7 @@ cdef class BambooRelayMarket(MarketBase):
         return retval
 
     async def get_active_exchange_markets(self):
-        return await BambooRelayAPIOrderBookDataSource.get_active_exchange_markets()
+        return await RadarRelayAPIOrderBookDataSource.get_active_exchange_markets()
 
     async def _status_polling_loop(self):
         while True:
@@ -339,7 +339,7 @@ cdef class BambooRelayMarket(MarketBase):
             int gas_estimate = 130000 # approximate gas used for 0x market orders
             double transaction_cost_eth
 
-        # there are no fees for makers on Bamboo Relay
+        # there are no fees for makers on Radar Relay
         if order_type is OrderType.LIMIT:
             return TradeFee(percent=0.0)
         # only fee for takers is gas cost of transaction
@@ -350,7 +350,7 @@ cdef class BambooRelayMarket(MarketBase):
         self._account_balances = self.wallet.get_all_balances()
 
     async def list_market(self) -> Dict[str, Any]:
-        url = f"{BAMBOO_RELAY_REST_ENDPOINT}/markets?include=base"
+        url = f"{RADAR_RELAY_REST_ENDPOINT}/markets?include=base"
         return await self._api_request(http_method="get", url=url)
 
     async def _update_trading_rules(self):
@@ -366,11 +366,11 @@ cdef class BambooRelayMarket(MarketBase):
             self._last_update_trading_rules_timestamp = current_timestamp
 
     async def get_account_orders(self) -> List[Dict[str, Any]]:
-        list_account_orders_url = f"{BAMBOO_RELAY_REST_ENDPOINT}/accounts/{self._wallet.address}/orders"
+        list_account_orders_url = f"{RADAR_RELAY_REST_ENDPOINT}/accounts/{self._wallet.address}/orders"
         return await self._api_request(http_method="get", url=list_account_orders_url)
 
     async def get_order(self, order_hash: str) -> Dict[str, Any]:
-        order_url = f"{BAMBOO_RELAY_REST_ENDPOINT}/orders/{order_hash}"
+        order_url = f"{RADAR_RELAY_REST_ENDPOINT}/orders/{order_hash}"
         return await self._api_request("get", url=order_url)
 
     async def _get_order_updates(self, tracked_limit_orders: List[InFlightOrder]) -> List[Dict[str, Any]]:
@@ -625,7 +625,7 @@ cdef class BambooRelayMarket(MarketBase):
             order_type = "SELL"
         else:
             raise ValueError("Invalid side. Aborting.")
-        url = f"{BAMBOO_RELAY_REST_ENDPOINT}/markets/{symbol}/order/market"
+        url = f"{RADAR_RELAY_REST_ENDPOINT}/markets/{symbol}/order/market"
         data = {
             "type": order_type,
             "quantity": amount
@@ -641,7 +641,7 @@ cdef class BambooRelayMarket(MarketBase):
             order_type = "SELL"
         else:
             raise ValueError("Invalid side. Aborting.")
-        url = f"{BAMBOO_RELAY_REST_ENDPOINT}/markets/{symbol}/order/limit"
+        url = f"{RADAR_RELAY_REST_ENDPOINT}/markets/{symbol}/order/limit"
         data = {
             "type": order_type,
             "quantity": amount,
@@ -694,7 +694,7 @@ cdef class BambooRelayMarket(MarketBase):
                                  amount: Decimal,
                                  price: str,
                                  expires: int) -> Tuple[str, Order]:
-        url = f"{BAMBOO_RELAY_REST_ENDPOINT}/orders"
+        url = f"{RADAR_RELAY_REST_ENDPOINT}/orders"
         unsigned_limit_order = await self.request_unsigned_limit_order(symbol=symbol,
                                                                        side=side,
                                                                        amount=str(amount),
@@ -816,7 +816,7 @@ cdef class BambooRelayMarket(MarketBase):
             return order_id
         except Exception:
             self.c_stop_tracking_order(order_id)
-            self.logger().error(f"Error submitting trade order to Bamboo Relay for {str(q_amt)} {symbol}.", exc_info=True)
+            self.logger().error(f"Error submitting trade order to Radar Relay for {str(q_amt)} {symbol}.", exc_info=True)
             self.c_trigger_event(
                 self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                 MarketTransactionFailureEvent(self._current_timestamp, order_id)
@@ -887,7 +887,7 @@ cdef class BambooRelayMarket(MarketBase):
         return self._w3.eth.getTransactionReceipt(tx_hash)
 
     async def list_account_orders(self) -> List[Dict[str, Any]]:
-        url = f"{BAMBOO_RELAY_REST_ENDPOINT}/accounts/{self._wallet.address}/orders"
+        url = f"{RADAR_RELAY_REST_ENDPOINT}/accounts/{self._wallet.address}/orders"
         response_data = await self._api_request("get", url=url)
         return response_data
 
@@ -942,7 +942,7 @@ cdef class BambooRelayMarket(MarketBase):
             return NetworkStatus.NOT_CONNECTED
 
         try:
-            await self._api_request("GET", f"{BAMBOO_RELAY_REST_ENDPOINT}/tokens")
+            await self._api_request("GET", f"{RADAR_RELAY_REST_ENDPOINT}/tokens")
         except asyncio.CancelledError:
             raise
         except Exception:

@@ -45,14 +45,12 @@ from wings.events import (
     TradeType,
     TradeFee
 )
-from wings.market.market_base import (
+from hummingbot.market.market_base import (
     MarketBase,
     NaN
 )
 from hummingbot.core.network_iterator import NetworkStatus
-from wings.order_book_tracker import (
-    OrderBookTrackerDataSourceType
-)
+from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.order_book cimport OrderBook
 from wings.tracker.binance_order_book_tracker import BinanceOrderBookTracker
 from wings.tracker.binance_user_stream_tracker import BinanceUserStreamTracker
