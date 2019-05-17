@@ -390,7 +390,6 @@ class Web3WalletBackend(PubSub):
                 await ev_loop.run_in_executor(wings.get_executor(), self._w3.eth.sendRawTransaction,
                                               signed_transaction.rawTransaction)
             except asyncio.CancelledError:
-                self.logger().error('Cancelled Error', exc_info=True)
                 raise
             except Exception:
                 self.logger().error(f"Error sending transaction {tx_hash}.", exc_info=True)

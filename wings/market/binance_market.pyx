@@ -143,8 +143,8 @@ class BinanceTime:
                 raise
             except Exception:
                 self.logger().error(f"Error getting Binance server time.", exc_info=True)
-            finally:
-                await asyncio.sleep(self.SERVER_TIME_OFFSET_CHECK_INTERVAL)
+
+            await asyncio.sleep(self.SERVER_TIME_OFFSET_CHECK_INTERVAL)
 
 cdef class BinanceMarketTransactionTracker(TransactionTracker):
     cdef:
