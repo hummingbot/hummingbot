@@ -51,6 +51,7 @@ __pycache__
 /wings/tracker/*.cpp
 /hummingbot/**/*.c
 /hummingbot/**/*.cpp
+!/hummingbot/core/cpp/*.cpp
 /build
 
 # Local files

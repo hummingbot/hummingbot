@@ -5,7 +5,7 @@ from enum import Enum
 import logging
 from typing import Optional
 
-from .clock cimport Clock
+from hummingbot.core.clock cimport Clock
 
 NaN = float("nan")
 s_logger = None
