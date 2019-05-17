@@ -11,7 +11,7 @@ from typing import (
     Tuple,
 )
 
-from wings.clock cimport Clock
+from hummingbot.core.clock cimport Clock
 from wings.events import (
     MarketEvent,
     TradeType
