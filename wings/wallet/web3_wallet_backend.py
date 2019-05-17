@@ -36,8 +36,8 @@ from wings.events import (
     WalletWrappedEthEvent,
     WalletUnwrappedEthEvent,
 )
-from wings.network_iterator import NetworkStatus
-from wings.pubsub import PubSub
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.pubsub import PubSub
 from wings.watcher.new_blocks_watcher import NewBlocksWatcher
 from wings.watcher.account_balance_watcher import AccountBalanceWatcher
 from wings.watcher.erc20_events_watcher import ERC20EventsWatcher

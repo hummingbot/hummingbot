@@ -10,7 +10,7 @@ import logging
 from decimal import Decimal
 import unittest
 from typing import List
-from wings.clock import Clock, ClockMode
+from hummingbot.core.clock import Clock, ClockMode
 from wings.market.ddex_market import DDEXMarket
 from wings.ethereum_chain import EthereumChain
 from wings.events import (

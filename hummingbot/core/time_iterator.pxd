@@ -1,8 +1,7 @@
 # distutils: language=c++
 
-from wings.clock cimport Clock
-
-from wings.pubsub cimport PubSub
+from hummingbot.core.clock cimport Clock
+from hummingbot.core.pubsub cimport PubSub
 
 
 cdef class TimeIterator(PubSub):

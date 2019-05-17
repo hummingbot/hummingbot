@@ -1,12 +1,9 @@
 from typing import (
-    List,
-    Tuple,
-    NamedTuple)
+    List)
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
-from wings.time_iterator cimport TimeIterator
+from hummingbot.core.time_iterator cimport TimeIterator
 from wings.market.market_base cimport MarketBase
-from wings.event_logger cimport EventLogger
 import pandas as pd
 from wings.trade import Trade
 from wings.events import OrderFilledEvent

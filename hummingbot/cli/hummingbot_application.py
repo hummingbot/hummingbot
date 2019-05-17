@@ -20,7 +20,7 @@ from typing import (
 )
 
 from hummingbot.cli.utils.symbol_fetcher import SymbolFetcher
-from wings.clock import (
+from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
@@ -31,11 +31,11 @@ from wings.market.ddex_market import DDEXMarket
 from wings.market.market_base import MarketBase
 from wings.market.radar_relay_market import RadarRelayMarket
 from wings.market.bamboo_relay_market import BambooRelayMarket
-from wings.network_iterator import NetworkStatus
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.trade import Trade
 from wings.wallet.web3_wallet import Web3Wallet
 
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot import init_logging
 from hummingbot.cli.ui.keybindings import load_key_bindings
 from hummingbot.cli.ui.parser import load_parser, ThrowingArgumentParser

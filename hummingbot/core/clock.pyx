@@ -5,9 +5,9 @@ import logging
 import time
 from typing import List
 
-from wings.time_iterator import TimeIterator
-from wings.time_iterator cimport TimeIterator
-from wings.clock_mode import ClockMode
+from hummingbot.core.time_iterator import TimeIterator
+from hummingbot.core.time_iterator cimport TimeIterator
+from hummingbot.core.clock_mode import ClockMode
 
 s_logger = None
 

@@ -1,5 +1,5 @@
 # distutils: language=c++
-# distutils: sources=wings/cpp/LimitOrder.cpp
+# distutils: sources=hummingbot/core/cpp/LimitOrder.cpp
 
 from cpython cimport PyObject
 from libcpp.string cimport string

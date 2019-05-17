@@ -13,7 +13,7 @@ from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.binance_order_book_loader_v2 import BinanceOrderBookLoaderV2
 from hummingsim.backtest.ddex_order_book_loader import DDEXOrderBookLoader
 from hummingsim.backtest.market import QuantizationParams
-from wings.clock import (
+from hummingbot.core.clock import (
     Clock,
     ClockMode
 )

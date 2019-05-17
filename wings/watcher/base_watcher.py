@@ -8,7 +8,7 @@ from typing import (
 from web3 import Web3
 
 from wings.async_call_scheduler import AsyncCallScheduler
-from wings.pubsub import PubSub
+from hummingbot.core.pubsub import PubSub
 
 
 class BaseWatcher(PubSub):

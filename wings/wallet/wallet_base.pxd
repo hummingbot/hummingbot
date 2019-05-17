@@ -1,4 +1,4 @@
-from wings.network_iterator cimport NetworkIterator
+from hummingbot.core.network_iterator cimport NetworkIterator
 
 
 cdef class WalletBase(NetworkIterator):
