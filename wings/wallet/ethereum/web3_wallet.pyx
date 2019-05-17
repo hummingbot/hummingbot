@@ -19,7 +19,7 @@ from wings.event_listener cimport EventListener
 from wings.network_iterator import NetworkStatus
 from wings.pubsub cimport PubSub
 from wings.wallet.wallet_base import WalletBase
-from wings.wallet.web3_wallet_backend import Web3WalletBackend
+from wings.wallet.ethereum_wallet.web3_wallet_backend import Web3WalletBackend
 
 class_logger = None
 
