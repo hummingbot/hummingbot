@@ -38,7 +38,7 @@ from wings.market.market_base import (
 from hummingbot.core.network_iterator import NetworkStatus
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.order_book cimport OrderBook
-from wings.market.coinbase_pro_auth import CoinbaseProAuth
+from wings.market.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
 from wings.tracker.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from wings.tracker.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
 from wings.data_source.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource

@@ -13,7 +13,7 @@ import unittest
 
 import conf
 from wings.market.market_base import OrderType
-from wings.market.coinbase_pro_market import CoinbaseProMarket
+from wings.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.core.clock import (
     Clock,
     ClockMode

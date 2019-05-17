@@ -21,7 +21,7 @@ from wings.events import (
     OrderType,
     TradeType
 )
-from wings.market.binance_market import (
+from wings.market.binance.binance_market import (
     BinanceMarket,
     BinanceTime
 )

@@ -10,7 +10,7 @@ import conf
 from typing import (
     Optional
 )
-from wings.market.coinbase_pro_market import CoinbaseProAuth
+from wings.market.coinbase_pro.coinbase_pro_market import CoinbaseProAuth
 from wings.tracker.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
 
 

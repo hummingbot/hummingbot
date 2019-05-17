@@ -7,16 +7,11 @@ from unittest.mock import create_autospec
 sys.path.insert(0, realpath(join(__file__, "../../")))
 
 from hummingbot.strategy.discovery import DiscoveryStrategy, DiscoveryMarketPair
-from wings.market.binance_market import BinanceMarket
-from wings.market.ddex_market import DDEXMarket
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
 from typing import List
 import unittest
-from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingsim.backtest.backtest_market import BacktestMarket
-from wings.order_book import OrderBook
-from wings.order_book_row import OrderBookRow
 from wings.data_source.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
 from wings.data_source.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
 from wings.data_source.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
