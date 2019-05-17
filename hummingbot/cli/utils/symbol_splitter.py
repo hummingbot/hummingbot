@@ -2,7 +2,7 @@ import re
 from typing import Tuple
 
 
-BINANCE_SYMBOL_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|TUSD|PAX)$")
+BINANCE_SYMBOL_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDS|USDC|TUSD|PAX)$")
 
 
 class SymbolSplitter:
