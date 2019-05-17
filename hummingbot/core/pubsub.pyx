@@ -1,5 +1,5 @@
 # distutils: language=c++
-# distutils: sources=wings/cpp/PyRef.cpp
+# distutils: sources=hummingbot/core/cpp/PyRef.cpp
 
 from cpython cimport (
     PyObject,
@@ -17,8 +17,8 @@ import logging
 import random
 from typing import List
 
-from .event_listener import EventListener
-from .event_listener cimport EventListener
+from wings.event_listener import EventListener
+from wings.event_listener cimport EventListener
 
 class_logger = None
 

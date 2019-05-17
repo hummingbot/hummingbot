@@ -29,6 +29,7 @@ def main():
         "wings.market",
         "wings.wallet",
         "hummingbot",
+        "hummingbot.core",
         "hummingbot.strategy",
         "hummingbot.strategy.arbitrage",
         "hummingbot.strategy.cross_exchange_market_making",
@@ -42,10 +43,10 @@ def main():
     ]
     package_data = {
         "wings": [
-            "cpp/*.h",
             "abi/*.json",
         ],
         "hummingbot": [
+            "core/cpp/*",
             "erc20_tokens.json",
             "VERSION",
             "templates/*TEMPLATE.yml"

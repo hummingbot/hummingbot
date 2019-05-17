@@ -3,7 +3,7 @@
 
 from typing import Optional
 
-from wings.clock import Clock
+from hummingbot.core.clock import Clock
 
 NaN = float("nan")
 

@@ -14,7 +14,7 @@ from web3.eth import Contract
 from web3 import Web3
 
 import conf
-from wings.clock import (
+from hummingbot.core.clock import (
     Clock,
     ClockMode
 )

@@ -9,15 +9,15 @@ from web3.contract import (
     ContractFunction
 )
 
-from wings.clock import Clock, ClockMode
-from wings.clock cimport Clock
+from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.clock cimport Clock
 from wings.events import (
     WalletEvent
 )
 from wings.ethereum_chain import EthereumChain
 from wings.event_listener cimport EventListener
-from wings.network_iterator import NetworkStatus
-from wings.pubsub cimport PubSub
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.pubsub cimport PubSub
 from wings.wallet.wallet_base import WalletBase
 from wings.wallet.ethereum_wallet.web3_wallet_backend import Web3WalletBackend
 
