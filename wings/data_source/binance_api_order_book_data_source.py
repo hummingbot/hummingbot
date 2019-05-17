@@ -9,7 +9,6 @@ from typing import (
     Dict,
     List,
     Optional,
-    Set,
 )
 import re
 import time
@@ -17,7 +16,7 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from wings.orderbook.binance_order_book import BinanceOrderBook
+from hummingbot.market.binance.binance_order_book import BinanceOrderBook
 from .order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.order_book_tracker_entry import OrderBookTrackerEntry
 from wings.order_book_message import OrderBookMessage

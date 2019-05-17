@@ -36,7 +36,7 @@ from wings.order_book_message import (
 from wings.order_book_tracker_entry import (
     DDEXOrderBookTrackerEntry
 )
-from wings.orderbook.ddex_order_book import DDEXOrderBook
+from hummingbot.market.ddex.ddex_order_book import DDEXOrderBook
 
 TRADING_PAIR_FILTER = re.compile(r"(TUSD|ETH|DAI)$")
 

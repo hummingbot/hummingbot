@@ -35,7 +35,7 @@ from wings.order_book_message import (
 from wings.order_book_tracker_entry import (
     RadarRelayOrderBookTrackerEntry
 )
-from wings.orderbook.radar_relay_order_book import RadarRelayOrderBook
+from hummingbot.market.radar_relay.radar_relay_order_book import RadarRelayOrderBook
 from wings.tracker.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
 
 TRADING_PAIR_FILTER = re.compile(r"(TUSD|ETH|DAI)$")

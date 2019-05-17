@@ -19,7 +19,7 @@ from wings.data_source.order_book_tracker_data_source import OrderBookTrackerDat
 from wings.data_source.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
 from wings.order_book_message import OrderBookMessageType, RadarRelayOrderBookMessage
 from wings.order_book_tracker_entry import RadarRelayOrderBookTrackerEntry
-from wings.orderbook.radar_relay_order_book import RadarRelayOrderBook
+from hummingbot.market.radar_relay.radar_relay_order_book import RadarRelayOrderBook
 from wings.tracker.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
 
 

@@ -24,7 +24,7 @@ from wings.order_book_message import (
     CoinbaseProOrderBookMessage
 )
 from wings.order_book_tracker_entry import CoinbaseProOrderBookTrackerEntry
-from wings.orderbook.coinbase_pro_order_book import CoinbaseProOrderBook
+from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 from wings.tracker.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
 
 

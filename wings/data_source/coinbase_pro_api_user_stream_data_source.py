@@ -14,7 +14,7 @@ from websockets.exceptions import ConnectionClosed
 from wings.data_source.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.market.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
 from wings.order_book_message import OrderBookMessage
-from wings.orderbook.coinbase_pro_order_book import CoinbaseProOrderBook
+from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 
 COINBASE_REST_URL = "https://api.pro.coinbase.com"
 COINBASE_WS_FEED = "wss://ws-feed.pro.coinbase.com"

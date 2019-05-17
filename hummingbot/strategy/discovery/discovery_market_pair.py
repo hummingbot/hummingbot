@@ -5,7 +5,7 @@ from typing import (
     Awaitable
 )
 import pandas as pd
-from hummingbot.market import MarketBase
+from hummingbot.market.market_base import MarketBase
 
 
 class DiscoveryMarketPair(NamedTuple):

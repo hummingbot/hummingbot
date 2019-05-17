@@ -24,12 +24,12 @@ from hummingbot.core.clock import (
     ClockMode
 )
 from wings.ethereum_chain import EthereumChain
-from hummingbot.market.binance import BinanceMarket
+from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.ddex.ddex_market import DDEXMarket
-from hummingbot.market import MarketBase
-from hummingbot.market.radar_relay import RadarRelayMarket
-from hummingbot.market import BambooRelayMarket
+from hummingbot.market.market_base import MarketBase
+from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
+from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.trade import Trade
 from wings.wallet.web3_wallet import Web3Wallet

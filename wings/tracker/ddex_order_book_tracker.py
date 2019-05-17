@@ -19,7 +19,7 @@ from wings.order_book_tracker import (
     OrderBookTrackerDataSourceType
 )
 
-from wings.orderbook.ddex_order_book import DDEXOrderBook
+from hummingbot.market.ddex.ddex_order_book import DDEXOrderBook
 
 from wings.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.data_source.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource

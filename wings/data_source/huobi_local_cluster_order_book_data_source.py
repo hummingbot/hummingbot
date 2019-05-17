@@ -20,7 +20,7 @@ from typing import (
 import conf
 from wings.data_source.local_cluster_order_book_data_source import LocalClusterOrderBookDataSource
 from wings.model.sql_connection_manager import SQLConnectionManager
-from wings.orderbook.huobi_order_book import HuobiOrderBook
+from hummingbot.market.huobi.huobi_order_book import HuobiOrderBook
 
 TRADING_PAIR_FILTER = re.compile(r"(btc|eth|usdt)$")
 
