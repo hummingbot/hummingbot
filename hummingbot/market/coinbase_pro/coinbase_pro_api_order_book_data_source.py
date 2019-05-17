@@ -23,7 +23,7 @@ from wings.order_book_tracker_entry import (
     OrderBookTrackerEntry
 )
 from wings.order_book_message import OrderBookMessage
-from wings.tracker.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
+from hummingbot.market.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
 
 COINBASE_REST_URL = "https://api.pro.coinbase.com"
 COINBASE_WS_FEED = "wss://ws-feed.pro.coinbase.com"

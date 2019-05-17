@@ -2,78 +2,63 @@
 
 import asyncio
 import bisect
+from collections import deque, defaultdict
 import logging
 import time
-from collections import deque, defaultdict
 from typing import (
-    Optional,
     Deque,
-    List,
     Dict,
-    Set)
-from wings.tracker.ddex_active_order_tracker import DDEXActiveOrderTracker
-from wings.data_source.ddex_local_cluster_order_book_data_source import DDEXLocalClusterOrderBookDataSource
-from wings.model.sql_connection_manager import SQLConnectionManager
-from wings.order_book_tracker import (
-    OrderBookTracker,
-    OrderBookTrackerDataSourceType
+    List,
+    Optional,
+    Set
 )
 
-from hummingbot.market.ddex.ddex_order_book import DDEXOrderBook
-
+from wings.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from wings.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
-from wings.data_source.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
-from wings.data_source.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
-
-from wings.order_book_message import (
-    OrderBookMessageType,
-    DDEXOrderBookMessage
-)
-from wings.order_book_tracker_entry import DDEXOrderBookTrackerEntry
-
-import conf
+from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
+from wings.order_book_message import OrderBookMessageType, BambooRelayOrderBookMessage
+from wings.order_book_tracker_entry import BambooRelayOrderBookTrackerEntry
+from hummingbot.market.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
+from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
 
 
-class DDEXOrderBookTracker(OrderBookTracker):
-    _dobt_logger: Optional[logging.Logger] = None
+class BambooRelayOrderBookTracker(OrderBookTracker):
+    _rrobt_logger: Optional[logging.Logger] = None
 
     @classmethod
     def logger(cls) -> logging.Logger:
-        if cls._dobt_logger is None:
-            cls._dobt_logger = logging.getLogger(__name__)
-        return cls._dobt_logger
+        if cls._rrobt_logger is None:
+            cls._rrobt_logger = logging.getLogger(__name__)
+        return cls._rrobt_logger
 
     def __init__(self,
-                 data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.LOCAL_CLUSTER,
+                 data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
                  symbols: Optional[List[str]] = None):
         super().__init__(data_source_type=data_source_type)
-        self._past_diffs_windows: Dict[str, Deque] = {}
-        self._order_books: Dict[str, DDEXOrderBook] = {}
-        self._saved_message_queues: Dict[str, Deque[DDEXOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
-        self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
-        self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
+
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[OrderBookTrackerDataSource] = None
-        self._active_order_trackers: Dict[str, DDEXActiveOrderTracker] = defaultdict(DDEXActiveOrderTracker)
+        self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
+        self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
+        self._process_msg_deque_task: Optional[asyncio.Task] = None
+        self._past_diffs_windows: Dict[str, Deque] = {}
+        self._order_books: Dict[str, BambooRelayOrderBook] = {}
+        self._saved_message_queues: Dict[str, Deque[BambooRelayOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
+        self._active_order_trackers: Dict[str, BambooRelayActiveOrderTracker] = defaultdict(BambooRelayActiveOrderTracker)
         self._symbols: Optional[List[str]] = symbols
 
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
         if not self._data_source:
-            if self._data_source_type is OrderBookTrackerDataSourceType.LOCAL_CLUSTER:
-                self._data_source = DDEXLocalClusterOrderBookDataSource(
-                    SQLConnectionManager.get_order_books_instance(db_conf=conf.order_books_db_2))
-            elif self._data_source_type is OrderBookTrackerDataSourceType.REMOTE_API:
-                self._data_source = RemoteAPIOrderBookDataSource()
-            elif self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = DDEXAPIOrderBookDataSource(symbols=self._symbols)
+            if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
+                self._data_source = BambooRelayAPIOrderBookDataSource(symbols=self._symbols)
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source
 
     @property
     async def exchange_name(self) -> str:
-        return "ddex"
+        return "bamboo_relay"
 
     async def start(self):
         self._order_book_diff_listener_task = asyncio.ensure_future(
@@ -104,13 +89,13 @@ class DDEXOrderBookTracker(OrderBookTracker):
         """
         tracking_symbols: Set[str] = set([key for key in self._tracking_tasks.keys()
                                           if not self._tracking_tasks[key].done()])
-        available_pairs: Dict[str, DDEXOrderBookTrackerEntry] = await self.data_source.get_tracking_pairs()
+        available_pairs: Dict[str, BambooRelayOrderBookTrackerEntry] = await self.data_source.get_tracking_pairs()
         available_symbols: Set[str] = set(available_pairs.keys())
         new_symbols: Set[str] = available_symbols - tracking_symbols
         deleted_symbols: Set[str] = tracking_symbols - available_symbols
 
         for symbol in new_symbols:
-            order_book_tracker_entry: DDEXOrderBookTrackerEntry = available_pairs[symbol]
+            order_book_tracker_entry: BambooRelayOrderBookTrackerEntry = available_pairs[symbol]
             self._active_order_trackers[symbol] = order_book_tracker_entry.active_order_tracker
             self._order_books[symbol] = order_book_tracker_entry.order_book
             self._tracking_message_queues[symbol] = asyncio.Queue()
@@ -133,20 +118,24 @@ class DDEXOrderBookTracker(OrderBookTracker):
         messages_queued: int = 0
         messages_accepted: int = 0
         messages_rejected: int = 0
-
+        address_token_map: Dict[str, any] = await self._data_source.get_all_token_info()
         while True:
             try:
-                ob_message: DDEXOrderBookMessage = await self._order_book_diff_stream.get()
-                symbol: str = ob_message.symbol
+                ob_message: BambooRelayOrderBookMessage = await self._order_book_diff_stream.get()
+                base_token_address: str = ob_message.content["event"]["baseTokenAddress"]
+                quote_token_address: str = ob_message.content["event"]["quoteTokenAddress"]
+                base_token_symbol: str = address_token_map[base_token_address]["symbol"]
+                quote_token_symbol: str = address_token_map[quote_token_address]['symbol']
+                trading_pair_symbol: str = f"{base_token_symbol}-{quote_token_symbol}"
 
-                if symbol not in self._tracking_message_queues:
+                if trading_pair_symbol not in self._tracking_message_queues:
                     messages_queued += 1
                     # Save diff messages received before snapshots are ready
-                    self._saved_message_queues[symbol].append(ob_message)
+                    self._saved_message_queues[trading_pair_symbol].append(ob_message)
                     continue
-                message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
+                message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair_symbol]
                 # Check the order book's initial update ID. If it's larger, don't bother.
-                order_book: DDEXOrderBook = self._order_books[symbol]
+                order_book: BambooRelayOrderBook = self._order_books[trading_pair_symbol]
 
                 if order_book.snapshot_uid > ob_message.update_id:
                     messages_rejected += 1
@@ -173,20 +162,20 @@ class DDEXOrderBookTracker(OrderBookTracker):
                 await asyncio.sleep(5.0)
 
     async def _track_single_book(self, symbol: str):
-        past_diffs_window: Deque[DDEXOrderBookMessage] = deque()
+        past_diffs_window: Deque[BambooRelayOrderBookMessage] = deque()
         self._past_diffs_windows[symbol] = past_diffs_window
 
         message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
-        order_book: DDEXOrderBook = self._order_books[symbol]
-        active_order_tracker: DDEXActiveOrderTracker = self._active_order_trackers[symbol]
+        order_book: BambooRelayOrderBook = self._order_books[symbol]
+        active_order_tracker: BambooRelayActiveOrderTracker = self._active_order_trackers[symbol]
 
         last_message_timestamp: float = time.time()
         diff_messages_accepted: int = 0
 
         while True:
             try:
-                message: DDEXOrderBookMessage = None
-                saved_messages: Deque[DDEXOrderBookMessage] = self._saved_message_queues[symbol]
+                message: BambooRelayOrderBookMessage = None
+                saved_messages: Deque[BambooRelayOrderBookMessage] = self._saved_message_queues[symbol]
                 # Process saved messages first if there are any
                 if len(saved_messages) > 0:
                     message = saved_messages.popleft()
@@ -209,7 +198,7 @@ class DDEXOrderBookTracker(OrderBookTracker):
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                 elif message.type is OrderBookMessageType.SNAPSHOT:
-                    past_diffs: List[DDEXOrderBookMessage] = list(past_diffs_window)
+                    past_diffs: List[BambooRelayOrderBookMessage] = list(past_diffs_window)
                     # only replay diffs later than snapshot, first update active order with snapshot then replay diffs
                     replay_position = bisect.bisect_right(past_diffs, message)
                     replay_diffs = past_diffs[replay_position:]

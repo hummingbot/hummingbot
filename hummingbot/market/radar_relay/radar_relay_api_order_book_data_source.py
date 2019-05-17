@@ -17,8 +17,8 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 
 from hummingbot.market.radar_relay.radar_relay_order_book import RadarRelayOrderBook
-from wings.tracker.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
-from .order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.market.radar_relay.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
+from wings.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.order_book_tracker_entry import OrderBookTrackerEntry, RadarRelayOrderBookTrackerEntry
 from wings.order_book_message import OrderBookMessage, RadarRelayOrderBookMessage
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion

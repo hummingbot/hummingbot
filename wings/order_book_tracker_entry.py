@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 from wings.order_book import OrderBook
-from wings.tracker.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
-from wings.tracker.ddex_active_order_tracker import DDEXActiveOrderTracker
-from wings.tracker.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
-from wings.tracker.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
+from hummingbot.market.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
+from hummingbot.market.ddex.ddex_active_order_tracker import DDEXActiveOrderTracker
+from hummingbot.market.radar_relay.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
+from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
 
 
 class OrderBookTrackerEntry:

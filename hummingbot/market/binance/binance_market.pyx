@@ -29,7 +29,7 @@ import conf
 import wings
 from wings.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
-from wings.data_source.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+from hummingbot.market.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from wings.events import (
     MarketEvent,
     MarketReceivedAssetEvent,
@@ -52,8 +52,8 @@ from hummingbot.market.market_base import (
 from hummingbot.core.network_iterator import NetworkStatus
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.order_book cimport OrderBook
-from wings.tracker.binance_order_book_tracker import BinanceOrderBookTracker
-from wings.tracker.binance_user_stream_tracker import BinanceUserStreamTracker
+from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker
+from hummingbot.market.binance.binance_user_stream_tracker import BinanceUserStreamTracker
 from wings.user_stream_tracker import UserStreamTrackerDataSourceType
 from wings.cancellation_result import CancellationResult
 from wings.transaction_tracker import TransactionTracker

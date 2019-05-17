@@ -9,7 +9,7 @@ from wings.order_book_tracker import (
     OrderBookTracker,
     OrderBookTrackerDataSourceType
 )
-from wings.data_source.huobi_local_cluster_order_book_data_source import HuobiLocalClusterOrderBookDataSource
+from hummingbot.market.huobi.huobi_local_cluster_order_book_data_source import HuobiLocalClusterOrderBookDataSource
 from wings.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.data_source.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
 

@@ -11,7 +11,7 @@ from wings.user_stream_tracker import (
     UserStreamTrackerDataSourceType,
     UserStreamTracker
 )
-from wings.data_source.coinbase_pro_api_user_stream_data_source import CoinbaseProAPIUserStreamDataSource
+from hummingbot.market.coinbase_pro.coinbase_pro_api_user_stream_data_source import CoinbaseProAPIUserStreamDataSource
 from hummingbot.market.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
 
 

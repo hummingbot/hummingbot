@@ -11,7 +11,7 @@ from typing import (
     Optional
 )
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProAuth
-from wings.tracker.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
+from hummingbot.market.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
 
 
 class CoinbaseProUserStreamTrackerUnitTest(unittest.TestCase):

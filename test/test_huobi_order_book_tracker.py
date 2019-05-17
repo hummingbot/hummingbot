@@ -4,8 +4,7 @@ from os.path import join, realpath
 import sys
 sys.path.insert(0, realpath(join(__file__, "../../")))
 
-from wings.tracker.binance_order_book_tracker import BinanceOrderBookTracker
-from wings.tracker.huobi_order_book_tracker import HuobiOrderBookTracker
+from hummingbot.market.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
 import asyncio
 import logging
 from typing import Dict, Optional

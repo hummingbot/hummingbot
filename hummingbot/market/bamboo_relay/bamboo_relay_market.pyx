@@ -17,7 +17,7 @@ from decimal import Decimal
 from libc.stdint cimport int64_t
 from web3 import Web3
 from hummingbot.core.network_iterator import NetworkStatus
-from wings.data_source.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
+from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
 from wings.limit_order import LimitOrder
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import (
@@ -28,7 +28,7 @@ from wings.wallet.web3_wallet import Web3Wallet
 from wings.order_book cimport OrderBook
 from wings.cancellation_result import CancellationResult
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
-from wings.tracker.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
+from hummingbot.market.bamboo_relay.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
 from wings.events import (
     MarketEvent,
     BuyOrderCreatedEvent,

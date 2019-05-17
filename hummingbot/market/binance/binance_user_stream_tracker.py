@@ -10,7 +10,7 @@ from wings.user_stream_tracker import (
     UserStreamTrackerDataSourceType,
     UserStreamTracker
 )
-from wings.data_source.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
+from hummingbot.market.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
 from binance.client import Client as BinanceClient
 
 

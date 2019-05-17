@@ -16,7 +16,7 @@ from typing import (
 from decimal import Decimal
 from libc.stdint cimport int64_t
 from web3 import Web3
-from wings.data_source.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
+from hummingbot.market.radar_relay.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
 from wings.limit_order import LimitOrder
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import (
@@ -28,7 +28,7 @@ from wings.wallet.web3_wallet import Web3Wallet
 from wings.order_book cimport OrderBook
 from wings.cancellation_result import CancellationResult
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
-from wings.tracker.radar_relay_order_book_tracker import RadarRelayOrderBookTracker
+from hummingbot.market.radar_relay.radar_relay_order_book_tracker import RadarRelayOrderBookTracker
 from wings.events import (
     MarketEvent,
     BuyOrderCreatedEvent,

@@ -20,7 +20,7 @@ from libc.stdint cimport int64_t
 from web3 import Web3
 
 from wings.cancellation_result import CancellationResult
-from wings.data_source.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
+from hummingbot.market.ddex.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
 from wings.events import (
     MarketEvent,
     BuyOrderCompletedEvent,
@@ -39,7 +39,7 @@ from hummingbot.market.market_base cimport MarketBase
 from hummingbot.core.network_iterator import NetworkStatus
 from wings.order_book cimport OrderBook
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
-from wings.tracker.ddex_order_book_tracker import DDEXOrderBookTracker
+from hummingbot.market.ddex.ddex_order_book_tracker import DDEXOrderBookTracker
 from wings.wallet.web3_wallet import Web3Wallet
 
 

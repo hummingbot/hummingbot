@@ -6,7 +6,7 @@ import sys
 
 sys.path.insert(0, realpath(join(__file__, "../../")))
 
-from wings.tracker.bittrex_order_book_tracker import BittrexOrderBookTracker
+from hummingbot.market.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
 import asyncio
 import logging
 from typing import Dict, Optional
