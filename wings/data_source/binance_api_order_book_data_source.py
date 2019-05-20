@@ -147,7 +147,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     self.logger().info(f"Initialized order book for {trading_pair}. "
                                         f"{index+1}/{number_of_pairs} completed.")
                     # Each 1000 limit snapshot costs 10 requests and Binance rate limit is 20 requests per second.
-                    await asyncio.sleep(0.3)
+                    await asyncio.sleep(0.4)
                 except Exception:
                     self.logger().error(f"Error getting snapshot for {trading_pair}. ", exc_info=True)
                     await asyncio.sleep(5)
