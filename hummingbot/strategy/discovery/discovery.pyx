@@ -1,7 +1,6 @@
 # distutils: language=c++
 import asyncio
 import logging
-import math
 
 import pandas as pd
 from typing import (
