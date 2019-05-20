@@ -50,8 +50,8 @@ jobs:
           name: Run Strategy Tests
           command: |
             source activate $(head -1 setup/environment-linux.yml | cut -d ' ' -f2)
-            python test/cross_exchange_market_making.py
-            # python test/arbitrage.py
+            python test/test_cross_exchange_market_making.py
+            # python test/test_arbitrage.py
 
       - run:
           name: Run Wallet Tests
