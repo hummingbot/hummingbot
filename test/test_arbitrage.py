@@ -35,10 +35,12 @@ class ArbitrageUnitTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        ExchangeRateConversion.set_global_exchange_rate_config([
-            ("WETH", 1.0, "None"),
-            ("ETH", 0.95, "None"),
-        ])
+        ExchangeRateConversion.set_global_exchange_rate_config({
+            "conversion_required": {
+                "WETH": {"default": 1.0, "source": "None"},
+                "QETH": {"default": 0.95, "source": "None"}
+            }
+        })
 
     def setUp(self):
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1.0, self.start_timestamp, self.end_timestamp)
