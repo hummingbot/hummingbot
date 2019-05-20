@@ -109,7 +109,7 @@ class ReportingProxyHandler(logging.Handler):
                 },
                 "data": json.dumps(logs, default=log_encoder),
                 "params": {"ddtags": f"client_id:{self.client_id},"
-                                     f"client_version: {CLIENT_VERSION},"
+                                     f"client_version:{CLIENT_VERSION},"
                                      f"type:log",
                            "ddsource": "hummingbot-client"}
             }
