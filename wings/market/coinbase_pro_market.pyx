@@ -242,8 +242,10 @@ cdef class CoinbaseProMarket(MarketBase):
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                     OrderBookTrackerDataSourceType.EXCHANGE_API,
-                 symbols: Optional[List[str]] = None):
+                 symbols: Optional[List[str]] = None,
+                 trading_required: bool = True):
         super().__init__()
+        self._trading_required = trading_required
         self._coinbase_auth = CoinbaseProAuth(coinbase_pro_api_key, coinbase_pro_secret_key, coinbase_pro_passphrase)
         self._order_book_tracker = CoinbaseProOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
                                                                symbols=symbols)
@@ -265,6 +267,7 @@ cdef class CoinbaseProMarket(MarketBase):
         self._order_tracker_task = None
         self._user_stream_tracker_task = None
         self._user_stream_event_listener_task = None
+        self._trading_rules_polling_task = None
         self._shared_client = None
 
     @property
@@ -280,10 +283,16 @@ cdef class CoinbaseProMarket(MarketBase):
         return self._coinbase_auth
 
     @property
+    def status_dict(self) -> Dict[str, bool]:
+        return {
+            "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
+            "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
+            "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True
+        }
+
+    @property
     def ready(self) -> bool:
-        return (len(self._order_book_tracker.order_books) > 0 and
-                len(self._account_balances) > 0 and
-                len(self._trading_rules) > 0)
+        return all(self.status_dict.values())
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         return await CoinbaseProAPIOrderBookDataSource.get_active_exchange_markets()
@@ -300,15 +309,19 @@ cdef class CoinbaseProMarket(MarketBase):
             self._stop_network()
 
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
-        self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
-        self._user_stream_tracker_task = asyncio.ensure_future(self._user_stream_tracker.start())
-        self._user_stream_event_listener_task = asyncio.ensure_future(self._user_stream_event_listener())
+        if self._trading_required:
+            self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
+            self._user_stream_tracker_task = asyncio.ensure_future(self._user_stream_tracker.start())
+            self._user_stream_event_listener_task = asyncio.ensure_future(self._user_stream_event_listener())
 
     def _stop_network(self):
         if self._order_tracker_task is not None:
             self._order_tracker_task.cancel()
+        if self._status_polling_task is not None:
             self._status_polling_task.cancel()
+        if self._user_stream_tracker_task is not None:
             self._user_stream_tracker_task.cancel()
+        if self._user_stream_event_listener_task is not None:
             self._user_stream_event_listener_task.cancel()
         self._order_tracker_task = self._status_polling_task = self._user_stream_tracker_task = \
             self._user_stream_event_listener_task = None
@@ -799,14 +812,28 @@ cdef class CoinbaseProMarket(MarketBase):
 
                 await asyncio.gather(
                     self._update_balances(),
-                    self._update_trading_rules(),
                     self._update_order_status(),
-                    self._update_eth_tx_status(),
+                    self._update_eth_tx_status()
                 )
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error while fetching account updates.", exc_info=True)
+
+    async def _trading_rules_polling_loop(self):
+        while True:
+            try:
+                self._poll_notifier = asyncio.Event()
+                await self._poll_notifier.wait()
+
+                await asyncio.gather(
+                    self._update_trading_rules()
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error while fetching trading rules.", exc_info=True)
+                await asyncio.sleep(0.5)
 
     async def get_order(self, client_order_id: str) -> Dict[str, Any]:
         order = self._in_flight_orders.get(client_order_id)

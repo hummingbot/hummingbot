@@ -232,10 +232,12 @@ cdef class DDEXMarket(MarketBase):
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                     OrderBookTrackerDataSourceType.LOCAL_CLUSTER,
                  wallet_spender_address: str = ZERO_EX_MAINNET_PROXY,
-                 symbols: Optional[List[str]] = None):
+                 symbols: Optional[List[str]] = None,
+                 trading_required: bool = True):
         super().__init__()
         self._order_book_tracker = DDEXOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
                                                         symbols=symbols)
+        self._trading_required = trading_required
         self._account_balances = {}
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
@@ -269,15 +271,21 @@ cdef class DDEXMarket(MarketBase):
         return "ddex"
 
     @property
+    def status_dict(self):
+        return {
+            "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
+            "trading_rule_initialized": len(self._trading_rules) > 0,
+            "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
+            "token_approval": len(self._pending_approval_tx_hashes) == 0 if self._trading_required else True,
+            "maker_trade_fee_initialized": not math.isnan(self._maker_trade_fee),
+            "taker_trade_fee_initialized": not math.isnan(self._taker_trade_fee),
+            "gas_fee_weth_initialized": not math.isnan(self._gas_fee_weth),
+            "gas_fee_usd_initilaized": not math.isnan(self._gas_fee_usd)
+        }
+
+    @property
     def ready(self) -> bool:
-        return len(self._account_balances) > 0 \
-               and len(self._trading_rules) > 0 \
-               and len(self._order_book_tracker.order_books) > 0 \
-               and len(self._pending_approval_tx_hashes) == 0 \
-               and not math.isnan(self._maker_trade_fee) \
-               and not math.isnan(self._taker_trade_fee) \
-               and not math.isnan(self._gas_fee_weth) \
-               and not math.isnan(self._gas_fee_usd)
+        return all(self.status_dict.values())
 
     @property
     def name(self) -> str:
@@ -856,11 +864,12 @@ cdef class DDEXMarket(MarketBase):
 
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
         self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
-        tx_hashes = await self.wallet.current_backend.check_and_fix_approval_amounts(
-            spender=self._wallet_spender_address
-        )
-        self._pending_approval_tx_hashes.update(tx_hashes)
-        self._approval_tx_polling_task = asyncio.ensure_future(self._approval_tx_polling_loop())
+        if self._trading_required:
+            tx_hashes = await self.wallet.current_backend.check_and_fix_approval_amounts(
+                spender=self._wallet_spender_address
+            )
+            self._pending_approval_tx_hashes.update(tx_hashes)
+            self._approval_tx_polling_task = asyncio.ensure_future(self._approval_tx_polling_loop())
 
     def _stop_network(self):
         if self._order_tracker_task is not None:

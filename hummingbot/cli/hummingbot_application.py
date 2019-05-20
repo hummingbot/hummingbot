@@ -19,6 +19,7 @@ from typing import (
     Callable,
 )
 
+from hummingbot.cli.utils.symbol_fetcher import SymbolFetcher
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -123,6 +124,7 @@ class HummingbotApplication:
         self.reporting_module: Optional[ReportAggregator] = None
         self.data_feed: Optional[DataFeedBase] = None
         self.stop_loss_tracker: Optional[StopLossTracker] = None
+        self._trading_required: bool = True
 
     def init_reporting_module(self):
         if not self.reporting_module:
@@ -361,7 +363,8 @@ class HummingbotApplication:
                 market = DDEXMarket(wallet=self.wallet,
                                     ethereum_rpc_url=ethereum_rpc_url,
                                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                    symbols=symbols)
+                                    symbols=symbols,
+                                    trading_required=self._trading_required)
 
             elif market_name == "binance":
                 binance_api_key = global_config_map.get("binance_api_key").value
@@ -370,12 +373,14 @@ class HummingbotApplication:
                                        binance_api_key=binance_api_key,
                                        binance_api_secret=binance_api_secret,
                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                       symbols=symbols)
+                                       symbols=symbols,
+                                       trading_required=self._trading_required)
 
             elif market_name == "radar_relay" and self.wallet:
                 market = RadarRelayMarket(wallet=self.wallet,
                                           ethereum_rpc_url=ethereum_rpc_url,
-                                          symbols=symbols)
+                                          symbols=symbols,
+                                          trading_required=self._trading_required)
 
             elif market_name == "bamboo_relay" and self.wallet:
                 market = BambooRelayMarket(wallet=self.wallet,
@@ -391,7 +396,8 @@ class HummingbotApplication:
                                            coinbase_pro_api_key=coinbase_pro_api_key,
                                            coinbase_pro_secret_key=coinbase_pro_secret_key,
                                            coinbase_pro_passphrase=coinbase_pro_passphrase,
-                                           symbols=symbols)
+                                           symbols=symbols,
+                                           trading_required=self._trading_required)
 
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
@@ -416,29 +422,36 @@ class HummingbotApplication:
 
         if self.wallet is not None:
             if self.wallet.network_status is NetworkStatus.CONNECTED:
-                has_minimum_eth = self.wallet.get_balance("ETH") > 0.01
-                if has_minimum_eth:
-                    self.app.log("   - ETH wallet check: Minimum ETH requirement satisfied")
-                else:
-                    self.app.log("   x ETH wallet check: Not enough ETH in wallet. "
-                                 "A small amount of Ether is required for sending transactions on "
-                                 "Decentralized Exchanges")
+                if self._trading_required:
+                    has_minimum_eth = self.wallet.get_balance("ETH") > 0.01
+                    if has_minimum_eth:
+                        self.app.log("   - ETH wallet check: Minimum ETH requirement satisfied")
+                    else:
+                        self.app.log("   x ETH wallet check: Not enough ETH in wallet. "
+                                     "A small amount of Ether is required for sending transactions on "
+                                     "Decentralized Exchanges")
             else:
                 self.app.log("   x ETH wallet check: ETH wallet is not connected.")
 
-        loading_markets: List[str] = []
-        for market_name, market in self.markets.items():
+        loading_markets: List[MarketBase] = []
+        for market in self.markets.values():
             if not market.ready:
-                loading_markets.append(market_name)
+                loading_markets.append(market)
 
-        if self.strategy is None:
-            self.app.log("   x initializing strategy.")
-            return True
-        elif len(loading_markets) > 0:
-            for loading_market in loading_markets:
-                self.app.log(f"   x Market check:  Waiting for {loading_market} market to get ready for trading. "
-                             f"Please keep the bot running and try to start again in a few minutes")
+        if len(loading_markets) > 0:
+            self.app.log(f"   x Market check:  Waiting for markets " +
+                         ",".join([m.name.capitalize()  for m in loading_markets]) + f" to get ready for trading. \n"
+                         f"                    Please keep the bot running and try to start again in a few minutes. \n")
+
+            for market in loading_markets:
+                market_status_df = pd.DataFrame(data=market.status_dict.items(), columns=["description", "status"])
+                self.app.log(
+                    f"   x {market.name.capitalize()} market status:\n" +
+                    "\n".join(["     " + line for line in market_status_df.to_string(index=False,).split("\n")]) +
+                    "\n"
+                )
             return False
+
         elif not all([market.network_status is NetworkStatus.CONNECTED for market in self.markets.values()]):
             offline_markets: List[str] = [
                 market_name
@@ -450,7 +463,10 @@ class HummingbotApplication:
                 self.app.log(f"   x Market check:  {offline_market} is currently offline.")
 
         self.app.log("   - Market check: All markets ready")
-        self.app.log(self.strategy.format_status() + "\n")
+        if self.strategy is None:
+            self.app.log("   x initializing strategy.")
+        else:
+            self.app.log(self.strategy.format_status() + "\n")
         return True
 
     def help(self, command):
@@ -710,6 +726,11 @@ class HummingbotApplication:
                 target_amount = float(strategy_cm.get("target_amount").value)
                 equivalent_token: List[List[str]] = list(strategy_cm.get("equivalent_tokens").value)
 
+                if not target_symbol_2:
+                    target_symbol_2 = SymbolFetcher.get_instance().symbols.get(market_2, [])
+                if not target_symbol_1:
+                    target_symbol_1 = SymbolFetcher.get_instance().symbols.get(market_1, [])
+
                 market_names: List[Tuple[str, List[str]]] = [(market_1, target_symbol_1),
                                                              (market_2, target_symbol_2)]
 
@@ -720,16 +741,12 @@ class HummingbotApplication:
                     SymbolSplitter.split(market_2, symbol) for symbol in target_symbol_2
                 ]
 
-                for asset_tuple in (target_base_quote_1 + target_base_quote_2):
-                    self.assets.add(asset_tuple[0])
-                    self.assets.add(asset_tuple[1])
-
-                self._initialize_wallet(token_symbols=list(self.assets))
+                self._trading_required = False
+                self._initialize_wallet(token_symbols=[])  # wallet required only for dex hard dependency
                 self._initialize_markets(market_names)
                 self.market_pair = DiscoveryMarketPair(
                     *([self.markets[market_1], self.markets[market_1].get_active_exchange_markets] +
                       [self.markets[market_2], self.markets[market_2].get_active_exchange_markets]))
-
                 self.strategy = DiscoveryStrategy(market_pairs=[self.market_pair],
                                                   target_symbols=target_base_quote_1 + target_base_quote_2,
                                                   equivalent_token=equivalent_token,
@@ -749,7 +766,8 @@ class HummingbotApplication:
             for market in self.markets.values():
                 if market is not None:
                     self.clock.add_iterator(market)
-            self.clock.add_iterator(self.strategy)
+            if self.strategy:
+                self.clock.add_iterator(self.strategy)
             self.strategy_task: asyncio.Task = asyncio.ensure_future(self._run_clock())
             self.app.log(f"\n  '{strategy_name}' strategy started.\n"
                          f"  You can use the `status` command to query the progress.")
@@ -773,7 +791,7 @@ class HummingbotApplication:
             import appnope
             appnope.nap()
 
-        if not skip_order_cancellation:
+        if self._trading_required and not skip_order_cancellation:
             # Remove the strategy from clock before cancelling orders, to
             # prevent race condition where the strategy tries to create more
             # orders during cancellation.
@@ -801,7 +819,7 @@ class HummingbotApplication:
             self.strategy_task.cancel()
         if self.strategy:
             self.strategy.stop()
-        if force is False:
+        if force is False and self._trading_required:
             success = await self._cancel_outstanding_orders()
             if not success:
                 self.app.log('Wind down process terminated: Failed to cancel all outstanding orders. '
