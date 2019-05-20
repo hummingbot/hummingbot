@@ -17,7 +17,7 @@ if os.name == "posix":
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20190513"
+    version = "20190517"
     packages = [
         "wings",
         "wings.logger",
@@ -40,12 +40,17 @@ def main():
         "hummingbot.market.ddex",
         "hummingbot.market.huobi",
         "hummingbot.market.radar_relay",
+        "hummingbot.data_feed",
         "hummingbot.cli",
         "hummingbot.cli.config",
         "hummingbot.cli.ui",
         "hummingbot.cli.utils",
         "hummingbot.logger",
         "hummingbot.management",
+        "hummingbot.strategy",
+        "hummingbot.strategy.arbitrage",
+        "hummingbot.strategy.cross_exchange_market_making",
+        "hummingbot.strategy.discovery",
         "hummingbot.templates",
     ]
     package_data = {
