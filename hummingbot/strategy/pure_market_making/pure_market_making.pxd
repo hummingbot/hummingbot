@@ -47,7 +47,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef c_cancel_order(self, object market_pair, str order_id)
     cdef c_process_market_pair(self, object market_pair, list active_ddex_orders)
     cdef c_did_fill_order(self, object order_filled_event)
-    cdef c_did_fail_order(self, str order_id)
+    cdef c_did_fail_order(self, object order_failed_event)
     cdef c_did_cancel_order(self, object cancelled_event)
     cdef c_did_complete_buy_order(self, object order_completed_event)
     cdef c_did_complete_sell_order(self, object order_completed_event)

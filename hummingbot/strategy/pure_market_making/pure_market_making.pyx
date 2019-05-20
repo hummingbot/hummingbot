@@ -59,11 +59,13 @@ cdef class OrderFilledListener(BasePureMakingStrategyEventListener):
 
 cdef class OrderFailedListener(BasePureMakingStrategyEventListener):
     cdef c_call(self, object arg):
-        self._owner.c_did_fail_order(arg.order_id)
+        self._owner.c_did_fail_order(arg)
+
 
 cdef class OrderCancelledListener(BasePureMakingStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_cancel_order(arg)
+
 
 cdef class OrderExpiredListener(BasePureMakingStrategyEventListener):
     cdef c_call(self, object arg):
@@ -463,14 +465,22 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                         f"{order_filled_event.amount} {market_pair.maker_base_currency} filled."
                     )
 
-    cdef c_did_fail_order(self, str order_id):
-        market_pair = self._order_id_to_market_pair.get(order_id)
+    cdef c_did_fail_order(self, object order_failed_event):
+        cdef:
+            str order_id = order_failed_event.order_id
+            object market_pair = self._order_id_to_market_pair.get(order_id)
+
         if market_pair is None:
             return
         self.c_stop_tracking_order(market_pair, order_id)
 
     cdef c_did_cancel_order(self, object cancelled_event):
-        self.c_did_fail_order(cancelled_event.order_id)
+        cdef:
+            str order_id = cancelled_event.order_id
+            object market_pair = self._order_id_to_market_pair.get(order_id)
+
+        self.c_stop_tracking_order(market_pair, order_id)
+
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
         cdef:
@@ -486,7 +496,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                 f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
             )
-            self.c_did_fail_order(order_id)
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
         cdef:
@@ -502,8 +511,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                 f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
             )
-            self.c_did_fail_order(order_id)
-
 
     cdef c_start_tracking_order(self, object market_pair, str order_id, bint is_buy, object price, object quantity):
         if market_pair not in self._tracked_maker_orders:
