@@ -1,6 +1,6 @@
 ---
 version: 1
-template_version: 2
+template_version: 3
 
 formatters:
     simple:
@@ -62,23 +62,15 @@ loggers:
         level: INFO
         handlers: [console, report_proxy_handler, file_handler]
         propagate: false
+    hummingbot.market:
+        level: INFO
+        handlers: [console, report_proxy_handler, file_handler]
+        propagate: false
     wings.event_reporter:
         level: EVENT_LOG
         handlers: [report_proxy_handler, file_handler]
         propagate: false
-    wings.tracker:
-        level: WARNING
-        handlers: [console_warning, report_proxy_handler, file_handler]
-        propagate: false
-    wings.data_source:
-        level: WARNING
-        handlers: [console_warning, report_proxy_handler, file_handler]
-        propagate: false
     wings.wallet:
-        level: INFO
-        handlers: [console, report_proxy_handler, file_handler]
-        propagate: false
-    wings.market:
         level: INFO
         handlers: [console, report_proxy_handler, file_handler]
         propagate: false
