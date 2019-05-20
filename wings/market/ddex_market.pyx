@@ -45,7 +45,7 @@ from wings.order_book cimport OrderBook
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.tracker.ddex_order_book_tracker import DDEXOrderBookTracker
 from wings.wallet.web3_wallet import Web3Wallet
-import pandas as pd
+
 
 s_logger = None
 s_decimal_0 = Decimal(0)
