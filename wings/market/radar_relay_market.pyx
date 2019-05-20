@@ -24,7 +24,7 @@ from wings.market.market_base import (
   NaN
 )
 from hummingbot.core.network_iterator import NetworkStatus
-from wings.wallet.web3_wallet import Web3Wallet
+from wings.wallet.ethereum.web3_wallet import Web3Wallet
 from wings.order_book cimport OrderBook
 from wings.cancellation_result import CancellationResult
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
@@ -47,8 +47,8 @@ from zero_ex.order_utils import (
     jsdict_order_to_struct,
     Order
 )
-from wings.zero_ex_custom_utils import fix_signature
-from wings.zero_ex_exchange import ZeroExExchange
+from wings.wallet.ethereum.zero_ex.zero_ex_custom_utils import fix_signature
+from wings.wallet.ethereum.zero_ex.zero_ex_exchange import ZeroExExchange
 
 rrm_logger = None
 s_decimal_0 = Decimal(0)

@@ -13,7 +13,7 @@ from web3.contract import Contract
 from web3.datastructures import AttributeDict
 
 import wings
-from wings.erc20_token import ERC20Token
+from wings.wallet.ethereum.erc20_token import ERC20Token
 from wings.events import NewBlocksWatcherEvent
 from wings.event_forwarder import EventForwarder
 from .base_watcher import BaseWatcher

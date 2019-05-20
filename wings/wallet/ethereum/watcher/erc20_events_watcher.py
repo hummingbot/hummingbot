@@ -19,14 +19,13 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.datastructures import AttributeDict
 
-import wings
 from wings.events import (
     NewBlocksWatcherEvent,
     WalletReceivedAssetEvent,
     TokenApprovedEvent,
     ERC20WatcherEvent
 )
-from wings.erc20_token import ERC20Token
+from wings.wallet.ethereum.erc20_token import ERC20Token
 from wings.event_forwarder import EventForwarder
 from .base_watcher import BaseWatcher
 from .new_blocks_watcher import NewBlocksWatcher

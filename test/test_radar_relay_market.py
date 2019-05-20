@@ -12,8 +12,8 @@ import unittest
 from typing import List
 from wings.cancellation_result import CancellationResult
 from wings.market.market_base import OrderType
-from wings.wallet.web3_wallet import Web3Wallet
-from wings.wallet.web3_wallet_backend import EthereumChain
+from wings.wallet.ethereum.web3_wallet import Web3Wallet
+from wings.wallet.ethereum.web3_wallet_backend import EthereumChain
 from hummingbot.core.clock import Clock, ClockMode
 from wings.market.radar_relay_market import RadarRelayMarket
 from wings.event_logger import EventLogger

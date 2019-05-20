@@ -14,12 +14,12 @@ from hummingbot.core.clock cimport Clock
 from wings.events import (
     WalletEvent
 )
-from wings.ethereum_chain import EthereumChain
+from wings.wallet.ethereum.ethereum_chain import EthereumChain
 from wings.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.pubsub cimport PubSub
 from wings.wallet.wallet_base import WalletBase
-from wings.wallet.ethereum_wallet.web3_wallet_backend import Web3WalletBackend
+from wings.wallet.ethereum.web3_wallet_backend import Web3WalletBackend
 
 class_logger = None
 
