@@ -1,6 +1,6 @@
 from libc.stdint cimport int64_t
 from hummingbot.core.clock cimport Clock
-from wings.model.sql_connection_manager import SQLConnectionManager
+from hummingbot.core.model.sql_connection_manager import SQLConnectionManager
 
 
 cdef class SQLKeepAlive(TimeIterator):

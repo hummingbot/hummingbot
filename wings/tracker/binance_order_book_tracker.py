@@ -10,7 +10,7 @@ from typing import (
     List,
     Optional
 )
-from wings.model.sql_connection_manager import SQLConnectionManager
+from hummingbot.core.model.sql_connection_manager import SQLConnectionManager
 from wings.order_book_tracker import (
     OrderBookTracker,
     OrderBookTrackerDataSourceType)

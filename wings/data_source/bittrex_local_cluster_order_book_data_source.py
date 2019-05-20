@@ -19,7 +19,7 @@ from typing import (
 
 import conf
 from wings.data_source.local_cluster_order_book_data_source import LocalClusterOrderBookDataSource
-from wings.model.sql_connection_manager import SQLConnectionManager
+from hummingbot.core.model.sql_connection_manager import SQLConnectionManager
 from wings.order_book import OrderBook
 from wings.orderbook.bittrex_order_book import BittrexOrderBook
 

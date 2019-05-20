@@ -15,7 +15,7 @@ from typing import (
     Optional)
 
 import wings
-from wings.model.sql_connection_manager import SQLConnectionManager
+from hummingbot.core.model.sql_connection_manager import SQLConnectionManager
 from wings.order_book import OrderBook
 from wings.order_book_message import OrderBookMessage
 from wings.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource

@@ -27,7 +27,7 @@ from sqlalchemy.sql.elements import TextClause
 import conf
 import wings
 from wings.data_source.local_cluster_order_book_data_source import LocalClusterOrderBookDataSource
-from wings.model.sql_connection_manager import SQLConnectionManager
+from hummingbot.core.model.sql_connection_manager import SQLConnectionManager
 from wings.order_book_message import (
     OrderBookMessage,
     DDEXOrderBookMessage

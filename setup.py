@@ -21,7 +21,6 @@ def main():
     packages = [
         "wings",
         "wings.logger",
-        "wings.model",
         "wings.watcher",
         "wings.data_source",
         "wings.orderbook",
@@ -30,6 +29,7 @@ def main():
         "wings.wallet",
         "hummingbot",
         "hummingbot.core",
+        "hummingbot.core.model",
         "hummingbot.data_feed",
         "hummingbot.cli",
         "hummingbot.cli.config",
