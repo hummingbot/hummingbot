@@ -18,7 +18,7 @@ node {
         sh "./uninstall"
         sh "./install"
         sh ". /root/miniconda/bin/activate hummingbot"
-        sh ". /root/miniconda/bin/python3 setup.py build_ext --inplace"
+        sh "./compile"
       }
 
       stage("Run tests") {
