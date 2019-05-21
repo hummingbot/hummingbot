@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from setuptools import setup
-from Cython.Build import cythonize
+from cython.Cython.Build import cythonize
 import numpy as np
 import os
 import subprocess
