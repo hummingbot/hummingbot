@@ -1,5 +1,5 @@
 node {
-    def testName = "xemm strategy"
+    def testName = "arbitrage strategy"
     def path = "/root/miniconda/bin"
     def python = "/root/miniconda/envs/hummingbot/bin/python"
 
@@ -25,7 +25,7 @@ node {
       }
 
       stage("Run tests") {
-        sh "${python} test/test_cross_exchange_market_making.py"
+        sh "${python} test/test_arbitrage.py"
       }
 
     } catch (c) {
