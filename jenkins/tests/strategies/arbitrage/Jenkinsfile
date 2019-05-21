@@ -44,7 +44,6 @@ def notifyBuild(String buildStatus = "STARTED", String testName = "not defined")
 
   // Default values
   def result = "FAILURE"
-  buildStatus = "TEST FAILED"
 
   // Override default values based on build status
   if (buildStatus == "STARTED") {
@@ -53,6 +52,8 @@ def notifyBuild(String buildStatus = "STARTED", String testName = "not defined")
   } else if (buildStatus == "SUCCESSFUL") {
     buildStatus = "TEST PASSED"
     result = "SUCCESS"
+  } else if (buildStatus == "FAILED") {
+    buildStatus = "TEST FAILED"
   }
 
   def subject = "${buildStatus}: [${env.JOB_NAME}_${env.BUILD_NUMBER}]"
