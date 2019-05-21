@@ -11,7 +11,7 @@ from typing import Any
 
 
 def discovery_symbol_list_prompt(market_name):
-    return "Enter list of token symbol on %s (e.g. ['%s'] or empty for all symbols.) >>> " \
+    return "Enter list of token symbol on %s (e.g. ['%s'] or press ENTER for all symbols.) >>> " \
            % (market_name, EXAMPLE_PAIRS.get(market_name, ""))
 
 
