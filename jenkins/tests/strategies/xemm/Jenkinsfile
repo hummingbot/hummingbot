@@ -1,10 +1,9 @@
 node {
     def testName = "xemm strategy"
-    sh "echo Starting ${testName}"
+    def path = "/root/miniconda/bin"
+    def python = "/root/miniconda/envs/hummingbot/bin/python"
 
     try {
-      sh "echo 'try: notify build'"
- 
       notifyBuild("STARTED", testName)
 
       stage("Clone repository") {
@@ -14,20 +13,19 @@ node {
 
       stage("Build hummingbot") {
         // Clean-up environment
-        sh ". /root/miniconda/bin/deactivate"
+        sh ". ${path}/deactivate"
         sh "./uninstall"
 
         // Install hummingbot
         sh "./install"
-        sh ". /root/miniconda/bin/activate hummingbot"
+        sh ". ${path}/activate hummingbot"
 
         // ./compile
-        sh "/root/miniconda/bin/python3 setup.py build_ext --inplace"
+        sh ". ${python} setup.py build_ext --inplace"
       }
 
       stage("Run tests") {
-        sh "echo run tests"
-        sh "/root/miniconda/bin/python3 test/cross_exchange_market_making.py"
+        sh ". ${python} test/cross_exchange_market_making.py"
       }
 
     } catch (c) {
@@ -37,15 +35,12 @@ node {
       currentBuild.result = "FAILED"
       throw e      
     } finally {
-      sh "echo finally"
-
       // Success or failure, always send notifications
       notifyBuild(currentBuild.result, testName)
     }
 }
 
 def notifyBuild(String buildStatus = "STARTED", String testName = "not defined") {
-  sh "echo call notifyBuild"
   // build status of null means successful
   buildStatus =  buildStatus ?: "SUCCESSFUL"
 
