@@ -29,7 +29,8 @@ from wings.events import (
     SellOrderCreatedEvent,
     MarketReceivedAssetEvent,
     MarketWithdrawAssetEvent,
-    MarketTransactionFailureEvent
+    MarketTransactionFailureEvent,
+    MarketOrderFailureEvent
 )
 from wings.market.market_base import (
     MarketBase,
@@ -217,6 +218,7 @@ cdef class CoinbaseProMarket(MarketBase):
     MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
+    MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
@@ -529,8 +531,8 @@ cdef class CoinbaseProMarket(MarketBase):
                 else:
                     self.logger().info(f"The market order {tracked_order.client_order_id} has failed according to "
                                        f"order status API.")
-                    self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                                         MarketTransactionFailureEvent(
+                    self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                                         MarketOrderFailureEvent(
                                              self._current_timestamp,
                                              tracked_order.client_order_id,
                                              order_type
@@ -600,7 +602,8 @@ cdef class CoinbaseProMarket(MarketBase):
                                                                          or tracked_order.base_asset),
                                                                         float(tracked_order.executed_amount),
                                                                         float(tracked_order.quote_asset_amount),
-                                                                        float(tracked_order.fee_paid)))
+                                                                        float(tracked_order.fee_paid),
+                                                                        tracked_order.order_type))
                         else:
                             self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
                                                f"according to Coinbase Pro user stream.")
@@ -613,7 +616,8 @@ cdef class CoinbaseProMarket(MarketBase):
                                                                           or tracked_order.quote_asset),
                                                                          float(tracked_order.executed_amount),
                                                                          float(tracked_order.quote_asset_amount),
-                                                                         float(tracked_order.fee_paid)))
+                                                                         float(tracked_order.fee_paid),
+                                                                         tracked_order.order_type))
                     else: # reason == "canceled":
                         execute_amount_diff = 0
                         tracked_order.last_state = "canceled"
@@ -704,8 +708,8 @@ cdef class CoinbaseProMarket(MarketBase):
             order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
             self.logger().error(f"Error submitting buy {order_type_str} order to Coinbase Pro for "
                                 f"{decimal_amount} {symbol} {price}.", exc_info=True)
-            self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                                 MarketTransactionFailureEvent(self._current_timestamp, order_id))
+            self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                                 MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
     cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0,
                    dict kwargs = {}):
@@ -750,8 +754,8 @@ cdef class CoinbaseProMarket(MarketBase):
             order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
             self.logger().error(f"Error submitting sell {order_type_str} order to Coinbase Pro for "
                                 f"{decimal_amount} {symbol} {price}.", exc_info=True)
-            self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                                 MarketTransactionFailureEvent(self._current_timestamp, order_id))
+            self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                                 MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
     cdef str c_sell(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0,
                     dict kwargs = {}):
@@ -823,12 +827,10 @@ cdef class CoinbaseProMarket(MarketBase):
     async def _trading_rules_polling_loop(self):
         while True:
             try:
-                self._poll_notifier = asyncio.Event()
-                await self._poll_notifier.wait()
-
                 await asyncio.gather(
                     self._update_trading_rules()
                 )
+                await asyncio.sleep(60)
             except asyncio.CancelledError:
                 raise
             except Exception:
