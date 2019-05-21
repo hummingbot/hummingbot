@@ -17,7 +17,7 @@ node {
         sh ". /root/miniconda/bin/deactivate"
         sh "./uninstall"
         sh "./install"
-        sh ". /root/miniconda/bin/conda activate hummingbot"
+        sh ". /root/miniconda/bin/activate hummingbot"
         sh "./compile"
       }
 
