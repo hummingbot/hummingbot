@@ -21,11 +21,11 @@ node {
         sh ". ${path}/activate hummingbot"
 
         // ./compile
-        sh ". ${python} setup.py build_ext --inplace"
+        sh "${python} setup.py build_ext --inplace"
       }
 
       stage("Run tests") {
-        sh ". ${python} test/cross_exchange_market_making.py"
+        sh "${python} test/cross_exchange_market_making.py"
       }
 
     } catch (c) {
