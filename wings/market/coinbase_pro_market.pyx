@@ -823,12 +823,10 @@ cdef class CoinbaseProMarket(MarketBase):
     async def _trading_rules_polling_loop(self):
         while True:
             try:
-                self._poll_notifier = asyncio.Event()
-                await self._poll_notifier.wait()
-
                 await asyncio.gather(
                     self._update_trading_rules()
                 )
+                await asyncio.sleep(60.0)
             except asyncio.CancelledError:
                 raise
             except Exception:
