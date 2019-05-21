@@ -1039,6 +1039,7 @@ cdef class BinanceMarket(MarketBase):
 
         if isinstance(cancel_result, dict) and cancel_result.get("status") == "CANCELED":
             self.logger().info(f"Successfully cancelled order {order_id}.")
+            self.c_stop_tracking_order(order_id)
             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                  OrderCancelledEvent(self._current_timestamp, order_id))
         return cancel_result
