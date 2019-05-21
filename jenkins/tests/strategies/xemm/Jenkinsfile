@@ -14,6 +14,7 @@ node {
 
       stage("Build hummingbot") {
         // Clean-up environment
+        sh "source /root/.bashrc"
         sh "conda deactivate"
         sh "./uninstall"
         sh "./install"
