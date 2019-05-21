@@ -27,7 +27,7 @@ from wings.events import (
     SellOrderCompletedEvent,
     OrderFilledEvent,
     OrderCancelledEvent,
-    MarketTransactionFailureEvent,
+    MarketOrderFailureEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
     TradeType,
@@ -208,7 +208,7 @@ cdef class DDEXMarket(MarketBase):
     MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
-    MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
+    MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
 
@@ -724,10 +724,10 @@ cdef class DDEXMarket(MarketBase):
         except Exception:
             self.c_stop_tracking_order(order_id)
             self.logger().error(f"Error submitting buy order to DDEX for {amount} {symbol}.", exc_info=True)
-            self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                                 MarketTransactionFailureEvent(self._current_timestamp,
-                                                               order_id,
-                                                               order_type)
+            self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                                 MarketOrderFailureEvent(self._current_timestamp,
+                                                         order_id,
+                                                         order_type)
                                  )
 
     cdef str c_sell(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0,
@@ -775,10 +775,10 @@ cdef class DDEXMarket(MarketBase):
         except Exception:
             self.c_stop_tracking_order(order_id)
             self.logger().error(f"Error submitting sell order to DDEX for {amount} {symbol}.", exc_info=True)
-            self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                                 MarketTransactionFailureEvent(self._current_timestamp,
-                                                               order_id,
-                                                               order_type)
+            self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                                 MarketOrderFailureEvent(self._current_timestamp,
+                                                         order_id,
+                                                         order_type)
                                  )
 
     cdef c_cancel(self, str symbol, str client_order_id):
