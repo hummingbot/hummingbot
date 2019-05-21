@@ -1,12 +1,11 @@
-def testName = "xemm strategy"
-sh "echo Starting ${testName}"
-
 node {
+    def testName = "xemm strategy"
+    sh "echo Starting ${testName}"
 
     try {
       sh "echo 'try: notify build'"
  
-      notifyBuild("STARTED")
+      notifyBuild("STARTED", testName)
 
       stage("Clone repository") {
         /* Clone repository to jenkins workspace */
@@ -37,11 +36,11 @@ node {
       sh "echo finally"
 
       // Success or failure, always send notifications
-      notifyBuild(currentBuild.result)
+      notifyBuild(currentBuild.result, testName)
     }
 }
 
-def notifyBuild(String buildStatus = "STARTED") {
+def notifyBuild(String buildStatus = "STARTED", String testName = "not defined") {
   sh "echo call notifyBuild"
   // build status of null means successful
   buildStatus =  buildStatus ?: "SUCCESSFUL"
