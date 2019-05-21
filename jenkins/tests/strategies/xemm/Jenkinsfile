@@ -16,14 +16,18 @@ node {
         // Clean-up environment
         sh ". /root/miniconda/bin/deactivate"
         sh "./uninstall"
+
+        // Install hummingbot
         sh "./install"
         sh ". /root/miniconda/bin/activate hummingbot"
-        sh "/root/miniconda/bin/python3.7 setup.py build_ext --inplace"
+
+        // ./compile
+        sh "/root/miniconda/bin/python3 setup.py build_ext --inplace"
       }
 
       stage("Run tests") {
         sh "echo run tests"
-        sh "/root/miniconda/bin/python3.7 test/cross_exchange_market_making.py"
+        sh "/root/miniconda/bin/python3 test/cross_exchange_market_making.py"
       }
 
     } catch (c) {
