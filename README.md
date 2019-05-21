@@ -28,9 +28,9 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 
 | Strategy | Test |
 |--|--|
-| Cross exchange market making | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-strategy_xemm&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-strategy_xemm/) |
-| Arbitrage | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-strategy_arbitrage&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-strategy_arbitrage/) |
-| Discovery | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-strategy_discovery&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-strategy_discovery/) |
+| [Cross exchange market making](https://docs.hummingbot.io/strategies/cross-exchange-market-making/) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-strategy_xemm&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-strategy_xemm/) |
+| [Arbitrage](https://docs.hummingbot.io/strategies/arbitrage/) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-strategy_arbitrage&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-strategy_arbitrage/) |
+| [Discovery](https://docs.hummingbot.io/strategies/discovery/) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-strategy_discovery&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-strategy_discovery/) |
 
 ## Install Hummingbot
 See [Installation Guide](https://docs.hummingbot.io/installation/).
