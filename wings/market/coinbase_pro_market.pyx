@@ -776,6 +776,7 @@ cdef class CoinbaseProMarket(MarketBase):
         return order_id
 
     cdef c_cancel(self, str symbol, str order_id):
+        self.c_stop_tracking_order(order_id)
         asyncio.ensure_future(self.execute_cancel(symbol, order_id))
         return order_id
 
