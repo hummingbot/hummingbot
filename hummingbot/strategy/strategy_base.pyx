@@ -76,6 +76,7 @@ cdef class StrategyBase(TimeIterator):
         except Exception:
             self.logger().error("Error formatting market stats.", exc_info=True)
 
+
     def wallet_balance_data_frame(self, market_symbol_pairs: List[MarketSymbolPair]) -> pd.DataFrame:
         cdef:
             MarketBase market
@@ -103,21 +104,3 @@ cdef class StrategyBase(TimeIterator):
 
         except Exception:
             self.logger().error("Error formatting wallet balance stats.", exc_info=True)
-
-    def balance_warning(self, market_symbol_pairs: List[MarketSymbolPair]) -> List[str]:
-        cdef:
-            double base_balance
-            double quote_balance
-            list warning_lines = []
-        # Add warning lines on null balances.
-        # TO-DO: $Use min order size logic to replace the hard-coded 0.0001 value for each asset.
-        for market_symbol_pair in market_symbol_pairs:
-            base_balance = market_symbol_pair.market.get_balance(market_symbol_pair.base_asset)
-            quote_balance = market_symbol_pair.market.get_balance(market_symbol_pair.quote_asset)
-            if base_balance <= 0.0001:
-                warning_lines.append(f"  {market_symbol_pair.market.name} market "
-                                     f"{market_symbol_pair.base_asset} balance is too low. Cannot place order.")
-            if quote_balance <= 0.0001:
-                warning_lines.append(f"  {market_symbol_pair.market.name} market "
-                                     f"{market_symbol_pair.quote_asset} balance is too low. Cannot place order.")
-        return warning_lines

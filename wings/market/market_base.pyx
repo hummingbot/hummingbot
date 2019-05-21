@@ -43,10 +43,6 @@ cdef class MarketBase(NetworkIterator):
             self.c_add_listener(event_tag.value, self.event_logger)
 
     @property
-    def status_dict(self) -> Dict[str, bool]:
-        return {}
-
-    @property
     def name(self) -> str:
         return self.__class__.__name__
 

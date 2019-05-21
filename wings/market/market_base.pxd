@@ -9,8 +9,6 @@ cdef class MarketBase(NetworkIterator):
     cdef:
         EventReporter event_reporter
         EventLogger event_logger
-        bint _trading_required
-
     cdef str c_buy(self, str symbol, double amount, object order_type=*, double price=*, dict kwargs=*)
     cdef str c_sell(self, str symbol, double amount, object order_type=*, double price=*, dict kwargs=*)
     cdef c_cancel(self, str symbol, str client_order_id)

@@ -315,25 +315,24 @@ cdef class DiscoveryStrategy(StrategyBase):
         for exchange_class, market_info in exchange_market_info.items():
             trading_pairs = market_info["markets"]
             exchange_name = exchange_class.name
-            for symbol, usd_volume, base_asset, quote_asset in zip(trading_pairs.index,
-                                                                   trading_pairs.USDVolume,
-                                                                   trading_pairs.baseAsset,
-                                                                   trading_pairs.quoteAsset):
+            for symbol, quote_volume, quote_token in zip(trading_pairs.index,
+                                                         trading_pairs.volume,
+                                                         trading_pairs.quoteAsset):
                 try:
                     order_book = exchange_class.get_order_book(symbol)
                     ask, bid = order_book.get_price(True), order_book.get_price(False)
                     spread, mid_price = ask/bid, (ask + bid)/2
                     market_stats[(exchange_name, symbol)] = (
-                        base_asset, quote_asset, mid_price, (spread - 1) * 100, float(usd_volume))
+                        (spread - 1) * 100, mid_price, float(quote_volume), quote_token)
                 except Exception:
                     self.logger().debug(f"Error calculating market stats: {exchange_name}, {symbol}.", exc_info=True)
 
         market_stats_discovery_df = pd.DataFrame(
-            data=[(name[0], stats[0], stats[1], stats[2], stats[3], stats[4]) for name, stats in market_stats.items()],
-            columns=["market", "base", "quote", "mid_price", "spread (%)", "usd_volume"]
+            data=[(name[0], name[1], stats[0], stats[1], stats[2], stats[3]) for name, stats in market_stats.items()],
+            columns=["market", "trading_pair", "spread (%)", "mid_price", "24h_volume", "quote_asset"]
         )
 
-        return market_stats_discovery_df.sort_values(["usd_volume", "spread (%)"], ascending=False)
+        return market_stats_discovery_df.sort_values(["24h_volume", "spread (%)"], ascending=False)
 
     cdef c_process_market_pair(self, object market_pair):
         self._discovery_stats["market_stats"] = self.c_calculate_market_stats(market_pair, self._market_info)
@@ -350,7 +349,7 @@ cdef class DiscoveryStrategy(StrategyBase):
         if "arbitrage" not in self._discovery_stats or self._discovery_stats["arbitrage"].empty:
             lines.extend(["", "Arbitrage discovery not ready yet."])
             return lines
-        df_lines = self._discovery_stats["arbitrage"].to_string(index=False, float_format='%.6g').split("\n")
+        df_lines = self._discovery_stats["arbitrage"].to_string(index=False, float_format='%.6f').split("\n")
 
         lines.extend(["", "  Arbitrage Opportunity Report:"] +
                      ["    " + line for line in df_lines])
@@ -363,7 +362,7 @@ cdef class DiscoveryStrategy(StrategyBase):
         if "market_stats" not in self._discovery_stats or self._discovery_stats["market_stats"].empty:
             lines.extend(["", "Market stats not ready yet."])
             return lines
-        df_lines = self._discovery_stats["market_stats"].to_string(index=False, float_format='%.6g').split("\n")
+        df_lines = self._discovery_stats["market_stats"].to_string(index=False, float_format='%.6f').split("\n")
 
         lines.extend(["", "  Market Stats:"] +
                      ["    " + line for line in df_lines])
@@ -392,9 +391,7 @@ cdef class DiscoveryStrategy(StrategyBase):
                 asset_set.add(q)
 
         for asset in asset_set:
-            rate = ExchangeRateConversion.get_instance().adjust_token_rate(asset, 1.0)
-            if rate != 1.0:
-                data.append([asset, rate])
+            data.append([asset, ExchangeRateConversion.get_instance().adjust_token_rate(asset, 1.0)])
 
         assets_df = pd.DataFrame(data=data, columns=columns)
         lines.extend(["", "  Conversion Rates:"] + ["    " + line for line in str(assets_df).split("\n")])
