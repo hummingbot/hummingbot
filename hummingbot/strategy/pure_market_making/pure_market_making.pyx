@@ -533,7 +533,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     cdef c_stop_tracking_order(self, object market_pair, str order_id):
         if market_pair in self._tracked_maker_orders and order_id in self._tracked_maker_orders[market_pair]:
-            self.log_with_clock(logging.INFO, f"this order {order_id} is scheduled to be removed")
             del self._tracked_maker_orders[market_pair][order_id]
             if len(self._tracked_maker_orders[market_pair]) < 1:
                 del self._tracked_maker_orders[market_pair]
@@ -553,13 +552,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             _, market_pair, order_id = self._shadow_gc_requests.popleft()
             if (market_pair in self._shadow_tracked_maker_orders and
                     order_id in self._shadow_tracked_maker_orders[market_pair]):
-                self.log_with_clock(logging.INFO, f"the order {order_id} has been removed")
                 del self._shadow_tracked_maker_orders[market_pair][order_id]
                 if len(self._shadow_tracked_maker_orders[market_pair]) < 1:
                     del self._shadow_tracked_maker_orders[market_pair]
             if order_id in self._shadow_order_id_to_market_pair:
                 del self._shadow_order_id_to_market_pair[order_id]
-                market_pair.maker_market.c_stop_tracking_order(order_id)
 
     cdef bint c_check_if_sufficient_balance(self, object market_pair):
         cdef:
