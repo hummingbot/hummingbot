@@ -1,6 +1,7 @@
+def testName = "xemm strategy"
+sh "echo Starting ${testName}"
+
 node {
-    def testName = "xemm strategy"
-    sh "echo Starting ${testName}"
 
     try {
       sh "echo 'try: notify build'"
