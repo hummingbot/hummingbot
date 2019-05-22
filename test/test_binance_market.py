@@ -40,7 +40,7 @@ from wings.events import (
     SellOrderCreatedEvent,
     TradeFee
 )
-from wings.wallet.mock_wallet import MockWallet
+from hummingbot.wallet.mock_wallet import MockWallet
 from wings.event_logger import EventLogger
 from wings.order_book_tracker import (
     OrderBookTrackerDataSourceType

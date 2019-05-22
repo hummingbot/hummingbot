@@ -59,8 +59,8 @@ from wings.tracker.binance_user_stream_tracker import BinanceUserStreamTracker
 from wings.user_stream_tracker import UserStreamTrackerDataSourceType
 from wings.cancellation_result import CancellationResult
 from wings.transaction_tracker import TransactionTracker
-from wings.wallet.wallet_base import WalletBase
-from wings.wallet.wallet_base cimport WalletBase
+from hummingbot.wallet.wallet_base import WalletBase
+from hummingbot.wallet.wallet_base cimport WalletBase
 from collections import deque
 import statistics
 

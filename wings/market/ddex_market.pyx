@@ -38,13 +38,11 @@ from wings.market.market_base cimport MarketBase
 from wings.market.market_base import (
     OrderType
 )
-from hummingbot.core.network_iterator import (
-    NetworkStatus
-)
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from wings.order_book cimport OrderBook
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.tracker.ddex_order_book_tracker import DDEXOrderBookTracker
-from wings.wallet.ethereum.web3_wallet import Web3Wallet
 
 
 s_logger = None

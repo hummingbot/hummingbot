@@ -31,8 +31,8 @@ from wings.events import (
     TradeFee
 )
 from wings.event_logger import EventLogger
-from wings.wallet.ethereum.web3_wallet import Web3Wallet
-from wings.wallet.ethereum.ethereum_chain import EthereumChain
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)

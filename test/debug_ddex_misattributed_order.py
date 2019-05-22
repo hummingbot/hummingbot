@@ -20,8 +20,8 @@ from hummingbot.core.clock import (
     ClockMode
 )
 from wings.market.ddex_market import DDEXMarket
-from wings.wallet.ethereum.ethereum_chain import EthereumChain
-from wings.wallet.ethereum.web3_wallet import Web3Wallet
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 
 
 class CmdlineParser(argparse.ArgumentParser):

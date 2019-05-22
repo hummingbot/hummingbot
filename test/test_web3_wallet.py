@@ -24,8 +24,8 @@ from wings.events import (
     TokenApprovedEvent,
     EthereumGasUsedEvent,
 )
-from wings.wallet.ethereum.erc20_token import ERC20Token
-from wings.wallet.ethereum.web3_wallet import Web3Wallet
+from hummingbot.wallet.ethereum.erc20_token import ERC20Token
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from wings.event_logger import EventLogger
 
 
