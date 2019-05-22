@@ -10,7 +10,7 @@ from logging import (
 
 from .logger import HummingbotLogger
 
-NETWORK_ERROR = DEBUG + 5
+NETWORK = DEBUG + 5
 
 __all__ = [
     "DEBUG",
@@ -18,7 +18,8 @@ __all__ = [
     "WARNING",
     "ERROR",
     "CRITICAL",
-    "NETWORK_ERROR",
+    "NETWORK",
     "HummingbotLogger"
 ]
 logging.setLoggerClass(HummingbotLogger)
+logging.addLevelName(NETWORK, "NETWORK")

@@ -30,9 +30,9 @@ class HummingbotLogger(PythonLogger):
 
     def network_error(self, log_msg: str, app_warning_msg: Optional[str] = None, *args, **kwargs):
         from hummingbot.cli.hummingbot_application import HummingbotApplication
-        from . import NETWORK_ERROR
+        from . import NETWORK
 
-        self.log(NETWORK_ERROR, log_msg, *args, **kwargs)
+        self.log(NETWORK, log_msg, *args, **kwargs)
         if app_warning_msg is not None:
             app_warning: ApplicationWarning = ApplicationWarning(
                 time.time(),
