@@ -82,7 +82,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
     ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     ORDER_EXPIRED_EVENT_TAG = MarketEvent.OrderExpired.value
-    TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
+    ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
 
     OPTION_LOG_NULL_ORDER_SIZE = 1 << 0
     OPTION_LOG_REMOVING_ORDER = 1 << 1
@@ -174,7 +174,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             typed_market.c_add_listener(self.ORDER_FILLED_EVENT_TAG, self._order_filled_listener)
             typed_market.c_add_listener(self.ORDER_CANCELLED_EVENT_TAG, self._order_cancelled_listener)
             typed_market.c_add_listener(self.ORDER_EXPIRED_EVENT_TAG, self._order_expired_listener)
-            typed_market.c_add_listener(self.TRANSACTION_FAILURE_EVENT_TAG, self._order_failed_listener)
+            typed_market.c_add_listener(self.ORDER_FAILURE_EVENT_TAG, self._order_failed_listener)
 
     @property
     def active_markets(self) -> List[MarketBase]:
