@@ -127,7 +127,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._order_size = order_size
         self._cancel_order_wait_time = cancel_order_wait_time
         # Add radar relay type exchanges where you can expire orders instead of cancelling them
-        self._radar_relay_type_exchanges = ['RadarRelayMarket', 'BambooRelayMarket']
+        self._radar_relay_type_exchanges = {'radar_relay', 'bamboo_relay'}
         # For tracking limit orders
         self._tracked_maker_orders = {}
         # Preserving a copy of limit orders for safety for sometime
@@ -407,7 +407,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             OrderBook maker_order_book
             bint is_buy
             double current_timestamp = self._current_timestamp
-            str maker_name = maker_market.__class__.__name__
+            str maker_name = maker_market.name
 
         global s_decimal_zero
 
@@ -427,7 +427,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         #If there are active orders check if the current timestamp exceeds time to cancel
         else:
             #No need to cancel if its radar relay type exchange, use expiration instead
-            if str(maker_name) in self._radar_relay_type_exchanges:
+            if maker_name in self._radar_relay_type_exchanges:
                 return
 
             if current_timestamp >= self._time_to_cancel[market_pair]:
@@ -600,7 +600,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             OrderBook maker_order_book = maker_market.c_get_order_book(market_pair.maker_symbol)
             top_bid_price = maker_market.c_get_price(market_pair.maker_symbol, False)
             top_ask_price = maker_market.c_get_price(market_pair.maker_symbol, True)
-            str maker_name = maker_market.__class__.__name__
+            str maker_name = maker_market.name
 
         price_quant = maker_market.get_order_price_quantum(market_pair.maker_symbol, top_bid_price)
         mid_price = (top_ask_price + top_bid_price) / 2
@@ -609,7 +609,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         place_bid_price = round(Decimal(place_bid_price)/price_quant) * price_quant
         place_ask_price = round(Decimal(place_ask_price)/price_quant) * price_quant
 
-        if str(maker_name) in self._radar_relay_type_exchanges:
+        if maker_name in self._radar_relay_type_exchanges:
             expiration_seconds = self._cancel_order_wait_time
 
         else:

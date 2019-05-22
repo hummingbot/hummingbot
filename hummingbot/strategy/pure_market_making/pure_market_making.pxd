@@ -12,6 +12,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef:
         set _markets
         set _maker_markets
+        set _radar_relay_type_exchanges
         dict _market_pairs
         bint _all_markets_ready
         double _bid_place_threshold
@@ -21,7 +22,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         double _status_report_interval
         double _last_timestamp
         double _limit_order_min_expiration
-        list _radar_relay_type_exchanges
         dict _tracked_maker_orders
         dict _order_id_to_market_pair
         dict _shadow_tracked_maker_orders
