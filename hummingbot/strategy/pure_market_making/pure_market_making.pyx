@@ -126,6 +126,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._ask_place_threshold = ask_place_threshold
         self._order_size = order_size
         self._cancel_order_wait_time = cancel_order_wait_time
+        # Add radar relay type exchanges where you can expire orders instead of cancelling them
+        self._radar_relay_type_exchanges = ['RadarRelayMarket', 'BambooRelayMarket']
         # For tracking limit orders
         self._tracked_maker_orders = {}
         # Preserving a copy of limit orders for safety for sometime
@@ -135,6 +137,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         # For cleaning up limit orders
         self._shadow_gc_requests = deque()
 
+        self._time_to_cancel = {}
         self._order_fill_buy_events = {}
         self._order_fill_sell_events = {}
         self._in_flight_cancels = OrderedDict()
@@ -146,7 +149,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._order_expired_listener = OrderExpiredListener(self)
         self._logging_options = <int64_t>logging_options
         self._last_timestamp = 0
-        self._time_to_cancel = 0
         self._status_report_interval = status_report_interval
         self._limit_order_min_expiration = limit_order_min_expiration
 
@@ -401,17 +403,18 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef c_process_market_pair(self, object market_pair, list active_orders):
         cdef:
             double last_trade_price
-            MarketBase maker_market
+            MarketBase maker_market = market_pair.maker_market
             OrderBook maker_order_book
             bint is_buy
             double current_timestamp = self._current_timestamp
+            str maker_name = maker_market.__class__.__name__
 
         global s_decimal_zero
 
         # If there are no active orders
         if not len(active_orders):
             # Set cancellation time to be current timestamp + cancel order wait time
-            self._time_to_cancel = current_timestamp + self._cancel_order_wait_time
+            self._time_to_cancel[market_pair] = current_timestamp + self._cancel_order_wait_time
 
             # See if I still have enough balance on my wallet to place the bid and ask orders
             # If not don't place orders
@@ -423,7 +426,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         #If there are active orders check if the current timestamp exceeds time to cancel
         else:
-            if current_timestamp >= self._time_to_cancel:
+            #No need to cancel if its radar relay type exchange, use expiration instead
+            if str(maker_name) in self._radar_relay_type_exchanges:
+                return
+
+            if current_timestamp >= self._time_to_cancel[market_pair]:
 
                  for active_order in active_orders:
                     #Cancel active orders
@@ -593,6 +600,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             OrderBook maker_order_book = maker_market.c_get_order_book(market_pair.maker_symbol)
             top_bid_price = maker_market.c_get_price(market_pair.maker_symbol, False)
             top_ask_price = maker_market.c_get_price(market_pair.maker_symbol, True)
+            str maker_name = maker_market.__class__.__name__
 
         price_quant = maker_market.get_order_price_quantum(market_pair.maker_symbol, top_bid_price)
         mid_price = (top_ask_price + top_bid_price) / 2
@@ -600,6 +608,12 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         place_ask_price = mid_price * ( 1 + self.ask_place_threshold)
         place_bid_price = round(Decimal(place_bid_price)/price_quant) * price_quant
         place_ask_price = round(Decimal(place_ask_price)/price_quant) * price_quant
+
+        if str(maker_name) in self._radar_relay_type_exchanges:
+            expiration_seconds = self._cancel_order_wait_time
+
+        else:
+            expiration_seconds = NaN
 
         if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                     self.log_with_clock(
@@ -615,6 +629,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     float(self.order_size),
                     float(place_bid_price),
                     OrderType.LIMIT,
+                    expiration_seconds
                 )
 
         self.c_start_tracking_order(
@@ -638,7 +653,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     market_pair.maker_symbol,
                     float(self.order_size),
                     float(place_ask_price),
-                    OrderType.LIMIT
+                    OrderType.LIMIT,
+                    expiration_seconds
                 )
 
         self.c_start_tracking_order(

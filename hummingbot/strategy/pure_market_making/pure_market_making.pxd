@@ -17,17 +17,18 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         double _bid_place_threshold
         double _ask_place_threshold
         double _cancel_order_wait_time
-        double _time_to_cancel
         double _order_size
         double _status_report_interval
         double _last_timestamp
         double _limit_order_min_expiration
+        list _radar_relay_type_exchanges
         dict _tracked_maker_orders
         dict _order_id_to_market_pair
         dict _shadow_tracked_maker_orders
         dict _shadow_order_id_to_market_pair
         dict _order_fill_buy_events
         dict _order_fill_sell_events
+        dict _time_to_cancel
         object _in_flight_cancels
         object _shadow_gc_requests
 
