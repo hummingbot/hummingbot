@@ -59,7 +59,7 @@ cdef class OrderCancelledListener(BaseArbitrageStrategyEventListener):
 cdef class ArbitrageStrategy(StrategyBase):
     BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
+    ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
 
     OPTION_LOG_STATUS_REPORT = 1 << 0
@@ -113,7 +113,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                 typed_market = market
                 typed_market.c_add_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sell_order_completed_listener)
                 typed_market.c_add_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._buy_order_completed_listener)
-                typed_market.c_add_listener(self.TRANSACTION_FAILURE_EVENT_TAG, self._order_failed_listener)
+                typed_market.c_add_listener(self.ORDER_FAILURE_EVENT_TAG, self._order_failed_listener)
                 typed_market.c_add_listener(self.ORDER_CANCELLED_EVENT_TAG, self._order_canceled_listener)
 
 
@@ -137,10 +137,6 @@ cdef class ArbitrageStrategy(StrategyBase):
 
     def format_status(self) -> str:
         cdef:
-            double market_1_base_balance
-            double market_1_quote_balance
-            double market_2_base_balance
-            double market_2_quote_balance
             list lines = []
             list warning_lines = []
             object market_symbol_pair_1 # MarketSymbolPair
@@ -154,10 +150,6 @@ cdef class ArbitrageStrategy(StrategyBase):
                                                     market_pair.market_2_trading_pair,
                                                     market_pair.market_2_base_asset,
                                                     market_pair.market_2_quote_asset)
-            market_1_base_balance = market_symbol_pair_1.market.get_balance(market_symbol_pair_1.base_asset)
-            market_1_quote_balance = market_symbol_pair_1.market.get_balance(market_symbol_pair_1.quote_asset)
-            market_2_base_balance = market_symbol_pair_2.market.get_balance(market_symbol_pair_1.base_asset)
-            market_2_quote_balance = market_symbol_pair_2.market.get_balance(market_symbol_pair_1.quote_asset)
 
             if not (market_symbol_pair_1.market.network_status is NetworkStatus.CONNECTED and
                     market_symbol_pair_2.market.network_status is NetworkStatus.CONNECTED):
@@ -187,7 +179,6 @@ cdef class ArbitrageStrategy(StrategyBase):
                 [f"    take ask on {market_symbol_pair_1.market.name}, "
                  f"take bid on {market_symbol_pair_2.market.name}: {round(profitability_buy_1_sell_2 * 100, 4)} %"])
 
-
             # See if there're any pending market orders.
             if self._tracked_taker_orders:
                 df_lines = str(self.tracked_taker_orders_data_frame).split("\n")
@@ -196,21 +187,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             else:
                 lines.extend(["", "  No pending market orders."])
 
-            # Add warning lines on null balances.
-            # TO-DO: Build min order size logic into exchange connector and expose maker_min_order and taker_min_order variables,
-            # which can replace the hard-coded 0.0001 value.
-            if market_1_base_balance <= 0.0001:
-                warning_lines.append(f"  {market_symbol_pair_1.market.market.name} market "
-                                     f"{market_symbol_pair_1.base_asset} balance is 0. Cannot place order.")
-            if market_1_quote_balance <= 0.0001:
-                warning_lines.append(f"  {market_symbol_pair_1.market.name} market "
-                                     f"{market_symbol_pair_1.quote_asset} balance is 0. Cannot place order.")
-            if market_2_base_balance <= 0.0001:
-                warning_lines.append(f"  {market_symbol_pair_1.market.name} market "
-                                     f"{market_symbol_pair_1.base_asset} balance is 0. Cannot place order.")
-            if market_2_quote_balance <= 0.0001:
-                warning_lines.append(f"  {market_symbol_pair_1.market.name} market "
-                                     f"{market_symbol_pair_1.quote_asset} balance is 0. Cannot place order.")
+            warning_lines.extend(self.balance_warning([market_symbol_pair_1, market_symbol_pair_2]))
 
         if len(warning_lines) > 0:
             lines.extend(["", "  *** WARNINGS ***"] + warning_lines)
@@ -381,7 +358,6 @@ cdef class ArbitrageStrategy(StrategyBase):
         if profitability_buy_1_sell_2 > profitability_buy_2_sell_1:
             # it is more profitable to buy on market_1 and sell on market_2
             self.c_process_market_pair_inner(market_symbol_pair_1, market_symbol_pair_2)
-
         else:
             self.c_process_market_pair_inner(market_symbol_pair_2, market_symbol_pair_1)
 

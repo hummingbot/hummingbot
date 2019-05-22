@@ -3,13 +3,15 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
-import conf
-import time
 import asyncio
+import conf
+import contextlib
 from decimal import Decimal
 import logging
-import unittest
+import time
 from typing import List
+import unittest
+
 from wings.cancellation_result import CancellationResult
 from wings.market.market_base import OrderType
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
@@ -77,15 +79,20 @@ class BambooRelayMarketUnitTest(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.wallet)
         cls.clock.add_iterator(cls.market)
-        cls.ev_loop.run_until_complete(cls.clock.run_til(time.time() + 1))
+        stack = contextlib.ExitStack()
+        cls._clock = stack.enter_context(cls.clock)
         cls.ev_loop.run_until_complete(cls.wait_til_ready())
         print("Ready.")
 
     @classmethod
     async def wait_til_ready(cls):
         while True:
+            now = time.time()
+            next_iteration = now // 1.0 + 1
             if cls.market.ready:
                 break
+            else:
+                await cls._clock.run_til(next_iteration)
             await asyncio.sleep(1.0)
 
     def setUp(self):
@@ -109,7 +116,8 @@ class BambooRelayMarketUnitTest(unittest.TestCase):
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1
-            await self.clock.run_til(next_iteration)
+            await self._clock.run_til(next_iteration)
+            await asyncio.sleep(1.0)
         return future.result()
 
     def run_parallel(self, *tasks):

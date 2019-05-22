@@ -19,6 +19,10 @@ class ExchangeRateConversion:
     _exchange_rate_config_override: Optional[Dict[str, Dict]] = None
     _data_feeds_override: Optional[List[DataFeedBase]] = None
     _update_interval: float = 5.0
+    _data_feeds: List[DataFeedBase] = []
+    _exchange_rate_config: Dict[str, Dict] = {"conversion_required": {}, "global_config": {}}
+    _exchange_rate: Dict[str, int] = {}
+    _started: bool = False
 
     @classmethod
     def get_instance(cls) -> "ExchangeRateConversion":
@@ -39,6 +43,7 @@ class ExchangeRateConversion:
         else:
             cls._exchange_rate_config_override.clear()
             cls._exchange_rate_config_override.update(config)
+        cls.init_config()
 
     @classmethod
     def set_data_feeds(cls, data_feeds: List[DataFeedBase]):
@@ -47,10 +52,39 @@ class ExchangeRateConversion:
         else:
             cls._data_feeds_override.clear()
             cls._data_feeds_override.extend(data_feeds)
+        cls.init_config()
 
     @classmethod
     def set_update_interval(cls, update_interval: float):
         cls._update_interval = update_interval
+
+    @classmethod
+    def init_config(cls):
+        try:
+            if cls._data_feeds_override is None:
+                cls._data_feeds = [CoinCapDataFeed.get_instance()]
+            else:
+                cls._data_feeds = cls._data_feeds_override
+            # Set default rate and source for token rates globally
+            fetcher_global_config: List[List[str, str]] = global_config_map["exchange_rate_fetcher"].value or []
+            # Set rate and source for tokens that needs conversion, overwrites global config
+            rate_conversion_config: List[List[str, str, str]] = global_config_map[
+                                                                    "exchange_rate_conversion"].value or []
+
+            if cls._exchange_rate_config_override is None:
+                conversion_required = {e[0]: {"default": e[1], "source": e[2]} for e in rate_conversion_config}
+                global_config = {e[0]: {"default": NaN, "source": e[1]} for e in fetcher_global_config}
+            else:
+                conversion_required = cls._exchange_rate_config_override.get("conversion_required", {})
+                global_config = cls._exchange_rate_config_override.get("global_config", {})
+
+            cls._exchange_rate_config = {
+                "conversion_required": conversion_required,
+                "global_config": {**global_config, **conversion_required}
+            }
+            cls._exchange_rate = {k: v["default"] for k, v in cls._exchange_rate_config["global_config"].items()}
+        except Exception:
+            cls.logger().error("Error initiating config for exchange rate conversion.", exc_info=True)
 
 
     @property
@@ -59,36 +93,7 @@ class ExchangeRateConversion:
 
     def __init__(self):
         self._fetch_exchange_rate_task: Optional[asyncio.Task] = None
-        self._started: bool = False
-        self._exchange_rate_config: Dict[str, Dict] = {"conversion_required": {}, "global_config": {}}
-        self._exchange_rate: Dict[str, int] = {}  # token: USD rate
-
-        try:
-            if self._data_feeds_override is None:
-                self._data_feeds = [CoinCapDataFeed.get_instance()]
-            else:
-                self._data_feeds = self._data_feeds_override
-
-            # Set default rate and source for token rates globally
-            fetcher_global_config: List[List[str, str]] = global_config_map["exchange_rate_fetcher"].value or []
-            # Set rate and source for tokens that needs conversion, overwrites global config
-            rate_conversion_config: List[List[str, str, str]] = global_config_map["exchange_rate_conversion"].value or []
-
-            if self._exchange_rate_config_override is None:
-                conversion_required = {e[0]: {"default": e[1], "source": e[2]} for e in rate_conversion_config}
-                global_config = {e[0]: {"default": NaN, "source": e[1]} for e in fetcher_global_config}
-            else:
-                conversion_required = self._exchange_rate_config_override.get("conversion_required", {})
-                global_config = self._exchange_rate_config_override.get("global_config", {})
-
-            self._exchange_rate_config = {
-                "conversion_required": conversion_required,
-                "global_config": {**global_config, **conversion_required}
-            }
-            self._exchange_rate = {k: v["default"] for k, v in self._exchange_rate_config["global_config"].items()}
-        except Exception:
-            self.logger().error("Error initiating config for exchange rate conversion.", exc_info=True)
-
+        self.init_config()
 
     def adjust_token_rate(self, symbol: str, price: float) -> float:
         """

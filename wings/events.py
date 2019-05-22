@@ -35,6 +35,7 @@ class MarketEvent(Enum):
     OrderCancelled = 106
     OrderFilled = 107
     OrderExpired = 108
+    OrderFailure = 198
     TransactionFailure = 199
     BuyOrderCreated = 200
     SellOrderCreated = 201
@@ -68,6 +69,10 @@ class OrderType(Enum):
 
 
 class MarketTransactionFailureEvent(NamedTuple):
+    timestamp: float
+    order_id: str
+
+class MarketOrderFailureEvent(NamedTuple):
     timestamp: float
     order_id: str
     order_type: OrderType

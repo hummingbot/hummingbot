@@ -72,6 +72,7 @@ debug.log
 
 # VSCode
 .vscode/
+.history/
 
 # Documentation build dir
 /documentation/site/
