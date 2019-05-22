@@ -77,4 +77,4 @@ class HummingbotLogger(PythonLogger):
     #  --- Copied from logging module ---
 
 
-_srcfile = os.path.normcase(HummingbotLogger.network_error.__code__.co_filename)
+_srcfile = os.path.normcase(HummingbotLogger.network.__code__.co_filename)
