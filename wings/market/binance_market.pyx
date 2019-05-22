@@ -343,10 +343,12 @@ cdef class BinanceMarket(MarketBase):
                     OrderBookTrackerDataSourceType.EXCHANGE_API,
                  user_stream_tracker_data_source_type: UserStreamTrackerDataSourceType =
                     UserStreamTrackerDataSourceType.EXCHANGE_API,
-                 symbols: Optional[List[str]] = None):
+                 symbols: Optional[List[str]] = None,
+                 trading_required: bool = True):
 
         self.monkey_patch_binance_time()
         super().__init__()
+        self._trading_required = trading_required
         self._order_book_tracker = BinanceOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
                                                            symbols=symbols)
         self._binance_client = BinanceClient(binance_api_key, binance_api_secret)
@@ -370,8 +372,8 @@ cdef class BinanceMarket(MarketBase):
         self._user_stream_tracker_task = None
         self._user_stream_event_listener_task = None
         self._order_tracker_task = None
+        self._trading_rules_polling_task = None
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
-        self._SYMBOL_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|TUSD|PAX)$")
 
     @property
     def name(self) -> str:
@@ -746,23 +748,28 @@ cdef class BinanceMarket(MarketBase):
                 await asyncio.gather(
                     self._update_withdraw_rules(),
                     self._update_trading_rules(),
-                    self._update_order_status(),
                     self._update_trade_fees()
                 )
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error while fetching account updates.", exc_info=True)
+                self.logger().error("Unexpected error while fetching trading rules.", exc_info=True)
                 await asyncio.sleep(0.5)
 
     @property
+    def status_dict(self) -> Dict[str, bool]:
+        return {
+            "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
+            "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
+            "withdraw_rules_initialized": len(self._withdraw_rules) > 0,
+            "trading_rule_initialized": len(self._trading_rules) > 0,
+            "trade_fees_initialized": len(self._trade_fees) > 0
+        }
+
+    @property
     def ready(self) -> bool:
-        return (len(self._order_book_tracker.order_books) > 0 and
-                len(self._account_balances) > 0 and
-                len(self._withdraw_rules) > 0 and
-                len(self._trading_rules) > 0 and
-                len(self._trade_fees) > 0)
+        return all(self.status_dict.values())
 
     async def server_time(self) -> int:
         """
@@ -854,18 +861,24 @@ cdef class BinanceMarket(MarketBase):
     async def start_network(self):
         if self._order_tracker_task is not None:
             self._stop_network()
-
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
-        self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
-        self._user_stream_tracker_task = asyncio.ensure_future(self._user_stream_tracker.start())
-        self._user_stream_event_listener_task = asyncio.ensure_future(self._user_stream_event_listener())
+        self._trading_rules_polling_task = asyncio.ensure_future(self._trading_rules_polling_loop())
+        if self._trading_required:
+            self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
+            self._user_stream_tracker_task = asyncio.ensure_future(self._user_stream_tracker.start())
+            self._user_stream_event_listener_task = asyncio.ensure_future(self._user_stream_event_listener())
 
     def _stop_network(self):
         if self._order_tracker_task is not None:
             self._order_tracker_task.cancel()
+        if self._status_polling_task is not None:
             self._status_polling_task.cancel()
+        if self._user_stream_tracker_task is not None:
             self._user_stream_tracker_task.cancel()
+        if self._user_stream_event_listener_task is not None:
             self._user_stream_event_listener_task.cancel()
+        if self._trading_rules_polling_task is not None:
+            self._trading_rules_polling_task.cancel()
         self._order_tracker_task = self._status_polling_task = self._user_stream_tracker_task = \
             self._user_stream_event_listener_task = None
 
@@ -911,11 +924,8 @@ cdef class BinanceMarket(MarketBase):
         # charging additional fees for limit and market buy orders.
         # To make the Binance market class function like other market classes, the amount base
         # token requested is adjusted to account for fees.
-
         adjusted_amount = amount / (1 - buy_fee.percent)
         decimal_amount = self.quantize_order_amount(symbol, adjusted_amount)
-        # self.logger().info(f"Amount to buy is {decimal_amount} ")
-        # self.logger().info(f"Params are {order_id}, {symbol}, {amount}, {order_type}, {price}")
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
@@ -982,10 +992,6 @@ cdef class BinanceMarket(MarketBase):
             TradingRule trading_rule = self._trading_rules[symbol]
 
         decimal_amount = self.quantize_order_amount(symbol, amount)
-
-        # self.logger().info(f"Amount to sell is {decimal_amount} ")
-        # self.logger().info(f"Params are {order_id}, {symbol}, {amount}, {order_type}, {price}")
-
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
