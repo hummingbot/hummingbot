@@ -54,7 +54,7 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._get_tracking_pair_done_event: asyncio.Event = asyncio.Event()
 
     @classmethod
-    @async_ttl_cache(ttl=300, maxsize=1)
+    @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         """
         Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
@@ -239,7 +239,7 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 {"marketId": trading_pair}
                             )
                             output.put_nowait(snapshot_msg)
-                            self.logger().info(f"Saved order book snapshot for {trading_pair} at {snapshot_timestamp}")
+                            self.logger().debug(f"Saved order book snapshot for {trading_pair} at {snapshot_timestamp}")
                             await asyncio.sleep(5.0)
                         except asyncio.CancelledError:
                             raise

@@ -18,6 +18,7 @@ from websockets.exceptions import ConnectionClosed
 
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.cli.utils import async_ttl_cache
 from wings.order_book_tracker_entry import (
     CoinbaseProOrderBookTrackerEntry,
     OrderBookTrackerEntry
@@ -49,6 +50,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._symbols: Optional[List[str]] = symbols
 
     @classmethod
+    @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         """
         Returns all currently active BTC trading pairs from Coinbase Pro, sorted by volume in descending order.
@@ -96,13 +98,13 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     if product_name.endswith(("USD", "USDC")):
                         usd_volume.append(quote_volume * quote_price)
                     elif product_name.endswith("BTC"):
-                        usd_volume.append(quote_volume * quote_price / btc_usd_price)
+                        usd_volume.append(quote_volume * quote_price * btc_usd_price)
                     elif product_name.endswith("ETH"):
-                        usd_volume.append(quote_volume * quote_price / eth_usd_price)
+                        usd_volume.append(quote_volume * quote_price * eth_usd_price)
                     elif product_name.endswith("EUR"):
-                        usd_volume.append(quote_volume * quote_price / btc_usd_price * btc_eur_price)
+                        usd_volume.append(quote_volume * quote_price * (btc_usd_price / btc_eur_price))
                     elif product_name.endswith("GBP"):
-                        usd_volume.append(quote_volume * quote_price / btc_usd_price * btc_gbp_price)
+                        usd_volume.append(quote_volume * quote_price * (btc_usd_price / btc_gbp_price))
                     else:
                         raise ValueError(f"Unable to convert volume to USD for market - {product_name}.")
                 all_markets["USDVolume"] = usd_volume
@@ -140,7 +142,8 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
             trading_pairs: List[str] = await self.get_trading_pairs()
             retval: Dict[str, OrderBookTrackerEntry] = {}
 
-            for trading_pair in trading_pairs:
+            number_of_pairs: int = len(trading_pairs)
+            for index, trading_pair in enumerate(trading_pairs):
                 try:
                     snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
                     snapshot_timestamp: float = time.time()
@@ -160,6 +163,8 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         order_book,
                         active_order_tracker
                     )
+                    self.logger().info(f"Initialized order book for {trading_pair}. "
+                                       f"{index+1}/{number_of_pairs} completed.")
                     await asyncio.sleep(0.6)
                 except Exception:
                     self.logger().error(f"Error getting snapshot for {trading_pair}. ", exc_info=True)
@@ -239,7 +244,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 metadata={"product_id": trading_pair}
                             )
                             output.put_nowait(snapshot_msg)
-                            self.logger().info(f"Saved order book snapshot for {trading_pair}")
+                            self.logger().debug(f"Saved order book snapshot for {trading_pair}")
                             # Be careful not to go above Binance's API rate limits.
                             await asyncio.sleep(5.0)
                         except asyncio.CancelledError:

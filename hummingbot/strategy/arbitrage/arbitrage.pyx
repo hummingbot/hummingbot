@@ -58,7 +58,7 @@ cdef class OrderCancelledListener(BaseArbitrageStrategyEventListener):
 cdef class ArbitrageStrategy(StrategyBase):
     BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
+    ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
 
     OPTION_LOG_STATUS_REPORT = 1 << 0
@@ -112,7 +112,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                 typed_market = market
                 typed_market.c_add_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sell_order_completed_listener)
                 typed_market.c_add_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._buy_order_completed_listener)
-                typed_market.c_add_listener(self.TRANSACTION_FAILURE_EVENT_TAG, self._order_failed_listener)
+                typed_market.c_add_listener(self.ORDER_FAILURE_EVENT_TAG, self._order_failed_listener)
                 typed_market.c_add_listener(self.ORDER_CANCELLED_EVENT_TAG, self._order_canceled_listener)
 
 

@@ -38,7 +38,7 @@ from wings.events import (
     OrderExpiredEvent,
     OrderFilledEvent,
     OrderCancelledEvent,
-    MarketTransactionFailureEvent,
+    MarketOrderFailureEvent,
     TradeType,
     TradeFee
 )
@@ -198,7 +198,7 @@ cdef class BambooRelayMarket(MarketBase):
     MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
-    MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
+    MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
     MARKET_ORDER_EXPIRED_EVENT_TAG = MarketEvent.OrderExpired.value
@@ -464,8 +464,8 @@ cdef class BambooRelayMarket(MarketBase):
                     self.logger().info(f"The limit order {tracked_limit_order.client_order_id} has failed"
                                        f"according to order status API.")
                     self.c_trigger_event(
-                        self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                        MarketTransactionFailureEvent(self._current_timestamp,
+                        self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                        MarketOrderFailureEvent(self._current_timestamp,
                                                       tracked_limit_order.client_order_id,
                                                       OrderType.LIMIT)
                     )
@@ -519,8 +519,10 @@ cdef class BambooRelayMarket(MarketBase):
                     self.logger().error(f"The market order {tracked_market_order.client_order_id}"
                                         f"has failed according to transaction hash {tracked_market_order.tx_hash}.")
                     self.c_trigger_event(
-                        self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                        MarketTransactionFailureEvent(self._current_timestamp, tracked_market_order.client_order_id)
+                        self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                        MarketOrderFailureEvent(self._current_timestamp,
+                                                      tracked_market_order.client_order_id,
+                                                      OrderType.MARKET)
                     )
                 elif receipt["status"] == 1:
                     self.c_trigger_event(
@@ -568,10 +570,10 @@ cdef class BambooRelayMarket(MarketBase):
                                         f"{tracked_market_order.client_order_id}. Check transaction hash "
                                         f"{tracked_market_order.tx_hash} for more details.")
                     self.c_trigger_event(
-                        self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                        MarketTransactionFailureEvent(self._current_timestamp,
-                                                      tracked_market_order.client_order_id,
-                                                      OrderType.MARKET)
+                        self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                        MarketOrderFailureEvent(self._current_timestamp,
+                                                tracked_market_order.client_order_id,
+                                                OrderType.MARKET)
                     )
 
                 self.c_stop_tracking_order(tracked_market_order.tx_hash)
@@ -818,8 +820,8 @@ cdef class BambooRelayMarket(MarketBase):
             self.c_stop_tracking_order(order_id)
             self.logger().error(f"Error submitting trade order to Bamboo Relay for {str(q_amt)} {symbol}.", exc_info=True)
             self.c_trigger_event(
-                self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                MarketTransactionFailureEvent(self._current_timestamp, order_id)
+                self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                MarketOrderFailureEvent(self._current_timestamp, order_id, order_type)
             )
 
     cdef str c_buy(self,
