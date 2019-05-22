@@ -28,7 +28,7 @@ class HummingbotLogger(PythonLogger):
     def __init__(self, name: str):
         super().__init__(name)
 
-    def network_error(self, log_msg: str, app_warning_msg: Optional[str] = None, *args, **kwargs):
+    def network(self, log_msg: str, app_warning_msg: Optional[str] = None, *args, **kwargs):
         from hummingbot.cli.hummingbot_application import HummingbotApplication
         from . import NETWORK
 
