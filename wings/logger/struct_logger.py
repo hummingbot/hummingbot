@@ -34,7 +34,7 @@ class StructLogger(logging.Logger):
     def event_log(self, dict_msg, *args, **kwargs):
         if self.isEnabledFor(EVENT_LOG_LEVEL):
             if not isinstance(dict_msg, dict):
-                self._log(logging.ERROR, "event_log message must be of type dict.")
+                self._log(logging.ERROR, "event_log message must be of type dict.", extra={"do_not_send": True})
                 return
             extra = {
                 "dict_msg": dict_msg,
@@ -49,7 +49,7 @@ class StructLogger(logging.Logger):
     def metric_log(self, dict_msg, *args, **kwargs):
         if self.isEnabledFor(METRICS_LOG_LEVEL):
             if not isinstance(dict_msg, dict):
-                self._log(logging.ERROR, "metric_log message must be of type dict.")
+                self._log(logging.ERROR, "metric_log message must be of type dict.", extra={"do_not_send": True})
                 return
             extra = {
                 "dict_msg": dict_msg,

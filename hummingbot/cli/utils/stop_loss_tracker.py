@@ -76,18 +76,22 @@ class StopLossTracker:
             return total_value
 
         starting_total = calculate_total(self._starting_balances, self._starting_prices)
-        if starting_total == 0:
-            return 0.0
         current_balances = self.get_balances()
         current_prices = self._data_feed.price_dict
-        if stop_loss_type == "fixed":
-            current_total = calculate_total(current_balances, self._starting_prices)
-            return (current_total - starting_total) / starting_total
-        elif stop_loss_type == "dynamic":
-            starting_total /= self._starting_prices[self._stop_loss_base_token]
-            current_total = calculate_total(current_balances, current_prices) / \
-                            (current_prices[self._stop_loss_base_token])
-            return (current_total - starting_total) / starting_total
+        try:
+            if stop_loss_type == "fixed":
+                current_total = calculate_total(current_balances, self._starting_prices)
+                return (current_total - starting_total) / starting_total
+            elif stop_loss_type == "dynamic":
+                starting_total /= self._starting_prices[self._stop_loss_base_token]
+                current_total = calculate_total(current_balances, current_prices) / \
+                                (current_prices[self._stop_loss_base_token])
+                return (current_total - starting_total) / starting_total
+        except ZeroDivisionError:
+            return 0.0
+        except Exception as e:
+            self.logger().error(f"Error calculating stop loss percentage: {e}", exc_info=True)
+            return 0.0
         raise ValueError(f"Stop loss type {stop_loss_type} does not exist")
 
     def start(self):
