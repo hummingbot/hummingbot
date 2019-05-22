@@ -27,6 +27,7 @@ from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
+from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 from wings.ethereum_chain import EthereumChain
 from wings.market.binance_market import BinanceMarket
@@ -97,7 +98,7 @@ class HummingbotApplication:
     _main_app: Optional["HummingbotApplication"] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global s_logger
         if s_logger is None:
             s_logger = logging.getLogger(__name__)

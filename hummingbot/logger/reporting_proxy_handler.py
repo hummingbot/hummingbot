@@ -5,19 +5,23 @@ import logging
 import json
 from hummingbot.cli.config.global_config_map import global_config_map
 from wings.logger.struct_logger import log_encoder
+from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.log_server_client import LogServerClient
 from hummingbot.logger.report_aggregator import REPORT_EVENT_QUEUE
+
+
 VERSIONFILE="hummingbot/VERSION"
 CLIENT_VERSION = open(VERSIONFILE, "rt").read()
 
 
 class ReportingProxyHandler(logging.Handler):
-    rrh_logger: Optional[logging.Logger] = None
+    _rrh_logger: Optional[HummingbotLogger] = None
+
     @classmethod
-    def logger(cls) -> logging.Logger:
-        if cls.rrh_logger is None:
-            cls.rrh_logger = logging.getLogger(__name__)
-        return cls.rrh_logger
+    def logger(cls) -> HummingbotLogger:
+        if cls._rrh_logger is None:
+            cls._rrh_logger = logging.getLogger(__name__)
+        return cls._rrh_logger
 
     def __init__(self,
                  level=logging.INFO,

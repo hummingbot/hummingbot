@@ -17,6 +17,7 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 
 import conf
+from hummingbot.logger import HummingbotLogger
 from wings.orderbook.binance_order_book import BinanceOrderBook
 from wings.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.order_book_tracker_entry import OrderBookTrackerEntry
@@ -30,10 +31,10 @@ class RemoteAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
-    _raobds_logger: Optional[logging.Logger] = None
+    _raobds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._raobds_logger is None:
             cls._raobds_logger = logging.getLogger(__name__)
         return cls._raobds_logger

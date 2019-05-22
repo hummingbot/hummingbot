@@ -6,10 +6,11 @@ from typing import (
     Optional,
 )
 from hummingbot.data_feed.data_feed_base import DataFeedBase
+from hummingbot.logger import HummingbotLogger
 
 
 class CoinCapDataFeed(DataFeedBase):
-    ccdf_logger: Optional[logging.Logger] = None
+    ccdf_logger: Optional[HummingbotLogger] = None
     _ccdf_shared_instance: "CoinCapDataFeed" = None
 
     COIN_CAP_BASE_URL = "https://api.coincap.io/v2"
@@ -21,7 +22,7 @@ class CoinCapDataFeed(DataFeedBase):
         return cls._ccdf_shared_instance
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls.ccdf_logger is None:
             cls.ccdf_logger = logging.getLogger(__name__)
         return cls.ccdf_logger

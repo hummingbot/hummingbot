@@ -17,6 +17,7 @@ import logging
 import random
 from typing import List
 
+from hummingbot.logger import HummingbotLogger
 from wings.event_listener import EventListener
 from wings.event_listener cimport EventListener
 
@@ -45,7 +46,7 @@ cdef class PubSub:
     ADD_LISTENER_GC_PROBABILITY = 0.005
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global class_logger
         if class_logger is None:
             class_logger = logging.getLogger(__name__)

@@ -5,6 +5,8 @@ from decimal import Decimal
 # Custom log level
 from enum import Enum
 
+from hummingbot.logger import HummingbotLogger
+
 EVENT_LOG_LEVEL = 15
 METRICS_LOG_LEVEL = 14
 logging.addLevelName(EVENT_LOG_LEVEL, "EVENT_LOG")
@@ -30,7 +32,7 @@ class StructLogRecord(logging.LogRecord):
             return super().getMessage()
 
 
-class StructLogger(logging.Logger):
+class StructLogger(HummingbotLogger):
     def event_log(self, dict_msg, *args, **kwargs):
         if self.isEnabledFor(EVENT_LOG_LEVEL):
             if not isinstance(dict_msg, dict):
