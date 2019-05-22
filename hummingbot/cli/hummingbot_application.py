@@ -385,8 +385,7 @@ class HummingbotApplication:
             elif market_name == "bamboo_relay" and self.wallet:
                 market = BambooRelayMarket(wallet=self.wallet,
                                           web3_url=ethereum_rpc_url,
-                                           symbols=symbols,
-                                           trading_required=self._trading_required)
+                                          symbols=symbols)
 
             elif market_name == "coinbase_pro":
                 coinbase_pro_api_key = global_config_map.get("coinbase_pro_api_key").value
@@ -397,7 +396,8 @@ class HummingbotApplication:
                                            coinbase_pro_api_key=coinbase_pro_api_key,
                                            coinbase_pro_secret_key=coinbase_pro_secret_key,
                                            coinbase_pro_passphrase=coinbase_pro_passphrase,
-                                           symbols=symbols)
+                                           symbols=symbols,
+                                           trading_required=self._trading_required)
 
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
@@ -440,20 +440,18 @@ class HummingbotApplication:
 
         if len(loading_markets) > 0:
             self.app.log(f"   x Market check:  Waiting for markets " +
-                         ",".join(
-                             [m.name.capitalize() for m in loading_markets]) + f" to get ready for trading. \n"
+                         ",".join([m.name.capitalize()  for m in loading_markets]) + f" to get ready for trading. \n"
                          f"                    Please keep the bot running and try to start again in a few minutes. \n")
 
             for market in loading_markets:
-                market_status_df = pd.DataFrame(data=market.status_dict.items(),
-                                                columns=["description", "status"])
+                market_status_df = pd.DataFrame(data=market.status_dict.items(), columns=["description", "status"])
                 self.app.log(
                     f"   x {market.name.capitalize()} market status:\n" +
-                    "\n".join(
-                        ["     " + line for line in market_status_df.to_string(index=False, ).split("\n")]) +
+                    "\n".join(["     " + line for line in market_status_df.to_string(index=False,).split("\n")]) +
                     "\n"
                 )
             return False
+
         elif not all([market.network_status is NetworkStatus.CONNECTED for market in self.markets.values()]):
             offline_markets: List[str] = [
                 market_name
@@ -749,7 +747,6 @@ class HummingbotApplication:
                 self.market_pair = DiscoveryMarketPair(
                     *([self.markets[market_1], self.markets[market_1].get_active_exchange_markets] +
                       [self.markets[market_2], self.markets[market_2].get_active_exchange_markets]))
-
                 self.strategy = DiscoveryStrategy(market_pairs=[self.market_pair],
                                                   target_symbols=target_base_quote_1 + target_base_quote_2,
                                                   equivalent_token=equivalent_token,
