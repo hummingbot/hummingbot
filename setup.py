@@ -29,7 +29,6 @@ def main():
         "wings.wallet",
         "hummingbot",
         "hummingbot.core",
-        "hummingbot.core.model",
         "hummingbot.data_feed",
         "hummingbot.cli",
         "hummingbot.cli.config",

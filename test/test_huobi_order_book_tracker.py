@@ -23,7 +23,7 @@ class HuobiOrderBookTrackerUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.order_book_tracker: HuobiOrderBookTracker = HuobiOrderBookTracker(
-            OrderBookTrackerDataSourceType.LOCAL_CLUSTER)
+            OrderBookTrackerDataSourceType.EXCHANGE_API)
         cls.order_book_tracker_task: asyncio.Task = asyncio.ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
 

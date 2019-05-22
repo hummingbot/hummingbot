@@ -1,18 +1,14 @@
 #!/usr/bin/env python
 import asyncio
 import logging
-from typing import (
-    Optional)
-from hummingbot.core.model.sql_connection_manager import SQLConnectionManager
+from typing import Optional
 from wings.order_book_tracker import (
     OrderBookTracker,
     OrderBookTrackerDataSourceType
 )
-from wings.data_source.bittrex_local_cluster_order_book_data_source import BittrexLocalClusterOrderBookDataSource
 
 from wings.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.data_source.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
-import conf
 
 
 class BittrexOrderBookTracker(OrderBookTracker):
@@ -25,7 +21,7 @@ class BittrexOrderBookTracker(OrderBookTracker):
         return cls._btobt_logger
 
     def __init__(self,
-                 data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.LOCAL_CLUSTER):
+                 data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API):
         super().__init__(data_source_type=data_source_type)
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
@@ -35,10 +31,7 @@ class BittrexOrderBookTracker(OrderBookTracker):
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
         if not self._data_source:
-            if self._data_source_type is OrderBookTrackerDataSourceType.LOCAL_CLUSTER:
-                self._data_source = BittrexLocalClusterOrderBookDataSource(
-                    SQLConnectionManager.get_order_books_instance(db_conf=conf.order_books_db_2))
-            elif self._data_source_type is OrderBookTrackerDataSourceType.REMOTE_API:
+            if self._data_source_type is OrderBookTrackerDataSourceType.REMOTE_API:
                 self._data_source = RemoteAPIOrderBookDataSource()
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
