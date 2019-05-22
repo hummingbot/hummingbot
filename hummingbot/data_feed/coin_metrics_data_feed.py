@@ -1,5 +1,4 @@
 import time
-import aiohttp
 import asyncio
 import logging
 from typing import (
@@ -32,7 +31,6 @@ class CoinMetricsDataFeed(DataFeedBase):
     def __init__(self, update_interval: float = 30.0):
         super().__init__()
         self._ev_loop = asyncio.get_event_loop()
-        self._session = None
         self._price_dict: Dict[str, float] = {}
         self._update_interval = update_interval
         self.fetch_data_loop_task: Optional[asyncio.Task] = None
@@ -63,24 +61,23 @@ class CoinMetricsDataFeed(DataFeedBase):
     @async_ttl_cache(ttl=60*60, maxsize=1)
     async def fetch_supported_assets(self):
         try:
-            async with self._session.request("GET", f"{self.BASE_URL}/get_supported_assets") as resp:
+            client = await self._http_client()
+            async with client.request("GET", f"{self.BASE_URL}/get_supported_assets") as resp:
                 return await resp.json()
         except Exception:
             raise
 
     async def fetch_asset_price(self, asset, time_start, time_end):
         try:
+            client = await self._http_client()
             asset_price_url = f"get_asset_data_for_time_range/{asset}/price(usd)/{time_start}/{time_end}"
-            async with self._session.request("GET", f"{self.BASE_URL}/{asset_price_url}") as resp:
+            async with client.request("GET", f"{self.BASE_URL}/{asset_price_url}") as resp:
                 return await resp.json()
         except Exception:
             raise
 
     async def fetch_data(self):
         try:
-            if not self._session:
-                self._session = aiohttp.ClientSession(loop=self._ev_loop, connector=aiohttp.TCPConnector(ssl=False))
-
             assets = await self.fetch_supported_assets()
             for asset in assets:
                 time_end = int(time.time())

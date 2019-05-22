@@ -248,8 +248,13 @@ class HummingbotApplication:
             private_key = await self.app.prompt(prompt="Your wallet private key >>> ", is_password=True)
             password = await self.app.prompt(prompt="A password to protect your wallet key >>> ", is_password=True)
 
-            self.acct = import_and_save_wallet(password, private_key)
-            self.app.log("Wallet %s imported into hummingbot" % (self.acct.address,))
+            try:
+                self.acct = import_and_save_wallet(password, private_key)
+                self.app.log("Wallet %s imported into hummingbot" % (self.acct.address,))
+            except Exception as e:
+                self.app.log(f"Failed to import wallet key: {e}")
+                result = await self._create_or_import_wallet()
+                return result
         elif choice == "create":
             password = await self.app.prompt(prompt="A password to protect your wallet key >>> ", is_password=True)
             self.acct = create_and_save_wallet(password)
