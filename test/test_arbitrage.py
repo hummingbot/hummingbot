@@ -25,6 +25,7 @@ from wings.order_book_row import OrderBookRow
 from hummingbot.strategy.arbitrage.arbitrage import ArbitrageStrategy
 from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
 
+
 class ArbitrageUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
@@ -38,7 +39,7 @@ class ArbitrageUnitTest(unittest.TestCase):
         ExchangeRateConversion.set_global_exchange_rate_config({
             "conversion_required": {
                 "WETH": {"default": 1.0, "source": "None"},
-                "QETH": {"default": 0.95, "source": "None"}
+                "ETH": {"default": 0.95, "source": "None"}
             }
         })
 
@@ -276,6 +277,7 @@ class ArbitrageUnitTest(unittest.TestCase):
 
 def main():
     #logging.getLogger("hummingbot.strategy").setLevel(logging.DEBUG)
+    #logging.getLogger("hummingbot").setLevel(logging.DEBUG)
     unittest.main()
 
 
