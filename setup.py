@@ -104,7 +104,8 @@ def main():
         package_data[""] = [
             "*.pxd", "*.pyx", "*.h"
         ]
-        package_data["wings"].append("cpp/*.cpp")
+        # package_data["wings"].append("cpp/*.cpp")
+        package_data["hummingbot"].append("core/cpp/*.cpp")
 
     if len(sys.argv) > 1 and sys.argv[1] == "build_ext":
         sys.argv.append(f"--parallel={cpu_count}")
