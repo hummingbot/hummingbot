@@ -9,12 +9,13 @@ from typing import (
 from web3 import Web3
 from web3.datastructures import AttributeDict
 
+from hummingbot.logger import HummingbotLogger
 from wings.erc20_token import ERC20Token
 
 s_logger = None
 
 
-def get_logger() -> logging.Logger:
+def get_logger() -> HummingbotLogger:
     global s_logger
     if s_logger is None:
         s_logger = logging.getLogger(__name__)

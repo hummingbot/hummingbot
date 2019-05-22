@@ -12,6 +12,8 @@ from typing import (
     Dict,
     Set,
 )
+
+from hummingbot.logger import HummingbotLogger
 from wings.tracker.ddex_active_order_tracker import DDEXActiveOrderTracker
 from wings.order_book_tracker import (
     OrderBookTracker,
@@ -32,10 +34,10 @@ from wings.order_book_tracker_entry import DDEXOrderBookTrackerEntry
 
 
 class DDEXOrderBookTracker(OrderBookTracker):
-    _dobt_logger: Optional[logging.Logger] = None
+    _dobt_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._dobt_logger is None:
             cls._dobt_logger = logging.getLogger(__name__)
         return cls._dobt_logger

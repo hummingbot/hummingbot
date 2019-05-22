@@ -1,11 +1,14 @@
 # distutils: language=c++
 # distutils: sources=hummingbot/core/cpp/OrderBookEntry.cpp
+
 import logging
 
 import numpy as np
 from decimal import Decimal
 
+from hummingbot.logger import HummingbotLogger
 from wings.order_book_row import OrderBookRow
+
 s_empty_diff = np.ndarray(shape=(0, 4), dtype="float64")
 _ddaot_logger = None
 
@@ -16,7 +19,7 @@ cdef class DDEXActiveOrderTracker:
         self._active_bids = active_bids or {}
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global _ddaot_logger
         if _ddaot_logger is None:
             _ddaot_logger = logging.getLogger(__name__)

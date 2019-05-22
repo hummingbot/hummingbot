@@ -17,6 +17,7 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 
 from hummingbot.cli.utils import async_ttl_cache
+from hummingbot.logger import HummingbotLogger
 from wings.tracker.ddex_active_order_tracker import DDEXActiveOrderTracker
 from wings.orderbook.ddex_order_book import DDEXOrderBook
 from .order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -40,10 +41,10 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
-    _raobds_logger: Optional[logging.Logger] = None
+    _raobds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._raobds_logger is None:
             cls._raobds_logger = logging.getLogger(__name__)
         return cls._raobds_logger

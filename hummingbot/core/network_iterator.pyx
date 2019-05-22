@@ -6,6 +6,7 @@ import logging
 from typing import Optional
 
 from hummingbot.core.clock cimport Clock
+from hummingbot.logger import HummingbotLogger
 
 NaN = float("nan")
 s_logger = None
@@ -19,7 +20,7 @@ class NetworkStatus(Enum):
 
 cdef class NetworkIterator(TimeIterator):
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global s_logger
         if s_logger is None:
             s_logger = logging.getLogger(__name__)

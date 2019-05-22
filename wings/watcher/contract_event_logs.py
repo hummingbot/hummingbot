@@ -15,16 +15,17 @@ from web3.datastructures import AttributeDict
 from web3.utils.contracts import find_matching_event_abi
 from web3.utils.events import get_event_data
 from web3.utils.filters import construct_event_filter_params
+from hummingbot.logger import HummingbotLogger
 import wings
 
 DEFAULT_WINDOW_SIZE = 100
 
 
 class ContractEventLogger:
-    _cel_logger: Optional[logging.Logger] = None
+    _cel_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._cel_logger is None:
             cls._cel_logger = logging.getLogger(__name__)
         return cls._cel_logger

@@ -10,6 +10,7 @@ from typing import (
     Callable
 )
 
+from hummingbot.logger import HummingbotLogger
 import wings
 
 
@@ -21,7 +22,7 @@ class AsyncCallSchedulerItem(NamedTuple):
 
 class AsyncCallScheduler:
     _acs_shared_instance: Optional["AsyncCallScheduler"] = None
-    _acs_logger: Optional[logging.Logger] = None
+    _acs_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def shared_instance(cls):
@@ -30,7 +31,7 @@ class AsyncCallScheduler:
         return cls._acs_shared_instance
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._acs_logger is None:
             cls._acs_logger = logging.getLogger(__name__)
         return cls._acs_logger

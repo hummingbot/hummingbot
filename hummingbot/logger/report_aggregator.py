@@ -74,8 +74,8 @@ class ReportAggregator:
                 raise
             except Exception:
                 self.logger().error(f"Error getting logging report.", exc_info=True, extra={"do_not_send": True})
-            finally:
-                await asyncio.sleep(self.log_report_interval)
+
+            await asyncio.sleep(self.log_report_interval)
 
     async def get_open_order_stats(self):
         while True:
@@ -98,8 +98,8 @@ class ReportAggregator:
                 raise
             except Exception:
                 self.logger().error(f"Error getting open orders.", exc_info=True, extra={"do_not_send": True})
-            finally:
-                await asyncio.sleep(self.report_aggregation_interval)
+
+            await asyncio.sleep(self.report_aggregation_interval)
 
     async def get_event(self):
         while True:
