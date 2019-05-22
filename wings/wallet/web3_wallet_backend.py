@@ -38,6 +38,7 @@ from wings.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.pubsub import PubSub
+from hummingbot.logger import HummingbotLogger
 from wings.watcher.new_blocks_watcher import NewBlocksWatcher
 from wings.watcher.account_balance_watcher import AccountBalanceWatcher
 from wings.watcher.erc20_events_watcher import ERC20EventsWatcher
@@ -49,10 +50,10 @@ from wings.erc20_token import ERC20Token
 class Web3WalletBackend(PubSub):
     TRANSACTION_RECEIPT_POLLING_TICK = 10.0
 
-    _w3wb_logger: Optional[logging.Logger] = None
+    _w3wb_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._w3wb_logger is None:
             cls._w3wb_logger = logging.getLogger(__name__)
         return cls._w3wb_logger

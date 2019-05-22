@@ -6,6 +6,8 @@ from typing import (
     Optional,
     List,
 )
+
+from hummingbot.logger import HummingbotLogger
 from wings.data_source.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from wings.user_stream_tracker import (
     UserStreamTrackerDataSourceType,
@@ -16,10 +18,10 @@ from wings.market.coinbase_pro_auth import CoinbaseProAuth
 
 
 class CoinbaseProUserStreamTracker(UserStreamTracker):
-    _cbpust_logger: Optional[logging.Logger] = None
+    _cbpust_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._bust_logger is None:
             cls._bust_logger = logging.getLogger(__name__)
         return cls._bust_logger

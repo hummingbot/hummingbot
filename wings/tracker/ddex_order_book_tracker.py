@@ -11,6 +11,8 @@ from typing import (
     List,
     Dict,
     Set)
+
+from hummingbot.logger import HummingbotLogger
 from wings.tracker.ddex_active_order_tracker import DDEXActiveOrderTracker
 from wings.data_source.ddex_local_cluster_order_book_data_source import DDEXLocalClusterOrderBookDataSource
 from wings.model.sql_connection_manager import SQLConnectionManager
@@ -35,10 +37,10 @@ import conf
 
 
 class DDEXOrderBookTracker(OrderBookTracker):
-    _dobt_logger: Optional[logging.Logger] = None
+    _dobt_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._dobt_logger is None:
             cls._dobt_logger = logging.getLogger(__name__)
         return cls._dobt_logger

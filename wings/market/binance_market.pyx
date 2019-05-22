@@ -29,6 +29,7 @@ import conf
 import wings
 from wings.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
+from hummingbot.logger import HummingbotLogger
 from wings.data_source.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from wings.events import (
     MarketEvent,
@@ -79,7 +80,7 @@ class BinanceTime:
     _bt_shared_instance = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global _bt_logger
         if _bt_logger is None:
             _bt_logger = logging.getLogger(__name__)
@@ -328,7 +329,7 @@ cdef class BinanceMarket(MarketBase):
     BINANCE_USER_STREAM_TOPIC_NAME = "binance-user-stream.serialized"
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global s_logger
         if s_logger is None:
             s_logger = logging.getLogger(__name__)

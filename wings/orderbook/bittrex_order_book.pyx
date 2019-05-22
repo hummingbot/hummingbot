@@ -1,27 +1,29 @@
 #!/usr/bin/env python
-import bz2
-import ujson
 from aiokafka import ConsumerRecord
+import bz2
+import logging
 from sqlalchemy.engine import RowProxy
 from typing import (
     Optional,
     Dict
 )
+import ujson
 
+from hummingbot.logger import HummingbotLogger
 from wings.events import TradeType
 from wings.order_book cimport OrderBook
 from wings.order_book_message import OrderBookMessage, OrderBookMessageType
-import logging
-btob_logger = None
+
+_btob_logger = None
 
 
 cdef class BittrexOrderBook(OrderBook):
     @classmethod
-    def logger(cls) -> logging.Logger:
-        global btob_logger
-        if btob_logger is None:
-            btob_logger = logging.getLogger(__name__)
-        return btob_logger
+    def logger(cls) -> HummingbotLogger:
+        global _btob_logger
+        if _btob_logger is None:
+            _btob_logger = logging.getLogger(__name__)
+        return _btob_logger
 
     @classmethod
     def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:

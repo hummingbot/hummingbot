@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
 import asyncio
-from async_timeout import timeout
-from collections import deque
-import functools
 from hexbytes import HexBytes
 import logging
 import math
@@ -17,7 +14,7 @@ from typing import (
 from web3 import Web3
 from web3.datastructures import AttributeDict
 
-import wings
+from hummingbot.logger import HummingbotLogger
 from wings.erc20_token import ERC20Token
 from wings.events import (
     NewBlocksWatcherEvent,
@@ -35,10 +32,10 @@ WITHDRAWAL_EVENT_NAME = "Withdrawal"
 
 
 class WethWatcher(BaseWatcher):
-    _w2ew_logger: Optional[logging.Logger] = None
+    _w2ew_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._w2ew_logger is None:
             cls._w2ew_logger = logging.getLogger(__name__)
         return cls._w2ew_logger
