@@ -9,14 +9,16 @@ from typing import (
 
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.cli.config.global_config_map import global_config_map
+from hummingbot.logger import HummingbotLogger
+
 from wings.market.market_base import MarketBase
 
 
 class StopLossTracker:
-    slc_logger: Optional[logging.Logger] = None
+    slc_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls.slc_logger is None:
             cls.slc_logger = logging.getLogger(__name__)
         return cls.slc_logger

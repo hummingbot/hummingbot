@@ -9,22 +9,24 @@ import ujson
 from aiokafka import ConsumerRecord
 from sqlalchemy.engine import RowProxy
 
+from hummingbot.logger import HummingbotLogger
 from wings.events import TradeType
 from wings.order_book cimport OrderBook
 from wings.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType
 )
-bob_logger = None
+
+_bob_logger = None
 
 
 cdef class BinanceOrderBook(OrderBook):
     @classmethod
-    def logger(cls) -> logging.Logger:
-        global bob_logger
-        if bob_logger is None:
-            bob_logger = logging.getLogger(__name__)
-        return bob_logger
+    def logger(cls) -> HummingbotLogger:
+        global _bob_logger
+        if _bob_logger is None:
+            _bob_logger = logging.getLogger(__name__)
+        return _bob_logger
 
     @classmethod
     def snapshot_message_from_exchange(cls,

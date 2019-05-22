@@ -17,6 +17,7 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 
 from hummingbot.cli.utils import async_ttl_cache
+from hummingbot.logger import HummingbotLogger
 from wings.orderbook.radar_relay_order_book import RadarRelayOrderBook
 from wings.tracker.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
 from .order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -37,11 +38,11 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
-    _rraobds_logger: Optional[logging.Logger] = None
+    _rraobds_logger: Optional[HummingbotLogger] = None
     _client: Optional[aiohttp.ClientSession] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._rraobds_logger is None:
             cls._rraobds_logger = logging.getLogger(__name__)
         return cls._rraobds_logger

@@ -6,12 +6,14 @@ from typing import (
     Dict,
 )
 
+from hummingbot.logger import HummingbotLogger
+
 
 class DataFeedBase:
-    dfb_logger: Optional[logging.Logger] = None
+    dfb_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls.dfb_logger is None:
             cls.dfb_logger = logging.getLogger(__name__)
         return cls.dfb_logger

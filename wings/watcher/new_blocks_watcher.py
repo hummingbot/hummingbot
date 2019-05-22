@@ -15,6 +15,7 @@ from typing import (
 from web3 import Web3
 from web3.datastructures import AttributeDict
 
+from hummingbot.logger import HummingbotLogger
 import wings
 from wings.events import NewBlocksWatcherEvent
 from .base_watcher import BaseWatcher
@@ -23,10 +24,10 @@ DEFAULT_BLOCK_WINDOW_SIZE = 30
 
 
 class NewBlocksWatcher(BaseWatcher):
-    _nbw_logger: Optional[logging.Logger] = None
+    _nbw_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._nbw_logger is None:
             cls._nbw_logger = logging.getLogger(__name__)
         return cls._nbw_logger

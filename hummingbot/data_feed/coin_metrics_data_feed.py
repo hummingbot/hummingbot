@@ -7,10 +7,11 @@ from typing import (
 )
 from hummingbot.cli.utils import async_ttl_cache
 from hummingbot.data_feed.data_feed_base import DataFeedBase
+from hummingbot.logger import HummingbotLogger
 
 
 class CoinMetricsDataFeed(DataFeedBase):
-    cmdf_logger: Optional[logging.Logger] = None
+    cmdf_logger: Optional[HummingbotLogger] = None
     _cmdf_shared_instance: "CoinCapDataFeed" = None
 
     BASE_URL = "https://coinmetrics.io/api/v1"
@@ -22,7 +23,7 @@ class CoinMetricsDataFeed(DataFeedBase):
         return cls._cmdf_shared_instance
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls.cmdf_logger is None:
             cls.cmdf_logger = logging.getLogger(__name__)
         return cls.cmdf_logger

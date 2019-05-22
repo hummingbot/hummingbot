@@ -16,9 +16,9 @@ from typing import (
     List
 )
 import conf
+from hummingbot.logger import HummingbotLogger
 from wings.data_source.local_cluster_order_book_data_source import LocalClusterOrderBookDataSource
 from wings.model.sql_connection_manager import SQLConnectionManager
-from wings.order_book import OrderBook
 from wings.orderbook.binance_order_book import BinanceOrderBook
 
 
@@ -29,10 +29,10 @@ class BinanceLocalClusterOrderBookDataSource(LocalClusterOrderBookDataSource):
     DIFF_TOPIC_NAME: str = "binance-market-depth.serialized"
     SNAPSHOT_TOPIC_NAME: str = "binance-market-depth.snapshot"
 
-    _blcobds_logger: Optional[logging.Logger] = None
+    _blcobds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._blcobds_logger is None:
             cls._blcobds_logger = logging.getLogger(__name__)
         return cls._blcobds_logger
