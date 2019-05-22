@@ -1,3 +1,4 @@
+import aiohttp
 import logging
 import asyncio
 from typing import (
@@ -17,6 +18,7 @@ class DataFeedBase:
 
     def __init__(self):
         self._ready_event = asyncio.Event()
+        self._shared_client: Optional[aiohttp.ClientSession] = None
 
     @property
     def name(self):
@@ -28,6 +30,11 @@ class DataFeedBase:
 
     def get_price(self, asset: str) -> float:
         raise NotImplementedError
+
+    async def _http_client(self) -> aiohttp.ClientSession:
+        if self._shared_client is None:
+            self._shared_client = aiohttp.ClientSession()
+        return self._shared_client
 
     async def get_ready(self):
         try:
