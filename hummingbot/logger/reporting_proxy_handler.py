@@ -79,6 +79,8 @@ class ReportingProxyHandler(logging.Handler):
         }
         if log.exc_info:
             message["exc_info"] = self.formatException(log.exc_info)
+            message["exception_type"] = self.formatException(str(log.exc_info[0]))
+            message["exception_msg"] = self.formatException(str(log.exc_info[1]))
         self._log_queue.append(message)
 
     def process_event_log(self, log):
@@ -125,7 +127,9 @@ class ReportingProxyHandler(logging.Handler):
                     'Content-Type': "application/json"
                 },
                 "data": json.dumps(logs, default=log_encoder),
-                "params": {"ddtags": f"client_id:{self.client_id},type:event",
+                "params": {"ddtags": f"client_id:{self.client_id},"
+                                     f"client_version:{CLIENT_VERSION},"
+                                     f"type:event",
                            "ddsource": "hummingbot-client"}
             }
         }
