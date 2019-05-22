@@ -71,8 +71,8 @@ loggers:
         handlers: [console_warning, file_handler]
         propagate: false
     wings.data_source:
-        level: WARNING
-        handlers: [console_warning, file_handler]
+        level: INFO
+        handlers: [console, file_handler]
         propagate: false
     wings.wallet:
         level: INFO

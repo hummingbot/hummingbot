@@ -16,7 +16,6 @@ cdef class BinanceMarket(MarketBase):
         double _poll_interval
         dict _in_flight_deposits
         dict _in_flight_orders
-        object _SYMBOL_SPLITTER
         TransactionTracker _tx_tracker
         object _w3
         dict _withdraw_rules
@@ -28,6 +27,7 @@ cdef class BinanceMarket(MarketBase):
         public object _user_stream_event_listener_task
         public object _user_stream_tracker_task
         public object _order_tracker_task
+        public object _trading_rules_polling_task
         object _async_scheduler
         object _set_server_time_offset_task
 

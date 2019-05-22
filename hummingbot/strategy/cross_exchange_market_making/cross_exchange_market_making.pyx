@@ -337,7 +337,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             # Add warning lines on null balances.
             # TO-DO: Build min order size logic into exchange connector and expose maker_min_order and taker_min_order variables,
-            # which can replace the hard-coded 0.0001 value.
+            # which can replace the hard-coded 0.0001 value. 
             if maker_base_balance <= 0.0001:
                 warning_lines.append(f"    Maker market {maker_base} balance is too low. No ask order is possible.")
             if maker_quote_balance <= 0.0001:
@@ -858,7 +858,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         """
         cdef:
             double total_flat_fees = 0.0
-
+ 
         for flat_fee_currency, flat_fee_amount in flat_fees:
             if flat_fee_currency == quote_currency:
                 total_flat_fees += flat_fee_amount
@@ -921,7 +921,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double bid_net_buy_costs = maker_bid_price_adjusted * bid_order_size * \
                 (1 + maker_bid_fee.percent) + maker_bid_fee_flat_fees
             double bid_profitability = bid_net_sell_proceeds / bid_net_buy_costs - 1
-
+        
         return bid_profitability
 
     cdef double c_calculate_ask_profitability(self,
