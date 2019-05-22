@@ -1,5 +1,6 @@
 # distutils: language=c++
 # distutils: sources=hummingbot/core/cpp/OrderBookEntry.cpp
+
 import bisect
 import logging
 
@@ -19,19 +20,21 @@ from typing import (
     Optional,
     Dict
 )
-from .events import (
-    OrderBookEvent,
-    OrderBookTradeEvent
-)
 
 from sqlalchemy.engine import RowProxy
 
 from hummingbot.core.OrderBookEntry cimport truncateOverlapEntries
+from .events import (
+    OrderBookEvent,
+    OrderBookTradeEvent
+)
 from hummingbot.logger import HummingbotLogger
 from .order_book_message import OrderBookMessage
 from .order_book_row import OrderBookRow
+from .order_book_query_result import OrderBookQueryResult
 
 ob_logger = None
+NaN = float("nan")
 
 cdef class OrderBook(PubSub):
     ORDER_BOOK_TRADE_EVENT_TAG = OrderBookEvent.TradeEvent.value
@@ -273,25 +276,32 @@ cdef class OrderBook(PubSub):
     def get_price(self, is_buy: bool) -> float:
         return self.c_get_price(is_buy)
 
-    cdef double c_get_price_for_volume(self, bint is_buy, double volume) except? -1:
+    cdef OrderBookQueryResult c_get_price_for_volume(self, bint is_buy, double volume):
         cdef:
             double cumulative_volume = 0
+            double result_price = NaN
+
         if is_buy:
             for order_book_row in self.ask_entries():
                 cumulative_volume += order_book_row.amount
                 if cumulative_volume >= volume:
-                    return order_book_row.price
+                    result_price = order_book_row.price
+                    break
         else:
             for order_book_row in self.bid_entries():
                 cumulative_volume += order_book_row.amount
                 if cumulative_volume >= volume:
-                    return order_book_row.price
-        raise EnvironmentError(f"Requested volume {volume} is beyond order book depth - no price quote is possible.")
+                    result_price = order_book_row.price
+                    break
 
-    cdef double c_get_vwap_for_volume(self, bint is_buy, double volume) except? -1:
+        return OrderBookQueryResult(NaN, volume, result_price, min(cumulative_volume, volume))
+
+    cdef OrderBookQueryResult c_get_vwap_for_volume(self, bint is_buy, double volume):
         cdef:
             double total_cost  = 0
             double total_volume = 0
+            double result_vwap = NaN
+
         if is_buy:
             for order_book_row in self.ask_entries():
                 total_cost += order_book_row.amount * order_book_row.price
@@ -302,7 +312,8 @@ cdef class OrderBook(PubSub):
                     total_volume -= order_book_row.amount
                     total_cost += incremental_amount * order_book_row.price
                     total_volume += incremental_amount
-                    return total_cost/total_volume
+                    result_vwap = total_cost / total_volume
+                    break
         else:
             for order_book_row in self.bid_entries():
                 total_cost += order_book_row.amount * order_book_row.price
@@ -313,31 +324,37 @@ cdef class OrderBook(PubSub):
                     total_volume -= order_book_row.amount
                     total_cost += incremental_amount * order_book_row.price
                     total_volume += incremental_amount
-                    return total_cost/total_volume
-        raise EnvironmentError(f"Requested volume {volume} is beyond order book depth - no price quote is "
-                               f"possible")
+                    result_vwap = total_cost / total_volume
+                    break
 
-    cdef double c_get_price_for_quote_volume(self, bint is_buy, double quote_volume) except? -1:
+        return OrderBookQueryResult(NaN, volume, result_vwap, min(total_volume, volume))
+
+    cdef OrderBookQueryResult c_get_price_for_quote_volume(self, bint is_buy, double quote_volume):
         cdef:
             double cumulative_volume = 0
+            double result_price = NaN
+
         if is_buy:
             for order_book_row in self.ask_entries():
                 cumulative_volume += order_book_row.amount * order_book_row.price
                 if cumulative_volume >= quote_volume:
-                    return order_book_row.price
+                    result_price = order_book_row.price
+                    break
         else:
             for order_book_row in self.bid_entries():
                 cumulative_volume += order_book_row.amount * order_book_row.price
                 if cumulative_volume >= quote_volume:
-                    return order_book_row.price
-        raise EnvironmentError(f"Requested quote volume {quote_volume} is beyond order book depth - no price quote is "
-                               f"possible")
+                    result_price = order_book_row.price
+                    break
 
-    cdef double c_get_quote_volume_for_base_amount(self, bint is_buy, double base_amount) except? -1:
+        return OrderBookQueryResult(NaN, quote_volume, result_price, min(cumulative_volume, quote_volume))
+
+    cdef OrderBookQueryResult c_get_quote_volume_for_base_amount(self, bint is_buy, double base_amount):
         cdef:
             double cumulative_volume = 0
             double cumulative_base_amount = 0
             double row_amount = 0
+
         if is_buy:
             for order_book_row in self.ask_entries():
                 row_amount = order_book_row.amount
@@ -356,54 +373,65 @@ cdef class OrderBook(PubSub):
                 cumulative_volume += row_amount * order_book_row.price
                 if cumulative_base_amount >= base_amount:
                     break
-        return cumulative_volume
 
-    def get_price_for_volume(self, is_buy: bool, volume: float) -> float:
+        return OrderBookQueryResult(NaN, base_amount, NaN, cumulative_volume)
+
+    cdef OrderBookQueryResult c_get_volume_for_price(self, bint is_buy, double price):
+        cdef:
+            double cumulative_volume = 0
+            double result_price = NaN
+
+        if is_buy:
+            for order_book_row in self.ask_entries():
+                if order_book_row.price > price:
+                    break
+                cumulative_volume += order_book_row.amount
+                result_price = order_book_row.price
+        else:
+            for order_book_row in self.bid_entries():
+                if order_book_row.price < price:
+                    break
+                cumulative_volume += order_book_row.amount
+                result_price = order_book_row.price
+
+        return OrderBookQueryResult(price, NaN, result_price, cumulative_volume)
+
+    cdef OrderBookQueryResult c_get_quote_volume_for_price(self, bint is_buy, double price):
+        cdef:
+            double cumulative_volume = 0
+            double result_price = NaN
+
+        if is_buy:
+            for order_book_row in self.ask_entries():
+                if order_book_row.price > price:
+                    break
+                cumulative_volume += order_book_row.amount * order_book_row.price
+                result_price = order_book_row.price
+        else:
+            for order_book_row in self.bid_entries():
+                if order_book_row.price < price:
+                    break
+                cumulative_volume += order_book_row.amount * order_book_row.price
+                result_price = order_book_row.price
+
+        return OrderBookQueryResult(price, NaN, result_price, cumulative_volume)
+
+    def get_price_for_volume(self, is_buy: bool, volume: float) -> OrderBookQueryResult:
         return self.c_get_price_for_volume(is_buy, volume)
 
-    def get_vwap_for_volume(self, is_buy: bool, volume: float) -> float:
+    def get_vwap_for_volume(self, is_buy: bool, volume: float) -> OrderBookQueryResult:
         return self.c_get_vwap_for_volume(is_buy, volume)
 
-    def get_price_for_quote_volume(self, is_buy: bool, quote_volume: float) -> float:
+    def get_price_for_quote_volume(self, is_buy: bool, quote_volume: float) -> OrderBookQueryResult:
         return self.c_get_price_for_quote_volume(is_buy, quote_volume)
 
-    def get_quote_volume_for_base_amount(self, is_buy: bool, base_amount: float) -> float:
+    def get_quote_volume_for_base_amount(self, is_buy: bool, base_amount: float) -> OrderBookQueryResult:
         return self.c_get_quote_volume_for_base_amount(is_buy, base_amount)
 
-    cdef double c_get_volume_for_price(self, bint is_buy, double price) except? -1:
-        cdef:
-            double cumulative_volume = 0
-        if is_buy:
-            for order_book_row in self.ask_entries():
-                if order_book_row.price > price:
-                    return cumulative_volume
-                cumulative_volume += order_book_row.amount
-        else:
-            for order_book_row in self.bid_entries():
-                if order_book_row.price < price:
-                    return cumulative_volume
-                cumulative_volume += order_book_row.amount
-        return cumulative_volume
-
-    cdef double c_get_quote_volume_for_price(self, bint is_buy, double price) except? -1:
-        cdef:
-            double cumulative_volume = 0
-        if is_buy:
-            for order_book_row in self.ask_entries():
-                if order_book_row.price > price:
-                    return cumulative_volume
-                cumulative_volume += order_book_row.amount * order_book_row.price
-        else:
-            for order_book_row in self.bid_entries():
-                if order_book_row.price < price:
-                    return cumulative_volume
-                cumulative_volume += order_book_row.amount * order_book_row.price
-        return cumulative_volume
-
-    def get_volume_for_price(self, bint is_buy, double price) -> float:
+    def get_volume_for_price(self, bint is_buy, double price) -> OrderBookQueryResult:
         return self.c_get_volume_for_price(is_buy, price)
 
-    def get_quote_volume_for_price(self, is_buy: bool, price: float) -> float:
+    def get_quote_volume_for_price(self, is_buy: bool, price: float) -> OrderBookQueryResult:
         return self.c_get_quote_volume_for_price(is_buy, price)
 
     @classmethod
