@@ -4,6 +4,10 @@ FROM continuumio/miniconda3:4.6.14
 # Dockerfile author / maintainer 
 LABEL maintainer="CoinAlpha, Inc. <dev@coinalpha.com>"
 
+# Create mount points
+RUN mkdir /conf && mkdir /logs
+VOLUME /conf /logs
+
 COPY bin/ bin/
 COPY hummingbot/ hummingbot/
 COPY setup/environment-linux.yml setup/
