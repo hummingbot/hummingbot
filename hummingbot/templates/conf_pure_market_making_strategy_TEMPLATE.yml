@@ -1,0 +1,32 @@
+########################################################
+###       Pure market making strategy config         ###
+########################################################
+
+# The following configuations are only required for the
+# pure market making strategy
+
+# Exchange and token parameters
+maker_market: null
+maker_market_symbol: null
+
+# size of each order
+order_amount: null
+
+# Time in seconds before cancelling and rerunning strategy
+# If tick size is 60, the bot cancels active orders and reruns after a minute
+cancel_order_wait_time: null
+
+# How far away from mid price to place the bid order
+# Expressed in decimals : 0.01 = 1% away from mid price at that time
+# Example if mid price is 100 and bid_place threshold is 0.01
+# Your bid is placed at 99
+bid_place_threshold: null
+
+# How far away from mid price to place the ask order
+# Expressed in decimals : 0.01 = 1% away from mid price at that time
+# Example if mid price is 100 and ask_place threshold is 0.01
+# Your bid is placed at 101
+ask_place_threshold: null
+
+# For more detailed information, see:
+# https://docs.hummingbot.io/configuration/#hummingbot-configuration-variables
