@@ -20,9 +20,9 @@ from libc.stdint cimport int64_t
 from web3 import Web3
 
 from hummingbot.logger import HummingbotLogger
-from wings.cancellation_result import CancellationResult
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.market.ddex.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
-from wings.events import (
+from hummingbot.core.event.events import (
     MarketEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
@@ -35,9 +35,9 @@ from wings.events import (
     OrderType,
     TradeFee,
 )
-from wings.limit_order import LimitOrder
-from wings.order_book cimport OrderBook
-from wings.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.ddex.ddex_order_book_tracker import DDEXOrderBookTracker
 from hummingbot.core.network_iterator import NetworkStatus

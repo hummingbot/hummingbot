@@ -3,7 +3,7 @@
 from libcpp cimport bool
 from libcpp.string cimport string
 
-cdef extern from "../hummingbot/core/cpp/LimitOrder.h":
+cdef extern from "../cpp/LimitOrder.h":
     ctypedef struct PyObject
 
     cdef cppclass LimitOrder:

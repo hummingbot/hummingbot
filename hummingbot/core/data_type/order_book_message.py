@@ -10,7 +10,7 @@ from typing import (
     Dict
 )
 
-from wings.order_book_row import OrderBookRow
+from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 
 class OrderBookMessageType(Enum):

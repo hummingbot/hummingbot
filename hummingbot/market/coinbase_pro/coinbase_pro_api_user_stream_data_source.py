@@ -14,7 +14,7 @@ from websockets.exceptions import ConnectionClosed
 from hummingbot.market.data_source.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.market.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
 from hummingbot.logger import HummingbotLogger
-from wings.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 
 COINBASE_REST_URL = "https://api.pro.coinbase.com"

@@ -2,7 +2,7 @@ from os.path import (
     isfile,
     join,
 )
-from hummingbot.cli.utils.symbol_fetcher import SymbolFetcher
+from hummingbot.core.utils import SymbolFetcher
 from hummingbot.cli.settings import (
     EXCHANGES,
     STRATEGIES,

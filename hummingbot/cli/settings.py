@@ -4,7 +4,7 @@ from os.path import (
 )
 from typing import List
 
-from hummingbot.cli.utils.symbol_fetcher import SymbolFetcher
+from hummingbot.core.utils import SymbolFetcher
 
 # Global variables
 required_exchanges: List[str] = []

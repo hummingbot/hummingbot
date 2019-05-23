@@ -6,7 +6,7 @@ from abc import (
 )
 import asyncio
 from typing import Dict
-from wings.order_book_tracker_entry import OrderBookTrackerEntry
+from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 
 
 class OrderBookTrackerDataSource(metaclass=ABCMeta):

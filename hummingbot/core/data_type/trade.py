@@ -5,7 +5,7 @@ from typing import List
 from datetime import datetime
 import pandas as pd
 
-from wings.events import (
+from hummingbot.core.event.events import (
     TradeType,
     OrderType,
 )

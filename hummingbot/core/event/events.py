@@ -1,10 +1,5 @@
 #!/usr/bin/env python
 
-import time
-from collections import (
-    namedtuple,
-    OrderedDict
-)
 from enum import Enum
 from typing import (
     Tuple,
@@ -13,7 +8,7 @@ from typing import (
     NamedTuple,
 )
 
-from .order_book_row import OrderBookRow
+from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 
 class WalletEvent(Enum):

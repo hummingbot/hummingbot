@@ -7,7 +7,7 @@ from typing import (
     Optional,
 )
 
-from wings.event_listener cimport EventListener
+from hummingbot.core.event.event_listener cimport EventListener
 
 
 cdef class EventLogger(EventListener):

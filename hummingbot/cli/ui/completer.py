@@ -14,8 +14,8 @@ from hummingbot.cli.settings import (
     CONF_FILE_PATH,
 )
 from hummingbot.cli.ui.parser import ThrowingArgumentParser
-from hummingbot.cli.utils.wallet_setup import list_wallets
-from hummingbot.cli.utils.symbol_fetcher import SymbolFetcher
+from hummingbot.core.utils import list_wallets
+from hummingbot.core.utils import SymbolFetcher
 from hummingbot.cli.config.in_memory_config_map import load_required_configs
 
 

@@ -5,7 +5,7 @@ import logging
 from typing import Optional
 
 from hummingbot.logger import HummingbotLogger
-from wings.order_book_tracker import (
+from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTracker,
     OrderBookTrackerDataSourceType
 )

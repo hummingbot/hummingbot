@@ -7,7 +7,7 @@ sys.path.insert(0, realpath(join(__file__, "../../")))
 
 
 from hummingbot.market.binance.binance_user_stream_tracker import BinanceUserStreamTracker
-from wings.user_stream_tracker import UserStreamTrackerDataSourceType
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 
 
 from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker

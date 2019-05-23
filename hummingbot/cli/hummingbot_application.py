@@ -22,7 +22,7 @@ from typing import (
     Deque
 )
 
-from hummingbot.cli.utils.symbol_fetcher import SymbolFetcher
+from hummingbot.core.utils import SymbolFetcher
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -35,8 +35,8 @@ from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
-from wings.order_book_tracker import OrderBookTrackerDataSourceType
-from wings.trade import Trade
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.trade import Trade
 
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
@@ -46,8 +46,8 @@ from hummingbot.cli.ui.keybindings import load_key_bindings
 from hummingbot.cli.ui.parser import load_parser, ThrowingArgumentParser
 from hummingbot.cli.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.cli.ui.completer import load_completer
-from hummingbot.cli.utils.symbol_splitter import SymbolSplitter
-from hummingbot.cli.utils.wallet_setup import (
+from hummingbot.core.utils import SymbolSplitter
+from hummingbot.core.utils import (
     create_and_save_wallet,
     import_and_save_wallet,
     list_wallets,
@@ -87,11 +87,11 @@ from hummingbot.strategy.discovery import (
     DiscoveryStrategy,
     DiscoveryMarketPair
 )
-from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
-from hummingbot.cli.utils.ethereum import check_web3
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.core.utils import check_web3
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
-from hummingbot.cli.utils.stop_loss_tracker import StopLossTracker
+from hummingbot.core.utils import StopLossTracker
 
 s_logger = None
 

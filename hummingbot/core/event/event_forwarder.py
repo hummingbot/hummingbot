@@ -2,7 +2,7 @@
 
 from typing import Callable
 
-from wings.event_listener import EventListener
+from hummingbot.core.event.event_listener import EventListener
 
 
 class EventForwarder(EventListener):

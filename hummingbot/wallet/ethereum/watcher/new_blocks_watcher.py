@@ -17,7 +17,7 @@ from web3.datastructures import AttributeDict
 
 from hummingbot.logger import HummingbotLogger
 import wings
-from wings.events import NewBlocksWatcherEvent
+from hummingbot.core.event.events import NewBlocksWatcherEvent
 from .base_watcher import BaseWatcher
 
 DEFAULT_BLOCK_WINDOW_SIZE = 30

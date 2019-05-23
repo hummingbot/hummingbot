@@ -23,10 +23,10 @@ from web3.contract import (
 from web3.datastructures import AttributeDict
 
 import wings
-from wings.async_call_scheduler import AsyncCallScheduler
+from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
-from wings.event_forwarder import EventForwarder
-from wings.events import (
+from hummingbot.core.event.event_forwarder import EventForwarder
+from hummingbot.core.event.events import (
     WalletEvent,
     WalletReceivedAssetEvent,
     TokenApprovedEvent,

@@ -14,7 +14,7 @@ import unittest
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
-from wings.events import (
+from hummingbot.core.event.events import (
     MarketEvent,
     WalletEvent,
     BuyOrderCompletedEvent,
@@ -27,9 +27,9 @@ from wings.events import (
     TradeType,
     TradeFee
 )
-from wings.event_logger import EventLogger
+from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.market.market_base import OrderType
-from wings.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 
 

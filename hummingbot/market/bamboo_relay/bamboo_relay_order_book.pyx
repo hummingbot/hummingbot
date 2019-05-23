@@ -1,19 +1,17 @@
 #!/usr/bin/env python
 import ujson
-from decimal import Decimal
 import logging
 from typing import (
     Dict,
     List,
-    Optional,
-    Tuple
+    Optional
 )
 
 from sqlalchemy.engine import RowProxy
 
 from hummingbot.logger import HummingbotLogger
-from wings.order_book cimport OrderBook
-from wings.order_book_message import (
+from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.order_book_message import (
     BambooRelayOrderBookMessage,
     OrderBookMessage,
     OrderBookMessageType

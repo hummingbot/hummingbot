@@ -5,17 +5,17 @@ from typing import (
     List,
 )
 
-from wings.cancellation_result import CancellationResult
-from wings.events import (
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.event.events import (
     MarketEvent,
     OrderType,
     TradeType,
     TradeFee
 )
-from wings.event_logger import EventLogger
-from wings.limit_order import LimitOrder
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkIterator
-from wings.order_book import OrderBook
+from hummingbot.core.data_type.order_book import OrderBook
 
 NaN = float("nan")
 

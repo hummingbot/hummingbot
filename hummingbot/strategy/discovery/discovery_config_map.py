@@ -6,7 +6,7 @@ from hummingbot.cli.settings import (
     EXAMPLE_PAIRS,
     required_exchanges,
 )
-from hummingbot.cli.utils.symbol_fetcher import SymbolFetcher
+from hummingbot.core.utils import SymbolFetcher
 from typing import Any
 
 

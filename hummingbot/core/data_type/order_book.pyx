@@ -19,7 +19,7 @@ from typing import (
     Optional,
     Dict
 )
-from .events import (
+from hummingbot.core.event.events import (
     OrderBookEvent,
     OrderBookTradeEvent
 )

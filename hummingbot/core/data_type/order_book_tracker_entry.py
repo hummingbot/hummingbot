@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from wings.order_book import OrderBook
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.market.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
 from hummingbot.market.ddex.ddex_active_order_tracker import DDEXActiveOrderTracker
 from hummingbot.market.radar_relay.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker

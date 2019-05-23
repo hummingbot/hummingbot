@@ -16,8 +16,8 @@ from typing import (
     List)
 
 from hummingbot.logger import HummingbotLogger
-from wings.order_book import OrderBook
-from wings.order_book_tracker_entry import OrderBookTrackerEntry
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from .order_book_message import (
     OrderBookMessageType,
     OrderBookMessage,

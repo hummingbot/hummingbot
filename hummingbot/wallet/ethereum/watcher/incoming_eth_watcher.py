@@ -12,12 +12,12 @@ from web3 import Web3
 from web3.datastructures import AttributeDict
 
 import wings
-from wings.events import (
+from hummingbot.core.event.events import (
     NewBlocksWatcherEvent,
     IncomingEthWatcherEvent,
     WalletReceivedAssetEvent
 )
-from wings.event_forwarder import EventForwarder
+from hummingbot.core.event.event_forwarder import EventForwarder
 from .base_watcher import BaseWatcher
 from .new_blocks_watcher import NewBlocksWatcher
 

@@ -15,8 +15,8 @@ from web3.datastructures import AttributeDict
 from hummingbot.logger import HummingbotLogger
 import wings
 from hummingbot.wallet.ethereum.erc20_token import ERC20Token
-from wings.events import NewBlocksWatcherEvent
-from wings.event_forwarder import EventForwarder
+from hummingbot.core.event.events import NewBlocksWatcherEvent
+from hummingbot.core.event.event_forwarder import EventForwarder
 from .base_watcher import BaseWatcher
 from .new_blocks_watcher import NewBlocksWatcher
 

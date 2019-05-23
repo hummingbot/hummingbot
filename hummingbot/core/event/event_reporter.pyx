@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from wings.event_listener cimport EventListener
+from hummingbot.core.event.event_listener cimport EventListener
 
 er_logger = None
 
