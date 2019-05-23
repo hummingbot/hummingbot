@@ -7,6 +7,8 @@ Docker images of `hummingbot` are available on Docker Hub at [coinalpha/hummingb
 ## Create new instance of `hummingbot`
 
 ``` bash tab="Terminal: Start hummingbot with Docker"
+export NAME=myhummingbot && \
+export TAG=latest && \
 docker run -it \
 --name $NAME \
 -v "$PWD"/conf/:/conf/ \
