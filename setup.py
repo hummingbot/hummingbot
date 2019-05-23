@@ -134,8 +134,7 @@ def main():
               np.get_include(),
           ],
           scripts=[
-              "bin/hummingbot.py",
-              "bin/dev.py"
+              "bin/hummingbot.py"
           ],
           )
 
