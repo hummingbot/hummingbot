@@ -14,8 +14,8 @@ from typing import (
 from web3 import Web3
 from web3.datastructures import AttributeDict
 
+from hummingbot.wallet.ethereum.erc20_token import ERC20Token
 from hummingbot.logger import HummingbotLogger
-from wings.erc20_token import ERC20Token
 from wings.events import (
     NewBlocksWatcherEvent,
     WalletWrappedEthEvent,

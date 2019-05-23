@@ -9,10 +9,10 @@ from web3 import Web3
 from web3.contract import Contract
 from zero_ex.order_utils import Order
 
-from wings.wallet.web3_wallet import Web3Wallet
-from wings.zero_ex_custom_utils import convert_order_to_tuple
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
+from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils import convert_order_to_tuple
 
-with open(os.path.join(os.path.dirname(__file__), "abi/zero_ex_exchange_abi.json")) as exchange_abi_json:
+with open(os.path.join(os.path.dirname(__file__), "zero_ex_exchange_abi.json")) as exchange_abi_json:
     exchange_abi: List[any] = ujson.load(exchange_abi_json)
 
 

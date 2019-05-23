@@ -41,6 +41,7 @@ STRATEGIES = {
     "cross_exchange_market_making",
     "arbitrage",
     "discovery",
+    "pure_market_making",
 }
 
 EXAMPLE_PAIRS = {

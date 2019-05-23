@@ -19,9 +19,6 @@ from decimal import Decimal
 from libc.stdint cimport int64_t
 from web3 import Web3
 
-from hummingbot.core.network_iterator import (
-    NetworkStatus
-)
 from hummingbot.logger import HummingbotLogger
 from wings.cancellation_result import CancellationResult
 from wings.data_source.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
@@ -42,10 +39,11 @@ from wings.market.market_base cimport MarketBase
 from wings.market.market_base import (
     OrderType
 )
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from wings.order_book cimport OrderBook
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.tracker.ddex_order_book_tracker import DDEXOrderBookTracker
-from wings.wallet.web3_wallet import Web3Wallet
 
 
 s_logger = None
@@ -231,7 +229,7 @@ cdef class DDEXMarket(MarketBase):
                  ethereum_rpc_url: str,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                    OrderBookTrackerDataSourceType.LOCAL_CLUSTER,
+                    OrderBookTrackerDataSourceType.EXCHANGE_API,
                  wallet_spender_address: str = ZERO_EX_MAINNET_PROXY,
                  symbols: Optional[List[str]] = None,
                  trading_required: bool = True):
