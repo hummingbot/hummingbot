@@ -63,7 +63,7 @@ loggers:
         handlers: [console, file_handler]
         propagate: false
     hummingbot.market:
-      level: INFO
+        level: INFO
         handlers: [console, file_handler]
         propagate: false
     hummingbot.wallet:

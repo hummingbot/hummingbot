@@ -36,6 +36,8 @@ from wings.events import (
     TradeFee,
 )
 from wings.limit_order import LimitOrder
+from wings.order_book cimport OrderBook
+from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.ddex.ddex_order_book_tracker import DDEXOrderBookTracker
 from hummingbot.core.network_iterator import NetworkStatus
