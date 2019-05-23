@@ -29,12 +29,12 @@ from hummingbot.core.clock import (
 )
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
-from wings.market.binance_market import BinanceMarket
-from wings.market.coinbase_pro_market import CoinbaseProMarket
-from wings.market.ddex_market import DDEXMarket
-from wings.market.market_base import MarketBase
-from wings.market.radar_relay_market import RadarRelayMarket
-from wings.market.bamboo_relay_market import BambooRelayMarket
+from hummingbot.market.binance.binance_market import BinanceMarket
+from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
+from hummingbot.market.ddex.ddex_market import DDEXMarket
+from hummingbot.market.market_base import MarketBase
+from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
+from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.trade import Trade
 
@@ -78,6 +78,11 @@ from hummingbot.strategy.arbitrage import (
     ArbitrageStrategy,
     ArbitrageMarketPair
 )
+from hummingbot.strategy.pure_market_making import (
+    PureMarketMakingStrategy,
+    PureMarketPair
+)
+
 from hummingbot.strategy.discovery import (
     DiscoveryStrategy,
     DiscoveryMarketPair
@@ -720,6 +725,38 @@ class HummingbotApplication:
             self.strategy = ArbitrageStrategy(market_pairs=[self.market_pair],
                                               min_profitability=min_profitability,
                                               logging_options=strategy_logging_options)
+
+        elif strategy_name == "pure_market_making":
+            order_size = strategy_cm.get("order_amount").value
+            cancel_order_wait_time = strategy_cm.get("cancel_order_wait_time").value
+            bid_place_threshold = strategy_cm.get("bid_place_threshold").value
+            ask_place_threshold = strategy_cm.get("ask_place_threshold").value
+            maker_market = strategy_cm.get("maker_market").value.lower()
+            raw_maker_symbol = strategy_cm.get("maker_market_symbol").value.upper()
+            try:
+                primary_assets: Tuple[str, str] = SymbolSplitter.split(maker_market, raw_maker_symbol)
+
+            except ValueError as e:
+                self.app.log(str(e))
+                return
+
+            market_names: List[Tuple[str, List[str]]] = [(maker_market, [raw_maker_symbol])]
+
+            self._initialize_wallet(token_symbols=list(set(primary_assets)))
+            self._initialize_markets(market_names)
+            self.assets = set(primary_assets)
+
+            self.market_pair = PureMarketPair(*([self.markets[maker_market], raw_maker_symbol] +
+                                                     list(primary_assets)))
+            strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
+
+            self.strategy = PureMarketMakingStrategy(market_pairs=[self.market_pair],
+                                                     order_size = order_size,
+                                                     bid_place_threshold = bid_place_threshold,
+                                                     ask_place_threshold = ask_place_threshold,
+                                                     cancel_order_wait_time = cancel_order_wait_time,
+                                                     logging_options=strategy_logging_options)
+
         elif strategy_name == "discovery":
             try:
                 market_1 = strategy_cm.get("primary_market").value.lower()
@@ -865,9 +902,12 @@ class HummingbotApplication:
 
         else:
             if len(self.strategy.trades) > 0:
-                df: pd.DataFrame = Trade.to_pandas(self.strategy.trades)
-                df.to_csv(path, header=True)
-                self.app.log(f"Successfully saved trades to {path}")
+                try:
+                    df: pd.DataFrame = Trade.to_pandas(self.strategy.trades)
+                    df.to_csv(path, header=True)
+                    self.app.log(f"Successfully saved trades to {path}")
+                except Exception as e:
+                    self.app.log(f"Error saving trades to {path}: {e}")
 
     def history(self):
         self.list("trades")

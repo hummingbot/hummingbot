@@ -3,7 +3,7 @@ from typing import (
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.core.time_iterator cimport TimeIterator
-from wings.market.market_base cimport MarketBase
+from hummingbot.market.market_base cimport MarketBase
 import pandas as pd
 from wings.trade import Trade
 from wings.events import OrderFilledEvent
