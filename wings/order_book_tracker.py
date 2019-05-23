@@ -28,7 +28,7 @@ TRADING_PAIR_FILTER = re.compile(r"(BTC|ETH|USDT)$")
 
 
 class OrderBookTrackerDataSourceType(Enum):
-    LOCAL_CLUSTER = 1
+    # LOCAL_CLUSTER = 1 deprecated
     REMOTE_API = 2
     EXCHANGE_API = 3
 
@@ -44,7 +44,7 @@ class OrderBookTracker(ABC):
         return cls._obt_logger
 
     def __init__(self,
-                 data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.LOCAL_CLUSTER):
+                 data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API):
         self._data_source_type: OrderBookTrackerDataSourceType = data_source_type
         self._tracking_tasks: Dict[str, asyncio.Task] = {}
         self._order_books: Dict[str, OrderBook] = {}
