@@ -18,9 +18,9 @@ from typing import (
 )
 
 import conf
+from hummingbot.logger import HummingbotLogger
 from wings.data_source.local_cluster_order_book_data_source import LocalClusterOrderBookDataSource
 from wings.model.sql_connection_manager import SQLConnectionManager
-from wings.order_book import OrderBook
 from wings.orderbook.huobi_order_book import HuobiOrderBook
 
 TRADING_PAIR_FILTER = re.compile(r"(btc|eth|usdt)$")
@@ -30,10 +30,10 @@ class HuobiLocalClusterOrderBookDataSource(LocalClusterOrderBookDataSource):
     DIFF_TOPIC_NAME: str = "huobi-market-depth.serialized"
     SNAPSHOT_TOPIC_NAME: str = "huobi-market-depth.snapshot"
 
-    _hlcobds_logger: Optional[logging.Logger] = None
+    _hlcobds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._hlcobds_logger is None:
             cls._hlcobds_logger = logging.getLogger(__name__)
         return cls._hlcobds_logger

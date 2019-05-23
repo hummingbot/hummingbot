@@ -26,8 +26,9 @@ from .events import (
 
 from sqlalchemy.engine import RowProxy
 
-from .order_book_message import OrderBookMessage
 from hummingbot.core.OrderBookEntry cimport truncateOverlapEntries
+from hummingbot.logger import HummingbotLogger
+from .order_book_message import OrderBookMessage
 from .order_book_row import OrderBookRow
 
 ob_logger = None
@@ -36,7 +37,7 @@ cdef class OrderBook(PubSub):
     ORDER_BOOK_TRADE_EVENT_TAG = OrderBookEvent.TradeEvent.value
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global ob_logger
         if ob_logger is None:
             ob_logger = logging.getLogger(__name__)

@@ -18,6 +18,7 @@ from typing import (
 )
 
 import conf
+from hummingbot.logger import HummingbotLogger
 from wings.data_source.local_cluster_order_book_data_source import LocalClusterOrderBookDataSource
 from wings.model.sql_connection_manager import SQLConnectionManager
 from wings.order_book import OrderBook
@@ -28,10 +29,10 @@ class BittrexLocalClusterOrderBookDataSource(LocalClusterOrderBookDataSource):
     DIFF_TOPIC_NAME: str = "bittrex-market-depth.serialized"
     SNAPSHOT_TOPIC_NAME: str = "bittrex-market-depth.snapshot"
     FETCH_MARKET_SYMBOL_PATTERN = re.compile(r"^(BTC|ETH|USDT)-")
-    _bthlcobds_logger: Optional[logging.Logger] = None
+    _bthlcobds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._bthlcobds_logger is None:
             cls._bthlcobds_logger = logging.getLogger(__name__)
         return cls._bthlcobds_logger

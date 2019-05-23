@@ -22,6 +22,7 @@ from .order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.order_book_tracker_entry import OrderBookTrackerEntry, BambooRelayOrderBookTrackerEntry
 from wings.order_book_message import OrderBookMessage, BambooRelayOrderBookMessage
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.logger import HummingbotLogger
 
 TRADING_PAIR_FILTER = re.compile(r"(WETH|DAI|CUSD)$")
 
@@ -36,11 +37,11 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
-    _rraobds_logger: Optional[logging.Logger] = None
+    _rraobds_logger: Optional[HummingbotLogger] = None
     _client: Optional[aiohttp.ClientSession] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._rraobds_logger is None:
             cls._rraobds_logger = logging.getLogger(__name__)
         return cls._rraobds_logger

@@ -13,6 +13,7 @@ from typing import (
     Set
 )
 
+from hummingbot.logger import HummingbotLogger
 from wings.data_source.radar_relay_local_cluster_order_book_data_source import RadarRelayLocalClusterOrderBookDataSource
 from wings.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from wings.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -24,10 +25,10 @@ from wings.tracker.radar_relay_active_order_tracker import RadarRelayActiveOrder
 
 
 class RadarRelayOrderBookTracker(OrderBookTracker):
-    _rrobt_logger: Optional[logging.Logger] = None
+    _rrobt_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._rrobt_logger is None:
             cls._rrobt_logger = logging.getLogger(__name__)
         return cls._rrobt_logger

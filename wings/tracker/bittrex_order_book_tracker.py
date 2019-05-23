@@ -3,6 +3,8 @@ import asyncio
 import logging
 from typing import (
     Optional)
+
+from hummingbot.logger import HummingbotLogger
 from wings.model.sql_connection_manager import SQLConnectionManager
 from wings.order_book_tracker import (
     OrderBookTracker,
@@ -16,10 +18,10 @@ import conf
 
 
 class BittrexOrderBookTracker(OrderBookTracker):
-    _btobt_logger: Optional[logging.Logger] = None
+    _btobt_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._btobt_logger is None:
             cls._btobt_logger = logging.getLogger(__name__)
         return cls._btobt_logger

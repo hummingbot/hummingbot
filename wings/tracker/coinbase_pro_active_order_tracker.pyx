@@ -6,9 +6,10 @@ import numpy as np
 from decimal import Decimal
 from typing import Dict
 
+from hummingbot.logger import HummingbotLogger
 from wings.order_book_row import OrderBookRow
-_cbpaot_logger = None
 
+_cbpaot_logger = None
 s_empty_diff = np.ndarray(shape=(0, 4), dtype="float64")
 
 CoinbaseProOrderBookTrackingDictionary = Dict[Decimal, Dict[str, Dict[str, any]]]
@@ -29,7 +30,7 @@ cdef class CoinbaseProActiveOrderTracker:
         self._active_bids = active_bids or {}
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global _cbpaot_logger
         if _cbpaot_logger is None:
             _cbpaot_logger = logging.getLogger(__name__)

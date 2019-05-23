@@ -1,20 +1,21 @@
 import asyncio
 import logging
 import math
-import ujson
 from typing import (
     Optional,
     List,
-    Tuple,
     Dict)
+
 from hummingbot.cli.config.global_config_map import global_config_map
+from hummingbot.logger import HummingbotLogger
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
 from hummingbot.data_feed.data_feed_base import DataFeedBase
+
 NaN = float("nan")
 
 
 class ExchangeRateConversion:
-    erc_logger: Optional[logging.Logger] = None
+    erc_logger: Optional[HummingbotLogger] = None
     _erc_shared_instance: "ExchangeRateConversion" = None
     _exchange_rate_config_override: Optional[Dict[str, Dict]] = None
     _data_feeds_override: Optional[List[DataFeedBase]] = None
@@ -31,7 +32,7 @@ class ExchangeRateConversion:
         return cls._erc_shared_instance
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls.erc_logger is None:
             cls.erc_logger = logging.getLogger(__name__)
         return cls.erc_logger

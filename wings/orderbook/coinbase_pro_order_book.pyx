@@ -9,6 +9,8 @@ from typing import (
 
 from sqlalchemy.engine import RowProxy
 import pandas as pd
+
+from hummingbot.logger import HummingbotLogger
 from wings.order_book cimport OrderBook
 from wings.order_book_message import (
     CoinbaseProOrderBookMessage,
@@ -22,7 +24,7 @@ _cbpob_logger = None
 cdef class CoinbaseProOrderBook(OrderBook):
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global _cbpob_logger
         if _cbpob_logger is None:
             _cbpob_logger = logging.getLogger(__name__)

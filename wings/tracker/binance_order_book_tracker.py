@@ -10,6 +10,8 @@ from typing import (
     List,
     Optional
 )
+
+from hummingbot.logger import HummingbotLogger
 from wings.model.sql_connection_manager import SQLConnectionManager
 from wings.order_book_tracker import (
     OrderBookTracker,
@@ -23,10 +25,10 @@ from wings.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
 class BinanceOrderBookTracker(OrderBookTracker):
-    _bobt_logger: Optional[logging.Logger] = None
+    _bobt_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._bobt_logger is None:
             cls._bobt_logger = logging.getLogger(__name__)
         return cls._bobt_logger

@@ -16,6 +16,7 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.datastructures import AttributeDict
 
+from hummingbot.logger import HummingbotLogger
 from wings.events import (
     NewBlocksWatcherEvent,
     WalletReceivedAssetEvent,
@@ -34,10 +35,10 @@ APPROVAL_EVENT_NAME = "Approval"
 
 
 class ERC20EventsWatcher(BaseWatcher):
-    _w2ew_logger: Optional[logging.Logger] = None
+    _w2ew_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._w2ew_logger is None:
             cls._w2ew_logger = logging.getLogger(__name__)
         return cls._w2ew_logger

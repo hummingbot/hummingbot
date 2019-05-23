@@ -12,6 +12,7 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.datastructures import AttributeDict
 
+from hummingbot.logger import HummingbotLogger
 import wings
 from hummingbot.wallet.ethereum.erc20_token import ERC20Token
 from wings.events import NewBlocksWatcherEvent
@@ -21,10 +22,10 @@ from .new_blocks_watcher import NewBlocksWatcher
 
 
 class AccountBalanceWatcher(BaseWatcher):
-    _abw_logger: Optional[logging.Logger] = None
+    _abw_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._abw_logger is None:
             cls._abw_logger = logging.getLogger(__name__)
         return cls._abw_logger

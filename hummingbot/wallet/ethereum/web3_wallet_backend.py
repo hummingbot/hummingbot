@@ -46,15 +46,16 @@ from hummingbot.wallet.ethereum.watcher import (
     WethWatcher,
 )
 from hummingbot.wallet.ethereum.erc20_token import ERC20Token
+from hummingbot.logger import HummingbotLogger
 
 
 class Web3WalletBackend(PubSub):
     TRANSACTION_RECEIPT_POLLING_TICK = 10.0
 
-    _w3wb_logger: Optional[logging.Logger] = None
+    _w3wb_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._w3wb_logger is None:
             cls._w3wb_logger = logging.getLogger(__name__)
         return cls._w3wb_logger
@@ -392,7 +393,6 @@ class Web3WalletBackend(PubSub):
                 await ev_loop.run_in_executor(wings.get_executor(), self._w3.eth.sendRawTransaction,
                                               signed_transaction.rawTransaction)
             except asyncio.CancelledError:
-                self.logger().error('Cancelled Error', exc_info=True)
                 raise
             except Exception:
                 self.logger().error(f"Error sending transaction {tx_hash}.", exc_info=True)

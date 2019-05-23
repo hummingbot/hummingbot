@@ -8,13 +8,14 @@ from typing import List
 from hummingbot.core.time_iterator import TimeIterator
 from hummingbot.core.time_iterator cimport TimeIterator
 from hummingbot.core.clock_mode import ClockMode
+from hummingbot.logger import HummingbotLogger
 
 s_logger = None
 
 
 cdef class Clock:
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global s_logger
         if s_logger is None:
             s_logger = logging.getLogger(__name__)

@@ -16,6 +16,8 @@ from typing import (
 from decimal import Decimal
 from libc.stdint cimport int64_t
 from web3 import Web3
+
+from hummingbot.logger import HummingbotLogger
 from wings.data_source.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
 from wings.limit_order import LimitOrder
 from wings.market.market_base cimport MarketBase
@@ -210,7 +212,7 @@ cdef class RadarRelayMarket(MarketBase):
     UPDATE_MARKET_ORDERS_INTERVAL = 10.0
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global rrm_logger
         if rrm_logger is None:
             rrm_logger = logging.getLogger(__name__)
