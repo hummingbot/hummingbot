@@ -12,10 +12,10 @@ from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.strategy.discovery.discovery_market_pair import DiscoveryMarketPair
 from hummingbot.strategy.arbitrage import ArbitrageStrategy
 from hummingbot.strategy.strategy_base cimport StrategyBase
-from wings.market.market_base import MarketBase
+from hummingbot.market.market_base cimport MarketBase
 
 from libc.stdint cimport int64_t
-from wings.order_book import OrderBook
+from wings.order_book cimport OrderBook
 import itertools
 
 NaN = float("nan")

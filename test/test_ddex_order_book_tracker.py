@@ -9,7 +9,7 @@ import logging
 import unittest
 from typing import Dict, Optional
 
-from wings.tracker.ddex_order_book_tracker import DDEXOrderBookTracker
+from hummingbot.market.ddex.ddex_order_book_tracker import DDEXOrderBookTracker
 from wings.order_book import OrderBook
 from wings.order_book_tracker import (
     OrderBookTrackerDataSourceType

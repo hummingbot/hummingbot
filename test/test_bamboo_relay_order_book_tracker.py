@@ -9,7 +9,7 @@ import logging
 import unittest
 from typing import Dict, Optional
 
-from wings.tracker.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
+from hummingbot.market.bamboo_relay.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
 from wings.order_book import OrderBook
 from wings.order_book_tracker import (
     OrderBookTrackerDataSourceType

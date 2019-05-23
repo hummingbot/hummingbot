@@ -1,7 +1,6 @@
 # distutils: language=c++
 
 from wings.event_listener cimport EventListener
-from wings.market.market_base cimport MarketBase
 from wings.order_book cimport OrderBook
 from hummingbot.strategy.strategy_base cimport StrategyBase
 from libc.stdint cimport int64_t

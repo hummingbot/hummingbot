@@ -52,8 +52,9 @@ reporting_aggregation_interval: 60.0
 reporting_log_interval: 60.0
 logger_override_whitelist:
 - hummingbot.strategy
+- wings.wallet
+- hummingbot.market
 - hummingbot.wallet
-- wings.market
 - conf
 key_file_path: conf/
 log_file_path: logs/
