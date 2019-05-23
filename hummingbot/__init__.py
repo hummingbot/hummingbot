@@ -32,11 +32,11 @@ def check_dev_mode():
 
 def add_remote_logger_handler(loggers):
     root_logger = logging.getLogger()
-    remote_logger = ReportingProxyHandler(level="DEBUG",
-                                          proxy_url="https://api.coinalpha.com/reporting-proxy",
-                                          capacity=5
-                                          )
     try:
+        remote_logger = ReportingProxyHandler(level="DEBUG",
+                                              proxy_url="https://api.coinalpha.com/reporting-proxy",
+                                              capacity=5
+                                              )
         root_logger.addHandler(remote_logger)
         for logger_name in loggers:
             logger = logging.getLogger(logger_name)
