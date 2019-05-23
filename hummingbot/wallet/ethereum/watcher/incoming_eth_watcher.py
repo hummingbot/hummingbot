@@ -11,7 +11,7 @@ from typing import (
 from web3 import Web3
 from web3.datastructures import AttributeDict
 
-import wings
+import hummingbot
 from hummingbot.core.event.events import (
     NewBlocksWatcherEvent,
     IncomingEthWatcherEvent,
@@ -53,7 +53,7 @@ class IncomingEthWatcher(BaseWatcher):
 
         get_receipt_tasks: List[asyncio.Task] = [
             self._ev_loop.run_in_executor(
-                wings.get_executor(),
+                hummingbot.get_executor(),
                 self._w3.eth.getTransactionReceipt,
                 t.hash
             )

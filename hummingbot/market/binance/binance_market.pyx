@@ -26,7 +26,7 @@ from typing import (
 )
 from web3 import Web3
 import conf
-import wings
+import hummingbot
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
 from hummingbot.market.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
@@ -415,7 +415,7 @@ cdef class BinanceMarket(MarketBase):
 
     async def query_api(self, func, *args, **kwargs) -> Dict[str, any]:
         async with timeout(self.API_CALL_TIMEOUT):
-            coro = self._ev_loop.run_in_executor(wings.get_executor(), partial(func, *args, **kwargs))
+            coro = self._ev_loop.run_in_executor(hummingbot.get_executor(), partial(func, *args, **kwargs))
             return await self.schedule_async_call(coro, self.API_CALL_TIMEOUT)
 
     async def query_url(self, url) -> any:
@@ -449,7 +449,7 @@ cdef class BinanceMarket(MarketBase):
 
     async def _check_failed_eth_tx(self):
         in_flight_deposits = [d for d in self._in_flight_deposits.values() if not d.has_tx_receipt]
-        tasks = [self._ev_loop.run_in_executor(wings.get_executor(),
+        tasks = [self._ev_loop.run_in_executor(hummingbot.get_executor(),
                                                self._w3.eth.getTransactionReceipt, d.tx_hash)
                  for d in in_flight_deposits]
         receipts = await asyncio.gather(*tasks)

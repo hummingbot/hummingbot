@@ -339,5 +339,5 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    logging.getLogger("wings.event_reporter").setLevel(logging.WARNING)
+    logging.getLogger("hummingbot.core.event.event_reporter").setLevel(logging.WARNING)
     unittest.main()

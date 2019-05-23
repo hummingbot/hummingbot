@@ -29,7 +29,7 @@ from hummingbot.cli.config.config_helpers import (
     read_configs_from_yml
 )
 from hummingbot.cli.ui.stdout_redirection import patch_stdout
-from hummingbot.core.utils import unlock_wallet
+from hummingbot.core.utils.wallet_setup import unlock_wallet
 
 
 STRATEGY = "<INSERT_STRATEGY>"

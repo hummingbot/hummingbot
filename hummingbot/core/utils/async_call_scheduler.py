@@ -10,8 +10,8 @@ from typing import (
     Callable
 )
 
+import hummingbot
 from hummingbot.logger import HummingbotLogger
-import wings
 
 
 class AsyncCallSchedulerItem(NamedTuple):
@@ -107,7 +107,7 @@ class AsyncCallScheduler:
 
     async def call_async(self, func: Callable, *args, timeout_seconds: float = 5.0) -> any:
         coro: Coroutine = self._ev_loop.run_in_executor(
-            wings.get_executor(),
+            hummingbot.get_executor(),
             func,
             *args
         )

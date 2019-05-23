@@ -22,7 +22,6 @@ from typing import (
     Deque
 )
 
-from hummingbot.core.utils import SymbolFetcher
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -46,8 +45,9 @@ from hummingbot.cli.ui.keybindings import load_key_bindings
 from hummingbot.cli.ui.parser import load_parser, ThrowingArgumentParser
 from hummingbot.cli.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.cli.ui.completer import load_completer
-from hummingbot.core.utils import SymbolSplitter
-from hummingbot.core.utils import (
+from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
+from hummingbot.core.utils.symbol_splitter import SymbolSplitter
+from hummingbot.core.utils.wallet_setup import (
     create_and_save_wallet,
     import_and_save_wallet,
     list_wallets,
@@ -88,10 +88,10 @@ from hummingbot.strategy.discovery import (
     DiscoveryMarketPair
 )
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
-from hummingbot.core.utils import check_web3
+from hummingbot.core.utils.ethereum import check_web3
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
-from hummingbot.core.utils import StopLossTracker
+from hummingbot.core.utils.stop_loss_tracker import StopLossTracker
 
 s_logger = None
 
