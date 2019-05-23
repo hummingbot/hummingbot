@@ -1,6 +1,6 @@
 # distutils: language=c++
 
-from hummingbot.core.OrderExpirationEntry cimport OrderExpirationEntry as CPPOrderExpirationEntry
+from hummingbot.core.data_type.OrderExpirationEntry cimport OrderExpirationEntry as CPPOrderExpirationEntry
 
 
 cdef class OrderExpirationEntry:

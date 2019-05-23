@@ -26,7 +26,7 @@ from hummingbot.core.event.events import (
 
 from sqlalchemy.engine import RowProxy
 
-from hummingbot.core.OrderBookEntry cimport truncateOverlapEntries
+from hummingbot.core.data_type.OrderBookEntry cimport truncateOverlapEntries
 from hummingbot.logger import HummingbotLogger
 from .order_book_message import OrderBookMessage
 from .order_book_row import OrderBookRow

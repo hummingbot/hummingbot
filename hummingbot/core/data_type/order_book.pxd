@@ -4,7 +4,7 @@ from libc.stdint cimport int64_t
 from libcpp.set cimport set
 from libcpp.vector cimport vector
 cimport numpy as np
-from hummingbot.core.OrderBookEntry cimport OrderBookEntry
+from hummingbot.core.data_type.OrderBookEntry cimport OrderBookEntry
 from hummingbot.core.pubsub cimport PubSub
 
 cdef class OrderBook(PubSub):

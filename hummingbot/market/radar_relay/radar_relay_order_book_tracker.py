@@ -15,7 +15,7 @@ from typing import (
 
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
-from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.market.radar_relay.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType, RadarRelayOrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_entry import RadarRelayOrderBookTrackerEntry

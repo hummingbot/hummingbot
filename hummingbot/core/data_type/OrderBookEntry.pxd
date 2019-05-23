@@ -3,7 +3,7 @@
 from libc.stdint cimport int64_t
 from libcpp.set cimport set
 
-cdef extern from "cpp/OrderBookEntry.h":
+cdef extern from "../cpp/OrderBookEntry.h":
     cdef cppclass OrderBookEntry:
         OrderBookEntry()
         OrderBookEntry(double price, double amount, int64_t updateId)

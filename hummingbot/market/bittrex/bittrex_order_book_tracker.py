@@ -8,8 +8,8 @@ from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTracker,
     OrderBookTrackerDataSourceType
 )
-from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.market.data_source.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
 
 
 class BittrexOrderBookTracker(OrderBookTracker):

@@ -20,7 +20,7 @@ from hummingbot.market.radar_relay.radar_relay_order_book import RadarRelayOrder
 from hummingbot.market.radar_relay.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry, RadarRelayOrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, RadarRelayOrderBookMessage
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
