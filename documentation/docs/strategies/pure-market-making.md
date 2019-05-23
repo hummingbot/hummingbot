@@ -1,9 +1,12 @@
 # Pure market making
 
-Pure market making is described in [Strategies](/strategies/), with a further discussion in the Hummingbot [white paper](https://hummingbot.io/whitepaper.pdf).
+## How it works
+
+In a Nutshell, Pure market making can be described as the user posting limit bid and ask offers on a market and expecting other users to fill their orders. 
+You have control over how far away from the mid price your posted bid and asks are, whats the order quantity and how often you want to cancel and replace them.  
 
 !!! note
-    The pure market making strategy is currently under development and not yet available on Hummingbot.
+    Please exercise caution while running this strategy and set appropriate stop loss limits
 
 ### Schematic
 
