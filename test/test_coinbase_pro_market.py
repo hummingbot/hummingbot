@@ -14,7 +14,7 @@ import unittest
 import conf
 from wings.market.market_base import OrderType
 from wings.market.coinbase_pro_market import CoinbaseProMarket
-from wings.clock import (
+from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
@@ -31,8 +31,8 @@ from wings.events import (
     TradeFee
 )
 from wings.event_logger import EventLogger
-from wings.wallet.web3_wallet import Web3Wallet
-from wings.ethereum_chain import EthereumChain
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
@@ -58,7 +58,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: CoinbaseProMarket = CoinbaseProMarket(
-            web3_url=conf.test_web3_provider_list[0],
+            ethereum_rpc_url=conf.test_web3_provider_list[0],
             coinbase_pro_api_key=conf.coinbase_pro_api_key,
             coinbase_pro_secret_key=conf.coinbase_pro_secret_key,
             coinbase_pro_passphrase=conf.coinbase_pro_passphrase,

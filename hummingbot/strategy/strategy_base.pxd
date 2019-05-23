@@ -1,6 +1,4 @@
-from wings.time_iterator cimport TimeIterator
-from wings.event_listener cimport EventListener
-
+from hummingbot.core.time_iterator cimport TimeIterator
 
 cdef class StrategyBase(TimeIterator):
     pass

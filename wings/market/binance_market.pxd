@@ -27,6 +27,7 @@ cdef class BinanceMarket(MarketBase):
         public object _user_stream_event_listener_task
         public object _user_stream_tracker_task
         public object _order_tracker_task
+        public object _trading_rules_polling_task
         object _async_scheduler
         object _set_server_time_offset_task
 
@@ -35,5 +36,11 @@ cdef class BinanceMarket(MarketBase):
     cdef c_start_tracking_deposit(self, str tracking_id, int64_t start_time_ms, str tx_hash, str from_address,
                                   str to_address)
     cdef c_stop_tracking_deposit(self, str tracking_id)
-    cdef c_start_tracking_order(self, str order_id, int64_t exchange_order_id, str symbol, bint is_buy, object amount)
+    cdef c_start_tracking_order(self,
+                                str order_id,
+                                int64_t exchange_order_id,
+                                str symbol,
+                                bint is_buy,
+                                object amount,
+                                object order_type)
     cdef c_stop_tracking_order(self, str order_id)

@@ -2,6 +2,7 @@
 
 import asyncio
 import aiohttp
+from binance.client import Client as BinanceClient
 import logging
 from typing import (
     AsyncIterable,
@@ -10,9 +11,8 @@ from typing import (
 )
 import ujson
 import websockets
+from hummingbot.logger import HummingbotLogger
 from wings.data_source.user_stream_tracker_data_source import UserStreamTrackerDataSource
-import conf
-from binance.client import Client as BinanceClient
 
 BINANCE_API_ENDPOINT = "https://api.binance.com/api/v1/"
 BINANCE_USER_STREAM_ENDPOINT = "userDataStream"
@@ -23,10 +23,10 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
-    _bausds_logger: Optional[logging.Logger] = None
+    _bausds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._bausds_logger is None:
             cls._bausds_logger = logging.getLogger(__name__)
         return cls._bausds_logger

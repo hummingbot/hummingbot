@@ -1,3 +1,4 @@
+import aiohttp
 import logging
 import asyncio
 from typing import (
@@ -5,18 +6,25 @@ from typing import (
     Dict,
 )
 
+from hummingbot.logger import HummingbotLogger
+
 
 class DataFeedBase:
-    dfb_logger: Optional[logging.Logger] = None
+    dfb_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls.dfb_logger is None:
             cls.dfb_logger = logging.getLogger(__name__)
         return cls.dfb_logger
 
     def __init__(self):
         self._ready_event = asyncio.Event()
+        self._shared_client: Optional[aiohttp.ClientSession] = None
+
+    @property
+    def name(self):
+        raise NotImplementedError
 
     @property
     def price_dict(self) -> Dict[str, float]:
@@ -25,6 +33,11 @@ class DataFeedBase:
     def get_price(self, asset: str) -> float:
         raise NotImplementedError
 
+    async def _http_client(self) -> aiohttp.ClientSession:
+        if self._shared_client is None:
+            self._shared_client = aiohttp.ClientSession()
+        return self._shared_client
+
     async def get_ready(self):
         try:
             if not self._ready_event.is_set():
@@ -32,3 +45,8 @@ class DataFeedBase:
         except Exception as e:
             self.logger().error(e, exc_info=True)
 
+    def start(self):
+        pass
+
+    def stop(self):
+        pass

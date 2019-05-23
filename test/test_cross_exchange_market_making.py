@@ -18,7 +18,7 @@ from hummingsim.backtest.market import (
     QuantizationParams
 )
 from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
-from wings.clock import (
+from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
@@ -49,10 +49,12 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        ExchangeRateConversion.set_global_exchange_rate_config([
-            ("WETH", 1.0, "None"),
-            ("QETH", 0.95, "None"),
-        ])
+        ExchangeRateConversion.set_global_exchange_rate_config({
+            "conversion_required": {
+                "WETH": {"default": 1.0, "source": "None"},
+                "QETH": {"default": 0.95, "source": "None"}
+            }
+        })
 
     def setUp(self):
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1.0, self.start_timestamp, self.end_timestamp)

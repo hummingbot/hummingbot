@@ -16,6 +16,8 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+from hummingbot.cli.utils import async_ttl_cache
+from hummingbot.logger import HummingbotLogger
 from wings.tracker.ddex_active_order_tracker import DDEXActiveOrderTracker
 from wings.orderbook.ddex_order_book import DDEXOrderBook
 from .order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -24,8 +26,6 @@ from wings.order_book_tracker_entry import (
     OrderBookTrackerEntry
 )
 from wings.order_book_message import DDEXOrderBookMessage
-import cachetools
-import functools
 
 TRADING_PAIR_FILTER = re.compile(r"(TUSD|WETH|DAI)$")
 
@@ -36,31 +36,15 @@ SNAPSHOT_URL = f"{REST_URL}/markets"
 MARKETS_URL = f"{REST_URL}/markets"
 
 
-def async_ttl_cache(ttl: int = 3600, maxsize: int = 1):
-    cache = cachetools.TTLCache(ttl=ttl, maxsize=maxsize)
-    def decorator(fn):
-        @functools.wraps(fn)
-        async def memoize(*args, **kwargs):
-            key = str((args, kwargs))
-            try:
-                cache[key] = cache.pop(key)
-            except KeyError:
-                cache[key] = await fn(*args, **kwargs)
-            return cache[key]
-        return memoize
-
-    return decorator
-
-
 class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
-    _raobds_logger: Optional[logging.Logger] = None
+    _raobds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._raobds_logger is None:
             cls._raobds_logger = logging.getLogger(__name__)
         return cls._raobds_logger
@@ -71,7 +55,7 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._get_tracking_pair_done_event: asyncio.Event = asyncio.Event()
 
     @classmethod
-    @async_ttl_cache(ttl=300, maxsize=1)
+    @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         """
         Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
@@ -256,7 +240,7 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 {"marketId": trading_pair}
                             )
                             output.put_nowait(snapshot_msg)
-                            self.logger().info(f"Saved order book snapshot for {trading_pair} at {snapshot_timestamp}")
+                            self.logger().debug(f"Saved order book snapshot for {trading_pair} at {snapshot_timestamp}")
                             await asyncio.sleep(5.0)
                         except asyncio.CancelledError:
                             raise

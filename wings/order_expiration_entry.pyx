@@ -1,5 +1,5 @@
 # distutils: language=c++
-# distutils: sources=wings/cpp/OrderExpirationEntry.cpp
+# distutils: sources=hummingbot/core/cpp/OrderExpirationEntry.cpp
 
 from libcpp.string cimport string
 import pandas as pd

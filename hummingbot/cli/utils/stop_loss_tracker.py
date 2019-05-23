@@ -9,14 +9,16 @@ from typing import (
 
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.cli.config.global_config_map import global_config_map
+from hummingbot.logger import HummingbotLogger
+
 from wings.market.market_base import MarketBase
 
 
 class StopLossTracker:
-    slc_logger: Optional[logging.Logger] = None
+    slc_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls.slc_logger is None:
             cls.slc_logger = logging.getLogger(__name__)
         return cls.slc_logger
@@ -78,14 +80,20 @@ class StopLossTracker:
         starting_total = calculate_total(self._starting_balances, self._starting_prices)
         current_balances = self.get_balances()
         current_prices = self._data_feed.price_dict
-        if stop_loss_type == "fixed":
-            current_total = calculate_total(current_balances, self._starting_prices)
-            return (current_total - starting_total) / starting_total
-        elif stop_loss_type == "dynamic":
-            starting_total /= self._starting_prices[self._stop_loss_base_token]
-            current_total = calculate_total(current_balances, current_prices) / \
-                            (current_prices[self._stop_loss_base_token])
-            return (current_total - starting_total) / starting_total
+        try:
+            if stop_loss_type == "fixed":
+                current_total = calculate_total(current_balances, self._starting_prices)
+                return (current_total - starting_total) / starting_total
+            elif stop_loss_type == "dynamic":
+                starting_total /= self._starting_prices[self._stop_loss_base_token]
+                current_total = calculate_total(current_balances, current_prices) / \
+                                (current_prices[self._stop_loss_base_token])
+                return (current_total - starting_total) / starting_total
+        except ZeroDivisionError:
+            return 0.0
+        except Exception as e:
+            self.logger().error(f"Error calculating stop loss percentage: {e}", exc_info=True)
+            return 0.0
         raise ValueError(f"Stop loss type {stop_loss_type} does not exist")
 
     def start(self):

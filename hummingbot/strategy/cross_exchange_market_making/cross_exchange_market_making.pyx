@@ -5,7 +5,6 @@ from collections import (
 )
 from decimal import Decimal
 import logging
-import math
 import pandas as pd
 from typing import (
     List,
@@ -15,7 +14,7 @@ from typing import (
     Deque
 )
 
-from wings.clock cimport Clock
+from hummingbot.core.clock cimport Clock
 from wings.events import (
     MarketEvent,
     TradeType
@@ -23,7 +22,7 @@ from wings.events import (
 from wings.event_listener cimport EventListener
 from wings.limit_order cimport LimitOrder
 from wings.limit_order import LimitOrder
-from wings.network_iterator import NetworkStatus
+from hummingbot.core.network_iterator import NetworkStatus
 from wings.market.market_base import (
     MarketBase,
     OrderType
@@ -83,7 +82,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
     ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     ORDER_EXPIRED_EVENT_TAG = MarketEvent.OrderExpired.value
-    TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
+    ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
 
     OPTION_LOG_NULL_ORDER_SIZE = 1 << 0
     OPTION_LOG_REMOVING_ORDER = 1 << 1
@@ -175,7 +174,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             typed_market.c_add_listener(self.ORDER_FILLED_EVENT_TAG, self._order_filled_listener)
             typed_market.c_add_listener(self.ORDER_CANCELLED_EVENT_TAG, self._order_cancelled_listener)
             typed_market.c_add_listener(self.ORDER_EXPIRED_EVENT_TAG, self._order_expired_listener)
-            typed_market.c_add_listener(self.TRANSACTION_FAILURE_EVENT_TAG, self._order_failed_listener)
+            typed_market.c_add_listener(self.ORDER_FAILURE_EVENT_TAG, self._order_failed_listener)
 
     @property
     def active_markets(self) -> List[MarketBase]:

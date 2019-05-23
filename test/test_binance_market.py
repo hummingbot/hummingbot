@@ -1,23 +1,17 @@
 #!/usr/bin/env python
-import logging
 from os.path import join, realpath
-import sys;
-from unittest.mock import patch
-
-sys.path.insert(0, realpath(join(__file__, "../../")))
-from wings.logger.struct_logger import METRICS_LOG_LEVEL
-
-from wings.user_stream_tracker import UserStreamTrackerDataSourceType
-
+import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
 import asyncio
+import conf
+import contextlib
 from decimal import Decimal
+import logging
 import time
 from typing import List
 import unittest
-from binance.client import Client as BinanceClient
+from unittest.mock import patch
 
-import conf
 from wings.events import (
     OrderType,
     TradeType
@@ -26,7 +20,7 @@ from wings.market.binance_market import (
     BinanceMarket,
     BinanceTime
 )
-from wings.clock import (
+from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
@@ -41,11 +35,11 @@ from wings.events import (
     SellOrderCreatedEvent,
     TradeFee
 )
-from wings.wallet.mock_wallet import MockWallet
+from hummingbot.wallet.mock_wallet import MockWallet
 from wings.event_logger import EventLogger
-from wings.order_book_tracker import (
-    OrderBookTrackerDataSourceType
-)
+from wings.order_book_tracker import OrderBookTrackerDataSourceType
+from wings.logger.struct_logger import METRICS_LOG_LEVEL
+from wings.user_stream_tracker import UserStreamTrackerDataSourceType
 
 MAINNET_RPC_URL = "http://mainnet-rpc.mainnet:8545"
 logging.basicConfig(level=METRICS_LOG_LEVEL)
@@ -80,15 +74,20 @@ class BinanceMarketUnitTest(unittest.TestCase):
         print("Initializing Binance market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.market)
-        cls.ev_loop.run_until_complete(cls.clock.run_til(time.time() + 1))
+        stack = contextlib.ExitStack()
+        cls._clock = stack.enter_context(cls.clock)
         cls.ev_loop.run_until_complete(cls.wait_til_ready())
         print("Ready.")
 
     @classmethod
     async def wait_til_ready(cls):
         while True:
+            now = time.time()
+            next_iteration = now // 1.0 + 1
             if cls.market.ready:
                 break
+            else:
+                await cls._clock.run_til(next_iteration)
             await asyncio.sleep(1.0)
 
     def setUp(self):
@@ -106,7 +105,8 @@ class BinanceMarketUnitTest(unittest.TestCase):
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1
-            await self.clock.run_til(next_iteration)
+            await self._clock.run_til(next_iteration)
+            await asyncio.sleep(1.0)
         return future.result()
 
     def run_parallel(self, *tasks):

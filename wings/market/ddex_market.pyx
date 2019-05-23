@@ -19,8 +19,8 @@ from decimal import Decimal
 from libc.stdint cimport int64_t
 from web3 import Web3
 
+from hummingbot.logger import HummingbotLogger
 from wings.cancellation_result import CancellationResult
-from wings.clock cimport Clock
 from wings.data_source.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
 from wings.events import (
     MarketEvent,
@@ -28,7 +28,7 @@ from wings.events import (
     SellOrderCompletedEvent,
     OrderFilledEvent,
     OrderCancelledEvent,
-    MarketTransactionFailureEvent,
+    MarketOrderFailureEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
     TradeType,
@@ -39,13 +39,11 @@ from wings.market.market_base cimport MarketBase
 from wings.market.market_base import (
     OrderType
 )
-from wings.network_iterator import (
-    NetworkStatus
-)
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from wings.order_book cimport OrderBook
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.tracker.ddex_order_book_tracker import DDEXOrderBookTracker
-from wings.wallet.web3_wallet import Web3Wallet
 
 
 s_logger = None
@@ -209,7 +207,7 @@ cdef class DDEXMarket(MarketBase):
     MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
-    MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
+    MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
 
@@ -220,7 +218,7 @@ cdef class DDEXMarket(MarketBase):
     CANCEL_EXPIRY_TIME = 60.0
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global s_logger
         if s_logger is None:
             s_logger = logging.getLogger(__name__)
@@ -228,15 +226,17 @@ cdef class DDEXMarket(MarketBase):
 
     def __init__(self,
                  wallet: Web3Wallet,
-                 web3_url: str,
+                 ethereum_rpc_url: str,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                    OrderBookTrackerDataSourceType.LOCAL_CLUSTER,
+                    OrderBookTrackerDataSourceType.EXCHANGE_API,
                  wallet_spender_address: str = ZERO_EX_MAINNET_PROXY,
-                 symbols: Optional[List[str]] = None):
+                 symbols: Optional[List[str]] = None,
+                 trading_required: bool = True):
         super().__init__()
         self._order_book_tracker = DDEXOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
                                                         symbols=symbols)
+        self._trading_required = trading_required
         self._account_balances = {}
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
@@ -249,7 +249,7 @@ cdef class DDEXMarket(MarketBase):
         self._in_flight_cancels = OrderedDict()
         self._order_expiry_queue = deque()
         self._tx_tracker = DDEXMarketTransactionTracker(self)
-        self._w3 = Web3(Web3.HTTPProvider(web3_url))
+        self._w3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
         self._withdraw_rules = {}
         self._trading_rules = {}
         self._pending_approval_tx_hashes = set()
@@ -270,15 +270,21 @@ cdef class DDEXMarket(MarketBase):
         return "ddex"
 
     @property
+    def status_dict(self):
+        return {
+            "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
+            "trading_rule_initialized": len(self._trading_rules) > 0,
+            "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
+            "token_approval": len(self._pending_approval_tx_hashes) == 0 if self._trading_required else True,
+            "maker_trade_fee_initialized": not math.isnan(self._maker_trade_fee),
+            "taker_trade_fee_initialized": not math.isnan(self._taker_trade_fee),
+            "gas_fee_weth_initialized": not math.isnan(self._gas_fee_weth),
+            "gas_fee_usd_initilaized": not math.isnan(self._gas_fee_usd)
+        }
+
+    @property
     def ready(self) -> bool:
-        return len(self._account_balances) > 0 \
-               and len(self._trading_rules) > 0 \
-               and len(self._order_book_tracker.order_books) > 0 \
-               and len(self._pending_approval_tx_hashes) == 0 \
-               and not math.isnan(self._maker_trade_fee) \
-               and not math.isnan(self._taker_trade_fee) \
-               and not math.isnan(self._gas_fee_weth) \
-               and not math.isnan(self._gas_fee_usd)
+        return all(self.status_dict.values())
 
     @property
     def name(self) -> str:
@@ -717,10 +723,10 @@ cdef class DDEXMarket(MarketBase):
         except Exception:
             self.c_stop_tracking_order(order_id)
             self.logger().error(f"Error submitting buy order to DDEX for {amount} {symbol}.", exc_info=True)
-            self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                                 MarketTransactionFailureEvent(self._current_timestamp,
-                                                               order_id,
-                                                               order_type)
+            self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                                 MarketOrderFailureEvent(self._current_timestamp,
+                                                         order_id,
+                                                         order_type)
                                  )
 
     cdef str c_sell(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0,
@@ -768,10 +774,10 @@ cdef class DDEXMarket(MarketBase):
         except Exception:
             self.c_stop_tracking_order(order_id)
             self.logger().error(f"Error submitting sell order to DDEX for {amount} {symbol}.", exc_info=True)
-            self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                                 MarketTransactionFailureEvent(self._current_timestamp,
-                                                               order_id,
-                                                               order_type)
+            self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                                 MarketOrderFailureEvent(self._current_timestamp,
+                                                         order_id,
+                                                         order_type)
                                  )
 
     cdef c_cancel(self, str symbol, str client_order_id):
@@ -857,11 +863,12 @@ cdef class DDEXMarket(MarketBase):
 
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
         self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
-        tx_hashes = await self.wallet.current_backend.check_and_fix_approval_amounts(
-            spender=self._wallet_spender_address
-        )
-        self._pending_approval_tx_hashes.update(tx_hashes)
-        self._approval_tx_polling_task = asyncio.ensure_future(self._approval_tx_polling_loop())
+        if self._trading_required:
+            tx_hashes = await self.wallet.current_backend.check_and_fix_approval_amounts(
+                spender=self._wallet_spender_address
+            )
+            self._pending_approval_tx_hashes.update(tx_hashes)
+            self._approval_tx_polling_task = asyncio.ensure_future(self._approval_tx_polling_loop())
 
     def _stop_network(self):
         if self._order_tracker_task is not None:
