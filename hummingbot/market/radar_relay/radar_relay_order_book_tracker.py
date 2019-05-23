@@ -13,7 +13,6 @@ from typing import (
     Set
 )
 
-from hummingbot.market.radar_relay.radar_relay_local_cluster_order_book_data_source import RadarRelayLocalClusterOrderBookDataSource
 from hummingbot.logger import HummingbotLogger
 from wings.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
