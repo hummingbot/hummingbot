@@ -20,9 +20,9 @@ def main():
     version = "20190523"
     packages = [
         "hummingbot",
-        "hummingbot.cli",
-        "hummingbot.cli.config",
-        "hummingbot.cli.ui",
+        "hummingbot.client",
+        "hummingbot.client.config",
+        "hummingbot.client.ui",
         "hummingbot.core",
         "hummingbot.core.data_type",
         "hummingbot.core.event",
