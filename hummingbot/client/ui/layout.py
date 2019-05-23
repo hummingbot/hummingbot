@@ -8,7 +8,7 @@ from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer
-from hummingbot.cli.ui.custom_widgets import CustomTextArea as TextArea
+from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea
 from prompt_toolkit.utils import is_windows
 
 

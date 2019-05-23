@@ -3,7 +3,7 @@ from os.path import (
     join,
 )
 from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
-from hummingbot.cli.settings import (
+from hummingbot.client.settings import (
     EXCHANGES,
     STRATEGIES,
     CONF_FILE_PATH,

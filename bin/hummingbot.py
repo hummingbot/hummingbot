@@ -24,13 +24,13 @@ from typing import (
 )
 
 from hummingbot import init_logging
-from hummingbot.cli.hummingbot_application import HummingbotApplication
-from hummingbot.cli.config.global_config_map import global_config_map
-from hummingbot.cli.config.config_helpers import (
+from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.config_helpers import (
     create_yml_files,
     read_configs_from_yml
 )
-from hummingbot.cli.ui.stdout_redirection import patch_stdout
+from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.management.console import start_management_console
 
 

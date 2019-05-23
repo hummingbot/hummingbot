@@ -4,7 +4,7 @@ from typing import (
     List,
 )
 
-from hummingbot.cli.errors import ArgumentParserError
+from hummingbot.client.errors import ArgumentParserError
 
 
 class ThrowingArgumentParser(argparse.ArgumentParser):

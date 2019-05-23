@@ -4,7 +4,6 @@ import aiohttp
 import asyncio
 import logging
 from typing import (
-    List,
     Dict,
 )
 from web3 import Web3
@@ -76,12 +75,13 @@ async def download_erc20_token_addresses(token_dict: Dict[str, str] = {}):
 
 if __name__ == "__main__":
     try:
-        with open(os.path.join(os.path.dirname(__file__), "erc20_tokens.json")) as old_erc20:
+        TOKEN_ADDRESS_PATH = "../../wallet/ethereum/erc20_tokens.json"
+        with open(os.path.join(os.path.dirname(__file__), TOKEN_ADDRESS_PATH)) as old_erc20:
             td = json.load(old_erc20)
             old_len = len(td.keys())
             asyncio.get_event_loop().run_until_complete(download_erc20_token_addresses(td))
             new_len = len(td.keys())
-            with open(os.path.join(os.path.dirname(__file__), "erc20_tokens.json"), "w+") as new_erc20:
+            with open(os.path.join(os.path.dirname(__file__), TOKEN_ADDRESS_PATH), "w+") as new_erc20:
                 new_erc20.write(json.dumps(td))
                 print(f"Download Complete: {old_len} - {new_len}")
 

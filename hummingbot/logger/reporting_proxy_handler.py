@@ -3,7 +3,7 @@ import traceback
 from typing import Optional
 import logging
 import json
-from hummingbot.cli.config.global_config_map import global_config_map
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.logger.struct_logger import log_encoder
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.log_server_client import LogServerClient

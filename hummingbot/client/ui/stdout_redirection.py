@@ -3,7 +3,7 @@
 from __future__ import unicode_literals
 from prompt_toolkit.eventloop import get_event_loop
 from prompt_toolkit.document import Document
-from hummingbot.cli.settings import MAXIMUM_LOG_PANE_LINE_COUNT
+from hummingbot.client.settings import MAXIMUM_LOG_PANE_LINE_COUNT
 
 from contextlib import contextmanager
 from collections import deque

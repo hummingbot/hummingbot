@@ -11,9 +11,9 @@ from prompt_toolkit.eventloop import use_asyncio_event_loop
 from prompt_toolkit.layout.processors import BeforeInput, PasswordProcessor
 from prompt_toolkit.completion import Completer
 
-from hummingbot.cli.ui.layout import create_input_field, create_log_field, create_output_field, generate_layout, HEADER
-from hummingbot.cli.ui.style import load_style
-from hummingbot.cli.settings import MAXIMUM_OUTPUT_PANE_LINE_COUNT
+from hummingbot.client.ui.layout import create_input_field, create_log_field, create_output_field, generate_layout, HEADER
+from hummingbot.client.ui.style import load_style
+from hummingbot.client.settings import MAXIMUM_OUTPUT_PANE_LINE_COUNT
 
 
 class HummingbotCLI:

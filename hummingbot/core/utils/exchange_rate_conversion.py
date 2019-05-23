@@ -6,7 +6,7 @@ from typing import (
     List,
     Dict)
 
-from hummingbot.cli.config.global_config_map import global_config_map
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.logger import HummingbotLogger
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
 from hummingbot.data_feed.data_feed_base import DataFeedBase

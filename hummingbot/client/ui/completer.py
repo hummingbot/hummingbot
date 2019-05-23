@@ -8,15 +8,15 @@ from prompt_toolkit.completion import (
 )
 from prompt_toolkit.document import Document
 
-from hummingbot.cli.settings import (
+from hummingbot.client.settings import (
     EXCHANGES,
     STRATEGIES,
     CONF_FILE_PATH,
 )
-from hummingbot.cli.ui.parser import ThrowingArgumentParser
+from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.core.utils.wallet_setup import list_wallets
 from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
-from hummingbot.cli.config.in_memory_config_map import load_required_configs
+from hummingbot.client.config.in_memory_config_map import load_required_configs
 
 
 class HummingbotCompleter(Completer):

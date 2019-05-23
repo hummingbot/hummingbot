@@ -29,7 +29,7 @@ class HummingbotLogger(PythonLogger):
         super().__init__(name)
 
     def network(self, log_msg: str, app_warning_msg: Optional[str] = None, *args, **kwargs):
-        from hummingbot.cli.hummingbot_application import HummingbotApplication
+        from hummingbot.client.hummingbot_application import HummingbotApplication
         from . import NETWORK
 
         self.log(NETWORK, log_msg, *args, **kwargs)

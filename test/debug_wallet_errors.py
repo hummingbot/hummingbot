@@ -6,7 +6,7 @@ import logging; logging.basicConfig(level=logging.INFO)
 import asyncio
 import time
 
-from hummingbot.cli.config.config_helpers import get_erc20_token_addresses
+from hummingbot.client.config.config_helpers import get_erc20_token_addresses
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.core.clock import Clock, ClockMode

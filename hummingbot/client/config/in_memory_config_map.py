@@ -1,16 +1,16 @@
 from os.path import join
 
-from hummingbot.cli.config.config_var import ConfigVar
-from hummingbot.cli.config.config_validators import (
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.config.config_validators import (
     is_strategy,
     is_path,
 )
-from hummingbot.cli.settings import (
+from hummingbot.client.settings import (
     CONF_FILE_PATH,
     CONF_POSTFIX,
     CONF_PREFIX,
 )
-from hummingbot.cli.config.config_helpers import (
+from hummingbot.client.config.config_helpers import (
     load_required_configs,
     read_configs_from_yml,
 )

@@ -41,10 +41,10 @@ from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot import init_logging
-from hummingbot.cli.ui.keybindings import load_key_bindings
-from hummingbot.cli.ui.parser import load_parser, ThrowingArgumentParser
-from hummingbot.cli.ui.hummingbot_cli import HummingbotCLI
-from hummingbot.cli.ui.completer import load_completer
+from hummingbot.client.ui.keybindings import load_key_bindings
+from hummingbot.client.ui.parser import load_parser, ThrowingArgumentParser
+from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
+from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
 from hummingbot.core.utils.symbol_splitter import SymbolSplitter
 from hummingbot.core.utils.wallet_setup import (
@@ -53,14 +53,14 @@ from hummingbot.core.utils.wallet_setup import (
     list_wallets,
     unlock_wallet
 )
-from hummingbot.cli.errors import (
+from hummingbot.client.errors import (
     InvalidCommandError,
     ArgumentParserError
 )
-from hummingbot.cli.config.config_var import ConfigVar
-from hummingbot.cli.config.in_memory_config_map import in_memory_config_map
-from hummingbot.cli.config.global_config_map import global_config_map
-from hummingbot.cli.config.config_helpers import (
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.config.in_memory_config_map import in_memory_config_map
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.config_helpers import (
     get_strategy_config_map,
     write_config_to_yml,
     load_required_configs,
@@ -68,7 +68,7 @@ from hummingbot.cli.config.config_helpers import (
     copy_strategy_template,
     get_erc20_token_addresses,
 )
-from hummingbot.cli.settings import EXCHANGES
+from hummingbot.client.settings import EXCHANGES
 from hummingbot.logger.report_aggregator import ReportAggregator
 from hummingbot.strategy.cross_exchange_market_making import (
     CrossExchangeMarketMakingStrategy,
@@ -89,9 +89,9 @@ from hummingbot.strategy.discovery import (
 )
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.core.utils.ethereum import check_web3
+from hummingbot.core.utils.stop_loss_tracker import StopLossTracker
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
-from hummingbot.core.utils.stop_loss_tracker import StopLossTracker
 
 s_logger = None
 

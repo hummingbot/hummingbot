@@ -1,7 +1,7 @@
 import json
 from typing import List
 
-from hummingbot.cli.settings import TOKEN_ADDRESSES_FILE_PATH
+from hummingbot.client.settings import TOKEN_ADDRESSES_FILE_PATH
 
 import logging
 import ruamel.yaml
@@ -17,9 +17,9 @@ from typing import (
 from os import listdir
 import shutil
 
-from hummingbot.cli.config.config_var import ConfigVar
-from hummingbot.cli.config.global_config_map import global_config_map
-from hummingbot.cli.settings import (
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.settings import (
     GLOBAL_CONFIG_PATH,
     TEMPLATE_PATH,
     CONF_FILE_PATH,
@@ -112,7 +112,7 @@ def get_strategy_config_map(strategy: str) -> Optional[Dict[str, ConfigVar]]:
 
 
 def load_required_configs(*args) -> OrderedDict:
-    from hummingbot.cli.config.in_memory_config_map import in_memory_config_map
+    from hummingbot.client.config.in_memory_config_map import in_memory_config_map
     current_strategy = in_memory_config_map.get("strategy").value
     current_strategy_file_path = in_memory_config_map.get("strategy_file_path").value
     if current_strategy is None or current_strategy_file_path is None:
@@ -128,7 +128,7 @@ def read_configs_from_yml(strategy_file_path: str = None):
     """
     Read global config and selected strategy yml files and save the values to corresponding config map
     """
-    from hummingbot.cli.config.in_memory_config_map import in_memory_config_map
+    from hummingbot.client.config.in_memory_config_map import in_memory_config_map
     current_strategy = in_memory_config_map.get("strategy").value
     strategy_config_map = get_strategy_config_map(current_strategy)
 
@@ -159,7 +159,7 @@ async def write_config_to_yml():
     """
     Write current config saved in config maps into each corresponding yml file
     """
-    from hummingbot.cli.config.in_memory_config_map import in_memory_config_map
+    from hummingbot.client.config.in_memory_config_map import in_memory_config_map
     current_strategy = in_memory_config_map.get("strategy").value
     strategy_config_map = get_strategy_config_map(current_strategy)
     strategy_file_path = join(CONF_FILE_PATH, in_memory_config_map.get("strategy_file_path").value)

@@ -8,12 +8,12 @@ from os.path import (
 )
 from typing import Dict, List
 from eth_account import Account
-from hummingbot.cli.settings import (
+from hummingbot.client.settings import (
     KEYFILE_PREFIX,
     KEYFILE_POSTFIX,
     DEFAULT_KEY_FILE_PATH,
 )
-from hummingbot.cli.config.global_config_map import global_config_map
+from hummingbot.client.config.global_config_map import global_config_map
 
 
 def get_key_file_path() -> str:
