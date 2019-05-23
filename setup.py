@@ -21,7 +21,6 @@ def main():
     packages = [
         "wings",
         "wings.logger",
-        "wings.model",
         "wings.watcher",
         "wings.wallet",
         "hummingbot",

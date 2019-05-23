@@ -54,8 +54,6 @@ class RadarRelayOrderBookTracker(OrderBookTracker):
         if not self._data_source:
             if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
                 self._data_source = RadarRelayAPIOrderBookDataSource(symbols=self._symbols)
-            elif self._data_source_type is OrderBookTrackerDataSourceType.LOCAL_CLUSTER:
-                self._data_source = RadarRelayLocalClusterOrderBookDataSource()
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source

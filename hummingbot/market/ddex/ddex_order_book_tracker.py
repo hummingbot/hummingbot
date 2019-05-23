@@ -10,18 +10,15 @@ from typing import (
     Deque,
     List,
     Dict,
-    Set)
+    Set,
+)
 from hummingbot.market.ddex.ddex_active_order_tracker import DDEXActiveOrderTracker
-from hummingbot.market.ddex.ddex_local_cluster_order_book_data_source import DDEXLocalClusterOrderBookDataSource
 from hummingbot.logger import HummingbotLogger
-from wings.model.sql_connection_manager import SQLConnectionManager
 from wings.order_book_tracker import (
     OrderBookTracker,
     OrderBookTrackerDataSourceType
 )
-
 from hummingbot.market.ddex.ddex_order_book import DDEXOrderBook
-
 from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.market.data_source.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
 from hummingbot.market.ddex.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
@@ -31,8 +28,6 @@ from wings.order_book_message import (
     DDEXOrderBookMessage
 )
 from wings.order_book_tracker_entry import DDEXOrderBookTrackerEntry
-
-import conf
 
 
 class DDEXOrderBookTracker(OrderBookTracker):
@@ -45,7 +40,7 @@ class DDEXOrderBookTracker(OrderBookTracker):
         return cls._dobt_logger
 
     def __init__(self,
-                 data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.LOCAL_CLUSTER,
+                 data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
                  symbols: Optional[List[str]] = None):
         super().__init__(data_source_type=data_source_type)
         self._past_diffs_windows: Dict[str, Deque] = {}
@@ -61,10 +56,7 @@ class DDEXOrderBookTracker(OrderBookTracker):
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
         if not self._data_source:
-            if self._data_source_type is OrderBookTrackerDataSourceType.LOCAL_CLUSTER:
-                self._data_source = DDEXLocalClusterOrderBookDataSource(
-                    SQLConnectionManager.get_order_books_instance(db_conf=conf.order_books_db_2))
-            elif self._data_source_type is OrderBookTrackerDataSourceType.REMOTE_API:
+            if self._data_source_type is OrderBookTrackerDataSourceType.REMOTE_API:
                 self._data_source = RemoteAPIOrderBookDataSource()
             elif self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
                 self._data_source = DDEXAPIOrderBookDataSource(symbols=self._symbols)
