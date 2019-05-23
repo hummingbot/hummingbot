@@ -11,16 +11,16 @@ from web3.contract import (
 
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.pubsub cimport PubSub
 from hummingbot.logger import HummingbotLogger
 from wings.events import (
     WalletEvent
 )
-from wings.ethereum_chain import EthereumChain
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from wings.event_listener cimport EventListener
-from wings.wallet.wallet_base import WalletBase
-from wings.wallet.web3_wallet_backend import Web3WalletBackend
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.pubsub cimport PubSub
+from hummingbot.wallet.wallet_base import WalletBase
+from hummingbot.wallet.ethereum.web3_wallet_backend import Web3WalletBackend
 
 class_logger = None
 

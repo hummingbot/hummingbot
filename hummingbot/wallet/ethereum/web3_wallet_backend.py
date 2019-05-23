@@ -24,7 +24,7 @@ from web3.datastructures import AttributeDict
 
 import wings
 from wings.async_call_scheduler import AsyncCallScheduler
-from wings.ethereum_chain import EthereumChain
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from wings.event_forwarder import EventForwarder
 from wings.events import (
     WalletEvent,
@@ -38,13 +38,15 @@ from wings.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.pubsub import PubSub
+from hummingbot.wallet.ethereum.watcher import (
+    NewBlocksWatcher,
+    AccountBalanceWatcher,
+    ERC20EventsWatcher,
+    IncomingEthWatcher,
+    WethWatcher,
+)
+from hummingbot.wallet.ethereum.erc20_token import ERC20Token
 from hummingbot.logger import HummingbotLogger
-from wings.watcher.new_blocks_watcher import NewBlocksWatcher
-from wings.watcher.account_balance_watcher import AccountBalanceWatcher
-from wings.watcher.erc20_events_watcher import ERC20EventsWatcher
-from wings.watcher.incoming_eth_watcher import IncomingEthWatcher
-from wings.watcher.weth_watcher import WethWatcher
-from wings.erc20_token import ERC20Token
 
 
 class Web3WalletBackend(PubSub):
