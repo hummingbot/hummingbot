@@ -831,9 +831,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double adjusted_order_size
 
         if self._trade_size_override and self._trade_size_override > 0:
-            quote_trade_size_limit = min(self._trade_size_override, original_order_size * price)
-            adjusted_base_order_size = quote_trade_size_limit / price
-            return maker_market.c_quantize_order_amount(symbol, adjusted_base_order_size)
+            if original_order_size == 0:
+                quote_trade_size_limit = self._trade_size_override
+            else:
+                quote_trade_size_limit = min(self._trade_size_override, original_order_size * price)
+            adjusted_order_size = quote_trade_size_limit / price
+            return maker_market.c_quantize_order_amount(symbol, adjusted_order_size)
         else:
             return self.c_get_order_size_after_portfolio_ratio_limit(market_pair, original_order_size)
 
@@ -846,7 +849,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double current_price = (maker_market.c_get_price(symbol, True) +
                                     maker_market.c_get_price(symbol, False)) * 0.5
             double maker_portfolio_value = base_balance + quote_balance / current_price
-            double adjusted_order_size = min(
+            double adjusted_order_size
+        if original_order_size == 0:
+            adjusted_order_size = maker_portfolio_value * self._order_size_portfolio_ratio_limit
+        else:
+            adjusted_order_size = min(
                 original_order_size,
                 maker_portfolio_value * self._order_size_portfolio_ratio_limit
             )
@@ -996,7 +1003,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         bid_order_size = float(self.c_get_adjusted_limit_order_size(
             market_pair,
             float(bid_price),
-            float(bid_size_limit)
+            0
         ))
         ask_price, ask_size_limit = self.c_get_market_making_price_and_size_limit(
             market_pair,
@@ -1006,7 +1013,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         ask_order_size = float(self.c_get_adjusted_limit_order_size(
             market_pair,
             float(ask_price),
-            float(ask_size_limit)
+            0
         ))
 
         cdef:
