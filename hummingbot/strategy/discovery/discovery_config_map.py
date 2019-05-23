@@ -11,13 +11,16 @@ from typing import Any
 
 
 def discovery_symbol_list_prompt(market_name):
-    return "Enter list of token symbol on %s (e.g. ['%s'] or empty for all symbols.) >>> " \
+    return "Enter list of token symbol on %s (e.g. ['%s'] or press ENTER for all symbols.) >>> " \
            % (market_name, EXAMPLE_PAIRS.get(market_name, ""))
 
 
 def trading_pair_array_validator(market: str, trading_pair_list: Any):
     try:
-        trading_pair_list = eval(trading_pair_list) if type(trading_pair_list) is str else trading_pair_list
+        if type(trading_pair_list) is str:
+            if len(trading_pair_list) == 0:
+                return True
+            trading_pair_list = eval(trading_pair_list)
 
         known_symbols = SymbolFetcher.get_instance().symbols.get(market, [])
         if len(known_symbols) == 0:
@@ -67,11 +70,11 @@ discovery_config_map = {
                                                   ]),
     "target_profitability":             ConfigVar(key="target_profitability",
                                                   prompt="What is the target profitability for discovery? (default to "
-                                                         "0.0 to list maximum profitable amounts)",
+                                                         "0.0 to list maximum profitable amounts) >>> ",
                                                   default=0.0,
                                                   type_str="float"),
     "target_amount":                    ConfigVar(key="target_amount",
-                                                  prompt="What is the max order size for discovery? "
+                                                  prompt="What is the max order size for discovery? >>> "
                                                          "(default to infinity)",
                                                   default=float("inf"),
                                                   type_str="float"),

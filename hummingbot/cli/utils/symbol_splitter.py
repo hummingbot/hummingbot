@@ -2,7 +2,7 @@ import re
 from typing import Tuple
 
 
-BINANCE_SYMBOL_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|TUSD|PAX)$")
+BINANCE_SYMBOL_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDS|USDC|TUSD|PAX)$")
 
 
 class SymbolSplitter:
@@ -29,7 +29,7 @@ class SymbolSplitter:
             if market == "binance":
                 m = BINANCE_SYMBOL_SPLITTER.match(symbol)
                 result: Tuple = (m.group(1), m.group(2))
-            elif market in ["ddex", "radar_relay", "coinbase_pro"]:
+            elif market in ["ddex", "radar_relay", "bamboo_relay", "coinbase_pro"]:
                 result: Tuple = tuple(symbol.split('-'))
             else:
                 raise ValueError("Market %s not supported" % (market,))

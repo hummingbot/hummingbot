@@ -16,6 +16,8 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+from hummingbot.cli.utils import async_ttl_cache
+from hummingbot.logger import HummingbotLogger
 from wings.orderbook.radar_relay_order_book import RadarRelayOrderBook
 from wings.tracker.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
 from .order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -36,11 +38,11 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
-    _rraobds_logger: Optional[logging.Logger] = None
+    _rraobds_logger: Optional[HummingbotLogger] = None
     _client: Optional[aiohttp.ClientSession] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._rraobds_logger is None:
             cls._rraobds_logger = logging.getLogger(__name__)
         return cls._rraobds_logger
@@ -71,6 +73,7 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return {d["address"]: d for d in data}
 
     @classmethod
+    @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         """
         Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
@@ -131,7 +134,8 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             trading_pairs: List[str] = await self.get_trading_pairs()
             retval: Dict[str, OrderBookTrackerEntry] = {}
 
-            for trading_pair in trading_pairs:
+            number_of_pairs: int = len(trading_pairs)
+            for index, trading_pair in enumerate(trading_pairs):
                 try:
                     snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
                     snapshot_timestamp: float = time.time()
@@ -152,11 +156,14 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         radar_relay_order_book,
                         radar_relay_active_order_tracker
                     )
+                    self.logger().info(f"Initialized order book for {trading_pair}. "
+                                       f"{index+1}/{number_of_pairs} completed.")
 
-                    await asyncio.sleep(0.7)
+                    await asyncio.sleep(0.9)
 
                 except Exception:
                     self.logger().error(f"Error getting snapshot for {trading_pair}. ", exc_info=True)
+                    await asyncio.sleep(5.0)
             return retval
 
     async def _inner_messages(self,
@@ -223,7 +230,7 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             metadata={"symbol": trading_pair}
                         )
                         output.put_nowait(snapshot_msg)
-                        self.logger().info(f"Saved order book snapshot for {trading_pair}")
+                        self.logger().debug(f"Saved order book snapshot for {trading_pair}")
 
                         await asyncio.sleep(5.0)
 

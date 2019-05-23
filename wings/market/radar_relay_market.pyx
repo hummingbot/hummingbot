@@ -16,7 +16,8 @@ from typing import (
 from decimal import Decimal
 from libc.stdint cimport int64_t
 from web3 import Web3
-from wings.clock cimport Clock
+
+from hummingbot.logger import HummingbotLogger
 from wings.data_source.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
 from wings.limit_order import LimitOrder
 from wings.market.market_base cimport MarketBase
@@ -24,8 +25,8 @@ from wings.market.market_base import (
   OrderType,
   NaN
 )
-from wings.network_iterator import NetworkStatus
-from wings.wallet.web3_wallet import Web3Wallet
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from wings.order_book cimport OrderBook
 from wings.cancellation_result import CancellationResult
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
@@ -39,7 +40,7 @@ from wings.events import (
     OrderExpiredEvent,
     OrderFilledEvent,
     OrderCancelledEvent,
-    MarketTransactionFailureEvent,
+    MarketOrderFailureEvent,
     TradeType,
     TradeFee
 )
@@ -48,8 +49,8 @@ from zero_ex.order_utils import (
     jsdict_order_to_struct,
     Order
 )
-from wings.zero_ex_custom_utils import fix_signature
-from wings.zero_ex_exchange import ZeroExExchange
+from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils import fix_signature
+from hummingbot.wallet.ethereum.zero_ex.zero_ex_exchange import ZeroExExchange
 
 rrm_logger = None
 s_decimal_0 = Decimal(0)
@@ -199,7 +200,7 @@ cdef class RadarRelayMarket(MarketBase):
     MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
-    MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
+    MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
     MARKET_ORDER_EXPIRED_EVENT_TAG = MarketEvent.OrderExpired.value
@@ -211,7 +212,7 @@ cdef class RadarRelayMarket(MarketBase):
     UPDATE_MARKET_ORDERS_INTERVAL = 10.0
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global rrm_logger
         if rrm_logger is None:
             rrm_logger = logging.getLogger(__name__)
@@ -219,13 +220,15 @@ cdef class RadarRelayMarket(MarketBase):
 
     def __init__(self,
                  wallet: Web3Wallet,
-                 web3_url: str,
+                 ethereum_rpc_url: str,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                     OrderBookTrackerDataSourceType.EXCHANGE_API,
                  wallet_spender_address: str = ZERO_EX_MAINNET_ERC20_PROXY,
-                 symbols: Optional[List[str]] = None):
+                 symbols: Optional[List[str]] = None,
+                 trading_required: bool = True):
         super().__init__()
+        self._trading_required = trading_required
         self._order_book_tracker = RadarRelayOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
                                                               symbols=symbols)
         self._account_balances = {}
@@ -240,8 +243,8 @@ cdef class RadarRelayMarket(MarketBase):
         self._in_flight_market_orders = {} # market orders are on chain
         self._order_expiry_queue = deque()
         self._tx_tracker = RadarRelayTransactionTracker(self)
-        self._w3 = Web3(Web3.HTTPProvider(web3_url))
-        self._provider = Web3.HTTPProvider(web3_url)
+        self._w3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
+        self._provider = Web3.HTTPProvider(ethereum_rpc_url)
         self._withdraw_rules = {}
         self._trading_rules = {}
         self._pending_approval_tx_hashes = set()
@@ -258,11 +261,17 @@ cdef class RadarRelayMarket(MarketBase):
         return "radar_relay"
 
     @property
+    def status_dict(self) -> Dict[str, bool]:
+        return {
+            "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
+            "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
+            "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True,
+            "token_approval": len(self._pending_approval_tx_hashes) == 0 if self._trading_required else True
+        }
+
+    @property
     def ready(self) -> bool:
-        return len(self._account_balances) > 0 \
-               and len(self._trading_rules) > 0 \
-               and len(self._order_book_tracker.order_books) > 0 \
-               and len(self._pending_approval_tx_hashes) == 0
+        return all(self.status_dict.values())
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -465,10 +474,10 @@ cdef class RadarRelayMarket(MarketBase):
                     self.logger().info(f"The limit order {tracked_limit_order.client_order_id} has failed"
                                        f"according to order status API.")
                     self.c_trigger_event(
-                        self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                        MarketTransactionFailureEvent(self._current_timestamp,
-                                                      tracked_limit_order.client_order_id,
-                                                      OrderType.LIMIT)
+                        self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                        MarketOrderFailureEvent(self._current_timestamp,
+                                                tracked_limit_order.client_order_id,
+                                                OrderType.LIMIT)
                     )
                     self.c_expire_order(tracked_limit_order.client_order_id)
                 elif not previous_is_done and tracked_limit_order.is_done:
@@ -520,8 +529,10 @@ cdef class RadarRelayMarket(MarketBase):
                     self.logger().error(f"The market order {tracked_market_order.client_order_id}"
                                         f"has failed according to transaction hash {tracked_market_order.tx_hash}.")
                     self.c_trigger_event(
-                        self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                        MarketTransactionFailureEvent(self._current_timestamp, tracked_market_order.client_order_id)
+                        self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                        MarketOrderFailureEvent(self._current_timestamp,
+                                                tracked_market_order.client_order_id,
+                                                OrderType.MARKET)
                     )
                 elif receipt["status"] == 1:
                     self.c_trigger_event(
@@ -569,10 +580,10 @@ cdef class RadarRelayMarket(MarketBase):
                                         f"{tracked_market_order.client_order_id}. Check transaction hash "
                                         f"{tracked_market_order.tx_hash} for more details.")
                     self.c_trigger_event(
-                        self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                        MarketTransactionFailureEvent(self._current_timestamp,
-                                                      tracked_market_order.client_order_id,
-                                                      OrderType.MARKET)
+                        self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                        MarketOrderFailureEvent(self._current_timestamp,
+                                                tracked_market_order.client_order_id,
+                                                OrderType.MARKET)
                     )
 
                 self.c_stop_tracking_order(tracked_market_order.tx_hash)
@@ -819,8 +830,8 @@ cdef class RadarRelayMarket(MarketBase):
             self.c_stop_tracking_order(order_id)
             self.logger().error(f"Error submitting trade order to Radar Relay for {str(q_amt)} {symbol}.", exc_info=True)
             self.c_trigger_event(
-                self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                MarketTransactionFailureEvent(self._current_timestamp, order_id)
+                self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                MarketOrderFailureEvent(self._current_timestamp, order_id, order_type)
             )
 
     cdef str c_buy(self,
@@ -921,17 +932,21 @@ cdef class RadarRelayMarket(MarketBase):
 
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
         self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
-        tx_hashes = await self.wallet.current_backend.check_and_fix_approval_amounts(
-            spender=self._wallet_spender_address
-        )
-        self._pending_approval_tx_hashes.update(tx_hashes)
-        self._approval_tx_polling_task = asyncio.ensure_future(self._approval_tx_polling_loop())
+        if self._trading_required:
+            tx_hashes = await self.wallet.current_backend.check_and_fix_approval_amounts(
+                spender=self._wallet_spender_address
+            )
+            self._pending_approval_tx_hashes.update(tx_hashes)
+            self._approval_tx_polling_task = asyncio.ensure_future(self._approval_tx_polling_loop())
 
     def _stop_network(self):
         if self._order_tracker_task is not None:
             self._order_tracker_task.cancel()
+        if self._status_polling_task is not None:
             self._status_polling_task.cancel()
+        if self._pending_approval_tx_hashes is not None:
             self._pending_approval_tx_hashes.clear()
+        if self._approval_tx_polling_task is not None:
             self._approval_tx_polling_task.cancel()
         self._order_tracker_task = self._status_polling_task = self._approval_tx_polling_task = None
 

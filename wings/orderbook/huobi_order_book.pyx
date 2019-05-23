@@ -1,27 +1,30 @@
 #!/usr/bin/env python
+
+from aiokafka import ConsumerRecord
 import bz2
 import logging
-import ujson
-from aiokafka import ConsumerRecord
 from sqlalchemy.engine import RowProxy
 from typing import (
     Optional,
     Dict
 )
+import ujson
 
+from hummingbot.logger import HummingbotLogger
 from wings.events import TradeType
 from wings.order_book cimport OrderBook
 from wings.order_book_message import OrderBookMessage, OrderBookMessageType
-hob_logger = None
+
+_hob_logger = None
 
 
 cdef class HuobiOrderBook(OrderBook):
     @classmethod
-    def logger(cls) -> logging.Logger:
-        global hob_logger
-        if hob_logger is None:
-            hob_logger = logging.getLogger(__name__)
-        return hob_logger
+    def logger(cls) -> HummingbotLogger:
+        global _hob_logger
+        if _hob_logger is None:
+            _hob_logger = logging.getLogger(__name__)
+        return _hob_logger
 
     @classmethod
     def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:

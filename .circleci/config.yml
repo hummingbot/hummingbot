@@ -34,7 +34,7 @@ jobs:
       - run:
           name: Compile Hummingbot
           command: |
-            source activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)
+            source activate $(head -1 setup/environment-linux.yml | cut -d ' ' -f2)
             ./compile
 
       - save_cache:
@@ -49,21 +49,28 @@ jobs:
       - run:
           name: Run Strategy Tests
           command: |
-            source activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)
-            # python test/cross_exchange_market_making.py
-            # python test/arbitrage.py
+            source activate $(head -1 setup/environment-linux.yml | cut -d ' ' -f2)
+            python test/test_cross_exchange_market_making.py
+            python test/test_arbitrage.py
+            python test/test_discovery_strategy.py
+            
+      - run:
+          name: Run Exchange Rate Converter Tests
+          command: |
+            source activate $(head -1 setup/environment-linux.yml | cut -d ' ' -f2)
+            python test/test_exchange_rate_conversion.py
 
       - run:
           name: Run Wallet Tests
           command: |
-            source activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)
+            source activate $(head -1 setup/environment-linux.yml | cut -d ' ' -f2)
             # python test/test_wallet_sim.py
             # python test/test_web3_wallet.py
 
       - run:
           name: Run Binance Tests
           command: |
-            source activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)
+            source activate $(head -1 setup/environment-linux.yml | cut -d ' ' -f2)
             # python test/test_binance_order_book_loader.py
             # python test/test_binance_order_book_tracker.py
             # python test/test_binance_market.py
@@ -71,7 +78,7 @@ jobs:
       - run:
           name: Run DDEX Tests
           command: |
-            source activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)
+            source activate $(head -1 setup/environment-linux.yml | cut -d ' ' -f2)
             # python test/test_ddex_order_book_loader.py
             # python test/test_ddex_order_book_tracker.py
             # python test/test_ddex_market.py
@@ -79,21 +86,28 @@ jobs:
       - run:
           name: Run Radar Relay Tests
           command: |
-            source activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)
+            source activate $(head -1 setup/environment-linux.yml | cut -d ' ' -f2)
             # python test/test_radar_relay_order_book_loader.py
             # python test/test_radar_relay_order_book_tracker.py
 
       - run:
+          name: Run Bamboo Relay Tests
+          command: |
+            source activate $(head -1 setup/environment-linux.yml | cut -d ' ' -f2)
+            # python test/test_bamboo_relay_order_book_loader.py
+            # python test/test_bamboo_relay_order_book_tracker.py
+
+      - run:
           name: Run Bittrex Tests
           command: |
-            source activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)
+            source activate $(head -1 setup/environment-linux.yml | cut -d ' ' -f2)
             # python test/test_bittrex_order_book_loader.py
             # python test/test_bittrex_order_book_tracker.py
 
       - run:
           name: Run Huobi Tests
           command: |
-            source activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)
+            source activate $(head -1 setup/environment-linux.yml | cut -d ' ' -f2)
             # python test/test_huobi_order_book_loader.py
             # python test/test_huobi_order_book_tracker.py
 

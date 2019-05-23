@@ -14,7 +14,7 @@ from wings.events import (
 )
 from wings.event_logger import EventLogger
 from wings.limit_order import LimitOrder
-from wings.network_iterator import NetworkIterator
+from hummingbot.core.network_iterator import NetworkIterator
 from wings.order_book import OrderBook
 
 NaN = float("nan")
@@ -41,6 +41,10 @@ cdef class MarketBase(NetworkIterator):
         for event_tag in self.MARKET_EVENTS:
             self.c_add_listener(event_tag.value, self.event_reporter)
             self.c_add_listener(event_tag.value, self.event_logger)
+
+    @property
+    def status_dict(self) -> Dict[str, bool]:
+        return {}
 
     @property
     def name(self) -> str:

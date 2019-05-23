@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 import asyncio
 from abc import abstractmethod, ABC
 from enum import Enum
@@ -6,20 +7,22 @@ import logging
 from typing import (
     Optional
 )
+
+from hummingbot.logger import HummingbotLogger
 from wings.data_source.user_stream_tracker_data_source import UserStreamTrackerDataSource
 
 
 class UserStreamTrackerDataSourceType(Enum):
-    LOCAL_CLUSTER = 1
+    # LOCAL_CLUSTER = 1 deprecated
     REMOTE_API = 2
     EXCHANGE_API = 3
 
 
 class UserStreamTracker(ABC):
-    _ust_logger: Optional[logging.Logger] = None
+    _ust_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._ust_logger is None:
             cls._ust_logger = logging.getLogger(__name__)
         return cls._ust_logger

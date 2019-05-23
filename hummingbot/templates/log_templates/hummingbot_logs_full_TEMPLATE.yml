@@ -1,6 +1,6 @@
 ---
 version: 1
-template_version: 1
+template_version: 3
 
 formatters:
     simple:
@@ -8,17 +8,17 @@ formatters:
 
 handlers:
     console:
-        class: logging.StreamHandler
+        class: hummingbot.logger.cli_handler.CLIHandler
         level: DEBUG
         formatter: simple
         stream: ext://sys.stdout
     console_warning:
-        class: logging.StreamHandler
+        class: hummingbot.logger.cli_handler.CLIHandler
         level: WARNING
         formatter: simple
         stream: ext://sys.stdout
     console_info:
-        class: logging.StreamHandler
+        class: hummingbot.logger.cli_handler.CLIHandler
         level: INFO
         formatter: simple
         stream: ext://sys.stdout
@@ -62,6 +62,10 @@ loggers:
         level: INFO
         handlers: [console, report_proxy_handler, file_handler]
         propagate: false
+    hummingbot.wallet:
+        level: INFO
+        handlers: [console, report_proxy_handler, file_handler]
+        propagate: false
     wings.event_reporter:
         level: EVENT_LOG
         handlers: [report_proxy_handler, file_handler]
@@ -73,10 +77,6 @@ loggers:
     wings.data_source:
         level: WARNING
         handlers: [console_warning, report_proxy_handler, file_handler]
-        propagate: false
-    wings.wallet:
-        level: INFO
-        handlers: [console, report_proxy_handler, file_handler]
         propagate: false
     wings.market:
         level: INFO
