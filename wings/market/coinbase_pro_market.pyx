@@ -314,6 +314,7 @@ cdef class CoinbaseProMarket(MarketBase):
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
         if self._trading_required:
             self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
+            self._trading_rules_polling_task = asyncio.ensure_future(self._trading_rules_polling_loop())
             self._user_stream_tracker_task = asyncio.ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = asyncio.ensure_future(self._user_stream_event_listener())
 
@@ -828,9 +829,7 @@ cdef class CoinbaseProMarket(MarketBase):
     async def _trading_rules_polling_loop(self):
         while True:
             try:
-                await asyncio.gather(
-                    self._update_trading_rules()
-                )
+                await asyncio.gather(self._update_trading_rules())
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
                 raise
