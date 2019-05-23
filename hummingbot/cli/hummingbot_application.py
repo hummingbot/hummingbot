@@ -902,9 +902,12 @@ class HummingbotApplication:
 
         else:
             if len(self.strategy.trades) > 0:
-                df: pd.DataFrame = Trade.to_pandas(self.strategy.trades)
-                df.to_csv(path, header=True)
-                self.app.log(f"Successfully saved trades to {path}")
+                try:
+                    df: pd.DataFrame = Trade.to_pandas(self.strategy.trades)
+                    df.to_csv(path, header=True)
+                    self.app.log(f"Successfully saved trades to {path}")
+                except Exception as e:
+                    self.app.log(f"Error saving trades to {path}: {e}")
 
     def history(self):
         self.list("trades")
