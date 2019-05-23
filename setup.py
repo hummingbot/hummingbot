@@ -17,12 +17,10 @@ if os.name == "posix":
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20190517"
+    version = "20190522"
     packages = [
         "wings",
         "wings.logger",
-        "wings.watcher",
-        "wings.wallet",
         "hummingbot",
         "hummingbot.core",
         "hummingbot.strategy",
@@ -47,14 +45,18 @@ def main():
         "hummingbot.strategy.arbitrage",
         "hummingbot.strategy.cross_exchange_market_making",
         "hummingbot.strategy.discovery",
+        "hummingbot.wallet",
+        "hummingbot.wallet.ethereum",
+        "hummingbot.wallet.ethereum.uniswap",
+        "hummingbot.wallet.ethereum.watcher",
+        "hummingbot.wallet.ethereum.zero_ex",
         "hummingbot.templates",
     ]
     package_data = {
-        "wings": [
-            "abi/*.json",
-        ],
         "hummingbot": [
             "core/cpp/*",
+            "wallet/ethereum/zero_ex/zero_ex_exchange_abi.json"
+            "wallet/ethereum/token_abi/*.json"
             "erc20_tokens.json",
             "VERSION",
             "templates/*TEMPLATE.yml"
@@ -108,7 +110,8 @@ def main():
         package_data[""] = [
             "*.pxd", "*.pyx", "*.h"
         ]
-        package_data["wings"].append("cpp/*.cpp")
+        # package_data["wings"].append("cpp/*.cpp")
+        package_data["hummingbot"].append("core/cpp/*.cpp")
 
     if len(sys.argv) > 1 and sys.argv[1] == "build_ext":
         sys.argv.append(f"--parallel={cpu_count}")

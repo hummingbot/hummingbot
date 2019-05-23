@@ -54,6 +54,7 @@ logger_override_whitelist:
 - hummingbot.strategy
 - wings.wallet
 - hummingbot.market
+- hummingbot.wallet
 - conf
 key_file_path: conf/
 log_file_path: logs/

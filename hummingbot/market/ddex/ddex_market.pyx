@@ -37,11 +37,9 @@ from wings.events import (
 )
 from wings.limit_order import LimitOrder
 from hummingbot.market.market_base cimport MarketBase
-from hummingbot.core.network_iterator import NetworkStatus
-from wings.order_book cimport OrderBook
-from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.market.ddex.ddex_order_book_tracker import DDEXOrderBookTracker
-from wings.wallet.web3_wallet import Web3Wallet
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 
 
 s_logger = None

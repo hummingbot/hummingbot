@@ -29,7 +29,6 @@ from hummingbot.core.clock import (
 )
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
-from wings.ethereum_chain import EthereumChain
 from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.ddex.ddex_market import DDEXMarket
@@ -38,8 +37,9 @@ from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.trade import Trade
-from wings.wallet.web3_wallet import Web3Wallet
 
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot import init_logging
 from hummingbot.cli.ui.keybindings import load_key_bindings
@@ -375,6 +375,7 @@ class HummingbotApplication:
     def _initialize_wallet(self, token_symbols: List[str]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
         erc20_token_addresses = get_erc20_token_addresses(token_symbols)
+
         if self.acct is not None:
             self.wallet: Web3Wallet = Web3Wallet(private_key=self.acct.privateKey,
                                                  backend_urls=[ethereum_rpc_url],

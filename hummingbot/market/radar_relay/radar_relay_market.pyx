@@ -17,15 +17,15 @@ from decimal import Decimal
 from libc.stdint cimport int64_t
 from web3 import Web3
 from hummingbot.market.radar_relay.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
-from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from wings.limit_order import LimitOrder
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import (
-  OrderType,
-  NaN
+    OrderType,
+    NaN
 )
-from wings.wallet.web3_wallet import Web3Wallet
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from wings.order_book cimport OrderBook
 from wings.cancellation_result import CancellationResult
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
@@ -48,8 +48,8 @@ from zero_ex.order_utils import (
     jsdict_order_to_struct,
     Order
 )
-from wings.zero_ex_custom_utils import fix_signature
-from wings.zero_ex_exchange import ZeroExExchange
+from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils import fix_signature
+from hummingbot.wallet.ethereum.zero_ex.zero_ex_exchange import ZeroExExchange
 
 rrm_logger = None
 s_decimal_0 = Decimal(0)

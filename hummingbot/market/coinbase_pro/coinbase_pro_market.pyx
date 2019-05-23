@@ -38,6 +38,8 @@ from hummingbot.market.market_base import (
     OrderType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.wallet.wallet_base import WalletBase
+from hummingbot.wallet.wallet_base cimport WalletBase
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.order_book cimport OrderBook
 from hummingbot.market.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
@@ -46,8 +48,6 @@ from hummingbot.market.coinbase_pro.coinbase_pro_user_stream_tracker import Coin
 from hummingbot.market.coinbase_pro.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
 from wings.cancellation_result import CancellationResult
 from wings.transaction_tracker import TransactionTracker
-from wings.wallet.wallet_base import WalletBase
-from wings.wallet.wallet_base cimport WalletBase
 
 s_logger = None
 s_decimal_0 = Decimal(0)

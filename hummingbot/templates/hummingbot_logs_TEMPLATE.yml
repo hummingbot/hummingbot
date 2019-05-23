@@ -63,16 +63,16 @@ loggers:
         handlers: [console, file_handler]
         propagate: false
     hummingbot.market:
+      level: INFO
+        handlers: [console, file_handler]
+        propagate: false
+    hummingbot.wallet:
         level: INFO
         handlers: [console, file_handler]
         propagate: false
     wings.event_reporter:
         level: EVENT_LOG
         handlers: [file_handler]
-        propagate: false
-    wings.wallet:
-        level: INFO
-        handlers: [console, file_handler]
         propagate: false
     conf:
         level: INFO
