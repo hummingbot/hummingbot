@@ -31,7 +31,7 @@ from hummingbot.client.config.config_helpers import (
     read_configs_from_yml
 )
 from hummingbot.client.ui.stdout_redirection import patch_stdout
-from hummingbot.management.console import start_management_console
+from hummingbot.core.management import start_management_console
 
 
 def detect_available_port(starting_port: int) -> int:
