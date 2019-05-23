@@ -11,15 +11,16 @@ from web3.contract import (
 
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.clock cimport Clock
+from hummingbot.logger import HummingbotLogger
 from wings.events import (
     WalletEvent
 )
-from wings.ethereum_chain import EthereumChain
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from wings.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.pubsub cimport PubSub
-from wings.wallet.wallet_base import WalletBase
-from wings.wallet.web3_wallet_backend import Web3WalletBackend
+from hummingbot.wallet.wallet_base import WalletBase
+from hummingbot.wallet.ethereum.web3_wallet_backend import Web3WalletBackend
 
 class_logger = None
 
@@ -47,7 +48,7 @@ cdef class Web3Wallet(WalletBase):
     WALLET_EVENT_DEDUP_WINDOW_SIZE = 1024
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global class_logger
         if class_logger is None:
             class_logger = logging.getLogger(__name__)

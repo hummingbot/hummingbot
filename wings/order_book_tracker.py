@@ -14,6 +14,8 @@ from typing import (
     Optional,
     Tuple,
     List)
+
+from hummingbot.logger import HummingbotLogger
 from wings.order_book import OrderBook
 from wings.order_book_tracker_entry import OrderBookTrackerEntry
 from .order_book_message import (
@@ -26,23 +28,23 @@ TRADING_PAIR_FILTER = re.compile(r"(BTC|ETH|USDT)$")
 
 
 class OrderBookTrackerDataSourceType(Enum):
-    LOCAL_CLUSTER = 1
+    # LOCAL_CLUSTER = 1 deprecated
     REMOTE_API = 2
     EXCHANGE_API = 3
 
 
 class OrderBookTracker(ABC):
     PAST_DIFF_WINDOW_SIZE: int = 32
-    _obt_logger: Optional[logging.Logger] = None
+    _obt_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._obt_logger is None:
             cls._obt_logger = logging.getLogger(__name__)
         return cls._obt_logger
 
     def __init__(self,
-                 data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.LOCAL_CLUSTER):
+                 data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API):
         self._data_source_type: OrderBookTrackerDataSourceType = data_source_type
         self._tracking_tasks: Dict[str, asyncio.Task] = {}
         self._order_books: Dict[str, OrderBook] = {}

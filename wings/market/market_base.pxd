@@ -2,7 +2,7 @@ from wings.event_reporter cimport EventReporter
 from wings.event_logger cimport EventLogger
 from wings.order_book cimport OrderBook
 from hummingbot.core.network_iterator cimport NetworkIterator
-from wings.wallet.wallet_base cimport WalletBase
+from hummingbot.wallet.wallet_base cimport WalletBase
 
 
 cdef class MarketBase(NetworkIterator):

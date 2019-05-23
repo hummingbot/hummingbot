@@ -14,17 +14,18 @@ from web3.contract import (
     Contract,
 )
 
+from hummingbot.logger import HummingbotLogger
 import wings
-from wings.ethereum_chain import EthereumChain
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 
 
-with open(os.path.join(os.path.dirname(__file__), 'abi/erc20_abi.json')) as erc20_abi:
+with open(os.path.join(os.path.dirname(__file__), 'token_abi/erc20_abi.json')) as erc20_abi:
     abi: json = json.load(erc20_abi)
 
-with open(os.path.join(os.path.dirname(__file__), 'abi/weth_contract_abi.json')) as weth_abi:
+with open(os.path.join(os.path.dirname(__file__), 'token_abi/weth_contract_abi.json')) as weth_abi:
     w_abi: json = json.load(weth_abi)
 
-with open(os.path.join(os.path.dirname(__file__), 'abi/dai_abi.json')) as dai_abi:
+with open(os.path.join(os.path.dirname(__file__), 'token_abi/dai_abi.json')) as dai_abi:
     d_abi: json = json.load(dai_abi)
 
 
@@ -33,10 +34,10 @@ MAINNET_DAI_ADDRESS = "0x89d24A6b4CcB1B6fAA2625fE562bDD9a23260359"
 
 
 class ERC20Token:
-    _e2t_logger: Optional[logging.Logger] = None
+    _e2t_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._e2t_logger is None:
             cls._e2t_logger = logging.getLogger(__name__)
         return cls._e2t_logger

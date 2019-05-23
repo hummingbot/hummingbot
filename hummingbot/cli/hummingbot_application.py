@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import asyncio
+from collections import deque
 from os.path import join, dirname
 import logging
 import argparse
@@ -9,6 +10,7 @@ import pandas as pd
 import platform
 import re
 from six import string_types
+import time
 from typing import (
     List,
     Dict,
@@ -17,6 +19,7 @@ from typing import (
     Any,
     Set,
     Callable,
+    Deque
 )
 
 from hummingbot.cli.utils.symbol_fetcher import SymbolFetcher
@@ -24,7 +27,8 @@ from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
-from wings.ethereum_chain import EthereumChain
+from hummingbot.logger import HummingbotLogger
+from hummingbot.logger.application_warning import ApplicationWarning
 from wings.market.binance_market import BinanceMarket
 from wings.market.coinbase_pro_market import CoinbaseProMarket
 from wings.market.ddex_market import DDEXMarket
@@ -33,8 +37,9 @@ from wings.market.radar_relay_market import RadarRelayMarket
 from wings.market.bamboo_relay_market import BambooRelayMarket
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.trade import Trade
-from wings.wallet.web3_wallet import Web3Wallet
 
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot import init_logging
 from hummingbot.cli.ui.keybindings import load_key_bindings
@@ -93,13 +98,22 @@ s_logger = None
 
 class HummingbotApplication:
     KILL_TIMEOUT = 5.0
+    APP_WARNING_EXPIRY_DURATION = 3600.0
+
+    _main_app: Optional["HummingbotApplication"] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global s_logger
         if s_logger is None:
             s_logger = logging.getLogger(__name__)
         return s_logger
+
+    @classmethod
+    def main_application(cls) -> "HummingbotApplication":
+        if cls._main_app is None:
+            cls._main_app = HummingbotApplication()
+        return cls._main_app
 
     def __init__(self):
         self.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -124,6 +138,7 @@ class HummingbotApplication:
         self.reporting_module: Optional[ReportAggregator] = None
         self.data_feed: Optional[DataFeedBase] = None
         self.stop_loss_tracker: Optional[StopLossTracker] = None
+        self._app_warnings: Deque[ApplicationWarning] = deque()
         self._trading_required: bool = True
 
     def init_reporting_module(self):
@@ -222,14 +237,29 @@ class HummingbotApplication:
             keys = self._get_empty_configs()
         asyncio.ensure_future(self._config_loop(keys))
 
+    def _expire_old_application_warnings(self):
+        now: float = time.time()
+        expiry_threshold: float = now - self.APP_WARNING_EXPIRY_DURATION
+        while len(self._app_warnings) > 0 and self._app_warnings[0].timestamp < expiry_threshold:
+            self._app_warnings.popleft()
+
+    def add_application_warning(self, app_warning: ApplicationWarning):
+        self._expire_old_application_warnings()
+        self._app_warnings.append(app_warning)
+
     async def _create_or_import_wallet(self):
         choice = await self.app.prompt(prompt=global_config_map.get("wallet").prompt)
         if choice == "import":
             private_key = await self.app.prompt(prompt="Your wallet private key >>> ", is_password=True)
             password = await self.app.prompt(prompt="A password to protect your wallet key >>> ", is_password=True)
 
-            self.acct = import_and_save_wallet(password, private_key)
-            self.app.log("Wallet %s imported into hummingbot" % (self.acct.address,))
+            try:
+                self.acct = import_and_save_wallet(password, private_key)
+                self.app.log("Wallet %s imported into hummingbot" % (self.acct.address,))
+            except Exception as e:
+                self.app.log(f"Failed to import wallet key: {e}")
+                result = await self._create_or_import_wallet()
+                return result
         elif choice == "create":
             password = await self.app.prompt(prompt="A password to protect your wallet key >>> ", is_password=True)
             self.acct = create_and_save_wallet(password)
@@ -350,6 +380,7 @@ class HummingbotApplication:
     def _initialize_wallet(self, token_symbols: List[str]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
         erc20_token_addresses = get_erc20_token_addresses(token_symbols)
+
         if self.acct is not None:
             self.wallet: Web3Wallet = Web3Wallet(private_key=self.acct.privateKey,
                                                  backend_urls=[ethereum_rpc_url],
@@ -405,6 +436,7 @@ class HummingbotApplication:
             self.markets[market_name]: MarketBase = market
 
     def status(self) -> bool:
+        # Preliminary checks.
         self.app.log("\n  Preliminary checks:")
         if self.config_complete:
             self.app.log("   - Config check: Config complete")
@@ -462,11 +494,20 @@ class HummingbotApplication:
             for offline_market in offline_markets:
                 self.app.log(f"   x Market check:  {offline_market} is currently offline.")
 
+        # See if we can print out the strategy status.
         self.app.log("   - Market check: All markets ready")
         if self.strategy is None:
             self.app.log("   x initializing strategy.")
         else:
             self.app.log(self.strategy.format_status() + "\n")
+
+        # Application warnings.
+        self._expire_old_application_warnings()
+        if len(self._app_warnings) > 0:
+            self.app.log("\n  Warnings:")
+            for app_warning in self._app_warnings:
+                self.app.log(f"    * ({app_warning.logger_name}) - {app_warning.warning_msg}")
+
         return True
 
     def help(self, command):

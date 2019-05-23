@@ -5,7 +5,9 @@ import numpy as np
 from decimal import Decimal
 from typing import Dict
 
+from hummingbot.logger import HummingbotLogger
 from wings.order_book_row import OrderBookRow
+
 _rraot_logger = None
 
 s_empty_diff = np.ndarray(shape=(0, 4), dtype="float64")
@@ -24,7 +26,7 @@ cdef class BambooRelayActiveOrderTracker:
         self._order_price_map = order_price_map or {}
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global _rraot_logger
         if _rraot_logger is None:
             _rraot_logger = logging.getLogger(__name__)

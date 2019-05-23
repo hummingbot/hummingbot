@@ -24,7 +24,7 @@ from web3.datastructures import AttributeDict
 
 import wings
 from wings.async_call_scheduler import AsyncCallScheduler
-from wings.ethereum_chain import EthereumChain
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from wings.event_forwarder import EventForwarder
 from wings.events import (
     WalletEvent,
@@ -38,21 +38,24 @@ from wings.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.pubsub import PubSub
-from wings.watcher.new_blocks_watcher import NewBlocksWatcher
-from wings.watcher.account_balance_watcher import AccountBalanceWatcher
-from wings.watcher.erc20_events_watcher import ERC20EventsWatcher
-from wings.watcher.incoming_eth_watcher import IncomingEthWatcher
-from wings.watcher.weth_watcher import WethWatcher
-from wings.erc20_token import ERC20Token
+from hummingbot.wallet.ethereum.watcher import (
+    NewBlocksWatcher,
+    AccountBalanceWatcher,
+    ERC20EventsWatcher,
+    IncomingEthWatcher,
+    WethWatcher,
+)
+from hummingbot.wallet.ethereum.erc20_token import ERC20Token
+from hummingbot.logger import HummingbotLogger
 
 
 class Web3WalletBackend(PubSub):
     TRANSACTION_RECEIPT_POLLING_TICK = 10.0
 
-    _w3wb_logger: Optional[logging.Logger] = None
+    _w3wb_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._w3wb_logger is None:
             cls._w3wb_logger = logging.getLogger(__name__)
         return cls._w3wb_logger
@@ -390,7 +393,6 @@ class Web3WalletBackend(PubSub):
                 await ev_loop.run_in_executor(wings.get_executor(), self._w3.eth.sendRawTransaction,
                                               signed_transaction.rawTransaction)
             except asyncio.CancelledError:
-                self.logger().error('Cancelled Error', exc_info=True)
                 raise
             except Exception:
                 self.logger().error(f"Error sending transaction {tx_hash}.", exc_info=True)

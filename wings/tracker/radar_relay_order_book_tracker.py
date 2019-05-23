@@ -13,7 +13,7 @@ from typing import (
     Set
 )
 
-from wings.data_source.radar_relay_local_cluster_order_book_data_source import RadarRelayLocalClusterOrderBookDataSource
+from hummingbot.logger import HummingbotLogger
 from wings.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from wings.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.data_source.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
@@ -24,10 +24,10 @@ from wings.tracker.radar_relay_active_order_tracker import RadarRelayActiveOrder
 
 
 class RadarRelayOrderBookTracker(OrderBookTracker):
-    _rrobt_logger: Optional[logging.Logger] = None
+    _rrobt_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._rrobt_logger is None:
             cls._rrobt_logger = logging.getLogger(__name__)
         return cls._rrobt_logger
@@ -53,8 +53,6 @@ class RadarRelayOrderBookTracker(OrderBookTracker):
         if not self._data_source:
             if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
                 self._data_source = RadarRelayAPIOrderBookDataSource(symbols=self._symbols)
-            elif self._data_source_type is OrderBookTrackerDataSourceType.LOCAL_CLUSTER:
-                self._data_source = RadarRelayLocalClusterOrderBookDataSource()
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source
