@@ -16,7 +16,7 @@ from wings.events import (
     OrderType,
     TradeType
 )
-from wings.market.binance_market import (
+from hummingbot.market.binance import (
     BinanceMarket,
     BinanceTime
 )

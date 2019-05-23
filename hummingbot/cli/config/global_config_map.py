@@ -62,8 +62,8 @@ global_config_map = {
                                                   prompt=None,
                                                   required_if=lambda: False,
                                                   default=["hummingbot.strategy",
+                                                           "hummingbot.market",
                                                            "hummingbot.wallet",
-                                                           "wings.market",
                                                            "conf"
                                                            ],
                                                   type_str="list"),

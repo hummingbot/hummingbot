@@ -4,7 +4,7 @@ from os.path import join, realpath
 import sys
 sys.path.insert(0, realpath(join(__file__, "../../")))
 
-from wings.tracker.binance_order_book_tracker import BinanceOrderBookTracker
+from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker
 import asyncio
 import logging
 from typing import Dict, Optional
