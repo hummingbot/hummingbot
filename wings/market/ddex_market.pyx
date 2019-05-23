@@ -229,7 +229,7 @@ cdef class DDEXMarket(MarketBase):
                  ethereum_rpc_url: str,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                    OrderBookTrackerDataSourceType.LOCAL_CLUSTER,
+                    OrderBookTrackerDataSourceType.EXCHANGE_API,
                  wallet_spender_address: str = ZERO_EX_MAINNET_PROXY,
                  symbols: Optional[List[str]] = None,
                  trading_required: bool = True):

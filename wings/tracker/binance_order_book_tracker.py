@@ -12,11 +12,9 @@ from typing import (
 )
 
 from hummingbot.logger import HummingbotLogger
-from wings.model.sql_connection_manager import SQLConnectionManager
 from wings.order_book_tracker import (
     OrderBookTracker,
     OrderBookTrackerDataSourceType)
-from wings.data_source.binance_local_cluster_order_book_data_source import BinanceLocalClusterOrderBookDataSource
 from wings.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.data_source.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
 from wings.data_source.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
@@ -34,7 +32,7 @@ class BinanceOrderBookTracker(OrderBookTracker):
         return cls._bobt_logger
 
     def __init__(self,
-                 data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.LOCAL_CLUSTER,
+                 data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
                  symbols: Optional[List[str]] = None):
         super().__init__(data_source_type=data_source_type)
 
@@ -49,10 +47,7 @@ class BinanceOrderBookTracker(OrderBookTracker):
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
         if not self._data_source:
-            if self._data_source_type is OrderBookTrackerDataSourceType.LOCAL_CLUSTER:
-                self._data_source = BinanceLocalClusterOrderBookDataSource(
-                    SQLConnectionManager.get_order_books_instance())
-            elif self._data_source_type is OrderBookTrackerDataSourceType.REMOTE_API:
+            if self._data_source_type is OrderBookTrackerDataSourceType.REMOTE_API:
                 self._data_source = RemoteAPIOrderBookDataSource()
             elif self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
                 self._data_source = BinanceAPIOrderBookDataSource(symbols=self._symbols)

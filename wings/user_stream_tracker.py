@@ -13,7 +13,7 @@ from wings.data_source.user_stream_tracker_data_source import UserStreamTrackerD
 
 
 class UserStreamTrackerDataSourceType(Enum):
-    LOCAL_CLUSTER = 1
+    # LOCAL_CLUSTER = 1 deprecated
     REMOTE_API = 2
     EXCHANGE_API = 3
 

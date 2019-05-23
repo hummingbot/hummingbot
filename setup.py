@@ -21,7 +21,6 @@ def main():
     packages = [
         "wings",
         "wings.logger",
-        "wings.model",
         "wings.data_source",
         "wings.orderbook",
         "wings.tracker",
