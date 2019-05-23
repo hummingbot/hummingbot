@@ -19,7 +19,7 @@ from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
-from wings.market.ddex_market import DDEXMarket
+from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 

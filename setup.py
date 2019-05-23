@@ -17,16 +17,23 @@ if os.name == "posix":
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20190522"
+    version = "20190523"
     packages = [
         "wings",
         "wings.logger",
-        "wings.data_source",
-        "wings.orderbook",
-        "wings.tracker",
-        "wings.market",
         "hummingbot",
         "hummingbot.core",
+        "hummingbot.strategy",
+        "hummingbot.strategy.arbitrage",
+        "hummingbot.strategy.cross_exchange_market_making",
+        "hummingbot.market",
+        "hummingbot.market.bamboo_relay",
+        "hummingbot.market.binance",
+        "hummingbot.market.bittrex",
+        "hummingbot.market.coinbase_pro",
+        "hummingbot.market.ddex",
+        "hummingbot.market.huobi",
+        "hummingbot.market.radar_relay",
         "hummingbot.data_feed",
         "hummingbot.cli",
         "hummingbot.cli.config",

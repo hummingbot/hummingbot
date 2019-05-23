@@ -29,12 +29,12 @@ from hummingbot.core.clock import (
 )
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
-from wings.market.binance_market import BinanceMarket
-from wings.market.coinbase_pro_market import CoinbaseProMarket
-from wings.market.ddex_market import DDEXMarket
-from wings.market.market_base import MarketBase
-from wings.market.radar_relay_market import RadarRelayMarket
-from wings.market.bamboo_relay_market import BambooRelayMarket
+from hummingbot.market.binance.binance_market import BinanceMarket
+from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
+from hummingbot.market.ddex.ddex_market import DDEXMarket
+from hummingbot.market.market_base import MarketBase
+from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
+from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
 from wings.trade import Trade
 
@@ -902,9 +902,12 @@ class HummingbotApplication:
 
         else:
             if len(self.strategy.trades) > 0:
-                df: pd.DataFrame = Trade.to_pandas(self.strategy.trades)
-                df.to_csv(path, header=True)
-                self.app.log(f"Successfully saved trades to {path}")
+                try:
+                    df: pd.DataFrame = Trade.to_pandas(self.strategy.trades)
+                    df.to_csv(path, header=True)
+                    self.app.log(f"Successfully saved trades to {path}")
+                except Exception as e:
+                    self.app.log(f"Error saving trades to {path}: {e}")
 
     def history(self):
         self.list("trades")

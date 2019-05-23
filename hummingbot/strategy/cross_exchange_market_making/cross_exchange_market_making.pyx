@@ -23,7 +23,7 @@ from wings.event_listener cimport EventListener
 from wings.limit_order cimport LimitOrder
 from wings.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
-from wings.market.market_base import (
+from hummingbot.market.market_base import (
     MarketBase,
     OrderType
 )
