@@ -24,7 +24,9 @@ from sqlalchemy.exc import (
     DatabaseError
 )
 from sqlalchemy.sql.elements import TextClause
+
 import conf
+from hummingbot.logger import HummingbotLogger
 import wings
 from hummingbot.market.data_source.local_cluster_order_book_data_source import LocalClusterOrderBookDataSource
 from wings.model.sql_connection_manager import SQLConnectionManager
@@ -45,10 +47,10 @@ class RadarRelayLocalClusterOrderBookDataSource(LocalClusterOrderBookDataSource)
     DIFF_TOPIC_NAME: str = "radarrelay-order.serialized"
     SNAPSHOT_TOPIC_NAME: str = "radarrelay-market-depth.snapshot"
 
-    _hlcobds_logger: Optional[logging.Logger] = None
+    _hlcobds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._hlcobds_logger is None:
             cls._hlcobds_logger = logging.getLogger(__name__)
         return cls._hlcobds_logger

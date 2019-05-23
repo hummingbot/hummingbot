@@ -16,6 +16,7 @@ from typing import (
     Set
 )
 
+from hummingbot.logger import HummingbotLogger
 from wings.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.market.coinbase_pro.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
@@ -29,10 +30,10 @@ from hummingbot.market.coinbase_pro.coinbase_pro_active_order_tracker import Coi
 
 
 class CoinbaseProOrderBookTracker(OrderBookTracker):
-    _cbpobt_logger: Optional[logging.Logger] = None
+    _cbpobt_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._cbpobt_logger is None:
             cls._cbpobt_logger = logging.getLogger(__name__)
         return cls._cbpobt_logger

@@ -17,6 +17,7 @@ from web3 import Web3
 from libc.stdint cimport int64_t
 
 from hummingbot.core.clock cimport Clock
+from hummingbot.logger import HummingbotLogger
 from wings.events import (
     TradeType,
     TradeFee,
@@ -230,7 +231,7 @@ cdef class CoinbaseProMarket(MarketBase):
     COINBASE_API_ENDPOINT = "https://api.pro.coinbase.com"
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global s_logger
         if s_logger is None:
             s_logger = logging.getLogger(__name__)

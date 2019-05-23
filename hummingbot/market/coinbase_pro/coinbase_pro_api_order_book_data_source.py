@@ -19,6 +19,7 @@ from websockets.exceptions import ConnectionClosed
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.cli.utils import async_ttl_cache
+from hummingbot.logger import HummingbotLogger
 from wings.order_book_tracker_entry import (
     CoinbaseProOrderBookTrackerEntry,
     OrderBookTrackerEntry
@@ -37,10 +38,10 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
-    _cbpaobds_logger: Optional[logging.Logger] = None
+    _cbpaobds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._cbpaobds_logger is None:
             cls._cbpaobds_logger = logging.getLogger(__name__)
         return cls._cbpaobds_logger

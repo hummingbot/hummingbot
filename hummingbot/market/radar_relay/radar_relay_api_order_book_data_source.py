@@ -20,6 +20,8 @@ from hummingbot.market.radar_relay.radar_relay_order_book import RadarRelayOrder
 from hummingbot.market.radar_relay.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
 from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.cli.utils import async_ttl_cache
+from hummingbot.logger import HummingbotLogger
+from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
 from wings.order_book_tracker_entry import OrderBookTrackerEntry, RadarRelayOrderBookTrackerEntry
 from wings.order_book_message import OrderBookMessage, RadarRelayOrderBookMessage
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
@@ -37,11 +39,11 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
-    _rraobds_logger: Optional[logging.Logger] = None
+    _rraobds_logger: Optional[HummingbotLogger] = None
     _client: Optional[aiohttp.ClientSession] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._rraobds_logger is None:
             cls._rraobds_logger = logging.getLogger(__name__)
         return cls._rraobds_logger

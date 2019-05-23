@@ -52,6 +52,7 @@ jobs:
             source activate $(head -1 setup/environment-linux.yml | cut -d ' ' -f2)
             python test/test_cross_exchange_market_making.py
             python test/test_arbitrage.py
+            python test/test_discovery_strategy.py
             
       - run:
           name: Run Exchange Rate Converter Tests

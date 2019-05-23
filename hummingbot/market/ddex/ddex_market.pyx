@@ -19,6 +19,7 @@ from decimal import Decimal
 from libc.stdint cimport int64_t
 from web3 import Web3
 
+from hummingbot.logger import HummingbotLogger
 from wings.cancellation_result import CancellationResult
 from hummingbot.market.ddex.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
 from wings.events import (
@@ -215,7 +216,7 @@ cdef class DDEXMarket(MarketBase):
     CANCEL_EXPIRY_TIME = 60.0
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global s_logger
         if s_logger is None:
             s_logger = logging.getLogger(__name__)

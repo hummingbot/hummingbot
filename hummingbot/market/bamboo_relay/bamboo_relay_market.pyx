@@ -18,6 +18,7 @@ from libc.stdint cimport int64_t
 from web3 import Web3
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
+from hummingbot.logger import HummingbotLogger
 from wings.limit_order import LimitOrder
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import (
@@ -210,7 +211,7 @@ cdef class BambooRelayMarket(MarketBase):
     UPDATE_MARKET_ORDERS_INTERVAL = 10.0
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global rrm_logger
         if rrm_logger is None:
             rrm_logger = logging.getLogger(__name__)

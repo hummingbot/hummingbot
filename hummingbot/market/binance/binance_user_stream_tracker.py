@@ -6,6 +6,7 @@ from typing import (
     Optional
 )
 from hummingbot.market.data_source.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.logger import HummingbotLogger
 from wings.user_stream_tracker import (
     UserStreamTrackerDataSourceType,
     UserStreamTracker
@@ -15,10 +16,10 @@ from binance.client import Client as BinanceClient
 
 
 class BinanceUserStreamTracker(UserStreamTracker):
-    _bust_logger: Optional[logging.Logger] = None
+    _bust_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._bust_logger is None:
             cls._bust_logger = logging.getLogger(__name__)
         return cls._bust_logger

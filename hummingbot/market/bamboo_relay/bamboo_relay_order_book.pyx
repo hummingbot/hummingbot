@@ -11,20 +11,21 @@ from typing import (
 
 from sqlalchemy.engine import RowProxy
 
+from hummingbot.logger import HummingbotLogger
 from wings.order_book cimport OrderBook
 from wings.order_book_message import (
     BambooRelayOrderBookMessage,
     OrderBookMessage,
     OrderBookMessageType
 )
-from wings.order_book_row import OrderBookRow
+
 _rrob_logger = None
 
 
 cdef class BambooRelayOrderBook(OrderBook):
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global _rrob_logger
         if _rrob_logger is None:
             _rrob_logger = logging.getLogger(__name__)

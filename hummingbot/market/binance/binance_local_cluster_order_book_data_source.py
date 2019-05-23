@@ -17,8 +17,9 @@ from typing import (
 )
 import conf
 from hummingbot.market.data_source.local_cluster_order_book_data_source import LocalClusterOrderBookDataSource
-from wings.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.market.binance.binance_order_book import BinanceOrderBook
+from hummingbot.logger import HummingbotLogger
+from wings.model.sql_connection_manager import SQLConnectionManager
 
 
 TRADING_PAIR_FILTER = re.compile(r"(BTC|ETH|USDT)$")
@@ -28,10 +29,10 @@ class BinanceLocalClusterOrderBookDataSource(LocalClusterOrderBookDataSource):
     DIFF_TOPIC_NAME: str = "binance-market-depth.serialized"
     SNAPSHOT_TOPIC_NAME: str = "binance-market-depth.snapshot"
 
-    _blcobds_logger: Optional[logging.Logger] = None
+    _blcobds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._blcobds_logger is None:
             cls._blcobds_logger = logging.getLogger(__name__)
         return cls._blcobds_logger

@@ -12,8 +12,10 @@ from sqlalchemy.sql.elements import TextClause
 import time
 from typing import (
     Dict,
-    Optional)
+    Optional
+)
 
+from hummingbot.logger import HummingbotLogger
 import wings
 from wings.model.sql_connection_manager import SQLConnectionManager
 from wings.order_book import OrderBook
@@ -25,10 +27,10 @@ TRADING_PAIR_FILTER = re.compile(r"(BTC|ETH|USDT)$")
 
 
 class LocalClusterOrderBookDataSource(OrderBookTrackerDataSource):
-    _lcobds_logger: Optional[logging.Logger] = None
+    _lcobds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._lcobds_logger is None:
             cls._lcobds_logger = logging.getLogger(__name__)
         return cls._lcobds_logger

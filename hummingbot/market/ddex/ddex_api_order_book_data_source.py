@@ -20,6 +20,7 @@ from hummingbot.cli.utils import async_ttl_cache
 from hummingbot.market.ddex.ddex_active_order_tracker import DDEXActiveOrderTracker
 from hummingbot.market.ddex.ddex_order_book import DDEXOrderBook
 from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.logger import HummingbotLogger
 from wings.order_book_tracker_entry import (
     DDEXOrderBookTrackerEntry,
     OrderBookTrackerEntry
@@ -40,10 +41,10 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
-    _raobds_logger: Optional[logging.Logger] = None
+    _raobds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls._raobds_logger is None:
             cls._raobds_logger = logging.getLogger(__name__)
         return cls._raobds_logger

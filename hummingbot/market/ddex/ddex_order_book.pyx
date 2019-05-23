@@ -1,23 +1,24 @@
 #!/usr/bin/env python
 
+from aiokafka import ConsumerRecord
 from decimal import Decimal
 import logging
-import ujson
+from sqlalchemy.engine import RowProxy
 from typing import (
     Dict,
     List,
     Optional,
-    Tuple
 )
-from aiokafka import ConsumerRecord
-from sqlalchemy.engine import RowProxy
+import ujson
+
+from hummingbot.logger import HummingbotLogger
 from wings.order_book cimport OrderBook
 from wings.order_book_message import (
     DDEXOrderBookMessage,
     OrderBookMessage,
     OrderBookMessageType
 )
-from wings.order_book_row import OrderBookRow
+
 _dob_logger = None
 
 DDEXOrderBookTrackingDictionary = Dict[Decimal, Dict[str, Dict[str, any]]]
@@ -26,7 +27,7 @@ DDEXOrderBookTrackingDictionary = Dict[Decimal, Dict[str, Dict[str, any]]]
 cdef class DDEXOrderBook(OrderBook):
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         global _dob_logger
         if _dob_logger is None:
             _dob_logger = logging.getLogger(__name__)
