@@ -334,8 +334,9 @@ class BinanceMarketUnitTest(unittest.TestCase):
             time_offset = BinanceTime.get_instance().time_offset_ms
             print("offest", time_offset)
             # check if it is less than 5% off
-            self.assertTrue(time_offset > 0)
-            self.assertTrue(abs(time_offset - 30.0 * 1e3) < 1.5 * 1e3)
+            self.assertTrue(time_offset != 0)
+            self.assertTrue((abs(time_offset) - 30.0 * 1e3) < 1.5 * 1e3)
+
 
 
 if __name__ == "__main__":
