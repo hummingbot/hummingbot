@@ -7,7 +7,7 @@ from typing import (
 )
 from web3 import Web3
 
-from wings.async_call_scheduler import AsyncCallScheduler
+from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.pubsub import PubSub
 
 

@@ -26,12 +26,12 @@ from typing import (
 )
 from web3 import Web3
 import conf
-import wings
-from wings.async_call_scheduler import AsyncCallScheduler
+import hummingbot
+from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
 from hummingbot.market.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.logger import HummingbotLogger
-from wings.events import (
+from hummingbot.core.event.events import (
     MarketEvent,
     MarketReceivedAssetEvent,
     MarketWithdrawAssetEvent,
@@ -52,13 +52,13 @@ from hummingbot.market.market_base import (
     NaN
 )
 from hummingbot.core.network_iterator import NetworkStatus
-from wings.order_book_tracker import OrderBookTrackerDataSourceType
-from wings.order_book cimport OrderBook
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker
 from hummingbot.market.binance.binance_user_stream_tracker import BinanceUserStreamTracker
-from wings.user_stream_tracker import UserStreamTrackerDataSourceType
-from wings.cancellation_result import CancellationResult
-from wings.transaction_tracker import TransactionTracker
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.wallet.wallet_base import WalletBase
 from hummingbot.wallet.wallet_base cimport WalletBase
 from collections import deque
@@ -426,7 +426,7 @@ cdef class BinanceMarket(MarketBase):
             app_warning_msg: str = "Binance API call failed. Check API key and network connection.",
             **kwargs) -> Dict[str, any]:
         async with timeout(self.API_CALL_TIMEOUT):
-            coro = self._ev_loop.run_in_executor(wings.get_executor(), partial(func, *args, **kwargs))
+            coro = self._ev_loop.run_in_executor(hummingbot.get_executor(), partial(func, *args, **kwargs))
             return await self.schedule_async_call(coro, self.API_CALL_TIMEOUT, app_warning_msg=app_warning_msg)
 
     async def query_url(self, url) -> any:
@@ -460,7 +460,7 @@ cdef class BinanceMarket(MarketBase):
 
     async def _check_failed_eth_tx(self):
         in_flight_deposits = [d for d in self._in_flight_deposits.values() if not d.has_tx_receipt]
-        tasks = [self._ev_loop.run_in_executor(wings.get_executor(),
+        tasks = [self._ev_loop.run_in_executor(hummingbot.get_executor(),
                                                self._w3.eth.getTransactionReceipt, d.tx_hash)
                  for d in in_flight_deposits]
         receipts = await asyncio.gather(*tasks)

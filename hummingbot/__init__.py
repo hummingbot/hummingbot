@@ -1,11 +1,37 @@
 #!/usr/bin/env python
 import logging
 from typing import Optional
+import logging
 import subprocess
-from hummingbot.logger.reporting_proxy_handler import ReportingProxyHandler
+from concurrent.futures import ThreadPoolExecutor
+from hummingbot.logger.struct_logger import (
+    StructLogRecord,
+    StructLogger
+)
 
 STRUCT_LOGGER_SET = False
 _prefix_path = None
+
+__all__ = ["root_path", "get_executor"]
+
+
+# Do not raise exceptions during log handling
+logging.setLogRecordFactory(StructLogRecord)
+logging.setLoggerClass(StructLogger)
+
+_shared_executor = None
+
+
+def root_path() -> str:
+    from os.path import realpath, join
+    return realpath(join(__file__, "../../"))
+
+
+def get_executor() -> ThreadPoolExecutor:
+    global _shared_executor
+    if _shared_executor is None:
+        _shared_executor = ThreadPoolExecutor()
+    return _shared_executor
 
 
 def prefix_path() -> str:
@@ -31,6 +57,7 @@ def check_dev_mode():
 
 
 def add_remote_logger_handler(loggers):
+    from hummingbot.logger.reporting_proxy_handler import ReportingProxyHandler
     root_logger = logging.getLogger()
     try:
         remote_logger = ReportingProxyHandler(level="DEBUG",
@@ -53,9 +80,9 @@ def init_logging(conf_filename: str, override_log_level: Optional[str] = None, d
     from typing import Dict
     from ruamel.yaml import YAML
 
-    from hummingbot.cli.config.global_config_map import global_config_map
+    from hummingbot.client.config.global_config_map import global_config_map
     from hummingbot.logger import reporting_proxy_handler
-    from wings.logger.struct_logger import (
+    from hummingbot.logger.struct_logger import (
         StructLogRecord,
         StructLogger
     )

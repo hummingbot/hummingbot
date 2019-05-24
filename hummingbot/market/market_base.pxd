@@ -1,6 +1,6 @@
-from wings.event_reporter cimport EventReporter
-from wings.event_logger cimport EventLogger
-from wings.order_book cimport OrderBook
+from hummingbot.core.event.event_reporter cimport EventReporter
+from hummingbot.core.event.event_logger cimport EventLogger
+from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.network_iterator cimport NetworkIterator
 from hummingbot.wallet.wallet_base cimport WalletBase
 

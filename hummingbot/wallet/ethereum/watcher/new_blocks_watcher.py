@@ -15,9 +15,9 @@ from typing import (
 from web3 import Web3
 from web3.datastructures import AttributeDict
 
+import hummingbot
 from hummingbot.logger import HummingbotLogger
-import wings
-from wings.events import NewBlocksWatcherEvent
+from hummingbot.core.event.events import NewBlocksWatcherEvent
 from .base_watcher import BaseWatcher
 
 DEFAULT_BLOCK_WINDOW_SIZE = 30
@@ -77,7 +77,7 @@ class NewBlocksWatcher(BaseWatcher):
                     async with timeout(10.0):
                         ev_loop: asyncio.BaseEventLoop = self._ev_loop
                         block = await ev_loop.run_in_executor(
-                            wings.get_executor(),
+                            hummingbot.get_executor(),
                             functools.partial(
                                 self._w3.eth.getBlock,
                                 block_hash,
@@ -94,7 +94,7 @@ class NewBlocksWatcher(BaseWatcher):
             try:
                 async with timeout(30.0):
                     incoming_block: AttributeDict = await ev_loop.run_in_executor(
-                        wings.get_executor(),
+                        hummingbot.get_executor(),
                         functools.partial(
                             self._w3.eth.getBlock,
                             self._block_number_to_fetch,
@@ -141,7 +141,7 @@ class NewBlocksWatcher(BaseWatcher):
             replacement_block = None
             while replacement_block is None:
                 replacement_block = await ev_loop.run_in_executor(
-                    wings.get_executor(),
+                    hummingbot.get_executor(),
                     functools.partial(
                         self._w3.eth.getBlock,
                         expected_parent_hash,

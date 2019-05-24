@@ -12,19 +12,19 @@ from typing import (
 )
 
 from hummingbot.core.clock cimport Clock
-from wings.events import (
+from hummingbot.core.event.events import (
     MarketEvent,
     TradeType
 )
-from wings.event_listener cimport EventListener
-from wings.limit_order cimport LimitOrder
-from wings.limit_order import LimitOrder
+from hummingbot.core.event.event_listener cimport EventListener
+from hummingbot.core.data_type.limit_order cimport LimitOrder
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.market.market_base import (
     MarketBase,
     OrderType
 )
-from wings.order_book import OrderBook
+from hummingbot.core.data_type.order_book cimport OrderBook
 from .pure_market_pair import PureMarketPair
 from hummingbot.strategy.strategy_base import StrategyBase
 

@@ -7,7 +7,7 @@ import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
 from typing import List
 import unittest
-from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import (
     QuantizationParams
@@ -17,11 +17,11 @@ from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
-from wings.event_logger import EventLogger
-from wings.events import (
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import (
     MarketEvent
 )
-from wings.order_book_row import OrderBookRow
+from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.strategy.arbitrage.arbitrage import ArbitrageStrategy
 from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
 

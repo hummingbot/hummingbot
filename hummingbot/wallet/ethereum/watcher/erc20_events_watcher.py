@@ -17,14 +17,14 @@ from web3.contract import Contract
 from web3.datastructures import AttributeDict
 
 from hummingbot.logger import HummingbotLogger
-from wings.events import (
+from hummingbot.core.event.events import (
     NewBlocksWatcherEvent,
     WalletReceivedAssetEvent,
     TokenApprovedEvent,
     ERC20WatcherEvent
 )
 from hummingbot.wallet.ethereum.erc20_token import ERC20Token
-from wings.event_forwarder import EventForwarder
+from hummingbot.core.event.event_forwarder import EventForwarder
 from .base_watcher import BaseWatcher
 from .new_blocks_watcher import NewBlocksWatcher
 from .contract_event_logs import ContractEventLogger

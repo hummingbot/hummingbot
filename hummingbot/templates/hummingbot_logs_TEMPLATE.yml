@@ -70,7 +70,7 @@ loggers:
         level: NETWORK
         handlers: [console_info, file_handler]
         propagate: false
-    wings.event_reporter:
+    hummingbot.core.event.event_reporter:
         level: EVENT_LOG
         handlers: [file_handler]
         propagate: false

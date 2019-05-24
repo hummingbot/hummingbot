@@ -10,8 +10,8 @@ import logging
 from typing import Dict, Optional
 import unittest
 
-from wings.order_book import OrderBook
-from wings.order_book_tracker import (
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTrackerDataSourceType
 )
 

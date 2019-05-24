@@ -6,12 +6,12 @@ import logging; logging.basicConfig(level=logging.INFO)
 import asyncio
 import time
 
-from hummingbot.cli.config.config_helpers import get_erc20_token_addresses
+from hummingbot.client.config.config_helpers import get_erc20_token_addresses
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.market.ddex.ddex_market import DDEXMarket
-from wings.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 
 token_addresses = get_erc20_token_addresses(["WETH", "DAI"])
 zrx_addr = "0x74622073a4821dbfd046E9AA2ccF691341A076e1"
