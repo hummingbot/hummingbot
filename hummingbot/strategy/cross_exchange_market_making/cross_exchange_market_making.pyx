@@ -876,8 +876,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                               OrderBook maker_order_book,
                                               OrderBook taker_order_book,
                                               double bid_order_size = 0.0):
-        if bid_order_size == 0.0:
-            return 0.0
         cdef:
             double maker_bid_price = maker_order_book.c_get_price_for_quote_volume(
                 False,
@@ -892,6 +890,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 market_pair.taker_quote_currency,
                 taker_bid_price
             )
+        if bid_order_size == 0.0:
+            return taker_bid_price_adjusted / maker_bid_price_adjusted - 1
+        
+        cdef:
             object maker_bid_fee = (<MarketBase>(market_pair.maker_market)).c_get_fee(
                 market_pair.maker_base_currency,
                 market_pair.maker_quote_currency,
@@ -929,8 +931,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                               OrderBook maker_order_book,
                                               OrderBook taker_order_book,
                                               double ask_order_size = 0.0):
-        if ask_order_size == 0.0:
-            return 0.0
         cdef:
             double maker_ask_price = maker_order_book.c_get_price_for_quote_volume(
                 True,
@@ -945,6 +945,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 market_pair.taker_quote_currency,
                 taker_ask_price
             )
+        if ask_order_size == 0.0:
+            return maker_ask_price_adjusted / taker_ask_price_adjusted - 1
+
+        cdef:
             object maker_ask_fee = (<MarketBase>(market_pair.maker_market)).c_get_fee(
                 market_pair.maker_base_currency,
                 market_pair.maker_quote_currency,
