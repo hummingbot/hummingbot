@@ -1,8 +1,14 @@
 #!/usr/bin/env python
 
 import asyncio
-from collections import deque
-from os.path import join, dirname
+from collections import (
+    deque,
+    OrderedDict
+)
+from os.path import (
+    join,
+    dirname
+)
 import logging
 import argparse
 from eth_account.local import LocalAccount
@@ -43,7 +49,10 @@ from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot import init_logging
 from hummingbot.cli.ui.keybindings import load_key_bindings
-from hummingbot.cli.ui.parser import load_parser, ThrowingArgumentParser
+from hummingbot.cli.ui.parser import (
+    load_parser,
+    ThrowingArgumentParser
+)
 from hummingbot.cli.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.cli.ui.completer import load_completer
 from hummingbot.cli.utils.symbol_splitter import SymbolSplitter
@@ -99,6 +108,7 @@ s_logger = None
 class HummingbotApplication:
     KILL_TIMEOUT = 5.0
     APP_WARNING_EXPIRY_DURATION = 3600.0
+    APP_WARNING_STATUS_LIMIT = 6
 
     _main_app: Optional["HummingbotApplication"] = None
 
@@ -430,6 +440,39 @@ class HummingbotApplication:
 
             self.markets[market_name]: MarketBase = market
 
+    def _format_application_warnings(self) -> str:
+        lines: List[str] = []
+        if len(self._app_warnings) < 1:
+            return ""
+
+        lines.append("\n  Warnings:")
+
+        if len(self._app_warnings) < self.APP_WARNING_STATUS_LIMIT:
+            for app_warning in reversed(self._app_warnings):
+                lines.append(f"    * {pd.Timestamp(app_warning.timestamp, unit='s')} - "
+                             f"({app_warning.logger_name}) - {app_warning.warning_msg}")
+        else:
+            module_based_warnings: OrderedDict = OrderedDict()
+            for app_warning in reversed(self._app_warnings):
+                logger_name: str = app_warning.logger_name
+                if logger_name not in module_based_warnings:
+                    module_based_warnings[logger_name] = deque([app_warning])
+                else:
+                    module_based_warnings[logger_name].append(app_warning)
+
+            warning_lines: List[str] = []
+            while len(warning_lines) < self.APP_WARNING_STATUS_LIMIT:
+                logger_keys: List[str] = list(module_based_warnings.keys())
+                for key in logger_keys:
+                    warning_item: ApplicationWarning = module_based_warnings[key].popleft()
+                    if len(module_based_warnings[key]) < 1:
+                        del module_based_warnings[key]
+                    warning_lines.append(f"    * {pd.Timestamp(warning_item.timestamp, unit='s')} - "
+                                         f"({key}) - {warning_item.warning_msg}")
+            lines.extend(warning_lines[:self.APP_WARNING_STATUS_LIMIT])
+
+        return "\n".join(lines)
+
     def status(self) -> bool:
         # Preliminary checks.
         self.app.log("\n  Preliminary checks:")
@@ -499,9 +542,7 @@ class HummingbotApplication:
         # Application warnings.
         self._expire_old_application_warnings()
         if len(self._app_warnings) > 0:
-            self.app.log("\n  Warnings:")
-            for app_warning in self._app_warnings:
-                self.app.log(f"    * ({app_warning.logger_name}) - {app_warning.warning_msg}")
+            self.app.log(self._format_application_warnings())
 
         return True
 

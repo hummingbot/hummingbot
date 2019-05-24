@@ -22,7 +22,7 @@ class ExchangeRateConversion:
     _update_interval: float = 5.0
     _data_feeds: List[DataFeedBase] = []
     _exchange_rate_config: Dict[str, Dict] = {"conversion_required": {}, "global_config": {}}
-    _exchange_rate: Dict[str, int] = {}
+    _exchange_rate: Dict[str, float] = {}
     _started: bool = False
 
     @classmethod
@@ -139,7 +139,11 @@ class ExchangeRateConversion:
                         if price:
                             self._exchange_rate[symbol] = price
                         else:
-                            self.logger().warning(f"No data found for {symobl} in {source_name} data feed.")
+                            self.logger().network(
+                                f"No data found for {symbol} in {source_name} data feed.",
+                                app_warning_msg=f"Asset data for {symbol} not found in {source_name} data feed, "
+                                                f"please check your 'exchange_rate_conversion' configs."
+                            )
         except Exception:
             self.logger().warning(f"Error getting data from {source_name} data feed.", exc_info=True)
             raise

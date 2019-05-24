@@ -141,7 +141,9 @@ class BinanceTime:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(f"Error getting Binance server time.", exc_info=True)
+                self.logger().network(f"Error getting Binance server time.", exc_info=True,
+                                      app_warning_msg=f"Could not refresh Binance server time. "
+                                                      f"Check network connection.")
 
             await asyncio.sleep(self.SERVER_TIME_OFFSET_CHECK_INTERVAL)
 
@@ -410,13 +412,22 @@ cdef class BinanceMarket(MarketBase):
             binance_client_module.time = BinanceTime.get_instance()
             BinanceTime.get_instance().start()
 
-    async def schedule_async_call(self, coro: Coroutine, timeout_seconds: float) -> any:
+    async def schedule_async_call(
+            self,
+            coro: Coroutine,
+            timeout_seconds: float,
+            app_warning_msg: str = "Binance API call failed. Check API key and network connection.") -> any:
         return await self._async_scheduler.schedule_async_call(coro, timeout_seconds)
 
-    async def query_api(self, func, *args, **kwargs) -> Dict[str, any]:
+    async def query_api(
+            self,
+            func,
+            *args,
+            app_warning_msg: str = "Binance API call failed. Check API key and network connection.",
+            **kwargs) -> Dict[str, any]:
         async with timeout(self.API_CALL_TIMEOUT):
             coro = self._ev_loop.run_in_executor(wings.get_executor(), partial(func, *args, **kwargs))
-            return await self.schedule_async_call(coro, self.API_CALL_TIMEOUT)
+            return await self.schedule_async_call(coro, self.API_CALL_TIMEOUT, app_warning_msg=app_warning_msg)
 
     async def query_url(self, url) -> any:
         async with aiohttp.ClientSession() as client:
@@ -471,7 +482,9 @@ cdef class BinanceMarket(MarketBase):
                     self._trade_fees[fee["symbol"]] = (fee["maker"], fee["taker"])
                 self._last_update_trade_fees_timestamp = current_timestamp
             except Exception:
-                self.logger().error("Error fetching Binance trade fees.", exc_info=True)
+                self.logger().network("Error fetching Binance trade fees.", exc_info=True,
+                                      app_warning_msg=f"Could not fetch Binance trading fees. "
+                                                      f"Check network connection.")
                 raise
 
     cdef object c_get_fee(self,
@@ -504,7 +517,9 @@ cdef class BinanceMarket(MarketBase):
 
         # Get the deposit list data from the API reply.
         if not isinstance(api_reply, dict) or api_reply["success"] is not True:
-            self.logger().error(f"Invalid reply from Binance deposit history API endpoint: {api_reply}")
+            err_msg = api_reply.get("msg") or str(api_reply)
+            self.logger().network(f"Invalid reply from Binance deposit history API endpoint: {err_msg}",
+                                  app_warning_msg=f"Could not confirm Binance deposit: {err_msg}.")
             return
         deposit_list = api_reply["depositList"]
 
@@ -574,8 +589,10 @@ cdef class BinanceMarket(MarketBase):
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for order_update, tracked_order in zip(results, tracked_orders):
                 if isinstance(order_update, Exception):
-                    self.logger().error(f"Error fetching status update for the order {tracked_order.client_order_id}: "
-                                        f"{order_update}.")
+                    self.logger().network(
+                        f"Error fetching status update for the order {tracked_order.client_order_id}: {order_update}.",
+                        app_warning_msg=f"Failed to fetch status update for the order {tracked_order.client_order_id}."
+                    )
                     continue
                 tracked_order.last_state = order_update["status"]
                 client_order_id = tracked_order.client_order_id
@@ -648,7 +665,11 @@ cdef class BinanceMarket(MarketBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unknown error. Retrying after 5 seconds.", exc_info=True)
+                self.logger().network(
+                    "Unknown error. Retrying after 5 seconds.",
+                    exc_info=True,
+                    app_warning_msg="Could not fetch message from Kafka. Check network connection."
+                )
                 await asyncio.sleep(5.0)
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
@@ -658,7 +679,11 @@ cdef class BinanceMarket(MarketBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unknown error. Retrying after 1 seconds.", exc_info=True)
+                self.logger().network(
+                    "Unknown error. Retrying after 1 seconds.",
+                    exc_info=True,
+                    app_warning_msg="Could not fetch user events from Binance. Check API key and network connection."
+                )
                 await asyncio.sleep(1.0)
 
     async def _user_stream_event_listener(self):
@@ -670,7 +695,7 @@ cdef class BinanceMarket(MarketBase):
                 client_order_id = event_message.get("c")
                 tracked_order = self._in_flight_orders.get(client_order_id)
                 if tracked_order is None:
-                    self.logger().warning(f"Unrecognized order ID from user stream: {client_order_id}. Skipping.")
+                    self.logger().network(f"Unrecognized order ID from user stream: {client_order_id}. Skipping.")
                     continue
                 tracked_order.update_with_execution_report(event_message)
                 execution_type = event_message.get("x")
@@ -738,7 +763,9 @@ cdef class BinanceMarket(MarketBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error while fetching account updates.", exc_info=True)
+                self.logger().network("Unexpected error while fetching account updates.", exc_info=True,
+                                      app_warning_msg="Could not fetch account updates from Binance. "
+                                                      "Check API key and network connection.")
                 await asyncio.sleep(0.5)
 
     async def _trading_rules_polling_loop(self):
@@ -753,7 +780,9 @@ cdef class BinanceMarket(MarketBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error while fetching trading rules.", exc_info=True)
+                self.logger().network("Unexpected error while fetching trading rules.", exc_info=True,
+                                      app_warning_msg="Could not fetch new trading rules from Binance. "
+                                                      "Check network connection.")
                 await asyncio.sleep(0.5)
 
     @property
@@ -795,14 +824,19 @@ cdef class BinanceMarket(MarketBase):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(f"Error fetching deposit address and server time for depositing {currency}.",
-                                exc_info=True)
+            self.logger().network(f"Error fetching deposit address and server time for depositing {currency}.",
+                                  exc_info=True,
+                                  app_warning_msg=f"Could not fetch the deposit address for depositing {currency}. "
+                                                  f"Check API key and network connection."
+                                  )
             self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                                  MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
             return
 
         if deposit_reply.get("success") is not True:
-            self.logger().error(f"Could not get deposit address for {currency}: {deposit_reply}")
+            err_msg = deposit_reply.get("msg") or str(deposit_reply)
+            self.logger().network(f"Could not get deposit address for {currency}: {err_msg}",
+                                  app_warning_msg=f"Could not get deposit address for {currency}: {err_msg}.")
             self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                                  MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
             return
@@ -830,7 +864,12 @@ cdef class BinanceMarket(MarketBase):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(f"Error sending withdraw request to Binance for {currency}.", exc_info=True)
+            self.logger().network(
+                f"Error sending withdraw request to Binance for {currency}.",
+                exc_info=True,
+                app_warning_msg=f"Could not send {currency} withdrawal request to Binance. "
+                                f"Check network connection."
+            )
             self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                                  MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
             return
@@ -967,9 +1006,12 @@ cdef class BinanceMarket(MarketBase):
         except Exception:
             self.c_stop_tracking_order(order_id)
             order_type_str = 'MARKET' if order_type == OrderType.MARKET else 'LIMIT'
-            self.logger().error(f"Error submitting buy {order_type_str} order to Binance for "
-                                f"{decimal_amount} {symbol} {price}.",
-                                exc_info=True)
+            self.logger().network(
+                f"Error submitting buy {order_type_str} order to Binance for "
+                f"{decimal_amount} {symbol} {price}.",
+                exc_info=True,
+                app_warning_msg=f"Failed to submit buy order to Binance. Check API key and network connection."
+            )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
@@ -1032,9 +1074,12 @@ cdef class BinanceMarket(MarketBase):
         except Exception:
             self.c_stop_tracking_order(order_id)
             order_type_str = 'MARKET' if order_type == OrderType.MARKET else 'LIMIT'
-            self.logger().error(f"Error submitting sell {order_type_str} order to Binance for "
-                                f"{decimal_amount} {symbol} {price}.",
-                                exc_info=True)
+            self.logger().error(
+                f"Error submitting sell {order_type_str} order to Binance for "
+                f"{decimal_amount} {symbol} {price}.",
+                exc_info=True,
+                app_warning_msg=f"Failed to submit sell order to Binance. Check API key and network connection."
+            )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
@@ -1090,7 +1135,11 @@ cdef class BinanceMarket(MarketBase):
                         order_id_set.remove(client_order_id)
                         successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception:
-            self.logger().error(f"Unexpected error cancelling orders.", exc_info=True)
+            self.logger().network(
+                f"Unexpected error cancelling orders.",
+                exc_info=True,
+                app_warning_msg="Failed to cancel order with Binance. Check API key and network connection."
+            )
 
         failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
         return successful_cancellations + failed_cancellations
