@@ -2,10 +2,10 @@
 
 from libc.stdint cimport int64_t
 
-from wings.event_listener cimport EventListener
-from wings.limit_order cimport LimitOrder
+from hummingbot.core.event.event_listener cimport EventListener
+from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.market.market_base cimport MarketBase
-from wings.order_book cimport OrderBook
+from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.strategy.strategy_base cimport StrategyBase
 
 cdef class CrossExchangeMarketMakingStrategy(StrategyBase):

@@ -2,7 +2,6 @@
 
 import asyncio
 import aiohttp
-from binance.client import Client as BinanceClient
 import logging
 from typing import (
     AsyncIterable,
@@ -11,7 +10,7 @@ from typing import (
 )
 import ujson
 import websockets
-from hummingbot.market.data_source.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from binance.client import Client as BinanceClient
 from hummingbot.logger import HummingbotLogger
 

@@ -12,14 +12,14 @@ from typing import (
 )
 
 from hummingbot.logger import HummingbotLogger
-from wings.order_book_tracker import (
+from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTracker,
     OrderBookTrackerDataSourceType)
-from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.market.data_source.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
 from hummingbot.market.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
-from wings.order_book import OrderBook
-from wings.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
 class BinanceOrderBookTracker(OrderBookTracker):

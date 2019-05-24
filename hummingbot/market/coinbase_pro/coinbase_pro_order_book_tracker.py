@@ -17,14 +17,14 @@ from typing import (
 )
 
 from hummingbot.logger import HummingbotLogger
-from wings.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
-from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.market.coinbase_pro.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
-from wings.order_book_message import (
+from hummingbot.core.data_type.order_book_message import (
     OrderBookMessageType,
     CoinbaseProOrderBookMessage
 )
-from wings.order_book_tracker_entry import CoinbaseProOrderBookTrackerEntry
+from hummingbot.core.data_type.order_book_tracker_entry import CoinbaseProOrderBookTrackerEntry
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 from hummingbot.market.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
 

@@ -12,11 +12,11 @@ from web3.contract import (
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.clock cimport Clock
 from hummingbot.logger import HummingbotLogger
-from wings.events import (
+from hummingbot.core.event.events import (
     WalletEvent
 )
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
-from wings.event_listener cimport EventListener
+from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.pubsub cimport PubSub
 from hummingbot.wallet.wallet_base import WalletBase

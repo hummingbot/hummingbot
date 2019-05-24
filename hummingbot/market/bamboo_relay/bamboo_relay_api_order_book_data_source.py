@@ -18,10 +18,10 @@ from websockets.exceptions import ConnectionClosed
 
 from hummingbot.market.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
 from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
-from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
-from wings.order_book_tracker_entry import OrderBookTrackerEntry, BambooRelayOrderBookTrackerEntry
-from wings.order_book_message import OrderBookMessage, BambooRelayOrderBookMessage
-from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry, BambooRelayOrderBookTrackerEntry
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, BambooRelayOrderBookMessage
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.logger import HummingbotLogger
 
 TRADING_PAIR_FILTER = re.compile(r"(WETH|DAI|CUSD)$")

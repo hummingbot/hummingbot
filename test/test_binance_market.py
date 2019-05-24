@@ -12,7 +12,7 @@ from typing import List
 import unittest
 from unittest.mock import patch
 
-from wings.events import (
+from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
@@ -24,7 +24,7 @@ from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
-from wings.events import (
+from hummingbot.core.event.events import (
     MarketEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
@@ -36,10 +36,10 @@ from wings.events import (
     TradeFee
 )
 from hummingbot.wallet.mock_wallet import MockWallet
-from wings.event_logger import EventLogger
-from wings.order_book_tracker import OrderBookTrackerDataSourceType
-from wings.logger.struct_logger import METRICS_LOG_LEVEL
-from wings.user_stream_tracker import UserStreamTrackerDataSourceType
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 
 MAINNET_RPC_URL = "http://mainnet-rpc.mainnet:8545"
 logging.basicConfig(level=METRICS_LOG_LEVEL)
@@ -326,7 +326,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
     def test_server_time_offset(self):
         BinanceTime.get_instance().SERVER_TIME_OFFSET_CHECK_INTERVAL = 3.0
         self.run_parallel(asyncio.sleep(60))
-        with patch("wings.binance_market.time") as market_time:
+        with patch("hummingbot.market.binance.binance_market.time") as market_time:
             def delayed_time():
                 return time.time() - 30.0
             market_time.time = delayed_time
@@ -339,5 +339,5 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    logging.getLogger("wings.event_reporter").setLevel(logging.WARNING)
+    logging.getLogger("hummingbot.core.event.event_reporter").setLevel(logging.WARNING)
     unittest.main()

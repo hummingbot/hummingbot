@@ -5,7 +5,7 @@ from typing import (
     Dict,
     Optional,
 )
-from hummingbot.cli.utils import async_ttl_cache
+from hummingbot.core.utils import async_ttl_cache
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.logger import HummingbotLogger
 

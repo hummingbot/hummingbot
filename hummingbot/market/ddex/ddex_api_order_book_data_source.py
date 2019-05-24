@@ -16,16 +16,16 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from hummingbot.cli.utils import async_ttl_cache
+from hummingbot.core.utils import async_ttl_cache
 from hummingbot.market.ddex.ddex_active_order_tracker import DDEXActiveOrderTracker
 from hummingbot.market.ddex.ddex_order_book import DDEXOrderBook
-from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from wings.order_book_tracker_entry import (
+from hummingbot.core.data_type.order_book_tracker_entry import (
     DDEXOrderBookTrackerEntry,
     OrderBookTrackerEntry
 )
-from wings.order_book_message import DDEXOrderBookMessage
+from hummingbot.core.data_type.order_book_message import DDEXOrderBookMessage
 
 TRADING_PAIR_FILTER = re.compile(r"(TUSD|WETH|DAI)$")
 

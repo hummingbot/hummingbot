@@ -31,22 +31,6 @@ __pycache__
 # Cython objects
 /**/*.so
 /**/*.pyd
-/wings/*.c
-/wings/*.cpp
-/wings/model/*.c
-/wings/model/*.cpp
-/wings/model/**/*.c
-/wings/model/**/*.cpp
-/wings/strategy/*.c
-/wings/strategy/*.cpp
-/wings/strategy/**/*.c
-/wings/strategy/**/*.cpp
-/wings/orderbook/*.c
-/wings/orderbook/*.cpp
-/wings/market/*.c
-/wings/market/*.cpp
-/wings/tracker/*.c
-/wings/tracker/*.cpp
 /hummingbot/**/*.c
 /hummingbot/**/*.cpp
 !/hummingbot/core/cpp/*.cpp

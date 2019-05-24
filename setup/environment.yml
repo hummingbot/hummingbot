@@ -88,7 +88,7 @@ dependencies:
     - eth-typing==2.1.0
     - eth-utils==1.4.1
     - hexbytes==0.1.0
-    - hummingsim==20190523
+    - hummingsim==20190524
     - hyperlink==18.0.0
     - hypothesis==4.14.2
     - idna-ssl==1.1.0

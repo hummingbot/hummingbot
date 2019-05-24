@@ -59,7 +59,7 @@ dependencies:
   - zeromq=4.3.1=he6710b0_3
   - zlib=1.2.11=h7b6447c_3
   - pip:
-    - hummingsim==20190523
+    - hummingsim==20190524
     - 0x-contract-addresses==2.0.1
     - 0x-contract-artifacts==2.0.0
     - 0x-json-schemas==1.0.0

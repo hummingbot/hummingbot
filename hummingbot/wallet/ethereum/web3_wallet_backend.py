@@ -22,11 +22,11 @@ from web3.contract import (
 )
 from web3.datastructures import AttributeDict
 
-import wings
-from wings.async_call_scheduler import AsyncCallScheduler
+import hummingbot
+from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
-from wings.event_forwarder import EventForwarder
-from wings.events import (
+from hummingbot.core.event.event_forwarder import EventForwarder
+from hummingbot.core.event.events import (
     WalletEvent,
     WalletReceivedAssetEvent,
     TokenApprovedEvent,
@@ -293,7 +293,7 @@ class Web3WalletBackend(PubSub):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            await self._ev_loop.run_in_executor(wings.get_executor(),
+            await self._ev_loop.run_in_executor(hummingbot.get_executor(),
                                                 getattr,
                                                 self._w3.eth,
                                                 "blockNumber")
@@ -345,12 +345,12 @@ class Web3WalletBackend(PubSub):
         Look for failed transactions, and emit transaction fail event if any are found.
         """
         ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        tasks = [ev_loop.run_in_executor(wings.get_executor(), self._w3.eth.getTransactionReceipt, tx_hash)
+        tasks = [ev_loop.run_in_executor(hummingbot.get_executor(), self._w3.eth.getTransactionReceipt, tx_hash)
                  for tx_hash in self._pending_tx_dict.keys()]
         transaction_receipts: List[AttributeDict] = [tr for tr in await asyncio.gather(*tasks)
                                                      if (tr is not None and tr.get("blockHash") is not None)]
         block_hash_set: Set[HexBytes] = set(tr.blockHash for tr in transaction_receipts)
-        fetch_block_tasks = [ev_loop.run_in_executor(wings.get_executor(), self._w3.eth.getBlock, block_hash)
+        fetch_block_tasks = [ev_loop.run_in_executor(hummingbot.get_executor(), self._w3.eth.getBlock, block_hash)
                              for block_hash in block_hash_set]
         blocks: Dict[HexBytes, AttributeDict] = dict((block.hash, block)
                                                      for block
@@ -390,7 +390,7 @@ class Web3WalletBackend(PubSub):
             signed_transaction: AttributeDict = await self._outgoing_transactions_queue.get()
             tx_hash: str = signed_transaction.hash.hex()
             try:
-                await ev_loop.run_in_executor(wings.get_executor(), self._w3.eth.sendRawTransaction,
+                await ev_loop.run_in_executor(hummingbot.get_executor(), self._w3.eth.sendRawTransaction,
                                               signed_transaction.rawTransaction)
             except asyncio.CancelledError:
                 raise
@@ -575,7 +575,7 @@ class Web3WalletBackend(PubSub):
         # Get currently approved amounts
         get_approved_amounts_tasks: List[asyncio.Task] = [
             self._ev_loop.run_in_executor(
-                wings.get_executor(),
+                hummingbot.get_executor(),
                 erc20_token.contract.functions.allowance(self.address, spender).call
             )
             for erc20_token in self._erc20_token_list

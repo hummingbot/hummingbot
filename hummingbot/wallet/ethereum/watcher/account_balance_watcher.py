@@ -12,11 +12,11 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.datastructures import AttributeDict
 
+import hummingbot
 from hummingbot.logger import HummingbotLogger
-import wings
 from hummingbot.wallet.ethereum.erc20_token import ERC20Token
-from wings.events import NewBlocksWatcherEvent
-from wings.event_forwarder import EventForwarder
+from hummingbot.core.event.events import NewBlocksWatcherEvent
+from hummingbot.core.event.event_forwarder import EventForwarder
 from .base_watcher import BaseWatcher
 from .new_blocks_watcher import NewBlocksWatcher
 
@@ -113,14 +113,14 @@ class AccountBalanceWatcher(BaseWatcher):
             asset_symbols.append(asset_name)
             asset_update_tasks.append(
                 self._ev_loop.run_in_executor(
-                    wings.get_executor(),
+                    hummingbot.get_executor(),
                     contract.functions.balanceOf(self._account_address).call
                 )
             )
 
         asset_symbols.append("ETH")
         asset_update_tasks.append(self._ev_loop.run_in_executor(
-            wings.get_executor(),
+            hummingbot.get_executor(),
             self._w3.eth.getBalance, self._account_address
         ))
 
