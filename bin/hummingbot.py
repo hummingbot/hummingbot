@@ -23,15 +23,18 @@ from typing import (
     Coroutine
 )
 
-from hummingbot import init_logging
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
     create_yml_files,
     read_configs_from_yml
 )
+from hummingbot import (
+    init_logging,
+    check_dev_mode
+)
 from hummingbot.client.ui.stdout_redirection import patch_stdout
-from hummingbot.core.management import start_management_console
+from hummingbot.core.management.console import start_management_console
 
 
 def detect_available_port(starting_port: int) -> int:
@@ -58,8 +61,12 @@ async def main():
 
     hb = HummingbotApplication()
     with patch_stdout(log_field=hb.app.log_field):
+        dev_mode = check_dev_mode()
+        if dev_mode:
+            hb.app.log("Running from dev branchs. Full remote logging will be enabled.")
         init_logging("hummingbot_logs.yml",
-                     override_log_level=global_config_map.get("log_level").value)
+                     override_log_level=global_config_map.get("log_level").value,
+                     dev_mode=dev_mode)
         tasks: List[Coroutine] = [hb.run()]
         if global_config_map.get("debug_console").value:
             management_port: int = detect_available_port(8211)
