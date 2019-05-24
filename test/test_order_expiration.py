@@ -16,10 +16,10 @@ from hummingbot.core.clock import (
     ClockMode,
     Clock
 )
-from wings.events import (
+from hummingbot.core.event.events import (
     MarketEvent,
     OrderExpiredEvent)
-from wings.event_listener import EventListener
+from hummingbot.core.event.event_listener import EventListener
 from hummingsim.strategy.unit_test_strategy import UnitTestStrategy
 
 

@@ -17,14 +17,14 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
-from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.cli.utils import async_ttl_cache
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.utils import async_ttl_cache
 from hummingbot.logger import HummingbotLogger
-from wings.order_book_tracker_entry import (
+from hummingbot.core.data_type.order_book_tracker_entry import (
     CoinbaseProOrderBookTrackerEntry,
     OrderBookTrackerEntry
 )
-from wings.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.market.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
 
 COINBASE_REST_URL = "https://api.pro.coinbase.com"

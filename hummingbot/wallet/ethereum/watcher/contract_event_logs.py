@@ -15,8 +15,8 @@ from web3.datastructures import AttributeDict
 from web3.utils.contracts import find_matching_event_abi
 from web3.utils.events import get_event_data
 from web3.utils.filters import construct_event_filter_params
+import hummingbot
 from hummingbot.logger import HummingbotLogger
-import wings
 
 DEFAULT_WINDOW_SIZE = 100
 
@@ -109,7 +109,7 @@ class ContractEventLogger:
                     )
                     break
                 logs = await ev_loop.run_in_executor(
-                    wings.get_executor(),
+                    hummingbot.get_executor(),
                     functools.partial(
                         self._w3.eth.getLogs,
                         event_filter_params))

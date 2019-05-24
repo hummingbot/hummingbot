@@ -14,11 +14,11 @@ from typing import (
 )
 
 from hummingbot.logger import HummingbotLogger
-from wings.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
-from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
-from wings.order_book_message import OrderBookMessageType, BambooRelayOrderBookMessage
-from wings.order_book_tracker_entry import BambooRelayOrderBookTrackerEntry
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType, BambooRelayOrderBookMessage
+from hummingbot.core.data_type.order_book_tracker_entry import BambooRelayOrderBookTrackerEntry
 from hummingbot.market.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
 from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
 

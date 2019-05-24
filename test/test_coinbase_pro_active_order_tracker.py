@@ -11,10 +11,10 @@ from typing import (
     Optional
 )
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
-from wings.order_book import OrderBook
-from wings.order_book_tracker import OrderBookTrackerDataSourceType
-from wings.order_book_message import CoinbaseProOrderBookMessage
-from wings.order_book_row import OrderBookRow
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.order_book_message import CoinbaseProOrderBookMessage
+from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 test_symbol = "BTC-USD"
 

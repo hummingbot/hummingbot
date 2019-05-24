@@ -12,8 +12,8 @@ from typing import (
 import ujson
 
 from hummingbot.logger import HummingbotLogger
-from wings.order_book cimport OrderBook
-from wings.order_book_message import (
+from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.order_book_message import (
     DDEXOrderBookMessage,
     OrderBookMessage,
     OrderBookMessageType

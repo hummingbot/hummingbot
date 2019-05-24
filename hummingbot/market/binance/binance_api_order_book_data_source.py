@@ -17,11 +17,11 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 
 from hummingbot.market.binance.binance_order_book import BinanceOrderBook
-from hummingbot.cli.utils import async_ttl_cache
+from hummingbot.core.utils import async_ttl_cache
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.data_source.order_book_tracker_data_source import OrderBookTrackerDataSource
-from wings.order_book_tracker_entry import OrderBookTrackerEntry
-from wings.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
 
 TRADING_PAIR_FILTER = re.compile(r"(BTC|ETH|USDT)$")
 

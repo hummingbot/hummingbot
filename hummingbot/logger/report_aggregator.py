@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from wings.logger.struct_logger import StructLogger
+from hummingbot.logger.struct_logger import StructLogger
 from collections import defaultdict
 from typing import Optional
 REPORT_EVENT_QUEUE = asyncio.Queue()

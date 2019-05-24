@@ -7,7 +7,7 @@ import numpy as np
 from decimal import Decimal
 
 from hummingbot.logger import HummingbotLogger
-from wings.order_book_row import OrderBookRow
+from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 s_empty_diff = np.ndarray(shape=(0, 4), dtype="float64")
 _ddaot_logger = None

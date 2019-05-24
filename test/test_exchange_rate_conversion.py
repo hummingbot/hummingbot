@@ -5,10 +5,8 @@ import sys;sys.path.insert(0, realpath(join(__file__, "../../")))
 import asyncio
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 import logging; logging.basicConfig(level=logging.ERROR)
-import pandas as pd
-from typing import List
 import unittest
-from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 
 
 class MockDataFeed1(DataFeedBase):

@@ -15,23 +15,23 @@ from typing import (
 )
 
 from hummingbot.core.clock cimport Clock
-from wings.events import (
+from hummingbot.core.event.events import (
     MarketEvent,
     TradeType
 )
-from wings.event_listener cimport EventListener
-from wings.limit_order cimport LimitOrder
-from wings.limit_order import LimitOrder
+from hummingbot.core.event.event_listener cimport EventListener
+from hummingbot.core.data_type.limit_order cimport LimitOrder
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.market.market_base import (
     MarketBase,
     OrderType
 )
-from wings.market_order import MarketOrder
-from wings.order_book import OrderBook
+from hummingbot.core.data_type.market_order import MarketOrder
+from hummingbot.core.data_type.order_book import OrderBook
 from .cross_exchange_market_pair import CrossExchangeMarketPair
 from hummingbot.strategy.strategy_base import StrategyBase
-from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
