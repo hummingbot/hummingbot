@@ -791,6 +791,7 @@ cdef class CoinbaseProMarket(MarketBase):
                 self.c_stop_tracking_order(order_id)
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
+                return order_id
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -800,7 +801,7 @@ cdef class CoinbaseProMarket(MarketBase):
                 app_warning_msg=f"Failed to cancel the order {order_id} on Coinbase Pro. "
                                 f"Check API key and network connection."
             )
-        return order_id
+        return None
 
     cdef c_cancel(self, str symbol, str order_id):
         asyncio.ensure_future(self.execute_cancel(symbol, order_id))
@@ -808,31 +809,25 @@ cdef class CoinbaseProMarket(MarketBase):
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
-        exchange_order_id_map = dict(zip([o.exchange_order_id for o in incomplete_orders], incomplete_orders))
+        tasks = [self.execute_cancel(o.symbol, o.client_order_id) for o in incomplete_orders]
+        order_id_set = set([o.client_order_id for o in incomplete_orders])
         successful_cancellations = []
 
         try:
-            path_url = "/orders"
             async with timeout(timeout_seconds):
-                results = await self._api_request("delete", path_url=path_url)
-
-            for exchange_order_id in results:
-                order = exchange_order_id_map.get(exchange_order_id)
-                if order is not None:
-                    exchange_order_id_map.pop(exchange_order_id, None)
-                    successful_cancellations.append(CancellationResult(order.client_order_id, True))
-        except asyncio.CancelledError:
-            raise
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                for client_order_id in results:
+                    if type(client_order_id) is str:
+                        order_id_set.remove(client_order_id)
+                        successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception:
             self.logger().network(
                 f"Unexpected error cancelling orders.",
                 exc_info=True,
-                app_warning_msg=f"Failed to cancel orders on Coinbase Pro. "
-                                f"Check API key and network connection."
+                app_warning_msg="Failed to cancel order on Coinbase Pro. Check API key and network connection."
             )
 
-        failed_cancellations = [CancellationResult(order.client_order_id, False)
-                                for order in list(exchange_order_id_map.values())]
+        failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
         return successful_cancellations + failed_cancellations
 
     async def get_active_exchange_markets(self):

@@ -16,7 +16,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.binance import (
+from hummingbot.market.binance.binance_market import (
     BinanceMarket,
     BinanceTime
 )
@@ -35,7 +35,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     TradeFee
 )
-from hummingbot.wallet.mock_wallet import MockWallet
+from hummingbot.wallet.ethereum.mock_wallet import MockWallet
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
