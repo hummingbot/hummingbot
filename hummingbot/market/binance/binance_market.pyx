@@ -1,4 +1,5 @@
 import math
+from numpy import format_float_positional
 import aiohttp
 from aiokafka import (
     AIOKafkaConsumer,
@@ -975,7 +976,7 @@ cdef class BinanceMarket(MarketBase):
                 order_result = await self.query_api(self._binance_client.order_limit_buy,
                                                     symbol=symbol,
                                                     quantity=str(decimal_amount),
-                                                    price=price,
+                                                    price=format_float_positional(price),
                                                     newClientOrderId=order_id)
             elif order_type is OrderType.MARKET:
                 order_result = await self.query_api(self._binance_client.order_market_buy,
@@ -1037,6 +1038,7 @@ cdef class BinanceMarket(MarketBase):
             raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
 
+
         try:
             self.c_start_tracking_order(order_id, -1, symbol, False, decimal_amount, order_type)
             order_result = None
@@ -1044,7 +1046,7 @@ cdef class BinanceMarket(MarketBase):
                 order_result = await self.query_api(self._binance_client.order_limit_sell,
                                                     symbol=symbol,
                                                     quantity=str(decimal_amount),
-                                                    price=str(price),
+                                                    price=format_float_positional(price),
                                                     newClientOrderId=order_id)
             elif order_type is OrderType.MARKET:
                 order_result = await self.query_api(self._binance_client.order_market_sell,
