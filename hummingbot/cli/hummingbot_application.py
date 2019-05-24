@@ -453,11 +453,11 @@ class HummingbotApplication:
         lines.append("\n  Warnings:")
 
         if len(self._app_warnings) < self.APP_WARNING_STATUS_LIMIT:
-            for app_warning in self._app_warnings:
+            for app_warning in reversed(self._app_warnings):
                 lines.append(f"    * ({app_warning.logger_name}) - {app_warning.warning_msg}")
         else:
             module_based_warnings: OrderedDict = OrderedDict()
-            for app_warning in self._app_warnings:
+            for app_warning in reversed(self._app_warnings):
                 logger_name: str = app_warning.logger_name
                 if logger_name not in module_based_warnings:
                     module_based_warnings[logger_name] = deque([app_warning])
