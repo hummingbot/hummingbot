@@ -8,7 +8,7 @@ from typing import (
 )
 
 from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
-
+from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.discovery.discovery_market_pair import DiscoveryMarketPair
 from hummingbot.strategy.arbitrage import ArbitrageStrategy
 from hummingbot.strategy.strategy_base cimport StrategyBase
@@ -27,7 +27,7 @@ cdef class DiscoveryStrategy(StrategyBase):
     OPTION_LOG_ALL = 0xfffffffffffffff
 
     @classmethod
-    def logger(cls):
+    def logger(cls) -> HummingbotLogger:
         global ds_logger
         if ds_logger is None:
             ds_logger = logging.getLogger(__name__)
@@ -121,7 +121,9 @@ cdef class DiscoveryStrategy(StrategyBase):
             self._matching_pairs = self.get_matching_pair(market_pair)
 
         except Exception as e:
-            self.logger().error(str(e), exc_info=True)
+            self.logger().network(f"Could not fetch market info for {market_pair}", exc_info=True,
+                                  app_warning_msg=f"Failed to fetch market info for {market_pair}. "
+                                                  f"Check network connection.")
 
     def get_matching_pair(self, market_pair):
         market_1 = market_pair.market_1
@@ -162,11 +164,11 @@ cdef class DiscoveryStrategy(StrategyBase):
             if not self._all_markets_ready:
                 # Markets not ready yet. Don't do anything.
                 return
-        try:
-            for market_pair in self._market_pairs:
+        for market_pair in self._market_pairs:
+            try:
                 self.c_process_market_pair(market_pair)
-        except Exception:
-            self.logger().error(f"Unexpected error running tick.", exc_info=True)
+            except Exception:
+                self.logger().error(f"Error processing market pair {market_pair}.", exc_info=True)
 
         cdef:
             int64_t current_tick

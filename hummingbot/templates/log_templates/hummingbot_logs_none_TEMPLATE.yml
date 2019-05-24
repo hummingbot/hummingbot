@@ -1,6 +1,6 @@
 ---
 version: 1
-template_version: 3
+template_version: 4
 
 formatters:
     simple:
@@ -39,11 +39,11 @@ handlers:
 
 loggers:
     hummingbot.public_eth_address:
-        level: INFO
+        level: NETWORK
         propagate: no
         handlers: ["null"]
     hummingbot.command_history:
-        level: INFO
+        level: NETWORK
         propagate: no
         handlers: ["null"]
     hummingbot.logger.report_aggregator:
@@ -59,15 +59,15 @@ loggers:
         propagate: false
         handlers: [console, file_handler]
     hummingbot.strategy:
-        level: INFO
+        level: NETWORK
         handlers: [console, file_handler]
         propagate: false
     hummingbot.market:
-        level: INFO
+        level: NETWORK
         handlers: [console, file_handler]
         propagate: false
     hummingbot.wallet:
-        level: INFO
+        level: NETWORK
         handlers: [console, file_handler]
         propagate: false
     wings.event_reporter:
@@ -75,7 +75,7 @@ loggers:
         handlers: [file_handler]
         propagate: false
     conf:
-        level: INFO
+        level: NETWORK
         handlers: ["null"]
         propagate: false
 
