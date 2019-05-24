@@ -8,7 +8,6 @@ from hummingbot.logger.struct_logger import (
     StructLogRecord,
     StructLogger
 )
-from hummingbot.logger.reporting_proxy_handler import ReportingProxyHandler
 
 STRUCT_LOGGER_SET = False
 _prefix_path = None
@@ -58,6 +57,7 @@ def check_dev_mode():
 
 
 def add_remote_logger_handler(loggers):
+    from hummingbot.logger.reporting_proxy_handler import ReportingProxyHandler
     root_logger = logging.getLogger()
     try:
         remote_logger = ReportingProxyHandler(level="DEBUG",
