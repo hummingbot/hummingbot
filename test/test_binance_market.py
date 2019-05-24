@@ -316,12 +316,14 @@ class BinanceMarketUnitTest(unittest.TestCase):
         quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price * 1.5)
 
         self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        self.market.buy("LOOMETH", amount)
         self.market.sell(symbol, quantized_amount, OrderType.LIMIT, quantize_ask_price)
 
         self.run_parallel(asyncio.sleep(1))
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
+        self.market.sell("LOOMETH", amount)
 
     def test_order_price_precision(self):
         symbol = "IOSTETH"
@@ -329,7 +331,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
         ask_price: float = self.market.get_price(symbol, False)
         amount: float = 0.02 / bid_price
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
-        order_id = self.market.buy("IOSTETH", amount)
+        self.market.buy("IOSTETH", amount)
 
         # Intentionally setting invalid price to prevent getting filled
         quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price * 0.7)
@@ -344,7 +346,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
-        order_id = self.market.sell("IOSTETH", amount)
+        self.market.sell("IOSTETH", amount)
 
     def test_server_time_offset(self):
         BinanceTime.get_instance().SERVER_TIME_OFFSET_CHECK_INTERVAL = 3.0
