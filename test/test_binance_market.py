@@ -326,7 +326,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
     def test_server_time_offset(self):
         BinanceTime.get_instance().SERVER_TIME_OFFSET_CHECK_INTERVAL = 3.0
         self.run_parallel(asyncio.sleep(60))
-        with patch("wings.binance_market.time") as market_time:
+        with patch("hummingbot.market.binance.binance_market.time") as market_time:
             def delayed_time():
                 return time.time() - 30.0
             market_time.time = delayed_time

@@ -89,14 +89,6 @@ ModuleNotFoundError: No module named `zero_ex`
 ```
 **Resolution:** Fixed in [v0.4.0](/release-notes/0.4.0); the cause was missing libraries in `setup/environment-linux.yml`
 
-### No module named `wings.web3_wallet`
-
-Users reported the following error upon starting Hummingbot:
-```
-ModuleNotFoundError: No module named 'wings.web3_wallet' 
-```
-**Resolution:** Make sure that you are in the root hummingbot directory when compiling or starting Hummingbot.
-
 ### Pip subprocess error: failed building wheel for...
 
 Users who install Hummingbot from source on Ubuntu saw the following error upon running `./compile`:

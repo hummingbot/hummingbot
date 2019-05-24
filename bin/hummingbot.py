@@ -63,7 +63,7 @@ async def main():
     with patch_stdout(log_field=hb.app.log_field):
         dev_mode = check_dev_mode()
         if dev_mode:
-            hb.app.log("Running from dev branchs. Full remote logging will be enabled.")
+            hb.app.log("Running from dev branches. Full remote logging will be enabled.")
         init_logging("hummingbot_logs.yml",
                      override_log_level=global_config_map.get("log_level").value,
                      dev_mode=dev_mode)
