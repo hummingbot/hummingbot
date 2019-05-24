@@ -726,7 +726,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             hedged_order_quantity = min(
                 sell_fill_quantity,
                 (taker_market.c_get_balance(market_pair.taker_quote_currency) /
-                 taker_order_book.c_get_price_for_volume(True, sell_fill_quantity) *
+                 taker_order_book.c_get_price_for_volume(True, sell_fill_quantity).result_price *
                  self._order_size_taker_balance_factor)
             )
             quantized_hedge_amount = taker_market.c_quantize_order_amount(taker_symbol, hedged_order_quantity)
@@ -882,7 +882,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double maker_bid_price = maker_order_book.c_get_price_for_quote_volume(
                 False,
                 market_pair.top_depth_tolerance
-            )
+            ).result_price
             double taker_bid_price = taker_order_book.c_get_price(False)
             double maker_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.maker_quote_currency,
@@ -935,7 +935,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double maker_ask_price = maker_order_book.c_get_price_for_quote_volume(
                 True,
                 market_pair.top_depth_tolerance
-            )
+            ).result_price
             double taker_ask_price = taker_order_book.c_get_price(True)
             double maker_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.maker_quote_currency,
@@ -1083,14 +1083,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         try:
             top_bid_price = maker_order_book.c_get_price_for_quote_volume(
                 False, market_pair.top_depth_tolerance + own_order_depth
-            )
+            ).result_price
         except EnvironmentError:
             top_bid_price = maker_order_book.c_get_price(False)
 
         try:
             top_ask_price = maker_order_book.c_get_price_for_quote_volume(
                 True, market_pair.top_depth_tolerance + own_order_depth
-            )
+            ).result_price
         except EnvironmentError:
             top_ask_price = maker_order_book.c_get_price(True)
 
@@ -1118,8 +1118,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             # Calculate the order size limit from the minimal profitable hedge on the taker market.
             profitable_hedge_price = adjusted_taker_price * (1 + self._min_profitability)
-            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(False, profitable_hedge_price) *
-                                           self._order_size_taker_volume_factor)
+            taker_order_book_size_limit = (
+                taker_order_book.c_get_volume_for_price(False, profitable_hedge_price).result_volume *
+                self._order_size_taker_volume_factor
+            )
 
             raw_size_limit = min(
                 taker_order_book_size_limit,
@@ -1152,8 +1154,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             # Calculate the order size limit from the minimal profitable hedge on the taker market.
             profitable_hedge_price = adjusted_taker_price / (1 + self._min_profitability)
-            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(True, profitable_hedge_price) *
-                                           self._order_size_taker_volume_factor)
+            taker_order_book_size_limit = (
+                taker_order_book.c_get_volume_for_price(True, profitable_hedge_price).result_volume *
+                self._order_size_taker_volume_factor
+            )
 
             raw_size_limit = min(
                 taker_order_book_size_limit,
@@ -1315,7 +1319,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
         if is_buy:
             above_price = order_price + float(price_quantum)
-            above_quote_volume = maker_order_book.c_get_quote_volume_for_price(False, above_price)
+            above_quote_volume = maker_order_book.c_get_quote_volume_for_price(False, above_price).result_volume
             suggested_price, order_size_limit = self.c_get_market_making_price_and_size_limit(
                 market_pair,
                 True,
@@ -1358,7 +1362,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 return False
         else:
             above_price = order_price - float(price_quantum)
-            above_quote_volume = maker_order_book.c_get_quote_volume_for_price(True, above_price)
+            above_quote_volume = maker_order_book.c_get_quote_volume_for_price(True, above_price).result_volume
             suggested_price, order_size_limit = self.c_get_market_making_price_and_size_limit(
                 market_pair,
                 False,

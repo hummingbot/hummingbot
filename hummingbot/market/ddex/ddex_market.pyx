@@ -681,7 +681,7 @@ cdef class DDEXMarket(MarketBase):
         # Convert the amount to quote tokens amount, for market buy orders, as required by DDEX order API.
         if order_type is OrderType.MARKET:
             quote_amount = (<OrderBook>self.c_get_order_book(symbol)).c_get_quote_volume_for_base_amount(
-                True, amount)
+                True, amount).result_volume
 
             # Quantize according to price rules, not base token amount rules.
             q_amt = str(self.c_quantize_order_price(symbol, quote_amount))
