@@ -53,22 +53,22 @@ loggers:
     hummingbot.logger.log_server_client:
         level: WARNING
         propagate: false
-        handlers: [console, file_handler]
+        handlers: [console_info, file_handler]
     hummingbot.logger.reporting_proxy_handler:
         level: WARNING
         propagate: false
-        handlers: [console, file_handler]
+        handlers: [console_info, file_handler]
     hummingbot.strategy:
         level: NETWORK
-        handlers: [console, file_handler]
+        handlers: [console_info, file_handler]
         propagate: false
     hummingbot.market:
       level: NETWORK
-        handlers: [console, file_handler]
+        handlers: [console_info, file_handler]
         propagate: false
     hummingbot.wallet:
         level: NETWORK
-        handlers: [console, file_handler]
+        handlers: [console_info, file_handler]
         propagate: false
     wings.event_reporter:
         level: EVENT_LOG

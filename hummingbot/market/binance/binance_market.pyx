@@ -412,13 +412,22 @@ cdef class BinanceMarket(MarketBase):
             binance_client_module.time = BinanceTime.get_instance()
             BinanceTime.get_instance().start()
 
-    async def schedule_async_call(self, coro: Coroutine, timeout_seconds: float) -> any:
+    async def schedule_async_call(
+            self,
+            coro: Coroutine,
+            timeout_seconds: float,
+            app_warning_msg: str = "Binance API call failed. Check API key and network connection.") -> any:
         return await self._async_scheduler.schedule_async_call(coro, timeout_seconds)
 
-    async def query_api(self, func, *args, **kwargs) -> Dict[str, any]:
+    async def query_api(
+            self,
+            func,
+            *args,
+            app_warning_msg: str = "Binance API call failed. Check API key and network connection.",
+            **kwargs) -> Dict[str, any]:
         async with timeout(self.API_CALL_TIMEOUT):
             coro = self._ev_loop.run_in_executor(wings.get_executor(), partial(func, *args, **kwargs))
-            return await self.schedule_async_call(coro, self.API_CALL_TIMEOUT)
+            return await self.schedule_async_call(coro, self.API_CALL_TIMEOUT, app_warning_msg=app_warning_msg)
 
     async def query_url(self, url) -> any:
         async with aiohttp.ClientSession() as client:

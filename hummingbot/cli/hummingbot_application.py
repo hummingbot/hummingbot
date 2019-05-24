@@ -454,7 +454,8 @@ class HummingbotApplication:
 
         if len(self._app_warnings) < self.APP_WARNING_STATUS_LIMIT:
             for app_warning in reversed(self._app_warnings):
-                lines.append(f"    * ({app_warning.logger_name}) - {app_warning.warning_msg}")
+                lines.append(f"    * {pd.Timestamp(app_warning.timestamp, unit='s')} - "
+                             f"({app_warning.logger_name}) - {app_warning.warning_msg}")
         else:
             module_based_warnings: OrderedDict = OrderedDict()
             for app_warning in reversed(self._app_warnings):
@@ -471,7 +472,8 @@ class HummingbotApplication:
                     warning_item: ApplicationWarning = module_based_warnings[key].popleft()
                     if len(module_based_warnings[key]) < 1:
                         del module_based_warnings[key]
-                    warning_lines.append(f"    * ({key}) - {warning_item.warning_msg}")
+                    warning_lines.append(f"    * {pd.Timestamp(warning_item.timestamp, unit='s')} - "
+                                         f"({key}) - {warning_item.warning_msg}")
             lines.extend(warning_lines[:self.APP_WARNING_STATUS_LIMIT])
 
         return "\n".join(lines)
