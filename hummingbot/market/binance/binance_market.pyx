@@ -1,5 +1,4 @@
 import math
-from numpy import format_float_positional
 import aiohttp
 from aiokafka import (
     AIOKafkaConsumer,
@@ -973,15 +972,18 @@ cdef class BinanceMarket(MarketBase):
             self.c_start_tracking_order(order_id, -1, symbol, True, decimal_amount, order_type)
             order_result = None
             if order_type is OrderType.LIMIT:
+                order_price = f"{Decimal(str(price)):f}"
+                order_decimal_amount = f"{Decimal(str(decimal_amount)):f}"
                 order_result = await self.query_api(self._binance_client.order_limit_buy,
                                                     symbol=symbol,
-                                                    quantity=str(decimal_amount),
-                                                    price=format_float_positional(price),
+                                                    quantity=order_decimal_amount,
+                                                    price=order_price,
                                                     newClientOrderId=order_id)
             elif order_type is OrderType.MARKET:
+                order_decimal_amount = f"{Decimal(str(decimal_amount)):f}"
                 order_result = await self.query_api(self._binance_client.order_market_buy,
                                                     symbol=symbol,
-                                                    quantity=str(decimal_amount),
+                                                    quantity=order_decimal_amount,
                                                     newClientOrderId=order_id)
             else:
                 raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
@@ -1043,15 +1045,18 @@ cdef class BinanceMarket(MarketBase):
             self.c_start_tracking_order(order_id, -1, symbol, False, decimal_amount, order_type)
             order_result = None
             if order_type is OrderType.LIMIT:
+                order_price = f"{Decimal(str(price)):f}"
+                order_decimal_amount = f"{Decimal(str(decimal_amount)):f}"
                 order_result = await self.query_api(self._binance_client.order_limit_sell,
                                                     symbol=symbol,
-                                                    quantity=str(decimal_amount),
-                                                    price=format_float_positional(price),
+                                                    quantity=order_decimal_amount,
+                                                    price=order_price,
                                                     newClientOrderId=order_id)
             elif order_type is OrderType.MARKET:
+                order_decimal_amount = f"{Decimal(str(decimal_amount)):f}"
                 order_result = await self.query_api(self._binance_client.order_market_sell,
                                                     symbol=symbol,
-                                                    quantity=str(decimal_amount),
+                                                    quantity=order_decimal_amount,
                                                     newClientOrderId=order_id)
             else:
                 raise ValueError(f"Invalid OrderType {order_type}. Aborting.")

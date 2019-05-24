@@ -626,8 +626,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         bid_order_id = self.c_buy_with_specific_market(
                     maker_market,
                     market_pair.maker_symbol,
-                    float(self.order_size),
-                    float(place_bid_price),
+                    self.order_size,
+                    place_bid_price,
                     OrderType.LIMIT,
                     expiration_seconds
                 )
@@ -651,8 +651,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         ask_order_id = self.c_sell_with_specific_market(
                     maker_market,
                     market_pair.maker_symbol,
-                    float(self.order_size),
-                    float(place_ask_price),
+                    self.order_size,
+                    place_ask_price,
                     OrderType.LIMIT,
                     expiration_seconds
                 )
