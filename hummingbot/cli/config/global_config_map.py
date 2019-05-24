@@ -136,7 +136,7 @@ global_config_map = {
                                                   default=-1.0,
                                                   type_str="float"),
     "stop_loss_price_type":             ConfigVar(key="stop_loss_price_type",
-                                                  prompt="Would type of price data would you like to use for stop "
+                                                  prompt="What type of price data would you like to use for stop "
                                                          "loss (fixed/dynamic) ? >>> ",
                                                   required_if=lambda:
                                                       type(global_config_map.get("stop_loss_pct").value) is float and
