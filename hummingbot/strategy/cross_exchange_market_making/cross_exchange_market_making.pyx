@@ -891,7 +891,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 taker_bid_price
             )
         if bid_order_size == 0.0:
-            return maker_bid_price_adjusted / taker_bid_price_adjusted - 1
+            return taker_bid_price_adjusted / maker_bid_price_adjusted - 1
         
         cdef:
             object maker_bid_fee = (<MarketBase>(market_pair.maker_market)).c_get_fee(
@@ -946,7 +946,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 taker_ask_price
             )
         if ask_order_size == 0.0:
-            return taker_ask_price_adjusted / maker_ask_price_adjusted - 1
+            return maker_ask_price_adjusted / taker_ask_price_adjusted - 1
 
         cdef:
             object maker_ask_fee = (<MarketBase>(market_pair.maker_market)).c_get_fee(
