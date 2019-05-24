@@ -40,7 +40,7 @@ class HummingbotLogger(PythonLogger):
                 self.findCaller(),
                 app_warning_msg
             )
-            self.warning(app_warning)
+            self.warning(app_warning.warning_msg)
             hummingbot_app: HummingbotApplication = HummingbotApplication.main_application()
             hummingbot_app.add_application_warning(app_warning)
 

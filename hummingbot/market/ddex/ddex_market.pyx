@@ -343,7 +343,11 @@ cdef class DDEXMarket(MarketBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error while fetching account updates.", exc_info=True)
+                self.logger().network(
+                    "Unexpected error while fetching account and status updates.",
+                    exc_info=True,
+                    app_warning_msg=f"Failed to fetch account updates on DDEX. Check network connection."
+                )
 
     def _update_balances(self):
         self._account_balances = self.wallet.get_all_balances()
@@ -375,14 +379,18 @@ cdef class DDEXMarket(MarketBase):
 
         for order_update, tracked_order in zip(results, tracked_orders):
             if isinstance(order_update, Exception):
-                self.logger().error(f"Error fetching status update for the order {tracked_order.client_order_id}: "
-                                    f"{order_update}.")
+                self.logger().network(
+                    f"Error fetching status update for the order {tracked_order.client_order_id}: "
+                    f"{order_update}.",
+                    app_warning_msg=f"Failed to fetch status update for the order {tracked_order.client_order_id}. "
+                                    f"Check Ethereum wallet and network connection."
+                )
                 continue
 
             # Check the exchange order ID against the expected value.
             exchange_order_id = order_update["id"]
             if exchange_order_id != tracked_order.exchange_order_id:
-                self.logger().warning(f"Incorrect exchange order id '{exchange_order_id}' returned from get order "
+                self.logger().network(f"Incorrect exchange order id '{exchange_order_id}' returned from get order "
                                       f"request for '{tracked_order.exchange_order_id}'. Ignoring.")
 
                 # Capture the incorrect request / response conversation for submitting to DDEX.
@@ -390,15 +398,15 @@ cdef class DDEXMarket(MarketBase):
                 response = self._api_response_records.get(request_url)
 
                 if response is not None:
-                    self.logger().info(f"Captured erroneous order update request/response. "
-                                       f"Request URL={response.real_url}, "
-                                       f"Request headers={response.request_info.headers}, "
-                                       f"Response headers={response.headers}, "
-                                       f"Response data={repr(response._body)}, "
-                                       f"Decoded order update={order_update}.")
+                    self.logger().network(f"Captured erroneous order update request/response. "
+                                          f"Request URL={response.real_url}, "
+                                          f"Request headers={response.request_info.headers}, "
+                                          f"Response headers={response.headers}, "
+                                          f"Response data={repr(response._body)}, "
+                                          f"Decoded order update={order_update}.")
                 else:
-                    self.logger().info(f"Failed to capture the erroneous request/response for getting the order update "
-                                       f"of the order {tracked_order.exchange_order_id}.")
+                    self.logger().network(f"Failed to capture the erroneous request/response for getting the order update "
+                                          f"of the order {tracked_order.exchange_order_id}.")
 
                 continue
 
@@ -500,7 +508,12 @@ cdef class DDEXMarket(MarketBase):
                         if receipt is not None:
                             self._pending_approval_tx_hashes.remove(tx_hash)
             except Exception:
-                self.logger().error("Unexpected error while fetching approval transactions.", exc_info=True)
+                self.logger().network(
+                    "Unexpected error while fetching approval transactions.",
+                    exc_info=True,
+                    app_warning_msg="Could not get token approval status. "
+                                    "Check Ethereum wallet and network connection."
+                )
             finally:
                 await asyncio.sleep(1.0)
 
@@ -580,7 +593,9 @@ cdef class DDEXMarket(MarketBase):
         elif quote_currency in ["DAI", "TUSD", "USDC", "PAX", "USDT"]:
             gas_fee = self._gas_fee_usd
         else:
-            self.logger().warning(f"Unrecognized quote token symbol - {quote_currency}. Assuming gas fee is in stable coin units.")
+            self.logger().warning(
+                f"Unrecognized quote token symbol - {quote_currency}. Assuming gas fee is in stable coin units."
+            )
             gas_fee = self._gas_fee_usd
         percent = self._maker_trade_fee if order_type is OrderType.LIMIT else self._taker_trade_fee
         return TradeFee(percent, flat_fees = [(quote_currency, gas_fee)])
@@ -681,7 +696,7 @@ cdef class DDEXMarket(MarketBase):
         # Convert the amount to quote tokens amount, for market buy orders, as required by DDEX order API.
         if order_type is OrderType.MARKET:
             quote_amount = (<OrderBook>self.c_get_order_book(symbol)).c_get_quote_volume_for_base_amount(
-                True, amount)
+                True, amount).result_volume
 
             # Quantize according to price rules, not base token amount rules.
             q_amt = str(self.c_quantize_order_price(symbol, quote_amount))
@@ -720,7 +735,12 @@ cdef class DDEXMarket(MarketBase):
             return order_id
         except Exception:
             self.c_stop_tracking_order(order_id)
-            self.logger().error(f"Error submitting buy order to DDEX for {amount} {symbol}.", exc_info=True)
+            self.logger().network(
+                f"Error submitting buy order to DDEX for {amount} {symbol}.",
+                exc_info=True,
+                app_warning_msg=f"Failed to submit buy order to DDEX. "
+                                f"Check Ethereum wallet and network connection."
+            )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp,
                                                          order_id,
@@ -771,7 +791,12 @@ cdef class DDEXMarket(MarketBase):
             return order_id
         except Exception:
             self.c_stop_tracking_order(order_id)
-            self.logger().error(f"Error submitting sell order to DDEX for {amount} {symbol}.", exc_info=True)
+            self.logger().network(
+                f"Error submitting sell order to DDEX for {amount} {symbol}.",
+                exc_info=True,
+                app_warning_msg=f"Failed to submit sell order to DDEX. "
+                                f"Check Ethereum wallet and network connection."
+            )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp,
                                                          order_id,
@@ -818,7 +843,11 @@ cdef class DDEXMarket(MarketBase):
                         order_id_set.remove(client_order_id)
                         successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception:
-            self.logger().error(f"Unexpected error cancelling orders.", exc_info=True)
+            self.logger().network(
+                f"Unexpected error cancelling orders.",
+                exc_info=True,
+                app_warning_msg=f"Failed to cancel orders on DDEX. Check Ethereum wallet and network connection."
+            )
 
         failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
         return successful_cancellations + failed_cancellations

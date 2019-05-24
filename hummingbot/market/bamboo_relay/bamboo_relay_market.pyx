@@ -326,7 +326,11 @@ cdef class BambooRelayMarket(MarketBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error while fetching account updates.", exc_info=True)
+                self.logger().network(
+                    "Unexpected error while fetching account updates.",
+                    exc_info=True,
+                    app_warning_msg="Failed to fetch account updates on Bamboo Relay. Check network connection."
+                )
                 await asyncio.sleep(0.5)
 
     cdef object c_get_fee(self,
@@ -411,8 +415,13 @@ cdef class BambooRelayMarket(MarketBase):
             order_updates = await self._get_order_updates(tracked_limit_orders)
             for order_update, tracked_limit_order in zip(order_updates, tracked_limit_orders):
                 if isinstance(order_update, Exception):
-                    self.logger().error(f"Error fetching status update for the order "
-                                        f"{tracked_limit_order.client_order_id}: {order_update}.")
+                    self.logger().network(
+                        f"Error fetching status update for the order "
+                        f"{tracked_limit_order.client_order_id}: {order_update}.",
+                        app_warning_msg=f"Failed to fetch status update for the order "
+                                        f"{tracked_limit_order.client_order_id}. "
+                                        f"Check Ethereum wallet and network connection."
+                    )
                     continue
                 previous_is_done = tracked_limit_order.is_done
                 previous_is_cancelled = tracked_limit_order.is_cancelled
@@ -517,8 +526,9 @@ cdef class BambooRelayMarket(MarketBase):
                     continue
 
                 if receipt["status"] == 0:
-                    self.logger().error(f"The market order {tracked_market_order.client_order_id}"
-                                        f"has failed according to transaction hash {tracked_market_order.tx_hash}.")
+                    err_msg = (f"The market order {tracked_market_order.client_order_id}"
+                               f"has failed according to transaction hash {tracked_market_order.tx_hash}.")
+                    self.logger().network(err_msg, app_warning_msg=err_msg)
                     self.c_trigger_event(
                         self.MARKET_ORDER_FAILURE_EVENT_TAG,
                         MarketOrderFailureEvent(self._current_timestamp,
@@ -567,9 +577,10 @@ cdef class BambooRelayMarket(MarketBase):
                                                                      float(tracked_market_order.gas_fee_amount),
                                                                      OrderType.MARKET))
                 else:
-                    self.logger().error(f"Unrecognized transaction status for market order "
-                                        f"{tracked_market_order.client_order_id}. Check transaction hash "
-                                        f"{tracked_market_order.tx_hash} for more details.")
+                    err_msg = (f"Unrecognized transaction status for market order "
+                               f"{tracked_market_order.client_order_id}. Check transaction hash "
+                               f"{tracked_market_order.tx_hash} for more details.")
+                    self.logger().network(err_msg, app_warning_msg=err_msg)
                     self.c_trigger_event(
                         self.MARKET_ORDER_FAILURE_EVENT_TAG,
                         MarketOrderFailureEvent(self._current_timestamp,
@@ -589,7 +600,12 @@ cdef class BambooRelayMarket(MarketBase):
                         if receipt is not None:
                             self._pending_approval_tx_hashes.remove(tx_hash)
             except Exception:
-                self.logger().error("Unexpected error while fetching approval transactions.", exc_info=True)
+                self.logger().network(
+                    "Unexpected error while fetching approval transactions.",
+                    exc_info=True,
+                    app_warning_msg="Could not get token approval status. "
+                                    "Check Ethereum wallet and network connection."
+                )
             finally:
                 await asyncio.sleep(1.0)
 
@@ -736,7 +752,12 @@ cdef class BambooRelayMarket(MarketBase):
                     elif receipt["status"] == 1:
                         return [CancellationResult(oid, True) for oid in incomplete_order_ids]
         except Exception:
-            self.logger().error(f"Unexpected error cancelling orders.", exc_info=True)
+            self.logger().network(
+                f"Unexpected error cancelling orders.",
+                exc_info=True,
+                app_warning_msg=f"Failed to cancel orders on Bamboo Relay. "
+                                f"Check Ethereum wallet and network connection."
+            )
         return [CancellationResult(oid, False) for oid in incomplete_order_ids]
 
     async def execute_trade(self,
@@ -752,13 +773,14 @@ cdef class BambooRelayMarket(MarketBase):
             object q_amt = self.c_quantize_order_amount(symbol, amount)
             TradingRule trading_rule = self._trading_rules[symbol]
             bint is_buy = order_side is TradeType.BUY
+            str order_side_desc = "buy" if is_buy else "sell"
         try:
             if float(q_amt) < trading_rule.min_order_size:
-                raise ValueError(f"Buy order amount {q_amt} is lower than the minimum order size "
-                                 f" {trading_rule.min_order_size}")
+                raise ValueError(f"{order_side_desc.capitalize()} order amount {q_amt} is lower than the "
+                                 f"minimum order size {trading_rule.min_order_size}")
             if float(q_amt) > trading_rule.max_order_size:
-                raise ValueError(f"Buy order amount {q_amt} is greater than the maximum order size "
-                                 f"{trading_rule.max_order_size}")
+                raise ValueError(f"{order_side_desc.capitalize()} order amount {q_amt} is greater than the "
+                                 f"maximum order size {trading_rule.max_order_size}")
 
             if order_type is OrderType.LIMIT:
                 if math.isnan(price):
@@ -819,7 +841,12 @@ cdef class BambooRelayMarket(MarketBase):
             return order_id
         except Exception:
             self.c_stop_tracking_order(order_id)
-            self.logger().error(f"Error submitting trade order to Bamboo Relay for {str(q_amt)} {symbol}.", exc_info=True)
+            self.logger().network(
+                f"Error submitting {order_side_desc} order to Bamboo Relay for {str(q_amt)} {symbol}.",
+                exc_info=True,
+                app_warning_msg=f"Failed to submit {order_side_desc} order to Bamboo Relay. "
+                                f"Check Ethereum wallet and network connection."
+            )
             self.c_trigger_event(
                 self.MARKET_ORDER_FAILURE_EVENT_TAG,
                 MarketOrderFailureEvent(self._current_timestamp, order_id, order_type)

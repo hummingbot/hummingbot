@@ -10,7 +10,7 @@ from logging import (
 
 from .logger import HummingbotLogger
 
-NETWORK = DEBUG + 5
+NETWORK = DEBUG + 6
 
 __all__ = [
     "DEBUG",

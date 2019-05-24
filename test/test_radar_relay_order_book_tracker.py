@@ -41,12 +41,16 @@ class RadarRelayOrderBookTrackerUnitTest(unittest.TestCase):
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
         weth_dai_book: OrderBook = order_books["WETH-DAI"]
         zrx_weth_book: OrderBook = order_books["ZRX-WETH"]
-        print(weth_dai_book.snapshot)
-        print(zrx_weth_book.snapshot)
-        self.assertGreaterEqual(weth_dai_book.get_price_for_volume(True, 10), weth_dai_book.get_price(True))
-        self.assertLessEqual(weth_dai_book.get_price_for_volume(False, 10), weth_dai_book.get_price(False))
-        self.assertGreaterEqual(zrx_weth_book.get_price_for_volume(True, 10), zrx_weth_book.get_price(True))
-        self.assertLessEqual(zrx_weth_book.get_price_for_volume(False, 10), zrx_weth_book.get_price(False))
+        # print(weth_dai_book.snapshot)
+        # print(zrx_weth_book.snapshot)
+        self.assertGreaterEqual(weth_dai_book.get_price_for_volume(True, 10).result_price,
+                                weth_dai_book.get_price(True))
+        self.assertLessEqual(weth_dai_book.get_price_for_volume(False, 10).result_price,
+                             weth_dai_book.get_price(False))
+        self.assertGreaterEqual(zrx_weth_book.get_price_for_volume(True, 10).result_price,
+                                zrx_weth_book.get_price(True))
+        self.assertLessEqual(zrx_weth_book.get_price_for_volume(False, 10).result_price,
+                             zrx_weth_book.get_price(False))
 
 
 def main():

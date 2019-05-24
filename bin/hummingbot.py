@@ -59,7 +59,8 @@ async def main():
 
     read_configs_from_yml()
 
-    hb = HummingbotApplication()
+    if __name__ == '__main__':
+        hb = HummingbotApplication.main_application()
     with patch_stdout(log_field=hb.app.log_field):
         dev_mode = check_dev_mode()
         if dev_mode:

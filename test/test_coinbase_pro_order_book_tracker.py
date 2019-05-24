@@ -42,10 +42,12 @@ class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
         self.ev_loop.run_until_complete(asyncio.sleep(5.0))
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
         test_order_book: OrderBook = order_books[test_symbol]
-        print("test_order_book")
-        print(test_order_book.snapshot)
-        self.assertGreaterEqual(test_order_book.get_price_for_volume(True, 10), test_order_book.get_price(True))
-        self.assertLessEqual(test_order_book.get_price_for_volume(False, 10), test_order_book.get_price(False))
+        # print("test_order_book")
+        # print(test_order_book.snapshot)
+        self.assertGreaterEqual(test_order_book.get_price_for_volume(True, 10).result_price,
+                                test_order_book.get_price(True))
+        self.assertLessEqual(test_order_book.get_price_for_volume(False, 10).result_price,
+                             test_order_book.get_price(False))
 
         test_active_order_tracker = self.order_book_tracker._active_order_trackers[test_symbol]
         self.assertTrue(len(test_active_order_tracker.active_asks) > 0)

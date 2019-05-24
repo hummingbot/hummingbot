@@ -466,8 +466,12 @@ cdef class CoinbaseProMarket(MarketBase):
             exchange_order_id = await tracked_order.get_exchange_order_id()
             order_update = order_dict.get(exchange_order_id)
             if order_update is None:
-                self.logger().error(f"Error fetching status update for the order {tracked_order.client_order_id}: "
-                                    f"{order_update}.")
+                self.logger().network(
+                    f"Error fetching status update for the order {tracked_order.client_order_id}: "
+                    f"{order_update}.",
+                    app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id}. "
+                                    f"Check API key and network connection."
+                )
                 continue
 
             done_reason = order_update.get("done_reason")
@@ -708,8 +712,13 @@ cdef class CoinbaseProMarket(MarketBase):
         except Exception:
             self.c_stop_tracking_order(order_id)
             order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
-            self.logger().error(f"Error submitting buy {order_type_str} order to Coinbase Pro for "
-                                f"{decimal_amount} {symbol} {price}.", exc_info=True)
+            self.logger().network(
+                f"Error submitting buy {order_type_str} order to Coinbase Pro for "
+                f"{decimal_amount} {symbol} {price}.",
+                exc_info=True,
+                app_warning_msg="Failed to submit buy order to Coinbase Pro. "
+                                "Check API key and network connection."
+            )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
@@ -754,8 +763,13 @@ cdef class CoinbaseProMarket(MarketBase):
         except Exception:
             self.c_stop_tracking_order(order_id)
             order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
-            self.logger().error(f"Error submitting sell {order_type_str} order to Coinbase Pro for "
-                                f"{decimal_amount} {symbol} {price}.", exc_info=True)
+            self.logger().network(
+                f"Error submitting sell {order_type_str} order to Coinbase Pro for "
+                f"{decimal_amount} {symbol} {price}.",
+                exc_info=True,
+                app_warning_msg="Failed to submit sell order to Coinbase Pro. "
+                                "Check API key and network connection."
+            )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
@@ -777,8 +791,15 @@ cdef class CoinbaseProMarket(MarketBase):
                 self.c_stop_tracking_order(order_id)
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
-            self.logger().error(f"Failed to cancel order {order_id}: {str(e)}")
+            self.logger().network(
+                f"Failed to cancel order {order_id}: {str(e)}",
+                exc_info=True,
+                app_warning_msg=f"Failed to cancel the order {order_id} on Coinbase Pro. "
+                                f"Check API key and network connection."
+            )
         return order_id
 
     cdef c_cancel(self, str symbol, str order_id):
@@ -787,6 +808,7 @@ cdef class CoinbaseProMarket(MarketBase):
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
+        exchange_order_id_map = dict(zip([o.exchange_order_id for o in incomplete_orders], incomplete_orders))
         successful_cancellations = []
 
         try:
@@ -794,14 +816,20 @@ cdef class CoinbaseProMarket(MarketBase):
             async with timeout(timeout_seconds):
                 results = await self._api_request("delete", path_url=path_url)
 
-            exchange_order_id_map = dict(zip([o.exchange_order_id for o in incomplete_orders], incomplete_orders))
             for exchange_order_id in results:
                 order = exchange_order_id_map.get(exchange_order_id)
                 if order is not None:
                     exchange_order_id_map.pop(exchange_order_id, None)
                     successful_cancellations.append(CancellationResult(order.client_order_id, True))
+        except asyncio.CancelledError:
+            raise
         except Exception:
-            self.logger().error(f"Unexpected error cancelling orders.", exc_info=True)
+            self.logger().network(
+                f"Unexpected error cancelling orders.",
+                exc_info=True,
+                app_warning_msg=f"Failed to cancel orders on Coinbase Pro. "
+                                f"Check API key and network connection."
+            )
 
         failed_cancellations = [CancellationResult(order.client_order_id, False)
                                 for order in list(exchange_order_id_map.values())]
@@ -824,7 +852,12 @@ cdef class CoinbaseProMarket(MarketBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error while fetching account updates.", exc_info=True)
+                self.logger().network(
+                    "Unexpected error while fetching account updates.",
+                    exc_info=True,
+                    app_warning_msg=f"Could not fetch account updates on Coinbase Pro. "
+                                    f"Check API key and network connection."
+                )
 
     async def _trading_rules_polling_loop(self):
         while True:
@@ -834,7 +867,12 @@ cdef class CoinbaseProMarket(MarketBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error while fetching trading rules.", exc_info=True)
+                self.logger().network(
+                    "Unexpected error while fetching trading rules.",
+                    exc_info=True,
+                    app_warning_msg=f"Could not fetch trading rule updates on Coinbase Pro. "
+                                    f"Check network connection."
+                )
                 await asyncio.sleep(0.5)
 
     async def get_order(self, client_order_id: str) -> Dict[str, Any]:
@@ -878,7 +916,7 @@ cdef class CoinbaseProMarket(MarketBase):
         try:
             to_address = await self.get_deposit_address(currency)
         except Exception as e:
-            self.logger().error(f"Error fetching deposit address for {currency}. {e}", exc_info=True)
+            self.logger().network(f"Error fetching deposit address for {currency}. {e}", exc_info=True)
             self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                                  MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
             return
@@ -917,7 +955,12 @@ cdef class CoinbaseProMarket(MarketBase):
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            self.logger().error(f"Error sending withdraw request to Coinbase Pro for {currency}.", exc_info=True)
+            self.logger().network(
+                f"Error sending withdraw request to Coinbase Pro for {currency}.",
+                exc_info=True,
+                app_warning_msg=f"Failed to issue withdrawal request for {currency} from Coinbase Pro. "
+                                f"Check API key and network connection."
+            )
             self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                                  MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
 

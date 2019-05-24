@@ -42,7 +42,7 @@ async def main():
     await create_yml_files()
     init_logging("hummingbot_logs.yml")
     read_configs_from_yml()
-    hb = HummingbotApplication()
+    hb = HummingbotApplication.main_application()
     hb.acct = unlock_wallet(public_key=WALLET_PUBLIC_KEY, password=WALLET_PASSWORD)
 
     with patch_stdout(log_field=hb.app.log_field):

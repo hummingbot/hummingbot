@@ -53,8 +53,10 @@ class CoinMetricsDataFeed(DataFeedBase):
                 await self.fetch_data()
             except asyncio.CancelledError:
                 raise
-            except Exception as e:
-                self.logger().error(f"Error getting data from {self.name}", exc_info=True)
+            except Exception:
+                self.logger().network(f"Error getting data from {self.name}", exc_info=True,
+                                      app_warning_msg="Couldn't fetch newest prices from Coin Metrics. "
+                                                      "Check network connection.")
 
             await asyncio.sleep(self._update_interval)
 
@@ -84,7 +86,10 @@ class CoinMetricsDataFeed(DataFeedBase):
                 time_start = time_end - 60*60*24*7 # coin metrics prices are not updated frequently
                 rates_dict = await self.fetch_asset_price(asset, time_start, time_end)
                 if "error" in rates_dict:
-                    self.logger().warning(f"Issue fetching rate from {self.name}: {rates_dict['error']}")
+                    coinmetrics_error_msg: str = rates_dict["error"]
+                    self.logger().network(f"Issue fetching rate from {self.name}: {coinmetrics_error_msg}",
+                                          app_warning_msg=f"Got API error from Coin Metric: "
+                                                          f"'{coinmetrics_error_msg}'.")
                     continue
                 if len(rates_dict["result"]) > 0:
                     # Get the latest price
