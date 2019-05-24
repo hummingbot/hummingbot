@@ -18,7 +18,7 @@ from libc.stdint cimport int64_t
 from web3 import Web3
 from hummingbot.market.radar_relay.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
 from hummingbot.logger import HummingbotLogger
-from wings.limit_order import LimitOrder
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import (
     OrderType,
@@ -26,11 +26,11 @@ from hummingbot.market.market_base import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
-from wings.order_book cimport OrderBook
-from wings.cancellation_result import CancellationResult
-from wings.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.market.radar_relay.radar_relay_order_book_tracker import RadarRelayOrderBookTracker
-from wings.events import (
+from hummingbot.core.event.events import (
     MarketEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,

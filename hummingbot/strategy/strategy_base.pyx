@@ -1,12 +1,12 @@
 from typing import (
     List)
-from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.core.time_iterator cimport TimeIterator
 from hummingbot.market.market_base cimport MarketBase
 import pandas as pd
-from wings.trade import Trade
-from wings.events import OrderFilledEvent
+from hummingbot.core.data_type.trade import Trade
+from hummingbot.core.event.events import OrderFilledEvent
 
 
 cdef class StrategyBase(TimeIterator):

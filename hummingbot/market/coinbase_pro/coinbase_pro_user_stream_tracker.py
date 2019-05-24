@@ -6,9 +6,9 @@ from typing import (
     Optional,
     List,
 )
-from hummingbot.market.data_source.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from wings.user_stream_tracker import (
+from hummingbot.core.data_type.user_stream_tracker import (
     UserStreamTrackerDataSourceType,
     UserStreamTracker
 )

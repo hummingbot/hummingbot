@@ -11,7 +11,6 @@ VOLUME /conf /logs
 COPY bin/ bin/
 COPY hummingbot/ hummingbot/
 COPY setup/environment-linux.yml setup/
-COPY wings/ wings/
 COPY setup.py .
 COPY LICENSE .
 

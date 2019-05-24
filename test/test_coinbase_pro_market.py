@@ -3,7 +3,7 @@ import logging
 from os.path import join, realpath
 import sys;sys.path.insert(0, realpath(join(__file__, "../../")))
 
-from wings.logger.struct_logger import METRICS_LOG_LEVEL
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
 import asyncio
 import contextlib
@@ -19,7 +19,7 @@ from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
-from wings.events import (
+from hummingbot.core.event.events import (
     MarketEvent,
     MarketReceivedAssetEvent,
     MarketWithdrawAssetEvent,
@@ -32,7 +32,7 @@ from wings.events import (
     TradeFee,
     TradeType,
 )
-from wings.event_logger import EventLogger
+from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 

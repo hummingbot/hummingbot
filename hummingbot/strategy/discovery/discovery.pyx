@@ -7,7 +7,7 @@ from typing import (
     List
 )
 
-from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.discovery.discovery_market_pair import DiscoveryMarketPair
 from hummingbot.strategy.arbitrage import ArbitrageStrategy
@@ -15,7 +15,7 @@ from hummingbot.strategy.strategy_base cimport StrategyBase
 from hummingbot.market.market_base cimport MarketBase
 
 from libc.stdint cimport int64_t
-from wings.order_book cimport OrderBook
+from hummingbot.core.data_type.order_book cimport OrderBook
 import itertools
 
 NaN = float("nan")

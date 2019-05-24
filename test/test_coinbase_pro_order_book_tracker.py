@@ -11,8 +11,8 @@ from typing import (
     Optional
 )
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
-from wings.order_book import OrderBook
-from wings.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 
 test_symbol = "XLM-USD"
 

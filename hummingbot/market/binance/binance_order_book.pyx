@@ -10,9 +10,9 @@ from aiokafka import ConsumerRecord
 from sqlalchemy.engine import RowProxy
 
 from hummingbot.logger import HummingbotLogger
-from wings.events import TradeType
-from wings.order_book cimport OrderBook
-from wings.order_book_message import (
+from hummingbot.core.event.events import TradeType
+from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType
 )

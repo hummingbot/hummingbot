@@ -17,12 +17,12 @@ from hummingbot.core.clock import (
     ClockMode,
     Clock
 )
-from wings.events import (
+from hummingbot.core.event.events import (
     MarketEvent,
     OrderFilledEvent,
     TradeType,
 )
-from wings.event_listener import EventListener
+from hummingbot.core.event.event_listener import EventListener
 
 
 class CompositeOrderBookTestStrategy(UnitTestStrategy):

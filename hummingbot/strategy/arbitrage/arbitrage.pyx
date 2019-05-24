@@ -6,20 +6,20 @@ from typing import (
     Tuple,
 )
 
-from wings.events import MarketEvent
-from wings.event_listener cimport EventListener
+from hummingbot.core.event.events import MarketEvent
+from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.market.market_base cimport MarketBase
-from wings.events import (
+from hummingbot.core.event.events import (
     TradeType,
     OrderType,
 )
-from wings.market_order import MarketOrder
-from wings.order_book import OrderBook
+from hummingbot.core.data_type.market_order import MarketOrder
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
-from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 import logging
 
 NaN = float("nan")
