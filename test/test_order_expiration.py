@@ -12,6 +12,7 @@ import unittest
 from hummingsim.backtest.binance_order_book_loader_v2 import BinanceOrderBookLoaderV2
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import Market, OrderType
+from hummingsim.strategy.unit_test_strategy import UnitTestStrategy
 from hummingbot.core.clock import (
     ClockMode,
     Clock
@@ -20,7 +21,6 @@ from wings.events import (
     MarketEvent,
     OrderExpiredEvent)
 from wings.event_listener import EventListener
-from hummingsim.strategy.unit_test_strategy import UnitTestStrategy
 
 
 class OrderExpirationTestStrategy(UnitTestStrategy):

@@ -16,7 +16,7 @@ from wings.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.binance import (
+from hummingbot.market.binance.binance_market import (
     BinanceMarket,
     BinanceTime
 )
@@ -35,11 +35,11 @@ from wings.events import (
     SellOrderCreatedEvent,
     TradeFee
 )
-from hummingbot.wallet.mock_wallet import MockWallet
 from wings.event_logger import EventLogger
 from wings.order_book_tracker import OrderBookTrackerDataSourceType
-from wings.logger.struct_logger import METRICS_LOG_LEVEL
-from wings.user_stream_tracker import UserStreamTrackerDataSourceType
+from hummingbot.wallet.ethereum.mock_wallet import MockWallet
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 
 MAINNET_RPC_URL = "http://mainnet-rpc.mainnet:8545"
 logging.basicConfig(level=METRICS_LOG_LEVEL)

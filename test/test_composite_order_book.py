@@ -12,6 +12,7 @@ import unittest
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.ddex_order_book_loader import DDEXOrderBookLoader
 from hummingsim.backtest.market import Market
+from hummingsim.strategy.unit_test_strategy import UnitTestStrategy
 from hummingbot.core.clock import (
     ClockMode,
     Clock
@@ -19,9 +20,9 @@ from hummingbot.core.clock import (
 from wings.events import (
     MarketEvent,
     OrderFilledEvent,
-    TradeType)
+    TradeType,
+)
 from wings.event_listener import EventListener
-from hummingsim.strategy.unit_test_strategy import UnitTestStrategy
 
 
 class CompositeOrderBookTestStrategy(UnitTestStrategy):
