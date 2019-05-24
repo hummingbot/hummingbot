@@ -7,6 +7,8 @@ cimport numpy as np
 from hummingbot.core.OrderBookEntry cimport OrderBookEntry
 from hummingbot.core.pubsub cimport PubSub
 
+from .order_book_query_result cimport OrderBookQueryResult
+
 cdef class OrderBook(PubSub):
     cdef set[OrderBookEntry] _bid_book
     cdef set[OrderBookEntry] _ask_book
@@ -25,9 +27,9 @@ cdef class OrderBook(PubSub):
                                 np.ndarray[np.float64_t, ndim=2] bids_array,
                                 np.ndarray[np.float64_t, ndim=2] asks_array)
     cdef double c_get_price(self, bint is_buy) except? -1
-    cdef double c_get_price_for_volume(self, bint is_buy, double volume) except? -1
-    cdef double c_get_price_for_quote_volume(self, bint is_buy, double quote_volume) except? -1
-    cdef double c_get_volume_for_price(self, bint is_buy, double price) except? -1
-    cdef double c_get_quote_volume_for_price(self, bint is_buy, double price) except? -1
-    cdef double c_get_vwap_for_volume(self, bint is_buy, double volume) except? -1
-    cdef double c_get_quote_volume_for_base_amount(self, bint is_buy, double base_amount) except? -1
+    cdef OrderBookQueryResult c_get_price_for_volume(self, bint is_buy, double volume)
+    cdef OrderBookQueryResult c_get_price_for_quote_volume(self, bint is_buy, double quote_volume)
+    cdef OrderBookQueryResult c_get_volume_for_price(self, bint is_buy, double price)
+    cdef OrderBookQueryResult c_get_quote_volume_for_price(self, bint is_buy, double price)
+    cdef OrderBookQueryResult c_get_vwap_for_volume(self, bint is_buy, double volume)
+    cdef OrderBookQueryResult c_get_quote_volume_for_base_amount(self, bint is_buy, double base_amount)

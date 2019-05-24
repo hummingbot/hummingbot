@@ -808,6 +808,7 @@ cdef class CoinbaseProMarket(MarketBase):
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
+        exchange_order_id_map = dict(zip([o.exchange_order_id for o in incomplete_orders], incomplete_orders))
         successful_cancellations = []
 
         try:
@@ -815,7 +816,6 @@ cdef class CoinbaseProMarket(MarketBase):
             async with timeout(timeout_seconds):
                 results = await self._api_request("delete", path_url=path_url)
 
-            exchange_order_id_map = dict(zip([o.exchange_order_id for o in incomplete_orders], incomplete_orders))
             for exchange_order_id in results:
                 order = exchange_order_id_map.get(exchange_order_id)
                 if order is not None:
