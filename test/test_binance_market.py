@@ -69,7 +69,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
             MAINNET_RPC_URL, conf.binance_api_key, conf.binance_api_secret,
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-            symbols=["ZRXETH", "LOOMETH"]
+            symbols=["ZRXETH", "LOOMETH", "IOSTETH"]
         )
         print("Initializing Binance market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -322,6 +322,29 @@ class BinanceMarketUnitTest(unittest.TestCase):
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
+
+    def test_order_price_precision(self):
+        symbol = "IOSTETH"
+        bid_price: float = self.market.get_price(symbol, True)
+        ask_price: float = self.market.get_price(symbol, False)
+        amount: float = 0.02 / bid_price
+        quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+        order_id = self.market.buy("IOSTETH", amount)
+
+        # Intentionally setting invalid price to prevent getting filled
+        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price * 0.7)
+        quantize_bid_price -= Decimal('0.00000005')
+        quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price * 1.5)
+        quantize_ask_price += Decimal('0.00000005')
+
+        self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        self.market.sell(symbol, quantized_amount, OrderType.LIMIT, quantize_ask_price)
+
+        self.run_parallel(asyncio.sleep(1))
+        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+        for cr in cancellation_results:
+            self.assertEqual(cr.success, True)
+        order_id = self.market.sell("IOSTETH", amount)
 
     def test_server_time_offset(self):
         BinanceTime.get_instance().SERVER_TIME_OFFSET_CHECK_INTERVAL = 3.0
