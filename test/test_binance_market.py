@@ -327,8 +327,8 @@ class BinanceMarketUnitTest(unittest.TestCase):
             self.assertEqual(cr.success, True)
 
     def test_order_price_precision(self):
-        # As of the day this test was written, the min order size is 1 IOST, and
-        # order step size is also 1 IOST.
+        # As of the day this test was written, the min order size (base) is 1 IOST, the min order size (quote) is
+        # 0.01 ETH, and order step size is 1 IOST.
         symbol = "IOSTETH"
         bid_price: float = self.market.get_price(symbol, True)
         ask_price: float = self.market.get_price(symbol, False)
