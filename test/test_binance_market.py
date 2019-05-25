@@ -316,14 +316,12 @@ class BinanceMarketUnitTest(unittest.TestCase):
         quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price * 1.5)
 
         self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
-        self.market.buy("LOOMETH", amount)
         self.market.sell(symbol, quantized_amount, OrderType.LIMIT, quantize_ask_price)
 
         self.run_parallel(asyncio.sleep(1))
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
-        self.market.sell("LOOMETH", amount)
 
     def test_order_price_precision(self):
         symbol = "IOSTETH"
