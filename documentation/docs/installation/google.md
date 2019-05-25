@@ -2,7 +2,7 @@
 
 Running `hummingbot` as a long running service can be achieved with the help of Google Cloud Platform.
 
-## Instructions to install the latest Hummingbot from Docker on Google Cloud Platform
+## Setup a new VM instance on Google Cloud Platform 
 
    * Navigate to the Google Cloud Platform console
    * Create an instance of Compute Instance
@@ -56,7 +56,7 @@ sudo apt-get update
 sudo apt-get install docker-ce docker-ce-cli containerd.io
 ```
 
-## Install Hummingbot
+## Install Hummingbot from Docker
 
    * Run the following command
 
