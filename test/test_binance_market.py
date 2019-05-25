@@ -8,7 +8,10 @@ import contextlib
 from decimal import Decimal
 import logging
 import time
-from typing import List
+from typing import (
+    List,
+    Dict
+)
 import unittest
 from unittest.mock import patch
 
@@ -54,7 +57,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderFilled,
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
-        MarketEvent.SellOrderCreated
+        MarketEvent.SellOrderCreated,
     ]
 
     market: BinanceMarket
@@ -69,7 +72,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
             MAINNET_RPC_URL, conf.binance_api_key, conf.binance_api_secret,
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-            symbols=["ZRXETH", "LOOMETH"]
+            symbols=["ZRXETH", "LOOMETH", "IOSTETH"]
         )
         print("Initializing Binance market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -319,6 +322,76 @@ class BinanceMarketUnitTest(unittest.TestCase):
         self.market.sell(symbol, quantized_amount, OrderType.LIMIT, quantize_ask_price)
 
         self.run_parallel(asyncio.sleep(1))
+        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+        for cr in cancellation_results:
+            self.assertEqual(cr.success, True)
+
+    def test_order_price_precision(self):
+        # As of the day this test was written, the min order size (base) is 1 IOST, the min order size (quote) is
+        # 0.01 ETH, and order step size is 1 IOST.
+        symbol = "IOSTETH"
+        bid_price: float = self.market.get_price(symbol, True)
+        ask_price: float = self.market.get_price(symbol, False)
+        mid_price: float = (bid_price + ask_price) / 2
+        amount: float = 0.02 / mid_price
+        binance_client = self.market.binance_client
+
+        # Make sure there's enough balance to make the limit orders.
+        self.assertGreater(self.market.get_balance("ETH"), 0.1)
+        self.assertGreater(self.market.get_balance("IOST"), amount * 2)
+
+        # Intentionally set some prices with too many decimal places s.t. they
+        # need to be quantized. Also, place them far away from the mid-price s.t. they won't
+        # get filled during the test.
+        bid_price: float = mid_price * 0.3333192292111341
+        ask_price: float = mid_price * 3.4392431474884933
+
+        # This is needed to get around the min quote amount limit.
+        bid_amount: float = 0.02 / bid_price
+
+        # Test bid order
+        bid_order_id: str = self.market.buy(
+            symbol,
+            bid_amount,
+            OrderType.LIMIT,
+            bid_price
+        )
+
+        # Wait for the order created event and examine the order made
+        [order_created_event] = self.run_parallel(
+            self.market_logger.wait_for(BuyOrderCreatedEvent, timeout_seconds=10)
+        )
+        order_data: Dict[str, any] = binance_client.get_order(
+            symbol=symbol,
+            origClientOrderId=bid_order_id
+        )
+        quantized_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
+        bid_size_quantum: Decimal = self.market.get_order_size_quantum(symbol, bid_amount)
+        self.assertEqual(quantized_bid_price, Decimal(order_data["price"]))
+        self.assertTrue(Decimal(order_data["origQty"]) % bid_size_quantum == 0)
+
+        # Test ask order
+        ask_order_id: str = self.market.sell(
+            symbol,
+            amount,
+            OrderType.LIMIT,
+            ask_price
+        )
+
+        # Wait for the order created event and examine and order made
+        [order_created_event] = self.run_parallel(
+            self.market_logger.wait_for(SellOrderCreatedEvent, timeout_seconds=10)
+        )
+        order_data = binance_client.get_order(
+            symbol=symbol,
+            origClientOrderId=ask_order_id
+        )
+        quantized_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price)
+        quantized_ask_size: Decimal = self.market.quantize_order_amount(symbol, amount)
+        self.assertEqual(quantized_ask_price, Decimal(order_data["price"]))
+        self.assertEqual(quantized_ask_size, Decimal(order_data["origQty"]))
+
+        # Cancel all the orders
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
