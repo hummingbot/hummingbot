@@ -8,7 +8,10 @@ import contextlib
 from decimal import Decimal
 import logging
 import time
-from typing import List
+from typing import (
+    List,
+    Dict
+)
 import unittest
 from unittest.mock import patch
 
@@ -54,7 +57,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderFilled,
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
-        MarketEvent.SellOrderCreated
+        MarketEvent.SellOrderCreated,
     ]
 
     market: BinanceMarket
@@ -333,20 +336,35 @@ class BinanceMarketUnitTest(unittest.TestCase):
         symbol = "IOSTETH"
         bid_price: float = self.market.get_price(symbol, True)
         ask_price: float = self.market.get_price(symbol, False)
-        amount: float = 10
+        amount: float = 10.123456
+        binance_client = self.market.binance_client
 
         # Intentionally set some prices with too many decimal places s.t. they
-        # need to be quantized.
+        # need to be quantized. Also, place them far away from the mid-price s.t. they won't
+        # get filled during the test.
         mid_price: float = (bid_price + ask_price) / 2
-        bid_price: float = mid_price * 0.11111111111111111
+        bid_price: float = mid_price * 0.099282872717717122
         ask_price: float = mid_price * 10.1011010101010101101
 
+        # Test bid order
         bid_order_id: str = self.market.buy(
             symbol,
             amount,
             OrderType.LIMIT,
             bid_price
         )
+
+        # Wait for the order created event and examine the order made
+        [order_created_event] = self.run_parallel(
+            self.market_logger.wait_for(BuyOrderCreatedEvent, timeout_seconds=10)
+        )
+        order_data: Dict[str, any] = binance_client.get_order(origClientOrderId=bid_order_id)
+        quantized_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
+        quantized_bid_size: Decimal = self.market.quantize_order_amount(symbol, amount)
+        self.assertEqual(quantized_bid_price, Decimal(order_data["price"]))
+        self.assertEqual(quantized_bid_size, Decimal(order_data["origQty"]))
+
+        # Test ask order
         ask_order_id: str = self.market.sell(
             symbol,
             amount,
@@ -354,15 +372,20 @@ class BinanceMarketUnitTest(unittest.TestCase):
             ask_price
         )
 
-        # TODO: wait for the order created events and examine the orders made
+        # Wait for the order created event and examine and order made
+        [order_created_event] = self.run_parallel(
+            self.market_logger.wait_for(SellOrderCreatedEvent, timeout_seconds=10)
+        )
+        order_data = binance_client.get_order(origClientOrderId=ask_order_id)
+        quantized_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price)
+        quantized_ask_size: Decimal = self.market.quantize_order_amount(symbol, amount)
+        self.assertEqual(quantized_ask_price, Decimal(order_data["price"]))
+        self.assertEqual(quantized_ask_size, Decimal(order_data["origQty"]))
 
-        # TODO: cancel all the orders
-
-        self.run_parallel(asyncio.sleep(1))
+        # Cancel all the orders
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
-        self.market.sell("IOSTETH", amount)
 
     def test_server_time_offset(self):
         BinanceTime.get_instance().SERVER_TIME_OFFSET_CHECK_INTERVAL = 3.0

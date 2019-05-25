@@ -993,7 +993,7 @@ cdef class BinanceMarket(MarketBase):
                                      self._current_timestamp,
                                      order_type,
                                      symbol,
-                                     decimal_amount,
+                                     float(decimal_amount),
                                      0.0 if math.isnan(price) else price,
                                      order_id
                                  ))
@@ -1066,7 +1066,7 @@ cdef class BinanceMarket(MarketBase):
                                      self._current_timestamp,
                                      order_type,
                                      symbol,
-                                     decimal_amount,
+                                     float(decimal_amount),
                                      0.0 if math.isnan(price) else price,
                                      order_id
                                  ))
