@@ -324,21 +324,39 @@ class BinanceMarketUnitTest(unittest.TestCase):
             self.assertEqual(cr.success, True)
 
     def test_order_price_precision(self):
+        # Make sure there's enough balance to make the limit orders.
+        self.assertGreater(self.market.get_balance("ETH"), 0.1)
+        self.assertGreater(self.market.get_balance("IOST"), 50)
+
+        # As of the day this test was written, the min order size is 1 IOST, and
+        # order step size is also 1 IOST.
         symbol = "IOSTETH"
         bid_price: float = self.market.get_price(symbol, True)
         ask_price: float = self.market.get_price(symbol, False)
-        amount: float = 0.02 / bid_price
-        quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
-        self.market.buy("IOSTETH", amount)
+        amount: float = 10
 
-        # Intentionally setting invalid price to prevent getting filled
-        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price * 0.7)
-        quantize_bid_price -= Decimal('0.00000005')
-        quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price * 1.5)
-        quantize_ask_price += Decimal('0.00000005')
+        # Intentionally set some prices with too many decimal places s.t. they
+        # need to be quantized.
+        mid_price: float = (bid_price + ask_price) / 2
+        bid_price: float = mid_price * 0.11111111111111111
+        ask_price: float = mid_price * 10.1011010101010101101
 
-        self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
-        self.market.sell(symbol, quantized_amount, OrderType.LIMIT, quantize_ask_price)
+        bid_order_id: str = self.market.buy(
+            symbol,
+            amount,
+            OrderType.LIMIT,
+            bid_price
+        )
+        ask_order_id: str = self.market.sell(
+            symbol,
+            amount,
+            OrderType.LIMIT,
+            ask_price
+        )
+
+        # TODO: wait for the order created events and examine the orders made
+
+        # TODO: cancel all the orders
 
         self.run_parallel(asyncio.sleep(1))
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))

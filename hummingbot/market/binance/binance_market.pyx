@@ -963,7 +963,7 @@ cdef class BinanceMarket(MarketBase):
         # To make the Binance market class function like other market classes, the amount base
         # token requested is adjusted to account for fees.
         adjusted_amount = amount / (1 - buy_fee.percent)
-        decimal_amount = self.quantize_order_amount(symbol, adjusted_amount)
+        decimal_amount = self.c_quantize_order_amount(symbol, adjusted_amount)
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
@@ -971,20 +971,16 @@ cdef class BinanceMarket(MarketBase):
         try:
             self.c_start_tracking_order(order_id, -1, symbol, True, decimal_amount, order_type)
             order_result = None
+            order_decimal_amount = f"{decimal_amount:f}"
             if order_type is OrderType.LIMIT:
-                order_price = self.quantize_order_price(symbol, price)
-                #order_price = f"{price:f}"
-                order_price = f"{Decimal(str(price)):f}"
-                order_decimal_amount = f"{Decimal(str(decimal_amount)):f}"
-                #order_decimal_amount = f"{decimal_amount:f}"
-                #self.logger().info(f"decimal_amount:{decimal_amount} order_price:{order_price}")
+                decimal_price = self.c_quantize_order_price(symbol, price)
+                order_decimal_price = f"{decimal_price:f}"
                 order_result = await self.query_api(self._binance_client.order_limit_buy,
                                                     symbol=symbol,
                                                     quantity=order_decimal_amount,
-                                                    price=order_price,
+                                                    price=order_decimal_price,
                                                     newClientOrderId=order_id)
             elif order_type is OrderType.MARKET:
-                order_decimal_amount = f"{Decimal(str(decimal_amount)):f}"
                 order_result = await self.query_api(self._binance_client.order_market_buy,
                                                     symbol=symbol,
                                                     quantity=order_decimal_amount,
@@ -1046,23 +1042,18 @@ cdef class BinanceMarket(MarketBase):
 
 
         try:
-
             self.c_start_tracking_order(order_id, -1, symbol, False, decimal_amount, order_type)
             order_result = None
+            order_decimal_amount = f"{decimal_amount:f}"
             if order_type is OrderType.LIMIT:
-                order_price = self.quantize_order_price(symbol, price)
-                order_price = f"{Decimal(str(price)):f}"
-                #order_price = f"{price:f}"
-                #self.logger().info(f"decimal_amount:{decimal_amount} order_price:{order_price}")
-                order_decimal_amount = f"{Decimal(str(decimal_amount)):f}"
-                #order_decimal_amount = f"{decimal_amount:f}"
+                decimal_price = self.c_quantize_order_price(symbol, price)
+                order_decimal_price = f"{decimal_price:f}"
                 order_result = await self.query_api(self._binance_client.order_limit_sell,
                                                     symbol=symbol,
                                                     quantity=order_decimal_amount,
-                                                    price=order_price,
+                                                    price=order_decimal_price,
                                                     newClientOrderId=order_id)
             elif order_type is OrderType.MARKET:
-                order_decimal_amount = f"{Decimal(str(decimal_amount)):f}"
                 order_result = await self.query_api(self._binance_client.order_market_sell,
                                                     symbol=symbol,
                                                     quantity=order_decimal_amount,
