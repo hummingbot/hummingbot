@@ -147,6 +147,13 @@ global_config_map = {
                                                          "inventory value? (Default \"USD\") >>> ",
                                                   default="USD",
                                                   required_if=lambda:
-                                                      global_config_map.get("stop_loss_price_type").value == "dynamic")
+                                                      global_config_map.get("stop_loss_price_type").value == "dynamic"),
+
+    "telegram_token":                   ConfigVar(key="telegram_token",
+                                                  prompt="What is your telegram token? >>> ",
+                                                  required_if=lambda: False),
+    "telegram_chat_id":                 ConfigVar(key="telegram_chat_id",
+                                                  prompt="What is your telegram chat id? >>> ",
+                                                  required_if=lambda: False),
 }
 
