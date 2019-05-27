@@ -149,6 +149,11 @@ global_config_map = {
                                                   required_if=lambda:
                                                       global_config_map.get("stop_loss_price_type").value == "dynamic"),
 
+    "telegram_enabled":                 ConfigVar(key="telegram_enabled",
+                                                  prompt="Would you like to enable telegram? >>> ",
+                                                  type_str="bool",
+                                                  default=False,
+                                                  required_if=lambda: False),
     "telegram_token":                   ConfigVar(key="telegram_token",
                                                   prompt="What is your telegram token? >>> ",
                                                   required_if=lambda: False),
