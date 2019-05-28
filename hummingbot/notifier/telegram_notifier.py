@@ -28,10 +28,9 @@ from telegram.ext import (
 from hummingbot.logger import HummingbotLogger
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.client.config.global_config_map import global_config_map
-from telegram.ext.dispatcher import run_async
 
 
-DISABLED_COMMANDS = {"config", "exit", "export_private_key"}
+DISABLED_COMMANDS = {"config", "export_private_key"}
 
 
 def authorized_only(handler: Callable[[Any, Bot, Update], None]) -> Callable[..., Any]:
@@ -75,33 +74,36 @@ class TelegramNotifier(NotifierBase):
         handles = [ MessageHandler(Filters.text, self.handler)]
         for handle in handles:
             self._updater.dispatcher.add_handler(handle)
-        self._updater.start_polling(
-            clean=True,
-            bootstrap_retries=-1,
-            timeout=30,
-            read_latency=60,
-        )
-        self.logger().info("Telegram is listening...")
+
+    def start(self):
+        if not self._started:
+            self._started = True
+            self._updater.start_polling(
+                clean=True,
+                bootstrap_retries=-1,
+                timeout=30,
+                read_latency=60,
+            )
+            self.logger().info("Telegram is listening...")
 
     def stop(self) -> None:
-        """ Stops all running telegram threads. """
-        self._updater.stop()
-
-    def send_msg(self, msg: str) -> None:
-        """ Send a message to telegram channel """
-        self._send_msg(msg)
+        if self._started or self._updater.running:
+            self._updater.stop()
 
     @authorized_only
     def handler(self, bot: Bot, update: Update) -> None:
         try:
-            formatted_msg = update.message.text.strip()
+            input_text = update.message.text.strip()
+            output = f"\n[Telegram Input] {input_text}"
+            self._hb.app.log(output)
+
             # if the command does starts with any disabled commands
-            if any([formatted_msg.startswith(dc) for dc in DISABLED_COMMANDS]):
-                self._send_msg(f"Command {formatted_msg} is disabled from telegram", bot=bot)
+            if any([input_text.startswith(dc) for dc in DISABLED_COMMANDS]):
+                self.send_msg(f"Command {input_text} is disabled from telegram", bot=bot)
             else:
-                self._hb._handle_command(formatted_msg),
+                self._hb._handle_command(input_text),
         except Exception as e:
-            self._send_msg(str(e), bot=bot)
+            self.send_msg(str(e), bot=bot)
 
     @staticmethod
     def _divide_chunks(arr: List[Any], n: int = 5):
@@ -109,7 +111,10 @@ class TelegramNotifier(NotifierBase):
         for i in range(0, len(arr), n):
             yield arr[i:i + n]
 
-    def _send_msg(self, msg: str, bot: Bot = None, parse_mode: ParseMode = ParseMode.MARKDOWN) -> None:
+    def send_msg(self, msg: str, bot: Bot = None) -> None:
+        asyncio.ensure_future(self.send_msg_async(msg, bot), loop=self._ev_loop)
+
+    async def send_msg_async(self, msg: str, bot: Bot = None) -> None:
         """
         Send given markdown message
         """
@@ -121,14 +126,14 @@ class TelegramNotifier(NotifierBase):
         reply_markup = ReplyKeyboardMarkup(keyboard)
 
         # wrapping text in ``` to prevent formatting issues
-        formatted_msg = f'```{msg}```'
+        formatted_msg = f'```\n{msg}\n```'
 
         try:
             try:
                 bot.send_message(
                     self._chat_id,
                     text=formatted_msg,
-                    parse_mode=parse_mode,
+                    parse_mode=ParseMode.MARKDOWN,
                     reply_markup=reply_markup
                 )
             except NetworkError as network_err:
@@ -138,7 +143,7 @@ class TelegramNotifier(NotifierBase):
                 bot.send_message(
                     self._chat_id,
                     text=msg,
-                    parse_mode=parse_mode,
+                    parse_mode=ParseMode.MARKDOWN,
                     reply_markup=reply_markup
                 )
         except TelegramError as telegram_err:

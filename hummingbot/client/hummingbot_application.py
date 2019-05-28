@@ -151,7 +151,6 @@ class HummingbotApplication:
         self.data_feed: Optional[DataFeedBase] = None
         self.stop_loss_tracker: Optional[StopLossTracker] = None
         self.notifiers: List[NotifierBase] = []
-        self._ev_loop = asyncio.get_event_loop()
         self._app_warnings: Deque[ApplicationWarning] = deque()
         self._trading_required: bool = True
 
@@ -249,7 +248,7 @@ class HummingbotApplication:
             keys = [key]
         else:
             keys = self._get_empty_configs()
-        asyncio.ensure_future(self._config_loop(keys))
+        asyncio.ensure_future(self._config_loop(keys), loop=self.ev_loop)
 
     def _expire_old_application_warnings(self):
         now: float = time.time()
@@ -454,6 +453,8 @@ class HummingbotApplication:
             self.notifiers.append(TelegramNotifier(token=global_config_map["telegram_token"].value,
                                                    chat_id=global_config_map["telegram_chat_id"].value,
                                                    hb=self))
+        for notifier in self.notifiers:
+            notifier.start()
 
     def _format_application_warnings(self) -> str:
         lines: List[str] = []
@@ -684,7 +685,7 @@ class HummingbotApplication:
         strategy_name = in_memory_config_map.get("strategy").value
         self.init_reporting_module()
         self._notify(f"\n  Status check complete. Starting '{strategy_name}' strategy...")
-        asyncio.ensure_future(self.start_market_making(strategy_name))
+        asyncio.ensure_future(self.start_market_making(strategy_name), loop=self.ev_loop)
 
     async def _run_clock(self):
         with self.clock as clock:
@@ -862,7 +863,7 @@ class HummingbotApplication:
                     self.clock.add_iterator(market)
             if self.strategy:
                 self.clock.add_iterator(self.strategy)
-            self.strategy_task: asyncio.Task = asyncio.ensure_future(self._run_clock())
+            self.strategy_task: asyncio.Task = asyncio.ensure_future(self._run_clock(), loop=self.ev_loop)
             self._notify(f"\n  '{strategy_name}' strategy started.\n"
                          f"  You can use the `status` command to query the progress.")
 
@@ -878,7 +879,7 @@ class HummingbotApplication:
             self.logger().error(str(e), exc_info=True)
 
     def stop(self, skip_order_cancellation: bool = False):
-        asyncio.ensure_future(self.stop_loop(skip_order_cancellation), loop=self._ev_loop)
+        asyncio.ensure_future(self.stop_loop(skip_order_cancellation), loop=self.ev_loop)
 
     async def stop_loop(self, skip_order_cancellation: bool = False):
         self._notify("\nWinding down...")
@@ -905,15 +906,16 @@ class HummingbotApplication:
             self.strategy.stop()
         ExchangeRateConversion.get_instance().stop()
         self.stop_loss_tracker.stop()
-        for notifier in self.notifiers:
-            notifier.stop()
         self.wallet = None
         self.strategy_task = None
         self.strategy = None
         self.market_pair = None
         self.clock = None
 
-    async def exit(self, force: bool = False):
+    def exit(self, force: bool = False):
+        asyncio.ensure_future(self.exit_loop(force), loop=self.ev_loop)
+
+    async def exit_loop(self, force: bool = False):
         if self.strategy_task is not None and not self.strategy_task.cancelled():
             self.strategy_task.cancel()
         if self.strategy:
@@ -928,8 +930,11 @@ class HummingbotApplication:
             # Freeze screen 1 second for better UI
             await asyncio.sleep(1)
         ExchangeRateConversion.get_instance().stop()
+
+        self._notify("Winding down notifiers...")
         for notifier in self.notifiers:
             notifier.stop()
+
         self.app.exit()
 
     async def export_private_key(self):
@@ -956,7 +961,7 @@ class HummingbotApplication:
         if not path:
             fname = f"trades_{pd.Timestamp.now().strftime('%Y-%m-%d-%H-%M-%S')}.csv"
             path = join(dirname(__file__), f"../../logs/{fname}")
-
+            print(path)
         if self.strategy is None:
             self._notify("No strategy available, cannot export past trades.")
 
@@ -968,6 +973,8 @@ class HummingbotApplication:
                     self._notify(f"Successfully saved trades to {path}")
                 except Exception as e:
                     self._notify(f"Error saving trades to {path}: {e}")
+            else:
+                self._notify("No past trades to export")
 
     def history(self):
         self.list("trades")
