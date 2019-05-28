@@ -18,8 +18,8 @@ import random
 from typing import List
 
 from hummingbot.logger import HummingbotLogger
-from wings.event_listener import EventListener
-from wings.event_listener cimport EventListener
+from hummingbot.core.event.event_listener import EventListener
+from hummingbot.core.event.event_listener cimport EventListener
 
 class_logger = None
 

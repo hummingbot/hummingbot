@@ -1,12 +1,12 @@
-from hummingbot.cli.config.config_var import ConfigVar
-from hummingbot.cli.config.config_validators import (
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.config.config_validators import (
     is_exchange,
 )
-from hummingbot.cli.settings import (
+from hummingbot.client.settings import (
     EXAMPLE_PAIRS,
     required_exchanges,
 )
-from hummingbot.cli.utils.symbol_fetcher import SymbolFetcher
+from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
 from typing import Any
 
 

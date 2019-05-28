@@ -29,7 +29,7 @@ class HummingbotLogger(PythonLogger):
         super().__init__(name)
 
     def network(self, log_msg: str, app_warning_msg: Optional[str] = None, *args, **kwargs):
-        from hummingbot.cli.hummingbot_application import HummingbotApplication
+        from hummingbot.client.hummingbot_application import HummingbotApplication
         from . import NETWORK
 
         self.log(NETWORK, log_msg, *args, **kwargs)
@@ -40,7 +40,7 @@ class HummingbotLogger(PythonLogger):
                 self.findCaller(),
                 app_warning_msg
             )
-            self.warning(app_warning)
+            self.warning(app_warning.warning_msg)
             hummingbot_app: HummingbotApplication = HummingbotApplication.main_application()
             hummingbot_app.add_application_warning(app_warning)
 

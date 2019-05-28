@@ -42,8 +42,11 @@ class DataFeedBase:
         try:
             if not self._ready_event.is_set():
                 await self._ready_event.wait()
-        except Exception as e:
-            self.logger().error(e, exc_info=True)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error("Unexpected error while waiting for data feed to get ready.",
+                                exc_info=True)
 
     def start(self):
         pass

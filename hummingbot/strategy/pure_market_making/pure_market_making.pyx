@@ -12,19 +12,19 @@ from typing import (
 )
 
 from hummingbot.core.clock cimport Clock
-from wings.events import (
+from hummingbot.core.event.events import (
     MarketEvent,
     TradeType
 )
-from wings.event_listener cimport EventListener
-from wings.limit_order cimport LimitOrder
-from wings.limit_order import LimitOrder
+from hummingbot.core.event.event_listener cimport EventListener
+from hummingbot.core.data_type.limit_order cimport LimitOrder
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
-from wings.market.market_base import (
+from hummingbot.market.market_base import (
     MarketBase,
     OrderType
 )
-from wings.order_book import OrderBook
+from hummingbot.core.data_type.order_book cimport OrderBook
 from .pure_market_pair import PureMarketPair
 from hummingbot.strategy.strategy_base import StrategyBase
 
@@ -205,7 +205,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         return self._ask_place_threshold
 
     @property
-    def order_size(self):
+    def order_size(self) -> float:
         return self._order_size
 
     @logging_options.setter
@@ -598,20 +598,19 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         cdef:
             MarketBase maker_market = market_pair.maker_market
             OrderBook maker_order_book = maker_market.c_get_order_book(market_pair.maker_symbol)
-            top_bid_price = maker_market.c_get_price(market_pair.maker_symbol, False)
-            top_ask_price = maker_market.c_get_price(market_pair.maker_symbol, True)
+            double top_bid_price = maker_market.c_get_price(market_pair.maker_symbol, False)
+            double top_ask_price = maker_market.c_get_price(market_pair.maker_symbol, True)
             str maker_name = maker_market.name
-
-        price_quant = maker_market.get_order_price_quantum(market_pair.maker_symbol, top_bid_price)
-        mid_price = (top_ask_price + top_bid_price) / 2
-        place_bid_price = mid_price * ( 1 - self.bid_place_threshold)
-        place_ask_price = mid_price * ( 1 + self.ask_place_threshold)
-        place_bid_price = round(Decimal(place_bid_price)/price_quant) * price_quant
-        place_ask_price = round(Decimal(place_ask_price)/price_quant) * price_quant
+            object price_quant = maker_market.get_order_price_quantum(
+                market_pair.maker_symbol,
+                top_bid_price
+            )
+            double mid_price = (top_ask_price + top_bid_price) / 2
+            double place_bid_price = mid_price * (1 - self.bid_place_threshold)
+            double place_ask_price = mid_price * (1 + self.ask_place_threshold)
 
         if maker_name in self._radar_relay_type_exchanges:
             expiration_seconds = self._cancel_order_wait_time
-
         else:
             expiration_seconds = NaN
 
@@ -626,8 +625,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         bid_order_id = self.c_buy_with_specific_market(
                     maker_market,
                     market_pair.maker_symbol,
-                    float(self.order_size),
-                    float(place_bid_price),
+                    self.order_size,
+                    place_bid_price,
                     OrderType.LIMIT,
                     expiration_seconds
                 )
@@ -651,8 +650,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         ask_order_id = self.c_sell_with_specific_market(
                     maker_market,
                     market_pair.maker_symbol,
-                    float(self.order_size),
-                    float(place_ask_price),
+                    self.order_size,
+                    place_ask_price,
                     OrderType.LIMIT,
                     expiration_seconds
                 )

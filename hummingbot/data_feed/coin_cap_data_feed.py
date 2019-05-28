@@ -52,8 +52,10 @@ class CoinCapDataFeed(DataFeedBase):
                 await self.fetch_prices()
             except asyncio.CancelledError:
                 raise
-            except Exception as e:
-                self.logger().error(e, exc_info=True)
+            except Exception:
+                self.logger().network(f"Error fetching new prices from {self.name}.", exc_info=True,
+                                      app_warning_msg="Couldn't fetch newest prices from CoinCap. "
+                                                      "Check network connection.")
 
             await asyncio.sleep(self._update_interval)
 

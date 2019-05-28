@@ -14,8 +14,8 @@ from web3.contract import (
     Contract,
 )
 
+import hummingbot
 from hummingbot.logger import HummingbotLogger
-import wings
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 
 
@@ -97,7 +97,7 @@ class ERC20Token:
 
         ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         tasks: List[asyncio.Task] = [
-            ev_loop.run_in_executor(wings.get_executor(), func, *args)
+            ev_loop.run_in_executor(hummingbot.get_executor(), func, *args)
             for func, args in [
                 (self.get_name_from_contract, [self._contract]),
                 (self.get_symbol_from_contract, [self._contract]),

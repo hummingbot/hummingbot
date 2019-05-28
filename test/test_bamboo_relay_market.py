@@ -12,18 +12,18 @@ import time
 from typing import List
 import unittest
 
-from wings.cancellation_result import CancellationResult
-from wings.market.market_base import OrderType
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.market.market_base import OrderType
+from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
-from hummingbot.wallet.web3_wallet_backend import EthereumChain
+from hummingbot.wallet.ethereum.web3_wallet_backend import EthereumChain
 from hummingbot.core.clock import (
     Clock,
     ClockMode,
 )
-from wings.market.bamboo_relay_market import BambooRelayMarket
-from wings.event_logger import EventLogger
-from wings.order_book_tracker import OrderBookTrackerDataSourceType
-from wings.events import (
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.event.events import (
     MarketEvent,
     WalletEvent,
     BuyOrderCompletedEvent,

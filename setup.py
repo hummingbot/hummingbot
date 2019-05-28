@@ -17,40 +17,45 @@ if os.name == "posix":
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20190522"
+    version = "20190524"
     packages = [
-        "wings",
-        "wings.logger",
-        "wings.data_source",
-        "wings.orderbook",
-        "wings.tracker",
-        "wings.market",
         "hummingbot",
+        "hummingbot.client",
+        "hummingbot.client.config",
+        "hummingbot.client.ui",
         "hummingbot.core",
+        "hummingbot.core.data_type",
+        "hummingbot.core.event",
+        "hummingbot.core.management",
+        "hummingbot.core.utils",
         "hummingbot.data_feed",
-        "hummingbot.cli",
-        "hummingbot.cli.config",
-        "hummingbot.cli.ui",
-        "hummingbot.cli.utils",
         "hummingbot.logger",
-        "hummingbot.management",
+        "hummingbot.market",
+        "hummingbot.market.bamboo_relay",
+        "hummingbot.market.binance",
+        "hummingbot.market.bittrex",
+        "hummingbot.market.coinbase_pro",
+        "hummingbot.market.ddex",
+        "hummingbot.market.huobi",
+        "hummingbot.market.radar_relay",
         "hummingbot.strategy",
         "hummingbot.strategy.arbitrage",
         "hummingbot.strategy.cross_exchange_market_making",
         "hummingbot.strategy.discovery",
+        "hummingbot.strategy.pure_market_making",
+        "hummingbot.templates",
         "hummingbot.wallet",
         "hummingbot.wallet.ethereum",
         "hummingbot.wallet.ethereum.uniswap",
         "hummingbot.wallet.ethereum.watcher",
         "hummingbot.wallet.ethereum.zero_ex",
-        "hummingbot.templates",
     ]
     package_data = {
         "hummingbot": [
             "core/cpp/*",
             "wallet/ethereum/zero_ex/zero_ex_exchange_abi.json"
             "wallet/ethereum/token_abi/*.json"
-            "erc20_tokens.json",
+            "wallet/ethereum/erc20_tokens.json"
             "VERSION",
             "templates/*TEMPLATE.yml"
         ],
@@ -103,7 +108,6 @@ def main():
         package_data[""] = [
             "*.pxd", "*.pyx", "*.h"
         ]
-        # package_data["wings"].append("cpp/*.cpp")
         package_data["hummingbot"].append("core/cpp/*.cpp")
 
     if len(sys.argv) > 1 and sys.argv[1] == "build_ext":
@@ -121,7 +125,6 @@ def main():
           install_requires=install_requires,
           ext_modules=cythonize([
               "hummingbot/**/*.pyx",
-              "wings/**/*.pyx",
           ], language="c++", language_level=3, nthreads=cpu_count),
           include_dirs=[
               np.get_include(),

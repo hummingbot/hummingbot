@@ -3,8 +3,8 @@ import traceback
 from typing import Optional
 import logging
 import json
-from hummingbot.cli.config.global_config_map import global_config_map
-from wings.logger.struct_logger import log_encoder
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.logger.struct_logger import log_encoder
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.log_server_client import LogServerClient
 from hummingbot.logger.report_aggregator import REPORT_EVENT_QUEUE
@@ -83,8 +83,8 @@ class ReportingProxyHandler(logging.Handler):
         }
         if log.exc_info:
             message["exc_info"] = self.formatException(log.exc_info)
-            message["exception_type"] = self.formatException(str(log.exc_info[0]))
-            message["exception_msg"] = self.formatException(str(log.exc_info[1]))
+            message["exception_type"] = str(log.exc_info[0])
+            message["exception_msg"] = str(log.exc_info[1])
         self._log_queue.append(message)
 
     def process_event_log(self, log):
