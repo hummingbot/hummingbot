@@ -3,22 +3,23 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
-import conf
-import time
 import asyncio
+import conf
+import contextlib
 from decimal import Decimal
 import logging
+import time
 import unittest
 from typing import List
-from wings.cancellation_result import CancellationResult
-from wings.market.market_base import OrderType
-from wings.wallet.web3_wallet import Web3Wallet
-from wings.wallet.web3_wallet_backend import EthereumChain
-from wings.clock import Clock, ClockMode
-from wings.market.radar_relay_market import RadarRelayMarket
-from wings.event_logger import EventLogger
-from wings.order_book_tracker import OrderBookTrackerDataSourceType
-from wings.events import (
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
+from hummingbot.wallet.ethereum.web3_wallet_backend import EthereumChain
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.market.market_base import OrderType
+from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.event.events import (
     MarketEvent,
     WalletEvent,
     BuyOrderCompletedEvent,
@@ -66,7 +67,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
                                 erc20_token_addresses=[conf.mn_zerox_token_address, conf.mn_weth_token_address],
                                 chain=EthereumChain.MAIN_NET)
         cls.market: RadarRelayMarket = RadarRelayMarket(wallet=cls.wallet,
-                                                        web3_url=conf.test_web3_provider_list[0],
+                                                        ethereum_rpc_url=conf.test_web3_provider_list[0],
                                                         order_book_tracker_data_source_type=
                                                             OrderBookTrackerDataSourceType.EXCHANGE_API,
                                                         symbols=["ZRX-WETH"])
@@ -74,15 +75,20 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.wallet)
         cls.clock.add_iterator(cls.market)
-        cls.ev_loop.run_until_complete(cls.clock.run_til(time.time() + 1))
+        stack = contextlib.ExitStack()
+        cls._clock = stack.enter_context(cls.clock)
         cls.ev_loop.run_until_complete(cls.wait_til_ready())
         print("Ready.")
 
     @classmethod
     async def wait_til_ready(cls):
         while True:
+            now = time.time()
+            next_iteration = now // 1.0 + 1
             if cls.market.ready:
                 break
+            else:
+                await cls._clock.run_til(next_iteration)
             await asyncio.sleep(1.0)
 
     def setUp(self):
@@ -106,7 +112,8 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1
-            await self.clock.run_til(next_iteration)
+            await self._clock.run_til(next_iteration)
+            await asyncio.sleep(1.0)
         return future.result()
 
     def run_parallel(self, *tasks):
@@ -190,7 +197,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
         symbol: str = "ZRX-WETH"
         current_price: float = self.market.get_price(symbol, True)
         amount: float = 10
-        expires = int(time.time() + 60 * 2) # expires in 2 min
+        expires = int(time.time() + 60 * 3) # expires in 3 min
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
         buy_order_id = self.market.buy(symbol=symbol,
                                        amount=amount,

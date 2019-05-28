@@ -14,19 +14,19 @@ from web3.eth import Contract
 from web3 import Web3
 
 import conf
-from wings.clock import (
+from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
-from wings.events import (
+from hummingbot.core.event.events import (
     WalletEvent,
     WalletReceivedAssetEvent,
     TokenApprovedEvent,
     EthereumGasUsedEvent,
 )
-from wings.erc20_token import ERC20Token
-from wings.wallet.web3_wallet import Web3Wallet
-from wings.event_logger import EventLogger
+from hummingbot.wallet.ethereum.erc20_token import ERC20Token
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
+from hummingbot.core.event.event_logger import EventLogger
 
 
 class Web3WalletUnitTest(unittest.TestCase):

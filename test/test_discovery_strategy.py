@@ -7,19 +7,15 @@ from unittest.mock import create_autospec
 sys.path.insert(0, realpath(join(__file__, "../../")))
 
 from hummingbot.strategy.discovery import DiscoveryStrategy, DiscoveryMarketPair
-from wings.market.binance_market import BinanceMarket
-from wings.market.ddex_market import DDEXMarket
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
 from typing import List
 import unittest
-from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingsim.backtest.backtest_market import BacktestMarket
-from wings.order_book import OrderBook
-from wings.order_book_row import OrderBookRow
-from wings.data_source.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
-from wings.data_source.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
-from wings.data_source.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
+from hummingbot.market.radar_relay.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
+from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
+from hummingbot.market.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+from hummingbot.market.ddex.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
 import asyncio
 
 
@@ -78,6 +74,7 @@ class DiscoveryUnitTest(unittest.TestCase):
     def test_market_info_spec(self):
         exchange_get_market_func_list = [
             RadarRelayAPIOrderBookDataSource.get_active_exchange_markets,
+            BambooRelayAPIOrderBookDataSource.get_active_exchange_markets,
             BinanceAPIOrderBookDataSource.get_active_exchange_markets,
             DDEXAPIOrderBookDataSource.get_active_exchange_markets
         ]

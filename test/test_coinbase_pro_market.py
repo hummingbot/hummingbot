@@ -3,22 +3,23 @@ import logging
 from os.path import join, realpath
 import sys;sys.path.insert(0, realpath(join(__file__, "../../")))
 
-from wings.logger.struct_logger import METRICS_LOG_LEVEL
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
 import asyncio
+import contextlib
 from decimal import Decimal
 import time
 from typing import List
 import unittest
 
 import conf
-from wings.market.market_base import OrderType
-from wings.market.coinbase_pro_market import CoinbaseProMarket
-from wings.clock import (
+from hummingbot.market.market_base import OrderType
+from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
+from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
-from wings.events import (
+from hummingbot.core.event.events import (
     MarketEvent,
     MarketReceivedAssetEvent,
     MarketWithdrawAssetEvent,
@@ -28,11 +29,12 @@ from wings.events import (
     OrderCancelledEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
-    TradeFee
+    TradeFee,
+    TradeType,
 )
-from wings.event_logger import EventLogger
-from wings.wallet.web3_wallet import Web3Wallet
-from wings.ethereum_chain import EthereumChain
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
@@ -58,7 +60,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: CoinbaseProMarket = CoinbaseProMarket(
-            web3_url=conf.test_web3_provider_list[0],
+            ethereum_rpc_url=conf.test_web3_provider_list[0],
             coinbase_pro_api_key=conf.coinbase_pro_api_key,
             coinbase_pro_secret_key=conf.coinbase_pro_secret_key,
             coinbase_pro_passphrase=conf.coinbase_pro_passphrase,
@@ -73,15 +75,20 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.market)
         cls.clock.add_iterator(cls.wallet)
-        cls.ev_loop.run_until_complete(cls.clock.run_til(time.time() + 1))
+        stack = contextlib.ExitStack()
+        cls._clock = stack.enter_context(cls.clock)
         cls.ev_loop.run_until_complete(cls.wait_til_ready())
         print("Ready.")
 
     @classmethod
     async def wait_til_ready(cls):
         while True:
+            now = time.time()
+            next_iteration = now // 1.0 + 1
             if cls.market.ready:
                 break
+            else:
+                await cls._clock.run_til(next_iteration)
             await asyncio.sleep(1.0)
 
     def setUp(self):

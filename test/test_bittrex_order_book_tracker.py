@@ -6,14 +6,14 @@ import sys
 
 sys.path.insert(0, realpath(join(__file__, "../../")))
 
-from wings.tracker.bittrex_order_book_tracker import BittrexOrderBookTracker
+from hummingbot.market.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
 import asyncio
 import logging
 from typing import Dict, Optional
 import unittest
 
-from wings.order_book import OrderBook
-from wings.order_book_tracker import (
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTrackerDataSourceType
 )
 
@@ -24,7 +24,7 @@ class BittrexOrderBookTrackerUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.order_book_tracker: BittrexOrderBookTracker = BittrexOrderBookTracker(
-            OrderBookTrackerDataSourceType.LOCAL_CLUSTER)
+            OrderBookTrackerDataSourceType.EXCHANGE_API)
         cls.order_book_tracker_task: asyncio.Task = asyncio.ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
 
@@ -42,11 +42,15 @@ class BittrexOrderBookTrackerUnitTest(unittest.TestCase):
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
         btcusdt_book: OrderBook = order_books["USDT-BTC"]
         xrpusdt_book: OrderBook = order_books["USDT-XRP"]
-        print(btcusdt_book.snapshot)
-        self.assertGreaterEqual(btcusdt_book.get_price_for_volume(True, 10), btcusdt_book.get_price(True))
-        self.assertLessEqual(btcusdt_book.get_price_for_volume(False, 10), btcusdt_book.get_price(False))
-        self.assertGreaterEqual(xrpusdt_book.get_price_for_volume(True, 10000), xrpusdt_book.get_price(True))
-        self.assertLessEqual(xrpusdt_book.get_price_for_volume(False, 10000), xrpusdt_book.get_price(False))
+        # print(btcusdt_book.snapshot)
+        self.assertGreaterEqual(btcusdt_book.get_price_for_volume(True, 10).result_price,
+                                btcusdt_book.get_price(True))
+        self.assertLessEqual(btcusdt_book.get_price_for_volume(False, 10).result_price,
+                             btcusdt_book.get_price(False))
+        self.assertGreaterEqual(xrpusdt_book.get_price_for_volume(True, 10000).result_price,
+                                xrpusdt_book.get_price(True))
+        self.assertLessEqual(xrpusdt_book.get_price_for_volume(False, 10000).result_price,
+                             xrpusdt_book.get_price(False))
 
 
 def main():

@@ -9,7 +9,7 @@ import pandas as pd
 from typing import List
 import unittest
 
-from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import (
     AssetType,
@@ -18,12 +18,12 @@ from hummingsim.backtest.market import (
     QuantizationParams
 )
 from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
-from wings.clock import (
+from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
-from wings.event_logger import EventLogger
-from wings.events import (
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import (
     MarketEvent,
     OrderBookTradeEvent,
     TradeType,
@@ -32,9 +32,9 @@ from wings.events import (
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent
 )
-from wings.order_book import OrderBook
-from wings.order_book_row import OrderBookRow
-from wings.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketMakingStrategy
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair
 
@@ -49,10 +49,12 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        ExchangeRateConversion.set_global_exchange_rate_config([
-            ("WETH", 1.0, "None"),
-            ("QETH", 0.95, "None"),
-        ])
+        ExchangeRateConversion.set_global_exchange_rate_config({
+            "conversion_required": {
+                "WETH": {"default": 1.0, "source": "None"},
+                "QETH": {"default": 0.95, "source": "None"}
+            }
+        })
 
     def setUp(self):
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1.0, self.start_timestamp, self.end_timestamp)

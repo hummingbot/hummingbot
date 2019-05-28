@@ -7,27 +7,27 @@ from typing import (
     List
 )
 
-from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
-
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.discovery.discovery_market_pair import DiscoveryMarketPair
 from hummingbot.strategy.arbitrage import ArbitrageStrategy
-from wings.market.market_base import MarketBase
+from hummingbot.strategy.strategy_base cimport StrategyBase
+from hummingbot.market.market_base cimport MarketBase
 
-from wings.strategy.strategy cimport Strategy
 from libc.stdint cimport int64_t
-from wings.order_book import OrderBook
+from hummingbot.core.data_type.order_book cimport OrderBook
 import itertools
 
 NaN = float("nan")
 ds_logger = None
 
 
-cdef class DiscoveryStrategy(Strategy):
+cdef class DiscoveryStrategy(StrategyBase):
     OPTION_LOG_STATUS_REPORT = 1 << 0
     OPTION_LOG_ALL = 0xfffffffffffffff
 
     @classmethod
-    def logger(cls):
+    def logger(cls) -> HummingbotLogger:
         global ds_logger
         if ds_logger is None:
             ds_logger = logging.getLogger(__name__)
@@ -121,7 +121,9 @@ cdef class DiscoveryStrategy(Strategy):
             self._matching_pairs = self.get_matching_pair(market_pair)
 
         except Exception as e:
-            self.logger().error(str(e), exc_info=True)
+            self.logger().network(f"Could not fetch market info for {market_pair}", exc_info=True,
+                                  app_warning_msg=f"Failed to fetch market info for {market_pair}. "
+                                                  f"Check network connection.")
 
     def get_matching_pair(self, market_pair):
         market_1 = market_pair.market_1
@@ -147,7 +149,7 @@ cdef class DiscoveryStrategy(Strategy):
         return matching_pair
 
     cdef c_tick(self, double timestamp):
-        Strategy.c_tick(self, timestamp)
+        StrategyBase.c_tick(self, timestamp)
         if not self._fetch_market_info_task_list:
             self._fetch_market_info_task_list = [asyncio.ensure_future(self.fetch_market_info(market_pair))
                                                 for market_pair in self._market_pairs]
@@ -162,11 +164,11 @@ cdef class DiscoveryStrategy(Strategy):
             if not self._all_markets_ready:
                 # Markets not ready yet. Don't do anything.
                 return
-        try:
-            for market_pair in self._market_pairs:
+        for market_pair in self._market_pairs:
+            try:
                 self.c_process_market_pair(market_pair)
-        except Exception:
-            self.logger().error(f"Unexpected error running tick.", exc_info=True)
+            except Exception:
+                self.logger().error(f"Error processing market pair {market_pair}.", exc_info=True)
 
         cdef:
             int64_t current_tick
@@ -315,24 +317,25 @@ cdef class DiscoveryStrategy(Strategy):
         for exchange_class, market_info in exchange_market_info.items():
             trading_pairs = market_info["markets"]
             exchange_name = exchange_class.name
-            for symbol, quote_volume, quote_token in zip(trading_pairs.index,
-                                                         trading_pairs.volume,
-                                                         trading_pairs.quoteAsset):
+            for symbol, usd_volume, base_asset, quote_asset in zip(trading_pairs.index,
+                                                                   trading_pairs.USDVolume,
+                                                                   trading_pairs.baseAsset,
+                                                                   trading_pairs.quoteAsset):
                 try:
                     order_book = exchange_class.get_order_book(symbol)
                     ask, bid = order_book.get_price(True), order_book.get_price(False)
                     spread, mid_price = ask/bid, (ask + bid)/2
                     market_stats[(exchange_name, symbol)] = (
-                        (spread - 1) * 100, mid_price, float(quote_volume), quote_token)
+                        base_asset, quote_asset, mid_price, (spread - 1) * 100, float(usd_volume))
                 except Exception:
                     self.logger().debug(f"Error calculating market stats: {exchange_name}, {symbol}.", exc_info=True)
 
         market_stats_discovery_df = pd.DataFrame(
-            data=[(name[0], name[1], stats[0], stats[1], stats[2], stats[3]) for name, stats in market_stats.items()],
-            columns=["market", "trading_pair", "spread (%)", "mid_price", "24h_volume", "quote_asset"]
+            data=[(name[0], stats[0], stats[1], stats[2], stats[3], stats[4]) for name, stats in market_stats.items()],
+            columns=["market", "base", "quote", "mid_price", "spread (%)", "usd_volume"]
         )
 
-        return market_stats_discovery_df.sort_values(["24h_volume", "spread (%)"], ascending=False)
+        return market_stats_discovery_df.sort_values(["usd_volume", "spread (%)"], ascending=False)
 
     cdef c_process_market_pair(self, object market_pair):
         self._discovery_stats["market_stats"] = self.c_calculate_market_stats(market_pair, self._market_info)
@@ -349,7 +352,7 @@ cdef class DiscoveryStrategy(Strategy):
         if "arbitrage" not in self._discovery_stats or self._discovery_stats["arbitrage"].empty:
             lines.extend(["", "Arbitrage discovery not ready yet."])
             return lines
-        df_lines = self._discovery_stats["arbitrage"].to_string(index=False, float_format='%.6f').split("\n")
+        df_lines = self._discovery_stats["arbitrage"].to_string(index=False, float_format='%.6g').split("\n")
 
         lines.extend(["", "  Arbitrage Opportunity Report:"] +
                      ["    " + line for line in df_lines])
@@ -362,7 +365,7 @@ cdef class DiscoveryStrategy(Strategy):
         if "market_stats" not in self._discovery_stats or self._discovery_stats["market_stats"].empty:
             lines.extend(["", "Market stats not ready yet."])
             return lines
-        df_lines = self._discovery_stats["market_stats"].to_string(index=False, float_format='%.6f').split("\n")
+        df_lines = self._discovery_stats["market_stats"].to_string(index=False, float_format='%.6g').split("\n")
 
         lines.extend(["", "  Market Stats:"] +
                      ["    " + line for line in df_lines])
@@ -391,7 +394,9 @@ cdef class DiscoveryStrategy(Strategy):
                 asset_set.add(q)
 
         for asset in asset_set:
-            data.append([asset, ExchangeRateConversion.get_instance().adjust_token_rate(asset, 1.0)])
+            rate = ExchangeRateConversion.get_instance().adjust_token_rate(asset, 1.0)
+            if rate != 1.0:
+                data.append([asset, rate])
 
         assets_df = pd.DataFrame(data=data, columns=columns)
         lines.extend(["", "  Conversion Rates:"] + ["    " + line for line in str(assets_df).split("\n")])

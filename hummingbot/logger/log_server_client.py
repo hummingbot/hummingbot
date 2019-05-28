@@ -3,9 +3,11 @@ import logging
 from typing import Optional
 import aiohttp
 
+from hummingbot.logger import HummingbotLogger
+
 
 class LogServerClient:
-    lsc_logger: Optional[logging.Logger] = None
+    lsc_logger: Optional[HummingbotLogger] = None
     _lsc_shared_instance: "LogServerClient" = None
 
     @classmethod
@@ -15,7 +17,7 @@ class LogServerClient:
         return cls._lsc_shared_instance
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls.lsc_logger is None:
             cls.lsc_logger = logging.getLogger(__name__)
         return cls.lsc_logger

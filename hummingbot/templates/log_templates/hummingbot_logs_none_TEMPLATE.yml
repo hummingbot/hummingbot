@@ -1,6 +1,6 @@
 ---
 version: 1
-template_version: 1
+template_version: 4
 
 formatters:
     simple:
@@ -8,17 +8,17 @@ formatters:
 
 handlers:
     console:
-        class: logging.StreamHandler
+        class: hummingbot.logger.cli_handler.CLIHandler
         level: DEBUG
         formatter: simple
         stream: ext://sys.stdout
     console_warning:
-        class: logging.StreamHandler
+        class: hummingbot.logger.cli_handler.CLIHandler
         level: WARNING
         formatter: simple
         stream: ext://sys.stdout
     console_info:
-        class: logging.StreamHandler
+        class: hummingbot.logger.cli_handler.CLIHandler
         level: INFO
         formatter: simple
         stream: ext://sys.stdout
@@ -39,11 +39,11 @@ handlers:
 
 loggers:
     hummingbot.public_eth_address:
-        level: INFO
+        level: NETWORK
         propagate: no
         handlers: ["null"]
     hummingbot.command_history:
-        level: INFO
+        level: NETWORK
         propagate: no
         handlers: ["null"]
     hummingbot.logger.report_aggregator:
@@ -53,37 +53,29 @@ loggers:
     hummingbot.logger.log_server_client:
         level: WARNING
         propagate: false
-        handlers: [console, file_handler]
+        handlers: [console_info, file_handler]
     hummingbot.logger.reporting_proxy_handler:
         level: WARNING
         propagate: false
-        handlers: [console, file_handler]
+        handlers: [console_info, file_handler]
     hummingbot.strategy:
-        level: INFO
-        handlers: [console, file_handler]
+        level: NETWORK
+        handlers: [console_info, file_handler]
         propagate: false
-    wings.event_reporter:
+    hummingbot.market:
+        level: NETWORK
+        handlers: [console_info, file_handler]
+        propagate: false
+    hummingbot.wallet:
+        level: NETWORK
+        handlers: [console_info, file_handler]
+        propagate: false
+    hummingbot.core.event.event_reporter:
         level: EVENT_LOG
         handlers: [file_handler]
         propagate: false
-    wings.tracker:
-        level: WARNING
-        handlers: [console_warning, file_handler]
-        propagate: false
-    wings.data_source:
-        level: WARNING
-        handlers: [console_warning, file_handler]
-        propagate: false
-    wings.wallet:
-        level: INFO
-        handlers: [console, file_handler]
-        propagate: false
-    wings.market:
-        level: INFO
-        handlers: [console, file_handler]
-        propagate: false
     conf:
-        level: INFO
+        level: NETWORK
         handlers: ["null"]
         propagate: false
 

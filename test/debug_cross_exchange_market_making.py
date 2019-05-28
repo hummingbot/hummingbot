@@ -14,7 +14,7 @@ from hummingsim.backtest.market_config import (
     AssetType
 )
 from hummingsim.backtest.ddex_order_book_loader import DDEXOrderBookLoader
-from wings.clock import (
+from hummingbot.core.clock import (
     Clock,
     ClockMode
 )

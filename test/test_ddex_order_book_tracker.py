@@ -9,9 +9,9 @@ import logging
 import unittest
 from typing import Dict, Optional
 
-from wings.tracker.ddex_order_book_tracker import DDEXOrderBookTracker
-from wings.order_book import OrderBook
-from wings.order_book_tracker import (
+from hummingbot.market.ddex.ddex_order_book_tracker import DDEXOrderBookTracker
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTrackerDataSourceType
 )
 
@@ -41,14 +41,18 @@ class DDEXOrderBookTrackerUnitTest(unittest.TestCase):
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
         zrx_weth_book: OrderBook = order_books["ZRX-WETH"]
         weth_tusd_book: OrderBook = order_books["WETH-TUSD"]
-        print("zrx_weth_book")
-        print(zrx_weth_book.snapshot)
-        print("weth_tusd_book")
-        print(weth_tusd_book.snapshot)
-        self.assertGreaterEqual(zrx_weth_book.get_price_for_volume(True, 10), zrx_weth_book.get_price(True))
-        self.assertLessEqual(zrx_weth_book.get_price_for_volume(False, 10), zrx_weth_book.get_price(False))
-        self.assertGreaterEqual(weth_tusd_book.get_price_for_volume(True, 10), weth_tusd_book.get_price(True))
-        self.assertLessEqual(weth_tusd_book.get_price_for_volume(False, 10), weth_tusd_book.get_price(False))
+        # print("zrx_weth_book")
+        # print(zrx_weth_book.snapshot)
+        # print("weth_tusd_book")
+        # print(weth_tusd_book.snapshot)
+        self.assertGreaterEqual(zrx_weth_book.get_price_for_volume(True, 10).result_price,
+                                zrx_weth_book.get_price(True))
+        self.assertLessEqual(zrx_weth_book.get_price_for_volume(False, 10).result_price,
+                             zrx_weth_book.get_price(False))
+        self.assertGreaterEqual(weth_tusd_book.get_price_for_volume(True, 10).result_price,
+                                weth_tusd_book.get_price(True))
+        self.assertLessEqual(weth_tusd_book.get_price_for_volume(False, 10).result_price,
+                             weth_tusd_book.get_price(False))
 
 
 def main():
