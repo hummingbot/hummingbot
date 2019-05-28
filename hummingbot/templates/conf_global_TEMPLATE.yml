@@ -43,4 +43,10 @@ stop_loss_price_type: null
 # if using dynamic pricing, set a base token that denominates your entire portfolio value
 stop_loss_base_token: null
 
+# telegram integration
+telegram_enabled: false
+telegram_token: null
+telegram_chat_id: null
+
 # For more detailed information: https://docs.hummingbot.io
+
