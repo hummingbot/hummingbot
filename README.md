@@ -17,8 +17,8 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 
 ## Supported cryptocurrency exchanges
 
-| logo | id | name | ver | doc| test |
-|:---:|:---:|:---:|:---:|:---:|:---:|
+| logo | id | name | ver | doc|
+|:---:|:---:|:---:|:---:|:---:|
 | [![binance](https://i.ibb.co/m0YDQLd/Screen-Shot-2019-03-14-at-10-53-42-AM.png)](https://www.binance.com/?ref=10205187) | binance | [Binance](https://www.binance.com/) | * | [API](https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-exchange_binance&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-exchange_binance/) |
 | [![Radar Relay](https://i.ibb.co/7RW75mf/Screen-Shot-2019-03-14-at-10-47-07-AM.png)](https://radarrelay.com/) | radar_relay | [Radar Relay](https://radarrelay.com/) | 2 | [API](https://developers.radarrelay.com/api/trade-api) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-exchange_radar_relay&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-exchange_radar_relay/) |
 | [![DDEX](https://i.ibb.co/Lrpps2G/Screen-Shot-2019-03-14-at-10-39-23-AM.png)](https://ddex.io/) | ddex | [DDEX](https://ddex.io/) | 3 | [API](https://docs.ddex.io/) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-exchange_ddex&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-exchange_ddex/) |
