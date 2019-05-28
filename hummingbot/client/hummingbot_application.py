@@ -151,6 +151,7 @@ class HummingbotApplication:
         self.data_feed: Optional[DataFeedBase] = None
         self.stop_loss_tracker: Optional[StopLossTracker] = None
         self.notifiers: List[NotifierBase] = []
+        self._ev_loop = asyncio.get_event_loop()
         self._app_warnings: Deque[ApplicationWarning] = deque()
         self._trading_required: bool = True
 
@@ -876,7 +877,10 @@ class HummingbotApplication:
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
 
-    async def stop(self, skip_order_cancellation: bool = False):
+    def stop(self, skip_order_cancellation: bool = False):
+        asyncio.ensure_future(self.stop_loop(skip_order_cancellation), loop=self._ev_loop)
+
+    async def stop_loop(self, skip_order_cancellation: bool = False):
         self._notify("\nWinding down...")
 
         # Restore App Nap on macOS.
