@@ -450,9 +450,11 @@ class HummingbotApplication:
 
     def _initialize_notifiers(self):
         if global_config_map.get("telegram_enabled").value:
-            self.notifiers.append(TelegramNotifier(token=global_config_map["telegram_token"].value,
-                                                   chat_id=global_config_map["telegram_chat_id"].value,
-                                                   hb=self))
+            # TODO: refactor to use single instance
+            if not any([isinstance(n, TelegramNotifier) for n in self.notifiers]):
+                self.notifiers.append(TelegramNotifier(token=global_config_map["telegram_token"].value,
+                                                       chat_id=global_config_map["telegram_chat_id"].value,
+                                                       hb=self))
         for notifier in self.notifiers:
             notifier.start()
 
