@@ -1,36 +1,33 @@
 #!/usr/bin/env python
-import logging
 from os.path import join, realpath
-import sys;
-from unittest.mock import patch
-
-sys.path.insert(0, realpath(join(__file__, "../../")))
-from wings.logger.struct_logger import METRICS_LOG_LEVEL
-
-from wings.user_stream_tracker import UserStreamTrackerDataSourceType
-
+import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
 import asyncio
-from decimal import Decimal
-import time
-from typing import List
-import unittest
-from binance.client import Client as BinanceClient
-
 import conf
-from wings.events import (
+import contextlib
+from decimal import Decimal
+import logging
+import time
+from typing import (
+    List,
+    Dict
+)
+import unittest
+from unittest.mock import patch
+
+from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from wings.market.binance_market import (
+from hummingbot.market.binance.binance_market import (
     BinanceMarket,
     BinanceTime
 )
-from wings.clock import (
+from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
-from wings.events import (
+from hummingbot.core.event.events import (
     MarketEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
@@ -41,11 +38,11 @@ from wings.events import (
     SellOrderCreatedEvent,
     TradeFee
 )
-from wings.wallet.mock_wallet import MockWallet
-from wings.event_logger import EventLogger
-from wings.order_book_tracker import (
-    OrderBookTrackerDataSourceType
-)
+from hummingbot.wallet.ethereum.mock_wallet import MockWallet
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 
 MAINNET_RPC_URL = "http://mainnet-rpc.mainnet:8545"
 logging.basicConfig(level=METRICS_LOG_LEVEL)
@@ -60,7 +57,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderFilled,
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
-        MarketEvent.SellOrderCreated
+        MarketEvent.SellOrderCreated,
     ]
 
     market: BinanceMarket
@@ -75,20 +72,25 @@ class BinanceMarketUnitTest(unittest.TestCase):
             MAINNET_RPC_URL, conf.binance_api_key, conf.binance_api_secret,
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-            symbols=["ZRXETH", "LOOMETH"]
+            symbols=["ZRXETH", "LOOMETH", "IOSTETH"]
         )
         print("Initializing Binance market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.market)
-        cls.ev_loop.run_until_complete(cls.clock.run_til(time.time() + 1))
+        stack = contextlib.ExitStack()
+        cls._clock = stack.enter_context(cls.clock)
         cls.ev_loop.run_until_complete(cls.wait_til_ready())
         print("Ready.")
 
     @classmethod
     async def wait_til_ready(cls):
         while True:
+            now = time.time()
+            next_iteration = now // 1.0 + 1
             if cls.market.ready:
                 break
+            else:
+                await cls._clock.run_til(next_iteration)
             await asyncio.sleep(1.0)
 
     def setUp(self):
@@ -106,7 +108,8 @@ class BinanceMarketUnitTest(unittest.TestCase):
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1
-            await self.clock.run_til(next_iteration)
+            await self._clock.run_til(next_iteration)
+            await asyncio.sleep(1.0)
         return future.result()
 
     def run_parallel(self, *tasks):
@@ -323,10 +326,80 @@ class BinanceMarketUnitTest(unittest.TestCase):
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
 
+    def test_order_price_precision(self):
+        # As of the day this test was written, the min order size (base) is 1 IOST, the min order size (quote) is
+        # 0.01 ETH, and order step size is 1 IOST.
+        symbol = "IOSTETH"
+        bid_price: float = self.market.get_price(symbol, True)
+        ask_price: float = self.market.get_price(symbol, False)
+        mid_price: float = (bid_price + ask_price) / 2
+        amount: float = 0.02 / mid_price
+        binance_client = self.market.binance_client
+
+        # Make sure there's enough balance to make the limit orders.
+        self.assertGreater(self.market.get_balance("ETH"), 0.1)
+        self.assertGreater(self.market.get_balance("IOST"), amount * 2)
+
+        # Intentionally set some prices with too many decimal places s.t. they
+        # need to be quantized. Also, place them far away from the mid-price s.t. they won't
+        # get filled during the test.
+        bid_price: float = mid_price * 0.3333192292111341
+        ask_price: float = mid_price * 3.4392431474884933
+
+        # This is needed to get around the min quote amount limit.
+        bid_amount: float = 0.02 / bid_price
+
+        # Test bid order
+        bid_order_id: str = self.market.buy(
+            symbol,
+            bid_amount,
+            OrderType.LIMIT,
+            bid_price
+        )
+
+        # Wait for the order created event and examine the order made
+        [order_created_event] = self.run_parallel(
+            self.market_logger.wait_for(BuyOrderCreatedEvent, timeout_seconds=10)
+        )
+        order_data: Dict[str, any] = binance_client.get_order(
+            symbol=symbol,
+            origClientOrderId=bid_order_id
+        )
+        quantized_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
+        bid_size_quantum: Decimal = self.market.get_order_size_quantum(symbol, bid_amount)
+        self.assertEqual(quantized_bid_price, Decimal(order_data["price"]))
+        self.assertTrue(Decimal(order_data["origQty"]) % bid_size_quantum == 0)
+
+        # Test ask order
+        ask_order_id: str = self.market.sell(
+            symbol,
+            amount,
+            OrderType.LIMIT,
+            ask_price
+        )
+
+        # Wait for the order created event and examine and order made
+        [order_created_event] = self.run_parallel(
+            self.market_logger.wait_for(SellOrderCreatedEvent, timeout_seconds=10)
+        )
+        order_data = binance_client.get_order(
+            symbol=symbol,
+            origClientOrderId=ask_order_id
+        )
+        quantized_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price)
+        quantized_ask_size: Decimal = self.market.quantize_order_amount(symbol, amount)
+        self.assertEqual(quantized_ask_price, Decimal(order_data["price"]))
+        self.assertEqual(quantized_ask_size, Decimal(order_data["origQty"]))
+
+        # Cancel all the orders
+        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+        for cr in cancellation_results:
+            self.assertEqual(cr.success, True)
+
     def test_server_time_offset(self):
         BinanceTime.get_instance().SERVER_TIME_OFFSET_CHECK_INTERVAL = 3.0
         self.run_parallel(asyncio.sleep(60))
-        with patch("wings.binance_market.time") as market_time:
+        with patch("hummingbot.market.binance.binance_market.time") as market_time:
             def delayed_time():
                 return time.time() - 30.0
             market_time.time = delayed_time
@@ -339,5 +412,5 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    logging.getLogger("wings.event_reporter").setLevel(logging.WARNING)
+    logging.getLogger("hummingbot.core.event.event_reporter").setLevel(logging.WARNING)
     unittest.main()

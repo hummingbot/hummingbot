@@ -6,14 +6,14 @@ import sys
 sys.path.insert(0, realpath(join(__file__, "../../")))
 
 
-from wings.tracker.binance_user_stream_tracker import BinanceUserStreamTracker
-from wings.user_stream_tracker import UserStreamTrackerDataSourceType
+from hummingbot.market.binance.binance_user_stream_tracker import BinanceUserStreamTracker
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 
 
-from wings.tracker.binance_order_book_tracker import BinanceOrderBookTracker
+from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker
 import asyncio
 import logging
-from typing import Dict, Optional
+from typing import Optional
 import unittest
 logging.basicConfig(level=logging.DEBUG)
 

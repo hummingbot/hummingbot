@@ -6,10 +6,11 @@ from typing import (
     Optional,
 )
 from hummingbot.data_feed.data_feed_base import DataFeedBase
+from hummingbot.logger import HummingbotLogger
 
 
 class CoinCapDataFeed(DataFeedBase):
-    ccdf_logger: Optional[logging.Logger] = None
+    ccdf_logger: Optional[HummingbotLogger] = None
     _ccdf_shared_instance: "CoinCapDataFeed" = None
 
     COIN_CAP_BASE_URL = "https://api.coincap.io/v2"
@@ -21,7 +22,7 @@ class CoinCapDataFeed(DataFeedBase):
         return cls._ccdf_shared_instance
 
     @classmethod
-    def logger(cls) -> logging.Logger:
+    def logger(cls) -> HummingbotLogger:
         if cls.ccdf_logger is None:
             cls.ccdf_logger = logging.getLogger(__name__)
         return cls.ccdf_logger
@@ -29,10 +30,14 @@ class CoinCapDataFeed(DataFeedBase):
     def __init__(self, update_interval: float = 5.0):
         super().__init__()
         self._ev_loop = asyncio.get_event_loop()
-        self._session = aiohttp.ClientSession(loop=self._ev_loop, connector=aiohttp.TCPConnector(ssl=False))
         self._price_dict: Dict[str, float] = {}
-        self._update_interval = update_interval
-        self._fetch_price_task = asyncio.ensure_future(self.fetch_price_loop())
+        self._update_interval: float = update_interval
+        self._fetch_price_task: Optional[asyncio.Task] = None
+        self._started = False
+
+    @property
+    def name(self):
+        return "coincap_api"
 
     @property
     def price_dict(self):
@@ -47,21 +52,24 @@ class CoinCapDataFeed(DataFeedBase):
                 await self.fetch_prices()
             except asyncio.CancelledError:
                 raise
-            except Exception as e:
-                self.logger().error(e, exc_info=True)
+            except Exception:
+                self.logger().network(f"Error fetching new prices from {self.name}.", exc_info=True,
+                                      app_warning_msg="Couldn't fetch newest prices from CoinCap. "
+                                                      "Check network connection.")
 
             await asyncio.sleep(self._update_interval)
 
     async def fetch_prices(self):
         try:
-            async with self._session.request("GET", f"{self.COIN_CAP_BASE_URL}/assets") as resp:
+            client = await self._http_client()
+            async with client.request("GET", f"{self.COIN_CAP_BASE_URL}/assets") as resp:
                 rates_dict = await resp.json()
                 for rate_obj in rates_dict["data"]:
                     symbol = rate_obj["symbol"]
                     self._price_dict[symbol] = float(rate_obj["priceUsd"])
 
             # coincap does not include all coins in assets
-            async with self._session.request("GET", f"{self.COIN_CAP_BASE_URL}/rates") as resp:
+            async with client.request("GET", f"{self.COIN_CAP_BASE_URL}/rates") as resp:
                 rates_dict = await resp.json()
                 for rate_obj in rates_dict["data"]:
                     symbol = rate_obj["symbol"]
@@ -73,3 +81,12 @@ class CoinCapDataFeed(DataFeedBase):
         except Exception:
             raise IOError("Error fetching prices from Coin Cap API")
 
+    def start(self):
+        self.stop()
+        self._fetch_price_task = asyncio.ensure_future(self.fetch_price_loop())
+        self._started = True
+
+    def stop(self):
+        if self._fetch_price_task and not self._fetch_price_task.done():
+            self._fetch_price_task.cancel()
+        self._started = False

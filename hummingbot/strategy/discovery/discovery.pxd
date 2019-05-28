@@ -1,11 +1,9 @@
 # distutils: language=c++
 
-from wings.market.market_base cimport MarketBase
-from wings.order_book cimport OrderBook
-from wings.strategy.strategy cimport Strategy
+from hummingbot.strategy.strategy_base cimport StrategyBase
 from libc.stdint cimport int64_t
 
-cdef class DiscoveryStrategy(Strategy):
+cdef class DiscoveryStrategy(StrategyBase):
     cdef:
         list _market_pairs
         double _target_amount

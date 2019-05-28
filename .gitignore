@@ -31,26 +31,13 @@ __pycache__
 # Cython objects
 /**/*.so
 /**/*.pyd
-/wings/*.c
-/wings/*.cpp
-/wings/model/*.c
-/wings/model/*.cpp
-/wings/model/**/*.c
-/wings/model/**/*.cpp
-/wings/strategy/*.c
-/wings/strategy/*.cpp
-/wings/strategy/**/*.c
-/wings/strategy/**/*.cpp
-/wings/orderbook/*.c
-/wings/orderbook/*.cpp
-/wings/market/*.c
-/wings/market/*.cpp
-/wings/wallet/*.c
-/wings/wallet/*.cpp
-/wings/tracker/*.c
-/wings/tracker/*.cpp
 /hummingbot/**/*.c
 /hummingbot/**/*.cpp
+!/hummingbot/core/cpp/*.cpp
+/hummingbot/wallet/*.c
+/hummingbot/wallet/*.cpp
+/hummingbot/wallet/ethereum/*.c
+/hummingbot/wallet/ethereum/*.cpp
 /build
 
 # Local files
@@ -69,6 +56,7 @@ debug.log
 
 # VSCode
 .vscode/
+.history/
 
 # Documentation build dir
 /documentation/site/

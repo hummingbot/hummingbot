@@ -4,14 +4,14 @@ from os.path import join, realpath
 import sys
 sys.path.insert(0, realpath(join(__file__, "../../")))
 
-from wings.tracker.binance_order_book_tracker import BinanceOrderBookTracker
+from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker
 import asyncio
 import logging
 from typing import Dict, Optional
 import unittest
 
-from wings.order_book import OrderBook
-from wings.order_book_tracker import (
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTrackerDataSourceType
 )
 
@@ -40,13 +40,17 @@ class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
         btcusdt_book: OrderBook = order_books["BTCUSDT"]
         xrpusdt_book: OrderBook = order_books["XRPUSDT"]
-        print(btcusdt_book.snapshot)
-        print("xrpusdt")
-        print(xrpusdt_book.snapshot)
-        self.assertGreaterEqual(btcusdt_book.get_price_for_volume(True, 10), btcusdt_book.get_price(True))
-        self.assertLessEqual(btcusdt_book.get_price_for_volume(False, 10), btcusdt_book.get_price(False))
-        self.assertGreaterEqual(xrpusdt_book.get_price_for_volume(True, 10000), xrpusdt_book.get_price(True))
-        self.assertLessEqual(xrpusdt_book.get_price_for_volume(False, 10000), xrpusdt_book.get_price(False))
+        # print(btcusdt_book.snapshot)
+        # print("xrpusdt")
+        # print(xrpusdt_book.snapshot)
+        self.assertGreaterEqual(btcusdt_book.get_price_for_volume(True, 10).result_price,
+                                btcusdt_book.get_price(True))
+        self.assertLessEqual(btcusdt_book.get_price_for_volume(False, 10).result_price,
+                             btcusdt_book.get_price(False))
+        self.assertGreaterEqual(xrpusdt_book.get_price_for_volume(True, 10000).result_price,
+                                xrpusdt_book.get_price(True))
+        self.assertLessEqual(xrpusdt_book.get_price_for_volume(False, 10000).result_price,
+                             xrpusdt_book.get_price(False))
 
 
 def main():

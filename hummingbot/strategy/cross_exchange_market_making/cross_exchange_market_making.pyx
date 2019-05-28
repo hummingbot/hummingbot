@@ -5,7 +5,6 @@ from collections import (
 )
 from decimal import Decimal
 import logging
-import math
 import pandas as pd
 from typing import (
     List,
@@ -15,24 +14,24 @@ from typing import (
     Deque
 )
 
-from wings.clock cimport Clock
-from wings.events import (
+from hummingbot.core.clock cimport Clock
+from hummingbot.core.event.events import (
     MarketEvent,
     TradeType
 )
-from wings.event_listener cimport EventListener
-from wings.limit_order cimport LimitOrder
-from wings.limit_order import LimitOrder
-from wings.network_iterator import NetworkStatus
-from wings.market.market_base import (
+from hummingbot.core.event.event_listener cimport EventListener
+from hummingbot.core.data_type.limit_order cimport LimitOrder
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.market.market_base import (
     MarketBase,
     OrderType
 )
-from wings.market_order import MarketOrder
-from wings.order_book import OrderBook
+from hummingbot.core.data_type.market_order import MarketOrder
+from hummingbot.core.data_type.order_book import OrderBook
 from .cross_exchange_market_pair import CrossExchangeMarketPair
 from hummingbot.strategy.strategy_base import StrategyBase
-from hummingbot.cli.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -83,7 +82,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
     ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     ORDER_EXPIRED_EVENT_TAG = MarketEvent.OrderExpired.value
-    TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
+    ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
 
     OPTION_LOG_NULL_ORDER_SIZE = 1 << 0
     OPTION_LOG_REMOVING_ORDER = 1 << 1
@@ -175,7 +174,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             typed_market.c_add_listener(self.ORDER_FILLED_EVENT_TAG, self._order_filled_listener)
             typed_market.c_add_listener(self.ORDER_CANCELLED_EVENT_TAG, self._order_cancelled_listener)
             typed_market.c_add_listener(self.ORDER_EXPIRED_EVENT_TAG, self._order_expired_listener)
-            typed_market.c_add_listener(self.TRANSACTION_FAILURE_EVENT_TAG, self._order_failed_listener)
+            typed_market.c_add_listener(self.ORDER_FAILURE_EVENT_TAG, self._order_failed_listener)
 
     @property
     def active_markets(self) -> List[MarketBase]:
@@ -727,7 +726,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             hedged_order_quantity = min(
                 sell_fill_quantity,
                 (taker_market.c_get_balance(market_pair.taker_quote_currency) /
-                 taker_order_book.c_get_price_for_volume(True, sell_fill_quantity) *
+                 taker_order_book.c_get_price_for_volume(True, sell_fill_quantity).result_price *
                  self._order_size_taker_balance_factor)
             )
             quantized_hedge_amount = taker_market.c_quantize_order_amount(taker_symbol, hedged_order_quantity)
@@ -877,13 +876,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                               OrderBook maker_order_book,
                                               OrderBook taker_order_book,
                                               double bid_order_size = 0.0):
-        if bid_order_size == 0.0:
-            return 0.0
         cdef:
             double maker_bid_price = maker_order_book.c_get_price_for_quote_volume(
                 False,
                 market_pair.top_depth_tolerance
-            )
+            ).result_price
             double taker_bid_price = taker_order_book.c_get_price(False)
             double maker_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.maker_quote_currency,
@@ -893,6 +890,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 market_pair.taker_quote_currency,
                 taker_bid_price
             )
+        if bid_order_size == 0.0:
+            return taker_bid_price_adjusted / maker_bid_price_adjusted - 1
+        
+        cdef:
             object maker_bid_fee = (<MarketBase>(market_pair.maker_market)).c_get_fee(
                 market_pair.maker_base_currency,
                 market_pair.maker_quote_currency,
@@ -930,13 +931,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                               OrderBook maker_order_book,
                                               OrderBook taker_order_book,
                                               double ask_order_size = 0.0):
-        if ask_order_size == 0.0:
-            return 0.0
         cdef:
             double maker_ask_price = maker_order_book.c_get_price_for_quote_volume(
                 True,
                 market_pair.top_depth_tolerance
-            )
+            ).result_price
             double taker_ask_price = taker_order_book.c_get_price(True)
             double maker_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.maker_quote_currency,
@@ -946,6 +945,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 market_pair.taker_quote_currency,
                 taker_ask_price
             )
+        if ask_order_size == 0.0:
+            return maker_ask_price_adjusted / taker_ask_price_adjusted - 1
+
+        cdef:
             object maker_ask_fee = (<MarketBase>(market_pair.maker_market)).c_get_fee(
                 market_pair.maker_base_currency,
                 market_pair.maker_quote_currency,
@@ -1084,14 +1087,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         try:
             top_bid_price = maker_order_book.c_get_price_for_quote_volume(
                 False, market_pair.top_depth_tolerance + own_order_depth
-            )
+            ).result_price
         except EnvironmentError:
             top_bid_price = maker_order_book.c_get_price(False)
 
         try:
             top_ask_price = maker_order_book.c_get_price_for_quote_volume(
                 True, market_pair.top_depth_tolerance + own_order_depth
-            )
+            ).result_price
         except EnvironmentError:
             top_ask_price = maker_order_book.c_get_price(True)
 
@@ -1119,8 +1122,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             # Calculate the order size limit from the minimal profitable hedge on the taker market.
             profitable_hedge_price = adjusted_taker_price * (1 + self._min_profitability)
-            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(False, profitable_hedge_price) *
-                                           self._order_size_taker_volume_factor)
+            taker_order_book_size_limit = (
+                taker_order_book.c_get_volume_for_price(False, profitable_hedge_price).result_volume *
+                self._order_size_taker_volume_factor
+            )
 
             raw_size_limit = min(
                 taker_order_book_size_limit,
@@ -1153,8 +1158,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             # Calculate the order size limit from the minimal profitable hedge on the taker market.
             profitable_hedge_price = adjusted_taker_price / (1 + self._min_profitability)
-            taker_order_book_size_limit = (taker_order_book.c_get_volume_for_price(True, profitable_hedge_price) *
-                                           self._order_size_taker_volume_factor)
+            taker_order_book_size_limit = (
+                taker_order_book.c_get_volume_for_price(True, profitable_hedge_price).result_volume *
+                self._order_size_taker_volume_factor
+            )
 
             raw_size_limit = min(
                 taker_order_book_size_limit,
@@ -1316,7 +1323,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
         if is_buy:
             above_price = order_price + float(price_quantum)
-            above_quote_volume = maker_order_book.c_get_quote_volume_for_price(False, above_price)
+            above_quote_volume = maker_order_book.c_get_quote_volume_for_price(False, above_price).result_volume
             suggested_price, order_size_limit = self.c_get_market_making_price_and_size_limit(
                 market_pair,
                 True,
@@ -1359,7 +1366,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 return False
         else:
             above_price = order_price - float(price_quantum)
-            above_quote_volume = maker_order_book.c_get_quote_volume_for_price(True, above_price)
+            above_quote_volume = maker_order_book.c_get_quote_volume_for_price(True, above_price).result_volume
             suggested_price, order_size_limit = self.c_get_market_making_price_and_size_limit(
                 market_pair,
                 False,

@@ -2,7 +2,7 @@
 
 from typing import NamedTuple
 
-from wings.market.market_base import MarketBase
+from hummingbot.market.market_base import MarketBase
 
 
 class CrossExchangeMarketPair(NamedTuple):

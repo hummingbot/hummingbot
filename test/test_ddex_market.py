@@ -1,19 +1,20 @@
 #!/usr/bin/env python
-
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
-import conf
-import time
 import asyncio
-import logging
+import conf
+import contextlib
 from decimal import Decimal
-import unittest
+import logging
+import time
 from typing import List
-from wings.clock import Clock, ClockMode
-from wings.market.ddex_market import DDEXMarket
-from wings.ethereum_chain import EthereumChain
-from wings.events import (
+import unittest
+
+from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.market.ddex.ddex_market import DDEXMarket
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
+from hummingbot.core.event.events import (
     MarketEvent,
     WalletEvent,
     BuyOrderCompletedEvent,
@@ -26,10 +27,10 @@ from wings.events import (
     TradeType,
     TradeFee
 )
-from wings.event_logger import EventLogger
-from wings.market.market_base import OrderType
-from wings.order_book_tracker import OrderBookTrackerDataSourceType
-from wings.wallet.web3_wallet import Web3Wallet
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.market.market_base import OrderType
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 
 
 class DDEXMarketUnitTest(unittest.TestCase):
@@ -61,7 +62,8 @@ class DDEXMarketUnitTest(unittest.TestCase):
                                 erc20_token_addresses=[conf.test_ddex_erc20_token_address_1,
                                                        conf.test_ddex_erc20_token_address_2],
                                 chain=EthereumChain.MAIN_NET)
-        cls.market: DDEXMarket = DDEXMarket(wallet=cls.wallet, web3_url=conf.test_ddex_web3_provider_list[0],
+        cls.market: DDEXMarket = DDEXMarket(wallet=cls.wallet,
+                                            ethereum_rpc_url=conf.test_ddex_web3_provider_list[0],
                                             order_book_tracker_data_source_type=
                                             OrderBookTrackerDataSourceType.EXCHANGE_API,
                                             symbols=["HOT-WETH"])
@@ -69,15 +71,20 @@ class DDEXMarketUnitTest(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.wallet)
         cls.clock.add_iterator(cls.market)
-        cls.ev_loop.run_until_complete(cls.clock.run_til(time.time() + 1))
+        stack = contextlib.ExitStack()
+        cls._clock = stack.enter_context(cls.clock)
         cls.ev_loop.run_until_complete(cls.wait_til_ready())
         print("Ready.")
 
     @classmethod
     async def wait_til_ready(cls):
         while True:
+            now = time.time()
+            next_iteration = now // 1.0 + 1
             if cls.market.ready:
                 break
+            else:
+                await cls._clock.run_til(next_iteration)
             await asyncio.sleep(1.0)
 
     def setUp(self):
@@ -101,7 +108,8 @@ class DDEXMarketUnitTest(unittest.TestCase):
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1
-            await self.clock.run_til(next_iteration)
+            await self._clock.run_til(next_iteration)
+            await asyncio.sleep(1.0)
         return future.result()
 
     def run_parallel(self, *tasks):
@@ -140,7 +148,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
     def test_cancel_order(self):
         symbol = "HOT-WETH"
         bid_price: float = self.market.get_price(symbol, True)
-        amount = 0.02 / bid_price
+        amount = 2000
 
         # Intentionally setting invalid price to prevent getting filled
         client_order_id = self.market.buy(symbol, amount, OrderType.LIMIT, bid_price * 0.7)
@@ -151,10 +159,10 @@ class DDEXMarketUnitTest(unittest.TestCase):
     def test_place_limit_buy_and_sell(self):
         self.assertGreater(self.market.get_balance("WETH"), 0.01)
 
-        # Try to buy 0.01 WETH worth of HOT from the exchange, and watch for completion event.
+        # Try to buy 2000 HOT from the exchange, and watch for completion event.
         symbol = "HOT-WETH"
         bid_price: float = self.market.get_price(symbol, True)
-        amount: float = 0.01 / bid_price
+        amount: float = 2000
         buy_order_id: str = self.market.buy(symbol, amount, OrderType.LIMIT, bid_price * 0.7)
         self.run_parallel(asyncio.sleep(3))
         exchange_order_id: str = self.market.in_flight_orders.get(buy_order_id).exchange_order_id
@@ -178,7 +186,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
         # Try to buy 0.01 WETH worth of HOT from the exchange, and watch for completion event.
         current_price: float = self.market.get_price("HOT-WETH", True)
-        amount: float = 0.01 / current_price
+        amount: float = 2000
         quantized_amount: Decimal = self.market.quantize_order_amount("HOT-WETH", amount)
         order_id = self.market.buy("HOT-WETH", amount, OrderType.LIMIT, current_price)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
@@ -219,7 +227,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
     def test_market_buy_and_sell(self):
         self.assertGreater(self.market.get_balance("WETH"), 0.01)
 
-        amount: float = 1200.0      # Min order size is 1000 HOT
+        amount: float = 2000.0      # Min order size is 1000 HOT
         quantized_amount: Decimal = self.market.quantize_order_amount("HOT-WETH", amount)
 
         order_id = self.market.buy("HOT-WETH", amount, OrderType.MARKET)
@@ -288,7 +296,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
         symbol = "HOT-WETH"
         bid_price: float = self.market.get_price(symbol, True)
         ask_price: float = self.market.get_price(symbol, False)
-        amount = 0.02 / bid_price
+        amount = 2000
 
         self.assertGreater(self.market.get_balance("WETH"), 0.02)
         self.assertGreater(self.market.get_balance("HOT"), amount)
@@ -308,7 +316,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
         bid_price: float = self.market.get_price(symbol, True)
         ask_price: float = self.market.get_price(symbol, False)
         # order submission should fail due to insufficient balance
-        amount = 100 / bid_price
+        amount = 200000
 
         self.assertLess(self.market.get_balance("WETH"), 100)
         self.assertLess(self.market.get_balance("HOT"), amount)

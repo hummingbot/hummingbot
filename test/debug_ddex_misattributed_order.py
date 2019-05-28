@@ -15,13 +15,13 @@ from typing import (
     List
 )
 
-from wings.clock import (
+from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
-from wings.ethereum_chain import EthereumChain
-from wings.market.ddex_market import DDEXMarket
-from wings.wallet.web3_wallet import Web3Wallet
+from hummingbot.market.ddex.ddex_market import DDEXMarket
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 
 
 class CmdlineParser(argparse.ArgumentParser):

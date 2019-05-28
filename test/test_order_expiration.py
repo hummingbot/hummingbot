@@ -10,19 +10,18 @@ from typing import (
 import unittest
 #from hummingsim.backtest.ddex_order_book_loader import DDEXOrderBookLoader
 from hummingsim.backtest.binance_order_book_loader_v2 import BinanceOrderBookLoaderV2
-from hummingsim.backtest.huobi_order_book_loader import HuobiOrderBookLoader
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import Market, OrderType
-from wings.clock import (
+from hummingsim.strategy.unit_test_strategy import UnitTestStrategy
+from hummingbot.core.clock import (
     ClockMode,
     Clock
 )
-from wings.events import (
+from hummingbot.core.event.events import (
     MarketEvent,
-    OrderFilledEvent,
-    TradeType, OrderExpiredEvent)
-from wings.event_listener import EventListener
-from hummingsim.strategy.unit_test_strategy import UnitTestStrategy
+    OrderExpiredEvent,
+)
+from hummingbot.core.event.event_listener import EventListener
 
 
 class OrderExpirationTestStrategy(UnitTestStrategy):

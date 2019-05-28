@@ -28,7 +28,7 @@ The following walks through all the steps when running `config` for the first ti
 
 | Prompt | Description |
 |-----|-----|
-| `What is your market making strategy >>>`: | Enter `arbitrage`.<br/><br/>Currently available options: `cross_exchange_market_making` or `arbitrage` *(case sensitive)* |
+| `What is your market making strategy >>>`: | Enter `arbitrage`.<br/><br/>Currently available options: `cross_exchange_market_making` or `arbitrage` or `pure_market_making` *(case sensitive)* |
 | `Import previous configs or create a new config file? (import/create) >>>`: | When running the bot for the first time, enter `create`.<br/>If you have previously initialized, enter `import`, which will then ask you to specify the config file location. |
 | `Enter your primary exchange name >>>`: | Enter an exchange you would like to trade on.<br/><br/>Currently available options: `binance`, `radar_relay` or `ddex` *(case sensitive)* |
 | `Enter your secondary exchange name >>>`: | Enter another exchange you would like to trade on.<br/><br/>Currently available options: `binance`, `radar_relay` or `ddex` *(case sensitive)* |
