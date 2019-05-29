@@ -3,6 +3,8 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
+from nose.plugins.attrib import attr
+
 from decimal import Decimal
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
@@ -38,6 +40,7 @@ from hummingbot.strategy.pure_market_making import PureMarketMakingStrategy
 from hummingbot.strategy.pure_market_making.pure_market_pair import PureMarketPair
 
 
+@attr('stable')
 class PureMarketMakingUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
@@ -369,11 +372,3 @@ class PureMarketMakingUnitTest(unittest.TestCase):
         self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
         self.assertEqual(0, len(self.strategy.active_bids))
         self.assertEqual(0, len(self.strategy.active_asks))
-
-
-def main():
-    unittest.main()
-
-
-if __name__ == "__main__":
-    main()
