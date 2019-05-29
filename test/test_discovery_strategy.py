@@ -6,6 +6,8 @@ from unittest.mock import create_autospec
 
 sys.path.insert(0, realpath(join(__file__, "../../")))
 
+from nose.plugins.attrib import attr
+
 from hummingbot.strategy.discovery import DiscoveryStrategy, DiscoveryMarketPair
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
@@ -23,6 +25,7 @@ def run(coro):
     return asyncio.get_event_loop().run_until_complete(coro)
 
 
+@attr('stable')
 class DiscoveryUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
@@ -130,10 +133,3 @@ class DiscoveryUnitTest(unittest.TestCase):
 
         run(self.strategy.fetch_market_info(self.market_pair))
         self.assertTrue(self.strategy.get_matching_pair(self.market_pair) == expected_pair)
-
-def main():
-    unittest.main()
-
-
-if __name__ == "__main__":
-    main()
