@@ -5,8 +5,8 @@
 In the pure market making strategy, the user keeps posting limit bid and ask offers on a market and expects other users to fill their orders. 
 You have control over how far away from the mid price your posted bid and asks are, whats the order quantity and how often you want to cancel and replace them.  
 
-!!! note
-    Please exercise caution while running this strategy and set appropriate stop loss limits
+!!! warning
+    Please exercise caution while running this strategy and set appropriate stop loss limits. The current version of this strategy is intended to be a basic template that users can test and customize. Running the strategy with substantial capital without additional modifications will likely lose money.
 
 ### Schematic
 
