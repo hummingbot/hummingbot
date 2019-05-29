@@ -2,6 +2,8 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
+from nose.plugins.attrib import attr
+
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
@@ -26,6 +28,7 @@ from hummingbot.strategy.arbitrage.arbitrage import ArbitrageStrategy
 from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
 
 
+@attr('stable')
 class ArbitrageUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
@@ -273,13 +276,3 @@ class ArbitrageUnitTest(unittest.TestCase):
             (1.045, 0.95, 1.1, 0.95, 15.0),
             (1.045, 1.005, 1.1, 1.005, 10.0)
         ])
-
-
-def main():
-    #logging.getLogger("hummingbot.strategy").setLevel(logging.DEBUG)
-    #logging.getLogger("hummingbot").setLevel(logging.DEBUG)
-    unittest.main()
-
-
-if __name__ == "__main__":
-    main()
