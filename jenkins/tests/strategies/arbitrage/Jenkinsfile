@@ -1,7 +1,7 @@
 node {
     def testName = "arbitrage strategy"
     def path = "/root/miniconda/bin"
-    def python = "/root/miniconda/envs/hummingbot/bin/python"
+    def envPath = "/root/miniconda/envs/hummingbot/bin"
 
     try {
       notifyBuild("STARTED", testName)
@@ -21,11 +21,11 @@ node {
         sh ". ${path}/activate hummingbot"
 
         // ./compile
-        sh "${python} setup.py build_ext --inplace"
+        sh "${envPath}/python setup.py build_ext --inplace"
       }
 
       stage("Run tests") {
-        sh "nosetests -v test/test_arbitrage.py"
+        sh "${envPath}/nosetests -v test/test_arbitrage.py"
       }
 
     } catch (c) {
