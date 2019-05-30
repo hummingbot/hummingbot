@@ -25,6 +25,7 @@ node {
       }
 
       stage("Run tests") {
+        sh ". ${path}/activate hummingbot"
         sh "make test"
       }
 
