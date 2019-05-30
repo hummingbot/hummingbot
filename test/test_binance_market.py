@@ -2,6 +2,8 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
+from nose.plugins.attrib import attr
+
 import asyncio
 import conf
 import contextlib
@@ -48,6 +50,7 @@ MAINNET_RPC_URL = "http://mainnet-rpc.mainnet:8545"
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
+@attr('unstable')
 class BinanceMarketUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,

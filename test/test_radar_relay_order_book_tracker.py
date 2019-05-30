@@ -4,6 +4,8 @@ from os.path import join, realpath
 import sys
 sys.path.insert(0, realpath(join(__file__, "../../")))
 
+from nose.plugins.attrib import attr
+
 import asyncio
 import logging
 import unittest
@@ -16,6 +18,7 @@ from hummingbot.core.data_type.order_book_tracker import (
 )
 
 
+@attr('unstable')
 class RadarRelayOrderBookTrackerUnitTest(unittest.TestCase):
     order_book_tracker: Optional[RadarRelayOrderBookTracker] = None
 

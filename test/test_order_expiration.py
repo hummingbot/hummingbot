@@ -2,6 +2,7 @@
 from os.path import join, realpath
 import sys
 sys.path.insert(0, realpath(join(__file__, "../../")))
+from nose.plugins.attrib import attr
 import pandas as pd
 from typing import (
     List,
@@ -24,6 +25,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.event.event_listener import EventListener
 
 
+@attr('unstable')
 class OrderExpirationTestStrategy(UnitTestStrategy):
     """
     Makes expiring limit orders and record order expired events
@@ -74,6 +76,7 @@ class OrderExpirationTestStrategy(UnitTestStrategy):
         return retval
 
 
+@attr('unstable')
 class OrderExpirationTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-24", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-26", tz="UTC")

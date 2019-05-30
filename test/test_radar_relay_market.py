@@ -3,6 +3,8 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
+from nose.plugins.attrib import attr
+
 import asyncio
 import conf
 import contextlib
@@ -36,6 +38,7 @@ from hummingbot.core.event.events import (
 )
 
 
+@attr('unstable')
 class RadarRelayMarketUnitTest(unittest.TestCase):
     market_events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,

@@ -40,7 +40,6 @@ from hummingbot.strategy.pure_market_making import PureMarketMakingStrategy
 from hummingbot.strategy.pure_market_making.pure_market_pair import PureMarketPair
 
 
-@attr('stable')
 class PureMarketMakingUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")

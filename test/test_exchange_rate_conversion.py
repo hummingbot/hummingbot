@@ -2,6 +2,7 @@
 import time
 from os.path import join, realpath
 import sys;sys.path.insert(0, realpath(join(__file__, "../../")))
+from nose.plugins.attrib import attr
 import asyncio
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 import logging; logging.basicConfig(level=logging.ERROR)
@@ -55,6 +56,7 @@ def async_run(func):
     loop.run_until_complete(func)
 
 
+@attr('unstable')
 class ExchangeRateConverterUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

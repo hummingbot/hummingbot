@@ -3,6 +3,8 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
+from nose.plugins.attrib import attr
+
 import asyncio
 from typing import (
     Optional,
@@ -29,6 +31,7 @@ from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.core.event.event_logger import EventLogger
 
 
+@attr('unstable')
 class Web3WalletUnitTest(unittest.TestCase):
     wallet_a: Optional[Web3Wallet] = None
     wallet_b: Optional[Web3Wallet] = None

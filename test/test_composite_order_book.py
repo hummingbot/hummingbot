@@ -3,6 +3,8 @@ from os.path import join, realpath
 import sys;
 sys.path.insert(0, realpath(join(__file__, "../../")))
 
+from nose.plugins.attrib import attr
+
 import pandas as pd
 from typing import (
     List,
@@ -25,6 +27,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.event.event_listener import EventListener
 
 
+@attr('unstable')
 class CompositeOrderBookTestStrategy(UnitTestStrategy):
     """
     Makes market orders and record fill events
@@ -115,6 +118,7 @@ class CompositeOrderBookTestStrategy(UnitTestStrategy):
         return retval
 
 
+@attr('unstable')
 class CompositeOrderBookTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-25", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-26", tz="UTC")

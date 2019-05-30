@@ -3,6 +3,7 @@
 from os.path import join, realpath
 import sys
 sys.path.insert(0, realpath(join(__file__, "../../")))
+from nose.plugins.attrib import attr
 
 from hummingbot.market.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
 import asyncio
@@ -16,6 +17,7 @@ from hummingbot.core.data_type.order_book_tracker import (
 )
 
 
+@attr('unstable')
 class HuobiOrderBookTrackerUnitTest(unittest.TestCase):
     order_book_tracker: Optional[HuobiOrderBookTracker] = None
     @classmethod

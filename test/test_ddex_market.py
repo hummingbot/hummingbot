@@ -2,6 +2,8 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
+from nose.plugins.attrib import attr
+
 import asyncio
 import conf
 import contextlib
@@ -33,6 +35,7 @@ from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSou
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 
 
+@attr('unstable')
 class DDEXMarketUnitTest(unittest.TestCase):
     market_events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,

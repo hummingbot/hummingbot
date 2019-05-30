@@ -3,6 +3,8 @@ import logging
 from os.path import join, realpath
 import sys;sys.path.insert(0, realpath(join(__file__, "../../")))
 
+from nose.plugins.attrib import attr
+
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
 import asyncio
@@ -40,6 +42,7 @@ from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
+@attr('unstable')
 class CoinbaseProMarketUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,

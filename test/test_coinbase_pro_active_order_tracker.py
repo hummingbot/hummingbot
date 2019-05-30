@@ -3,6 +3,8 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
+from nose.plugins.attrib import attr
+
 import logging
 import unittest
 from typing import (
@@ -19,6 +21,7 @@ from hummingbot.core.data_type.order_book_row import OrderBookRow
 test_symbol = "BTC-USD"
 
 
+@attr('unstable')
 class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
     order_book_tracker: Optional[CoinbaseProOrderBookTracker] = None
 

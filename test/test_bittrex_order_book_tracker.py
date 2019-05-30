@@ -6,6 +6,8 @@ import sys
 
 sys.path.insert(0, realpath(join(__file__, "../../")))
 
+from nose.plugins.attrib import attr
+
 from hummingbot.market.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
 import asyncio
 import logging
@@ -18,6 +20,7 @@ from hummingbot.core.data_type.order_book_tracker import (
 )
 
 
+@attr('unstable')
 class BittrexOrderBookTrackerUnitTest(unittest.TestCase):
     order_book_tracker: Optional[BittrexOrderBookTracker] = None
     @classmethod

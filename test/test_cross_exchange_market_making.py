@@ -41,7 +41,6 @@ from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarket
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair
 
 
-@attr('stable')
 class HedgedMarketMakingUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")

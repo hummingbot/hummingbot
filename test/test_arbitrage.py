@@ -28,7 +28,6 @@ from hummingbot.strategy.arbitrage.arbitrage import ArbitrageStrategy
 from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
 
 
-@attr('stable')
 class ArbitrageUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")

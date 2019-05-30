@@ -5,6 +5,8 @@ import sys
 
 sys.path.insert(0, realpath(join(__file__, "../../")))
 
+from nose.plugins.attrib import attr
+
 
 from hummingbot.market.binance.binance_user_stream_tracker import BinanceUserStreamTracker
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
@@ -18,6 +20,7 @@ import unittest
 logging.basicConfig(level=logging.DEBUG)
 
 
+@attr('unstable')
 class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
     order_book_tracker: Optional[BinanceOrderBookTracker] = None
     @classmethod

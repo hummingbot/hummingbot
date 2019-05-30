@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from os.path import join, realpath
 import sys;sys.path.insert(0, realpath(join(__file__, "../../")))
+from nose.plugins.attrib import attr
 from hummingbot.data_feed.coin_metrics_data_feed import CoinMetricsDataFeed
 import asyncio
 import logging; logging.basicConfig(level=logging.ERROR)
@@ -12,6 +13,7 @@ def async_run(func):
     loop.run_until_complete(func)
 
 
+@attr('unstable')
 class CoinMetricsUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

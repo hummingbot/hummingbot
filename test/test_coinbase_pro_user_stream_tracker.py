@@ -3,6 +3,8 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
+from nose.plugins.attrib import attr
+
 import asyncio
 import logging
 import unittest
@@ -14,6 +16,7 @@ from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProAuth
 from hummingbot.market.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
 
 
+@attr('unstable')
 class CoinbaseProUserStreamTrackerUnitTest(unittest.TestCase):
     user_stream_tracker: Optional[CoinbaseProUserStreamTracker] = None
 

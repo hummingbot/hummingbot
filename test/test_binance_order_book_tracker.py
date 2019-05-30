@@ -4,6 +4,8 @@ from os.path import join, realpath
 import sys
 sys.path.insert(0, realpath(join(__file__, "../../")))
 
+from nose.plugins.attrib import attr
+
 from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker
 import asyncio
 import logging
@@ -16,6 +18,7 @@ from hummingbot.core.data_type.order_book_tracker import (
 )
 
 
+@attr('unstable')
 class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
     order_book_tracker: Optional[BinanceOrderBookTracker] = None
     @classmethod
