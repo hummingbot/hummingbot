@@ -25,7 +25,7 @@ node {
       }
 
       stage("Run tests") {
-        sh "${python} test/test_discovery_strategy.py"
+        sh "nosetests -v test/test_discovery_strategy.py"
       }
 
     } catch (c) {
