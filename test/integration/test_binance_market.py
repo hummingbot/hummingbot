@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 import asyncio
 import conf
@@ -239,7 +239,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
     @unittest.skipUnless(any("test_deposit_eth" in arg for arg in sys.argv), "Deposit test requires manual action.")
     def test_deposit_eth(self):
-        with open(realpath(join(__file__, "../../data/ZRXABI.json"))) as fd:
+        with open(realpath(join(__file__, "../../../data/ZRXABI.json"))) as fd:
             zrx_abi: str = fd.read()
         local_wallet: MockWallet = MockWallet(conf.web3_test_private_key_a,
                                               MAINNET_RPC_URL,
@@ -262,7 +262,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
     @unittest.skipUnless(any("test_deposit_zrx" in arg for arg in sys.argv), "Deposit test requires manual action.")
     def test_deposit_zrx(self):
-        with open(realpath(join(__file__, "../../data/ZRXABI.json"))) as fd:
+        with open(realpath(join(__file__, "../../../data/ZRXABI.json"))) as fd:
             zrx_abi: str = fd.read()
         local_wallet: MockWallet = MockWallet(conf.web3_test_private_key_a,
                                               MAINNET_RPC_URL,
@@ -285,7 +285,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
     @unittest.skipUnless(any("test_withdraw" in arg for arg in sys.argv), "Withdraw test requires manual action.")
     def test_withdraw(self):
-        with open(realpath(join(__file__, "../../data/ZRXABI.json"))) as fd:
+        with open(realpath(join(__file__, "../../../data/ZRXABI.json"))) as fd:
             zrx_abi: str = fd.read()
         local_wallet: MockWallet = MockWallet(conf.web3_test_private_key_a,
                                               MAINNET_RPC_URL,

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import logging
 from os.path import join, realpath
-import sys;sys.path.insert(0, realpath(join(__file__, "../../")))
+import sys;sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 

@@ -3,7 +3,7 @@
 from os.path import join, realpath
 import sys
 
-sys.path.insert(0, realpath(join(__file__, "../../")))
+sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 
 from hummingbot.market.binance.binance_user_stream_tracker import BinanceUserStreamTracker
