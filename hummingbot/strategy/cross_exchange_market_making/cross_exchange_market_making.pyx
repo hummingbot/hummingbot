@@ -237,15 +237,15 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         for market_pair in self._market_pairs.values():
             # Get some basic info about the market pair.
             maker_market_symbol_pair = MarketSymbolPair(market_pair.maker_market,
-                                                        market_pair.maker_market_trading_pair,
-                                                        market_pair.maker_market_base_asset,
-                                                        market_pair.maker_market_quote_asset)
+                                                        market_pair.maker_symbol,
+                                                        market_pair.maker_base_currency,
+                                                        market_pair.maker_quote_currency)
             taker_market_symbol_pair = MarketSymbolPair(market_pair.taker_market,
-                                                        market_pair.taker_market_trading_pair,
-                                                        market_pair.taker_market_base_asset,
-                                                        market_pair.taker_market_quote_asset)
-            taker_order_book = taker_market_symbol_pair.market.c_get_order_book(taker_market_symbol_pair.trading_pair)
-            maker_order_book = maker_market_symbol_pair.market.c_get_order_book(maker_market_symbol_pair.trading_pair)
+                                                        market_pair.taker_symbol,
+                                                        market_pair.taker_base_currency,
+                                                        market_pair.taker_quote_currency)
+            taker_order_book = taker_market_symbol_pair.market.get_order_book(taker_market_symbol_pair.trading_pair)
+            maker_order_book = maker_market_symbol_pair.market.get_order_book(maker_market_symbol_pair.trading_pair)
 
             warning_lines.extend(self.network_warning([maker_market_symbol_pair, taker_market_symbol_pair]))
 
