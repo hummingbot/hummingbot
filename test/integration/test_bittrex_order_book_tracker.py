@@ -4,7 +4,7 @@ from os.path import join, realpath
 import sys
 
 
-sys.path.insert(0, realpath(join(__file__, "../../")))
+sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 from hummingbot.market.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
 import asyncio

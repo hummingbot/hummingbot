@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 import asyncio
 import conf
@@ -9,14 +9,18 @@ import contextlib
 from decimal import Decimal
 import logging
 import time
-import unittest
 from typing import List
-from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
-from hummingbot.wallet.ethereum.web3_wallet_backend import EthereumChain
+import unittest
+
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.market.market_base import OrderType
-from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
+from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
+from hummingbot.wallet.ethereum.web3_wallet_backend import EthereumChain
+from hummingbot.core.clock import (
+    Clock,
+    ClockMode,
+)
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.event.events import (
@@ -36,7 +40,7 @@ from hummingbot.core.event.events import (
 )
 
 
-class RadarRelayMarketUnitTest(unittest.TestCase):
+class BambooRelayMarketUnitTest(unittest.TestCase):
     market_events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
@@ -55,23 +59,23 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
     ]
 
     wallet: Web3Wallet
-    market: RadarRelayMarket
+    market: BambooRelayMarket
     market_logger: EventLogger
     wallet_logger: EventLogger
 
     @classmethod
     def setUpClass(cls):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.wallet = Web3Wallet(private_key=conf.web3_private_key_radar,
+        cls.wallet = Web3Wallet(private_key=conf.web3_private_key_bamboo,
                                 backend_urls=conf.test_web3_provider_list,
                                 erc20_token_addresses=[conf.mn_zerox_token_address, conf.mn_weth_token_address],
                                 chain=EthereumChain.MAIN_NET)
-        cls.market: RadarRelayMarket = RadarRelayMarket(wallet=cls.wallet,
-                                                        ethereum_rpc_url=conf.test_web3_provider_list[0],
+        cls.market: BambooRelayMarket = BambooRelayMarket(wallet=cls.wallet,
+                                                        web3_url=conf.test_web3_provider_list[0],
                                                         order_book_tracker_data_source_type=
                                                             OrderBookTrackerDataSourceType.EXCHANGE_API,
                                                         symbols=["ZRX-WETH"])
-        print("Initializing Radar Relay market... ")
+        print("Initializing Bamboo Relay market... ")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.wallet)
         cls.clock.add_iterator(cls.market)
@@ -197,7 +201,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
         symbol: str = "ZRX-WETH"
         current_price: float = self.market.get_price(symbol, True)
         amount: float = 10
-        expires = int(time.time() + 60 * 3) # expires in 3 min
+        expires = int(time.time() + 60 * 2) # expires in 2 min
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
         buy_order_id = self.market.buy(symbol=symbol,
                                        amount=amount,
