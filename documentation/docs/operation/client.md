@@ -45,8 +45,10 @@ The CLI is divided into three panes:
 | `status` | Get a status report about price differential between the two exchanges, as well as current orders.
 | `list` | List wallets, exchanges, configs, and completed trades.<br/><br/>*Example usage: `list [wallets|exchanges|configs|trades]`*
 | `describe` | Get detailed information about wallets, exchanges, and orders.<br/><br/>*Example usage: `describe [-w|-e binance|-e ddex]` to show details of wallets, binance positions, wallet balances (available for DDEX), respectively*.
-| `get_balance` | Gets the balance of an exchange or wallet.<br/><br/>*Example usage: `get_balance [-c WETH -w|-c ETH -e binance]` to show available WETH balance in the Ethereum wallet and ETH balance in Binance, respectively*.
+| `get_balance` | Gets the balance of an exchange or wallet, or get the balance of a specific currency in an exchange or wallet.<br/><br/>*Example usage: `get_balance [-c WETH -w|-c ETH -e binance]` to show available WETH balance in the Ethereum wallet and ETH balance in Binance, respectively*.
 | `exit` \| `CTRL + C` | Cancels all orders, saves the log, and exits Hummingbot.
 |`exit -f`| Force quit without cancelling orders.
 | `stop` | Cancels all outstanding orders and stops the bot.
 |`export_private_key`| Print your ethereum wallet private key.
+|`history`| Print bot's past trades and performance analytics.
+|`export_trades`| Export your trades to a csv file.
