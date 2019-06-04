@@ -7,31 +7,52 @@ Docker images of `hummingbot` are available on Docker Hub at [coinalpha/hummingb
 ## Create new instance of `hummingbot`
 
 ``` bash tab="Terminal: Start hummingbot with Docker"
+# 1) Create a label for your container and specify which docker 
+#    image of hummingbot to use
 export NAME=myhummingbot && \
-export TAG=latest && \
+export TAG=latest
+
+# 2) Specify the path to folders where you would like to save
+#    your config and log files
+export CONF_PATH=$(pwd)/hummingbot_conf && \
+export LOGS_PATH=$(pwd)/hummingbot_logs
+
+# 3) If the folders do not exist, create them:
+mkdir $CONF_PATH && \
+mkdir $LOGS_PATH
+
+# 4) Launch hummingbot with the parameters you specified
 docker run -it \
 --name $NAME \
--v "$PWD"/conf/:/conf/ \
--v "$PWD"/logs/:/logs/ \
+--mount "type=bind,source=$CONF_PATH,destination=/conf/" \
+--mount "type=bind,source=$LOGS_PATH,destination=/logs/" \
 coinalpha/hummingbot:$TAG
 ```
 
 !!! note "Command Variables"
-    Replace `$TAG` with the image version, such as `latest`, and `$NAME` with a label you choose, such as 'WETH-USDC'
+    - In the four `export` commands, replace the values with your custom values.  
+    - `NAME`: name of your container, such as `myhummingbot`
+    - `TAG`: with the image version, e.g. `latest`, `development`, or a specific version `0.7.0`
+    - `CONF_PATH`: path on your host machine for `conf/`
+    - `LOGS_PATH`: path on your host machine for `logs/`
 
 ---
 
 ## Config and log files
 
-When creating the instance for the first time, the `docker run` command above will create two new folders on your computer and mount them to your instance:
+The above methodology requires you to explicitly specify the paths where you want to mount the `conf/` and `logs/` folders on your local machine.
 
-- `conf/`: where configuration files will be stored
-- `log/`: where logs will be stored
+Note: you must create the folders prior to running the `docker run` command.
+
+The folders required on your computer are:
+
+- `hummingbot_conf/`: maps to `conf/` folder in the container, where configuration files will be stored
+- `hummingbot_log/`: maps to `logs` folder in the container, where logs will be stored
 
 ![docker setup](/assets/img/docker-file-setup.png "Docker file system setup")
 
 !!! info "Mounting Existing `config` and `log` Folders"
-    If you have existing `conf/` and `log/` folders, running the command above will mount the existing `conf/` and `log/` folders to the newly created docker container instance and allow you to continue using those files.
+    If you have existing `hummingbot_conf/` and `hummingbot_logs/` folders, running the command above will mount the existing `hummingbot_conf/` and `hummingbot_logs/` folders to the newly created docker container instance and allow you to continue using those files.
 
 ## Reference: Useful Docker commands
 
