@@ -219,7 +219,7 @@ cdef class BambooRelayMarket(MarketBase):
 
     def __init__(self,
                  wallet: Web3Wallet,
-                 web3_url: str,
+                 ethereum_rpc_url: str,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                     OrderBookTrackerDataSourceType.EXCHANGE_API,
