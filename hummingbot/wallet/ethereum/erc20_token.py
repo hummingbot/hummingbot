@@ -5,6 +5,7 @@ import os
 import json
 import logging
 from typing import (
+    Dict,
     List,
     Union,
     Optional
@@ -20,17 +21,20 @@ from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 
 
 with open(os.path.join(os.path.dirname(__file__), 'token_abi/erc20_abi.json')) as erc20_abi:
-    abi: json = json.load(erc20_abi)
+    abi: Dict[str, any] = json.load(erc20_abi)
 
 with open(os.path.join(os.path.dirname(__file__), 'token_abi/weth_contract_abi.json')) as weth_abi:
-    w_abi: json = json.load(weth_abi)
+    w_abi: Dict[str, any] = json.load(weth_abi)
 
 with open(os.path.join(os.path.dirname(__file__), 'token_abi/dai_abi.json')) as dai_abi:
-    d_abi: json = json.load(dai_abi)
+    d_abi: Dict[str, any] = json.load(dai_abi)
 
+with open(os.path.join(os.path.dirname(__file__), 'token_abi/mkr_abi.json')) as mkr_abi:
+    m_abi: Dict[str, any] = json.load(mkr_abi)
 
 MAINNET_WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
 MAINNET_DAI_ADDRESS = "0x89d24A6b4CcB1B6fAA2625fE562bDD9a23260359"
+MAINNET_MKR_ADDRESS = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2"
 
 
 class ERC20Token:
@@ -53,8 +57,10 @@ class ERC20Token:
         if chain is EthereumChain.MAIN_NET:
             if self._address == MAINNET_WETH_ADDRESS:
                 self._abi = w_abi
-            if self._address == MAINNET_DAI_ADDRESS:
+            elif self._address == MAINNET_DAI_ADDRESS:
                 self._abi = d_abi
+            elif self._address == MAINNET_MKR_ADDRESS:
+                self._abi = m_abi
 
         self._contract: Contract = self._w3.eth.contract(address=self._address, abi=self._abi)
         self._name: Optional[str] = None
