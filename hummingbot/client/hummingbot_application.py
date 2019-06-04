@@ -101,10 +101,17 @@ from hummingbot.core.utils.ethereum import check_web3
 from hummingbot.core.utils.stop_loss_tracker import StopLossTracker
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
-from hummingbot.client.initializers import initialize_market_assets
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 
 s_logger = None
+
+MARKET_CLASSES = {
+    "bamboo_relay": BambooRelayMarket,
+    "binance": BinanceMarket,
+    "coinbase_pro": CoinbaseProMarket,
+    "ddex": DDEXMarket,
+    "radar_relay": RadarRelayMarket,
+}
 
 
 class HummingbotApplication:
@@ -384,6 +391,12 @@ class HummingbotApplication:
             self.app.toggle_hide_input()
             self.placeholder_mode = False
             self.app.change_prompt(prompt=">>> ")
+
+    @staticmethod
+    def _initialize_market_assets(market_name: str, symbols: List[str]) -> List[Tuple[str, str]]:
+        market: MarketBase = MARKET_CLASSES.get(market_name, MarketBase)
+        market_symbols: List[Tuple[str, str]] = [market.split_symbol(symbol) for symbol in symbols]
+        return market_symbols
 
     def _initialize_wallet(self, token_symbols: List[str]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
@@ -703,8 +716,8 @@ class HummingbotApplication:
                 (taker_market, [raw_taker_symbol])
             ]
             try:
-                maker_assets: Tuple[str, str] = initialize_market_assets(maker_market, [raw_maker_symbol])[0]
-                taker_assets: Tuple[str, str] = initialize_market_assets(taker_market, [raw_taker_symbol])[0]
+                maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_symbol])[0]
+                taker_assets: Tuple[str, str] = self._initialize_market_assets(taker_market, [raw_taker_symbol])[0]
             except ValueError as e:
                 self.app.log(str(e))
                 return
@@ -739,8 +752,9 @@ class HummingbotApplication:
             raw_secondary_symbol = strategy_cm.get("secondary_market_symbol").value.upper()
             min_profitability = strategy_cm.get("min_profitability").value
             try:
-                primary_assets: Tuple[str, str] = initialize_market_assets(primary_market, [raw_primary_symbol])[0]
-                secondary_assets: Tuple[str, str] = initialize_market_assets(secondary_market, [raw_secondary_symbol])[0]
+                primary_assets: Tuple[str, str] = self._initialize_market_assets(primary_market, [raw_primary_symbol])[0]
+                secondary_assets: Tuple[str, str] = self._initialize_market_assets(secondary_market,
+                                                                                   [raw_secondary_symbol])[0]
             except ValueError as e:
                 self.app.log(str(e))
                 return
@@ -767,7 +781,7 @@ class HummingbotApplication:
             maker_market = strategy_cm.get("maker_market").value.lower()
             raw_maker_symbol = strategy_cm.get("maker_market_symbol").value.upper()
             try:
-                maker_assets: Tuple[str, str] = initialize_market_assets(maker_market, [raw_maker_symbol])[0]
+                maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_symbol])[0]
             except ValueError as e:
                 self.app.log(str(e))
                 return
@@ -804,8 +818,8 @@ class HummingbotApplication:
 
                 market_names: List[Tuple[str, List[str]]] = [(market_1, target_symbol_1),
                                                              (market_2, target_symbol_2)]
-                target_base_quote_1: List[Tuple[str, str]] = initialize_market_assets(market_1, target_symbol_1)
-                target_base_quote_2: List[Tuple[str, str]] = initialize_market_assets(market_2, target_symbol_2)
+                target_base_quote_1: List[Tuple[str, str]] = self._initialize_market_assets(market_1, target_symbol_1)
+                target_base_quote_2: List[Tuple[str, str]] = self._initialize_market_assets(market_2, target_symbol_2)
 
                 self._trading_required = False
                 self._initialize_wallet(token_symbols=[])  # wallet required only for dex hard dependency
