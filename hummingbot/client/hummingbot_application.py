@@ -55,7 +55,6 @@ from hummingbot.client.ui.parser import (
 from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
-from hummingbot.core.utils.symbol_splitter import SymbolSplitter
 from hummingbot.core.utils.wallet_setup import (
     create_and_save_wallet,
     import_and_save_wallet,
@@ -101,6 +100,7 @@ from hummingbot.core.utils.ethereum import check_web3
 from hummingbot.core.utils.stop_loss_tracker import StopLossTracker
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
+from hummingbot.client.initializers import initialize_market_assets
 
 s_logger = None
 
@@ -695,17 +695,16 @@ class HummingbotApplication:
                 if regex.match(raw_maker_symbol) is not None:
                     top_depth_tolerance = tolerance_value
 
-            try:
-                maker_assets: Tuple[str, str] = SymbolSplitter.split(maker_market, raw_maker_symbol)
-                taker_assets: Tuple[str, str] = SymbolSplitter.split(taker_market, raw_taker_symbol)
-            except ValueError as e:
-                self.app.log(str(e))
-                return
-
             market_names: List[Tuple[str, List[str]]] = [
                 (maker_market, [raw_maker_symbol]),
                 (taker_market, [raw_taker_symbol])
             ]
+            try:
+                maker_assets: Tuple[str, str] = initialize_market_assets(maker_market, [raw_maker_symbol])[0]
+                taker_assets: Tuple[str, str] = initialize_market_assets(taker_market, [raw_taker_symbol])[0]
+            except ValueError as e:
+                self.app.log(str(e))
+                return
             self._initialize_wallet(token_symbols=list(set(maker_assets + taker_assets)))
             self._initialize_markets(market_names)
             self.assets = set(maker_assets + taker_assets)
@@ -738,9 +737,8 @@ class HummingbotApplication:
             raw_secondary_symbol = strategy_cm.get("secondary_market_symbol").value.upper()
             min_profitability = strategy_cm.get("min_profitability").value
             try:
-                primary_assets: Tuple[str, str] = SymbolSplitter.split(primary_market, raw_primary_symbol)
-                secondary_assets: Tuple[str, str] = SymbolSplitter.split(secondary_market, raw_secondary_symbol)
-
+                primary_assets: Tuple[str, str] = initialize_market_assets(primary_market, [raw_primary_symbol])[0]
+                secondary_assets: Tuple[str, str] = initialize_market_assets(secondary_market, [raw_secondary_symbol])[0]
             except ValueError as e:
                 self.app.log(str(e))
                 return
@@ -770,8 +768,7 @@ class HummingbotApplication:
             maker_market = strategy_cm.get("maker_market").value.lower()
             raw_maker_symbol = strategy_cm.get("maker_market_symbol").value.upper()
             try:
-                primary_assets: Tuple[str, str] = SymbolSplitter.split(maker_market, raw_maker_symbol)
-
+                primary_assets: Tuple[str, str] = initialize_market_assets(maker_market, [raw_maker_symbol])[0]
             except ValueError as e:
                 self.app.log(str(e))
                 return
@@ -783,7 +780,7 @@ class HummingbotApplication:
             self.assets = set(primary_assets)
 
             self.market_pair = PureMarketPair(*([self.markets[maker_market], raw_maker_symbol] +
-                                                     list(primary_assets)))
+                                                list(primary_assets)))
             strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
 
             self.strategy = PureMarketMakingStrategy(market_pairs=[self.market_pair],
@@ -810,13 +807,8 @@ class HummingbotApplication:
 
                 market_names: List[Tuple[str, List[str]]] = [(market_1, target_symbol_1),
                                                              (market_2, target_symbol_2)]
-
-                target_base_quote_1: List[Tuple[str, str]] = [
-                    SymbolSplitter.split(market_1, symbol) for symbol in target_symbol_1
-                ]
-                target_base_quote_2: List[Tuple[str, str]] = [
-                    SymbolSplitter.split(market_2, symbol) for symbol in target_symbol_2
-                ]
+                target_base_quote_1: List[Tuple[str, str]] = initialize_market_assets(market_1, target_symbol_1)
+                target_base_quote_2: List[Tuple[str, str]] = initialize_market_assets(market_2, target_symbol_2)
 
                 self._trading_required = False
                 self._initialize_wallet(token_symbols=[])  # wallet required only for dex hard dependency

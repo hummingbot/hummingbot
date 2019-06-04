@@ -23,7 +23,7 @@ def get_market_class_by_name(market_name: str):
     return name_to_market_class_mapping.get(market_name, MarketBase)
 
 
-def initialize_market_assets(market_name: str, symbols: List[str]):
+def initialize_market_assets(market_name: str, symbols: List[str]) -> List[Tuple[str, str]]:
     market: MarketBase = get_market_class_by_name(market_name)
     market_symbols: List[Tuple[str, str]] = [market.split_symbol(symbol) for symbol in symbols]
     return market_symbols
