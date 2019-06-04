@@ -187,8 +187,8 @@ class HummingbotApplication:
         success = True
         self.app.log("Cancelling outstanding orders...")
         for market_name, market in self.markets.items():
-            # By default, the bot does not cancel orders on exit on Radar Relay or Bamboo Relay, since all open orders will
-            # expire in a short window
+            # By default, the bot does not cancel orders on exit on Radar Relay or Bamboo Relay,
+            # since all open orders will expire in a short window
             if not on_chain_cancel_on_exit and (market_name == "radar_relay" or market_name == "bamboo_relay"):
                 continue
             cancellation_results = await market.cancel_all(self.KILL_TIMEOUT)
