@@ -987,7 +987,8 @@ cdef class DDEXMarket(MarketBase):
         quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
 
         # Check against min_order_size and. If not passing the check, return 0.
-        if quantized_amount < trading_rule.min_order_size:
+        if quantized_amount < MarketBase.c_quantize_order_amount(self, symbol, trading_rule.min_order_size):
+            self.logger().error(f"Order size is less than minimum order size allowed for this market")
             return s_decimal_0
 
         return quantized_amount
