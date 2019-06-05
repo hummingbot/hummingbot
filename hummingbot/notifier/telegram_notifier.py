@@ -28,11 +28,12 @@ from telegram.ext import (
 from hummingbot.logger import HummingbotLogger
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 
 
 DISABLED_COMMANDS = {
     "config",               # disabled because it requires additional logic in the ui
-    "start",                # disabled because it requires a refactor of asyncio.ensure_future in the current code
+    # "start",                # disabled because it requires a refactor of asyncio.ensure_future in the current code
     "export_private_key",   # disabled for security
 }
 
@@ -73,6 +74,7 @@ class TelegramNotifier(NotifierBase):
         self._updater = Updater(token=token, workers=0)
         self._hb = hb
         self._ev_loop = asyncio.get_event_loop()
+        self._async_call_scheduler = AsyncCallScheduler.shared_instance()
 
         # Register command handler and start telegram message polling
         handles = [MessageHandler(Filters.text, self.handler)]
@@ -96,6 +98,9 @@ class TelegramNotifier(NotifierBase):
 
     @authorized_only
     def handler(self, bot: Bot, update: Update) -> None:
+        asyncio.ensure_future(self.handler_loop(bot, update), loop=self._ev_loop)
+        
+    async def handler_loop(self, bot: Bot, update: Update) -> None:
         try:
             input_text = update.message.text.strip()
             output = f"\n[Telegram Input] {input_text}"
@@ -105,7 +110,7 @@ class TelegramNotifier(NotifierBase):
             if any([input_text.startswith(dc) for dc in DISABLED_COMMANDS]):
                 self.send_msg(f"Command {input_text} is disabled from telegram", bot=bot)
             else:
-                self._hb._handle_command(input_text)
+                await self._async_call_scheduler.call_async(lambda: self._hb._handle_command(input_text))
         except Exception as e:
             self.send_msg(str(e), bot=bot)
 
@@ -134,21 +139,23 @@ class TelegramNotifier(NotifierBase):
 
         try:
             try:
-                bot.send_message(
+                await self._async_call_scheduler.call_async(lambda: bot.send_message(
                     self._chat_id,
                     text=formatted_msg,
                     parse_mode=ParseMode.MARKDOWN,
                     reply_markup=reply_markup
-                )
+                ), app_warning_msg=None)
             except NetworkError as network_err:
                 # Sometimes the telegram server resets the current connection,
                 # if this is the case we send the message again.
-                self.logger().warning('Telegram NetworkError: %s! Trying one more time.', network_err.message)
-                bot.send_message(
+                self.logger().network(f"Telegram NetworkError: {network_err.message}! Trying one more time",
+                                      exc_info=True)
+                await self._async_call_scheduler.call_async(lambda: bot.send_message(
                     self._chat_id,
                     text=msg,
                     parse_mode=ParseMode.MARKDOWN,
                     reply_markup=reply_markup
-                )
+                ), app_warning_msg=None)
         except TelegramError as telegram_err:
-            self.logger().warning('TelegramError: %s! Giving up on that message.', telegram_err.message)
+            self.logger().network(f"TelegramError: {telegram_err.message}! Giving up on that message.",
+                                  exc_info=True)
