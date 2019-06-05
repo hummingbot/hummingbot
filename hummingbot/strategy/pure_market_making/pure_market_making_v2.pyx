@@ -211,7 +211,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
     # The following exposed Python functions are meant for unit tests
     # ---------------------------------------------------------------
-
     def create_new_orders(self, market_info: MarketInfo):
         return self.c_create_new_orders(market_info)
 
@@ -274,8 +273,69 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef c_tick(self, double timestamp):
         StrategyBase.c_tick(self, timestamp)
 
-    cdef c_process_market_info(self, object market_info, list active_maker_orders):
-        pass
+        cdef:
+            int64_t current_tick = <int64_t>(timestamp // self._status_report_interval)
+            int64_t last_tick = <int64_t>(self._last_timestamp // self._status_report_interval)
+            bint should_report_warnings = ((current_tick > last_tick) and
+                                           (self._logging_options & self.OPTION_LOG_STATUS_REPORT))
+            list active_maker_orders = self.active_maker_orders
+
+        try:
+            if not self._all_markets_ready:
+                self._all_markets_ready = all([market.ready for market in self._markets])
+                if not self._all_markets_ready:
+                    # Markets not ready yet. Don't do anything.
+                    if should_report_warnings:
+                        self.logger().warning(f"Markets are not ready. No market making trades are permitted.")
+                    return
+
+            if should_report_warnings:
+                if not all([market.network_status is NetworkStatus.CONNECTED for market in self._markets]):
+                    self.logger().warning(f"WARNING: Some markets are not connected or are down at the moment. Market "
+                                          f"making may be dangerous when markets or networks are unstable.")
+
+            market_info_to_active_orders = defaultdict(list)
+
+            for maker_market, limit_order in active_maker_orders:
+                market_info = self._market_infos.get((maker_market, limit_order.symbol))
+                if market_info is None:
+                    self.log_with_clock(logging.WARNING,
+                                        f"The maker order for the symbol '{limit_order.symbol}' "
+                                        f"does not correspond to any whitelisted market pairs. Skipping.")
+                    continue
+
+                if (self._in_flight_cancels.get(limit_order.client_order_id, 0) <
+                        self._current_timestamp - self.CANCEL_EXPIRY_DURATION):
+                    market_info_to_active_orders[market_info].append(limit_order)
+
+            for market_info in self._market_infos.values():
+                self.c_process_market_info(market_info, market_info_to_active_orders[market_info])
+
+            self.c_check_and_cleanup_shadow_records()
+        finally:
+            self._last_timestamp = timestamp
+
+    cdef c_process_market_info(self, object market_info, list active_orders):
+        cdef:
+            double last_trade_price
+            MarketBase maker_market = market_info.market
+
+        if len(active_orders) < 1:
+            # If there are no active orders, then do the following:
+            #  1. Ask the filter delegate whether to proceed or not.
+            #  2. If yes, then ask the pricing delegate on what are the order prices.
+            #  3. Ask the sizing delegate on what are the order sizes.
+            #  4. Combine the proposals to an orders proposal object.
+            #  5. Send the proposal to filter delegate to get the final proposal (or None).
+            #  6. Submit / cancel orders as needed.
+            pass
+        else:
+            # If there are active orders, then do the following:
+            #  1. Check the time to cancel for this market info, and see if cancellation should be proposed.
+            #  2. Send the proposals (which may be a do-nothing proposal) to filter delegate.
+            #  3. Execute the final proposal from filter delegate.
+            pass
+
 
     cdef c_did_fill_order(self, object order_filled_event):
         pass
