@@ -504,6 +504,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
             )
 
+        self.c_stop_tracking_order(market_pair, order_id)
+
     cdef c_did_complete_sell_order(self, object order_completed_event):
         cdef:
             str order_id = order_completed_event.order_id
@@ -518,6 +520,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                 f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
             )
+
+        self.c_stop_tracking_order(market_pair, order_id)
 
     cdef c_start_tracking_order(self, object market_pair, str order_id, bint is_buy, object price, object quantity):
         if market_pair not in self._tracked_maker_orders:
