@@ -343,7 +343,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef c_did_fail_order(self, object order_failed_event):
         pass
 
-    cdef c_did_cancel_order(self, object cancelled_evnet):
+    cdef c_did_cancel_order(self, object cancelled_event):
         pass
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
