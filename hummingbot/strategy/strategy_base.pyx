@@ -41,7 +41,7 @@ cdef class StrategyBase(TimeIterator):
         for market in self.active_markets:
             event_logs = market.event_logs
             order_filled_events = list(filter(lambda e: isinstance(e, OrderFilledEvent), event_logs))
-            past_trades += list(map(lambda ofe: event_to_trade(ofe, market.__class__.__name__), order_filled_events))
+            past_trades += list(map(lambda ofe: event_to_trade(ofe, market.name), order_filled_events))
 
         return sorted(past_trades, key=lambda x: x.timestamp)
 
