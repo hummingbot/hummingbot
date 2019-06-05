@@ -479,7 +479,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         if market_pair is None:
             return
-        self.log_with_clock(logging.INFO, f"Order failed and appropriately handled")
         self.c_stop_tracking_order(market_pair, order_id)
 
     cdef c_did_cancel_order(self, object cancelled_event):
