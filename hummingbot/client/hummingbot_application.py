@@ -260,16 +260,6 @@ class HummingbotApplication:
         self._expire_old_application_warnings()
         self._app_warnings.append(app_warning)
 
-    def _expire_old_application_warnings(self):
-        now: float = time.time()
-        expiry_threshold: float = now - self.APP_WARNING_EXPIRY_DURATION
-        while len(self._app_warnings) > 0 and self._app_warnings[0].timestamp < expiry_threshold:
-            self._app_warnings.popleft()
-
-    def add_application_warning(self, app_warning: ApplicationWarning):
-        self._expire_old_application_warnings()
-        self._app_warnings.append(app_warning)
-
     async def _create_or_import_wallet(self):
         choice = await self.app.prompt(prompt=global_config_map.get("wallet").prompt)
         if choice == "import":

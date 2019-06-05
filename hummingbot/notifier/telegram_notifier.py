@@ -33,7 +33,6 @@ from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 
 DISABLED_COMMANDS = {
     "config",               # disabled because it requires additional logic in the ui
-    # "start",                # disabled because it requires a refactor of asyncio.ensure_future in the current code
     "export_private_key",   # disabled for security
 }
 
@@ -99,7 +98,7 @@ class TelegramNotifier(NotifierBase):
     @authorized_only
     def handler(self, bot: Bot, update: Update) -> None:
         asyncio.ensure_future(self.handler_loop(bot, update), loop=self._ev_loop)
-        
+
     async def handler_loop(self, bot: Bot, update: Update) -> None:
         try:
             input_text = update.message.text.strip()
