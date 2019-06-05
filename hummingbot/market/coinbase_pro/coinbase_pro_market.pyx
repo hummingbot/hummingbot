@@ -782,13 +782,20 @@ cdef class CoinbaseProMarket(MarketBase):
         return order_id
 
     async def execute_cancel(self, symbol: str, order_id: str):
-        exchange_order_id = await self._in_flight_orders.get(order_id).get_exchange_order_id()
-        path_url = f"/orders/{exchange_order_id}"
         try:
+            exchange_order_id = await self._in_flight_orders.get(order_id).get_exchange_order_id()
+            path_url = f"/orders/{exchange_order_id}"
             [cancelled_id] = await self._api_request("delete", path_url=path_url)
             if cancelled_id == exchange_order_id:
                 self.logger().info(f"Successfully cancelled order {order_id}.")
                 self.c_stop_tracking_order(order_id)
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp, order_id))
+                return order_id
+        except IOError as e:
+            if "order not found" in e.message:
+                # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
+                self.logger().info(f"The order {order_id} does not exist on Coinbase Pro. No cancellation needed.")
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
