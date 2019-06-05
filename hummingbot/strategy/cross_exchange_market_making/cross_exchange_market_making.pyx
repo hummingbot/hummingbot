@@ -29,6 +29,7 @@ from hummingbot.market.market_base import (
 )
 from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from .cross_exchange_market_pair import CrossExchangeMarketPair
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
@@ -226,93 +227,35 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
     def format_status(self) -> str:
         cdef:
-            MarketBase taker_market
-            MarketBase maker_market
+            object maker_market_symbol_pair # MarketSymbolPair
+            object taker_market_symbol_pair # MarketSymbolPair
             OrderBook taker_order_book
             OrderBook maker_order_book
-            str maker_name
-            str taker_name
-            str maker_symbol
-            str taker_symbol
-            str maker_base
-            str maker_quote
-            str taker_base
-            str taker_quote
-            double maker_base_balance
-            double maker_quote_balance
-            double taker_base_balance
-            double taker_quote_balance
-            double maker_base_adjusted
-            double taker_base_adjusted
-            double maker_quote_adjusted
-            double taker_quote_adjusted
-            double maker_bid_price
-            double maker_ask_price
-            double taker_bid_price
-            double taker_ask_price
-            double maker_bid_adjusted
-            double maker_ask_adjusted
-            double taker_bid_adjusted
-            double taker_ask_adjusted
             list lines = []
             list warning_lines = []
 
         for market_pair in self._market_pairs.values():
             # Get some basic info about the market pair.
-            taker_market = market_pair.taker_market
-            maker_market = market_pair.maker_market
-            taker_symbol = market_pair.taker_symbol
-            maker_symbol = market_pair.maker_symbol
-            taker_name = taker_market.__class__.__name__
-            maker_name = maker_market.__class__.__name__
-            taker_base = market_pair.taker_base_currency
-            taker_quote = market_pair.taker_quote_currency
-            maker_base = market_pair.maker_base_currency
-            maker_quote = market_pair.maker_quote_currency
-            taker_order_book = taker_market.c_get_order_book(taker_symbol)
-            maker_order_book = maker_market.c_get_order_book(maker_symbol)
-            maker_base_balance = maker_market.c_get_balance(maker_base)
-            maker_quote_balance = maker_market.c_get_balance(maker_quote)
-            taker_base_balance = taker_market.c_get_balance(taker_base)
-            taker_quote_balance = taker_market.c_get_balance(taker_quote)
-            maker_base_adjusted = self._exchange_rate_conversion.adjust_token_rate(maker_base, 1.0)
-            taker_base_adjusted = self._exchange_rate_conversion.adjust_token_rate(taker_base, 1.0)
-            maker_quote_adjusted = self._exchange_rate_conversion.adjust_token_rate(maker_quote, 1.0)
-            taker_quote_adjusted = self._exchange_rate_conversion.adjust_token_rate(taker_quote, 1.0)
-            maker_bid_price = maker_order_book.get_price(False)
-            maker_ask_price = maker_order_book.get_price(True)
-            taker_bid_price = taker_order_book.get_price(False)
-            taker_ask_price = taker_order_book.get_price(True)
-            maker_bid_adjusted = maker_bid_price * maker_quote_adjusted
-            maker_ask_adjusted = maker_ask_price * maker_quote_adjusted
-            taker_bid_adjusted = taker_bid_price * taker_quote_adjusted
-            taker_ask_adjusted = taker_ask_price * taker_quote_adjusted
+            maker_market_symbol_pair = MarketSymbolPair(market_pair.maker_market,
+                                                        market_pair.maker_symbol,
+                                                        market_pair.maker_base_currency,
+                                                        market_pair.maker_quote_currency)
+            taker_market_symbol_pair = MarketSymbolPair(market_pair.taker_market,
+                                                        market_pair.taker_symbol,
+                                                        market_pair.taker_base_currency,
+                                                        market_pair.taker_quote_currency)
+            taker_order_book = taker_market_symbol_pair.market.get_order_book(taker_market_symbol_pair.trading_pair)
+            maker_order_book = maker_market_symbol_pair.market.get_order_book(maker_market_symbol_pair.trading_pair)
 
-            if not (maker_market.network_status is NetworkStatus.CONNECTED and
-                    taker_market.network_status is NetworkStatus.CONNECTED):
-                warning_lines.extend([
-                    f"  Markets are offline for the {maker_symbol} // {taker_symbol} pair. Continued market making "
-                    f"with these markets may be dangerous.",
-                    ""
-                ])
+            warning_lines.extend(self.network_warning([maker_market_symbol_pair, taker_market_symbol_pair]))
 
-            markets_columns = ["Market", "Symbol", "Bid Price", "Ask Price", "Adjusted Bid", "Adjusted Ask"]
-            markets_data = [
-                [maker_name, maker_symbol, maker_bid_price, maker_ask_price, maker_bid_adjusted, maker_ask_adjusted],
-                [taker_name, taker_symbol, taker_bid_price, taker_ask_price, taker_bid_adjusted, taker_ask_adjusted],
-            ]
-            markets_df = pd.DataFrame(data=markets_data, columns=markets_columns)
-            lines.extend(["", "  Markets:"] + ["    " + line for line in str(markets_df).split("\n")])
+            markets_df = self.market_status_data_frame([maker_market_symbol_pair, taker_market_symbol_pair])
+            lines.extend(["", "  Markets:"] +
+                         ["    " + line for line in str(markets_df).split("\n")])
 
-            assets_columns = ["Market", "Asset", "Balance", "Conversion Rate"]
-            assets_data = [
-                [maker_name, maker_base, maker_base_balance, maker_base_adjusted],
-                [maker_name, maker_quote, maker_quote_balance, maker_quote_adjusted],
-                [taker_name, taker_base, taker_base_balance, taker_base_adjusted],
-                [taker_name, taker_quote, taker_quote_balance, taker_quote_adjusted],
-            ]
-            assets_df = pd.DataFrame(data=assets_data, columns=assets_columns)
-            lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
+            assets_df = self.wallet_balance_data_frame([maker_market_symbol_pair, taker_market_symbol_pair])
+            lines.extend(["", "  Assets:"] +
+                         ["    " + line for line in str(assets_df).split("\n")])
 
             bid_profitability, ask_profitability = self.c_calculate_market_making_profitability(
                 market_pair,
@@ -320,10 +263,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 taker_order_book
             )
             lines.extend(["", "  Profitability:"] +
-                         [f"    make bid on {maker_name}, "
-                          f"take bid on {taker_name}: {round(bid_profitability * 100, 4)} %"] +
-                         [f"    make ask on {maker_name}, "
-                          f"take ask on {taker_name}: {round(ask_profitability * 100, 4)} %"])
+                         [f"    make bid on {maker_market_symbol_pair.market.name}, "
+                          f"take bid on {taker_market_symbol_pair.market.name}: {round(bid_profitability * 100, 4)} %"] +
+                         [f"    make ask on {maker_market_symbol_pair.market.name}, "
+                          f"take ask on {taker_market_symbol_pair.market.name}: {round(ask_profitability * 100, 4)} %"])
 
             # See if there're any open orders.
             if market_pair in self._tracked_maker_orders and len(self._tracked_maker_orders[market_pair]) > 0:
@@ -335,19 +278,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             else:
                 lines.extend(["", "  No active maker orders."])
 
-            # Add warning lines on null balances.
-            # TO-DO: Build min order size logic into exchange connector and expose maker_min_order and taker_min_order variables,
-            # which can replace the hard-coded 0.0001 value. 
-            if maker_base_balance <= 0.0001:
-                warning_lines.append(f"    Maker market {maker_base} balance is too low. No ask order is possible.")
-            if maker_quote_balance <= 0.0001:
-                warning_lines.append(f"    Maker market {maker_quote} balance is too low. No bid order is possible.")
-            if taker_base_balance <= 0.0001:
-                warning_lines.append(f"    Taker market {taker_base} balance is too low. No bid order is possible "
-                                     f"because there's no {taker_base} available for hedging orders.")
-            if taker_quote_balance <= 0.0001:
-                warning_lines.append(f"    Taker market {taker_quote} balance is too low. No ask order is possible "
-                                     f"because there's no {taker_quote} available for hedging orders.")
+            warning_lines.extend(self.balance_warning([maker_market_symbol_pair, taker_market_symbol_pair]))
 
         if len(warning_lines) > 0:
             lines.extend(["", "  *** WARNINGS ***"] + warning_lines)
