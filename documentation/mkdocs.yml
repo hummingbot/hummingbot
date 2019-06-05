@@ -89,6 +89,7 @@ nav:
       - Client: operation/client.md
       - Configuration: operation/configuration.md
       - Running bots: operation/running-bots.md
+      - Running bots in the cloud: operation/running-bots-in-the-cloud.md
       - Logging: operation/logging.md
       - Exchange rates: operation/exchange-rates.md
       - Debug console: operation/debug.md
