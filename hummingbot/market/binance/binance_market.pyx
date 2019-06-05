@@ -974,6 +974,10 @@ cdef class BinanceMarket(MarketBase):
             order_decimal_amount = f"{decimal_amount:f}"
             if order_type is OrderType.LIMIT:
                 decimal_price = self.c_quantize_order_price(symbol, price)
+                notional_size = decimal_amount * decimal_price
+                if notional_size < float(trading_rule.min_notional_size):
+                    raise ValueError(f" The order value is less than the minimum order value allowed and is not placed. "
+                                        f"Please refer to Binance Trading rules")
                 order_decimal_price = f"{decimal_price:f}"
                 order_result = await self.query_api(self._binance_client.order_limit_buy,
                                                     symbol=symbol,
@@ -1047,6 +1051,10 @@ cdef class BinanceMarket(MarketBase):
             order_decimal_amount = f"{decimal_amount:f}"
             if order_type is OrderType.LIMIT:
                 decimal_price = self.c_quantize_order_price(symbol, price)
+                notional_size = decimal_amount * decimal_price
+                if notional_size < float(trading_rule.min_notional_size):
+                    raise ValueError(f"The order value is less than the minimum order value allowed and is not placed. "
+                                        f"Please refer to Binance Trading rules")
                 order_decimal_price = f"{decimal_price:f}"
                 order_result = await self.query_api(self._binance_client.order_limit_sell,
                                                     symbol=symbol,
@@ -1234,6 +1242,8 @@ cdef class BinanceMarket(MarketBase):
 
         # Add 1% as a safety factor in case the prices changed while making the order.
         if notional_size < float(trading_rule.min_notional_size) * 1.01:
+            self.logger().error(f"The order value is less than the minimum order value allowed and is not placed. "
+                                f"Please refer to Binance Trading rules")
             return s_decimal_0
 
         return quantized_amount
