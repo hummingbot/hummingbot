@@ -8,7 +8,8 @@ import logging
 import pandas as pd
 from typing import (
     List,
-    Tuple
+    Tuple,
+    Optional
 )
 
 from hummingbot.core.clock cimport Clock
@@ -37,6 +38,45 @@ s_decimal_zero = Decimal(0)
 s_logger = None
 
 
+cdef class BasePureMakingStrategyEventListener(EventListener):
+    cdef:
+        PureMarketMakingStrategyV2 _owner
+
+    def __init__(self, PureMarketMakingStrategyV2 owner):
+        super().__init__()
+        self._owner = owner
+
+
+cdef class BuyOrderCompletedListener(BasePureMakingStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_complete_buy_order(arg)
+
+
+cdef class SellOrderCompletedListener(BasePureMakingStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_complete_sell_order(arg)
+
+
+cdef class OrderFilledListener(BasePureMakingStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_fill_order(arg)
+
+
+cdef class OrderFailedListener(BasePureMakingStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_fail_order(arg)
+
+
+cdef class OrderCancelledListener(BasePureMakingStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_cancel_order(arg)
+
+
+cdef class OrderExpiredListener(BasePureMakingStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_cancel_order(arg)
+
+
 cdef class PureMarketMakingStrategyV2(StrategyBase):
     BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
@@ -60,6 +100,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION = 60.0
     CANCEL_EXPIRY_DURATION = 60.0
 
+    # These are exchanges where you're expected to expire orders instead of actively cancelling them.
+    RADAR_RELAY_TYPE_EXCHANGES = {"radar_relay", "bamboo_relay"}
+
     @classmethod
     def logger(cls):
         global s_logger
@@ -68,25 +111,76 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         return s_logger
 
     def __init__(self, market_infos: List[MarketInfo],
-                 order_size: float = 1.0,
-                 bid_place_threshold: float = 0.01,
-                 ask_place_threshold: float = 0.01,
+                 filter_delegate: Optional[OrderFilterDelegate] = None,
+                 pricing_delegate: Optional[OrderPricingDelegate] = None,
+                 sizing_delegate: Optional[OrderSizingDelegate] = None,
                  cancel_order_wait_time: float = 60,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
                  status_report_interval: float = 900):
+        if len(market_infos) < 1:
+            raise ValueError(f"market_infos must not be empty.")
+
         super().__init__()
+        self._market_infos = {
+            (market_info.market, market_info.symbol): market_info
+            for market_info in market_infos
+        }
+        self._markets = set([market_info.market for market_info in market_infos])
+        self._all_markets_ready = False
+        self._cancel_order_wait_time = cancel_order_wait_time
+        # For tracking limit orders
+        self._tracked_maker_orders = {}
+        # Preserving a copy of limit orders for safety for sometime
+        self._shadow_tracked_maker_orders = {}
+        self._order_id_to_market_info = {}
+        self._shadow_order_id_to_market_info = {}
+        # For cleaning up limit orders
+        self._shadow_gc_requests = deque()
+        self._time_to_cancel = {}
+        self._in_flight_cancels = {}
 
         self._logging_options = logging_options
         self._last_timestamp = 0
+        self._status_report_interval = status_report_interval
+        self._limit_order_min_expiration = limit_order_min_expiration
+
+        # TODO: if these are None, put in some default plugins that trade conservatively.
+        self._filter_delegate = filter_delegate
+        self._pricing_delegate = pricing_delegate
+        self._sizing_delegate = sizing_delegate
+        self._delegate_lock = False
+
+        self._buy_order_completed_listener = BuyOrderCompletedListener(self)
+        self._sell_order_completed_listener = SellOrderCompletedListener(self)
+        self._order_filled_listener = OrderFilledListener(self)
+        self._order_failed_listener = OrderFailedListener(self)
+        self._order_cancelled_listener = OrderCancelledListener(self)
+        self._order_expired_listener = OrderExpiredListener(self)
+
+        cdef:
+            MarketBase typed_market
+
+        for market in self._markets:
+            typed_market = market
+            typed_market.c_add_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._buy_order_completed_listener)
+            typed_market.c_add_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sell_order_completed_listener)
+            typed_market.c_add_listener(self.ORDER_FILLED_EVENT_TAG, self._order_filled_listener)
+            typed_market.c_add_listener(self.ORDER_CANCELLED_EVENT_TAG, self._order_cancelled_listener)
+            typed_market.c_add_listener(self.ORDER_EXPIRED_EVENT_TAG, self._order_expired_listener)
+            typed_market.c_add_listener(self.TRANSACTION_FAILURE_EVENT_TAG, self._order_failed_listener)
 
     @property
     def active_markets(self) -> List[MarketBase]:
-        pass
+        return list(self._markets)
 
     @property
     def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
-        pass
+        return [
+            (market_info.market, limit_order)
+            for market_info, orders_map in self._tracked_maker_orders.items()
+            for limit_order in orders_map.values()
+        ]
 
     @property
     def logging_options(self) -> int:
@@ -98,15 +192,15 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
     @property
     def filter_delegate(self) -> OrderFilterDelegate:
-        pass
+        return self._filter_delegate
 
     @property
     def pricing_delegate(self) -> OrderPricingDelegate:
-        pass
+        return self._pricing_delegate
 
     @property
     def sizing_delegate(self) -> OrderSizingDelegate:
-        pass
+        return self._sizing_delegate
 
     def log_with_clock(self, log_level: int, msg: str, **kwargs):
         clock_timestamp = pd.Timestamp(self._current_timestamp, unit="s", tz="UTC")
@@ -118,13 +212,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     # The following exposed Python functions are meant for unit tests
     # ---------------------------------------------------------------
 
-    def check_if_sufficient_balance(self, market_info: MarketInfo) -> bool:
-        return self.c_check_if_sufficient_balance(market_info)
-
     def create_new_orders(self, market_info: MarketInfo):
         return self.c_create_new_orders(market_info)
 
-    def cancel_order(self, market_info: MarketInfo,order_id:str):
+    def cancel_order(self, market_info: MarketInfo, order_id:str):
         return self.c_cancel_order(market_info, order_id)
     # ---------------------------------------------------------------
 
@@ -132,16 +223,49 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                     double price,
                                     object order_type = OrderType.LIMIT,
                                     double expiration_seconds = NaN):
-        pass
+        if self._delegate_lock:
+            raise RuntimeError("Delegates are not allowed to execute orders directly.")
+
+        cdef:
+            dict kwargs = {
+                "expiration_ts": self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
+            }
+
+        if market not in self._markets:
+            raise ValueError(f"market object for buy order is not in the whitelisted markets set.")
+        return market.c_buy(symbol, amount, order_type=order_type, price=price, kwargs=kwargs)
 
     cdef c_sell_with_specific_market(self, MarketBase market, str symbol, double amount,
                                      double price,
                                      object order_type = OrderType.LIMIT,
                                      double expiration_seconds = NaN):
-        pass
+        if self._delegate_lock:
+            raise RuntimeError("Delegates are not allowed to execute orders directly.")
+
+        cdef:
+            dict kwargs = {
+                "expiration_ts": self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
+            }
+
+        if market not in self._markets:
+            raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
+        return market.c_sell(symbol, amount, order_type=order_type, price=price, kwargs=kwargs)
 
     cdef c_cancel_order(self, object market_info, str order_id):
-        pass
+        cdef:
+            MarketBase market = market_info.market
+            list keys_to_delete = []
+
+        # Maintain the cancel expiry time invariant.
+        for k, cancel_timestamp in self._in_flight_cancels.items():
+            if cancel_timestamp < self._current_timestamp - self.CANCEL_EXPIRY_DURATION:
+                keys_to_delete.append(k)
+        for k in keys_to_delete:
+            del self._in_flight_cancels[k]
+
+        # Track the cancel and tell maker market to cancel the order.
+        self._in_flight_cancels[order_id] = self._current_timestamp
+        market.c_cancel(market.symbol, order_id)
 
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
