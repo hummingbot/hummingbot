@@ -590,7 +590,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 self.log_with_clock(
                     logging.INFO,
                     f"({market_pair.maker_quote_currency}) balance of ({quote_asset_amount:.8g}) "
-                    f"is now less than the required to place a bid order of size: ({self.order_size:.8g}) at ({place_bid_price}). "
+                    f"is now less than the required to place a bid order of size: ({self.order_size:.8g}) at ({place_bid_price:.8g}). "
                     f"Running again"
                 )
             return False
