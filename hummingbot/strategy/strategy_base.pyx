@@ -35,7 +35,8 @@ cdef class StrategyBase(TimeIterator):
                          order_filled_event.amount,
                          order_filled_event.order_type,
                          market_name,
-                         order_filled_event.timestamp)
+                         order_filled_event.timestamp,
+                         order_filled_event.trade_fee)
 
         past_trades = []
         for market in self.active_markets:

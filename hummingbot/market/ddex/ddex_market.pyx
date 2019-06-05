@@ -436,7 +436,14 @@ cdef class DDEXMarket(MarketBase):
                     TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
                     order_type,
                     execute_price,
-                    fill_size
+                    fill_size,
+                    self.c_get_fee(
+                        tracked_order.base_asset,
+                        tracked_order.quote_asset,
+                        order_type,
+                        TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
+                        fill_size,
+                        execute_price)
                 )
                 self.logger().info(f"Filled {fill_size} out of {tracked_order.amount} of the "
                                    f"{order_type_description} order {client_order_id}.")

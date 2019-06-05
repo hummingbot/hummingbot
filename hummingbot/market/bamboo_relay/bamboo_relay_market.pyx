@@ -449,7 +449,8 @@ cdef class BambooRelayMarket(MarketBase):
                             TradeType.BUY if tracked_limit_order.is_buy else TradeType.SELL,
                             OrderType.LIMIT,
                             tracked_limit_order.price,
-                            order_executed_amount
+                            order_executed_amount,
+                            TradeFee(0.0) # no fee for limit order fills
                         )
                     )
 
@@ -536,6 +537,7 @@ cdef class BambooRelayMarket(MarketBase):
                                                       OrderType.MARKET)
                     )
                 elif receipt["status"] == 1:
+                    gas_used = float(receipt.get("gasUsed", 0.0))
                     self.c_trigger_event(
                         self.MARKET_ORDER_FILLED_EVENT_TAG,
                         OrderFilledEvent(
@@ -546,6 +548,7 @@ cdef class BambooRelayMarket(MarketBase):
                             OrderType.MARKET,
                             tracked_market_order.price,
                             tracked_market_order.amount,
+                            TradeFee(0.0, ["ETH", gas_used])
                         )
                     )
                     if tracked_market_order.is_buy:
