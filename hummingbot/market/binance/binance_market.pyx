@@ -709,14 +709,14 @@ cdef class BinanceMarket(MarketBase):
                 execution_type = event_message.get("x")
                 if execution_type == "TRADE":
                     order_filled_event = OrderFilledEvent.order_filled_event_from_binance_execution_report(event_message)
-                    order_filled_event.trade_fee = self.c_get_fee(
+                    order_filled_event._replace(trade_fee=self.c_get_fee(
                         tracked_order.base_asset,
                         tracked_order.quote_asset,
                         OrderType.LIMIT if event_message["o"] == "LIMIT" else OrderType.MARKET,
                         TradeType.BUY if event_message["S"] == "BUY" else TradeType.SELL,
                         float(event_message["l"]),
-                        float(event_message["L"]),
-                    )
+                        float(event_message["L"])
+                    ))
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
                 if tracked_order.is_done:
@@ -1096,7 +1096,7 @@ cdef class BinanceMarket(MarketBase):
         except Exception:
             self.c_stop_tracking_order(order_id)
             order_type_str = 'MARKET' if order_type == OrderType.MARKET else 'LIMIT'
-            self.logger().error(
+            self.logger().network(
                 f"Error submitting sell {order_type_str} order to Binance for "
                 f"{decimal_amount} {symbol} {price}.",
                 exc_info=True,
