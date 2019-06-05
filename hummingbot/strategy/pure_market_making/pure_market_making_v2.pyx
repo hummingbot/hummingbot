@@ -338,10 +338,38 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
 
     cdef c_did_fill_order(self, object order_filled_event):
-        pass
+        cdef:
+            str order_id = order_filled_event.order_id
+            object market_info = self._shadow_order_id_to_market_info.get(order_id)
+            tuple order_fill_record
+
+        if market_info is not None:
+            limit_order_record = self._shadow_tracked_maker_orders[market_info][order_id]
+            order_fill_record = (limit_order_record, order_filled_event)
+
+            if order_filled_event.trade_type is TradeType.BUY:
+                if self._logging_options & self.OPTION_LOG_MAKER_ORDER_FILLED:
+                    self.log_with_clock(
+                        logging.INFO,
+                        f"({market_info.maker_symbol}) Maker buy order of "
+                        f"{order_filled_event.amount} {market_info.maker_base_currency} filled."
+                    )
+            else:
+                if self._logging_options & self.OPTION_LOG_MAKER_ORDER_FILLED:
+                    self.log_with_clock(
+                        logging.INFO,
+                        f"({market_info.maker_symbol}) Maker sell order of "
+                        f"{order_filled_event.amount} {market_info.maker_base_currency} filled."
+                    )
 
     cdef c_did_fail_order(self, object order_failed_event):
-        pass
+        cdef:
+            str order_id = order_failed_event.order_id
+            object market_info= self._order_id_to_market_info.get(order_id)
+
+        if market_info is None:
+            return
+        self.c_stop_tracking_order(market_info, order_id)
 
     cdef c_did_cancel_order(self, object cancelled_event):
         pass
