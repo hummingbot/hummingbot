@@ -6,12 +6,15 @@ from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.strategy.strategy_base cimport StrategyBase
 
+from .order_filter_delegate cimport OrderFilterDelegate
+from .order_pricing_delegate cimport OrderPricingDelegate
+from .order_sizing_delegate cimport OrderSizingDelegate
+
 
 cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef:
         set _markets
-        set _radar_relay_type_exchanges
-        dict _market_info_collection
+        dict _market_infos
         bint _all_markets_ready
         double _cancel_order_wait_time
         double _status_report_interval
@@ -21,8 +24,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         dict _order_id_to_market_info
         dict _shadow_tracked_maker_orders
         dict _shadow_order_id_to_market_info
-        dict _order_fill_buy_events
-        dict _order_fill_sell_events
         dict _time_to_cancel
         object _in_flight_cancels
         object _shadow_gc_requests
@@ -34,6 +35,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         EventListener _order_cancelled_listener
         EventListener _order_expired_listener
         int64_t _logging_options
+
+        OrderFilterDelegate _filter_delegate
+        OrderPricingDelegate _pricing_delegate
+        OrderSizingDelegate _sizing_delegate
+        bint _delegate_lock
 
     cdef c_buy_with_specific_market(self, MarketBase market, str symbol, double amount,
                                     double price, object order_type = *, double expiration_seconds = *)
