@@ -488,7 +488,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         self.c_stop_tracking_order(market_pair, order_id)
 
-
     cdef c_did_complete_buy_order(self, object order_completed_event):
         cdef:
             str order_id = order_completed_event.order_id

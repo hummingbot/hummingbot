@@ -28,9 +28,19 @@ from hummingbot.market.market_base import (
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.strategy.strategy_base import StrategyBase
 
-from .data_types import MarketInfo
+from .data_types import (
+    MarketInfo,
+    OrdersProposal,
+    PricingProposal,
+    SizingProposal,
+    ORDER_PROPOSAL_ACTION_CANCEL_ORDERS,
+    ORDER_PROPOSAL_ACTION_CREATE_ORDERS
+)
+from .order_filter_delegate cimport OrderFilterDelegate
 from .order_filter_delegate import OrderFilterDelegate
+from .order_pricing_delegate cimport OrderPricingDelegate
 from .order_pricing_delegate import OrderPricingDelegate
+from .order_sizing_delegate cimport OrderSizingDelegate
 from .order_sizing_delegate import OrderSizingDelegate
 
 NaN = float("nan")
@@ -211,8 +221,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
     # The following exposed Python functions are meant for unit tests
     # ---------------------------------------------------------------
-    def create_new_orders(self, market_info: MarketInfo):
-        return self.c_create_new_orders(market_info)
+    def execute_orders_proposal(self, orders_proposal: OrdersProposal):
+        return self.c_execute_orders_proposal(orders_proposal)
 
     def cancel_order(self, market_info: MarketInfo, order_id:str):
         return self.c_cancel_order(market_info, order_id)
@@ -309,33 +319,73 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     market_info_to_active_orders[market_info].append(limit_order)
 
             for market_info in self._market_infos.values():
-                self.c_process_market_info(market_info, market_info_to_active_orders[market_info])
+                self._delegate_lock = True
+                orders_proposal = None
+                try:
+                    orders_proposal = self.c_get_orders_proposal_for_market_info(
+                        market_info,
+                        market_info_to_active_orders[market_info]
+                    )
+                finally:
+                    self._delegate_lock = False
+                if orders_proposal is not None:
+                    self.c_execute_orders_proposal(market_info, orders_proposal)
 
             self.c_check_and_cleanup_shadow_records()
         finally:
             self._last_timestamp = timestamp
 
-    cdef c_process_market_info(self, object market_info, list active_orders):
+    cdef object c_get_orders_proposal_for_market_info(self, object market_info, list active_orders):
         cdef:
             double last_trade_price
             MarketBase maker_market = market_info.market
+            bint should_proceed = False
+
+        # Before doing anything, ask the filter delegate whether to proceed or not.
+        if not self._filter_delegate.c_should_proceed_with_processing(self, market_info, active_orders):
+            return None
 
         if len(active_orders) < 1:
             # If there are no active orders, then do the following:
-            #  1. Ask the filter delegate whether to proceed or not.
-            #  2. If yes, then ask the pricing delegate on what are the order prices.
-            #  3. Ask the sizing delegate on what are the order sizes.
-            #  4. Combine the proposals to an orders proposal object.
-            #  5. Send the proposal to filter delegate to get the final proposal (or None).
-            #  6. Submit / cancel orders as needed.
-            pass
+            #  1. Ask the pricing delegate on what are the order prices.
+            #  2. Ask the sizing delegate on what are the order sizes.
+            #  3. Combine the proposals to an orders proposal object.
+            #  4. Send the proposal to filter delegate to get the final proposal (or None).
+            #  5. Submit / cancel orders as needed.
+            pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self, market_info, active_orders)
+            sizing_proposal = self._sizing_delegate.c_get_order_size_proposal(self,
+                                                                              market_info,
+                                                                              active_orders,
+                                                                              pricing_proposal)
+            orders_proposal = OrdersProposal(ORDER_PROPOSAL_ACTION_CREATE_ORDERS,
+                                             OrderType.LIMIT,
+                                             pricing_proposal.buy_order_price,
+                                             sizing_proposal.buy_order_size,
+                                             OrderType.LIMIT,
+                                             pricing_proposal.sell_order_price,
+                                             sizing_proposal.sell_order_size,
+                                             [])
+            return self._filter_delegate.c_filter_orders_proposal(self,
+                                                                  market_info,
+                                                                  active_orders,
+                                                                  orders_proposal)
         else:
             # If there are active orders, then do the following:
             #  1. Check the time to cancel for this market info, and see if cancellation should be proposed.
             #  2. Send the proposals (which may be a do-nothing proposal) to filter delegate.
             #  3. Execute the final proposal from filter delegate.
-            pass
+            if maker_market.name in self.RADAR_RELAY_TYPE_EXCHANGES:
+                return
 
+            if self._current_timestamp <= self._time_to_cancel[market_info]:
+                cancel_proposal = OrdersProposal(ORDER_PROPOSAL_ACTION_CANCEL_ORDERS,
+                                                 OrderType.LIMIT, 0, 0, OrderType.LIMIT, 0, 0,
+                                                 [active_order.client_order_id for active_order in active_orders])
+                return self._filter_delegate.c_filter_orders_proposal(self,
+                                                                      market_info,
+                                                                      active_orders,
+                                                                      cancel_proposal)
+        return None
 
     cdef c_did_fill_order(self, object order_filled_event):
         cdef:
@@ -372,22 +422,155 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self.c_stop_tracking_order(market_info, order_id)
 
     cdef c_did_cancel_order(self, object cancelled_event):
-        pass
+        cdef:
+            str order_id = cancelled_event.order_id
+            object market_pair = self._order_id_to_market_info.get(order_id)
+
+        self.c_stop_tracking_order(market_pair, order_id)
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
-        pass
+        cdef:
+            str order_id = order_completed_event.order_id
+            object market_pair = self._order_id_to_market_info.get(order_id)
+            LimitOrder limit_order_record
+
+        if market_pair is not None:
+            limit_order_record = self._tracked_maker_orders[market_pair][order_id]
+            self.log_with_clock(
+                logging.INFO,
+                f"({market_pair.maker_symbol}) Maker buy order {order_id} "
+                f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+            )
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
-        pass
+        cdef:
+            str order_id = order_completed_event.order_id
+            object market_pair = self._order_id_to_market_info.get(order_id)
+            LimitOrder limit_order_record
+
+        if market_pair is not None:
+            limit_order_record = self._tracked_maker_orders[market_pair][order_id]
+            self.log_with_clock(
+                logging.INFO,
+                f"({market_pair.maker_symbol}) Maker sell order {order_id} "
+                f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+            )
 
     cdef c_start_tracking_order(self, object market_info, str order_id, bint is_buy, object price, object quantity):
-        pass
+        if market_info not in self._tracked_maker_orders:
+            self._tracked_maker_orders[market_info] = {}
+        if market_info not in self._shadow_tracked_maker_orders:
+            self._shadow_tracked_maker_orders[market_info] = {}
+
+        cdef:
+            LimitOrder limit_order = LimitOrder(order_id,
+                                                market_info.maker_symbol,
+                                                is_buy,
+                                                market_info.maker_base_currency,
+                                                market_info.maker_quote_currency,
+                                                float(price),
+                                                float(quantity))
+        self._tracked_maker_orders[market_info][order_id] = limit_order
+        self._shadow_tracked_maker_orders[market_info][order_id] = limit_order
+        self._order_id_to_market_info[order_id] = market_info
+        self._shadow_order_id_to_market_info[order_id] = market_info
 
     cdef c_stop_tracking_order(self, object market_info, str order_id):
-        pass
+        if market_info in self._tracked_maker_orders and order_id in self._tracked_maker_orders[market_info]:
+            del self._tracked_maker_orders[market_info][order_id]
+            if len(self._tracked_maker_orders[market_info]) < 1:
+                del self._tracked_maker_orders[market_info]
+        if order_id in self._order_id_to_market_info:
+            del self._order_id_to_market_info[order_id]
+        self._shadow_gc_requests.append((
+            self._current_timestamp + self.SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION,
+            market_info,
+            order_id
+        ))
 
     cdef c_check_and_cleanup_shadow_records(self):
-        pass
+        cdef:
+            double current_timestamp = self._current_timestamp
 
-    cdef c_create_new_orders(self, object market_info):
-        pass
+        while len(self._shadow_gc_requests) > 0 and self._shadow_gc_requests[0][0] < current_timestamp:
+            _, market_info, order_id = self._shadow_gc_requests.popleft()
+            if (market_info in self._shadow_tracked_maker_orders and
+                    order_id in self._shadow_tracked_maker_orders[market_info]):
+                del self._shadow_tracked_maker_orders[market_info][order_id]
+                if len(self._shadow_tracked_maker_orders[market_info]) < 1:
+                    del self._shadow_tracked_maker_orders[market_info]
+            if order_id in self._shadow_order_id_to_market_info:
+                del self._shadow_order_id_to_market_info[order_id]
+
+    cdef c_execute_orders_proposal(self, object market_info, object orders_proposal):
+        cdef:
+            int64_t actions = orders_proposal.actions
+            MarketBase market = market_info.market
+            str symbol = market_info.symbol
+            double expiration_seconds = (self._cancel_order_wait_time
+                                         if market.name in self.RADAR_RELAY_TYPE_EXCHANGES
+                                         else NaN)
+            str bid_order_id
+
+        # Cancel orders.
+        if actions & ORDER_PROPOSAL_ACTION_CANCEL_ORDERS:
+            for order_id in orders_proposal.cancel_order_ids:
+                self.c_cancel_order(market_info, order_id)
+
+        # Create orders.
+        if actions & ORDER_PROPOSAL_ACTION_CREATE_ORDERS:
+            if orders_proposal.buy_order_size > 0:
+                if orders_proposal.buy_order_type is OrderType.LIMIT and orders_proposal.buy_order_price > 0:
+                    if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
+                        self.log_with_clock(
+                            logging.INFO,
+                            f"({market_info.symbol}) Creating limit bid order for "
+                            f"{orders_proposal.buy_order_size} {market_info.base_currency} at "
+                            f"{orders_proposal.buy_order_price} {market_info.quote_curreny}."
+                        )
+                    bid_order_id = self.c_buy_with_specific_market(
+                        market,
+                        symbol,
+                        orders_proposal.buy_order_size,
+                        orders_proposal.buy_order_price,
+                        order_type=OrderType.LIMIT,
+                        expiration_seconds=expiration_seconds
+                    )
+                    self.c_start_tracking_order(
+                        market_info,
+                        bid_order_id,
+                        True,
+                        orders_proposal.buy_order_price,
+                        orders_proposal.buy_order_size
+                    )
+                elif orders_proposal.buy_order_type is OrderType.MARKET:
+                    raise RuntimeError("Market buy order in orders proposal is not supported yet.")
+
+            if orders_proposal.sell_order_size > 0:
+                if orders_proposal.sell_order_type is OrderType.LIMIT and orders_proposal.sell_order_type > 0:
+                    if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
+                        self.log_with_clock(
+                            logging.INFO,
+                            f"({market_info.symbol}) Creating limit ask order for "
+                            f"{orders_proposal.sell_order_size} {market_info.base_currency} at "
+                            f"{orders_proposal.sell_order_price} {market_info.quote_curreny}."
+                        )
+                    ask_order_id = self.c_sell_with_specific_market(
+                        market,
+                        symbol,
+                        orders_proposal.sell_order_size,
+                        orders_proposal.sell_order_price,
+                        order_type=OrderType.LIMIT,
+                        expiration_seconds=expiration_seconds
+                    )
+                    self.c_start_tracking_order(
+                        market_info,
+                        ask_order_id,
+                        False,
+                        orders_proposal.sell_order_price,
+                        orders_proposal.sell_order_size
+                    )
+                elif orders_proposal.sell_order_type is OrderType.MARKET:
+                    raise RuntimeError("Market sell order in orders proposal is not supported yet.")

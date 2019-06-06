@@ -46,7 +46,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef c_sell_with_specific_market(self, MarketBase market, str symbol, double amount,
                                     double price, object order_type = *, double expiration_seconds = *)
     cdef c_cancel_order(self, object market_info, str order_id)
-    cdef c_process_market_info(self, object market_info, list active_maker_orders)
+    cdef object c_get_orders_proposal_for_market_info(self, object market_info, list active_maker_orders)
     cdef c_did_fill_order(self, object order_filled_event)
     cdef c_did_fail_order(self, object order_failed_event)
     cdef c_did_cancel_order(self, object cancelled_event)
@@ -55,4 +55,4 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef c_check_and_cleanup_shadow_records(self)
     cdef c_start_tracking_order(self, object market_info, str order_id, bint is_buy, object price, object quantity)
     cdef c_stop_tracking_order(self, object market_info, str order_id)
-    cdef c_create_new_orders(self, object market_info)
+    cdef c_execute_orders_proposal(self, object market_info, object orders_proposal)
