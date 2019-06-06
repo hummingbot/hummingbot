@@ -1,6 +1,6 @@
-# Install on Google Cloud Platform
+# Install on Cloud Platforms
 
-Running `hummingbot` as a long running service can be achieved with the help of Google Cloud Platform.
+Running `hummingbot` as a long running service can be achieved with the help of cloud platforms such as Google Cloud Platform, Amazon Web Services, and Microsoft Azure.
 
 ## Setup a new VM instance on Google Cloud Platform 
 
