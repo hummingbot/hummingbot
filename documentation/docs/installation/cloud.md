@@ -18,8 +18,17 @@ Running `hummingbot` as a long running service can be achieved with the help of 
 
    * Navigate to the AWS Management Console
    * Click on "Launch a Virtual Machine"
+   
+   ![Create New Instance](/assets/img/aws1.png)
+   
    * Select `Ubuntu Server 18.04 LTS (HVM)`
+   
+   ![Select Server Type](/assets/img/aws2.png)
+   
    * Click on "Review and Launch", and then "Launch"
+   
+   ![Select Instance Type](/assets/img/aws2.png)
+   
    * Select “create a new key pair”, name the key pair (e.g. hummingbot), download key pair, and then click on “Launch Instances”. 
    * Click on “View Instances”
 
