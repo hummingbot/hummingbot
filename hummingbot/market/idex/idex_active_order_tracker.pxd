@@ -6,8 +6,12 @@ cdef class IDEXActiveOrderTracker:
     cdef dict _active_asks
     cdef dict _base_asset
     cdef dict _quote_asset
-    cdef double _latest_timestamp
+    cdef double _latest_snapshot_timestamp
     cdef dict _order_hash_price_map
+    cdef object _received_trade_ids
+    cdef object _order_hashes_to_delete
+    cdef list _bid_heap
+    cdef list _ask_heap
 
     cdef tuple c_convert_diff_message_to_np_arrays(self, object message)
     cdef tuple c_convert_snapshot_message_to_np_arrays(self, object message)

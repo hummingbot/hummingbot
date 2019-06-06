@@ -42,7 +42,7 @@ class IDEXOrderBookTrackerUnitTest(unittest.TestCase):
             if len(cls.order_book_tracker.order_books) > 0:
                 print("Initialized real-time order books.")
                 return
-            await asyncio.sleep(100)
+            await asyncio.sleep(1000)
 
     def test_tracker_integrity(self):
         # Wait 5 seconds to process some diffs.

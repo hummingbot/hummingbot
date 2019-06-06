@@ -170,12 +170,10 @@ class IDEXOrderBookTracker(OrderBookTracker):
     async def _track_single_book(self, symbol: str):
         past_diffs_window: Deque[IDEXOrderBookMessage] = deque()
         self._past_diffs_windows[symbol] = past_diffs_window
-
         message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
         order_book: IDEXOrderBook = self._order_books[symbol]
         active_order_tracker: IDEXActiveOrderTracker = self._active_order_trackers[symbol]
-
-        last_message_timestamp: float = time.time()
+        last_message_timestamp: float = time.time() 
         diff_messages_accepted: int = 0
 
         while True:
@@ -185,22 +183,20 @@ class IDEXOrderBookTracker(OrderBookTracker):
                 # Process saved messages first if there are any
                 if len(saved_messages) > 0:
                     message = saved_messages.popleft()
-                    print('saved_messages', len(saved_messages), message)
                 else:
                     message = await message_queue.get()
 
                 if message.type is OrderBookMessageType.DIFF:
                     bids, asks = active_order_tracker.convert_diff_message_to_order_book_row(message)
-                    print(' ****** MESSAGE', message)
-                    print(' ****** Bids', bids)
-                    print(' ****** Asks', asks)
+                    if message.content["event"] == "market_trades":
+                        print(' ****** MESSAGE', message)
+                        print(' ****** Bids', bids)
+                        print(' ****** Asks', asks)
                     order_book.apply_diffs(bids, asks, message.update_id)
-                    print(' ****** apply_diffs success')
                     past_diffs_window.append(message)
                     while len(past_diffs_window) > self.PAST_DIFF_WINDOW_SIZE:
                         past_diffs_window.popleft()
                     diff_messages_accepted += 1
-                    # print("diff_messages_accepted", diff_messages_accepted)
 
                     # Output some statistics periodically.
                     now: float = time.time()

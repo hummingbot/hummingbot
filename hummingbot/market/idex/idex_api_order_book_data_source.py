@@ -28,13 +28,7 @@ from hummingbot.core.data_type.order_book_tracker_entry import (
 )
 from hummingbot.core.data_type.order_book_message import IDEXOrderBookMessage
 
-TRADING_PAIR_FILTER = re.compile(r"(TUSD|WETH|DAI)$")
-
-REST_URL = "https://api.ddex.io/v3"
-WS_URL = "wss://ws.ddex.io/v3"
-TICKERS_URL = f"{REST_URL}/markets/tickers"
-SNAPSHOT_URL = f"{REST_URL}/markets"
-MARKETS_URL = f"{REST_URL}/markets"
+IDEX_REST_URL = "https://api.idex.market"
 IDEX_WS_URL = "wss://datastream.idex.market"
 IDEX_WS_VERSION = "1.0.0"
 IDEX_STATIC_API_KEY = "17paIsICur8sA0OBqG6dH5G1rmrHNMwt4oNk4iX9" # not unique
@@ -66,7 +60,7 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Returns all token information
         """
         async with aiohttp.ClientSession() as client:
-            async with client.get("https://api.idex.market/returnCurrencies") as response:
+            async with client.get(f"{IDEX_REST_URL}/returnCurrencies") as response:
                 response: aiohttp.ClientResponse = response
                 if response.status != 200:
                     raise IOError(f"Error fetching token info. HTTP status is {response.status}.")
@@ -80,7 +74,7 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
         """
         async with aiohttp.ClientSession() as client:
-            async with client.get("https://api.idex.market/return24Volume") as response:
+            async with client.get(f"{IDEX_REST_URL}/return24Volume") as response:
                 response: aiohttp.ClientResponse = response
                 if response.status != 200:
                     raise IOError(f"Error fetching active ddex markets. HTTP status is {response.status}.")
@@ -160,7 +154,7 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         }
         orders: List[Dict[str, Any]] = []
         try:
-            async with client.get("https://api.idex.market/returnOrderBookForMarket", params=params) as response:
+            async with client.get(f"{IDEX_REST_URL}/returnOrderBookForMarket", params=params) as response:
                 response: aiohttp.ClientResponse = response
                 if response.status != 200:
                     raise IOError(f"Error fetching {self._exchange_name} market snapshot for {trading_pair}. "
@@ -174,36 +168,6 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self.logger().error("Unexpected error.", exc_info=True)
             await asyncio.sleep(5.0)
 
-
-    # async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
-    #     # next cursor is used for pagination
-    #     # each response from returnOpenOrders api will return header with "idex-next-cursor" if there are more orders
-    #     next_cursor: Optional[str] = None
-    #     orders: List[Dict[str, Any]] = []
-    #     try:
-    #         while True:
-    #             params: Dict[str, Any] = self._snapshot_request_params(trading_pair, next_cursor)
-    #             async with client.get("https://api.idex.market/returnOpenOrders", params=params) as response:
-    #                 response: aiohttp.ClientResponse = response
-    #                 if response.status != 200:
-    #                     raise IOError(f"Error fetching {self._exchange_name} market snapshot for {trading_pair}. "
-    #                                 f"HTTP status is {response.status}.")
-    #                 next_cursor = response.headers.get("idex-next-cursor", None)
-    #                 # snapshot is complete if no "idex-next-cursor"
-    #                 if next_cursor is None:
-    #                     break
-    #                 partial_orders: List[Dict[str, Any]] = await response.json()
-    #                 # snapshot is complete if no more orders
-    #                 if len(partial_orders) == 0:
-    #                     break
-    #                 orders += partial_orders
-    #         return {"orders": orders}
-
-    #     except asyncio.CancelledError:
-    #         raise
-    #     except:
-    #         self.logger().error("Unexpected error.", exc_info=True)
-    #         await asyncio.sleep(5.0)
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         # Get the currently active markets
@@ -220,15 +184,14 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         timestamp=None,
                         metadata={"market": trading_pair}
                     )
-                    base_asset_symbol, quote_asset_symbol = trading_pair.split("_")
+                    quote_asset_symbol, base_asset_symbol = trading_pair.split("_")
                     base_asset: Dict[str, Any] = token_info[base_asset_symbol]
                     quote_asset: Dict[str, Any] = token_info[quote_asset_symbol]
                     idex_active_order_tracker: IDEXActiveOrderTracker = IDEXActiveOrderTracker(base_asset=base_asset, quote_asset=quote_asset)
                     bids, asks = idex_active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
-                    snapshot_timestamp: float = idex_active_order_tracker.latest_timestamp
+                    snapshot_timestamp: float = idex_active_order_tracker.latest_snapshot_timestamp
                     idex_order_book: IDEXOrderBook = IDEXOrderBook()
                     idex_order_book.apply_snapshot(bids, asks, snapshot_timestamp)
-
                     retval[trading_pair] = IDEXOrderBookTrackerEntry(
                         trading_pair,
                         snapshot_timestamp,
@@ -331,7 +294,6 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             elif event == "market_trades":
                                 trades: List[str, Any] = payload["trades"]
                                 diff_messages = [{**t, "event": event} for t in trades]
-                                print('********ob_message', diff_messages)
                             else:
                                 # ignore message if event is not recognized
                                 continue
