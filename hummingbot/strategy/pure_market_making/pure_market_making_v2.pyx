@@ -9,7 +9,8 @@ import pandas as pd
 from typing import (
     List,
     Tuple,
-    Optional
+    Optional,
+    Dict
 )
 
 from hummingbot.core.clock cimport Clock
@@ -193,6 +194,19 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         ]
 
     @property
+    def market_info_to_active_orders(self) -> Dict[MarketInfo, List[LimitOrder]]:
+        return {
+            market_info: [
+                limit_order
+                for limit_order in orders_map.values()
+                if (self._in_flight_cancels.get(limit_order.client_order_id, 0) <
+                    self._current_timestamp - self.CANCEL_EXPIRY_DURATION)
+            ]
+            for market_info, orders_map
+            in self._tracked_maker_orders.items()
+        }
+
+    @property
     def logging_options(self) -> int:
         return self._logging_options
 
@@ -217,12 +231,89 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self.logger().log(log_level, f"{msg} [clock={str(clock_timestamp)}]", **kwargs)
 
     def format_status(self) -> str:
-        pass
+        cdef:
+            MarketBase maker_market
+            OrderBook maker_order_book
+            str maker_symbol
+            str maker_base
+            str maker_quote
+            double maker_base_balance
+            double maker_quote_balance
+            list lines = []
+            list warning_lines = []
+            dict market_info_to_active_orders = self.market_info_to_active_orders
+            list active_orders = []
+
+        for market_info in self._market_infos.values():
+            # Get some basic info about the market pair.
+            maker_market = market_info.market
+            maker_symbol = market_info.symbol
+            maker_name = maker_market.name
+            maker_base = market_info.base_currency
+            maker_quote = market_info.quote_currency
+            maker_order_book = maker_market.c_get_order_book(maker_symbol)
+            maker_base_balance = maker_market.c_get_balance(maker_base)
+            maker_quote_balance = maker_market.c_get_balance(maker_quote)
+            bid_price = maker_order_book.c_get_price(False)
+            ask_price = maker_order_book.c_get_price(True)
+            active_orders = market_info_to_active_orders.get(market_info, [])
+
+            if not maker_market.network_status is NetworkStatus.CONNECTED:
+                warning_lines.extend([
+                    f"  Markets are offline for the {maker_symbol} pair. Continued market making "
+                    f"with these markets may be dangerous.",
+                    ""
+                ])
+
+            markets_columns = ["Market", "Symbol", "Bid Price", "Ask Price"]
+            markets_data = [
+                [maker_name, maker_symbol, bid_price, ask_price],
+            ]
+            markets_df = pd.DataFrame(data=markets_data, columns=markets_columns)
+            lines.extend(["", "  Markets:"] + ["    " + line for line in str(markets_df).split("\n")])
+
+            assets_columns = ["Market", "Asset", "Balance"]
+            assets_data = [
+                [maker_name, maker_base, maker_base_balance],
+                [maker_name, maker_quote, maker_quote_balance],
+            ]
+            assets_df = pd.DataFrame(data=assets_data, columns=assets_columns)
+            lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
+
+            pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self, market_info, active_orders)
+            lines.extend([
+                f"{market_info.symbol}:",
+                f"  {maker_symbol} bid/ask: {bid_price}/{ask_price}",
+                f"  Bid to be placed at: {pricing_proposal.buy_order_price}",
+                f"  Ask to be placed at: {pricing_proposal.sell_order_price}",
+                f"  {maker_base}/{maker_quote} balance: "
+                    f"{maker_base_balance}/{maker_quote_balance}"
+            ])
+
+            # See if there're any open orders.
+            if len(active_orders) > 0:
+                df = LimitOrder.to_pandas(active_orders)
+                df_lines = str(df).split("\n")
+                lines.extend(["", "  Active orders:"] +
+                             ["    " + line for line in df_lines])
+            else:
+                lines.extend(["", "  No active maker orders."])
+
+            # Add warning lines on null balances.
+            if maker_base_balance <= 0:
+                warning_lines.append(f"  Maker market {maker_base} balance is 0. No ask order is possible.")
+            if maker_quote_balance <= 0:
+                warning_lines.append(f"  Maker market {maker_quote} balance is 0. No bid order is possible.")
+
+        if len(warning_lines) > 0:
+            lines.extend(["", "*** WARNINGS ***"] + warning_lines)
+
+        return "\n".join(lines)
 
     # The following exposed Python functions are meant for unit tests
     # ---------------------------------------------------------------
-    def execute_orders_proposal(self, orders_proposal: OrdersProposal):
-        return self.c_execute_orders_proposal(orders_proposal)
+    def execute_orders_proposal(self, market_info: MarketInfo, orders_proposal: OrdersProposal):
+        return self.c_execute_orders_proposal(market_info, orders_proposal)
 
     def cancel_order(self, market_info: MarketInfo, order_id:str):
         return self.c_cancel_order(market_info, order_id)
@@ -304,19 +395,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     self.logger().warning(f"WARNING: Some markets are not connected or are down at the moment. Market "
                                           f"making may be dangerous when markets or networks are unstable.")
 
-            market_info_to_active_orders = defaultdict(list)
-
-            for maker_market, limit_order in active_maker_orders:
-                market_info = self._market_infos.get((maker_market, limit_order.symbol))
-                if market_info is None:
-                    self.log_with_clock(logging.WARNING,
-                                        f"The maker order for the symbol '{limit_order.symbol}' "
-                                        f"does not correspond to any whitelisted market pairs. Skipping.")
-                    continue
-
-                if (self._in_flight_cancels.get(limit_order.client_order_id, 0) <
-                        self._current_timestamp - self.CANCEL_EXPIRY_DURATION):
-                    market_info_to_active_orders[market_info].append(limit_order)
+            market_info_to_active_orders = self.market_info_to_active_orders
 
             for market_info in self._market_infos.values():
                 self._delegate_lock = True
@@ -401,15 +480,15 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 if self._logging_options & self.OPTION_LOG_MAKER_ORDER_FILLED:
                     self.log_with_clock(
                         logging.INFO,
-                        f"({market_info.maker_symbol}) Maker buy order of "
-                        f"{order_filled_event.amount} {market_info.maker_base_currency} filled."
+                        f"({market_info.symbol}) Maker buy order of "
+                        f"{order_filled_event.amount} {market_info.base_currency} filled."
                     )
             else:
                 if self._logging_options & self.OPTION_LOG_MAKER_ORDER_FILLED:
                     self.log_with_clock(
                         logging.INFO,
-                        f"({market_info.maker_symbol}) Maker sell order of "
-                        f"{order_filled_event.amount} {market_info.maker_base_currency} filled."
+                        f"({market_info.symbol}) Maker sell order of "
+                        f"{order_filled_event.amount} {market_info.base_currency} filled."
                     )
 
     cdef c_did_fail_order(self, object order_failed_event):
@@ -466,10 +545,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         cdef:
             LimitOrder limit_order = LimitOrder(order_id,
-                                                market_info.maker_symbol,
+                                                market_info.symbol,
                                                 is_buy,
-                                                market_info.maker_base_currency,
-                                                market_info.maker_quote_currency,
+                                                market_info.base_currency,
+                                                market_info.quote_currency,
                                                 float(price),
                                                 float(quantity))
         self._tracked_maker_orders[market_info][order_id] = limit_order
