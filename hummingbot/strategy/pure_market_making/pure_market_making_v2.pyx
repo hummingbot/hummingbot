@@ -375,9 +375,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             #  2. Send the proposals (which may be a do-nothing proposal) to filter delegate.
             #  3. Execute the final proposal from filter delegate.
             if maker_market.name in self.RADAR_RELAY_TYPE_EXCHANGES:
-                return
+                return None
 
-            if self._current_timestamp <= self._time_to_cancel[market_info]:
+            if self._current_timestamp >= self._time_to_cancel[market_info]:
                 cancel_proposal = OrdersProposal(ORDER_PROPOSAL_ACTION_CANCEL_ORDERS,
                                                  OrderType.LIMIT, 0, 0, OrderType.LIMIT, 0, 0,
                                                  [active_order.client_order_id for active_order in active_orders])
