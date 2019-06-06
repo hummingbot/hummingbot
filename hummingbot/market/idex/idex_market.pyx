@@ -9,7 +9,6 @@ from collections import (
 from decimal import Decimal
 from libc.stdint cimport int64_t
 import logging
-import math
 import time
 from typing import (
     Any,
@@ -248,6 +247,7 @@ cdef class IDEXMarket(MarketBase):
     @property
     def active_order_trackers(self) -> Dict[str, IDEXActiveOrderTracker]:
         return self._order_book_tracker._active_order_trackers
+
     @property
     def order_books(self) -> Dict[str, OrderBook]:
         return self._order_book_tracker.order_books

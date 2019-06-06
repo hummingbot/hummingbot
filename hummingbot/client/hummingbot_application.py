@@ -40,6 +40,7 @@ from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
+from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.trade import Trade
 
@@ -109,6 +110,7 @@ MARKET_CLASSES = {
     "bamboo_relay": BambooRelayMarket,
     "binance": BinanceMarket,
     "coinbase_pro": CoinbaseProMarket,
+    "idex": IDEXMarket,
     "ddex": DDEXMarket,
     "radar_relay": RadarRelayMarket,
 }
@@ -417,6 +419,16 @@ class HummingbotApplication:
                                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                     symbols=symbols,
                                     trading_required=self._trading_required)
+
+            elif market_name == "idex" and self.wallet:
+                try:
+                    market = IDEXMarket(wallet=self.wallet,
+                                        ethereum_rpc_url=ethereum_rpc_url,
+                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                        symbols=symbols,
+                                        trading_required=self._trading_required)
+                except Exception as e:
+                    self.logger().error(str(e))
 
             elif market_name == "binance":
                 binance_api_key = global_config_map.get("binance_api_key").value
@@ -794,6 +806,7 @@ class HummingbotApplication:
             maker_data = [self.markets[maker_market], raw_maker_symbol] + list(maker_assets)
             self.market_symbol_pairs = [MarketSymbolPair(*maker_data)]
             self.market_pair = PureMarketPair(*maker_data)
+
             self.strategy = PureMarketMakingStrategy(market_pairs=[self.market_pair],
                                                      order_size=order_size,
                                                      bid_place_threshold=bid_place_threshold,
