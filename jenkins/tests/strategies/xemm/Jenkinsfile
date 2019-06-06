@@ -21,7 +21,7 @@ node {
         sh ". ${path}/activate hummingbot"
 
         // ./compile
-        sh "$${envPath}/python setup.py build_ext --inplace"
+        sh "${envPath}/python setup.py build_ext --inplace"
       }
 
       stage("Run tests") {
