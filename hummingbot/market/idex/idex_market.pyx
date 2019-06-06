@@ -9,13 +9,13 @@ from collections import (
 from decimal import Decimal
 from libc.stdint cimport int64_t
 import logging
-import math
 import time
 from typing import (
     Any,
     Dict,
     List,
-    Optional
+    Optional,
+    Tuple,
 )
 from web3 import Web3
 
@@ -261,6 +261,14 @@ cdef class IDEXMarket(MarketBase):
         self._next_nonce = None
         self._contract_address = None
 
+    @staticmethod
+    def split_symbol(symbol: str) -> Tuple[str, str]:
+        try:
+            quote_asset, base_asset = symbol.split('_')
+            return base_asset, quote_asset
+        except Exception:
+            raise ValueError(f"Error parsing symbol {symbol}")
+
     @property
     def status_dict(self):
         return {
@@ -283,6 +291,7 @@ cdef class IDEXMarket(MarketBase):
     @property
     def active_order_trackers(self) -> Dict[str, IDEXActiveOrderTracker]:
         return self._order_book_tracker._active_order_trackers
+
     @property
     def order_books(self) -> Dict[str, OrderBook]:
         return self._order_book_tracker.order_books
