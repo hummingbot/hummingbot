@@ -33,6 +33,30 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | [Arbitrage](https://docs.hummingbot.io/strategies/arbitrage/) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-strategy_arbitrage&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-strategy_arbitrage/) |
 | [Discovery](https://docs.hummingbot.io/strategies/discovery/) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-strategy_discovery&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-strategy_discovery/) |
 
+## Project Breakdown
+```
+hummingbot/
+    client/                         # CLI related files
+    core/ 
+        cpp/                        # high performance data types written in .cpp
+        data_type/                  # key data 
+        event/                      # defined events and event-tracking related files
+        utils/                      # helper functions and bot plugins      
+    data_feed/                      # price feeds such as CoinCap
+    market/                         # connectors to individual exchanges
+        <market_name>/
+            *market                 # handles trade execution (buy/sell/cancel)
+            *data_source            # initializes and maintains a websocket connect
+            *order_book             # takes order book data and formats it with a standard API                 
+            *order_book_tracker     # maintains a copy of the market's real-time order book    
+            *active_order_tracker   # for DEXes that require keeping track of                  
+            *user_stream_tracker    # tracker that process data specific to the user running the bot
+    notifier/                       # connectors to services that sends notifications such as Telegram
+    strategy/                       # high level strategies that works with every market
+    wallet/                         # files that reads from and submit transactions to blockchains
+        ethereum/                   # files that interact with the ethereum blockchain
+
+```
 ## Install Hummingbot
 See [Installation Guide](https://docs.hummingbot.io/installation/).
 
