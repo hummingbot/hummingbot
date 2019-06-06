@@ -35,7 +35,9 @@ Running `hummingbot` as a long running service can be achieved with the help of 
    
    * Click on “View Instances”
    
-   To connect to the instance from the terminal, click on “Connect” and then follow the instructions on the resulting page.
+   * To connect to the instance from the terminal, click on “Connect” and then follow the instructions on the resulting page.
+   
+   ![Connect to AWS Instance](/assets/img/aws5.png)
 
 ## Install Docker on Ubuntu (or refer to [Docker official instructions](https://docs.docker.com/install/linux/docker-ce/ubuntu/))
 
