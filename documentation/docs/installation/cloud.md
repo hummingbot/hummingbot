@@ -14,6 +14,15 @@ Running `hummingbot` as a long running service can be achieved with the help of 
 
 ![Connect SSH](/assets/img/gcp-ssh.png)
 
+## Setup a new VM instance on Amazon Web Services
+
+   * Navigate to the AWS Management Console
+   * Click on “Launch a Virtual Machine”
+   * Select “Ubuntu Server 18.04 LTS (HVM), SSD Volume Type”
+   * Click on “Review and Launch”, and then “Launch”
+   * Select “create a new key pair”, name the key pair (e.g. hummingbot), download key pair, and then click on “Launch Instances”. 
+   * Click on “View Instances”
+
 ## Install Docker on Ubuntu (or refer to [Docker official instructions](https://docs.docker.com/install/linux/docker-ce/ubuntu/))
 
    * Update the apt package index
