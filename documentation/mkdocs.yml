@@ -89,6 +89,7 @@ nav:
       - Client: operation/client.md
       - Configuration: operation/configuration.md
       - Running bots: operation/running-bots.md
+      - Running bots in the cloud: operation/running-bots-in-the-cloud.md
       - Logging: operation/logging.md
       - Exchange rates: operation/exchange-rates.md
       - Debug console: operation/debug.md
@@ -103,6 +104,7 @@ nav:
       - Strategies: strategies.md
       - Cross-exchange market making: strategies/cross-exchange-market-making.md
       - Arbitrage: strategies/arbitrage.md
+      - Discovery: strategies/discovery.md
       - Pure market making: strategies/pure-market-making.md
     - Support:
       - Support: support.md
@@ -110,6 +112,8 @@ nav:
       - Known issues: support/issues.md
     - Release notes:
       - Release notes: release-notes.md
+      - 0.7.0: release-notes/0.7.0.md
+      - 0.6.0: release-notes/0.6.0.md
       - 0.5.1: release-notes/0.5.1.md
       - 0.5.0: release-notes/0.5.0.md
       - 0.4.0: release-notes/0.4.0.md

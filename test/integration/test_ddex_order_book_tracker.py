@@ -2,27 +2,27 @@
 
 from os.path import join, realpath
 import sys
-sys.path.insert(0, realpath(join(__file__, "../../")))
+sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 import asyncio
 import logging
 import unittest
 from typing import Dict, Optional
 
-from hummingbot.market.radar_relay.radar_relay_order_book_tracker import RadarRelayOrderBookTracker
+from hummingbot.market.ddex.ddex_order_book_tracker import DDEXOrderBookTracker
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTrackerDataSourceType
 )
 
 
-class RadarRelayOrderBookTrackerUnitTest(unittest.TestCase):
-    order_book_tracker: Optional[RadarRelayOrderBookTracker] = None
+class DDEXOrderBookTrackerUnitTest(unittest.TestCase):
+    order_book_tracker: Optional[DDEXOrderBookTracker] = None
 
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.order_book_tracker: RadarRelayOrderBookTracker = RadarRelayOrderBookTracker(
+        cls.order_book_tracker: DDEXOrderBookTracker = DDEXOrderBookTracker(
             OrderBookTrackerDataSourceType.EXCHANGE_API)
         cls.order_book_tracker_task: asyncio.Task = asyncio.ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
@@ -39,18 +39,20 @@ class RadarRelayOrderBookTrackerUnitTest(unittest.TestCase):
         # Wait 5 seconds to process some diffs.
         self.ev_loop.run_until_complete(asyncio.sleep(5.0))
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
-        weth_dai_book: OrderBook = order_books["WETH-DAI"]
         zrx_weth_book: OrderBook = order_books["ZRX-WETH"]
-        # print(weth_dai_book.snapshot)
+        weth_tusd_book: OrderBook = order_books["WETH-TUSD"]
+        # print("zrx_weth_book")
         # print(zrx_weth_book.snapshot)
-        self.assertGreaterEqual(weth_dai_book.get_price_for_volume(True, 10).result_price,
-                                weth_dai_book.get_price(True))
-        self.assertLessEqual(weth_dai_book.get_price_for_volume(False, 10).result_price,
-                             weth_dai_book.get_price(False))
+        # print("weth_tusd_book")
+        # print(weth_tusd_book.snapshot)
         self.assertGreaterEqual(zrx_weth_book.get_price_for_volume(True, 10).result_price,
                                 zrx_weth_book.get_price(True))
         self.assertLessEqual(zrx_weth_book.get_price_for_volume(False, 10).result_price,
                              zrx_weth_book.get_price(False))
+        self.assertGreaterEqual(weth_tusd_book.get_price_for_volume(True, 10).result_price,
+                                weth_tusd_book.get_price(True))
+        self.assertLessEqual(weth_tusd_book.get_price_for_volume(False, 10).result_price,
+                             weth_tusd_book.get_price(False))
 
 
 def main():

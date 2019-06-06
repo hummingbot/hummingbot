@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from os.path import join, realpath
-import sys;sys.path.insert(0, realpath(join(__file__, "../../")))
+import sys;sys.path.insert(0, realpath(join(__file__, "../../../")))
 from hummingbot.data_feed.coin_metrics_data_feed import CoinMetricsDataFeed
 import asyncio
 import logging; logging.basicConfig(level=logging.ERROR)
