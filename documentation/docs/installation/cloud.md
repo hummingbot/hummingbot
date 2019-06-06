@@ -27,10 +27,15 @@ Running `hummingbot` as a long running service can be achieved with the help of 
    
    * Click on "Review and Launch", and then "Launch"
    
-   ![Select Instance Type](/assets/img/aws2.png)
+   ![Select Instance Type](/assets/img/aws3.png)
    
    * Select “create a new key pair”, name the key pair (e.g. hummingbot), download key pair, and then click on “Launch Instances”. 
+   
+   ![Create a New Key Pair](/assets/img/aws4.png)
+   
    * Click on “View Instances”
+   
+   To connect to the instance from the terminal, click on “Connect” and then follow the instructions on the resulting page.
 
 ## Install Docker on Ubuntu (or refer to [Docker official instructions](https://docs.docker.com/install/linux/docker-ce/ubuntu/))
 
