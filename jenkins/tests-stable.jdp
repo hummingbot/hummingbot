@@ -2,8 +2,6 @@
 def testName = 'all stable tests'
 def githubUrl = 'https://github.com/coinalpha/hummingbot'
 def githubContext = 'ci/jenkins: stable tests'
-def stageOne = 'Build hummingbot'
-def stageTwo = 'Run tests'
 
 // Jenkins environment variables
 def path = '/root/miniconda/bin'
@@ -51,17 +49,17 @@ pipeline {
 
       post {
         success {
-          echo "=> [${stageOne}]: SUCCESS"
+          echo "=> [Build hummingbot]: SUCCESS"
         }
         failure {
-          handleResult(stageOne, 'FAILURE', testName, githubContext, githubUrl)
+          handleResult('Build hummingbot', 'FAILURE', testName, githubContext, githubUrl)
         }
       }
     }
 
     stage('Run tests') {
       steps {
-        echo "${stageTwo}"
+        echo 'Run tests'
         setBuildStatus('Jenkins is running your tests...', 'PENDING', githubContext, githubUrl)
 
         // make test
@@ -70,13 +68,13 @@ pipeline {
 
       post {
         success {
-          echo "=> [${stageTwo}]: SUCCESS"
+          echo '=> [Run tests]: SUCCESS'
         }
         unstable {
-          handleResult(stageTwo, 'UNSTABLE', testName, githubContext, githubUrl)
+          handleResult('Run tests', 'UNSTABLE', testName, githubContext, githubUrl)
         }
         failure {
-          handleResult(stageTwo, 'FAILURE', testName, githubContext, githubUrl)
+          handleResult('Run tests', 'FAILURE', testName, githubContext, githubUrl)
         }
       }
     }
