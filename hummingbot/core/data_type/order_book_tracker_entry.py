@@ -3,6 +3,7 @@
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.market.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
 from hummingbot.market.ddex.ddex_active_order_tracker import DDEXActiveOrderTracker
+from hummingbot.market.idex.idex_active_order_tracker import IDEXActiveOrderTracker
 from hummingbot.market.radar_relay.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
 from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
 
@@ -43,6 +44,22 @@ class DDEXOrderBookTrackerEntry(OrderBookTrackerEntry):
 
     @property
     def active_order_tracker(self) -> DDEXActiveOrderTracker:
+        return self._active_order_tracker
+
+
+class IDEXOrderBookTrackerEntry(OrderBookTrackerEntry):
+    def __init__(self, symbol: str, timestamp: float, order_book: OrderBook,
+                 active_order_tracker: IDEXActiveOrderTracker):
+
+        self._active_order_tracker = active_order_tracker
+        super(IDEXOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
+
+    def __repr__(self) -> str:
+        return f"IDEXOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', " \
+            f"order_book='{self._order_book}')"
+
+    @property
+    def active_order_tracker(self) -> IDEXActiveOrderTracker:
         return self._active_order_tracker
 
 

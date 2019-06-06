@@ -887,7 +887,6 @@ cdef class DDEXMarket(MarketBase):
     async def start_network(self):
         if self._order_tracker_task is not None:
             self._stop_network()
-
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
         self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
         if self._trading_required:

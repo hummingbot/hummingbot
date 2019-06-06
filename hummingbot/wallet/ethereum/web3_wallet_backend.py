@@ -159,6 +159,10 @@ class Web3WalletBackend(PubSub):
     def network_status(self) -> NetworkStatus:
         return self._network_status
 
+    @property
+    def account(self) -> LocalAccount:
+        return self._account
+
     def start(self):
         if self.started:
             self.stop()
@@ -441,6 +445,12 @@ class Web3WalletBackend(PubSub):
         signature_dict: AttributeDict = self._account.signHash(msg_hash)
         signature: str = signature_dict["signature"].hex()
         return signature
+
+    def get_vrs(self, text: str = None, hexstr: str = None) -> Dict[str, Any]:
+        # msg_hash: str = defunct_hash_message(hexstr=hexstr, text=text)
+        print('******* msg_hash', hexstr)
+        signature_dict: AttributeDict = self._account.signHash(hexstr)
+        return {"v": signature_dict["v"], "r": signature_dict["r"], "s": signature_dict["s"]}
 
     def estimate_transaction_cost(self, contract_function: ContractFunction, **kwargs) -> int:
         transaction_args: Dict[str, Any] = {
