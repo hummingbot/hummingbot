@@ -15,7 +15,8 @@ from typing import (
     Any,
     Dict,
     List,
-    Optional
+    Optional,
+    Tuple,
 )
 from web3 import Web3
 
@@ -62,50 +63,6 @@ cdef class IDEXMarketTransactionTracker(TransactionTracker):
         TransactionTracker.c_did_timeout_tx(self, tx_id)
         self._owner.c_did_timeout_tx(tx_id)
 
-
-cdef class TradingRule:
-    cdef:
-        public str symbol
-        public double min_order_size
-        public int price_precision              # max amount of significant digits in a price
-        public int price_decimals               # max amount of decimals in a price
-        public int amount_decimals              # max amount of decimals in an amount
-        public bint supports_limit_orders       # if limit order is allowed for this trading pair
-        public bint supports_market_orders      # if market order is allowed for this trading pair
-
-    @classmethod
-    def parse_exchange_info(cls, markets: List[Dict[str, Any]]) -> List[TradingRule]:
-        cdef:
-            list retval = []
-        for market in markets:
-            try:
-                symbol = market["id"]
-                retval.append(TradingRule(symbol,
-                                          float(market["minOrderSize"]),
-                                          market["pricePrecision"],
-                                          market["priceDecimals"],
-                                          market["amountDecimals"],
-                                          "limit" in market["supportedOrderTypes"],
-                                          "market" in market["supportedOrderTypes"]))
-            except Exception:
-                IDEXMarket.logger().error(f"Error parsing the symbol {symbol}. Skipping.", exc_info=True)
-        return retval
-
-    def __init__(self, symbol: str, min_order_size: float, price_precision: int, price_decimals: int,
-                 amount_decimals: int, supports_limit_orders: bool, supports_market_orders: bool):
-        self.symbol = symbol
-        self.min_order_size = min_order_size
-        self.price_precision = price_precision
-        self.price_decimals = price_decimals
-        self.amount_decimals = amount_decimals
-        self.supports_limit_orders = supports_limit_orders
-        self.supports_market_orders = supports_market_orders
-
-    def __repr__(self) -> str:
-        return f"TradingRule(symbol='{self.symbol}', min_order_size={self.min_order_size}, " \
-               f"price_precision={self.price_precision}, price_decimals={self.price_decimals}, "\
-               f"amount_decimals={self.amount_decimals}, supports_limit_orders={self.supports_limit_orders}, " \
-               f"supports_market_orders={self.supports_market_orders}"
 
 cdef class InFlightOrder:
     cdef:
@@ -213,6 +170,8 @@ cdef class IDEXMarket(MarketBase):
     UPDATE_BALANCES_INTERVAL = 5
     ORDER_EXPIRY_TIME = 15 * 60.0
     CANCEL_EXPIRY_TIME = 60.0
+    MINIMUM_MAKER_ORDER_SIZE_ETH = 0.15
+    MINIMUM_TAKER_ORDER_SIZE_ETH = 0.05
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -249,7 +208,6 @@ cdef class IDEXMarket(MarketBase):
         self._tx_tracker = IDEXMarketTransactionTracker(self)
         self._w3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
         self._withdraw_rules = {}
-        self._trading_rules = {}
         self._status_polling_task = None
         self._order_tracker_task = None
         self._wallet = wallet
@@ -261,11 +219,18 @@ cdef class IDEXMarket(MarketBase):
         self._next_nonce = None
         self._contract_address = None
 
+    @staticmethod
+    def split_symbol(symbol: str) -> Tuple[str, str]:
+        try:
+            quote_asset, base_asset = symbol.split('_')
+            return base_asset, quote_asset
+        except Exception:
+            raise ValueError(f"Error parsing symbol {symbol}")
+
     @property
     def status_dict(self):
         return {
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            # "trading_rule_initialized": len(self._trading_rules) > 0,
             "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
             "asset_info": len(self._assets_info) > 0,
             "next_nonce": self._next_nonce is not None,
@@ -290,10 +255,6 @@ cdef class IDEXMarket(MarketBase):
     @property
     def wallet(self) -> Web3Wallet:
         return self._wallet
-
-    @property
-    def trading_rules(self) -> Dict[str, TradingRule]:
-        return self._trading_rules
 
     @property
     def in_flight_orders(self) -> Dict[str, InFlightOrder]:
@@ -330,7 +291,6 @@ cdef class IDEXMarket(MarketBase):
                 await self._poll_notifier.wait()
                 await asyncio.gather(
                     self._update_balances(),
-                    # self._update_trading_rules(),
                     self._update_order_status(),
                     self._update_asset_info(),
                     self._update_next_nonce(),
@@ -404,18 +364,6 @@ cdef class IDEXMarket(MarketBase):
             self._contract_address = contract_address
             self._last_update_contract_address_timestamp = current_timestamp
 
-    async def _update_trading_rules(self):
-        pass
-        # cdef:
-        #     double current_timestamp = self._current_timestamp
-
-        # if current_timestamp - self._last_update_trading_rules_timestamp > 60.0 or len(self._trading_rules) < 1:
-        #     markets = await self.list_market()
-        #     trading_rules_list = TradingRule.parse_exchange_info(markets)
-        #     self._trading_rules.clear()
-        #     for trading_rule in trading_rules_list:
-        #         self._trading_rules[trading_rule.symbol] = trading_rule
-        #     self._last_update_trading_rules_timestamp = current_timestamp
 
     async def _update_order_status(self):
         cdef:
@@ -438,28 +386,6 @@ cdef class IDEXMarket(MarketBase):
                     app_warning_msg=f"Failed to fetch status update for the order {tracked_limit_order.client_order_id}. "
                                     f"Check Ethereum wallet and network connection."
                 )
-                continue
-
-            # Check the exchange order ID against the expected value.
-            exchange_order_id = order_update["orderHash"]
-            if exchange_order_id != tracked_limit_order.exchange_order_id:
-                self.logger().network(f"Incorrect exchange order id '{exchange_order_id}' returned from get order "
-                                      f"request for '{tracked_limit_order.exchange_order_id}'. Ignoring.")
-
-                # Capture the incorrect request / response conversation for submitting to DDEX.
-                request_url = f"{self.IDEX_REST_ENDPOINT}/returnOrderStatus?orderHash={tracked_limit_order.exchange_order_id}"
-                response = self._api_response_records.get(request_url)
-
-                if response is not None:
-                    self.logger().network(f"Captured erroneous order update request/response. "
-                                          f"Request URL={response.real_url}, "
-                                          f"Request headers={response.request_info.headers}, "
-                                          f"Response headers={response.headers}, "
-                                          f"Response data={repr(response._body)}, "
-                                          f"Decoded order update={order_update}.")
-                else:
-                    self.logger().network(f"Failed to capture the erroneous request/response for getting the order update "
-                                          f"of the order {tracked_limit_order.exchange_order_id}.")
                 continue
 
             previous_is_done = tracked_limit_order.is_done
@@ -588,6 +514,10 @@ cdef class IDEXMarket(MarketBase):
         nonce = self._next_nonce # use this nonce value for this order
         self._next_nonce += 1 # increment nonce for future orders
 
+        if (quote_asset == "ETH" and float(amount_quote) < self.MINIMUM_MAKER_ORDER_SIZE_ETH) or \
+            (base_asset == "ETH" and float(amount_base) < self.MINIMUM_MAKER_ORDER_SIZE_ETH):
+            raise ValueError(f"Buy order amount {amount} is lower than the minimum order size value ({self.MINIMUM_MAKER_ORDER_SIZE_ETH} ETH)")
+
         if side == "buy":
             amount_buy = amount_base_with_decimals
             amount_sell = amount_quote_with_decimals
@@ -642,65 +572,81 @@ cdef class IDEXMarket(MarketBase):
             "s": vrs["s"]
         }
 
-    def _generate_buy_market_order(self, amount: Decimal, limit_orders_to_fill: List[Dict[str, Any]], symbol) -> List[Dict[str, Any]]:
+    def _generate_buy_market_order(self,
+                                   amount: Decimal,
+                                   limit_orders_to_fill: List[Dict[str, Any]],
+                                   symbol: str) -> List[Dict[str, Any]]:
         market_orders = []
-        base_asset_decimals = self._order_book_tracker._active_order_trackers[symbol].base_asset["decimals"]
+        base_asset, quote_asset = self.split_symbol(symbol)
+        base_asset_decimals = self._assets_info[base_asset]["decimals"]
         desired_amount_base = Decimal(amount) * Decimal(f"1e{base_asset_decimals}")
         total_amount_quote = s_decimal_0
-        self._next_nonce += 1
+
+        for o in limit_orders_to_fill:
+            o_available_amount_base_sell = Decimal(o["amountSell"])
+            o_price = o["price"] # this value is already a Decimal type
+            if o_available_amount_base_sell < desired_amount_base:
+                amount_quote = o_price * o_available_amount_base_sell
+                desired_amount_base -= o_available_amount_base_sell
+            else:
+                amount_quote = o_price * desired_amount_base
+                desired_amount_base = s_decimal_0
+            total_amount_quote += amount_quote
+
+            hash_data = [
+                ["orderHash", o["orderHash"], "address"],
+                ["amount", int(amount_quote), "uint256"],
+                ["address", self._wallet.address, "address"],
+                ["nonce", self._next_nonce, "uint256"]
+            ]
+            vrs = generate_vrs(hash_data, self.wallet.private_key, self._w3) 
+            market_orders.append({
+                "amount": str(int(amount_quote)), # amount is required to be a string (IDEX API bug)
+                "orderHash": o["orderHash"],
+                "address": self._wallet.address,
+                "nonce": self._next_nonce,
+                "v": vrs["v"],
+                "r": vrs["r"],
+                "s": vrs["s"]
+            })
+            self._next_nonce += 1
+        if quote_asset == "ETH" and float(total_amount_quote) < self.MINIMUM_TAKER_ORDER_SIZE_ETH:
+            raise ValueError(f"Buy market order amount {amount} is lower than the minimum order size value ({self.MINIMUM_TAKER_ORDER_SIZE_ETH} ETH)")
+
+        return market_orders
+
+    def _generate_sell_market_order(self,
+                                    amount: Decimal,
+                                    limit_orders_to_fill: List[Dict[str, Any]],
+                                    symbol: str) -> List[Dict[str, Any]]:
+        market_orders = []
+        base_asset, quote_asset = self.split_symbol(symbol)
+        base_asset_decimals = self._assets_info[base_asset]["decimals"]
+        quote_asset_decimals = self._assets_info[quote_asset]["decimals"]
+        desired_amount_base = Decimal(amount) * Decimal(f"1e{base_asset_decimals}")
+        total_amount_quote = s_decimal_0
+        print('******limit_orders_to_fill ', limit_orders_to_fill)
+
         for o in limit_orders_to_fill:
             o_amount_buy = Decimal(o["amountBuy"])
             o_price = o["price"] # this value is already a Decimal type
             if o_amount_buy < desired_amount_base:
-                fill_amount = int(desired_amount_base)
-                total_amount_quote += o_price * desired_amount_base
-            else:
-                fill_amount = int(o["amountBuy"])
-                total_amount_quote += o_price * o_amount_buy
+                amount_base = o_amount_buy
                 desired_amount_base -= o_amount_buy
-            hash_data = [
-                ["orderHash", o["orderHash"], "address"],
-                ["amount", int(total_amount_quote), "uint256"],
-                ["address", self._wallet.address, "address"],
-                ["nonce", self._next_nonce, "uint256"]
-            ]
-            vrs = generate_vrs(hash_data, self.wallet.private_key, self._w3) 
-            market_orders.append({
-                "amount": str(int(total_amount_quote)), # amount is required to be a string; IDEX API bug
-                "orderHash": o["orderHash"],
-                "address": self._wallet.address,
-                "nonce": self._next_nonce,
-                "v": vrs["v"],
-                "r": vrs["r"],
-                "s": vrs["s"]
-            })
-            self._next_nonce += 1
-        return market_orders
+            else:
+                amount_base = desired_amount_base
+                desired_amount_base = s_decimal_0
+            total_amount_quote += amount_base * o_price
 
-    def _generate_sell_market_order(self, amount: Decimal, limit_orders_to_fill: List[Dict[str, Any]], symbol) -> List[Dict[str, Any]]:
-        market_orders = []
-        base_asset_decimals = self._order_book_tracker._active_order_trackers[symbol].base_asset["decimals"]
-        desired_amount_base = Decimal(amount) * Decimal(f"1e{base_asset_decimals}")
-        total_amount_quote = s_decimal_0
-        for o in limit_orders_to_fill:
-            o_amount_buy = Decimal(o["amountBuy"])
-            o_price = o["price"] # this value is already a Decimal type
-            if o_amount_buy > desired_amount_base:
-                fill_amount = int(desired_amount_base)
-                total_amount_quote += o_price * desired_amount_base
-            else:
-                fill_amount = int(o["amountBuy"])
-                total_amount_quote += o_price * o_amount_buy
-                desired_amount_base -= o_amount_buy
             hash_data = [
                 ["orderHash", o["orderHash"], "address"],
-                ["amount", int(fill_amount), "uint256"],
+                ["amount", int(amount_base), "uint256"],
                 ["address", self._wallet.address, "address"],
                 ["nonce", self._next_nonce, "uint256"]
             ]
             vrs = generate_vrs(hash_data, self.wallet.private_key, self._w3) 
             market_orders.append({
-                "amount": str(int(fill_amount)), # amount is required to be a string; IDEX API bug
+                "amount": str(int(amount_base)), # amount is required to be a string; IDEX API bug
                 "orderHash": o["orderHash"],
                 "address": self._wallet.address,
                 "nonce": self._next_nonce,
@@ -709,6 +655,9 @@ cdef class IDEXMarket(MarketBase):
                 "s": vrs["s"]
             })
             self._next_nonce += 1
+        if quote_asset == "ETH" and float(total_amount_quote / Decimal(f"1e{quote_asset_decimals}")) < self.MINIMUM_TAKER_ORDER_SIZE_ETH:
+            raise ValueError(f"Sell market order amount {amount} is lower than the minimum order size value ({self.MINIMUM_TAKER_ORDER_SIZE_ETH} ETH)")
+
         return market_orders
 
     async def cancel_order(self, client_order_id: str) -> Dict[str, Any]:
@@ -723,7 +672,8 @@ cdef class IDEXMarket(MarketBase):
         cancel_order_request = self._generate_cancel_order(exchange_order_id)
 
         response_data = await self.post_cancel_order(cancel_order_request)
-        if isinstance(response_data, dict) and response_data.get("success") == 0:
+        print("**@@@@@@@ CANCELC RESULT", response_data)
+        if isinstance(response_data, dict) and response_data.get("success"):
             self.logger().info(f"Successfully cancelled order {exchange_order_id}.")
             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                  OrderCancelledEvent(self._current_timestamp, client_order_id))
@@ -839,6 +789,7 @@ cdef class IDEXMarket(MarketBase):
                     self.c_stop_tracking_order(order_id)
 
         except Exception as e:
+            print('ERRORRRRR ', e)
             self.c_stop_tracking_order(order_id)
             self.logger().network(
                 f"Error submitting buy order to IDEX for {amount} {symbol}.",
@@ -968,10 +919,11 @@ cdef class IDEXMarket(MarketBase):
         try:
             async with timeout(timeout_seconds):
                 cancellation_results = await asyncio.gather(*tasks, return_exceptions=True)
+                print('****** cancellation_results', cancellation_results)
                 for cr in cancellation_results:
                     if isinstance(cr, Exception):
                         continue
-                    if isinstance(cr, dict) and cr.get("status") == 0:
+                    if isinstance(cr, dict) and cr.get("success") == 0:
                         client_order_id = cr.get("client_order_id")
                         order_id_set.remove(client_order_id)
                         successful_cancellations.append(CancellationResult(client_order_id, True))

@@ -138,7 +138,7 @@ cdef class IDEXActiveOrderTracker:
             elif self._is_ask(content):
                 amount_base = Decimal(content["amountSell"]) / Decimal(f"1e{self._base_asset['decimals']}")
                 amount_quote = Decimal(content["amountBuy"]) / Decimal(f"1e{self._quote_asset['decimals']}")
-                price = amount_quote / amount_quote
+                price = amount_quote / amount_base
                 # use positive price for _ask_heap to sort by ascending (returns lowest ask)
                 # use negative amount for _ask_heap to sort by descending (minimize number of different orders)
                 heapq.heappush(self._ask_heap, (price, amount_base * s_decimal_neg_one, order_hash))

@@ -25,7 +25,6 @@ cdef class IDEXMarket(MarketBase):
         TransactionTracker _tx_tracker
         object _w3
         dict _withdraw_rules
-        dict _trading_rules
         object _pending_approval_tx_hashes
         public object _status_polling_task
         public object _user_stream_event_listener_task
