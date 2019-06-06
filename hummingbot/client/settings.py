@@ -26,7 +26,7 @@ CONF_POSTFIX = "_strategy"
 EXCHANGES = {
     "bamboo_relay",
     "binance",
-    "coinbase_pro"
+    "coinbase_pro",
     "ddex",
     "idex",
     "radar_relay",
