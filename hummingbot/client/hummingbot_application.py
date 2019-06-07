@@ -249,16 +249,34 @@ class HummingbotApplication:
                                                  columns=["currency", "balance"]).set_index("currency")
         return raw_balance[raw_balance.balance > 0]
 
+    async def reset_config_loop(self, key: str = None):
+        strategy = in_memory_config_map.get("strategy").value
+
+        self.placeholder_mode = True
+        self.app.toggle_hide_input()
+
+        choice = await self.app.prompt(prompt=f"Would you like to stop running the {strategy} strategy "
+                                              f"and reconfigure the bot? (y/n) >>> ")
+
+        self.app.change_prompt(prompt=">>> ")
+        self.app.toggle_hide_input()
+        self.placeholder_mode = False
+
+        if choice.lower() in {"y", "yes"}:
+            if self.strategy:
+                await self.stop_loop()
+            if key is None:
+                in_memory_config_map.get("strategy").value = None
+                in_memory_config_map.get("strategy_file_path").value = None
+            self.config(key)
+        else:
+            self._notify("Aborted.")
+
     def config(self, key: str = None):
         self.app.clear_input()
-        if start_new:
-            if self.strategy:
-                strategy = in_memory_config_map.get("strategy").value
-                self.app.log(f"Currently running strategy {strategy}. Please stop the bot before changing configs.")
-                return
-            in_memory_config_map.get("strategy").value = None
-            in_memory_config_map.get("strategy_file_path").value = None
-            self.config()
+
+        if self.strategy:
+            asyncio.ensure_future(self.reset_config_loop(key))
             return
         if key is not None and key not in load_required_configs().keys():
             self._notify("Invalid config variable %s" % (key,))
