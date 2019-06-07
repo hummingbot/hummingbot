@@ -75,11 +75,11 @@ cdef class RadarRelayTransactionTracker(TransactionTracker):
 cdef class TradingRule:
     cdef:
         public str symbol
-        public double min_order_size            # Calculated min base token size based on last trade price	
-        public double max_order_size            # Calculated max base token size	
-        public int price_precision              # Maximum precision allowed for the market. Example: 7 (decimal places)	
-        public int price_decimals               # Max amount of decimals in base token (price)	
-        public int amount_decimals              # Max amount of decimals in quote token (amount)	
+        public double min_order_size            # Calculated min base token size based on last trade price
+        public double max_order_size            # Calculated max base token size
+        public int price_precision              # Maximum precision allowed for the market. Example: 7 (decimal places)
+        public int price_decimals               # Max amount of decimals in base token (price)
+        public int amount_decimals              # Max amount of decimals in quote token (amount)
 
     @classmethod
     def parse_exchange_info(cls, markets: List[Dict[str, Any]]) -> List[TradingRule]:

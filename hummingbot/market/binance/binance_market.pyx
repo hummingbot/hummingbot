@@ -62,7 +62,6 @@ from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.wallet.wallet_base import WalletBase
 from hummingbot.wallet.wallet_base cimport WalletBase
 
-
 s_logger = None
 s_decimal_0 = Decimal(0)
 SYMBOL_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|TUSD|PAX)$")
@@ -187,6 +186,7 @@ cdef class InFlightOrder:
         return BinanceMarket.split_symbol(self.symbol)[1]
 
 
+
 cdef class TradingRule:
     cdef:
         public str symbol
@@ -228,7 +228,6 @@ cdef class TradingRule:
         return f"TradingRule(symbol='{self.symbol}', price_tick_size={self.price_tick_size}, " \
                f"order_step_size={self.order_step_size}, min_order_size={self.min_order_size}, " \
                f"min_notional_size={self.min_notional_size})"
- 
 
 cdef class BinanceMarket(MarketBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
