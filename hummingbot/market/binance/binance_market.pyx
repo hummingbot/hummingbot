@@ -709,7 +709,7 @@ cdef class BinanceMarket(MarketBase):
                 execution_type = event_message.get("x")
                 if execution_type == "TRADE":
                     order_filled_event = OrderFilledEvent.order_filled_event_from_binance_execution_report(event_message)
-                    order_filled_event._replace(trade_fee=self.c_get_fee(
+                    order_filled_event = order_filled_event._replace(trade_fee=self.c_get_fee(
                         tracked_order.base_asset,
                         tracked_order.quote_asset,
                         OrderType.LIMIT if event_message["o"] == "LIMIT" else OrderType.MARKET,
