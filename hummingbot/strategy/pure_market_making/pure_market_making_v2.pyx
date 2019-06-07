@@ -31,7 +31,9 @@ from .data_types import (
     MarketInfo,
     OrdersProposal,
     ORDER_PROPOSAL_ACTION_CANCEL_ORDERS,
-    ORDER_PROPOSAL_ACTION_CREATE_ORDERS
+    ORDER_PROPOSAL_ACTION_CREATE_ORDERS,
+    PricingProposal,
+    SizingProposal
 )
 from .order_filter_delegate cimport OrderFilterDelegate
 from .order_filter_delegate import OrderFilterDelegate
@@ -205,12 +207,12 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         return {
             market_info: [
                 limit_order
-                for limit_order in orders_map.values()
+                for limit_order in self._tracked_maker_orders.get(market_info, {}).values()
                 if (self._in_flight_cancels.get(limit_order.client_order_id, 0) <
                     self._current_timestamp - self.CANCEL_EXPIRY_DURATION)
             ]
-            for market_info, orders_map
-            in self._tracked_maker_orders.items()
+            for market_info
+            in self._market_infos.values()
         }
 
     @property
@@ -332,6 +334,30 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
     def cancel_order(self, market_info: MarketInfo, order_id:str):
         return self.c_cancel_order(market_info, order_id)
+
+    def get_order_price_proposal(self, market_info: MarketInfo) -> PricingProposal:
+        cdef:
+            list active_orders = [
+                limit_order
+                for limit_order in self._tracked_maker_orders.get(market_info, {}).values()
+                if (self._in_flight_cancels.get(limit_order.client_order_id, 0) <
+                    self._current_timestamp - self.CANCEL_EXPIRY_DURATION)
+            ]
+        return self._pricing_delegate.c_get_order_price_proposal(
+            self, market_info, active_orders
+        )
+
+    def get_order_size_proposal(self, market_info: MarketInfo, pricing_proposal: PricingProposal) -> SizingProposal:
+        cdef:
+            list active_orders = [
+                limit_order
+                for limit_order in self._tracked_maker_orders.get(market_info, {}).values()
+                if (self._in_flight_cancels.get(limit_order.client_order_id, 0) <
+                    self._current_timestamp - self.CANCEL_EXPIRY_DURATION)
+            ]
+        return self._sizing_delegate.c_get_order_size_proposal(
+            self, market_info, active_orders, pricing_proposal
+        )
     # ---------------------------------------------------------------
 
     cdef c_buy_with_specific_market(self, MarketBase market, str symbol, double amount,
@@ -420,6 +446,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         market_info,
                         market_info_to_active_orders[market_info]
                     )
+                except Exception:
+                    self.logger().error("Unknown error while generating order proposals.", exc_info=True)
                 finally:
                     self._delegate_lock = False
                 if orders_proposal is not None:
@@ -622,7 +650,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                             logging.INFO,
                             f"({market_info.symbol}) Creating limit bid order for "
                             f"{orders_proposal.buy_order_size} {market_info.base_currency} at "
-                            f"{orders_proposal.buy_order_price} {market_info.quote_curreny}."
+                            f"{orders_proposal.buy_order_price} {market_info.quote_currency}."
                         )
                     bid_order_id = self.c_buy_with_specific_market(
                         market,
@@ -643,13 +671,13 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     raise RuntimeError("Market buy order in orders proposal is not supported yet.")
 
             if orders_proposal.sell_order_size > 0:
-                if orders_proposal.sell_order_type is OrderType.LIMIT and orders_proposal.sell_order_type > 0:
+                if orders_proposal.sell_order_type is OrderType.LIMIT and orders_proposal.sell_order_price > 0:
                     if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                         self.log_with_clock(
                             logging.INFO,
                             f"({market_info.symbol}) Creating limit ask order for "
                             f"{orders_proposal.sell_order_size} {market_info.base_currency} at "
-                            f"{orders_proposal.sell_order_price} {market_info.quote_curreny}."
+                            f"{orders_proposal.sell_order_price} {market_info.quote_currency}."
                         )
                     ask_order_id = self.c_sell_with_specific_market(
                         market,
