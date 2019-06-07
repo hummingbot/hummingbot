@@ -241,8 +241,17 @@ class HummingbotApplication:
                                                  columns=["currency", "balance"]).set_index("currency")
         return raw_balance[raw_balance.balance > 0]
 
-    def config(self, key: str = None):
+    def config(self, key: str = None, start_new: bool = False):
         self.app.clear_input()
+        if start_new:
+            if self.strategy:
+                strategy = in_memory_config_map.get("strategy").value
+                self.app.log(f"Currently running strategy {strategy}. Please stop the bot before changing configs.")
+                return
+            in_memory_config_map.get("strategy").value = None
+            in_memory_config_map.get("strategy_file_path").value = None
+            self.config()
+            return
         if key is not None and key not in load_required_configs().keys():
             self.app.log("Invalid config variable %s" % (key,))
             return
