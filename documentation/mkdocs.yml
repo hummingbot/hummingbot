@@ -92,6 +92,7 @@ nav:
       - Running bots in the cloud: operation/running-bots-in-the-cloud.md
       - Logging: operation/logging.md
       - Exchange rates: operation/exchange-rates.md
+      - Telegram integration: operation/telegram.md
       - Debug console: operation/debug.md
     - Connectors:
       - Connectors: connectors.md
