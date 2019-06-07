@@ -37,31 +37,6 @@ docker run -it \
 coinalpha/hummingbot:$TAG
 ```
 
-## Create new instance of `hummingbot`
-
-``` bash tab="Terminal: Start hummingbot with Docker"
-# 1) Create a label for your container and specify which docker 
-#    image of hummingbot to use
-export NAME=myhummingbot && \
-export TAG=latest
-
-# 2) Specify the path to folders where you would like to save
-#    your config and log files
-export CONF_PATH=$(pwd)/hummingbot_conf && \
-export LOGS_PATH=$(pwd)/hummingbot_logs
-
-# 3) If the folders do not exist, create them:
-mkdir $CONF_PATH && \
-mkdir $LOGS_PATH
-
-# 4) Launch hummingbot with the parameters you specified
-docker run -it \
---name $NAME \
---mount "type=bind,source=$CONF_PATH,destination=/conf/" \
---mount "type=bind,source=$LOGS_PATH,destination=/logs/" \
-coinalpha/hummingbot:$TAG
-```
-
 !!! note "Command Variables"
     - In the four `export` commands, replace the values with your custom values.  
     - `NAME`: name of your container, such as `myhummingbot`
