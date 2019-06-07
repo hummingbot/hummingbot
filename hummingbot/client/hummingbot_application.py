@@ -88,8 +88,8 @@ from hummingbot.strategy.arbitrage import (
     ArbitrageMarketPair
 )
 from hummingbot.strategy.pure_market_making import (
-    PureMarketMakingStrategy,
-    PureMarketPair
+    PureMarketMakingStrategyV2,
+    MarketInfo
 )
 
 from hummingbot.strategy.discovery import (
@@ -139,6 +139,7 @@ class HummingbotApplication:
         self.strategy_task: Optional[asyncio.Task] = None
         self.strategy: Optional[CrossExchangeMarketMakingStrategy] = None
         self.market_pair: Optional[CrossExchangeMarketPair] = None
+        self.market_info: Optional[MarketInfo] = None
         self.clock: Optional[Clock] = None
 
         self.assets: Optional[Set[str]] = set()
@@ -782,16 +783,16 @@ class HummingbotApplication:
             self._initialize_markets(market_names)
             self.assets = set(primary_assets)
 
-            self.market_pair = PureMarketPair(*([self.markets[maker_market], raw_maker_symbol] +
-                                                     list(primary_assets)))
-            strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
+            self.market_info = MarketInfo(*([self.markets[maker_market], raw_maker_symbol] +
+                                            list(primary_assets)))
+            strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
 
-            self.strategy = PureMarketMakingStrategy(market_pairs=[self.market_pair],
-                                                     order_size = order_size,
-                                                     bid_place_threshold = bid_place_threshold,
-                                                     ask_place_threshold = ask_place_threshold,
-                                                     cancel_order_wait_time = cancel_order_wait_time,
-                                                     logging_options=strategy_logging_options)
+            self.strategy = PureMarketMakingStrategyV2(market_infos=[self.market_info],
+                                                       legacy_order_size=order_size,
+                                                       legacy_bid_spread=bid_place_threshold,
+                                                       legacy_ask_spread=ask_place_threshold,
+                                                       cancel_order_wait_time=cancel_order_wait_time,
+                                                       logging_options=strategy_logging_options)
 
         elif strategy_name == "discovery":
             try:
