@@ -31,7 +31,8 @@ from hummingbot.core.event.events import (
     OrderType,
     OrderFilledEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent
+    SellOrderCompletedEvent,
+    TradeFee,
 )
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
@@ -125,7 +126,6 @@ class PureMarketMakingUnitTest(unittest.TestCase):
                 break
         order_book.apply_diffs(bid_diffs, ask_diffs, update_id)
 
-
     @staticmethod
     def simulate_limit_order_fill(market: Market, limit_order: LimitOrder):
         quote_currency_traded: float = float(float(limit_order.price) * float(limit_order.quantity))
@@ -144,7 +144,8 @@ class PureMarketMakingUnitTest(unittest.TestCase):
                 TradeType.BUY,
                 OrderType.LIMIT,
                 float(limit_order.price),
-                float(limit_order.quantity)
+                float(limit_order.quantity),
+                TradeFee(0.0)  # No fee in backtest market
             ))
             market.trigger_event(MarketEvent.BuyOrderCompleted, BuyOrderCompletedEvent(
                 market.current_timestamp,
@@ -167,7 +168,8 @@ class PureMarketMakingUnitTest(unittest.TestCase):
                 TradeType.SELL,
                 OrderType.LIMIT,
                 float(limit_order.price),
-                float(limit_order.quantity)
+                float(limit_order.quantity),
+                TradeFee(0.0)
             ))
             market.trigger_event(MarketEvent.SellOrderCompleted, SellOrderCompletedEvent(
                 market.current_timestamp,
@@ -316,7 +318,6 @@ class PureMarketMakingUnitTest(unittest.TestCase):
         ask_fills: List[OrderFilledEvent] = [evt for evt in fill_events if evt.trade_type is TradeType.BUY]
         self.assertEqual(1, len(bid_fills))
         self.assertEqual(1, len(ask_fills))
-
 
     def test_create_new_orders(self):
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
