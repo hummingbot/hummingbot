@@ -1,8 +1,4 @@
-from collections import (
-    defaultdict,
-    deque,
-    OrderedDict
-)
+from collections import deque
 from decimal import Decimal
 import logging
 import pandas as pd
@@ -29,11 +25,11 @@ from hummingbot.market.market_base import (
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.strategy.strategy_base import StrategyBase
 
+from .constant_spread_pricing_delegate import ConstantSpreadPricingDelegate
+from .constant_size_sizing_delegate import ConstantSizeSizingDelegate
 from .data_types import (
     MarketInfo,
     OrdersProposal,
-    PricingProposal,
-    SizingProposal,
     ORDER_PROPOSAL_ACTION_CANCEL_ORDERS,
     ORDER_PROPOSAL_ACTION_CREATE_ORDERS
 )
@@ -43,6 +39,7 @@ from .order_pricing_delegate cimport OrderPricingDelegate
 from .order_pricing_delegate import OrderPricingDelegate
 from .order_sizing_delegate cimport OrderSizingDelegate
 from .order_sizing_delegate import OrderSizingDelegate
+from .pass_through_filter_delegate import PassThroughFilterDelegate
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -128,7 +125,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  cancel_order_wait_time: float = 60,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
-                 status_report_interval: float = 900):
+                 status_report_interval: float = 900,
+                 legacy_order_size: float = 1.0,
+                 legacy_bid_spread: float = 0.01,
+                 legacy_ask_spread: float = 0.01):
         if len(market_infos) < 1:
             raise ValueError(f"market_infos must not be empty.")
 
@@ -156,7 +156,12 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._status_report_interval = status_report_interval
         self._limit_order_min_expiration = limit_order_min_expiration
 
-        # TODO: if these are None, put in some default plugins that trade conservatively.
+        if filter_delegate is None:
+            filter_delegate = PassThroughFilterDelegate()
+        if pricing_delegate is None:
+            pricing_delegate = ConstantSpreadPricingDelegate(legacy_bid_spread, legacy_ask_spread)
+        if sizing_delegate is None:
+            sizing_delegate = ConstantSizeSizingDelegate(legacy_order_size)
         self._filter_delegate = filter_delegate
         self._pricing_delegate = pricing_delegate
         self._sizing_delegate = sizing_delegate
