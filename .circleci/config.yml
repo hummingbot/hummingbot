@@ -49,9 +49,7 @@ jobs:
       - run:
           name: Run Strategy Tests
           command: |
-            # source activate $(head -1 setup/environment-linux.yml | cut -d ' ' -f2)
-            conda activate
-            conda activate $(head -1 setup/environment-linux.yml | cut -d ' ' -f2)
+            source activate $(head -1 setup/environment-linux.yml | cut -d ' ' -f2)
             nostests -d -v test/test_cross_exchange_market_making.py
             nostests -d -v test/test_arbitrage.py
             nostests -d -v test/test_discovery_strategy.py
