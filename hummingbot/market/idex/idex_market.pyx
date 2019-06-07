@@ -1064,6 +1064,13 @@ cdef class IDEXMarket(MarketBase):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
+    cdef object c_get_order_price_quantum(self, str symbol, double price):
+        cdef:
+            quote_asset = symbol.split("_")[0]
+            quote_asset_decimals = self._assets_info[quote_asset]["decimals"]
+        decimals_quantum = Decimal(f"1e-{quote_asset_decimals}")
+        return decimals_quantum
+
     cdef object c_get_order_size_quantum(self, str symbol, double amount):
         cdef:
             base_asset = symbol.split("_")[1]
