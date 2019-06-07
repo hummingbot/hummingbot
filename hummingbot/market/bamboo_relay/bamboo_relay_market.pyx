@@ -1072,7 +1072,7 @@ cdef class BambooRelayMarket(MarketBase):
             precision_quantum = s_decimal_0
         return max(decimals_quantum, precision_quantum)
 
-    cdef object c_quantize_order_amount(self, str symbol, double amount):
+    cdef object c_quantize_order_amount(self, str symbol, double amount, double price=0.0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
         global s_decimal_0
