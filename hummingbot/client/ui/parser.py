@@ -38,16 +38,20 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     parser = ThrowingArgumentParser(prog="", add_help=False)
     subparsers = parser.add_subparsers()
 
-    help_parser = subparsers.add_parser('help', help='Print a list of commands')
-    help_parser.add_argument('command', nargs='?', default='all', help='Get help for a specific command')
+    help_parser = subparsers.add_parser("help", help="Print a list of commands")
+    help_parser.add_argument("command", nargs="?", default="all", help="Get help for a specific command")
     help_parser.set_defaults(func=hummingbot.help)
 
-    start_parser = subparsers.add_parser('start', help='Start market making with Hummingbot')
-    start_parser.add_argument('--log-level', help='Level of logging')
+    start_parser = subparsers.add_parser("start", help="Start market making with Hummingbot")
+    start_parser.add_argument("--log-level", help="Level of logging")
     start_parser.set_defaults(func=hummingbot.start)
 
-    config_parser = subparsers.add_parser('config', help='Add your personal credentials e.g. exchange API keys')
-    config_parser.add_argument('key', nargs='?', default=None, help='Configure a specific variable')
+    config_parser = subparsers.add_parser("config", help="Add your personal credentials e.g. exchange API keys")
+    config_parser.add_argument("key", nargs="?", default=None, help="Configure a specific variable")
+    config_parser.add_argument("--start-new",
+                               action="store_true",
+                               help="Clear current strategy and reconfigure a new one",
+                               default=False)
     config_parser.set_defaults(func=hummingbot.config)
 
     status_parser = subparsers.add_parser('status', help='Get current bot status')
