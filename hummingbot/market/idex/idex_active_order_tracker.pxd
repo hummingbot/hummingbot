@@ -9,7 +9,7 @@ cdef class IDEXActiveOrderTracker:
     cdef double _latest_snapshot_timestamp
     cdef dict _order_hash_price_map
     cdef object _received_trade_ids
-    cdef object _order_hashes_to_delete
+    cdef set _order_hashes_to_delete
     cdef list _bid_heap
     cdef list _ask_heap
 
