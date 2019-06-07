@@ -48,10 +48,6 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
 
     config_parser = subparsers.add_parser("config", help="Add your personal credentials e.g. exchange API keys")
     config_parser.add_argument("key", nargs="?", default=None, help="Configure a specific variable")
-    config_parser.add_argument("--start-new",
-                               action="store_true",
-                               help="Clear current strategy and reconfigure a new one",
-                               default=False)
     config_parser.set_defaults(func=hummingbot.config)
 
     status_parser = subparsers.add_parser("status", help="Get current bot status")

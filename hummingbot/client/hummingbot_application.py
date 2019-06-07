@@ -241,7 +241,7 @@ class HummingbotApplication:
                                                  columns=["currency", "balance"]).set_index("currency")
         return raw_balance[raw_balance.balance > 0]
 
-    def config(self, key: str = None, start_new: bool = False):
+    def config(self, key: str = None):
         self.app.clear_input()
         if start_new:
             if self.strategy:

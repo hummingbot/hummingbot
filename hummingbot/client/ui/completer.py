@@ -142,7 +142,7 @@ class HummingbotCompleter(Completer):
             for c in self._option_completer.get_completions(document, complete_event):
                 yield c
 
-        if self._complete_subcommand(document):
+        else:
             text_before_cursor: str = document.text_before_cursor
             first_word: str = text_before_cursor[0:text_before_cursor.index(' ')]
             subcommand_completer: Completer = self.get_subcommand_completer(first_word)
