@@ -101,6 +101,8 @@ from hummingbot.core.utils.ethereum import check_web3
 from hummingbot.core.utils.stop_loss_tracker import StopLossTracker
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
+from hummingbot.notifier.notifier_base import NotifierBase
+from hummingbot.notifier.telegram_notifier import TelegramNotifier
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 
 s_logger = None
@@ -158,6 +160,7 @@ class HummingbotApplication:
         self.reporting_module: Optional[ReportAggregator] = None
         self.data_feed: Optional[DataFeedBase] = None
         self.stop_loss_tracker: Optional[StopLossTracker] = None
+        self.notifiers: List[NotifierBase] = []
         self._app_warnings: Deque[ApplicationWarning] = deque()
         self._trading_required: bool = True
 
@@ -168,6 +171,11 @@ class HummingbotApplication:
                 report_aggregation_interval=global_config_map["reporting_aggregation_interval"].value,
                 log_report_interval=global_config_map["reporting_log_interval"].value)
         self.reporting_module.start()
+
+    def _notify(self, msg: str):
+        self.app.log(msg)
+        for notifier in self.notifiers:
+            notifier.send_msg(msg)
 
     def _handle_command(self, raw_command: str):
         raw_command = raw_command.lower().strip()
@@ -184,18 +192,18 @@ class HummingbotApplication:
                 del kwargs['func']
                 f(**kwargs)
         except InvalidCommandError as e:
-            self.app.log("Invalid command: %s" % (str(e),))
+            self._notify("Invalid command: %s" % (str(e),))
         except ArgumentParserError as e:
-            self.app.log(str(e))
+            self._notify(str(e))
         except NotImplementedError:
-            self.app.log("Command not yet implemented. This feature is currently under development.")
+            self._notify("Command not yet implemented. This feature is currently under development.")
         except Exception as e:
             self.logger().error(e, exc_info=True)
 
     async def _cancel_outstanding_orders(self) -> bool:
         on_chain_cancel_on_exit = global_config_map.get("on_chain_cancel_on_exit").value
         success = True
-        self.app.log("Cancelling outstanding orders...")
+        self._notify("Cancelling outstanding orders...")
         for market_name, market in self.markets.items():
             # By default, the bot does not cancel orders on exit on Radar Relay or Bamboo Relay,
             # since all open orders will expire in a short window
@@ -206,12 +214,12 @@ class HummingbotApplication:
             if len(uncancelled) > 0:
                 success = False
                 uncancelled_order_ids = list(map(lambda cr: cr.order_id, uncancelled))
-                self.app.log("\nFailed to cancel the following orders on %s:\n%s" % (
+                self._notify("\nFailed to cancel the following orders on %s:\n%s" % (
                     market_name,
                     '\n'.join(uncancelled_order_ids)
                 ))
         if success:
-            self.app.log("All outstanding orders cancelled.")
+            self._notify("All outstanding orders cancelled.")
         return success
 
     async def run(self):
@@ -241,16 +249,46 @@ class HummingbotApplication:
                                                  columns=["currency", "balance"]).set_index("currency")
         return raw_balance[raw_balance.balance > 0]
 
+    async def reset_config_loop(self, key: str = None):
+        strategy = in_memory_config_map.get("strategy").value
+
+        self.placeholder_mode = True
+        self.app.toggle_hide_input()
+
+        if self.strategy:
+            choice = await self.app.prompt(prompt=f"Would you like to stop running the {strategy} strategy "
+                                                  f"and reconfigure the bot? (y/n) >>> ")
+        else:
+            choice = await self.app.prompt(prompt=f"Would you like to reconfigure the bot? (y/n) >>> ")
+
+        self.app.change_prompt(prompt=">>> ")
+        self.app.toggle_hide_input()
+        self.placeholder_mode = False
+
+        if choice.lower() in {"y", "yes"}:
+            if self.strategy:
+                await self.stop_loop()
+            if key is None:
+                in_memory_config_map.get("strategy").value = None
+                in_memory_config_map.get("strategy_file_path").value = None
+            self.config(key)
+        else:
+            self._notify("Aborted.")
+
     def config(self, key: str = None):
         self.app.clear_input()
+
+        if self.strategy or self.config_complete:
+            asyncio.ensure_future(self.reset_config_loop(key))
+            return
         if key is not None and key not in load_required_configs().keys():
-            self.app.log("Invalid config variable %s" % (key,))
+            self._notify("Invalid config variable %s" % (key,))
             return
         if key is not None:
             keys = [key]
         else:
             keys = self._get_empty_configs()
-        asyncio.ensure_future(self._config_loop(keys))
+        asyncio.ensure_future(self._config_loop(keys), loop=self.ev_loop)
 
     def _expire_old_application_warnings(self):
         now: float = time.time()
@@ -270,17 +308,17 @@ class HummingbotApplication:
 
             try:
                 self.acct = import_and_save_wallet(password, private_key)
-                self.app.log("Wallet %s imported into hummingbot" % (self.acct.address,))
+                self._notify("Wallet %s imported into hummingbot" % (self.acct.address,))
             except Exception as e:
-                self.app.log(f"Failed to import wallet key: {e}")
+                self._notify(f"Failed to import wallet key: {e}")
                 result = await self._create_or_import_wallet()
                 return result
         elif choice == "create":
             password = await self.app.prompt(prompt="A password to protect your wallet key >>> ", is_password=True)
             self.acct = create_and_save_wallet(password)
-            self.app.log("New wallet %s created" % (self.acct.address,))
+            self._notify("New wallet %s created" % (self.acct.address,))
         else:
-            self.app.log('Invalid choice. Please enter "create" or "import".')
+            self._notify('Invalid choice. Please enter "create" or "import".')
             result = await self._create_or_import_wallet()
             return result
         return self.acct.address
@@ -289,7 +327,7 @@ class HummingbotApplication:
         choice = await self.app.prompt(prompt="Would you like to unlock your previously saved wallet? (y/n) >>> ")
         if choice.lower() in {"y", "yes"}:
             wallets = list_wallets()
-            self.app.log("Existing wallets:")
+            self._notify("Existing wallets:")
             self.list(obj="wallets")
             if len(wallets) == 1:
                 public_key = wallets[0]
@@ -298,11 +336,11 @@ class HummingbotApplication:
             password = await self.app.prompt(prompt="Enter your password >>> ", is_password=True)
             try:
                 acct = unlock_wallet(public_key=public_key, password=password)
-                self.app.log("Wallet %s unlocked" % (acct.address,))
+                self._notify("Wallet %s unlocked" % (acct.address,))
                 self.acct = acct
                 return self.acct.address
             except Exception as e:
-                self.app.log("Cannot unlock wallet. Please try again.")
+                self._notify("Cannot unlock wallet. Please try again.")
                 result = await self._unlock_wallet()
                 return result
         else:
@@ -317,22 +355,22 @@ class HummingbotApplication:
         if choice == "import":
             strategy_path = await self.app.prompt(strategy_file_path_cv.prompt)
             strategy_path = strategy_path
-            self.app.log(f"Loading previously saved config file from {strategy_path}...")
+            self._notify(f"Loading previously saved config file from {strategy_path}...")
         elif choice == "create":
             strategy_path = await copy_strategy_template(current_strategy)
-            self.app.log(f"new config file at {strategy_path} created.")
+            self._notify(f"new config file at {strategy_path} created.")
         else:
-            self.app.log('Invalid choice. Please enter "create" or "import".')
+            self._notify('Invalid choice. Please enter "create" or "import".')
             strategy_path = await self._import_or_create_strategy_config()
 
         # Validate response
         if not strategy_file_path_cv.validate(strategy_path):
-            self.app.log(f"Invalid path {strategy_path}. Please enter \"create\" or \"import\".")
+            self._notify(f"Invalid path {strategy_path}. Please enter \"create\" or \"import\".")
             strategy_path = await self._import_or_create_strategy_config()
         return strategy_path
 
     async def _config_loop(self, keys: List[str] = []):
-        self.app.log("Please follow the prompt to complete configurations: ")
+        self._notify("Please follow the prompt to complete configurations: ")
         self.placeholder_mode = True
         self.app.toggle_hide_input()
 
@@ -352,7 +390,7 @@ class HummingbotApplication:
                 else:
                     val = await self.app.prompt(prompt=cvar.prompt, is_password=cvar.is_secure)
                 if not cvar.validate(val):
-                    self.app.log("%s is not a valid %s value" % (val, cvar.key))
+                    self._notify("%s is not a valid %s value" % (val, cvar.key))
                     val = await single_prompt(cvar)
             else:
                 val = cvar.value
@@ -374,14 +412,14 @@ class HummingbotApplication:
                 value = await single_prompt(cv)
                 cv.value = parse_cvar_value(cv, value)
                 if single_key:
-                    self.app.log(f"\nNew config saved:\n{key}: {str(value)}")
+                    self._notify(f"\nNew config saved:\n{key}: {str(value)}")
             if not self.config_complete:
                 await inner_loop(self._get_empty_configs())
         try:
             await inner_loop(keys)
             await write_config_to_yml()
             if not single_key:
-                self.app.log("\nConfig process complete. Enter \"start\" to start market making.")
+                self._notify("\nConfig process complete. Enter \"start\" to start market making.")
                 self.app.set_text("start")
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
@@ -456,6 +494,16 @@ class HummingbotApplication:
 
             self.markets[market_name]: MarketBase = market
 
+    def _initialize_notifiers(self):
+        if global_config_map.get("telegram_enabled").value:
+            # TODO: refactor to use single instance
+            if not any([isinstance(n, TelegramNotifier) for n in self.notifiers]):
+                self.notifiers.append(TelegramNotifier(token=global_config_map["telegram_token"].value,
+                                                       chat_id=global_config_map["telegram_chat_id"].value,
+                                                       hb=self))
+        for notifier in self.notifiers:
+            notifier.start()
+
     def _format_application_warnings(self) -> str:
         lines: List[str] = []
         if len(self._app_warnings) < 1:
@@ -491,18 +539,18 @@ class HummingbotApplication:
 
     def status(self) -> bool:
         # Preliminary checks.
-        self.app.log("\n  Preliminary checks:")
+        self._notify("\n  Preliminary checks:")
         if self.config_complete:
-            self.app.log("   - Config check: Config complete")
+            self._notify("   - Config check: Config complete")
         else:
-            self.app.log('   x Config check: Pending config. Please enter "config" before starting the bot.')
+            self._notify('   x Config check: Pending config. Please enter "config" before starting the bot.')
             return False
 
         eth_node_valid = check_web3(global_config_map.get("ethereum_rpc_url").value)
         if eth_node_valid:
-            self.app.log("   - Node check: Ethereum node running and current")
+            self._notify("   - Node check: Ethereum node running and current")
         else:
-            self.app.log('   x Node check: Bad ethereum rpc url. Your node may be syncing. '
+            self._notify('   x Node check: Bad ethereum rpc url. Your node may be syncing. '
                          'Please re-configure by entering "config ethereum_rpc_url"')
             return False
 
@@ -511,13 +559,13 @@ class HummingbotApplication:
                 if self._trading_required:
                     has_minimum_eth = self.wallet.get_balance("ETH") > 0.01
                     if has_minimum_eth:
-                        self.app.log("   - ETH wallet check: Minimum ETH requirement satisfied")
+                        self._notify("   - ETH wallet check: Minimum ETH requirement satisfied")
                     else:
-                        self.app.log("   x ETH wallet check: Not enough ETH in wallet. "
+                        self._notify("   x ETH wallet check: Not enough ETH in wallet. "
                                      "A small amount of Ether is required for sending transactions on "
                                      "Decentralized Exchanges")
             else:
-                self.app.log("   x ETH wallet check: ETH wallet is not connected.")
+                self._notify("   x ETH wallet check: ETH wallet is not connected.")
 
         loading_markets: List[MarketBase] = []
         for market in self.markets.values():
@@ -525,13 +573,13 @@ class HummingbotApplication:
                 loading_markets.append(market)
 
         if len(loading_markets) > 0:
-            self.app.log(f"   x Market check:  Waiting for markets " +
+            self._notify(f"   x Market check:  Waiting for markets " +
                          ",".join([m.name.capitalize()  for m in loading_markets]) + f" to get ready for trading. \n"
                          f"                    Please keep the bot running and try to start again in a few minutes. \n")
 
             for market in loading_markets:
                 market_status_df = pd.DataFrame(data=market.status_dict.items(), columns=["description", "status"])
-                self.app.log(
+                self._notify(
                     f"   x {market.name.capitalize()} market status:\n" +
                     "\n".join(["     " + line for line in market_status_df.to_string(index=False,).split("\n")]) +
                     "\n"
@@ -546,49 +594,61 @@ class HummingbotApplication:
                 if market.network_status is not NetworkStatus.CONNECTED
             ]
             for offline_market in offline_markets:
-                self.app.log(f"   x Market check:  {offline_market} is currently offline.")
+                self._notify(f"   x Market check:  {offline_market} is currently offline.")
 
         # See if we can print out the strategy status.
-        self.app.log("   - Market check: All markets ready")
+        self._notify("   - Market check: All markets ready")
         if self.strategy is None:
-            self.app.log("   x initializing strategy.")
+            self._notify("   x initializing strategy.")
         else:
-            self.app.log(self.strategy.format_status() + "\n")
+            self._notify(self.strategy.format_status() + "\n")
 
         # Application warnings.
         self._expire_old_application_warnings()
         if len(self._app_warnings) > 0:
-            self.app.log(self._format_application_warnings())
+            self._notify(self._format_application_warnings())
+
+        # See if we can print out the strategy status.
+        self._notify("   - Market check: All markets ready")
+        if self.strategy is None:
+            self._notify("   x initializing strategy.")
+        else:
+            self._notify(self.strategy.format_status() + "\n")
+
+        # Application warnings.
+        self._expire_old_application_warnings()
+        if len(self._app_warnings) > 0:
+            self._notify(self._format_application_warnings())
 
         return True
 
     def help(self, command):
         if command == 'all':
-            self.app.log(self.parser.format_help())
+            self._notify(self.parser.format_help())
         else:
             subparsers_actions = [
                 action for action in self.parser._actions if isinstance(action, argparse._SubParsersAction)]
 
             for subparsers_action in subparsers_actions:
                 subparser = subparsers_action.choices.get(command)
-                self.app.log(subparser.format_help())
+                self._notify(subparser.format_help())
 
     def get_balance(self, currency: str = "WETH", wallet: bool = False, exchange: str = None):
         if wallet:
             if self.wallet is None:
-                self.app.log('Wallet not available. Please configure your wallet (Enter "config wallet")')
+                self._notify('Wallet not available. Please configure your wallet (Enter "config wallet")')
             elif currency is None:
-                self.app.log(f"{self.get_wallet_balance()}")
+                self._notify(f"{self.get_wallet_balance()}")
             else:
-                self.app.log(self.wallet.get_balance(currency.upper()))
+                self._notify(self.wallet.get_balance(currency.upper()))
         elif exchange:
             if exchange in self.markets:
                 if currency is None:
-                    self.app.log(f"{self.get_exchange_balance(exchange)}")
+                    self._notify(f"{self.get_exchange_balance(exchange)}")
                 else:
-                    self.app.log(self.markets[exchange].get_balance(currency.upper()))
+                    self._notify(self.markets[exchange].get_balance(currency.upper()))
             else:
-                self.app.log('The exchange you entered has not been initialized. '
+                self._notify('The exchange you entered has not been initialized. '
                              'You may check your exchange balance after entering the "start" command.')
         else:
             self.help("get_balance")
@@ -597,15 +657,15 @@ class HummingbotApplication:
         if obj == "wallets":
             wallets = list_wallets()
             if len(wallets) == 0:
-                self.app.log('Wallet not available. Please configure your wallet (Enter "config wallet")')
+                self._notify('Wallet not available. Please configure your wallet (Enter "config wallet")')
             else:
-                self.app.log('\n'.join(wallets))
+                self._notify('\n'.join(wallets))
 
         elif obj == "exchanges":
             if len(EXCHANGES) == 0:
-                self.app.log("No exchanges available")
+                self._notify("No exchanges available")
             else:
-                self.app.log('\n'.join(EXCHANGES))
+                self._notify('\n'.join(EXCHANGES))
 
         elif obj == "configs":
             columns: List[str] = ["Key", "Current Value"]
@@ -615,8 +675,8 @@ class HummingbotApplication:
                 [cv.key, len(str(cv.value)) * "*" if cv.is_secure else str(cv.value)]
                 for cv in global_cvs]
             global_df: pd.DataFrame = pd.DataFrame(data=global_data, columns=columns)
-            self.app.log("\nglobal configs:")
-            self.app.log(str(global_df))
+            self._notify("\nglobal configs:")
+            self._notify(str(global_df))
 
             strategy = in_memory_config_map.get("strategy").value
             if strategy:
@@ -626,15 +686,15 @@ class HummingbotApplication:
                     for cv in strategy_cvs]
                 strategy_df: pd.DataFrame = pd.DataFrame(data=strategy_data, columns=columns)
 
-                self.app.log(f"\n{strategy} strategy configs:")
-                self.app.log(str(strategy_df))
+                self._notify(f"\n{strategy} strategy configs:")
+                self._notify(str(strategy_df))
 
-            self.app.log("\n")
+            self._notify("\n")
 
         elif obj == "trades":
             lines = []
             if self.strategy is None:
-                self.app.log("No strategy available, cannot show past trades.")
+                self._notify("No strategy available, cannot show past trades.")
             else:
                 if len(self.strategy.trades) > 0:
                     df = Trade.to_pandas(self.strategy.trades)
@@ -643,21 +703,21 @@ class HummingbotApplication:
                                  ["    " + line for line in df_lines])
                 else:
                     lines.extend(["  No past trades."])
-            self.app.log("\n".join(lines))
+            self._notify("\n".join(lines))
         else:
             self.help("list")
 
     def describe(self, wallet: bool = False, exchange: str = None):
         if wallet:
             if self.wallet is None:
-                self.app.log('None available. Your wallet may not have been initialized. Enter "start" to initialize '
+                self._notify('None available. Your wallet may not have been initialized. Enter "start" to initialize '
                              'your wallet.')
             else:
-                self.app.log(self.wallet.address)
-                self.app.log(f"{self.get_wallet_balance()}")
+                self._notify(self.wallet.address)
+                self._notify(f"{self.get_wallet_balance()}")
         elif exchange is not None:
             if exchange in self.markets:
-                self.app.log(f"{self.get_exchange_balance(exchange)}")
+                self._notify(f"{self.get_exchange_balance(exchange)}")
             else:
                 raise InvalidCommandError("The exchange you specified has not been initialized")
         else:
@@ -679,11 +739,13 @@ class HummingbotApplication:
         # TODO add option to select data feed
         self.data_feed: DataFeedBase = CoinCapDataFeed.get_instance()
 
+        self._initialize_notifiers()
+
         ExchangeRateConversion.get_instance().start()
         strategy_name = in_memory_config_map.get("strategy").value
         self.init_reporting_module()
-        self.app.log(f"\n  Status check complete. Starting '{strategy_name}' strategy...")
-        asyncio.ensure_future(self.start_market_making(strategy_name))
+        self._notify(f"\n  Status check complete. Starting '{strategy_name}' strategy...")
+        asyncio.ensure_future(self.start_market_making(strategy_name), loop=self.ev_loop)
 
     async def _run_clock(self):
         with self.clock as clock:
@@ -719,7 +781,7 @@ class HummingbotApplication:
                 maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_symbol])[0]
                 taker_assets: Tuple[str, str] = self._initialize_market_assets(taker_market, [raw_taker_symbol])[0]
             except ValueError as e:
-                self.app.log(str(e))
+                self._notify(str(e))
                 return
             self._initialize_wallet(token_symbols=list(set(maker_assets + taker_assets)))
             self._initialize_markets(market_names)
@@ -756,7 +818,7 @@ class HummingbotApplication:
                 secondary_assets: Tuple[str, str] = self._initialize_market_assets(secondary_market,
                                                                                    [raw_secondary_symbol])[0]
             except ValueError as e:
-                self.app.log(str(e))
+                self._notify(str(e))
                 return
 
             market_names: List[Tuple[str, List[str]]] = [(primary_market, [raw_primary_symbol]),
@@ -783,7 +845,7 @@ class HummingbotApplication:
             try:
                 maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_symbol])[0]
             except ValueError as e:
-                self.app.log(str(e))
+                self._notify(str(e))
                 return
 
             market_names: List[Tuple[str, List[str]]] = [(maker_market, [raw_maker_symbol])]
@@ -834,7 +896,7 @@ class HummingbotApplication:
                                                   target_profitability=target_profitability,
                                                   target_amount=target_amount)
             except Exception as e:
-                self.app.log(str(e))
+                self._notify(str(e))
                 self.logger().error("Error initializing strategy.", exc_info=True)
         else:
             raise NotImplementedError
@@ -848,8 +910,8 @@ class HummingbotApplication:
                     self.clock.add_iterator(market)
             if self.strategy:
                 self.clock.add_iterator(self.strategy)
-            self.strategy_task: asyncio.Task = asyncio.ensure_future(self._run_clock())
-            self.app.log(f"\n  '{strategy_name}' strategy started.\n"
+            self.strategy_task: asyncio.Task = asyncio.ensure_future(self._run_clock(), loop=self.ev_loop)
+            self._notify(f"\n  '{strategy_name}' strategy started.\n"
                          f"  You can use the `status` command to query the progress.")
 
             self.starting_balances = await self.wait_till_ready(self.balance_snapshot)
@@ -863,8 +925,11 @@ class HummingbotApplication:
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
 
-    async def stop(self, skip_order_cancellation: bool = False):
-        self.app.log("\nWinding down...")
+    def stop(self, skip_order_cancellation: bool = False):
+        asyncio.ensure_future(self.stop_loop(skip_order_cancellation), loop=self.ev_loop)
+
+    async def stop_loop(self, skip_order_cancellation: bool = False):
+        self._notify("\nWinding down...")
 
         # Restore App Nap on macOS.
         if platform.system() == "Darwin":
@@ -894,7 +959,10 @@ class HummingbotApplication:
         self.market_pair = None
         self.clock = None
 
-    async def exit(self, force: bool = False):
+    def exit(self, force: bool = False):
+        asyncio.ensure_future(self.exit_loop(force), loop=self.ev_loop)
+
+    async def exit_loop(self, force: bool = False):
         if self.strategy_task is not None and not self.strategy_task.cancelled():
             self.strategy_task.cancel()
         if self.strategy:
@@ -902,18 +970,23 @@ class HummingbotApplication:
         if force is False and self._trading_required:
             success = await self._cancel_outstanding_orders()
             if not success:
-                self.app.log('Wind down process terminated: Failed to cancel all outstanding orders. '
+                self._notify('Wind down process terminated: Failed to cancel all outstanding orders. '
                              '\nYou may need to manually cancel remaining orders by logging into your chosen exchanges'
                              '\n\nTo force exit the app, enter "exit -f"')
                 return
             # Freeze screen 1 second for better UI
             await asyncio.sleep(1)
         ExchangeRateConversion.get_instance().stop()
+
+        self._notify("Winding down notifiers...")
+        for notifier in self.notifiers:
+            notifier.stop()
+
         self.app.exit()
 
     async def export_private_key(self):
         if self.acct is None:
-            self.app.log("Your wallet is currently locked. Please enter \"config\""
+            self._notify("Your wallet is currently locked. Please enter \"config\""
                          " to unlock your wallet first")
         else:
             self.placeholder_mode = True
@@ -922,10 +995,10 @@ class HummingbotApplication:
             ans = await self.app.prompt("Are you sure you want to print your private key in plain text? (y/n) >>> ")
 
             if ans.lower() in {"y", "yes"}:
-                self.app.log("\nWarning: Never disclose this key. Anyone with your private keys can steal any assets "
+                self._notify("\nWarning: Never disclose this key. Anyone with your private keys can steal any assets "
                              "held in your account.\n")
-                self.app.log("Your private key:")
-                self.app.log(self.acct.privateKey.hex())
+                self._notify("Your private key:")
+                self._notify(self.acct.privateKey.hex())
 
             self.app.change_prompt(prompt=">>> ")
             self.app.toggle_hide_input()
@@ -935,18 +1008,19 @@ class HummingbotApplication:
         if not path:
             fname = f"trades_{pd.Timestamp.now().strftime('%Y-%m-%d-%H-%M-%S')}.csv"
             path = join(dirname(__file__), f"../../logs/{fname}")
-
         if self.strategy is None:
-            self.app.log("No strategy available, cannot export past trades.")
+            self._notify("No strategy available, cannot export past trades.")
 
         else:
             if len(self.strategy.trades) > 0:
                 try:
                     df: pd.DataFrame = Trade.to_pandas(self.strategy.trades)
                     df.to_csv(path, header=True)
-                    self.app.log(f"Successfully saved trades to {path}")
+                    self._notify(f"Successfully saved trades to {path}")
                 except Exception as e:
-                    self.app.log(f"Error saving trades to {path}: {e}")
+                    self._notify(f"Error saving trades to {path}: {e}")
+            else:
+                self._notify("No past trades to export")
 
     def history(self):
         self.list("trades")
@@ -975,7 +1049,7 @@ class HummingbotApplication:
 
     def compare_balance_snapshots(self):
         if len(self.starting_balances) == 0:
-            self.app.log("  Balance snapshots are not available before bot starts")
+            self._notify("  Balance snapshots are not available before bot starts")
             return
 
         rows = []
@@ -983,8 +1057,12 @@ class HummingbotApplication:
             for asset in self.assets:
                 starting_balance = self.starting_balances.get(asset).get(market_name)
                 current_balance = self.balance_snapshot().get(asset).get(market_name)
-                rows.append([market_name, asset, starting_balance, current_balance, current_balance - starting_balance])
+                rows.append([market_name,
+                             asset,
+                             starting_balance,
+                             current_balance,
+                             current_balance - starting_balance])
 
         df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Delta"])
         lines = ["", "  Performance:"] + ["    " + line for line in str(df).split("\n")]
-        self.app.log("\n".join(lines))
+        self._notify("\n".join(lines))

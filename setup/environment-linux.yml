@@ -87,7 +87,7 @@ dependencies:
     - eth-typing==2.0.0
     - eth-utils==1.4.1
     - hexbytes==0.1.0
-    - hummingsim==20190524
+    - hummingsim==20190607.1
     - hyperlink==18.0.0
     - hypothesis==4.23.8
     - idna-ssl==1.1.0
@@ -105,6 +105,7 @@ dependencies:
     - pyperclip==1.7.0
     - pyrsistent==0.15.2
     - python-binance==0.7.1
+    - python-telegram-bot==11.1.0
     - regex==2019.2.21
     - requests==2.21.0
     - rlp==1.1.0

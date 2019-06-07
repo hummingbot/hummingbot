@@ -1,5 +1,5 @@
 node {
-    def testName = 'discovery strategy'
+    def testName = 'pure market making strategy'
     def condaPath = '/root/miniconda'
     def path = "${condaPath}/bin"
     def hbPath = "${condaPath}/envs/hummingbot"
@@ -28,7 +28,7 @@ node {
       }
 
       stage('Run tests') {
-        sh "${envPath}/nosetests -v test/test_discovery_strategy.py"
+        sh "${envPath}/nosetests -v test/test_pure_market_making.py"
       }
 
     } catch (c) {
