@@ -255,8 +255,11 @@ class HummingbotApplication:
         self.placeholder_mode = True
         self.app.toggle_hide_input()
 
-        choice = await self.app.prompt(prompt=f"Would you like to stop running the {strategy} strategy "
-                                              f"and reconfigure the bot? (y/n) >>> ")
+        if self.strategy:
+            choice = await self.app.prompt(prompt=f"Would you like to stop running the {strategy} strategy "
+                                                  f"and reconfigure the bot? (y/n) >>> ")
+        else:
+            choice = await self.app.prompt(prompt=f"Would you like to reconfigure the bot? (y/n) >>> ")
 
         self.app.change_prompt(prompt=">>> ")
         self.app.toggle_hide_input()
@@ -275,7 +278,7 @@ class HummingbotApplication:
     def config(self, key: str = None):
         self.app.clear_input()
 
-        if self.strategy:
+        if self.strategy or self.config_complete:
             asyncio.ensure_future(self.reset_config_loop(key))
             return
         if key is not None and key not in load_required_configs().keys():
