@@ -209,7 +209,6 @@ class HummingbotApplication:
         kill_timeout: float = self.KILL_TIMEOUT
         self._notify("Cancelling outstanding orders...")
 
-
         for market_name, market in self.markets.items():
             if market_name == "idex":
                 self._notify(f"IDEX cancellations may take up to {int(self.IDEX_KILL_TIMEOUT)} seconds...")
