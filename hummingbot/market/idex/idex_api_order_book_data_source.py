@@ -157,8 +157,7 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
             async with client.get(f"{IDEX_REST_URL}/returnOrderBookForMarket", params=params) as response:
                 response: aiohttp.ClientResponse = response
                 if response.status != 200:
-                    raise IOError(f"Error fetching {self._exchange_name} market snapshot for {trading_pair}. "
-                                f"HTTP status is {response.status}.")
+                    raise IOError(f"Error fetching IDEX market snapshot for {trading_pair}. HTTP status is {response.status}.")
                 orders: List[Dict[str, Any]] = await response.json()
                 return {"orders": orders}
 

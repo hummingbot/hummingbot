@@ -79,7 +79,9 @@ cdef class InFlightOrder:
         public object gas_fee_amount
         public str last_state
         public object order
+        public double created_timestamp
         public object exchange_order_id_update_event
+        public object created_timestamp_update_event
 
     def __init__(self,
                  client_order_id: str,
@@ -90,7 +92,8 @@ cdef class InFlightOrder:
                  order_type: OrderType,
                  amount: Decimal,
                  price: Decimal,
-                 order: Any = None):
+                 order: Any,
+                 created_timestamp: float):
         self.client_order_id = client_order_id
         self.exchange_order_id = exchange_order_id
         self.tx_hash = exchange_order_id
@@ -105,14 +108,16 @@ cdef class InFlightOrder:
         self.gas_fee_amount = s_decimal_0
         self.last_state = "open"
         self.order = order
+        self.created_timestamp = created_timestamp
         self.exchange_order_id_update_event = asyncio.Event()
+        self.created_timestamp_update_event = asyncio.Event()
 
     def __repr__(self) -> str:
         return f"InFlightOrder(client_order_id='{self.client_order_id}', exchange_order_id='{self.exchange_order_id}', " \
                f"tx_hash='{self.tx_hash}', symbol='{self.symbol}', is_buy={self.is_buy}, order_type={self.order_type}, " \
                f"initial_amount={self.initial_amount}, available_amount={self.available_amount} price={self.price}, " \
                f"executed_amount={self.executed_amount}, quote_asset_amount={self.quote_asset_amount}, "\
-               f"gas_fee_amount={self.gas_fee_amount}, last_state='{self.last_state}', order='{self.order}')"
+               f"gas_fee_amount={self.gas_fee_amount}, last_state='{self.last_state}', created_timestamp='{self.created_timestamp}')"
 
     @property
     def is_done(self) -> bool:
@@ -134,10 +139,19 @@ cdef class InFlightOrder:
         self.exchange_order_id = exchange_id
         self.exchange_order_id_update_event.set()
 
+    def update_created_timestamp(self, created_timestamp: float):
+        self.created_timestamp = created_timestamp
+        self.created_timestamp_update_event.set()
+
     async def get_exchange_order_id(self):
         if self.exchange_order_id is None:
             await self.exchange_order_id_update_event.wait()
         return self.exchange_order_id
+
+    async def get_created_timestamp(self):
+        if self.created_timestamp is None:
+            await self.created_timestamp_update_event.wait()
+        return self.created_timestamp
 
     def to_limit_order(self) -> LimitOrder:
         return LimitOrder(
@@ -171,6 +185,7 @@ cdef class IDEXMarket(MarketBase):
     CANCEL_EXPIRY_TIME = 60.0
     MINIMUM_MAKER_ORDER_SIZE_ETH = 0.15
     MINIMUM_TAKER_ORDER_SIZE_ETH = 0.05
+    MINIMUM_LIMIT_ORDER_LIFESPAN = 15
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -625,7 +640,6 @@ cdef class IDEXMarket(MarketBase):
         quote_asset_decimals = self._assets_info[quote_asset]["decimals"]
         desired_amount_base = Decimal(amount) * Decimal(f"1e{base_asset_decimals}")
         total_amount_quote = s_decimal_0
-        print('******limit_orders_to_fill ', limit_orders_to_fill)
 
         for o in limit_orders_to_fill:
             o_amount_buy = Decimal(o["amountBuy"])
@@ -662,6 +676,9 @@ cdef class IDEXMarket(MarketBase):
 
     async def cancel_order(self, client_order_id: str) -> Dict[str, Any]:
         order = self.in_flight_orders.get(client_order_id)
+        created_timestamp = await order.get_created_timestamp()
+        if time.time() - created_timestamp < self.MINIMUM_LIMIT_ORDER_LIFESPAN:
+            await asyncio.sleep(self.MINIMUM_LIMIT_ORDER_LIFESPAN - (time.time() - created_timestamp))
         if not order:
             self.logger().info(f"Failed to cancel order {client_order_id}. Order not found in tracked orders.")
             if client_order_id in self._in_flight_cancels:
@@ -672,7 +689,6 @@ cdef class IDEXMarket(MarketBase):
         cancel_order_request = self._generate_cancel_order(exchange_order_id)
 
         response_data = await self.post_cancel_order(cancel_order_request)
-        print("**@@@@@@@ CANCELC RESULT", response_data)
         if isinstance(response_data, dict) and response_data.get("success"):
             self.logger().info(f"Successfully cancelled order {exchange_order_id}.")
             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
@@ -753,14 +769,15 @@ cdef class IDEXMarket(MarketBase):
                 tracked_order = self._in_flight_orders.get(order_id)
                 if tracked_order is not None:
                     exchange_order_id = order_result["orderHash"]
-                    self.logger().info(f"Created {order_type} buy order {exchange_order_id} for "
+                    self.logger().info(f"Created limit buy order {exchange_order_id} for "
                                     f"{q_amt} {symbol}.")
                     tracked_order.update_exchange_order_id(exchange_order_id)
+                    tracked_order.update_created_timestamp(time.time())
             else:
                 best_limit_orders = self._order_book_tracker._active_order_trackers[symbol].get_best_limit_orders(is_buy=True, amount=Decimal(q_amt))
                 signed_market_orders = self._generate_buy_market_order(Decimal(q_amt), best_limit_orders, symbol)
                 completed_orders = await self.post_market_order(signed_market_orders)
-                self.logger().info(f"Created {order_type} buy order for {q_amt} {symbol}.")
+                self.logger().info(f"Created market buy order for {q_amt} {symbol}.")
                 self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
                                      BuyOrderCreatedEvent(
                                          self._current_timestamp,
@@ -789,7 +806,6 @@ cdef class IDEXMarket(MarketBase):
                     self.c_stop_tracking_order(order_id)
 
         except Exception as e:
-            print('ERRORRRRR ', e)
             self.c_stop_tracking_order(order_id)
             self.logger().network(
                 f"Error submitting buy order to IDEX for {amount} {symbol}.",
@@ -836,16 +852,15 @@ cdef class IDEXMarket(MarketBase):
                 tracked_order = self._in_flight_orders.get(order_id)
                 if tracked_order is not None:
                     exchange_order_id = order_result["orderHash"]
-                    self.logger().info(f"Created {order_type} sell order {exchange_order_id} for "
+                    self.logger().info(f"Created limit sell order {exchange_order_id} for "
                                     f"{q_amt} {symbol}.")
                     tracked_order.update_exchange_order_id(exchange_order_id)
+                    tracked_order.update_created_timestamp(time.time())
             else:
                 best_limit_orders = self._order_book_tracker._active_order_trackers[symbol].get_best_limit_orders(is_buy=False, amount=Decimal(q_amt))
                 signed_market_orders = self._generate_sell_market_order(Decimal(q_amt), best_limit_orders, symbol)
-                print('*****SIGNED MARKET SELL', signed_market_orders)
                 completed_orders = await self.post_market_order(signed_market_orders)
-                print('**** completed', completed_orders)
-                self.logger().info(f"Created {order_type} sell order for {q_amt} {symbol}.")
+                self.logger().info(f"Created market sell order for {q_amt} {symbol}.")
                 self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
                                      SellOrderCreatedEvent(
                                          self._current_timestamp,
@@ -874,7 +889,6 @@ cdef class IDEXMarket(MarketBase):
                     self.c_stop_tracking_order(order_id)
 
         except Exception as e:
-            print('eeeeee ***', e)
             self.c_stop_tracking_order(order_id)
             self.logger().network(
                 f"Error submitting sell order to IDEX for {amount} {symbol}.",
@@ -912,22 +926,22 @@ cdef class IDEXMarket(MarketBase):
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         incomplete_orders = [o for o in self.in_flight_orders.values() if not o.is_done]
-        tasks = [self.cancel_order(o.client_order_id) for o in incomplete_orders]
-        order_id_set = set([o.client_order_id for o in incomplete_orders])
+        client_order_ids = [o.client_order_id for o in incomplete_orders]
+        order_id_set = set(client_order_ids)
+        tasks = [self.cancel_order(i) for i in client_order_ids]
         successful_cancellations = []
 
         try:
             async with timeout(timeout_seconds):
                 cancellation_results = await asyncio.gather(*tasks, return_exceptions=True)
-                print('****** cancellation_results', cancellation_results)
-                for cr in cancellation_results:
+                for cid, cr in zip(client_order_ids, cancellation_results):
                     if isinstance(cr, Exception):
                         continue
-                    if isinstance(cr, dict) and cr.get("success") == 0:
-                        client_order_id = cr.get("client_order_id")
-                        order_id_set.remove(client_order_id)
-                        successful_cancellations.append(CancellationResult(client_order_id, True))
-        except Exception:
+                    if isinstance(cr, dict) and cr.get("success") == 1:
+                        order_id_set.remove(cid)
+                        successful_cancellations.append(CancellationResult(cid, True))
+        except Exception as e:
+            print(e)
             self.logger().network(
                 f"Unexpected error cancelling orders.",
                 exc_info=True,
@@ -1029,7 +1043,8 @@ cdef class IDEXMarket(MarketBase):
             order_type=order_type,
             amount=amount,
             price=price,
-            order=None
+            order=None,
+            created_timestamp=0
         )
 
     cdef c_expire_order(self, str order_id):

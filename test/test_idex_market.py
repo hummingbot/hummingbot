@@ -119,69 +119,55 @@ class IDEXMarketUnitTest(unittest.TestCase):
     def run_parallel(self, *tasks):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
-    # def test_get_fee(self):
-    #     weth_trade_fee: TradeFee = self.market.get_fee("ZRX", "WETH", OrderType.LIMIT, TradeType.BUY, 10000, 1)
-    #     self.assertGreater(weth_trade_fee.percent, 0)
-    #     self.assertEqual(len(weth_trade_fee.flat_fees), 1)
-    #     self.assertEqual(weth_trade_fee.flat_fees[0][0], "WETH")
-    #     dai_trade_fee: TradeFee = self.market.get_fee("WETH", "DAI", OrderType.MARKET, TradeType.BUY, 10000)
-    #     self.assertGreater(dai_trade_fee.percent, 0)
-    #     self.assertEqual(len(dai_trade_fee.flat_fees), 1)
-    #     self.assertEqual(dai_trade_fee.flat_fees[0][0], "DAI")
-
     def test_get_wallet_balances(self):
         balances = self.market.get_all_balances()
         self.assertGreaterEqual((balances["ETH"]), 0)
 
-    # def test_market_buy(self):
-    #     symbol = ETH_FXC
-    #     buy_amount: float = 3000
-    #     buy_order_id: str = self.market.buy(symbol, buy_amount, OrderType.MARKET)
-    #     [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
-    #     order_completed_event: BuyOrderCompletedEvent = order_completed_event
-    #     self.assertEqual(buy_order_id, order_completed_event.order_id)
+    def test_market_buy(self):
+        symbol = ETH_FXC
+        buy_amount: float = 3000
+        buy_order_id: str = self.market.buy(symbol, buy_amount, OrderType.MARKET)
+        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
+        order_completed_event: BuyOrderCompletedEvent = order_completed_event
+        self.assertEqual(buy_order_id, order_completed_event.order_id)
 
-    # def test_market_sell(self):
-    #     symbol = ETH_FXC
-    #     sell_amount: float = 2900
-    #     sell_order_id: str = self.market.sell(symbol, sell_amount, OrderType.MARKET)
-    #     [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
-    #     order_completed_event: SellOrderCompletedEvent = order_completed_event
-    #     self.assertEqual(sell_order_id, order_completed_event.order_id)
+    def test_market_sell(self):
+        symbol = ETH_FXC
+        sell_amount: float = 2900
+        sell_order_id: str = self.market.sell(symbol, sell_amount, OrderType.MARKET)
+        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
+        order_completed_event: SellOrderCompletedEvent = order_completed_event
+        self.assertEqual(sell_order_id, order_completed_event.order_id)
 
-    # def test_place_limit_buy_and_cancel(self):
-    #     symbol = ETH_FXC
-    #     buy_amount: float = 16000000
-    #     buy_price = 0.00000001
-    #     buy_order_id: str = self.market.buy(symbol, buy_amount, OrderType.LIMIT, buy_price)
-    #     [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
-    #     self.assertEqual(buy_order_id, buy_order_opened_event.order_id)
-    #     self.assertEqual(buy_amount, float(buy_order_opened_event.amount))        
-    #     self.assertEqual(ETH_FXC, buy_order_opened_event.symbol)
-    #     self.assertEqual(OrderType.LIMIT, buy_order_opened_event.type)
+    def test_place_limit_buy_and_cancel(self):
+        symbol = ETH_FXC
+        buy_amount: float = 16000000
+        buy_price = 0.00000001
+        buy_order_id: str = self.market.buy(symbol, buy_amount, OrderType.LIMIT, buy_price)
+        [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+        self.assertEqual(buy_order_id, buy_order_opened_event.order_id)
+        self.assertEqual(buy_amount, float(buy_order_opened_event.amount))        
+        self.assertEqual(ETH_FXC, buy_order_opened_event.symbol)
+        self.assertEqual(OrderType.LIMIT, buy_order_opened_event.type)
 
-    #     self.run_parallel(asyncio.sleep(15))
+        self.run_parallel(self.market.cancel_order(buy_order_id))
+        [buy_order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+        self.assertEqual(buy_order_opened_event.order_id, buy_order_cancelled_event.order_id)
 
-    #     self.run_parallel(self.market.cancel_order(buy_order_id))
-    #     [buy_order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
-    #     self.assertEqual(buy_order_opened_event.order_id, buy_order_cancelled_event.order_id)
+    def test_place_limit_sell_and_cancel(self):
+        symbol = ETH_FXC
+        sell_amount: float = 5
+        sell_price = 1
+        sell_order_id: str = self.market.sell(symbol, sell_amount, OrderType.LIMIT, sell_price)
+        [sell_order_opened_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
+        self.assertEqual(sell_order_id, sell_order_opened_event.order_id)
+        self.assertEqual(sell_amount, float(sell_order_opened_event.amount))        
+        self.assertEqual(ETH_FXC, sell_order_opened_event.symbol)
+        self.assertEqual(OrderType.LIMIT, sell_order_opened_event.type)
 
-    # def test_place_limit_sell_and_cancel(self):
-    #     symbol = ETH_FXC
-    #     sell_amount: float = 5
-    #     sell_price = 1
-    #     sell_order_id: str = self.market.sell(symbol, sell_amount, OrderType.LIMIT, sell_price)
-    #     [sell_order_opened_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
-    #     self.assertEqual(sell_order_id, sell_order_opened_event.order_id)
-    #     self.assertEqual(sell_amount, float(sell_order_opened_event.amount))        
-    #     self.assertEqual(ETH_FXC, sell_order_opened_event.symbol)
-    #     self.assertEqual(OrderType.LIMIT, sell_order_opened_event.type)
-
-    #     self.run_parallel(asyncio.sleep(15))
-
-    #     self.run_parallel(self.market.cancel_order(sell_order_id))
-    #     [sell_order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
-    #     self.assertEqual(sell_order_opened_event.order_id, sell_order_cancelled_event.order_id)
+        self.run_parallel(self.market.cancel_order(sell_order_id))
+        [sell_order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+        self.assertEqual(sell_order_opened_event.order_id, sell_order_cancelled_event.order_id)
 
     def test_cancel_all_happy_case(self):
         symbol = ETH_FXC
@@ -204,29 +190,9 @@ class IDEXMarketUnitTest(unittest.TestCase):
         self.assertEqual(OrderType.LIMIT, sell_order_opened_event.type)
 
         [cancellation_results] = self.run_parallel(self.market.cancel_all(30))
-        print(cancellation_results)
         self.assertGreater(len(cancellation_results), 0)
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
-
-    # def test_cancel_all_failure_case(self):
-    #     symbol = "HOT-WETH"
-    #     bid_price: float = self.market.get_price(symbol, True)
-    #     ask_price: float = self.market.get_price(symbol, False)
-    #     # order submission should fail due to insufficient balance
-    #     amount = 200000
-
-    #     self.assertLess(self.market.get_balance("WETH"), 100)
-    #     self.assertLess(self.market.get_balance("HOT"), amount)
-
-    #     self.market.buy(symbol, amount, OrderType.LIMIT, bid_price * 0.7)
-    #     self.market.sell(symbol, amount, OrderType.LIMIT, ask_price * 1.5)
-
-    #     [cancellation_results] = self.run_parallel(self.market.cancel_all(10))
-    #     print(cancellation_results)
-    #     self.assertGreater(len(cancellation_results), 0)
-    #     for cr in cancellation_results:
-    #         self.assertEqual(cr.success, False)
 
 
 def main():

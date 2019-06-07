@@ -446,12 +446,6 @@ class Web3WalletBackend(PubSub):
         signature: str = signature_dict["signature"].hex()
         return signature
 
-    def get_vrs(self, text: str = None, hexstr: str = None) -> Dict[str, Any]:
-        # msg_hash: str = defunct_hash_message(hexstr=hexstr, text=text)
-        print('******* msg_hash', hexstr)
-        signature_dict: AttributeDict = self._account.signHash(hexstr)
-        return {"v": signature_dict["v"], "r": signature_dict["r"], "s": signature_dict["s"]}
-
     def estimate_transaction_cost(self, contract_function: ContractFunction, **kwargs) -> int:
         transaction_args: Dict[str, Any] = {
             "from": self.address,
