@@ -807,35 +807,40 @@ class HummingbotApplication:
                                               logging_options=ArbitrageStrategy.OPTION_LOG_ALL)
 
         elif strategy_name == "pure_market_making":
-            order_size = strategy_cm.get("order_amount").value
-            cancel_order_wait_time = strategy_cm.get("cancel_order_wait_time").value
-            bid_place_threshold = strategy_cm.get("bid_place_threshold").value
-            ask_place_threshold = strategy_cm.get("ask_place_threshold").value
-            maker_market = strategy_cm.get("maker_market").value.lower()
-            raw_maker_symbol = strategy_cm.get("maker_market_symbol").value.upper()
             try:
-                maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_symbol])[0]
-            except ValueError as e:
+                order_size = strategy_cm.get("order_amount").value
+                cancel_order_wait_time = strategy_cm.get("cancel_order_wait_time").value
+                bid_place_threshold = strategy_cm.get("bid_place_threshold").value
+                ask_place_threshold = strategy_cm.get("ask_place_threshold").value
+                maker_market = strategy_cm.get("maker_market").value.lower()
+                raw_maker_symbol = strategy_cm.get("maker_market_symbol").value.upper()
+                try:
+                    maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_symbol])[0]
+                except ValueError as e:
+                    self._notify(str(e))
+                    return
+
+                market_names: List[Tuple[str, List[str]]] = [(maker_market, [raw_maker_symbol])]
+
+                self._initialize_wallet(token_symbols=list(set(maker_assets)))
+                self._initialize_markets(market_names)
+                self.assets = set(maker_assets)
+
+                maker_data = [self.markets[maker_market], raw_maker_symbol] + list(maker_assets)
+                self.market_symbol_pairs = [MarketSymbolPair(*maker_data)]
+                self.market_info = MarketInfo(*([self.markets[maker_market], raw_maker_symbol] +
+                                                list(maker_assets)))
+                strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
+
+                self.strategy = PureMarketMakingStrategyV2(market_infos=[self.market_info],
+                                                           legacy_order_size=order_size,
+                                                           legacy_bid_spread=bid_place_threshold,
+                                                           legacy_ask_spread=ask_place_threshold,
+                                                           cancel_order_wait_time=cancel_order_wait_time,
+                                                           logging_options=strategy_logging_options)
+            except Exception as e:
                 self._notify(str(e))
-                return
-
-            market_names: List[Tuple[str, List[str]]] = [(maker_market, [raw_maker_symbol])]
-            maker_data = [self.markets[maker_market], raw_maker_symbol] + list(maker_assets)
-
-            self._initialize_wallet(token_symbols=list(set(maker_assets)))
-            self._initialize_markets(market_names)
-            self.assets = set(maker_assets)
-            self.market_symbol_pairs = [MarketSymbolPair(*maker_data)]
-            self.market_info = MarketInfo(*([self.markets[maker_market], raw_maker_symbol] +
-                                            list(maker_assets)))
-            strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
-
-            self.strategy = PureMarketMakingStrategyV2(market_infos=[self.market_info],
-                                                       legacy_order_size=order_size,
-                                                       legacy_bid_spread=bid_place_threshold,
-                                                       legacy_ask_spread=ask_place_threshold,
-                                                       cancel_order_wait_time=cancel_order_wait_time,
-                                                       logging_options=strategy_logging_options)
+                self.logger().error("Unknown error during initialization.", exc_info=True)
 
         elif strategy_name == "discovery":
             try:
