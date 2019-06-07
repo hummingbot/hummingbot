@@ -12,6 +12,14 @@ cdef class ConstantSpreadPricingDelegate(OrderPricingDelegate):
         self._bid_spread = bid_spread
         self._ask_spread = ask_spread
 
+    @property
+    def bid_spread(self) -> float:
+        return self._bid_spread
+
+    @property
+    def ask_spread(self) -> float:
+        return self._ask_spread
+
     cdef object c_get_order_price_proposal(self,
                                            PureMarketMakingStrategyV2 strategy,
                                            object market_info,
