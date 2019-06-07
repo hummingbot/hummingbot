@@ -72,50 +72,50 @@ cdef class RadarRelayTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 
-cdef class TradingRule:	
-    cdef:	
-        public str symbol	
+cdef class TradingRule:
+    cdef:
+        public str symbol
         public double min_order_size            # Calculated min base token size based on last trade price	
         public double max_order_size            # Calculated max base token size	
         public int price_precision              # Maximum precision allowed for the market. Example: 7 (decimal places)	
         public int price_decimals               # Max amount of decimals in base token (price)	
         public int amount_decimals              # Max amount of decimals in quote token (amount)	
 
-     @classmethod	
-    def parse_exchange_info(cls, markets: List[Dict[str, Any]]) -> List[TradingRule]:	
-        cdef:	
-            list retval = []	
-        for market in markets:	
-            try:	
-                symbol = market["id"]	
-                retval.append(TradingRule(symbol,	
-                                          float(market["minOrderSize"]),	
-                                          float(market["maxOrderSize"]),	
-                                          market["quoteIncrement"],	
-                                          market["quoteTokenDecimals"],	
-                                          market["baseTokenDecimals"]))	
-            except Exception:	
-                RadarRelayMarket.logger().error(f"Error parsing the symbol {symbol}. Skipping.", exc_info=True)	
-        return retval	
+    @classmethod
+    def parse_exchange_info(cls, markets: List[Dict[str, Any]]) -> List[TradingRule]:
+        cdef:
+            list retval = []
+        for market in markets:
+            try:
+                symbol = market["id"]
+                retval.append(TradingRule(symbol,
+                                          float(market["minOrderSize"]),
+                                          float(market["maxOrderSize"]),
+                                          market["quoteIncrement"],
+                                          market["quoteTokenDecimals"],
+                                          market["baseTokenDecimals"]))
+            except Exception:
+                RadarRelayMarket.logger().error(f"Error parsing the symbol {symbol}. Skipping.", exc_info=True)
+        return retval
 
-     def __init__(self,	
-                 symbol: str,	
-                 min_order_size: float,	
-                 max_order_size: float,	
-                 price_precision: int,	
-                 price_decimals: int,	
-                 amount_decimals: int):	
-        self.symbol = symbol	
-        self.min_order_size = min_order_size	
-        self.max_order_size = max_order_size	
-        self.price_precision = price_precision	
-        self.price_decimals = price_decimals	
-        self.amount_decimals = amount_decimals	
+    def __init__(self,
+                 symbol: str,
+                 min_order_size: float,
+                 max_order_size: float,
+                 price_precision: int,
+                 price_decimals: int,
+                 amount_decimals: int):
+        self.symbol = symbol
+        self.min_order_size = min_order_size
+        self.max_order_size = max_order_size
+        self.price_precision = price_precision
+        self.price_decimals = price_decimals
+        self.amount_decimals = amount_decimals
 
-     def __repr__(self) -> str:	
-        return f"TradingRule(symbol='{self.symbol}', min_order_size={self.min_order_size}, " \	
-               f"max_order_size={self.max_order_size}, price_precision={self.price_precision}, "\	
-               f"price_decimals={self.price_decimals}, amount_decimals={self.amount_decimals}"	
+    def __repr__(self) -> str:
+        return f"TradingRule(symbol='{self.symbol}', min_order_size={self.min_order_size}, " \
+               f"max_order_size={self.max_order_size}, price_precision={self.price_precision}, "\
+               f"price_decimals={self.price_decimals}, amount_decimals={self.amount_decimals}"
 
 
 cdef class InFlightOrder:

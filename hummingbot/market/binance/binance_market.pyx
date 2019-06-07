@@ -187,48 +187,48 @@ cdef class InFlightOrder:
         return BinanceMarket.split_symbol(self.symbol)[1]
 
 
- cdef class TradingRule:	
-    cdef:	
-        public str symbol	
-        public object price_tick_size	
-        public object order_step_size	
-        public object min_order_size	
-        public object min_notional_size	
+cdef class TradingRule:
+    cdef:
+        public str symbol
+        public object price_tick_size
+        public object order_step_size
+        public object min_order_size
+        public object min_notional_size
 
-     @classmethod	
-    def parse_exchange_info(cls, exchange_info_dict: Dict[str, any]) -> List[TradingRule]:	
-        cdef:	
-            list symbol_rules = exchange_info_dict.get("symbols", [])	
-            list retval = []	
-        for rule in symbol_rules:	
-            try:	
-                symbol = rule.get("symbol")	
-                filters = rule.get("filters")	
-                price_filter = [f for f in filters if f.get("filterType") == "PRICE_FILTER"][0]	
-                lot_size_filter = [f for f in filters if f.get("filterType") == "LOT_SIZE"][0]	
-                min_notional_filter = [f for f in filters if f.get("filterType") == "MIN_NOTIONAL"][0]	
-                retval.append(TradingRule(symbol,	
-                                          Decimal(price_filter.get("tickSize")),	
-                                          Decimal(lot_size_filter.get("stepSize")),	
-                                          Decimal(lot_size_filter.get("minQty")),	
-                                          Decimal(min_notional_filter.get("minNotional"))))	
-            except Exception:	
-                BinanceMarket.logger().error(f"Error parsing the symbol rule {rule}. Skipping.", exc_info=True)	
-        return retval	
+    @classmethod
+    def parse_exchange_info(cls, exchange_info_dict: Dict[str, any]) -> List[TradingRule]:
+        cdef:
+            list symbol_rules = exchange_info_dict.get("symbols", [])
+            list retval = []
+        for rule in symbol_rules:
+            try:
+                symbol = rule.get("symbol")
+                filters = rule.get("filters")
+                price_filter = [f for f in filters if f.get("filterType") == "PRICE_FILTER"][0]
+                lot_size_filter = [f for f in filters if f.get("filterType") == "LOT_SIZE"][0]
+                min_notional_filter = [f for f in filters if f.get("filterType") == "MIN_NOTIONAL"][0]
+                retval.append(TradingRule(symbol,
+                                          Decimal(price_filter.get("tickSize")),
+                                          Decimal(lot_size_filter.get("stepSize")),
+                                          Decimal(lot_size_filter.get("minQty")),
+                                          Decimal(min_notional_filter.get("minNotional"))))
+            except Exception:
+                BinanceMarket.logger().error(f"Error parsing the symbol rule {rule}. Skipping.", exc_info=True)
+        return retval
 
-     def __init__(self, symbol: str, price_tick_size: Decimal, order_step_size: Decimal, min_order_size: Decimal,	
-                 min_notional_size: Decimal):	
-        self.symbol = symbol	
-        self.price_tick_size = price_tick_size	
-        self.order_step_size = order_step_size	
-        self.min_order_size = min_order_size	
-        self.min_notional_size = min_notional_size	
+    def __init__(self, symbol: str, price_tick_size: Decimal, order_step_size: Decimal, min_order_size: Decimal,
+                 min_notional_size: Decimal):
+        self.symbol = symbol
+        self.price_tick_size = price_tick_size
+        self.order_step_size = order_step_size
+        self.min_order_size = min_order_size
+        self.min_notional_size = min_notional_size
 
-     def __repr__(self) -> str:	
-        return f"TradingRule(symbol='{self.symbol}', price_tick_size={self.price_tick_size}, " \	
-               f"order_step_size={self.order_step_size}, min_order_size={self.min_order_size}, " \	
+    def __repr__(self) -> str:
+        return f"TradingRule(symbol='{self.symbol}', price_tick_size={self.price_tick_size}, " \
+               f"order_step_size={self.order_step_size}, min_order_size={self.min_order_size}, " \
                f"min_notional_size={self.min_notional_size})"
-
+ 
 
 cdef class BinanceMarket(MarketBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
