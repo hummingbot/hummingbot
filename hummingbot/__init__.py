@@ -12,7 +12,7 @@ from hummingbot.logger.struct_logger import (
 STRUCT_LOGGER_SET = False
 _prefix_path = None
 
-__all__ = ["root_path", "get_executor"]
+__all__ = ["root_path", "get_executor", "init_logging"]
 
 
 # Do not raise exceptions during log handling

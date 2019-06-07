@@ -55,7 +55,6 @@ from hummingbot.client.ui.parser import (
 from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
-from hummingbot.core.utils.symbol_splitter import SymbolSplitter
 from hummingbot.core.utils.wallet_setup import (
     create_and_save_wallet,
     import_and_save_wallet,
@@ -79,6 +78,7 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.settings import EXCHANGES
 from hummingbot.logger.report_aggregator import ReportAggregator
+from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import (
     CrossExchangeMarketMakingStrategy,
     CrossExchangeMarketPair,
@@ -101,8 +101,17 @@ from hummingbot.core.utils.ethereum import check_web3
 from hummingbot.core.utils.stop_loss_tracker import StopLossTracker
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
+from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 
 s_logger = None
+
+MARKET_CLASSES = {
+    "bamboo_relay": BambooRelayMarket,
+    "binance": BinanceMarket,
+    "coinbase_pro": CoinbaseProMarket,
+    "ddex": DDEXMarket,
+    "radar_relay": RadarRelayMarket,
+}
 
 
 class HummingbotApplication:
@@ -137,9 +146,10 @@ class HummingbotApplication:
         self.markets: Dict[str, MarketBase] = {}
         self.wallet: Optional[Web3Wallet] = None
         self.strategy_task: Optional[asyncio.Task] = None
-        self.strategy: Optional[CrossExchangeMarketMakingStrategy] = None
+        self.strategy: Optional[StrategyBase] = None
         self.market_pair: Optional[CrossExchangeMarketPair] = None
         self.market_info: Optional[MarketInfo] = None
+        self.market_symbol_pairs: List[MarketSymbolPair] = []
         self.clock: Optional[Clock] = None
 
         self.assets: Optional[Set[str]] = set()
@@ -188,8 +198,8 @@ class HummingbotApplication:
         success = True
         self.app.log("Cancelling outstanding orders...")
         for market_name, market in self.markets.items():
-            # By default, the bot does not cancel orders on exit on Radar Relay or Bamboo Relay, since all open orders will
-            # expire in a short window
+            # By default, the bot does not cancel orders on exit on Radar Relay or Bamboo Relay,
+            # since all open orders will expire in a short window
             if not on_chain_cancel_on_exit and (market_name == "radar_relay" or market_name == "bamboo_relay"):
                 continue
             cancellation_results = await market.cancel_all(self.KILL_TIMEOUT)
@@ -383,6 +393,12 @@ class HummingbotApplication:
             self.placeholder_mode = False
             self.app.change_prompt(prompt=">>> ")
 
+    @staticmethod
+    def _initialize_market_assets(market_name: str, symbols: List[str]) -> List[Tuple[str, str]]:
+        market: MarketBase = MARKET_CLASSES.get(market_name, MarketBase)
+        market_symbols: List[Tuple[str, str]] = [market.split_symbol(symbol) for symbol in symbols]
+        return market_symbols
+
     def _initialize_wallet(self, token_symbols: List[str]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
         erc20_token_addresses = get_erc20_token_addresses(token_symbols)
@@ -421,8 +437,8 @@ class HummingbotApplication:
 
             elif market_name == "bamboo_relay" and self.wallet:
                 market = BambooRelayMarket(wallet=self.wallet,
-                                          web3_url=ethereum_rpc_url,
-                                          symbols=symbols)
+                                           ethereum_rpc_url=ethereum_rpc_url,
+                                           symbols=symbols)
 
             elif market_name == "coinbase_pro":
                 coinbase_pro_api_key = global_config_map.get("coinbase_pro_api_key").value
@@ -696,25 +712,23 @@ class HummingbotApplication:
                 if regex.match(raw_maker_symbol) is not None:
                     top_depth_tolerance = tolerance_value
 
-            try:
-                maker_assets: Tuple[str, str] = SymbolSplitter.split(maker_market, raw_maker_symbol)
-                taker_assets: Tuple[str, str] = SymbolSplitter.split(taker_market, raw_taker_symbol)
-            except ValueError as e:
-                self.app.log(str(e))
-                return
-
             market_names: List[Tuple[str, List[str]]] = [
                 (maker_market, [raw_maker_symbol]),
                 (taker_market, [raw_taker_symbol])
             ]
+            try:
+                maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_symbol])[0]
+                taker_assets: Tuple[str, str] = self._initialize_market_assets(taker_market, [raw_taker_symbol])[0]
+            except ValueError as e:
+                self.app.log(str(e))
+                return
             self._initialize_wallet(token_symbols=list(set(maker_assets + taker_assets)))
             self._initialize_markets(market_names)
             self.assets = set(maker_assets + taker_assets)
-
-            self.market_pair = CrossExchangeMarketPair(*([self.markets[maker_market], raw_maker_symbol] +
-                                                         list(maker_assets) +
-                                                         [self.markets[taker_market], raw_taker_symbol] +
-                                                         list(taker_assets) + [top_depth_tolerance]))
+            maker_data = [self.markets[maker_market], raw_maker_symbol] + list(maker_assets)
+            taker_data = [self.markets[taker_market], raw_taker_symbol] + list(taker_assets)
+            self.market_symbol_pairs = [MarketSymbolPair(*maker_data), MarketSymbolPair(*taker_data)]
+            self.market_pair = CrossExchangeMarketPair(*(maker_data + taker_data + [top_depth_tolerance]))
 
             strategy_logging_options = (CrossExchangeMarketMakingStrategy.OPTION_LOG_CREATE_ORDER |
                                         CrossExchangeMarketMakingStrategy.OPTION_LOG_ADJUST_ORDER |
@@ -739,9 +753,9 @@ class HummingbotApplication:
             raw_secondary_symbol = strategy_cm.get("secondary_market_symbol").value.upper()
             min_profitability = strategy_cm.get("min_profitability").value
             try:
-                primary_assets: Tuple[str, str] = SymbolSplitter.split(primary_market, raw_primary_symbol)
-                secondary_assets: Tuple[str, str] = SymbolSplitter.split(secondary_market, raw_secondary_symbol)
-
+                primary_assets: Tuple[str, str] = self._initialize_market_assets(primary_market, [raw_primary_symbol])[0]
+                secondary_assets: Tuple[str, str] = self._initialize_market_assets(secondary_market,
+                                                                                   [raw_secondary_symbol])[0]
             except ValueError as e:
                 self.app.log(str(e))
                 return
@@ -752,16 +766,13 @@ class HummingbotApplication:
             self._initialize_markets(market_names)
             self.assets = set(primary_assets + secondary_assets)
 
-            self.market_pair = ArbitrageMarketPair(*([self.markets[primary_market], raw_primary_symbol] +
-                                                     list(primary_assets) +
-                                                     [self.markets[secondary_market], raw_secondary_symbol] +
-                                                     list(secondary_assets)))
-
-            strategy_logging_options = ArbitrageStrategy.OPTION_LOG_ALL
-
+            primary_data = [self.markets[primary_market], raw_primary_symbol] + list(primary_assets)
+            secondary_data = [self.markets[secondary_market], raw_secondary_symbol] + list(secondary_assets)
+            self.market_symbol_pairs = [MarketSymbolPair(*primary_data), MarketSymbolPair(*secondary_data)]
+            self.market_pair = ArbitrageMarketPair(*(primary_data + secondary_data))
             self.strategy = ArbitrageStrategy(market_pairs=[self.market_pair],
                                               min_profitability=min_profitability,
-                                              logging_options=strategy_logging_options)
+                                              logging_options=ArbitrageStrategy.OPTION_LOG_ALL)
 
         elif strategy_name == "pure_market_making":
             order_size = strategy_cm.get("order_amount").value
@@ -771,20 +782,20 @@ class HummingbotApplication:
             maker_market = strategy_cm.get("maker_market").value.lower()
             raw_maker_symbol = strategy_cm.get("maker_market_symbol").value.upper()
             try:
-                primary_assets: Tuple[str, str] = SymbolSplitter.split(maker_market, raw_maker_symbol)
-
+                maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_symbol])[0]
             except ValueError as e:
                 self.app.log(str(e))
                 return
 
             market_names: List[Tuple[str, List[str]]] = [(maker_market, [raw_maker_symbol])]
+            maker_data = [self.markets[maker_market], raw_maker_symbol] + list(maker_assets)
 
-            self._initialize_wallet(token_symbols=list(set(primary_assets)))
+            self._initialize_wallet(token_symbols=list(set(maker_assets)))
             self._initialize_markets(market_names)
-            self.assets = set(primary_assets)
-
+            self.assets = set(maker_assets)
+            self.market_symbol_pairs = [MarketSymbolPair(*maker_data)]
             self.market_info = MarketInfo(*([self.markets[maker_market], raw_maker_symbol] +
-                                            list(primary_assets)))
+                                            list(maker_assets)))
             strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
 
             self.strategy = PureMarketMakingStrategyV2(market_infos=[self.market_info],
@@ -811,17 +822,13 @@ class HummingbotApplication:
 
                 market_names: List[Tuple[str, List[str]]] = [(market_1, target_symbol_1),
                                                              (market_2, target_symbol_2)]
-
-                target_base_quote_1: List[Tuple[str, str]] = [
-                    SymbolSplitter.split(market_1, symbol) for symbol in target_symbol_1
-                ]
-                target_base_quote_2: List[Tuple[str, str]] = [
-                    SymbolSplitter.split(market_2, symbol) for symbol in target_symbol_2
-                ]
+                target_base_quote_1: List[Tuple[str, str]] = self._initialize_market_assets(market_1, target_symbol_1)
+                target_base_quote_2: List[Tuple[str, str]] = self._initialize_market_assets(market_2, target_symbol_2)
 
                 self._trading_required = False
                 self._initialize_wallet(token_symbols=[])  # wallet required only for dex hard dependency
                 self._initialize_markets(market_names)
+
                 self.market_pair = DiscoveryMarketPair(
                     *([self.markets[market_1], self.markets[market_1].get_active_exchange_markets] +
                       [self.markets[market_2], self.markets[market_2].get_active_exchange_markets]))
@@ -829,8 +836,7 @@ class HummingbotApplication:
                                                   target_symbols=target_base_quote_1 + target_base_quote_2,
                                                   equivalent_token=equivalent_token,
                                                   target_profitability=target_profitability,
-                                                  target_amount=target_amount
-                                                  )
+                                                  target_amount=target_amount)
             except Exception as e:
                 self.app.log(str(e))
                 self.logger().error("Error initializing strategy.", exc_info=True)
@@ -851,13 +857,13 @@ class HummingbotApplication:
                          f"  You can use the `status` command to query the progress.")
 
             self.starting_balances = await self.wait_till_ready(self.balance_snapshot)
-            self.stop_loss_tracker = StopLossTracker(self.data_feed,
-                                                     list(self.assets),
-                                                     list(self.markets.values()),
-                                                     lambda *args, **kwargs: asyncio.ensure_future(
-                                                         self.stop(*args, **kwargs)
-                                                     ))
-            await self.wait_till_ready(self.stop_loss_tracker.start)
+            if self._trading_required:
+                self.stop_loss_tracker = StopLossTracker(self.data_feed,
+                                                         self.market_symbol_pairs,
+                                                         lambda *args, **kwargs: asyncio.ensure_future(
+                                                             self.stop(*args, **kwargs)
+                                                         ))
+                await self.wait_till_ready(self.stop_loss_tracker.start)
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
 

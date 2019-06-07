@@ -1,5 +1,7 @@
 from typing import (
     List)
+
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.core.time_iterator cimport TimeIterator
@@ -7,6 +9,7 @@ from hummingbot.market.market_base cimport MarketBase
 import pandas as pd
 from hummingbot.core.data_type.trade import Trade
 from hummingbot.core.event.events import OrderFilledEvent
+NaN = float("nan")
 
 
 cdef class StrategyBase(TimeIterator):
@@ -120,4 +123,18 @@ cdef class StrategyBase(TimeIterator):
             if quote_balance <= 0.0001:
                 warning_lines.append(f"  {market_symbol_pair.market.name} market "
                                      f"{market_symbol_pair.quote_asset} balance is too low. Cannot place order.")
+        return warning_lines
+
+    def network_warning(self, market_symbol_pairs: List[MarketSymbolPair]) -> List[str]:
+        cdef:
+            list warning_lines = []
+            str trading_pairs
+        if not all([market_symbol_pair.market.network_status is NetworkStatus.CONNECTED for
+                    market_symbol_pair in market_symbol_pairs]):
+            trading_pairs = " // ".join([market_symbol_pair.trading_pair for market_symbol_pair in market_symbol_pairs])
+            warning_lines.extend([
+                f"  Markets are offline for the {trading_pairs} pair. Continued trading "
+                f"with these markets may be dangerous.",
+                ""
+            ])
         return warning_lines
