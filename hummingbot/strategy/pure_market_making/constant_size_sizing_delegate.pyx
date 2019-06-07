@@ -1,3 +1,4 @@
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import MarketBase
 
@@ -25,8 +26,20 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
             double quote_asset_balance = market.c_get_balance(market_info.quote_currency)
             double bid_order_size = self._order_size
             double ask_order_size = self._order_size
+            bint has_active_bid = False
+            bint has_active_ask = False
+
+        for active_order in active_orders:
+            if active_order.is_buy:
+                has_active_bid = True
+            else:
+                has_active_ask = True
 
         return SizingProposal(
-            (bid_order_size if quote_asset_balance > pricing_proposal.buy_order_price * bid_order_size else 0.0),
-            (ask_order_size if base_asset_balance > ask_order_size else 0.0)
+            (bid_order_size
+             if quote_asset_balance > pricing_proposal.buy_order_price * bid_order_size and not has_active_bid
+             else 0.0),
+            (ask_order_size
+             if base_asset_balance > ask_order_size and not has_active_ask else
+             0.0)
         )

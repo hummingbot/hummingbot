@@ -110,6 +110,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION = 60.0
     CANCEL_EXPIRY_DURATION = 60.0
 
+    NO_OP_ORDERS_PROPOSAL = OrdersProposal(0, OrderType.LIMIT, 0, 0, OrderType, 0, 0, [])
+
     # These are exchanges where you're expected to expire orders instead of actively cancelling them.
     RADAR_RELAY_TYPE_EXCHANGES = {"radar_relay", "bamboo_relay"}
 
@@ -150,6 +152,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._shadow_order_id_to_market_info = {}
         # For cleaning up limit orders
         self._shadow_gc_requests = deque()
+        # For remembering when to expire orders.
         self._time_to_cancel = {}
         self._in_flight_cancels = {}
 
@@ -222,6 +225,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     @property
     def active_asks(self) -> List[Tuple[MarketBase, LimitOrder]]:
         return [(market, limit_order) for market, limit_order in self.active_maker_orders if not limit_order.is_buy]
+
+    @property
+    def in_flight_cancels(self) -> Dict[str, float]:
+        return self._in_flight_cancels
 
     @property
     def logging_options(self) -> int:
@@ -358,6 +365,12 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         return self._sizing_delegate.c_get_order_size_proposal(
             self, market_info, active_orders, pricing_proposal
         )
+
+
+    def get_orders_proposal_for_market_info(self,
+                                            market_info: MarketInfo,
+                                            active_orders: List[LimitOrder]) -> OrdersProposal:
+        return self.c_get_orders_proposal_for_market_info(market_info, active_orders)
     # ---------------------------------------------------------------
 
     cdef c_buy_with_specific_market(self, MarketBase market, str symbol, double amount,
@@ -406,7 +419,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         # Track the cancel and tell maker market to cancel the order.
         self._in_flight_cancels[order_id] = self._current_timestamp
-        market.c_cancel(market.symbol, order_id)
+        market.c_cancel(market_info.symbol, order_id)
 
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
@@ -450,8 +463,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     self.logger().error("Unknown error while generating order proposals.", exc_info=True)
                 finally:
                     self._delegate_lock = False
-                if orders_proposal is not None:
-                    self.c_execute_orders_proposal(market_info, orders_proposal)
+                self.c_execute_orders_proposal(market_info, orders_proposal)
 
             self.c_check_and_cleanup_shadow_records()
         finally:
@@ -461,53 +473,46 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         cdef:
             double last_trade_price
             MarketBase maker_market = market_info.market
-            bint should_proceed = False
+            int actions = 0
+            list cancel_order_ids = []
 
         # Before doing anything, ask the filter delegate whether to proceed or not.
         if not self._filter_delegate.c_should_proceed_with_processing(self, market_info, active_orders):
-            return None
+            return self.NO_OP_ORDERS_PROPOSAL
 
-        if len(active_orders) < 1:
-            # If there are no active orders, then do the following:
-            #  1. Ask the pricing delegate on what are the order prices.
-            #  2. Ask the sizing delegate on what are the order sizes.
-            #  3. Combine the proposals to an orders proposal object.
-            #  4. Send the proposal to filter delegate to get the final proposal (or None).
-            #  5. Submit / cancel orders as needed.
-            pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self, market_info, active_orders)
-            sizing_proposal = self._sizing_delegate.c_get_order_size_proposal(self,
-                                                                              market_info,
-                                                                              active_orders,
-                                                                              pricing_proposal)
-            orders_proposal = OrdersProposal(ORDER_PROPOSAL_ACTION_CREATE_ORDERS,
-                                             OrderType.LIMIT,
-                                             pricing_proposal.buy_order_price,
-                                             sizing_proposal.buy_order_size,
-                                             OrderType.LIMIT,
-                                             pricing_proposal.sell_order_price,
-                                             sizing_proposal.sell_order_size,
-                                             [])
-            return self._filter_delegate.c_filter_orders_proposal(self,
-                                                                  market_info,
-                                                                  active_orders,
-                                                                  orders_proposal)
-        else:
-            # If there are active orders, then do the following:
-            #  1. Check the time to cancel for this market info, and see if cancellation should be proposed.
-            #  2. Send the proposals (which may be a do-nothing proposal) to filter delegate.
-            #  3. Execute the final proposal from filter delegate.
-            if maker_market.name in self.RADAR_RELAY_TYPE_EXCHANGES:
-                return None
+        # If there are no active orders, then do the following:
+        #  1. Ask the pricing delegate on what are the order prices.
+        #  2. Ask the sizing delegate on what are the order sizes.
+        #  3. Set the actions to carry out in the orders proposal to include create orders.
+        pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self, market_info, active_orders)
+        sizing_proposal = self._sizing_delegate.c_get_order_size_proposal(self,
+                                                                          market_info,
+                                                                          active_orders,
+                                                                          pricing_proposal)
+        if sizing_proposal.buy_order_size > 0 or sizing_proposal.sell_order_size > 0:
+            actions |= ORDER_PROPOSAL_ACTION_CREATE_ORDERS
 
-            if self._current_timestamp >= self._time_to_cancel[market_info]:
-                cancel_proposal = OrdersProposal(ORDER_PROPOSAL_ACTION_CANCEL_ORDERS,
-                                                 OrderType.LIMIT, 0, 0, OrderType.LIMIT, 0, 0,
-                                                 [active_order.client_order_id for active_order in active_orders])
-                return self._filter_delegate.c_filter_orders_proposal(self,
-                                                                      market_info,
-                                                                      active_orders,
-                                                                      cancel_proposal)
-        return None
+        if maker_market.name not in self.RADAR_RELAY_TYPE_EXCHANGES:
+            for active_order in active_orders:
+                # If there are active orders, and active order cancellation is needed, then do the following:
+                #  1. Check the time to cancel for each order, and see if cancellation should be proposed.
+                #  2. Record each order id that needs to be cancelled.
+                #  3. Set action to include cancel orders.
+                if self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
+                    cancel_order_ids.append(active_order.client_order_id)
+
+            if len(cancel_order_ids) > 0:
+                actions |= ORDER_PROPOSAL_ACTION_CANCEL_ORDERS
+
+        return OrdersProposal(actions,
+                              OrderType.LIMIT,
+                              pricing_proposal.buy_order_price,
+                              sizing_proposal.buy_order_size,
+                              OrderType.LIMIT,
+                              pricing_proposal.sell_order_price,
+                              sizing_proposal.sell_order_size,
+                              cancel_order_ids)
+
 
     cdef c_did_fill_order(self, object order_filled_event):
         cdef:
@@ -639,6 +644,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         # Cancel orders.
         if actions & ORDER_PROPOSAL_ACTION_CANCEL_ORDERS:
             for order_id in orders_proposal.cancel_order_ids:
+                self.log_with_clock(
+                    logging.INFO,
+                    f"({market_info.symbol}) Cancelling the limit order {order_id}."
+                )
                 self.c_cancel_order(market_info, order_id)
 
         # Create orders.
@@ -667,6 +676,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         orders_proposal.buy_order_price,
                         orders_proposal.buy_order_size
                     )
+                    self._time_to_cancel[bid_order_id] = self._current_timestamp + self._cancel_order_wait_time
                 elif orders_proposal.buy_order_type is OrderType.MARKET:
                     raise RuntimeError("Market buy order in orders proposal is not supported yet.")
 
@@ -694,5 +704,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         orders_proposal.sell_order_price,
                         orders_proposal.sell_order_size
                     )
+                    self._time_to_cancel[ask_order_id] = self._current_timestamp + self._cancel_order_wait_time
                 elif orders_proposal.sell_order_type is OrderType.MARKET:
                     raise RuntimeError("Market sell order in orders proposal is not supported yet.")

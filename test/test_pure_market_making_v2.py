@@ -184,3 +184,160 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.strategy.active_bids))
         self.assertEqual(1, len(self.strategy.active_asks))
 
+    def test_correct_price_correct_size(self):
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(self.mid_price*(1 + self.ask_threshold),
+                         self.strategy.active_asks[0][1].price)
+        self.assertEqual(self.mid_price*(1 - self.bid_threshold),
+                         self.strategy.active_bids[0][1].price)
+        self.assertEqual(1, self.strategy.active_bids[0][1].quantity)
+        self.assertEqual(1, self.strategy.active_asks[0][1].quantity)
+
+    def test_check_sufficient_balance(self):
+        self.maker_market.set_balance("WETH", 0)
+        end_ts = self.start_timestamp + self.clock_tick_size
+        self.clock.backtest_til(end_ts)
+        self.assertEqual(0, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))
+
+        self.maker_market.set_balance("COINALPHA", 0)
+        end_ts += self.clock_tick_size
+        self.clock.backtest_til(end_ts)
+        self.assertEqual(0, len(self.strategy.active_bids))
+        self.assertEqual(0, len(self.strategy.active_asks))
+
+        self.maker_market.set_balance("COINALPHA", 500)
+        self.maker_market.set_balance("WETH", 500)
+        end_ts += self.clock_tick_size
+        self.clock.backtest_til(end_ts)
+        self.assertEqual(1, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))
+
+    def test_check_if_active_orders_are_cancelled_every_tick(self):
+        end_ts = self.start_timestamp + self.clock_tick_size
+        self.clock.backtest_til(end_ts)
+        old_bid = self.strategy.active_bids[0][1]
+        old_ask = self.strategy.active_asks[0][1]
+        self.assertEqual(1, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))
+        end_ts += self.clock_tick_size + 1
+        self.clock.backtest_til(end_ts)
+        new_bid = self.strategy.active_bids[0][1]
+        new_ask = self.strategy.active_asks[0][1]
+        self.assertNotEqual(old_ask, new_ask)
+        self.assertNotEqual(old_bid, new_bid)
+
+    def test_order_fills(self):
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))
+
+        bid_order: LimitOrder = self.strategy.active_bids[0][1]
+        ask_order: LimitOrder = self.strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), bid_order.price)
+        self.assertEqual(Decimal("101"), ask_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+
+        self.simulate_maker_market_trade(True, 5.0)
+
+        self.clock.backtest_til(self.start_timestamp + 2*self.clock_tick_size+1)
+        self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+
+        maker_fill: OrderFilledEvent = self.maker_order_fill_logger.event_log[0]
+        self.assertEqual(TradeType.SELL, maker_fill.trade_type)
+        self.assertAlmostEqual(101, maker_fill.price)
+        self.assertAlmostEqual(1.0, maker_fill.amount)
+
+    def test_market_become_wider(self):
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+
+        bid_order: LimitOrder = self.strategy.active_bids[0][1]
+        ask_order: LimitOrder = self.strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), bid_order.price)
+        self.assertEqual(Decimal("101"), ask_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+
+        self.simulate_order_book_widening(self.maker_data.order_book, 90, 110)
+
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        self.assertEqual(2, len(self.cancel_order_logger.event_log))
+        self.assertEqual(1, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))
+
+        bid_order: LimitOrder = self.strategy.active_bids[0][1]
+        ask_order: LimitOrder = self.strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), bid_order.price)
+        self.assertEqual(Decimal("101"), ask_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+
+    def test_market_became_narrower(self):
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        bid_order: LimitOrder = self.strategy.active_bids[0][1]
+        ask_order: LimitOrder = self.strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), bid_order.price)
+        self.assertEqual(Decimal("101"), ask_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+
+        self.maker_data.order_book.apply_diffs([OrderBookRow(99.5, 30, 2)], [OrderBookRow(100.5, 30, 2)], 2)
+
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        self.assertEqual(1, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))
+
+        bid_order = self.strategy.active_bids[0][1]
+        ask_order = self.strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), bid_order.price)
+        self.assertEqual(Decimal("101"), ask_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+
+    def test_order_fills_after_cancellation(self):
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        bid_order: LimitOrder = self.strategy.active_bids[0][1]
+        ask_order: LimitOrder = self.strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), bid_order.price)
+        self.assertEqual(Decimal("101"), ask_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        self.assertEqual(2, len(self.cancel_order_logger.event_log))
+        bid_order: LimitOrder = self.strategy.active_bids[0][1]
+        ask_order: LimitOrder = self.strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), bid_order.price)
+        self.assertEqual(Decimal("101"), ask_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+
+        self.simulate_limit_order_fill(self.maker_market, bid_order)
+        self.simulate_limit_order_fill(self.maker_market, ask_order)
+
+        fill_events = self.maker_order_fill_logger.event_log
+        self.assertEqual(2, len(fill_events))
+        bid_fills: List[OrderFilledEvent] = [evt for evt in fill_events if evt.trade_type is TradeType.SELL]
+        ask_fills: List[OrderFilledEvent] = [evt for evt in fill_events if evt.trade_type is TradeType.BUY]
+        self.assertEqual(1, len(bid_fills))
+        self.assertEqual(1, len(ask_fills))
+
+    def test_strategy_after_user_cancels_orders(self):
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))
+
+        bid_order: LimitOrder = self.strategy.active_bids[0][1]
+        ask_order: LimitOrder = self.strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), bid_order.price)
+        self.assertEqual(Decimal("101"), ask_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+
+        self.strategy.cancel_order(self.market_info, bid_order.client_order_id)
+        self.strategy.cancel_order(self.market_info, ask_order.client_order_id)
+
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        self.assertEqual(0, len(self.strategy.active_bids))
+        self.assertEqual(0, len(self.strategy.active_asks))
