@@ -207,14 +207,13 @@ class HummingbotApplication:
         on_chain_cancel_on_exit = global_config_map.get("on_chain_cancel_on_exit").value
         success = True
         kill_timeout: float = self.KILL_TIMEOUT
-        self.app.log("Cancelling outstanding orders...")
         self._notify("Cancelling outstanding orders...")
 
-        if market_name == "idex":
-            self.app.log(f"IDEX cancellations may take up to {int(self.IDEX_KILL_TIMEOUT)} seconds...")
-            kill_timeout = self.IDEX_KILL_TIMEOUT
 
         for market_name, market in self.markets.items():
+            if market_name == "idex":
+                self._notify(f"IDEX cancellations may take up to {int(self.IDEX_KILL_TIMEOUT)} seconds...")
+                kill_timeout = self.IDEX_KILL_TIMEOUT
             # By default, the bot does not cancel orders on exit on Radar Relay or Bamboo Relay,
             # since all open orders will expire in a short window
             if not on_chain_cancel_on_exit and (market_name == "radar_relay" or market_name == "bamboo_relay"):
