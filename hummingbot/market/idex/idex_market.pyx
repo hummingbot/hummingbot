@@ -491,6 +491,7 @@ cdef class IDEXMarket(MarketBase):
                                   json=json) as response:
             data = await response.json()
             if response.status != 200:
+                print('******** ERROR', response.status, data)
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status} - {data}")
             # Keep an auto-expired record of the response and the request URL for debugging and logging purpose.
             self._api_response_records[url] = response
@@ -554,7 +555,7 @@ cdef class IDEXMarket(MarketBase):
             ["nonce", nonce, "uint256"],
             ["address", self._wallet.address.lower(), "address"]
         ]
-        vrs = generate_vrs(hash_data, self.wallet.private_key, self._w3)
+        vrs = generate_vrs(hash_data, self.wallet.private_key)
         return {
             "contractAddress": self._contract_address,
             "tokenBuy": token_buy,
@@ -577,7 +578,7 @@ cdef class IDEXMarket(MarketBase):
             ["orderHash", order_hash, "address"],
             ["nonce", nonce, "uint256"]
         ]
-        vrs = generate_vrs(hash_data, self.wallet.private_key, self._w3)
+        vrs = generate_vrs(hash_data, self.wallet.private_key)
         return {
             "orderHash": order_hash,
             "address": self._wallet.address,
@@ -614,7 +615,7 @@ cdef class IDEXMarket(MarketBase):
                 ["address", self._wallet.address, "address"],
                 ["nonce", self._next_nonce, "uint256"]
             ]
-            vrs = generate_vrs(hash_data, self.wallet.private_key, self._w3) 
+            vrs = generate_vrs(hash_data, self.wallet.private_key) 
             market_orders.append({
                 "amount": str(int(amount_quote)), # amount is required to be a string (IDEX API bug)
                 "orderHash": o["orderHash"],
@@ -658,7 +659,7 @@ cdef class IDEXMarket(MarketBase):
                 ["address", self._wallet.address, "address"],
                 ["nonce", self._next_nonce, "uint256"]
             ]
-            vrs = generate_vrs(hash_data, self.wallet.private_key, self._w3) 
+            vrs = generate_vrs(hash_data, self.wallet.private_key) 
             market_orders.append({
                 "amount": str(int(amount_base)), # amount is required to be a string; IDEX API bug
                 "orderHash": o["orderHash"],

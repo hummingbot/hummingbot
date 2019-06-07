@@ -43,7 +43,7 @@ def zpad(x, l):
 def encode_int32(v):
     return zpad(int_to_big_endian(v), 32)
 
-def generate_vrs(data: List[List[Any]], private_key: str, w3) -> Dict[str, Any]:
+def generate_vrs(data: List[List[Any]], private_key: str) -> Dict[str, Any]:
     # pack parameters based on type
     sig_str = b""
     for d in data:
@@ -57,7 +57,6 @@ def generate_vrs(data: List[List[Any]], private_key: str, w3) -> Dict[str, Any]:
         sig_str += val
     # hash the packed string
     rawhash = sha3(codecs.decode(sig_str, "hex_codec"))
-    # print("*******rawhash", w3.toHex(rawhash))
     # salt the hashed packed string
     salted = sha3(u"\x19Ethereum Signed Message:\n32".encode("utf-8") + rawhash)
     # sign string
