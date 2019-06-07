@@ -24,11 +24,19 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | [![Radar Relay](https://i.ibb.co/7RW75mf/Screen-Shot-2019-03-14-at-10-47-07-AM.png)](https://radarrelay.com/) | radar_relay | [Radar Relay](https://radarrelay.com/) | 2 | [API](https://developers.radarrelay.com/api/trade-api) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-exchange_radar_relay&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-exchange_radar_relay/) |
 | [![DDEX](https://i.ibb.co/Lrpps2G/Screen-Shot-2019-03-14-at-10-39-23-AM.png)](https://ddex.io/) | ddex | [DDEX](https://ddex.io/) | 3 | [API](https://docs.ddex.io/) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-exchange_ddex&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-exchange_ddex/) |
 | [![COINBASE](https://i.ibb.co/h9JdGDW/cbp.jpg)](https://pro.coinbase.com/) | coinbase_pro | [Coinbase Pro](https://pro.coinbase.com/) | * | [API](https://docs.pro.coinbase.com/) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-exchange_coinbase&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-exchange_coinbase/) |
+| [![IDEX](https://i.ibb.co/k97fzrg/idex.png)](https://idex.market/) | idex | [IDEX](https://idex.market/) | * | [API](https://docs.idex.market/) | |
+
+## Community contributed exchanges
+
+| logo | id | name | ver | doc|
+|:---:|:---:|:---:|:---:|:---:|
+| [![Bamboo Relay](https://i.ibb.co/1sPt940/Screen-Shot-2019-06-06-at-17-50-04.png)](https://bamboorelay.com/) | bamboo_relay | [Bamboo Relay](https://bamboorelay.com/) | * | [API](https://sra.bamboorelay.com/) |
 
 ## Currently available strategies
 
 | Strategy | Test |
 |--|--|
+| [Pure market making](https://docs.hummingbot.io/strategies/pure-market-making/) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-strategy_pure-mm&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-strategy_pure-mm/) |
 | [Cross exchange market making](https://docs.hummingbot.io/strategies/cross-exchange-market-making/) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-strategy_xemm&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-strategy_xemm/) |
 | [Arbitrage](https://docs.hummingbot.io/strategies/arbitrage/) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-strategy_arbitrage&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-strategy_arbitrage/) |
 | [Discovery](https://docs.hummingbot.io/strategies/discovery/) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-strategy_discovery&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-strategy_discovery/) |
