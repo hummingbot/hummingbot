@@ -6,7 +6,7 @@ Docker images of `hummingbot` are available on Docker Hub at [coinalpha/hummingb
 
 ## Docker installation for MacOS/Linux
 
-If you do not already have Docker on your system, you will need to download the installer from the following link: [Docker Installer Downloads](https://docs.docker.com/v17.12/install/#supported-platforms)
+If you do not already have Docker on your system, you will need to download the installer from the following link: [Docker Installer Downloads](https://docs.docker.com/v17.12/install/#supported-platforms).
 
 Run the installer, and restart your computer if necessary. You should now be able to run Docker from your terminal window.
 
