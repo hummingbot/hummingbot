@@ -72,10 +72,10 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     exit_parser = subparsers.add_parser("exit", help="Securely exit the command line")
     exit_parser.add_argument("-f", "--force", action="store_true", help="Does not cancel outstanding orders",
                              default=False)
-    exit_parser.set_defaults(func=lambda **kwargs: asyncio.ensure_future(hummingbot.exit(**kwargs)))
+    exit_parser.set_defaults(func=hummingbot.exit)
 
-    stop_parser = subparsers.add_parser("stop", help="Stop the bot\"s active strategy")
-    stop_parser.set_defaults(func=lambda **kwargs: asyncio.ensure_future(hummingbot.stop(**kwargs)))
+    stop_parser = subparsers.add_parser('stop', help='Stop the bot\'s active strategy')
+    stop_parser.set_defaults(func=hummingbot.stop)
 
     export_private_key_parser = subparsers.add_parser("export_private_key", help="Print your account private key")
     export_private_key_parser.set_defaults(func=lambda: asyncio.ensure_future(hummingbot.export_private_key()))
