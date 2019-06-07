@@ -727,9 +727,11 @@ cdef class IDEXMarket(MarketBase):
         return response_data
 
     async def get_idex_balances(self) -> Dict[str, float]:
-        url = f"{self.IDEX_REST_ENDPOINT}/returnBalances"
+        url = f"{self.IDEX_REST_ENDPOINT}/returnCompleteBalances"
         response_data = await self._api_request("get", url=url, params={"address": self._wallet.address})
-        balances = dict(zip(response_data.keys(), [float(value) for value in response_data.values()]))
+        balances = {}
+        for asset, value in response_data.items():
+            balances[asset] = float(Decimal(value["available"]) + Decimal(value["onOrders"]))
         return balances
 
     async def get_next_nonce(self) -> str:
