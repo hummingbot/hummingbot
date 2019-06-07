@@ -4,6 +4,39 @@ Using a pre-compiled version of `hummingbot` from Docker allows you to run `humm
 
 Docker images of `hummingbot` are available on Docker Hub at [coinalpha/hummingbot](https://hub.docker.com/r/coinalpha/hummingbot).
 
+## Docker installation for Windows
+
+For Windows users without Windows-Pro or Windows-Enterprise, you will need to install the Docker Toolbox. Download the latest version Toolbox .exe file at the following link: [Docker Toolbox Releases](https://github.com/docker/toolbox/releases/).
+
+Install Toolbox from the .exe file, including VirtualBox and Git if you do not have those on your computer. Otherwise, maintain default settings and restart after installation.
+
+You can now open Docker via the Quickstart Terminal. On the first start-up, give the Toolbox a few minutes to initialize.
+
+## Create new instance of `hummingbot` (Windows)
+
+``` bash tab="Terminal: Start hummingbot with Docker"
+# 1) Create a label for your container and specify which docker 
+#    image of hummingbot to use
+export NAME=myhummingbot && \
+export TAG=latest
+
+# 2) Specify the path to folders where you would like to save
+#    your config and log files
+export CONF_PATH=~/hummingbot_conf && \
+export LOGS_PATH=~/hummingbot_logs
+
+# 3) If the folders do not exist, create them:
+mkdir ~/hummingbot_conf && \
+mkdir ~/hummingbot_logs
+
+# 4) Launch hummingbot with the parameters you specified
+docker run -it \
+--name $NAME \
+--mount "type=bind,source=$CONF_PATH,destination=/conf/" \
+--mount "type=bind,source=$LOGS_PATH,destination=/logs/" \
+coinalpha/hummingbot:$TAG
+```
+
 ## Create new instance of `hummingbot`
 
 ``` bash tab="Terminal: Start hummingbot with Docker"
