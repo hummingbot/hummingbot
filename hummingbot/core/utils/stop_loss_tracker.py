@@ -9,7 +9,7 @@ from typing import (
 
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.market.market_base import MarketBase
+from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.logger import HummingbotLogger
 
 
@@ -24,12 +24,10 @@ class StopLossTracker:
 
     def __init__(self,
                  data_feed: DataFeedBase,
-                 assets: List[str],
-                 markets: List[MarketBase],
+                 market_symbol_pairs: List[MarketSymbolPair],
                  stop_handler: Callable):
         self._data_feed: DataFeedBase = data_feed
-        self._markets: List[MarketBase] = markets
-        self._assets: List[str] = assets
+        self._market_symbol_pairs: List[MarketSymbolPair] = market_symbol_pairs
         self._stop_handler: Callable = stop_handler
         self._stop_loss_pct = global_config_map.get("stop_loss_pct").value
         self._stop_loss_price_type = global_config_map.get("stop_loss_price_type").value
@@ -48,10 +46,15 @@ class StopLossTracker:
 
     def get_balances(self) -> Dict[str, float]:
         balance_dict: Dict[str, float] = {}
-        for asset in self._assets:
-            balance_dict[asset] = 0.0
-            for market in self._markets:
-                balance_dict[asset] += market.get_balance(asset)
+        for market_symbol_pair in self._market_symbol_pairs:
+            b = market_symbol_pair.base_asset
+            q = market_symbol_pair.quote_asset
+            market_symbol_pair.market.get_balance(b)
+            market_symbol_pair.market.get_balance(q)
+            balance_dict[b] = balance_dict.get(b) or 0.0
+            balance_dict[q] = balance_dict.get(q) or 0.0
+            balance_dict[b] += market_symbol_pair.market.get_balance(b)
+            balance_dict[q] += market_symbol_pair.market.get_balance(q)
         return balance_dict
 
     async def stop_loss_loop(self):
@@ -70,10 +73,15 @@ class StopLossTracker:
             await asyncio.sleep(self._update_interval)
 
     def calculate_profit_loss_pct(self, stop_loss_type: str) -> float:
-        def calculate_total(balances, prices):
+        def calculate_total(balances, data_feed_prices):
             total_value: float = 0.0
-            for asset in self._assets:
-                total_value += balances[asset] * prices[asset]
+            for market_symbol_pair in self._market_symbol_pairs:
+                market, tp, b, q = market_symbol_pair
+                base_price = (market.get_price(tp, True) + market.get_price(tp, False)) / 2
+                total_value += balances[q] * data_feed_prices[q]
+                # Not using base price in data feed because an new / smaller base tokens sometimes don't get
+                # included in the price feed
+                total_value += balances[b] * base_price * data_feed_prices[q]
             return total_value
 
         starting_total = calculate_total(self._starting_balances, self._starting_prices)

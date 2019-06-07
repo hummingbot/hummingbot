@@ -3,6 +3,7 @@ import pandas as pd
 from typing import (
     Dict,
     List,
+    Tuple,
 )
 
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -41,6 +42,13 @@ cdef class MarketBase(NetworkIterator):
         for event_tag in self.MARKET_EVENTS:
             self.c_add_listener(event_tag.value, self.event_reporter)
             self.c_add_listener(event_tag.value, self.event_logger)
+
+    @staticmethod
+    def split_symbol(symbol: str) -> Tuple[str, str]:
+        try:
+            return tuple(symbol.split('-'))
+        except Exception:
+            raise ValueError(f"Error parsing symbol {symbol}")
 
     @property
     def status_dict(self) -> Dict[str, bool]:
