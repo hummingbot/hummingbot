@@ -1,38 +1,41 @@
 node {
-    def testName = "discovery strategy"
-    def path = "/root/miniconda/bin"
-    def envPath = "/root/miniconda/envs/hummingbot/bin"
+    def testName = 'discovery strategy'
+    def condaPath = '/root/miniconda'
+    def path = "${condaPath}/bin"
+    def hbPath = "${condaPath}/envs/hummingbot"
+    def envPath = "${hbPath}/bin"
 
     try {
-      notifyBuild("STARTED", testName)
+      notifyBuild('STARTED', testName)
 
-      stage("Clone repository") {
+      stage('Clone repository') {
         /* Clone repository to jenkins workspace */
         checkout scm
       }
 
-      stage("Build hummingbot") {
+      stage('Build hummingbot') {
         // Clean-up environment
         sh ". ${path}/deactivate"
-        sh "./uninstall"
+        sh './uninstall'
+        sh "rm -rf ${hbPath}"
 
         // Install hummingbot
-        sh "./install"
+        sh './install'
         sh ". ${path}/activate hummingbot"
 
         // ./compile
         sh "${envPath}/python setup.py build_ext --inplace"
       }
 
-      stage("Run tests") {
+      stage('Run tests') {
         sh "${envPath}/nosetests -v test/test_discovery_strategy.py"
       }
 
     } catch (c) {
       // If there was an exception thrown, the tests failed
-      sh "echo 'catch: '${c}"
+      sh "echo catch: ${c}"
  
-      currentBuild.result = "FAILED"
+      currentBuild.result = 'FAILED'
       throw e      
     } finally {
       // Success or failure, always send notifications
@@ -40,22 +43,22 @@ node {
     }
 }
 
-def notifyBuild(String buildStatus = "STARTED", String testName = "not defined") {
+def notifyBuild(String buildStatus = 'STARTED', String testName = 'not defined') {
   // build status of null means successful
   buildStatus =  buildStatus ?: 'SUCCESSFUL'
   
   // Default values
-  def result = "FAILURE"
+  def result = 'FAILURE'
 
   // Override default values based on build status
-  if (buildStatus == "STARTED") {
+  if (buildStatus == 'STARTED') {
     buildStatus = "Initiating ${testName} test... "
-    result = "UNSTABLE"
-  } else if (buildStatus == "SUCCESSFUL") {
-    buildStatus = "TEST PASSED"
-    result = "SUCCESS"
-  } else if (buildStatus == "FAILED") {
-    buildStatus = "TEST FAILED"
+    result = 'UNSTABLE'
+  } else if (buildStatus == 'SUCCESSFUL') {
+    buildStatus = 'TEST PASSED'
+    result = 'SUCCESS'
+  } else if (buildStatus == 'FAILED') {
+    buildStatus = 'TEST FAILED'
   }
 
   def subject = "${buildStatus}: [${env.JOB_NAME}_${env.BUILD_NUMBER}]"

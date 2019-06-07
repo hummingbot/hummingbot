@@ -493,7 +493,15 @@ cdef class CoinbaseProMarket(MarketBase):
                     TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
                     order_type,
                     execute_price,
-                    execute_amount_diff
+                    execute_amount_diff,
+                    self.c_get_fee(
+                          tracked_order.base_asset,
+                          tracked_order.quote_asset,
+                          order_type,
+                          TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
+                          execute_price,
+                          execute_amount_diff,
+                    )
                 )
                 self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                    f"{order_type_description} order {client_order_id}.")
@@ -647,14 +655,24 @@ cdef class CoinbaseProMarket(MarketBase):
 
                 # Emit event if executed amount is greater than 0.
                 if execute_amount_diff > 0:
+                    order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
+                    trade_type = TradeType.BUY if tracked_order.is_buy else TradeType.SELL
                     order_filled_event = OrderFilledEvent(
                         self._current_timestamp,
                         tracked_order.client_order_id,
                         tracked_order.symbol,
-                        TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
-                        OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT,
+                        trade_type,
+                        order_type,
                         execute_price,
-                        execute_amount_diff
+                        execute_amount_diff,
+                        self.c_get_fee(
+                          tracked_order.base_asset,
+                          tracked_order.quote_asset,
+                          order_type,
+                          trade_type,
+                          execute_price,
+                          execute_amount_diff,
+                        )
                     )
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"{order_type_description} order {tracked_order.client_order_id}.")
