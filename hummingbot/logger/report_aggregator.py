@@ -87,7 +87,7 @@ class ReportAggregator:
                 _open_orders = defaultdict(list)
 
                 for maker_market, order in self.hummingbot_app.strategy.active_maker_orders:
-                    key = f"{maker_market.__class__.__name__}.{order.symbol}"
+                    key = f"{maker_market.name}.{order.symbol}"
                     _open_orders[key].append(order.price * order.quantity)
                 for market_name, quote_volumes in _open_orders.items():
                     metric_name = f"open_order_quote_volume_sum.{market_name}"

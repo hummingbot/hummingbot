@@ -232,7 +232,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             # Get some basic info about the market pair.
             maker_market = market_pair.maker_market
             maker_symbol = market_pair.maker_symbol
-            maker_name = maker_market.__class__.__name__
+            maker_name = maker_market.name
             maker_base = market_pair.maker_base_currency
             maker_quote = market_pair.maker_quote_currency
             maker_order_book = maker_market.c_get_order_book(maker_symbol)
