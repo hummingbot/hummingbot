@@ -57,8 +57,8 @@ class PureMarketMakingUnitTest(unittest.TestCase):
         self.bid_threshold = 0.01
         self.ask_threshold = 0.01
         self.cancel_order_wait_time = 45
-        self.maker_data.set_balanced_order_book(mid_price= self.mid_price, min_price= 1,
-                                                max_price= 200, price_step_size= 1, volume_step_size= 10)
+        self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
+                                                max_price=200, price_step_size=1, volume_step_size=10)
         self.maker_market.add_data(self.maker_data)
         self.maker_market.set_balance("COINALPHA", 500)
         self.maker_market.set_balance("WETH", 500)
@@ -124,7 +124,6 @@ class PureMarketMakingUnitTest(unittest.TestCase):
             else:
                 break
         order_book.apply_diffs(bid_diffs, ask_diffs, update_id)
-
 
     @staticmethod
     def simulate_limit_order_fill(market: Market, limit_order: LimitOrder):
@@ -316,7 +315,6 @@ class PureMarketMakingUnitTest(unittest.TestCase):
         ask_fills: List[OrderFilledEvent] = [evt for evt in fill_events if evt.trade_type is TradeType.BUY]
         self.assertEqual(1, len(bid_fills))
         self.assertEqual(1, len(ask_fills))
-
 
     def test_create_new_orders(self):
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)

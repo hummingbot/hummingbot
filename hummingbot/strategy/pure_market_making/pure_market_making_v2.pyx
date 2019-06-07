@@ -196,6 +196,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             (market_info.market, limit_order)
             for market_info, orders_map in self._tracked_maker_orders.items()
             for limit_order in orders_map.values()
+            if (self._in_flight_cancels.get(limit_order.client_order_id, 0) <
+                self._current_timestamp - self.CANCEL_EXPIRY_DURATION)
         ]
 
     @property
@@ -210,6 +212,14 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             for market_info, orders_map
             in self._tracked_maker_orders.items()
         }
+
+    @property
+    def active_bids(self) -> List[Tuple[MarketBase, LimitOrder]]:
+        return [(market, limit_order) for market, limit_order in self.active_maker_orders if limit_order.is_buy]
+
+    @property
+    def active_asks(self) -> List[Tuple[MarketBase, LimitOrder]]:
+        return [(market, limit_order) for market, limit_order in self.active_maker_orders if not limit_order.is_buy]
 
     @property
     def logging_options(self) -> int:
