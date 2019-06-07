@@ -45,19 +45,14 @@ class IDEXOrderBookTrackerUnitTest(unittest.TestCase):
             await asyncio.sleep(1000)
 
     def test_tracker_integrity(self):
-        # Wait 5 seconds to process some diffs.
-        self.ev_loop.run_until_complete(asyncio.sleep(10.0))
+        # Wait 30 seconds to process some diffs.
+        self.ev_loop.run_until_complete(asyncio.sleep(30.0))
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
-        zrx_weth_book: OrderBook = order_books[TEST_PAIR_1]
-        # weth_tusd_book: OrderBook = order_books["ETH_QNT"]
-        print("zrx_weth_book")
-        print(zrx_weth_book.snapshot)
-        print("weth_tusd_book")
-        print(weth_tusd_book.snapshot)
-        self.assertGreaterEqual(zrx_weth_book.get_price_for_volume(True, 10), zrx_weth_book.get_price(True))
-        self.assertLessEqual(zrx_weth_book.get_price_for_volume(False, 10), zrx_weth_book.get_price(False))
-        # self.assertGreaterEqual(weth_tusd_book.get_price_for_volume(True, 10), weth_tusd_book.get_price(True))
-        # self.assertLessEqual(weth_tusd_book.get_price_for_volume(False, 10), weth_tusd_book.get_price(False))
+        fxc_eth_book: OrderBook = order_books[TEST_PAIR_1]
+        print("fxc_eth_book")
+        print(fxc_eth_book.snapshot)
+        self.assertGreaterEqual(fxc_eth_book.get_price_for_volume(True, 10), fxc_eth_book.get_price(True))
+        self.assertLessEqual(fxc_eth_book.get_price_for_volume(False, 10), fxc_eth_book.get_price(False))
 
 
 def main():

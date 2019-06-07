@@ -61,7 +61,7 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.wallet.wallet_base import WalletBase
 from hummingbot.wallet.wallet_base cimport WalletBase
-from hummingbot.market.trading_rule cimport TradingRule
+
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -185,6 +185,49 @@ cdef class InFlightOrder:
     @property
     def quote_asset(self) -> str:
         return BinanceMarket.split_symbol(self.symbol)[1]
+
+
+ cdef class TradingRule:	
+    cdef:	
+        public str symbol	
+        public object price_tick_size	
+        public object order_step_size	
+        public object min_order_size	
+        public object min_notional_size	
+
+     @classmethod	
+    def parse_exchange_info(cls, exchange_info_dict: Dict[str, any]) -> List[TradingRule]:	
+        cdef:	
+            list symbol_rules = exchange_info_dict.get("symbols", [])	
+            list retval = []	
+        for rule in symbol_rules:	
+            try:	
+                symbol = rule.get("symbol")	
+                filters = rule.get("filters")	
+                price_filter = [f for f in filters if f.get("filterType") == "PRICE_FILTER"][0]	
+                lot_size_filter = [f for f in filters if f.get("filterType") == "LOT_SIZE"][0]	
+                min_notional_filter = [f for f in filters if f.get("filterType") == "MIN_NOTIONAL"][0]	
+                retval.append(TradingRule(symbol,	
+                                          Decimal(price_filter.get("tickSize")),	
+                                          Decimal(lot_size_filter.get("stepSize")),	
+                                          Decimal(lot_size_filter.get("minQty")),	
+                                          Decimal(min_notional_filter.get("minNotional"))))	
+            except Exception:	
+                BinanceMarket.logger().error(f"Error parsing the symbol rule {rule}. Skipping.", exc_info=True)	
+        return retval	
+
+     def __init__(self, symbol: str, price_tick_size: Decimal, order_step_size: Decimal, min_order_size: Decimal,	
+                 min_notional_size: Decimal):	
+        self.symbol = symbol	
+        self.price_tick_size = price_tick_size	
+        self.order_step_size = order_step_size	
+        self.min_order_size = min_order_size	
+        self.min_notional_size = min_notional_size	
+
+     def __repr__(self) -> str:	
+        return f"TradingRule(symbol='{self.symbol}', price_tick_size={self.price_tick_size}, " \	
+               f"order_step_size={self.order_step_size}, min_order_size={self.min_order_size}, " \	
+               f"min_notional_size={self.min_notional_size})"
 
 
 cdef class BinanceMarket(MarketBase):
@@ -453,7 +496,7 @@ cdef class BinanceMarket(MarketBase):
             int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) < 1:
             exchange_info = await self.query_api(self._binance_client.get_exchange_info)
-            trading_rules_list = TradingRule.parse_binance_market_info(exchange_info)
+            trading_rules_list = TradingRule.parse_exchange_info(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
                 self._trading_rules[trading_rule.symbol] = trading_rule
@@ -1094,12 +1137,12 @@ cdef class BinanceMarket(MarketBase):
     cdef object c_get_order_price_quantum(self, str symbol, double price):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
-        return trading_rule.min_price_increment
+        return trading_rule.price_tick_size
 
     cdef object c_get_order_size_quantum(self, str symbol, double order_size):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
-        return Decimal(trading_rule.min_base_amount_increment)
+        return Decimal(trading_rule.order_step_size)
 
     cdef object c_quantize_order_amount(self, str symbol, double amount):
         cdef:
@@ -1108,7 +1151,7 @@ cdef class BinanceMarket(MarketBase):
         global s_decimal_0
         quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
 
-        # Check against min_order_size and min_quote_amount_increment. If not passing either check, return 0.
+        # Check against min_order_size and min_notional_size. If not passing either check, return 0.
         if quantized_amount < trading_rule.min_order_size:
             return s_decimal_0
 
@@ -1117,7 +1160,7 @@ cdef class BinanceMarket(MarketBase):
             double notional_size = current_price * float(quantized_amount)
 
         # Add 1% as a safety factor in case the prices changed while making the order.
-        if notional_size < float(trading_rule.min_notional_size * 1.01):
+        if notional_size < float(trading_rule.min_notional_size) * 1.01:
             return s_decimal_0
 
         return quantized_amount
