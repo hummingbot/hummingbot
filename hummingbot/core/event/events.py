@@ -192,6 +192,7 @@ class OrderFilledEvent(NamedTuple):
     order_type: OrderType
     price: float
     amount: float
+    trade_fee: TradeFee
 
     @classmethod
     def order_filled_events_from_order_book_rows(cls,
@@ -200,9 +201,10 @@ class OrderFilledEvent(NamedTuple):
                                                  symbol: str,
                                                  trade_type: TradeType,
                                                  order_type: OrderType,
-                                                 order_book_rows: List[OrderBookRow]) -> List["OrderFilledEvent"]:
+                                                 trade_fee: TradeFee,
+                                                 order_book_rows: List[OrderBookRow],) -> List["OrderFilledEvent"]:
         return [
-            OrderFilledEvent(timestamp, order_id, symbol, trade_type, order_type, r.price, r.amount)
+            OrderFilledEvent(timestamp, order_id, symbol, trade_type, order_type, r.price, r.amount, trade_fee)
             for r in order_book_rows
         ]
 
@@ -218,7 +220,8 @@ class OrderFilledEvent(NamedTuple):
             TradeType.BUY if execution_report["S"] == "BUY" else TradeType.SELL,
             OrderType.LIMIT if execution_report["o"] == "LIMIT" else OrderType.MARKET,
             float(execution_report["L"]),
-            float(execution_report["l"])
+            float(execution_report["l"]),
+            TradeFee(percent=0.0, flat_fees=[(execution_report["N"], float(execution_report["n"]))]),
         )
 
 
