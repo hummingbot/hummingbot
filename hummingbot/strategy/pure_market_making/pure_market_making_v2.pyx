@@ -551,39 +551,41 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef c_did_cancel_order(self, object cancelled_event):
         cdef:
             str order_id = cancelled_event.order_id
-            object market_pair = self._order_id_to_market_info.get(order_id)
+            object market_info = self._order_id_to_market_info.get(order_id)
 
-        self.c_stop_tracking_order(market_pair, order_id)
+        self.c_stop_tracking_order(market_info, order_id)
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
         cdef:
             str order_id = order_completed_event.order_id
-            object market_pair = self._order_id_to_market_info.get(order_id)
+            object market_info = self._order_id_to_market_info.get(order_id)
             LimitOrder limit_order_record
 
-        if market_pair is not None:
-            limit_order_record = self._tracked_maker_orders[market_pair][order_id]
+        if market_info is not None:
+            limit_order_record = self._tracked_maker_orders[market_info][order_id]
             self.log_with_clock(
                 logging.INFO,
-                f"({market_pair.maker_symbol}) Maker buy order {order_id} "
+                f"({market_info.maker_symbol}) Maker buy order {order_id} "
                 f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                 f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
             )
+        self.c_stop_tracking_order(market_info, order_id)
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
         cdef:
             str order_id = order_completed_event.order_id
-            object market_pair = self._order_id_to_market_info.get(order_id)
+            object market_info = self._order_id_to_market_info.get(order_id)
             LimitOrder limit_order_record
 
-        if market_pair is not None:
-            limit_order_record = self._tracked_maker_orders[market_pair][order_id]
+        if market_info is not None:
+            limit_order_record = self._tracked_maker_orders[market_info][order_id]
             self.log_with_clock(
                 logging.INFO,
-                f"({market_pair.maker_symbol}) Maker sell order {order_id} "
+                f"({market_info.maker_symbol}) Maker sell order {order_id} "
                 f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                 f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
             )
+        self.c_stop_tracking_order(market_info, order_id)
 
     cdef c_start_tracking_order(self, object market_info, str order_id, bint is_buy, object price, object quantity):
         if market_info not in self._tracked_maker_orders:
