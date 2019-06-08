@@ -1060,7 +1060,7 @@ cdef class CoinbaseProMarket(MarketBase):
         # Order size must be a multiple of the base_min_size
         return trading_rule.base_min_size
 
-    cdef object c_quantize_order_amount(self, str symbol, double amount):
+    cdef object c_quantize_order_amount(self, str symbol, double amount, double price=0.0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
 
