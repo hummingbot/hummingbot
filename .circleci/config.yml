@@ -47,6 +47,12 @@ jobs:
       #
 
       - run:
+          name: Run Stable Tests
+          command: |
+            source activate $(head -1 setup/environment-linux.yml | cut -d ' ' -f2)
+            nosetests -d -v test/test*.py
+            
+      - run:
           name: Run Strategy Tests
           command: |
             source activate $(head -1 setup/environment-linux.yml | cut -d ' ' -f2)
