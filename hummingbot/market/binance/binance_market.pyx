@@ -1159,9 +1159,12 @@ cdef class BinanceMarket(MarketBase):
             TradingRule trading_rule = self._trading_rules[symbol]
         return Decimal(trading_rule.order_step_size)
 
-    cdef object c_quantize_order_amount(self, str symbol, double amount):
+    cdef object c_quantize_order_amount(self, str symbol, double amount, double price = 0.0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
+            double current_price = self.c_get_price(symbol, False)
+            double notional_size
+
 
         global s_decimal_0
         quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
@@ -1170,9 +1173,13 @@ cdef class BinanceMarket(MarketBase):
         if quantized_amount < trading_rule.min_order_size:
             return s_decimal_0
 
-        cdef:
-            double current_price = self.c_get_price(symbol, False)
-            double notional_size = current_price * float(quantized_amount)
+        if price == 0:
+
+            notional_size = current_price * float(quantized_amount)
+
+        else:
+
+            notional_size = price * float(quantized_amount)
 
         # Add 1% as a safety factor in case the prices changed while making the order.
         if notional_size < float(trading_rule.min_notional_size) * 1.01:
