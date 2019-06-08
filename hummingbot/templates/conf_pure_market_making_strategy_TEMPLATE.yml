@@ -29,4 +29,4 @@ bid_place_threshold: null
 ask_place_threshold: null
 
 # For more detailed information, see:
-# https://docs.hummingbot.io/configuration/#hummingbot-configuration-variables
+# https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parameters
