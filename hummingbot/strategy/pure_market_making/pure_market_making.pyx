@@ -78,7 +78,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
     ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     ORDER_EXPIRED_EVENT_TAG = MarketEvent.OrderExpired.value
-    TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
+    ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
 
     OPTION_LOG_NULL_ORDER_SIZE = 1 << 0
     OPTION_LOG_REMOVING_ORDER = 1 << 1
@@ -162,7 +162,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             typed_market.c_add_listener(self.ORDER_FILLED_EVENT_TAG, self._order_filled_listener)
             typed_market.c_add_listener(self.ORDER_CANCELLED_EVENT_TAG, self._order_cancelled_listener)
             typed_market.c_add_listener(self.ORDER_EXPIRED_EVENT_TAG, self._order_expired_listener)
-            typed_market.c_add_listener(self.TRANSACTION_FAILURE_EVENT_TAG, self._order_failed_listener)
+            typed_market.c_add_listener(self.ORDER_FAILURE_EVENT_TAG, self._order_failed_listener)
 
     @property
     def active_markets(self) -> List[MarketBase]:
@@ -504,6 +504,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
             )
 
+        self.c_stop_tracking_order(market_pair, order_id)
+
     cdef c_did_complete_sell_order(self, object order_completed_event):
         cdef:
             str order_id = order_completed_event.order_id
@@ -518,6 +520,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                 f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
             )
+
+        self.c_stop_tracking_order(market_pair, order_id)
 
     cdef c_start_tracking_order(self, object market_pair, str order_id, bint is_buy, object price, object quantity):
         if market_pair not in self._tracked_maker_orders:
@@ -570,7 +574,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             MarketBase maker_market = market_pair.maker_market
             double quote_asset_amount = maker_market.c_get_balance(market_pair.maker_quote_currency)
             double base_asset_amount = maker_market.c_get_balance(market_pair.maker_base_currency)
-            top_bid_price = maker_market.c_get_price(market_pair.maker_symbol, False)
+            double top_bid_price = maker_market.c_get_price(market_pair.maker_symbol, False)
+            double top_ask_price = maker_market.c_get_price(market_pair.maker_symbol, True)
+            double mid_price = (top_ask_price + top_bid_price) / 2
+            double place_bid_price = mid_price * (1 - self.bid_place_threshold)
 
         if base_asset_amount < self.order_size:
             if self._logging_options:
@@ -582,12 +589,12 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 )
             return False
 
-        if quote_asset_amount < (top_bid_price * self.order_size):
+        if quote_asset_amount < (place_bid_price * self.order_size):
             if self._logging_options:
                 self.log_with_clock(
                     logging.INFO,
-                    f"({market_pair.maker_quote_currency}) balance of  ({quote_asset_amount:.8g}) "
-                    f"is now less than the required to place an ask order of size: ({self.order_size:.8g}). "
+                    f"({market_pair.maker_quote_currency}) balance of ({quote_asset_amount:.8g}) "
+                    f"is now less than the required to place a bid order of size: ({self.order_size:.8g}) at ({place_bid_price:.8g}). "
                     f"Running again"
                 )
             return False
