@@ -29,7 +29,8 @@ from hummingbot.core.event.events import (
     OrderType,
     OrderFilledEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent
+    SellOrderCompletedEvent,
+    TradeFee
 )
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
@@ -142,7 +143,8 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
                 TradeType.BUY,
                 OrderType.LIMIT,
                 float(limit_order.price),
-                float(limit_order.quantity)
+                float(limit_order.quantity),
+                TradeFee(0.0)
             ))
             market.trigger_event(MarketEvent.BuyOrderCompleted, BuyOrderCompletedEvent(
                 market.current_timestamp,
@@ -165,7 +167,8 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
                 TradeType.SELL,
                 OrderType.LIMIT,
                 float(limit_order.price),
-                float(limit_order.quantity)
+                float(limit_order.quantity),
+                TradeFee(0.0)
             ))
             market.trigger_event(MarketEvent.SellOrderCompleted, SellOrderCompletedEvent(
                 market.current_timestamp,
