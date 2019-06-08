@@ -3,8 +3,6 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
-from nose.plugins.attrib import attr
-
 from decimal import Decimal
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
@@ -31,18 +29,16 @@ from hummingbot.core.event.events import (
     OrderType,
     OrderFilledEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    TradeFee,
+    SellOrderCompletedEvent
 )
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.strategy.pure_market_making import PureMarketMakingStrategy
-from hummingbot.strategy.pure_market_making.pure_market_pair import PureMarketPair
+from hummingbot.strategy.pure_market_making.pure_market_making_v2 import PureMarketMakingStrategyV2
+from hummingbot.strategy.pure_market_making.data_types import MarketInfo
 
 
-@attr('stable')
-class PureMarketMakingUnitTest(unittest.TestCase):
+class PureMarketMakingV2UnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
@@ -70,20 +66,20 @@ class PureMarketMakingUnitTest(unittest.TestCase):
             )
         )
 
-        self.market_pair: PureMarketPair = PureMarketPair(
+        self.market_info: MarketInfo = MarketInfo(
             *(
                 [self.maker_market] + self.maker_symbols
             )
         )
 
-        logging_options: int = (PureMarketMakingStrategy.OPTION_LOG_ALL &
-                                (~PureMarketMakingStrategy.OPTION_LOG_NULL_ORDER_SIZE))
-        self.strategy: {PureMarketMakingStrategy} = PureMarketMakingStrategy(
-            [self.market_pair],
-            order_size=1,
-            bid_place_threshold=self.bid_threshold,
-            ask_place_threshold=self.ask_threshold,
-            cancel_order_wait_time= 45,
+        logging_options: int = (PureMarketMakingStrategyV2.OPTION_LOG_ALL &
+                                (~PureMarketMakingStrategyV2.OPTION_LOG_NULL_ORDER_SIZE))
+        self.strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+            [self.market_info],
+            legacy_order_size=1.0,
+            legacy_bid_spread=self.bid_threshold,
+            legacy_ask_spread=self.ask_threshold,
+            cancel_order_wait_time=45,
             logging_options=logging_options
         )
         self.logging_options = logging_options
@@ -102,7 +98,9 @@ class PureMarketMakingUnitTest(unittest.TestCase):
             maker_symbol,
             self.clock.current_timestamp,
             TradeType.BUY if is_buy else TradeType.SELL,
-            self.mid_price * (1-self.bid_threshold -0.01) if not is_buy else self.mid_price * (1+self.ask_threshold +0.01),
+            (self.mid_price * (1 - self.bid_threshold - 0.01)
+             if not is_buy
+             else self.mid_price * (1 + self.ask_threshold + 0.01)),
             quantity
         )
         order_book.apply_trade(trade_event)
@@ -144,8 +142,7 @@ class PureMarketMakingUnitTest(unittest.TestCase):
                 TradeType.BUY,
                 OrderType.LIMIT,
                 float(limit_order.price),
-                float(limit_order.quantity),
-                TradeFee(0.0)  # No fee in backtest market
+                float(limit_order.quantity)
             ))
             market.trigger_event(MarketEvent.BuyOrderCompleted, BuyOrderCompletedEvent(
                 market.current_timestamp,
@@ -168,8 +165,7 @@ class PureMarketMakingUnitTest(unittest.TestCase):
                 TradeType.SELL,
                 OrderType.LIMIT,
                 float(limit_order.price),
-                float(limit_order.quantity),
-                TradeFee(0.0)
+                float(limit_order.quantity)
             ))
             market.trigger_event(MarketEvent.SellOrderCompleted, SellOrderCompletedEvent(
                 market.current_timestamp,
@@ -202,7 +198,15 @@ class PureMarketMakingUnitTest(unittest.TestCase):
         end_ts = self.start_timestamp + self.clock_tick_size
         self.clock.backtest_til(end_ts)
         self.assertEqual(0, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))
+
+        self.maker_market.set_balance("COINALPHA", 0)
+        end_ts += self.clock_tick_size
+        self.clock.backtest_til(end_ts)
+        self.assertEqual(0, len(self.strategy.active_bids))
         self.assertEqual(0, len(self.strategy.active_asks))
+
+        self.maker_market.set_balance("COINALPHA", 500)
         self.maker_market.set_balance("WETH", 500)
         end_ts += self.clock_tick_size
         self.clock.backtest_til(end_ts)
@@ -319,42 +323,6 @@ class PureMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(1, len(bid_fills))
         self.assertEqual(1, len(ask_fills))
 
-    def test_create_new_orders(self):
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
-        self.assertEqual(1, len(self.strategy.active_bids))
-        self.assertEqual(1, len(self.strategy.active_asks))
-
-        bid_order: LimitOrder = self.strategy.active_bids[0][1]
-        ask_order: LimitOrder = self.strategy.active_asks[0][1]
-        self.assertEqual(Decimal("99"), bid_order.price)
-        self.assertEqual(Decimal("101"), ask_order.price)
-        self.assertEqual(Decimal("1.0"), bid_order.quantity)
-        self.assertEqual(Decimal("1.0"), ask_order.quantity)
-
-        self.strategy.create_new_orders(self.market_pair)
-
-        self.assertEqual(2, len(self.strategy.active_bids))
-        self.assertEqual(2, len(self.strategy.active_asks))
-
-        bid_order: LimitOrder = self.strategy.active_bids[1][1]
-        ask_order: LimitOrder = self.strategy.active_asks[1][1]
-        self.assertEqual(Decimal("99"), bid_order.price)
-        self.assertEqual(Decimal("101"), ask_order.price)
-        self.assertEqual(Decimal("1.0"), bid_order.quantity)
-        self.assertEqual(Decimal("1.0"), ask_order.quantity)
-
-        self.strategy.create_new_orders(self.market_pair)
-
-        self.assertEqual(3, len(self.strategy.active_bids))
-        self.assertEqual(3, len(self.strategy.active_asks))
-
-        bid_order: LimitOrder = self.strategy.active_bids[2][1]
-        ask_order: LimitOrder = self.strategy.active_asks[2][1]
-        self.assertEqual(Decimal("99"), bid_order.price)
-        self.assertEqual(Decimal("101"), ask_order.price)
-        self.assertEqual(Decimal("1.0"), bid_order.quantity)
-        self.assertEqual(Decimal("1.0"), ask_order.quantity)
-
     def test_strategy_after_user_cancels_orders(self):
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
         self.assertEqual(1, len(self.strategy.active_bids))
@@ -367,8 +335,8 @@ class PureMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.0"), bid_order.quantity)
         self.assertEqual(Decimal("1.0"), ask_order.quantity)
 
-        self.strategy.cancel_order(self.market_pair, bid_order.client_order_id)
-        self.strategy.cancel_order(self.market_pair, ask_order.client_order_id)
+        self.strategy.cancel_order(self.market_info, bid_order.client_order_id)
+        self.strategy.cancel_order(self.market_info, ask_order.client_order_id)
 
         self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
         self.assertEqual(0, len(self.strategy.active_bids))
