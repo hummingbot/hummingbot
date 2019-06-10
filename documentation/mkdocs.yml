@@ -67,7 +67,7 @@ markdown_extensions:
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.tilde
-  
+
 # Navigation
 nav:
     - Intro:
@@ -78,10 +78,13 @@ nav:
       - Terminology: glossary.md
     - Installation:
       - Installation: installation.md
-      - Install from Docker: installation/docker.md
-      - Install from source: installation/source.md
+      - Install from Docker:
+        - Windows: installation/docker_windows.md
+        - MacOS/Linux: installation/docker_macOS_linux.md
+      - Install from source:
+        - Windows: installation/windows.md
+        - MacOS/Linux: installation/source.md
       - Install on cloud: installation/cloud.md
-      - Windows installation: installation/windows.md
       - API keys: installation/api-keys.md
       - Ethereum wallet: installation/wallet.md
       - Ethereum node: installation/node.md
@@ -113,6 +116,7 @@ nav:
       - Known issues: support/issues.md
     - Release notes:
       - Release notes: release-notes.md
+      - 0.8.0: release-notes/0.8.0.md
       - 0.7.0: release-notes/0.7.0.md
       - 0.6.0: release-notes/0.6.0.md
       - 0.5.1: release-notes/0.5.1.md
