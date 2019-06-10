@@ -986,11 +986,13 @@ cdef class DDEXMarket(MarketBase):
         decimals_quantum = Decimal(f"1e-{trading_rule.amount_decimals}")
         return decimals_quantum
 
-    cdef object c_quantize_order_amount(self, str symbol, double amount):
+    cdef object c_quantize_order_amount(self, str symbol, double amount, double price=0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
 
         global s_decimal_0
+
+
         quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
 
         # Check against min_order_size and. If not passing the check, return 0.

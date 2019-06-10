@@ -175,6 +175,6 @@ cdef class MarketBase(NetworkIterator):
         price_quantum = self.c_get_order_price_quantum(symbol, price)
         return round(Decimal(price) / price_quantum) * price_quantum
 
-    cdef object c_quantize_order_amount(self, str symbol, double amount):
+    cdef object c_quantize_order_amount(self, str symbol, double amount, double price = 0.0):
         order_size_quantum = self.c_get_order_size_quantum(symbol, amount)
         return (Decimal(amount) // order_size_quantum) * order_size_quantum

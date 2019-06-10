@@ -88,8 +88,8 @@ from hummingbot.strategy.arbitrage import (
     ArbitrageMarketPair
 )
 from hummingbot.strategy.pure_market_making import (
-    PureMarketMakingStrategy,
-    PureMarketPair
+    PureMarketMakingStrategyV2,
+    MarketInfo
 )
 
 from hummingbot.strategy.discovery import (
@@ -150,6 +150,7 @@ class HummingbotApplication:
         self.strategy_task: Optional[asyncio.Task] = None
         self.strategy: Optional[StrategyBase] = None
         self.market_pair: Optional[CrossExchangeMarketPair] = None
+        self.market_info: Optional[MarketInfo] = None
         self.market_symbol_pairs: List[MarketSymbolPair] = []
         self.clock: Optional[Clock] = None
 
@@ -249,8 +250,38 @@ class HummingbotApplication:
                                                  columns=["currency", "balance"]).set_index("currency")
         return raw_balance[raw_balance.balance > 0]
 
+    async def reset_config_loop(self, key: str = None):
+        strategy = in_memory_config_map.get("strategy").value
+
+        self.placeholder_mode = True
+        self.app.toggle_hide_input()
+
+        if self.strategy:
+            choice = await self.app.prompt(prompt=f"Would you like to stop running the {strategy} strategy "
+                                                  f"and reconfigure the bot? (y/n) >>> ")
+        else:
+            choice = await self.app.prompt(prompt=f"Would you like to reconfigure the bot? (y/n) >>> ")
+
+        self.app.change_prompt(prompt=">>> ")
+        self.app.toggle_hide_input()
+        self.placeholder_mode = False
+
+        if choice.lower() in {"y", "yes"}:
+            if self.strategy:
+                await self.stop_loop()
+            if key is None:
+                in_memory_config_map.get("strategy").value = None
+                in_memory_config_map.get("strategy_file_path").value = None
+            self.config(key)
+        else:
+            self._notify("Aborted.")
+
     def config(self, key: str = None):
         self.app.clear_input()
+
+        if self.strategy or self.config_complete:
+            asyncio.ensure_future(self.reset_config_loop(key))
+            return
         if key is not None and key not in load_required_configs().keys():
             self._notify("Invalid config variable %s" % (key,))
             return
@@ -806,32 +837,40 @@ class HummingbotApplication:
                                               logging_options=ArbitrageStrategy.OPTION_LOG_ALL)
 
         elif strategy_name == "pure_market_making":
-            order_size = strategy_cm.get("order_amount").value
-            cancel_order_wait_time = strategy_cm.get("cancel_order_wait_time").value
-            bid_place_threshold = strategy_cm.get("bid_place_threshold").value
-            ask_place_threshold = strategy_cm.get("ask_place_threshold").value
-            maker_market = strategy_cm.get("maker_market").value.lower()
-            raw_maker_symbol = strategy_cm.get("maker_market_symbol").value.upper()
             try:
-                maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_symbol])[0]
-            except ValueError as e:
+                order_size = strategy_cm.get("order_amount").value
+                cancel_order_wait_time = strategy_cm.get("cancel_order_wait_time").value
+                bid_place_threshold = strategy_cm.get("bid_place_threshold").value
+                ask_place_threshold = strategy_cm.get("ask_place_threshold").value
+                maker_market = strategy_cm.get("maker_market").value.lower()
+                raw_maker_symbol = strategy_cm.get("maker_market_symbol").value.upper()
+                try:
+                    maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_symbol])[0]
+                except ValueError as e:
+                    self._notify(str(e))
+                    return
+
+                market_names: List[Tuple[str, List[str]]] = [(maker_market, [raw_maker_symbol])]
+
+                self._initialize_wallet(token_symbols=list(set(maker_assets)))
+                self._initialize_markets(market_names)
+                self.assets = set(maker_assets)
+
+                maker_data = [self.markets[maker_market], raw_maker_symbol] + list(maker_assets)
+                self.market_symbol_pairs = [MarketSymbolPair(*maker_data)]
+                self.market_info = MarketInfo(*([self.markets[maker_market], raw_maker_symbol] +
+                                                list(maker_assets)))
+                strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
+
+                self.strategy = PureMarketMakingStrategyV2(market_infos=[self.market_info],
+                                                           legacy_order_size=order_size,
+                                                           legacy_bid_spread=bid_place_threshold,
+                                                           legacy_ask_spread=ask_place_threshold,
+                                                           cancel_order_wait_time=cancel_order_wait_time,
+                                                           logging_options=strategy_logging_options)
+            except Exception as e:
                 self._notify(str(e))
-                return
-
-            market_names: List[Tuple[str, List[str]]] = [(maker_market, [raw_maker_symbol])]
-
-            self._initialize_wallet(token_symbols=list(set(maker_assets)))
-            self._initialize_markets(market_names)
-            self.assets = set(maker_assets)
-            maker_data = [self.markets[maker_market], raw_maker_symbol] + list(maker_assets)
-            self.market_symbol_pairs = [MarketSymbolPair(*maker_data)]
-            self.market_pair = PureMarketPair(*maker_data)
-            self.strategy = PureMarketMakingStrategy(market_pairs=[self.market_pair],
-                                                     order_size=order_size,
-                                                     bid_place_threshold=bid_place_threshold,
-                                                     ask_place_threshold=ask_place_threshold,
-                                                     cancel_order_wait_time=cancel_order_wait_time,
-                                                     logging_options=PureMarketMakingStrategy.OPTION_LOG_ALL)
+                self.logger().error("Unknown error during initialization.", exc_info=True)
 
         elif strategy_name == "discovery":
             try:
