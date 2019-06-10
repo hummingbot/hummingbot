@@ -28,7 +28,6 @@ class ReportAggregator:
         self.log_report_task: Optional[asyncio.Task] = None
 
     def receive_event(self, event):
-
         event_name = event["event_name"]
         if event_name == "OrderFilledEvent":
             self.stats[f"order_filled_quote_volume.{event['event_source']}."
@@ -46,7 +45,6 @@ class ReportAggregator:
                         if not value_list:
                             continue
                         namespaces = metric_name.split(".")
-
                         if namespaces[0] == "open_order_quote_volume_sum":
                             avg_volume = float(sum([value[1] for value in value_list]) / len(value_list))
                             self.logger().metric_log({
@@ -73,7 +71,7 @@ class ReportAggregator:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(f"Error getting logging report.", exc_info=True, extra={"do_not_send": True})
+                self.logger().warning(f"Error getting logging report.", exc_info=True)
 
             await asyncio.sleep(self.log_report_interval)
 
@@ -97,7 +95,7 @@ class ReportAggregator:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(f"Error getting open orders.", exc_info=True, extra={"do_not_send": True})
+                self.logger().warning(f"Error getting open orders.", exc_info=True)
 
             await asyncio.sleep(self.report_aggregation_interval)
 
@@ -109,7 +107,7 @@ class ReportAggregator:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(f"Error processing events. {event}", exc_info=True, extra={"do_not_send": True})
+                self.logger().warning(f"Error processing events. {event}", exc_info=True)
 
     def start(self):
         self.stop()
