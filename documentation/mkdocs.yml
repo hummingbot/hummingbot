@@ -80,7 +80,7 @@ nav:
       - Installation: installation.md
       - Install from Docker: installation/docker.md
       - Install from source: installation/source.md
-      - Install on Google Cloud: installation/google.md
+      - Install on cloud: installation/cloud.md
       - Windows installation: installation/windows.md
       - API keys: installation/api-keys.md
       - Ethereum wallet: installation/wallet.md
@@ -89,8 +89,10 @@ nav:
       - Client: operation/client.md
       - Configuration: operation/configuration.md
       - Running bots: operation/running-bots.md
+      - Running bots in the cloud: operation/running-bots-in-the-cloud.md
       - Logging: operation/logging.md
       - Exchange rates: operation/exchange-rates.md
+      - Telegram integration: operation/telegram.md
       - Debug console: operation/debug.md
     - Connectors:
       - Connectors: connectors.md

@@ -3,6 +3,7 @@ import pandas as pd
 from typing import (
     Dict,
     List,
+    Tuple,
 )
 
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -42,6 +43,13 @@ cdef class MarketBase(NetworkIterator):
             self.c_add_listener(event_tag.value, self.event_reporter)
             self.c_add_listener(event_tag.value, self.event_logger)
 
+    @staticmethod
+    def split_symbol(symbol: str) -> Tuple[str, str]:
+        try:
+            return tuple(symbol.split('-'))
+        except Exception:
+            raise ValueError(f"Error parsing symbol {symbol}")
+
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {}
@@ -53,10 +61,6 @@ cdef class MarketBase(NetworkIterator):
     @property
     def event_logs(self) -> List[any]:
         return self.event_logger.event_log
-
-    @property
-    def name(self) -> str:
-        return self.__class__.__name__
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -171,6 +175,6 @@ cdef class MarketBase(NetworkIterator):
         price_quantum = self.c_get_order_price_quantum(symbol, price)
         return round(Decimal(price) / price_quantum) * price_quantum
 
-    cdef object c_quantize_order_amount(self, str symbol, double amount):
+    cdef object c_quantize_order_amount(self, str symbol, double amount, double price = 0.0):
         order_size_quantum = self.c_get_order_size_quantum(symbol, amount)
         return (Decimal(amount) // order_size_quantum) * order_size_quantum

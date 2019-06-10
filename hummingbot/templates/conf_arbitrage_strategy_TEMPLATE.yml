@@ -16,4 +16,4 @@ secondary_market_symbol: null
 min_profitability: null
 
 # For more detailed information, see:
-# https://docs.hummingbot.io/configuration/#hummingbot-configuration-variables
+# https://docs.hummingbot.io/strategies/arbitrage/#configuration-parameters

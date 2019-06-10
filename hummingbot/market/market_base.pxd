@@ -22,7 +22,7 @@ cdef class MarketBase(NetworkIterator):
     cdef object c_get_order_price_quantum(self, str symbol, double price)
     cdef object c_get_order_size_quantum(self, str symbol, double order_size)
     cdef object c_quantize_order_price(self, str symbol, double price)
-    cdef object c_quantize_order_amount(self, str symbol, double amount)
+    cdef object c_quantize_order_amount(self, str symbol, double amount, double price=*)
     cdef object c_get_fee(self,
                           str base_currency,
                           str quote_currency,

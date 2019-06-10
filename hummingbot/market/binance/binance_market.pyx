@@ -9,9 +9,7 @@ from async_timeout import timeout
 from binance.client import Client as BinanceClient
 from binance import client as binance_client_module
 from binance.exceptions import BinanceAPIException
-from decimal import (
-    Decimal
-)
+from decimal import Decimal
 from functools import partial
 import logging
 import pandas as pd
@@ -22,7 +20,8 @@ from typing import (
     List,
     AsyncIterable,
     Optional,
-    Coroutine
+    Coroutine,
+    Tuple,
 )
 from web3 import Web3
 import conf
@@ -56,96 +55,17 @@ from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSou
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker
 from hummingbot.market.binance.binance_user_stream_tracker import BinanceUserStreamTracker
+from hummingbot.market.binance.binance_time import BinanceTime
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.wallet.wallet_base import WalletBase
 from hummingbot.wallet.wallet_base cimport WalletBase
-from collections import deque
-import statistics
 
 s_logger = None
 s_decimal_0 = Decimal(0)
 SYMBOL_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|TUSD|PAX)$")
 
-
-class BinanceTime:
-    """
-    Used to monkey patch Binance client's time module to adjust request timestamp when needed
-    """
-    BINANCE_TIME_API = "https://api.binance.com/api/v1/time"
-    _bt_logger = None
-    _bt_shared_instance = None
-
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        global _bt_logger
-        if _bt_logger is None:
-            _bt_logger = logging.getLogger(__name__)
-        return _bt_logger
-
-    @classmethod
-    def get_instance(cls) -> "BinanceTime":
-        if cls._bt_shared_instance is None:
-            cls._bt_shared_instance = BinanceTime()
-        return cls._bt_shared_instance
-
-    def __init__(self, check_interval: float = 60.0):
-        self._time_offset_ms = deque([])
-        self._set_server_time_offset_task = None
-        self._started = False
-        self.SERVER_TIME_OFFSET_CHECK_INTERVAL = check_interval
-        self.median_window = 100
-
-    @property
-    def started(self):
-        return self._started
-
-    @property
-    def time_offset_ms(self):
-        if not self._time_offset_ms or len(self._time_offset_ms) < 3:
-            return 0.0
-        return statistics.median(self._time_offset_ms)
-
-    def set_time_offset_ms(self, offset):
-        self._time_offset_ms.append(offset)
-        if len(self._time_offset_ms) > self.median_window :
-            self._time_offset_ms.popleft()
-
-    def time(self):
-        return time.time() + self.time_offset_ms * 1e-3
-
-    def start(self):
-        if self._set_server_time_offset_task is None:
-            self._set_server_time_offset_task = asyncio.ensure_future(self.set_server_time_offset())
-            self._started = True
-
-    def stop(self):
-        if self._set_server_time_offset_task:
-            self._set_server_time_offset_task.cancel()
-            self._started = False
-
-    async def set_server_time_offset(self):
-        while True:
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(self.BINANCE_TIME_API) as resp:
-                        time_now_ms = time.time() * 1e3
-                        resp_data = await resp.json()
-                        binance_server_time = resp_data["serverTime"]
-                        time_after_ms = time.time() * 1e3
-                expected_server_time = int((time_after_ms + time_now_ms)//2)
-                time_offset =  binance_server_time - expected_server_time
-                self.set_time_offset_ms(time_offset)
-
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().network(f"Error getting Binance server time.", exc_info=True,
-                                      app_warning_msg=f"Could not refresh Binance server time. "
-                                                      f"Check network connection.")
-
-            await asyncio.sleep(self.SERVER_TIME_OFFSET_CHECK_INTERVAL)
 
 cdef class BinanceMarketTransactionTracker(TransactionTracker):
     cdef:
@@ -259,13 +179,12 @@ cdef class InFlightOrder:
 
     @property
     def base_asset(self) -> str:
-        m = SYMBOL_SPLITTER.match(self.symbol)
-        return m.group(1)
+        return BinanceMarket.split_symbol(self.symbol)[0]
 
     @property
     def quote_asset(self) -> str:
-        m = SYMBOL_SPLITTER.match(self.symbol)
-        return m.group(2)
+        return BinanceMarket.split_symbol(self.symbol)[1]
+
 
 
 cdef class TradingRule:
@@ -376,6 +295,14 @@ cdef class BinanceMarket(MarketBase):
         self._trading_rules_polling_task = None
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
 
+    @staticmethod
+    def split_symbol(symbol: str) -> Tuple[str, str]:
+        try:
+            m = SYMBOL_SPLITTER.match(symbol)
+            return m.group(1), m.group(2)
+        except Exception as e:
+            raise ValueError(f"Error parsing symbol {symbol}: {str(e)}")
+
     @property
     def name(self) -> str:
         return "binance"
@@ -481,6 +408,7 @@ cdef class BinanceMarket(MarketBase):
                 for fee in res["tradeFee"]:
                     self._trade_fees[fee["symbol"]] = (fee["maker"], fee["taker"])
                 self._last_update_trade_fees_timestamp = current_timestamp
+
             except Exception:
                 self.logger().network("Error fetching Binance trade fees.", exc_info=True,
                                       app_warning_msg=f"Could not fetch Binance trading fees. "
@@ -606,7 +534,14 @@ cdef class BinanceMarket(MarketBase):
                                             TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
                                             order_type,
                                             float(order_update["price"]),
-                                            float(order_update["executedQty"])
+                                            float(order_update["executedQty"]),
+                                            self.c_get_fee(
+                                                tracked_order.base_asset,
+                                                tracked_order.quote_asset,
+                                                order_type,
+                                                TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
+                                                float(order_update["price"]),
+                                                float(order_update["executedQty"])),
                                          ))
                 if tracked_order.is_done:
                     if not tracked_order.is_failure:
@@ -700,9 +635,16 @@ cdef class BinanceMarket(MarketBase):
                 tracked_order.update_with_execution_report(event_message)
                 execution_type = event_message.get("x")
                 if execution_type == "TRADE":
-                    self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                         OrderFilledEvent.order_filled_event_from_binance_execution_report(
-                                             event_message))
+                    order_filled_event = OrderFilledEvent.order_filled_event_from_binance_execution_report(event_message)
+                    order_filled_event = order_filled_event._replace(trade_fee=self.c_get_fee(
+                        tracked_order.base_asset,
+                        tracked_order.quote_asset,
+                        OrderType.LIMIT if event_message["o"] == "LIMIT" else OrderType.MARKET,
+                        TradeType.BUY if event_message["S"] == "BUY" else TradeType.SELL,
+                        float(event_message["l"]),
+                        float(event_message["L"])
+                    ))
+                    self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
                 if tracked_order.is_done:
                     if not tracked_order.is_failure:
@@ -1081,7 +1023,7 @@ cdef class BinanceMarket(MarketBase):
         except Exception:
             self.c_stop_tracking_order(order_id)
             order_type_str = 'MARKET' if order_type == OrderType.MARKET else 'LIMIT'
-            self.logger().error(
+            self.logger().network(
                 f"Error submitting sell {order_type_str} order to Binance for "
                 f"{decimal_amount} {symbol} {price}.",
                 exc_info=True,
@@ -1217,9 +1159,12 @@ cdef class BinanceMarket(MarketBase):
             TradingRule trading_rule = self._trading_rules[symbol]
         return Decimal(trading_rule.order_step_size)
 
-    cdef object c_quantize_order_amount(self, str symbol, double amount):
+    cdef object c_quantize_order_amount(self, str symbol, double amount, double price = 0.0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
+            double current_price = self.c_get_price(symbol, False)
+            double notional_size
+
 
         global s_decimal_0
         quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
@@ -1228,9 +1173,13 @@ cdef class BinanceMarket(MarketBase):
         if quantized_amount < trading_rule.min_order_size:
             return s_decimal_0
 
-        cdef:
-            double current_price = self.c_get_price(symbol, False)
-            double notional_size = current_price * float(quantized_amount)
+        if price == 0:
+
+            notional_size = current_price * float(quantized_amount)
+
+        else:
+
+            notional_size = price * float(quantized_amount)
 
         # Add 1% as a safety factor in case the prices changed while making the order.
         if notional_size < float(trading_rule.min_notional_size) * 1.01:
