@@ -113,6 +113,7 @@ nav:
       - Known issues: support/issues.md
     - Release notes:
       - Release notes: release-notes.md
+      - 0.8.0: release-notes/0.8.0.md
       - 0.7.0: release-notes/0.7.0.md
       - 0.6.0: release-notes/0.6.0.md
       - 0.5.1: release-notes/0.5.1.md
