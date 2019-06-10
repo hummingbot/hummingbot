@@ -38,6 +38,7 @@ cdef class IDEXMarket(MarketBase):
         object _assets_info
         object _next_nonce
         object _contract_address
+        object _async_scheduler
 
     cdef c_start_tracking_order(self,
                                 str order_id,

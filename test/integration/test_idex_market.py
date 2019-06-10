@@ -108,7 +108,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
 
     async def run_parallel_async(self, *tasks):
         future: asyncio.Future = asyncio.ensure_future(asyncio.gather(*tasks))
-        # await self.market.start_network()
+        await self.market.start_network()
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1
@@ -122,22 +122,6 @@ class IDEXMarketUnitTest(unittest.TestCase):
     def test_get_wallet_balances(self):
         balances = self.market.get_all_balances()
         self.assertGreaterEqual((balances["ETH"]), 0)
-
-    def test_market_buy(self):
-        symbol = ETH_FXC
-        buy_amount: float = 3000
-        buy_order_id: str = self.market.buy(symbol, buy_amount, OrderType.MARKET)
-        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
-        order_completed_event: BuyOrderCompletedEvent = order_completed_event
-        self.assertEqual(buy_order_id, order_completed_event.order_id)
-
-    def test_market_sell(self):
-        symbol = ETH_FXC
-        sell_amount: float = 2900
-        sell_order_id: str = self.market.sell(symbol, sell_amount, OrderType.MARKET)
-        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
-        order_completed_event: SellOrderCompletedEvent = order_completed_event
-        self.assertEqual(sell_order_id, order_completed_event.order_id)
 
     def test_place_limit_buy_and_cancel(self):
         symbol = ETH_FXC
@@ -193,6 +177,22 @@ class IDEXMarketUnitTest(unittest.TestCase):
         self.assertGreater(len(cancellation_results), 0)
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
+
+    def test_market_buy(self):
+        symbol = ETH_FXC
+        buy_amount: float = 4000
+        buy_order_id: str = self.market.buy(symbol, buy_amount, OrderType.MARKET)
+        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
+        order_completed_event: BuyOrderCompletedEvent = order_completed_event
+        self.assertEqual(buy_order_id, order_completed_event.order_id)
+
+    def test_market_sell(self):
+        symbol = ETH_FXC
+        sell_amount: float = 3600
+        sell_order_id: str = self.market.sell(symbol, sell_amount, OrderType.MARKET)
+        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
+        order_completed_event: SellOrderCompletedEvent = order_completed_event
+        self.assertEqual(sell_order_id, order_completed_event.order_id)
 
 
 def main():

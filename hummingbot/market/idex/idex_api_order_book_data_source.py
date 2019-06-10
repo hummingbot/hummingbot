@@ -200,7 +200,7 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     self.logger().info(f"Initialized order book for {trading_pair}. "
                                        f"{index+1}/{number_of_pairs} completed.")
-                    await asyncio.sleep(1.3)
+                    await asyncio.sleep(1.0)
 
                 except Exception:
                     self.logger().error(f"Error getting snapshot for {trading_pair} in get_tracking_pairs.",

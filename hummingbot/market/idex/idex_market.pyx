@@ -38,6 +38,7 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.market.idex.idex_active_order_tracker import IDEXActiveOrderTracker
@@ -232,6 +233,7 @@ cdef class IDEXMarket(MarketBase):
         self._assets_info = {}
         self._next_nonce = None
         self._contract_address = None
+        self._async_scheduler = AsyncCallScheduler(call_interval=0.0)
 
     @staticmethod
     def split_symbol(symbol: str) -> Tuple[str, str]:
@@ -491,11 +493,38 @@ cdef class IDEXMarket(MarketBase):
                                   json=json) as response:
             data = await response.json()
             if response.status != 200:
-                print('******** ERROR', response.status, data)
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status} - {data}")
             # Keep an auto-expired record of the response and the request URL for debugging and logging purpose.
             self._api_response_records[url] = response
             return data
+
+    async def _sequential_api_request(self,
+                                      http_method: str,
+                                      url: str,
+                                      data: Optional[Dict[str, Any]] = None,
+                                      params: Optional[Dict[str, Any]] = None,
+                                      headers: Optional[Dict[str, str]] = None,
+                                      json: Any = None) -> Dict[str, Any]:
+        """
+        All trade execution calls (limit orders, market orders, cancels) on IDEX require
+        incrementing nonce value. These api requests need to executed in order hence we use
+        the async scheduler class to queue these tasks.
+        """
+        async with timeout(self.API_CALL_TIMEOUT):
+            coro = self._api_request(
+                http_method,
+                url,
+                data,
+                params,
+                headers,
+                json
+
+            )
+            return await self._async_scheduler.schedule_async_call(
+                coro,
+                self.API_CALL_TIMEOUT,
+                "IDEX API call failed. Timeout error."
+            )
 
     cdef object c_get_fee(self,
                           str base_currency,
@@ -698,17 +727,17 @@ cdef class IDEXMarket(MarketBase):
 
     async def post_market_order(self, market_order_request: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         url = f"{self.IDEX_REST_ENDPOINT}/trade"
-        response_data = await self._api_request("post", url=url, json=market_order_request)
+        response_data = await self._sequential_api_request("post", url=url, json=market_order_request)
         return response_data
 
     async def post_cancel_order(self, cancel_order_request: Dict[str, Any]) -> Dict[str, Any]:
         url = f"{self.IDEX_REST_ENDPOINT}/cancel"
-        response_data = await self._api_request("post", url=url, data=cancel_order_request)
+        response_data = await self._sequential_api_request("post", url=url, data=cancel_order_request)
         return response_data
 
     async def post_limit_order(self, limit_order_request: Dict[str, Any]) -> Dict[str, Any]:
         url = f"{self.IDEX_REST_ENDPOINT}/order"
-        response_data = await self._api_request("post", url=url, data=limit_order_request)
+        response_data = await self._sequential_api_request("post", url=url, data=limit_order_request)
         return response_data
 
     async def get_idex_contract_address(self) -> str:
