@@ -15,4 +15,4 @@ target_profitability: null
 target_amount: null
 
 # For more detailed information, see:
-# https://docs.hummingbot.io/configuration/#hummingbot-configuration-variables
+# https://docs.hummingbot.io/strategies/discovery/

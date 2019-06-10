@@ -3,6 +3,8 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
+from nose.plugins.attrib import attr
+
 from decimal import Decimal
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
@@ -29,7 +31,8 @@ from hummingbot.core.event.events import (
     OrderType,
     OrderFilledEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent
+    SellOrderCompletedEvent,
+    TradeFee,
 )
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
@@ -38,6 +41,7 @@ from hummingbot.strategy.pure_market_making import PureMarketMakingStrategy
 from hummingbot.strategy.pure_market_making.pure_market_pair import PureMarketPair
 
 
+@attr('stable')
 class PureMarketMakingUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
@@ -54,8 +58,8 @@ class PureMarketMakingUnitTest(unittest.TestCase):
         self.bid_threshold = 0.01
         self.ask_threshold = 0.01
         self.cancel_order_wait_time = 45
-        self.maker_data.set_balanced_order_book(mid_price= self.mid_price, min_price= 1,
-                                                max_price= 200, price_step_size= 1, volume_step_size= 10)
+        self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
+                                                max_price=200, price_step_size=1, volume_step_size=10)
         self.maker_market.add_data(self.maker_data)
         self.maker_market.set_balance("COINALPHA", 500)
         self.maker_market.set_balance("WETH", 500)
@@ -122,7 +126,6 @@ class PureMarketMakingUnitTest(unittest.TestCase):
                 break
         order_book.apply_diffs(bid_diffs, ask_diffs, update_id)
 
-
     @staticmethod
     def simulate_limit_order_fill(market: Market, limit_order: LimitOrder):
         quote_currency_traded: float = float(float(limit_order.price) * float(limit_order.quantity))
@@ -141,7 +144,8 @@ class PureMarketMakingUnitTest(unittest.TestCase):
                 TradeType.BUY,
                 OrderType.LIMIT,
                 float(limit_order.price),
-                float(limit_order.quantity)
+                float(limit_order.quantity),
+                TradeFee(0.0)  # No fee in backtest market
             ))
             market.trigger_event(MarketEvent.BuyOrderCompleted, BuyOrderCompletedEvent(
                 market.current_timestamp,
@@ -164,7 +168,8 @@ class PureMarketMakingUnitTest(unittest.TestCase):
                 TradeType.SELL,
                 OrderType.LIMIT,
                 float(limit_order.price),
-                float(limit_order.quantity)
+                float(limit_order.quantity),
+                TradeFee(0.0)
             ))
             market.trigger_event(MarketEvent.SellOrderCompleted, SellOrderCompletedEvent(
                 market.current_timestamp,
@@ -314,7 +319,6 @@ class PureMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(1, len(bid_fills))
         self.assertEqual(1, len(ask_fills))
 
-
     def test_create_new_orders(self):
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
         self.assertEqual(1, len(self.strategy.active_bids))
@@ -369,11 +373,3 @@ class PureMarketMakingUnitTest(unittest.TestCase):
         self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
         self.assertEqual(0, len(self.strategy.active_bids))
         self.assertEqual(0, len(self.strategy.active_asks))
-
-
-def main():
-    unittest.main()
-
-
-if __name__ == "__main__":
-    main()

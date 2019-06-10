@@ -493,7 +493,15 @@ cdef class CoinbaseProMarket(MarketBase):
                     TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
                     order_type,
                     execute_price,
-                    execute_amount_diff
+                    execute_amount_diff,
+                    self.c_get_fee(
+                          tracked_order.base_asset,
+                          tracked_order.quote_asset,
+                          order_type,
+                          TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
+                          execute_price,
+                          execute_amount_diff,
+                    )
                 )
                 self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                    f"{order_type_description} order {client_order_id}.")
@@ -647,14 +655,24 @@ cdef class CoinbaseProMarket(MarketBase):
 
                 # Emit event if executed amount is greater than 0.
                 if execute_amount_diff > 0:
+                    order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
+                    trade_type = TradeType.BUY if tracked_order.is_buy else TradeType.SELL
                     order_filled_event = OrderFilledEvent(
                         self._current_timestamp,
                         tracked_order.client_order_id,
                         tracked_order.symbol,
-                        TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
-                        OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT,
+                        trade_type,
+                        order_type,
                         execute_price,
-                        execute_amount_diff
+                        execute_amount_diff,
+                        self.c_get_fee(
+                          tracked_order.base_asset,
+                          tracked_order.quote_asset,
+                          order_type,
+                          trade_type,
+                          execute_price,
+                          execute_amount_diff,
+                        )
                     )
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"{order_type_description} order {tracked_order.client_order_id}.")
@@ -782,13 +800,20 @@ cdef class CoinbaseProMarket(MarketBase):
         return order_id
 
     async def execute_cancel(self, symbol: str, order_id: str):
-        exchange_order_id = await self._in_flight_orders.get(order_id).get_exchange_order_id()
-        path_url = f"/orders/{exchange_order_id}"
         try:
+            exchange_order_id = await self._in_flight_orders.get(order_id).get_exchange_order_id()
+            path_url = f"/orders/{exchange_order_id}"
             [cancelled_id] = await self._api_request("delete", path_url=path_url)
             if cancelled_id == exchange_order_id:
                 self.logger().info(f"Successfully cancelled order {order_id}.")
                 self.c_stop_tracking_order(order_id)
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp, order_id))
+                return order_id
+        except IOError as e:
+            if "order not found" in e.message:
+                # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
+                self.logger().info(f"The order {order_id} does not exist on Coinbase Pro. No cancellation needed.")
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
@@ -1035,7 +1060,7 @@ cdef class CoinbaseProMarket(MarketBase):
         # Order size must be a multiple of the base_min_size
         return trading_rule.base_min_size
 
-    cdef object c_quantize_order_amount(self, str symbol, double amount):
+    cdef object c_quantize_order_amount(self, str symbol, double amount, double price=0.0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
 

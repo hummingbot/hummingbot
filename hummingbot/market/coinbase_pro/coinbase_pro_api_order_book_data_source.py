@@ -96,7 +96,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     product_name: str = row.Index
                     quote_volume: float = row.volume
                     quote_price: float = row.price
-                    if product_name.endswith(("USD", "USDC")):
+                    if product_name.endswith(("USD", "USDC", "USDS", "DAI", "PAX", "TUSD", "USDT")):
                         usd_volume.append(quote_volume * quote_price)
                     elif product_name.endswith("BTC"):
                         usd_volume.append(quote_volume * quote_price * btc_usd_price)
@@ -107,7 +107,8 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     elif product_name.endswith("GBP"):
                         usd_volume.append(quote_volume * quote_price * (btc_usd_price / btc_gbp_price))
                     else:
-                        raise ValueError(f"Unable to convert volume to USD for market - {product_name}.")
+                        usd_volume.append(NaN)
+                        cls.logger().error(f"Unable to convert volume to USD for market - {product_name}.")
                 all_markets["USDVolume"] = usd_volume
                 return all_markets.sort_values("USDVolume", ascending=False)
 

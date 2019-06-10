@@ -3,6 +3,8 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
+from nose.plugins.attrib import attr
+
 from decimal import Decimal
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
@@ -30,7 +32,8 @@ from hummingbot.core.event.events import (
     OrderType,
     OrderFilledEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent
+    SellOrderCompletedEvent,
+    TradeFee,
 )
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
@@ -39,6 +42,7 @@ from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarket
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair
 
 
+@attr('stable')
 class HedgedMarketMakingUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
@@ -158,7 +162,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 TradeType.BUY,
                 OrderType.LIMIT,
                 float(limit_order.price),
-                float(limit_order.quantity)
+                float(limit_order.quantity),
+                TradeFee(0.0)
             ))
             market.trigger_event(MarketEvent.BuyOrderCompleted, BuyOrderCompletedEvent(
                 market.current_timestamp,
@@ -181,7 +186,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 TradeType.SELL,
                 OrderType.LIMIT,
                 float(limit_order.price),
-                float(limit_order.quantity)
+                float(limit_order.quantity),
+                TradeFee(0.0)
             ))
             market.trigger_event(MarketEvent.SellOrderCompleted, SellOrderCompletedEvent(
                 market.current_timestamp,
@@ -475,11 +481,3 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(0, len(self.strategy.active_bids))
         self.assertEqual(0, len(self.strategy.active_asks))
         self.assertEqual(0, len(self.cancel_order_logger.event_log))
-
-
-def main():
-    unittest.main()
-
-
-if __name__ == "__main__":
-    main()

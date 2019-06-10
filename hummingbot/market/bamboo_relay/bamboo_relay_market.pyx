@@ -219,7 +219,7 @@ cdef class BambooRelayMarket(MarketBase):
 
     def __init__(self,
                  wallet: Web3Wallet,
-                 web3_url: str,
+                 ethereum_rpc_url: str,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                     OrderBookTrackerDataSourceType.EXCHANGE_API,
@@ -240,8 +240,8 @@ cdef class BambooRelayMarket(MarketBase):
         self._in_flight_market_orders = {} # market orders are on chain
         self._order_expiry_queue = deque()
         self._tx_tracker = BambooRelayTransactionTracker(self)
-        self._w3 = Web3(Web3.HTTPProvider(web3_url))
-        self._provider = Web3.HTTPProvider(web3_url)
+        self._w3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
+        self._provider = Web3.HTTPProvider(ethereum_rpc_url)
         self._withdraw_rules = {}
         self._trading_rules = {}
         self._pending_approval_tx_hashes = set()
@@ -449,7 +449,8 @@ cdef class BambooRelayMarket(MarketBase):
                             TradeType.BUY if tracked_limit_order.is_buy else TradeType.SELL,
                             OrderType.LIMIT,
                             tracked_limit_order.price,
-                            order_executed_amount
+                            order_executed_amount,
+                            TradeFee(0.0) # no fee for limit order fills
                         )
                     )
 
@@ -536,6 +537,7 @@ cdef class BambooRelayMarket(MarketBase):
                                                       OrderType.MARKET)
                     )
                 elif receipt["status"] == 1:
+                    gas_used = float(receipt.get("gasUsed", 0.0))
                     self.c_trigger_event(
                         self.MARKET_ORDER_FILLED_EVENT_TAG,
                         OrderFilledEvent(
@@ -546,6 +548,7 @@ cdef class BambooRelayMarket(MarketBase):
                             OrderType.MARKET,
                             tracked_market_order.price,
                             tracked_market_order.amount,
+                            TradeFee(0.0, ["ETH", gas_used])
                         )
                     )
                     if tracked_market_order.is_buy:
@@ -1072,7 +1075,7 @@ cdef class BambooRelayMarket(MarketBase):
             precision_quantum = s_decimal_0
         return max(decimals_quantum, precision_quantum)
 
-    cdef object c_quantize_order_amount(self, str symbol, double amount):
+    cdef object c_quantize_order_amount(self, str symbol, double amount, double price=0.0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
         global s_decimal_0
