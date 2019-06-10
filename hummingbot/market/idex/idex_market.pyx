@@ -178,6 +178,7 @@ cdef class IDEXMarket(MarketBase):
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
 
     API_CALL_TIMEOUT = 10.0
+    TRADE_API_CALL_TIMEOUT = 60
     IDEX_REST_ENDPOINT = "https://api.idex.market"
     UPDATE_HOURLY_INTERVAL = 60 * 60
     UPDATE_ORDER_TRACKING_INTERVAL = 10
@@ -493,6 +494,7 @@ cdef class IDEXMarket(MarketBase):
                                   json=json) as response:
             data = await response.json()
             if response.status != 200:
+                print('_api request failed', data)
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status} - {data}")
             # Keep an auto-expired record of the response and the request URL for debugging and logging purpose.
             self._api_response_records[url] = response
@@ -510,7 +512,7 @@ cdef class IDEXMarket(MarketBase):
         incrementing nonce value. These api requests need to executed in order hence we use
         the async scheduler class to queue these tasks.
         """
-        async with timeout(self.API_CALL_TIMEOUT):
+        async with timeout(self.TRADE_API_CALL_TIMEOUT):
             coro = self._api_request(
                 http_method,
                 url,
@@ -522,7 +524,7 @@ cdef class IDEXMarket(MarketBase):
             )
             return await self._async_scheduler.schedule_async_call(
                 coro,
-                self.API_CALL_TIMEOUT,
+                self.TRADE_API_CALL_TIMEOUT,
                 "IDEX API call failed. Timeout error."
             )
 
@@ -1108,7 +1110,3 @@ cdef class IDEXMarket(MarketBase):
             base_asset_decimals = self._assets_info[base_asset]["decimals"]
         decimals_quantum = Decimal(f"1e-{base_asset_decimals}")
         return decimals_quantum
-
-    cdef object c_quantize_order_amount(self, str symbol, double amount):
-        quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
-        return quantized_amount
