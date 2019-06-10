@@ -44,10 +44,10 @@ class LogServerClient:
             except asyncio.CancelledError:
                 raise
             except aiohttp.ClientError:
-                self.logger().error(f"Error sending requests.", exc_info=True, extra={"do_not_send": True})
+                self.logger().network(f"Network error sending logs.", exc_info=True, extra={"do_not_send": True})
                 return
             except Exception:
-                self.logger().error(f"Unexpected error.", exc_info=True, extra={"do_not_send": True})
+                self.logger().network(f"Unexpected error sending logs.", exc_info=True, extra={"do_not_send": True})
                 return
 
     async def request_loop(self):
@@ -60,7 +60,8 @@ class LogServerClient:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(f"Error sending requests.", exc_info=True, extra={"do_not_send": True})
+                self.logger().network(f"Unexpected error running logging task.",
+                                      exc_info=True, extra={"do_not_send": True})
                 await asyncio.sleep(5.0)
 
     def start(self):

@@ -314,7 +314,9 @@ class Web3WalletBackend(PubSub):
             except asyncio.TimeoutError:
                 new_status = NetworkStatus.NOT_CONNECTED
             except Exception:
-                self.logger().error("Unexpected error while checking for network status.", exc_info=True)
+                self.logger().network(f"Unexpected error while checking for network status.", exc_info=True,
+                                      app_warning_msg=f"Unexpected error while checking for network status. "
+                                                      f"Check wallet network connection")
                 new_status = NetworkStatus.NOT_CONNECTED
                 has_unexpected_error = True
 
@@ -337,7 +339,10 @@ class Web3WalletBackend(PubSub):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unknown error occurred while checking for transaction receipts.", exc_info=True)
+                self.logger().network(
+                    f"Unknown error occurred while checking for transaction receipts.", exc_info=True,
+                    app_warning_msg=f"Unknown error occurred while checking for transaction receipts. "
+                                    f"Check wallet network connection")
                 await asyncio.sleep(5.0)
 
     async def check_transaction_receipts(self):
@@ -395,7 +400,9 @@ class Web3WalletBackend(PubSub):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(f"Error sending transaction {tx_hash}.", exc_info=True)
+                self.logger().network(
+                    f"Error sending transaction {tx_hash}.", exc_info=True,
+                    app_warning_msg=f"Error sending transaction {tx_hash}. Check wallet network connection")
                 self.trigger_event(WalletEvent.TransactionFailure, tx_hash)
                 self._local_nonce -= 1
 
