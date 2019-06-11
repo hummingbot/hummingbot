@@ -199,7 +199,7 @@ class OrderBookTracker(ABC):
                     # Output some statistics periodically.
                     now: float = time.time()
                     if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                        self.logger().info("Processed %d order book diffs for %s.",
+                        self.logger().debug("Processed %d order book diffs for %s.",
                                            diff_messages_accepted, symbol)
                         diff_messages_accepted = 0
                     last_message_timestamp = now
