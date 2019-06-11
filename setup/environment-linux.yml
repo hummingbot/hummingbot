@@ -110,7 +110,7 @@ dependencies:
     - python-telegram-bot==11.1.0
     - regex==2019.2.21
     - requests==2.21.0
-    - rlp==0.4.7
+    - rlp==1.1.0
     - ruamel-yaml==0.15.89
     - service-identity==18.1.0
     - stringcase==1.2.0

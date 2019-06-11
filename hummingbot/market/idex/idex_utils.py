@@ -6,16 +6,21 @@ import coincurve
 from Crypto.Hash import keccak
 from py_ecc.secp256k1 import ecdsa_raw_sign
 from rlp.sedes import big_endian_int
-from rlp.utils import str_to_bytes
 from typing import (
     Any,
     Dict,
     List
 )
 
+def str_to_bytes(value):
+    if isinstance(value, bytearray):
+        value = bytes(value)
+    if isinstance(value, bytes):
+        return value
+    return bytes(value, 'utf-8')
 
 def big_endian_to_int(x):
-    return big_endian_int.deserialize(str_to_bytes(x).lstrip(b'\x00'))
+    return big_endian_int.deserialize(str_to_bytes(x).lstrip(b"\x00"))
 
 def safe_ord(value) -> int:
     return value if isinstance(value, int) else ord(value)
@@ -38,7 +43,7 @@ def int_to_big_endian(x):
     return big_endian_int.serialize(x)
 
 def zpad(x, l):
-    return b'\x00' * max(0, l - len(x)) + x
+    return b"\x00" * max(0, l - len(x)) + x
 
 def encode_int32(v):
     return zpad(int_to_big_endian(v), 32)

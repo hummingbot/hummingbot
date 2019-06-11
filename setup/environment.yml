@@ -98,7 +98,6 @@ dependencies:
     - jsonschema==3.0.1
     - kafka-python==1.4.3
     - lru-dict==1.1.6
-    - mock==3.0.5
     - multidict==4.5.2
     - mypy-extensions==0.4.1
     - parsimonious==0.8.1
@@ -113,7 +112,7 @@ dependencies:
     - python-telegram-bot==11.1.0
     - regex==2019.3.12
     - requests==2.21.0
-    - rlp==0.4.7
+    - rlp==1.1.0
     - ruamel.yaml==0.15.89
     - service-identity==18.1.0
     - stringcase==1.2.0

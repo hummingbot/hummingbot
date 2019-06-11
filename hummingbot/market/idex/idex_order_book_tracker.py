@@ -58,9 +58,7 @@ class IDEXOrderBookTracker(OrderBookTracker):
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
         if not self._data_source:
-            if self._data_source_type is OrderBookTrackerDataSourceType.REMOTE_API:
-                self._data_source = RemoteAPIOrderBookDataSource()
-            elif self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
+            if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
                 self._data_source = IDEXAPIOrderBookDataSource(symbols=self._symbols)
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")

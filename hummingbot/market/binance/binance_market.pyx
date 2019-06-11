@@ -229,6 +229,7 @@ cdef class TradingRule:
                f"order_step_size={self.order_step_size}, min_order_size={self.min_order_size}, " \
                f"min_notional_size={self.min_notional_size})"
 
+
 cdef class BinanceMarket(MarketBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value

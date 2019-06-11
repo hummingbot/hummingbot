@@ -144,12 +144,12 @@ cdef class InFlightOrder:
         self.created_timestamp = created_timestamp
         self.created_timestamp_update_event.set()
 
-    async def get_exchange_order_id(self):
+    async def get_exchange_order_id(self) -> str:
         if self.exchange_order_id is None:
             await self.exchange_order_id_update_event.wait()
         return self.exchange_order_id
 
-    async def get_created_timestamp(self):
+    async def get_created_timestamp(self) -> float:
         if self.created_timestamp is None:
             await self.created_timestamp_update_event.wait()
         return self.created_timestamp
@@ -177,17 +177,19 @@ cdef class IDEXMarket(MarketBase):
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
 
+    IDEX_REST_ENDPOINT = "https://api.idex.market"
+    IDEX_MAKER_PERCENT_FEE = 0.001
+    IDEX_TAKER_PERCENT_FEE = 0.002
     API_CALL_TIMEOUT = 10.0
     TRADE_API_CALL_TIMEOUT = 60
-    IDEX_REST_ENDPOINT = "https://api.idex.market"
     UPDATE_HOURLY_INTERVAL = 60 * 60
     UPDATE_ORDER_TRACKING_INTERVAL = 10
     UPDATE_BALANCES_INTERVAL = 5
     ORDER_EXPIRY_TIME = 15 * 60.0
     CANCEL_EXPIRY_TIME = 60.0
+    MINIMUM_LIMIT_ORDER_LIFESPAN = 15
     MINIMUM_MAKER_ORDER_SIZE_ETH = 0.15
     MINIMUM_TAKER_ORDER_SIZE_ETH = 0.05
-    MINIMUM_LIMIT_ORDER_LIFESPAN = 15
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -224,13 +226,10 @@ cdef class IDEXMarket(MarketBase):
         self._order_expiry_set = set()
         self._tx_tracker = IDEXMarketTransactionTracker(self)
         self._w3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
-        self._withdraw_rules = {}
         self._status_polling_task = None
         self._order_tracker_task = None
         self._wallet = wallet
         self._shared_client = None
-        self._maker_trade_fee = NaN
-        self._taker_trade_fee = NaN
         self._api_response_records = TTLCache(60000, ttl=600.0)
         self._assets_info = {}
         self._next_nonce = None
@@ -546,13 +545,11 @@ cdef class IDEXMarket(MarketBase):
         cdef:
             int gas_estimate = 140000 # approximate gas used for IDEX market orders
             double transaction_cost_eth
-            double maker_percent_fee = 0.001
-            double taker_percent_fee = 0.002
 
         if order_type is OrderType.LIMIT:
-            return TradeFee(percent=maker_percent_fee)
+            return TradeFee(percent=self.IDEX_MAKER_PERCENT_FEE)
         transaction_cost_eth = self._wallet.gas_price * gas_estimate / 1e18
-        return TradeFee(percent=taker_percent_fee, flat_fees=[("ETH", transaction_cost_eth)])
+        return TradeFee(percent=self.IDEX_TAKER_PERCENT_FEE, flat_fees=[("ETH", transaction_cost_eth)])
 
     def _generate_limit_order(self,
                               symbol: str,
@@ -848,6 +845,7 @@ cdef class IDEXMarket(MarketBase):
                     self.c_stop_tracking_order(order_id)
 
         except Exception as e:
+            print('####### e', e)
             self.c_stop_tracking_order(order_id)
             self.logger().network(
                 f"Error submitting buy order to IDEX for {amount} {symbol}.",
@@ -1000,12 +998,6 @@ cdef class IDEXMarket(MarketBase):
 
     def get_price(self, symbol: str, is_buy: bool) -> float:
         return self.c_get_price(symbol, is_buy)
-
-    def wrap_eth(self, amount: float) -> str:
-        return self._wallet.wrap_eth(amount)
-
-    def unwrap_eth(self, amount: float) -> str:
-        return self._wallet.unwrap_eth(amount)
 
     cdef double c_get_balance(self, str currency) except? -1:
         return float(self._account_balances.get(currency, 0.0))

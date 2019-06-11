@@ -1,14 +1,11 @@
 #!/usr/bin/env python
 
-from aiokafka import ConsumerRecord
-from decimal import Decimal
 import logging
 from sqlalchemy.engine import RowProxy
 from typing import (
     Dict,
     List,
-    Optional,
-    Tuple
+    Optional
 )
 import ujson
 

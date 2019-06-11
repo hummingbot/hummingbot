@@ -85,8 +85,11 @@ cdef class IDEXActiveOrderTracker:
             str event = content["event"]
             str order_hash
             int tid
+            object amount_base
+            object amount_quote
             object price
             double quantity = 0
+            dict order_dict
 
         if event == "market_orders":
             """
@@ -308,7 +311,7 @@ cdef class IDEXActiveOrderTracker:
                 while True:
                     order_price, order_amount, order_hash = heapq.heappop(ask_heap)
                     if order_hash in self._order_hashes_to_delete:
-                        # delete the order from the original heap
+                        # ignore and delete the order from the original heap
                         # check the next available order
                         heapq.heappop(self._ask_heap)
                         self._order_hashes_to_delete.remove(order_hash)
@@ -325,7 +328,7 @@ cdef class IDEXActiveOrderTracker:
                 while True:
                     order_price, order_amount, order_hash = heapq.heappop(bid_heap)
                     if order_hash in self._order_hashes_to_delete:
-                        # delete the order from the original heap
+                        # ignore and delete the order from the original heap
                         # check the next available order
                         heapq.heappop(self._bid_heap)
                         self._order_hashes_to_delete.remove(order_hash)
@@ -351,7 +354,6 @@ cdef class IDEXActiveOrderTracker:
         self._active_bids.clear()
         self._active_asks.clear()
         self._order_hash_price_map.clear()
-
         self._order_hashes_to_delete.clear()
         self._bid_heap.clear()
         self._ask_heap.clear()
@@ -365,6 +367,7 @@ cdef class IDEXActiveOrderTracker:
             order_hash = order["hash"]
             order_timestamp = pd.Timestamp(order["updatedAt"]).timestamp()
             if order_timestamp > self._latest_snapshot_timestamp:
+                # final snapshot timestamp should be the latest order update received
                 self._latest_snapshot_timestamp = order_timestamp
 
             if self._is_bid(order):

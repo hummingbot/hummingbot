@@ -31,7 +31,7 @@ from hummingbot.core.data_type.order_book_message import IDEXOrderBookMessage
 IDEX_REST_URL = "https://api.idex.market"
 IDEX_WS_URL = "wss://datastream.idex.market"
 IDEX_WS_VERSION = "1.0.0"
-IDEX_STATIC_API_KEY = "17paIsICur8sA0OBqG6dH5G1rmrHNMwt4oNk4iX9" # not unique
+IDEX_STATIC_API_KEY = "17paIsICur8sA0OBqG6dH5G1rmrHNMwt4oNk4iX9" # not unique / shared for all users
 IDEX_WS_TRADING_PAIRS_SUBSCRIPTION_LIMIT = 100
 
 
@@ -132,18 +132,6 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         else:
             trading_pairs: List[str] = self._symbols
         return trading_pairs
-
-    def _snapshot_request_params(self, trading_pair: str, next_cursor: Optional[str] = None) -> Dict[str, Any]:
-        if next_cursor is None:
-            return {
-                "market": trading_pair,
-                "count": IDEX_WS_TRADING_PAIRS_SUBSCRIPTION_LIMIT
-            }
-        return {
-            "market": trading_pair,
-            "count": IDEX_WS_TRADING_PAIRS_SUBSCRIPTION_LIMIT,
-            "cursor": next_cursor
-        }
 
     async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
         quote_asset: str = trading_pair.split("_")[0]
@@ -258,7 +246,6 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "request": "subscribeToMarkets",
             "payload": subscribe_payload
         }
-        # self._handshake_sids[sid] = markets
         await ws.send(ujson.dumps(subscribe_request))
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
