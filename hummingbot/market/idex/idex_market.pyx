@@ -503,7 +503,6 @@ cdef class IDEXMarket(MarketBase):
                                   json=json) as response:
             data = await response.json()
             if response.status != 200:
-                print('_api request failed', data)
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status} - {data}")
             # Keep an auto-expired record of the response and the request URL for debugging and logging purpose.
             self._api_response_records[url] = response
@@ -984,7 +983,6 @@ cdef class IDEXMarket(MarketBase):
                         order_id_set.remove(cid)
                         successful_cancellations.append(CancellationResult(cid, True))
         except Exception as e:
-            print(e)
             self.logger().network(
                 f"Unexpected error cancelling orders.",
                 exc_info=True,

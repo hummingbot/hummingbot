@@ -1367,11 +1367,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 float(bid_price),
                 float(bid_size_limit)
             )
-            print('*******bid_price', bid_price)
-            print('*******bid_size_limit', bid_size_limit)
-
-            print('*******bid_order_size', bid_size)
-
             if bid_size > s_decimal_zero:
                 effective_hedging_price = self.c_calculate_effective_hedging_price(
                     taker_order_book,
