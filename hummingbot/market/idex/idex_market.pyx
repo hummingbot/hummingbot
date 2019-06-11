@@ -417,7 +417,7 @@ cdef class IDEXMarket(MarketBase):
             tracked_limit_order.available_amount = Decimal(order_update["amount"])
             tracked_limit_order.quote_asset_amount = Decimal(order_update["total"])
             if order_executed_amount > s_decimal_0:
-                self.logger().info(f"Filled {order_executed_amount} out of {tracked_limit_order.intial_amount} of the "
+                self.logger().info(f"Filled {order_executed_amount} out of {tracked_limit_order.initial_amount} of the "
                     f"limit order {tracked_limit_order.client_order_id}.")
                 self.c_trigger_event(
                     self.MARKET_ORDER_FILLED_EVENT_TAG,
@@ -428,7 +428,15 @@ cdef class IDEXMarket(MarketBase):
                         TradeType.BUY if tracked_limit_order.is_buy else TradeType.SELL,
                         OrderType.LIMIT,
                         tracked_limit_order.price,
-                        order_executed_amount
+                        order_executed_amount,
+                        self.c_get_fee(
+                            tracked_limit_order.base_asset,
+                            tracked_limit_order.quote_asset,
+                            OrderType.LIMIT,
+                            TradeType.BUY if tracked_limit_order.is_buy else TradeType.SELL,
+                            order_executed_amount,
+                            tracked_limit_order.price
+                        )
                     )
                 )
 
@@ -1070,7 +1078,7 @@ cdef class IDEXMarket(MarketBase):
                                 object price):
         self._in_flight_orders[client_order_id] = InFlightOrder(
             client_order_id=client_order_id,
-            exchange_order_id="",
+            exchange_order_id=None,
             tx_hash="",
             symbol=symbol,
             is_buy=is_buy,
