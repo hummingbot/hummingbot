@@ -110,7 +110,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION = 60.0
     CANCEL_EXPIRY_DURATION = 60.0
 
-    NO_OP_ORDERS_PROPOSAL = OrdersProposal(0, OrderType.LIMIT, 0, 0, OrderType, 0, 0, [])
+    NO_OP_ORDERS_PROPOSAL = OrdersProposal(0, OrderType.LIMIT, [0], [0], OrderType.LIMIT, [0], [0], [])
 
     # These are exchanges where you're expected to expire orders instead of actively cancelling them.
     RADAR_RELAY_TYPE_EXCHANGES = {"radar_relay", "bamboo_relay"}
@@ -130,6 +130,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
                  status_report_interval: float = 900,
+                 number_of_orders: int =1,
+                 mode: str = "equal_sizing",
+                 order_start_size: float = 1.0,
+                 order_step_size: float = 0.5,
                  legacy_order_size: float = 1.0,
                  legacy_bid_spread: float = 0.01,
                  legacy_ask_spread: float = 0.01):
