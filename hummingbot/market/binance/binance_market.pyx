@@ -64,7 +64,7 @@ from hummingbot.wallet.wallet_base cimport WalletBase
 
 s_logger = None
 s_decimal_0 = Decimal(0)
-SYMBOL_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|TUSD|PAX)$")
+SYMBOL_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX)$")
 
 
 cdef class BinanceMarketTransactionTracker(TransactionTracker):
