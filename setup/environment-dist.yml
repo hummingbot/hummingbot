@@ -74,6 +74,7 @@ dependencies:
     - autobahn==19.2.1
     - automat==0.7.0
     - chardet==3.0.4
+    - coincurve==12.0.0
     - constantly==15.1.0
     - cytoolz==0.9.0.1
     - dateparser==0.7.1
@@ -93,6 +94,7 @@ dependencies:
     - lru-dict==1.1.6
     - multidict==4.5.2
     - parsimonious==0.8.1
+    - py-ecc==1.7.0
     - pyasn1==0.4.5
     - pyasn1-modules==0.2.4
     - pycryptodome==3.7.3
