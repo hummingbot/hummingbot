@@ -83,7 +83,7 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 for trading_pair, volume_data in parsed_response.items():
                     # filter out all non trading pair data. IDEX format is "TUSD_ETH"
                     if "_" in trading_pair:
-                        base_asset, quote_asset = trading_pair.split("_")
+                        quote_asset, base_asset = trading_pair.split("_")
                         data.append({
                             "market": trading_pair,
                             "volumeData": volume_data,

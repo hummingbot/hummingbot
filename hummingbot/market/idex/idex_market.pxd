@@ -22,6 +22,7 @@ cdef class IDEXMarket(MarketBase):
         dict _in_flight_orders
         object _in_flight_cancels
         object _order_expiry_queue
+        object _order_expiry_set
         TransactionTracker _tx_tracker
         object _w3
         dict _withdraw_rules

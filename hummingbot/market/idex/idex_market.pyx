@@ -221,6 +221,7 @@ cdef class IDEXMarket(MarketBase):
         self._in_flight_orders = {}
         self._in_flight_cancels = OrderedDict()
         self._order_expiry_queue = deque()
+        self._order_expiry_set = set()
         self._tx_tracker = IDEXMarketTransactionTracker(self)
         self._w3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
         self._withdraw_rules = {}
@@ -967,7 +968,7 @@ cdef class IDEXMarket(MarketBase):
         asyncio.ensure_future(self.cancel_order(client_order_id))
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
-        incomplete_orders = [o for o in self.in_flight_orders.values() if not o.is_done]
+        incomplete_orders = [o for o in self.in_flight_orders.values() if not o.is_done and o.client_order_id not in self._order_expiry_set]
         client_order_ids = [o.client_order_id for o in incomplete_orders]
         order_id_set = set(client_order_ids)
         tasks = [self.cancel_order(i) for i in client_order_ids]
@@ -1091,6 +1092,7 @@ cdef class IDEXMarket(MarketBase):
 
     cdef c_expire_order(self, str order_id):
         self._order_expiry_queue.append((self._current_timestamp + self.ORDER_EXPIRY_TIME, order_id))
+        self._order_expiry_set.add(order_id)
 
     cdef c_check_and_remove_expired_orders(self):
         cdef:
@@ -1099,6 +1101,7 @@ cdef class IDEXMarket(MarketBase):
 
         while len(self._order_expiry_queue) > 0 and self._order_expiry_queue[0][0] < current_timestamp:
             _, order_id = self._order_expiry_queue.popleft()
+            self._order_expiry_set.remove(order_id)
             self.c_stop_tracking_order(order_id)
 
     cdef c_stop_tracking_order(self, str order_id):
