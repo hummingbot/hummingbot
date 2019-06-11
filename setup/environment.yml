@@ -26,8 +26,8 @@ dependencies:
   - mkl=2019.3=199
   - mkl_fft=1.0.10=py36h5e564d8_0
   - mkl_random=1.0.2=py36h27c97d8_0
-  - nose=1.3.7=py36_2
   - ncurses=6.1=h0a44026_1
+  - nose=1.3.7=py36_2
   - numexpr=2.6.9=py36h7413580_0
   - numpy=1.16.2=py36hacdab7b_0
   - numpy-base=1.16.2=py36h6575580_0
@@ -77,6 +77,7 @@ dependencies:
     - automat==0.7.0
     - cachetools==3.0.0
     - chardet==3.0.4
+    - coincurve==12.0.0
     - constantly==15.1.0
     - cytoolz==0.9.0.1
     - dateparser==0.7.1
@@ -100,6 +101,7 @@ dependencies:
     - multidict==4.5.2
     - mypy-extensions==0.4.1
     - parsimonious==0.8.1
+    - py-ecc==1.7.0
     - pyasn1==0.4.5
     - pyasn1-modules==0.2.4
     - pycryptodome==3.8.0
@@ -123,4 +125,3 @@ dependencies:
     - websockets==6.0
     - yarl==1.3.0
     - zope.interface==4.6.0
-    - cachetools==3.0.0
