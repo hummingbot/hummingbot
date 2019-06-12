@@ -24,17 +24,19 @@ CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
 
 EXCHANGES = {
-    "binance",
-    "ddex",
-    "radar_relay",
     "bamboo_relay",
-    "coinbase_pro"
+    "binance",
+    "coinbase_pro",
+    "ddex",
+    "idex",
+    "radar_relay",
 }
 
 DEXES = {
-    "ddex",
-    "radar_relay",
     "bamboo_relay",
+    "ddex",
+    "idex",
+    "radar_relay",
 }
 
 STRATEGIES = {
@@ -47,6 +49,7 @@ STRATEGIES = {
 EXAMPLE_PAIRS = {
     "binance": "ZRXETH",
     "ddex": "ZRX-WETH",
+    "idex": "ETH_ZRX",
     "radar_relay": "ZRX-WETH",
     "bamboo_relay": "ZRX-WETH",
     "coinbase_pro": "ETH-USDC",
