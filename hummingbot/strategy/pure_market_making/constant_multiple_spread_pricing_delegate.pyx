@@ -6,7 +6,7 @@ from .data_types import PricingProposal
 from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
 
 
-cdef class ConstantSpreadPricingDelegate(OrderPricingDelegate):
+cdef class ConstantMultipleSpreadPricingDelegate(OrderPricingDelegate):
     def __init__(self, bid_spread: float,
                  ask_spread: float,
                  order_interval_size: float,

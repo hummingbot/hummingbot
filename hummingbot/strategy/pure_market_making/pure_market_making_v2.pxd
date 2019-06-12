@@ -13,6 +13,7 @@ from .order_sizing_delegate cimport OrderSizingDelegate
 
 cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef:
+        str mode
         set _markets
         dict _market_infos
         bint _all_markets_ready
