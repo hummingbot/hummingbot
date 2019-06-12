@@ -159,6 +159,10 @@ class Web3WalletBackend(PubSub):
     def network_status(self) -> NetworkStatus:
         return self._network_status
 
+    @property
+    def account(self) -> LocalAccount:
+        return self._account
+
     def start(self):
         if self.started:
             self.stop()
