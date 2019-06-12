@@ -692,8 +692,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                             market_info,
                             bid_order_id,
                             True,
-                            orders_proposal.buy_order_price[idx],
-                            orders_proposal.buy_order_size[idx]
+                            orders_proposal.buy_order_prices[idx],
+                            orders_proposal.buy_order_sizes[idx]
                         )
                         self._time_to_cancel[bid_order_id] = self._current_timestamp + self._cancel_order_wait_time
                 elif orders_proposal.buy_order_type is OrderType.MARKET:
