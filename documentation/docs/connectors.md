@@ -12,9 +12,9 @@ This section contains information about official connectors for individual excha
 * [Radar Relay](/connectors/radar-relay)
 * [DDEX](/connectors/ddex)
 * [0x open order book relayers](/connectors/0x)
+* [Coinbase Pro](/connectors/coinbase)
 
-## Coming soon
+## Coming soon to Hummingbot
 
 * IDEX
-* Coinbase Pro
 * Uniswap
