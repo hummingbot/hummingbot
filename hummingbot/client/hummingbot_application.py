@@ -287,7 +287,7 @@ class HummingbotApplication:
     def config(self, key: str = None):
         self.app.clear_input()
 
-        if self.strategy or self.config_complete:
+        if self.strategy or (self.config_complete and key is None):
             asyncio.ensure_future(self.reset_config_loop(key))
             return
         if key is not None and key not in load_required_configs().keys():
