@@ -37,7 +37,7 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
 
         return SizingProposal(
             ([bid_order_size]
-             if quote_asset_balance > pricing_proposal.buy_order_price * bid_order_size and not has_active_bid
+             if quote_asset_balance > pricing_proposal.buy_order_prices[0] * bid_order_size and not has_active_bid
              else [0.0]),
             ([ask_order_size]
              if base_asset_balance > ask_order_size and not has_active_ask else

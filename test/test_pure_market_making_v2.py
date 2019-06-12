@@ -83,6 +83,17 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             cancel_order_wait_time=45,
             logging_options=logging_options
         )
+
+        self.multi_order_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+            [self.market_info],
+            legacy_order_size=1.0,
+            legacy_bid_spread=self.bid_threshold,
+            legacy_ask_spread=self.ask_threshold,
+            cancel_order_wait_time=45,
+            number_of_orders=5,
+            order_start_size=
+            logging_options=logging_options
+        )
         self.logging_options = logging_options
         self.clock.add_iterator(self.maker_market)
         self.clock.add_iterator(self.strategy)
