@@ -565,7 +565,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             limit_order_record = self._tracked_maker_orders[market_info][order_id]
             self.log_with_clock(
                 logging.INFO,
-                f"({market_info.maker_symbol}) Maker buy order {order_id} "
+                f"({market_info.symbol}) Maker buy order {order_id} "
                 f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                 f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
             )
@@ -581,7 +581,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             limit_order_record = self._tracked_maker_orders[market_info][order_id]
             self.log_with_clock(
                 logging.INFO,
-                f"({market_info.maker_symbol}) Maker sell order {order_id} "
+                f"({market_info.symbol}) Maker sell order {order_id} "
                 f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                 f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
             )
