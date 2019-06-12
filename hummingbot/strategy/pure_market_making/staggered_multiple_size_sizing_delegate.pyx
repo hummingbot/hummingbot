@@ -6,15 +6,23 @@ from .data_types import SizingProposal
 from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
 
 
-cdef class ConstantMultipleSizeSizingDelegate(OrderSizingDelegate):
-    def __init__(self, order_size: float, number_of_orders:int):
+cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
+    def __init__(self, order_start_size: float,
+                 order_step_size:float,
+                 number_of_orders:int):
         super().__init__()
-        self._order_size = order_size
+        self._order_start_size = order_start_size
+        self._order_step_size = order_step_size
         self._number_of_orders = number_of_orders
 
     @property
-    def order_size(self) -> float:
-        return self._order_size
+    def order_start_size(self) -> float:
+        return self._order_start_size
+
+    @property
+    def order_step_size(self) -> float:
+        return self._order_step_size
+
 
     @property
     def number_of_orders(self) -> int:
@@ -30,7 +38,8 @@ cdef class ConstantMultipleSizeSizingDelegate(OrderSizingDelegate):
             double base_asset_balance = market.c_get_balance(market_info.base_currency)
             double quote_asset_balance = market.c_get_balance(market_info.quote_currency)
             double required_quote_asset_balance = 0
-            double per_order_size = self._order_size / self._number_of_orders
+            double require_base_asset_balance = 0
+            list orders = []
             bint has_active_bid = False
             bint has_active_ask = False
 
@@ -40,15 +49,17 @@ cdef class ConstantMultipleSizeSizingDelegate(OrderSizingDelegate):
             else:
                 has_active_ask = True
 
-        for idx in range(self._number_of_orders):
-            required_quote_asset_balance += ( per_order_size * pricing_proposal.buy_order_price[idx] )
-
+        for idx in range(self.number_of_orders):
+            current_order_size = self.order_start_size + self.order_step_size * idx
+            required_quote_asset_balance += ( current_order_size * pricing_proposal.buy_order_price[idx] )
+            require_base_asset_balance += current_order_size
+            orders.append(current_order_size)
 
         return SizingProposal(
-            ([per_order_size] * self.number_of_orders
+            ([orders]
              if quote_asset_balance > required_quote_asset_balance and not has_active_bid
              else [0.0]),
-            ([per_order_size] * self.number_of_orders
-             if base_asset_balance > self.order_size and not has_active_ask else
+            ([orders]
+             if base_asset_balance > require_base_asset_balance and not has_active_ask else
              [0.0])
         )

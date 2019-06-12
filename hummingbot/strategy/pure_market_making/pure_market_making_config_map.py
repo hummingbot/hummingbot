@@ -34,7 +34,31 @@ pure_market_making_config_map = {
                                                   prompt="What is your preferred quantity per order (denominated in "
                                                          "the base asset, default is 1)? >>> ",
                                                   default=1.0,
-                                                  type_str="float"),
+                                                 type_str="float"),
+    "number_of_orders":                 ConfigVar(key="number_of_orders",
+                                                  prompt="How many orders do you want to place on both sides,"
+                                                         "default is 1",
+                                                  type_str="int",
+                                                  default=1),
+    "order_start_size":                 ConfigVar(key="order_start_size",
+                                                  prompt="This is used if you want to have multiple orders and "
+                                                         "you want to market make in a staggered manner"
+                                                         "default is 1",
+                                                  type_str="float",
+                                                  default=1),
+    "order_step_size":                  ConfigVar(key="order_start_size",
+                                                  prompt="This is used if you want to have multiple orders and "
+                                                         "you want to market make in a staggered manner"
+                                                         "default is 1",
+                                                  type_str="float",
+                                                  default=1),
+    "order_interval_percent":           ConfigVar(key="order_interval_percent",
+                                                  prompt="This is used if you want to have multiple orders and "
+                                                         "you want to market make in a staggered manner"
+                                                         "(Enter 0.01 to indicate 1%)? >>> ",
+                                                  type_str="float",
+                                                  default=1),
+
     "bid_place_threshold":              ConfigVar(key="bid_place_threshold",
                                                   prompt="How far away from the mid price do you want to place the next bid"
                                                          "(Enter 0.01 to indicate 1%)? >>> ",
