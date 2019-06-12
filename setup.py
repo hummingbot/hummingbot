@@ -37,6 +37,7 @@ def main():
         "hummingbot.market.coinbase_pro",
         "hummingbot.market.ddex",
         "hummingbot.market.huobi",
+        "hummingbot.market.idex",
         "hummingbot.market.radar_relay",
         "hummingbot.strategy",
         "hummingbot.strategy.arbitrage",
