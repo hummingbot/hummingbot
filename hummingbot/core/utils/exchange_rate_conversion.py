@@ -7,6 +7,7 @@ from typing import (
     Dict)
 
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.data_feed.coin_metrics_data_feed import CoinMetricsDataFeed
 from hummingbot.logger import HummingbotLogger
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
 from hummingbot.data_feed.data_feed_base import DataFeedBase
@@ -29,6 +30,9 @@ class ExchangeRateConversion:
     def get_instance(cls) -> "ExchangeRateConversion":
         if cls._erc_shared_instance is None:
             cls._erc_shared_instance = ExchangeRateConversion()
+        elif not cls._exchange_rate_config["global_config"]:
+            # init config in case the exchange rate instance is initiated before global config map
+            cls._erc_shared_instance.init_config()
         return cls._erc_shared_instance
 
     @classmethod
@@ -63,7 +67,8 @@ class ExchangeRateConversion:
     def init_config(cls):
         try:
             if cls._data_feeds_override is None:
-                cls._data_feeds = [CoinCapDataFeed.get_instance()]
+                cls._data_feeds = [CoinCapDataFeed.get_instance(),
+                                   CoinMetricsDataFeed.get_instance()]
             else:
                 cls._data_feeds = cls._data_feeds_override
             # Set default rate and source for token rates globally
@@ -167,7 +172,8 @@ class ExchangeRateConversion:
     def start(self):
         self.stop()
         for data_feed in self._data_feeds:
-            data_feed.start()
+            if not data_feed.started:
+                data_feed.start()
         self._fetch_exchange_rate_task = asyncio.ensure_future(self.request_loop())
         self._started = True
 
