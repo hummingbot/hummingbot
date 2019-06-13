@@ -321,14 +321,15 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
             pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self, market_info, active_orders)
             sizing_proposal = self._sizing_delegate.c_get_order_size_proposal(self, market_info, active_orders, pricing_proposal)
-            bid_orders = [str(size) + ' ' + maker_base + ' @ ' + str(price) + ' ' + maker_quote for size,price in zip(sizing_proposal.buy_order_sizes, pricing_proposal.buy_order_prices)]
-            ask_orders = [str(size) + ' ' + maker_base + ' @ ' + str(price) + ' ' + maker_quote for size,price in zip(sizing_proposal.sell_order_sizes, pricing_proposal.sell_order_prices)]
+            bid_orders = [str(price) for price in pricing_proposal.buy_order_prices]
+            bid_orders_string = " ".join(bid_orders)
+            ask_orders = [str(price) for price in pricing_proposal.sell_order_prices]
+            ask_orders_string = " ".join(ask_orders)
             lines.extend([
                 f"{market_info.symbol}:",
                 f"  {maker_symbol} bid/ask: {bid_price}/{ask_price}",
-                f"  Bids (Size,Price) to be placed at: {bid_orders}",
-                f"  Asks (Size,Price) to be placed at: {ask_orders}",
-                f"lenght of lists is f{len(pricing_proposal.buy_order_prices)}",
+                f"  Bids to be placed at: {bid_orders}",
+                f"  Asks to be placed at: {ask_orders}",
                 f"  {maker_base}/{maker_quote} balance: "
                     f"{maker_base_balance}/{maker_quote_balance}"
             ])
