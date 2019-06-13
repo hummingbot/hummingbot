@@ -45,16 +45,20 @@ cdef class ConstantMultipleSpreadPricingDelegate(OrderPricingDelegate):
             double top_ask_price = maker_order_book.c_get_price(True)
             str market_name = maker_market.name
             double mid_price = (top_bid_price + top_ask_price) * 0.5
-            list bid_prices = [mid_price * (1.0 - self.bid_spread)]
-            list ask_prices = [mid_price * (1.0 + self.ask_spread)]
+            list bid_prices = [maker_market.c_quantize_order_price(market_info.symbol,
+                                                                   mid_price * (1.0 - self.bid_spread))]
+            list ask_prices = [maker_market.c_quantize_order_price(market_info.symbol,
+                                                                   mid_price * (1.0 + self.ask_spread))]
 
         for _ in range(self.number_of_orders -1):
             last_bid_price = bid_prices[-1]
-            current_bid_price = last_bid_price * ( 1 - self.order_interval_size)
+            current_bid_price = maker_market.c_quantize_order_price(market_info.symbol,
+                                                                    float(last_bid_price) * ( 1 - self.order_interval_size))
             bid_prices.append(current_bid_price)
 
             last_ask_price = ask_prices[-1]
-            current_ask_price = last_ask_price * ( 1 + self.order_interval_size)
+            current_ask_price = maker_market.c_quantize_order_price(market_info.symbol,
+                                                                    float(last_ask_price) * ( 1 + self.order_interval_size))
             ask_prices.append(current_ask_price)
 
 
