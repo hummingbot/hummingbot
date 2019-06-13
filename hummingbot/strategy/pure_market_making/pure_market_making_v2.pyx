@@ -320,11 +320,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
 
             pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self, market_info, active_orders)
-            sizing_proposal = self._sizing_delegate.c_get_order_size_proposal(self, market_info, active_orders, pricing_proposal)
             bid_orders = [str(price) for price in pricing_proposal.buy_order_prices]
-            bid_orders_string = " ".join(bid_orders)
             ask_orders = [str(price) for price in pricing_proposal.sell_order_prices]
-            ask_orders_string = " ".join(ask_orders)
             lines.extend([
                 f"{market_info.symbol}:",
                 f"  {maker_symbol} bid/ask: {bid_price}/{ask_price}",
