@@ -103,6 +103,7 @@ nav:
       - Coinbase Pro: connectors/coinbase.md
       - DDEX: connectors/ddex.md
       - Radar Relay: connectors/radar-relay.md
+      - IDEX: connectors/idex.md
       - 0x open order book relayers: connectors/0x.md
     - Strategies:
       - Strategies: strategies.md
