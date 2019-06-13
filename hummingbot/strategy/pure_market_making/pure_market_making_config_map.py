@@ -57,8 +57,7 @@ pure_market_making_config_map = {
                                                          "you want to market make in a staggered manner"
                                                          "(Enter 0.01 to indicate 1%)? >>> ",
                                                   type_str="float",
-                                                  default=1),
-
+                                                  default=0.01),
     "bid_place_threshold":              ConfigVar(key="bid_place_threshold",
                                                   prompt="How far away from the mid price do you want to place the next bid"
                                                          "(Enter 0.01 to indicate 1%)? >>> ",
