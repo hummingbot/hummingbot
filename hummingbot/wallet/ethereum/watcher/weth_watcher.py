@@ -96,7 +96,9 @@ class WethWatcher(BaseWatcher):
             except asyncio.TimeoutError:
                 continue
             except Exception:
-                self.logger().error("Unknown error trying to fetch new events from WETH contract.", exc_info=True)
+                self.logger().network(f"Unknown error trying to fetch new events from WETH contract.", exc_info=True,
+                                      app_warning_msg=f"Unknown error trying to fetch new events from WETH contract. "
+                                                      f"Check wallet network connection")
     
     async def _handle_event_data(self, event_data: AttributeDict):
         event_type: str = event_data["event"]
@@ -107,7 +109,7 @@ class WethWatcher(BaseWatcher):
         elif event_type == WITHDRAWAL_EVENT_NAME:
             self.handle_unwrapping_eth_event(timestamp, tx_hash, event_data)
         else:
-            self.logger().error(f"Received log with unrecognized event type - '{event_type}'.")
+            self.logger().warning(f"Received log with unrecognized event type - '{event_type}'.")
 
     def handle_wrapping_eth_event(self,
                                   timestamp: float, tx_hash: str, event_data: AttributeDict):
