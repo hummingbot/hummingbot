@@ -114,9 +114,6 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.logging_options = logging_options
         self.clock.add_iterator(self.maker_market)
         self.clock.add_iterator(self.strategy)
-        #self.clock.add_iterator(self.multi_order_equal_strategy)
-        #self.clock.add_iterator(self.multi_order_staggered_strategy)
-
         self.maker_order_fill_logger: EventLogger = EventLogger()
         self.cancel_order_logger: EventLogger = EventLogger()
         self.maker_market.add_listener(MarketEvent.OrderFilled, self.maker_order_fill_logger)
