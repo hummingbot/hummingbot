@@ -15,13 +15,16 @@ The timeline below shows the past milestones we have completed, along with the f
 
 ## Q2 2019
 * Public beta release (April 4, 2019)
-* Released connectors for [Coinbase Pro](/connectors/coinbase) and [IDEX](/connectors/idex) connector
+* Released connectors for [Coinbase Pro](/connectors/coinbase) and [IDEX](/connectors/idex)
 * First community contributed connector for [Bamboo Relay](https://bamboorelay.com/)
 * Released [pure market making strategy](/strategies/pure-market-making)
 * Announced [Liquidity Bounty Programs](https://www.hummingbot.io/liquidity-bounties/)
 * Launch 1st liquidity bounty program for [Harmony](https://www.hummingbot.io/liquidity-bounties/harmony)
 
 ## Q3 2019
-* More connectors for decentralized and centralized exchanges, as well as automated market makers
-* Graphical user interface
+* More connectors for decentralized and centralized exchanges: Bitfinex, Kraken, Huobi, Bittrex, Bitmex, Binance DEX
 * Support for user defined strategies
+
+## Q4 2019
+* Graphical user interface
+* Connectors to automated market makers

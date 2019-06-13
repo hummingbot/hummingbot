@@ -7,7 +7,8 @@ Here are some helpful links to get started:
 * [Website](https://hummingbot.io)
 * [FAQ](/faq)
 * [Whitepaper](/whitepaper)
-* [Installation](/installation) 
+* [Installation](/installation)
+* [Tutorials](https://www.youtube.com/channel/UCxzzdEnDRbylLMWmaMjywOA)
 * [Support](/support)
 
 !!! warning "Experimental software"
