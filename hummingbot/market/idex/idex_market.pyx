@@ -845,7 +845,6 @@ cdef class IDEXMarket(MarketBase):
                     self.c_stop_tracking_order(order_id)
 
         except Exception as e:
-            print('####### e', e)
             self.c_stop_tracking_order(order_id)
             self.logger().network(
                 f"Error submitting buy order to IDEX for {amount} {symbol}.",
