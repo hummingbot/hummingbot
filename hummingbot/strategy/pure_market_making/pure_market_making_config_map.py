@@ -37,27 +37,9 @@ pure_market_making_config_map = {
                                                  type_str="float"),
     "number_of_orders":                 ConfigVar(key="number_of_orders",
                                                   prompt="How many orders do you want to place on both sides,"
-                                                         "default is 1",
+                                                         " (default is 1) ? >>> ",
                                                   type_str="int",
                                                   default=1),
-    "order_start_size":                 ConfigVar(key="order_start_size",
-                                                  prompt="This is used if you want to have multiple orders and "
-                                                         "you want to market make in a staggered manner"
-                                                         "default is 1",
-                                                  type_str="float",
-                                                  default=1),
-    "order_step_size":                  ConfigVar(key="order_start_size",
-                                                  prompt="This is used if you want to have multiple orders and "
-                                                         "you want to market make in a staggered manner"
-                                                         "default is 1",
-                                                  type_str="float",
-                                                  default=1),
-    "order_interval_percent":           ConfigVar(key="order_interval_percent",
-                                                  prompt="This is used if you want to have multiple orders and "
-                                                         "you want to market make in a staggered manner"
-                                                         "(Enter 0.01 to indicate 1%)? >>> ",
-                                                  type_str="float",
-                                                  default=0.01),
     "bid_place_threshold":              ConfigVar(key="bid_place_threshold",
                                                   prompt="How far away from the mid price do you want to place the next bid"
                                                          "(Enter 0.01 to indicate 1%)? >>> ",
@@ -72,5 +54,20 @@ pure_market_making_config_map = {
                                                   prompt="How often do you want to cancel and replace bids and asks "
                                                          "(in seconds)? >>> ",
                                                   type_str="float",
-                                                  default=60)
+                                                  default=60),
+    "order_start_size":                 ConfigVar(key="order_start_size",
+                                                  prompt="What is the starting order size (used for multiple orders)"
+                                                  " (default is 1) ? >>> ",
+                                                  type_str="float",
+                                                  default=1),
+    "order_step_size":                  ConfigVar(key="order_start_size",
+                                                  prompt="What is the step size between orders (used for multiple orders)"
+                                                  " (default is 1) ? >>> ",
+                                                  type_str="float",
+                                                  default=1),
+    "order_interval_percent":           ConfigVar(key="order_interval_percent",
+                                                  prompt="What is the interval percentage between orders (used for multiple orders)"
+                                                  " (Enter 0.01 to indicate 1%)? >>> ",
+                                                  type_str="float",
+                                                  default=0.01),
 }

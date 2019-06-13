@@ -321,11 +321,14 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
             pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self, market_info, active_orders)
             sizing_proposal = self._sizing_delegate.c_get_order_size_proposal(self, market_info, active_orders, pricing_proposal)
+            bid_orders = [str(size) + ' ' + maker_base + ' @ ' + str(price) + ' ' + maker_quote for size,price in zip(sizing_proposal.buy_order_sizes, pricing_proposal.buy_order_prices)]
+            ask_orders = [str(size) + ' ' + maker_base + ' @ ' + str(price) + ' ' + maker_quote for size,price in zip(sizing_proposal.sell_order_sizes, pricing_proposal.sell_order_prices)]
             lines.extend([
                 f"{market_info.symbol}:",
                 f"  {maker_symbol} bid/ask: {bid_price}/{ask_price}",
-                f"  Bids (Size,Price) to be placed at: {[str(size) + maker_base + '@' + str(price) + maker_quote for size,price in zip(sizing_proposal.buy_order_sizes, pricing_proposal.buy_order_prices)]}",
-                f"  Asks (Size,Price) to be placed at: {[str(size) + maker_base + '@' + str(price) + maker_quote for size,price in zip(sizing_proposal.sell_order_sizes, pricing_proposal.sell_order_prices)]}",
+                f"  Bids (Size,Price) to be placed at: {bid_orders}",
+                f"  Asks (Size,Price) to be placed at: {ask_orders}",
+                f"lenght of lists is f{len(pricing_proposal.buy_order_prices)}",
                 f"  {maker_base}/{maker_quote} balance: "
                     f"{maker_base_balance}/{maker_quote_balance}"
             ])
@@ -676,7 +679,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         self.log_with_clock(
                             logging.INFO,
                             f"({market_info.symbol}) Creating limit bid orders for "
-                            f"  Bids (Size,Price) to be placed at: {[str(size) + market_info.base_currency + '@' + str(price) + market_info.quote_currency for size,price in zip(orders_proposal.buy_order_sizes, orders_proposal.buy_order_prices)]}"
+                            f"  Bids (Size,Price) to be placed at: {[str(size) + ' ' + market_info.base_currency + ' @ ' + ' ' + str(price) + ' ' + market_info.quote_currency for size,price in zip(orders_proposal.buy_order_sizes, orders_proposal.buy_order_prices)]}"
                         )
 
                     for idx in range(len(orders_proposal.buy_order_sizes)):
@@ -705,7 +708,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         self.log_with_clock(
                             logging.INFO,
                             f"({market_info.symbol}) Creating limit ask order for "
-                            f"  Asks (Size,Price) to be placed at: {[str(size) + market_info.base_currency + '@' + str(price) + market_info.quote_currency for size,price in zip(orders_proposal.sell_order_sizes, orders_proposal.sell_order_prices)]}"
+                            f"  Asks (Size,Price) to be placed at: {[str(size) + ' ' + market_info.base_currency + ' @ ' + ' ' + str(price) + ' ' + market_info.quote_currency for size,price in zip(orders_proposal.sell_order_sizes, orders_proposal.sell_order_prices)]}"
                         )
 
                     for idx in range(len(orders_proposal.sell_order_sizes)):
