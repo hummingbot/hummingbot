@@ -87,4 +87,7 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     export_trades_parser.add_argument("-p", "--path", help="Save csv to specific path")
     export_trades_parser.set_defaults(func=hummingbot.export_trades)
 
+    bounty_registration_parser = subparsers.add_parser("register", help="Register to collect liquidity bounties")
+    bounty_registration_parser.set_defaults(func=hummingbot.register)
+
     return parser

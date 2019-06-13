@@ -1075,3 +1075,6 @@ class HummingbotApplication:
         df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Delta"])
         lines = ["", "  Performance:"] + ["    " + line for line in str(df).split("\n")]
         self._notify("\n".join(lines))
+
+    def register(self):
+        self._notify("registering for liquidity bounties.")
