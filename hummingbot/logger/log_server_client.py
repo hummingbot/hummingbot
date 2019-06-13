@@ -3,10 +3,11 @@ import logging
 from typing import Optional
 import aiohttp
 
+from hummingbot.core.network_base import NetworkBase, NetworkStatus
 from hummingbot.logger import HummingbotLogger
 
 
-class LogServerClient:
+class LogServerClient(NetworkBase):
     lsc_logger: Optional[HummingbotLogger] = None
     _lsc_shared_instance: "LogServerClient" = None
 
@@ -23,9 +24,9 @@ class LogServerClient:
         return cls.lsc_logger
 
     def __init__(self):
+        super().__init__()
         self.queue = asyncio.Queue()
         self.consume_queue_task = None
-        self.started = False
 
     def request(self, req):
         if not self.started:
@@ -63,11 +64,31 @@ class LogServerClient:
                 self.logger().error(f"Error sending requests.", exc_info=True, extra={"do_not_send": True})
                 await asyncio.sleep(5.0)
 
-    def start(self):
+    async def start_network(self):
         self.consume_queue_task = asyncio.ensure_future(self.request_loop())
-        self.started = True
+
+    async def stop_network(self):
+        if self.consume_queue_task is not None:
+            self.consume_queue_task.cancel()
+            self.consume_queue_task = None
+
+    async def check_network(self) -> NetworkStatus:
+        try:
+            loop = asyncio.get_event_loop()
+            async with aiohttp.ClientSession(loop=loop,
+                                             connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+                async with session.get("https://api.coinalpha.com/reporting-proxy/") as resp:
+                    status_text = await resp.text()
+                    if status_text != "OK":
+                        raise Exception("Log proxy server is down.")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return NetworkStatus.NOT_CONNECTED
+        return NetworkStatus.CONNECTED
+
+    def start(self):
+        NetworkBase.start(self)
 
     def stop(self):
-        if self.consume_queue_task:
-            self.consume_queue_task.cancel()
-        self.started = False
+        NetworkBase.stop(self)
