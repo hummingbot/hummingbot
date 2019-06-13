@@ -119,7 +119,9 @@ class ERC20Token:
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(f"Could not fetch token info for {self._contract.address}.", exc_info=True)
+            self.logger().network(f"Error fetching token info for {self._contract.address}.", exc_info=True,
+                                  app_warning_msg=f"Error fetching token info for {self._contract.address}. "
+                                                  f"Check wallet network connection")
 
     async def get_name(self) -> str:
         if self._name is None:

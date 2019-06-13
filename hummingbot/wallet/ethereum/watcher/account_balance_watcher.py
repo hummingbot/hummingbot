@@ -131,4 +131,6 @@ class AccountBalanceWatcher(BaseWatcher):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error("Unexpected error fetching account balance updates.", exc_info=True)
+            self.logger().network(f"Error fetching account balance updates.", exc_info=True,
+                                  app_warning_msg=f"Error account balance updates. "
+                                                  f"Check wallet network connection")

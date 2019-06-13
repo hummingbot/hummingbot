@@ -103,12 +103,18 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return BinanceOrderBook
 
     async def get_trading_pairs(self) -> List[str]:
-        if self._symbols is None:
-            active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-            trading_pairs: List[str] = active_markets.index.tolist()
-        else:
-            trading_pairs: List[str] = self._symbols
-        return trading_pairs
+        if not self._symbols:
+            try:
+                active_markets: pd.DataFrame = await self.get_active_exchange_markets()
+                self._symbols = active_markets.index.tolist()
+            except Exception:
+                self._symbols = []
+                self.logger().network(
+                    f"Error getting active exchange information.",
+                    exc_info=True,
+                    app_warning_msg=f"Error getting active exchange information. Check network connection."
+                )
+        return self._symbols
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000) -> Dict[str, any]:

@@ -147,7 +147,7 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
                 # Log some statistics.
                 now: float = time.time()
                 if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                    self.logger().info("Diff messages processed: %d, rejected: %d, queued: %d",
+                    self.logger().debug("Diff messages processed: %d, rejected: %d, queued: %d",
                                        messages_accepted,
                                        messages_rejected,
                                        messages_queued)
@@ -194,7 +194,7 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
                     # Output some statistics periodically.
                     now: float = time.time()
                     if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                        self.logger().info("Processed %d order book diffs for %s.",
+                        self.logger().debug("Processed %d order book diffs for %s.",
                                            diff_messages_accepted, symbol)
                         diff_messages_accepted = 0
                     last_message_timestamp = now
