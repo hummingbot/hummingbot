@@ -57,8 +57,8 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
             else:
                 current_order_size = market.c_quantize_order_amount(market_info.symbol, current_order_size)
 
-            required_quote_asset_balance += ( current_order_size * pricing_proposal.buy_order_prices[idx] )
-            required_base_asset_balance += current_order_size
+            required_quote_asset_balance += ( float(current_order_size) * float(pricing_proposal.buy_order_prices[idx]) )
+            required_base_asset_balance += float(current_order_size)
             orders.append(current_order_size)
 
         return SizingProposal(

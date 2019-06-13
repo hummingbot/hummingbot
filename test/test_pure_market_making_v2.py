@@ -63,7 +63,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.maker_market.set_balance("QETH", 500)
         self.maker_market.set_quantization_param(
             QuantizationParams(
-                self.maker_symbols[0], 5, 5, 5, 5
+                self.maker_symbols[0], 6, 6, 6, 6
             )
         )
 
@@ -392,10 +392,10 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
         last_bid_order: LimitOrder = self.multi_order_equal_strategy.active_bids[-1][1]
         last_ask_order: LimitOrder = self.multi_order_equal_strategy.active_asks[-1][1]
-        last_bid_price = 99 * (1 - 0.01)**4
-        last_ask_price = 101 * (1 + 0.01) ** 4
-        self.assertAlmostEqual(last_bid_price, last_bid_order.price)
-        self.assertAlmostEqual(last_ask_price, last_ask_order.price)
+        last_bid_price = round(99 * (1 - 0.01)**4, 3)
+        last_ask_price = round(101 * (1 + 0.01) ** 4, 3)
+        self.assertAlmostEqual(last_bid_price, round(last_bid_order.price, 3))
+        self.assertAlmostEqual(last_ask_price, round(last_ask_order.price, 3))
         self.assertEqual(Decimal("1.0"), last_bid_order.quantity)
         self.assertEqual(Decimal("1.0"), last_ask_order.quantity)
 
@@ -432,12 +432,13 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
         last_bid_order: LimitOrder = self.multi_order_staggered_strategy.active_bids[-1][1]
         last_ask_order: LimitOrder = self.multi_order_staggered_strategy.active_asks[-1][1]
-        last_bid_price = 99 * (1 - 0.01) ** 4
-        last_ask_price = 101 * (1 + 0.01) ** 4
+        last_bid_price = round(99 * (1 - 0.01) ** 4, 3)
+        last_ask_price = round(101 * (1 + 0.01) ** 4, 3)
+
         last_bid_order_size = 1 + (0.5 * 4)
         last_ask_order_size = 1 + (0.5 * 4)
-        self.assertAlmostEqual(last_bid_price, last_bid_order.price)
-        self.assertAlmostEqual(last_ask_price, last_ask_order.price)
+        self.assertAlmostEqual(last_bid_price, round(last_bid_order.price, 3))
+        self.assertAlmostEqual(last_ask_price, round(last_ask_order.price, 3))
         self.assertAlmostEqual(last_bid_order_size, last_bid_order.quantity)
         self.assertAlmostEqual(last_ask_order_size, last_ask_order.quantity)
 
