@@ -145,16 +145,20 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
             async with client.get(f"{IDEX_REST_URL}/returnOrderBookForMarket", params=params) as response:
                 response: aiohttp.ClientResponse = response
                 if response.status != 200:
-                    raise IOError(f"Error fetching IDEX market snapshot for {trading_pair}. HTTP status is {response.status}.")
+                    raise IOError(f"Error fetching IDEX market snapshot for {trading_pair}. "
+                                  f"HTTP status is {response.status}.")
                 orders: List[Dict[str, Any]] = await response.json()
                 return {"orders": orders}
 
         except asyncio.CancelledError:
             raise
         except:
-            self.logger().error("Unexpected error.", exc_info=True)
+            self.logger().network(
+                f"Error getting snapshot for {trading_pair}.",
+                exc_info=True,
+                app_warning_msg=f"Error getting snapshot for {trading_pair}. Check network connection."
+            )
             await asyncio.sleep(5.0)
-
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         # Get the currently active markets
@@ -174,7 +178,8 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     quote_asset_symbol, base_asset_symbol = trading_pair.split("_")
                     base_asset: Dict[str, Any] = token_info[base_asset_symbol]
                     quote_asset: Dict[str, Any] = token_info[quote_asset_symbol]
-                    idex_active_order_tracker: IDEXActiveOrderTracker = IDEXActiveOrderTracker(base_asset=base_asset, quote_asset=quote_asset)
+                    idex_active_order_tracker: IDEXActiveOrderTracker = IDEXActiveOrderTracker(base_asset=base_asset,
+                                                                                               quote_asset=quote_asset)
                     bids, asks = idex_active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
                     snapshot_timestamp: float = idex_active_order_tracker.latest_snapshot_timestamp
                     idex_order_book: IDEXOrderBook = IDEXOrderBook()
@@ -189,10 +194,8 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     self.logger().info(f"Initialized order book for {trading_pair}. "
                                        f"{index+1}/{number_of_pairs} completed.")
                     await asyncio.sleep(1.0)
-
                 except Exception:
-                    self.logger().error(f"Error getting snapshot for {trading_pair} in get_tracking_pairs.",
-                                        exc_info=True)
+                    self.logger().error(f"Error initializing order book for {trading_pair}.", exc_info=True)
                     await asyncio.sleep(5)
 
             self._get_tracking_pair_done_event.set()
@@ -252,8 +255,9 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trading_pairs_full_list: List[str] = await self.get_trading_pairs()
-                trading_pairs_partial_lists: List[List[str]] = [trading_pairs_full_list[m : m + IDEX_WS_TRADING_PAIRS_SUBSCRIPTION_LIMIT]
-                                            for m in range(0, len(trading_pairs_full_list), IDEX_WS_TRADING_PAIRS_SUBSCRIPTION_LIMIT)]
+                trading_pairs_partial_lists: List[List[str]] = [
+                    trading_pairs_full_list[m : m + IDEX_WS_TRADING_PAIRS_SUBSCRIPTION_LIMIT] for m in
+                    range(0, len(trading_pairs_full_list), IDEX_WS_TRADING_PAIRS_SUBSCRIPTION_LIMIT)]
                 for trading_pairs in trading_pairs_partial_lists:
                     async with websockets.connect(IDEX_WS_URL) as ws:
                         ws: websockets.WebSocketClientProtocol = ws
@@ -284,13 +288,17 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 # ignore message if event is not recognized
                                 continue
                             for diff_message in diff_messages:
-                                ob_message: IDEXOrderBookMessage = self.order_book_class.diff_message_from_exchange(diff_message)
+                                ob_message: IDEXOrderBookMessage = self.order_book_class.diff_message_from_exchange(
+                                    diff_message)
                                 output.put_nowait(ob_message)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
-                                    exc_info=True)
+                self.logger().network(
+                    f"Error getting order book diff messages.",
+                    exc_info=True,
+                    app_warning_msg=f"Error getting order book diff messages. Check network connection."
+                )
                 await asyncio.sleep(30.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
@@ -314,7 +322,11 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         except asyncio.CancelledError:
                             raise
                         except Exception:
-                            self.logger().error("Unexpected error.", exc_info=True)
+                            self.logger().network(
+                                f"Error getting snapshot for {trading_pair}.",
+                                exc_info=True,
+                                app_warning_msg=f"Error getting snapshot for {trading_pair}. Check network connection."
+                            )
                             await asyncio.sleep(5.0)
                     this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
                     next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
@@ -323,5 +335,9 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error.", exc_info=True)
+                self.logger().network(
+                    f"Unexpected error listening for order book snapshot.",
+                    exc_info=True,
+                    app_warning_msg=f"Unexpected error listening for order book snapshot. Check network connection."
+                )
                 await asyncio.sleep(5.0)
