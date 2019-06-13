@@ -38,7 +38,7 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
             double base_asset_balance = market.c_get_balance(market_info.base_currency)
             double quote_asset_balance = market.c_get_balance(market_info.quote_currency)
             double required_quote_asset_balance = 0
-            double require_base_asset_balance = 0
+            double required_base_asset_balance = 0
             list orders = []
             bint has_active_bid = False
             bint has_active_ask = False
@@ -51,15 +51,15 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
 
         for idx in range(self.number_of_orders):
             current_order_size = self.order_start_size + self.order_step_size * idx
-            required_quote_asset_balance += ( current_order_size * pricing_proposal.buy_order_price[idx] )
-            require_base_asset_balance += current_order_size
+            required_quote_asset_balance += ( current_order_size * pricing_proposal.buy_order_prices[idx] )
+            required_base_asset_balance += current_order_size
             orders.append(current_order_size)
 
         return SizingProposal(
-            ([orders]
+            (orders
              if quote_asset_balance > required_quote_asset_balance and not has_active_bid
              else [0.0]),
-            ([orders]
-             if base_asset_balance > require_base_asset_balance and not has_active_ask else
+            (orders
+             if base_asset_balance > required_base_asset_balance and not has_active_ask else
              [0.0])
         )
