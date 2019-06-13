@@ -162,7 +162,11 @@ class DDEXOrderBookTracker(OrderBookTracker):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unknown error. Retrying after 5 seconds.", exc_info=True)
+                self.logger().network(
+                    f"Unexpected error routing order book messages.",
+                    exc_info=True,
+                    app_warning_msg=f"Unexpected error routing order book messages. Retrying after 5 seconds."
+                )
                 await asyncio.sleep(5.0)
 
     async def _track_single_book(self, symbol: str):
@@ -216,5 +220,9 @@ class DDEXOrderBookTracker(OrderBookTracker):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unknown error. Retrying after 5 seconds.", exc_info=True)
+                self.logger().network(
+                    f"Unexpected error tracking order book for {symbol}.",
+                    exc_info=True,
+                    app_warning_msg=f"Unexpected error tracking order book. Retrying after 5 seconds."
+                )
                 await asyncio.sleep(5.0)

@@ -111,7 +111,7 @@ class ReportAggregator:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(f"Error getting logging report.", exc_info=True, extra={"do_not_send": True})
+                self.logger().warning(f"Error getting logging report.", exc_info=True)
 
             await asyncio.sleep(self.log_report_interval)
 
@@ -135,7 +135,7 @@ class ReportAggregator:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(f"Error getting open orders.", exc_info=True, extra={"do_not_send": True})
+                self.logger().warning(f"Error getting open orders.", exc_info=True)
 
             await asyncio.sleep(self.report_aggregation_interval)
 
@@ -147,7 +147,7 @@ class ReportAggregator:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(f"Error processing events. {event}", exc_info=True, extra={"do_not_send": True})
+                self.logger().warning(f"Error processing events. {event}", exc_info=True)
 
     def start(self):
         self.stop()
