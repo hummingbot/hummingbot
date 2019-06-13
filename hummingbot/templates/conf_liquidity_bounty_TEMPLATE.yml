@@ -1,0 +1,13 @@
+###########################################
+###   Liquidity bounty configurations   ###
+###########################################
+
+liquidity_bounty_enabled: false
+agree_to_terms: false
+agree_to_data_collection: false
+ethereum_wallet: null
+email: null
+final_confirmation: null
+
+# For more detailed information: https://docs.hummingbot.io
+

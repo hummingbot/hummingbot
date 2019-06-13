@@ -54,9 +54,9 @@ def parse_cvar_value(cvar: ConfigVar, value: any):
             logging.getLogger().error(f"\"{value}\" is not an integer.")
             return 0
     elif cvar.type == 'bool':
-        if type(value) == str and value.lower() in ["true", "yes"]:
+        if type(value) == str and value.lower() in ["true", "yes", "y"]:
             return True
-        elif type(value) == str and value.lower() in ["false", "no"]:
+        elif type(value) == str and value.lower() in ["false", "no", "n"]:
             return False
         else:
             return bool(value)
@@ -155,6 +155,19 @@ def read_configs_from_yml(strategy_file_path: str = None):
         load_yml_into_cm(join(CONF_FILE_PATH, strategy_file_path), strategy_config_map)
 
 
+async def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
+    try:
+        with open(yml_path) as stream:
+            data = yaml.load(stream) or {}
+            for key in cm:
+                cvar = cm.get(key)
+                data[key] = cvar.value
+            with open(yml_path, "w+") as outfile:
+                yaml.dump(data, outfile)
+    except Exception as e:
+        logging.getLogger().error("Error writing configs: %s" % (str(e),), exc_info=True)
+
+
 async def write_config_to_yml():
     """
     Write current config saved in config maps into each corresponding yml file
@@ -164,20 +177,8 @@ async def write_config_to_yml():
     strategy_config_map = get_strategy_config_map(current_strategy)
     strategy_file_path = join(CONF_FILE_PATH, in_memory_config_map.get("strategy_file_path").value)
 
-    def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
-        try:
-            with open(yml_path) as stream:
-                data = yaml.load(stream) or {}
-                for key in cm:
-                    cvar = cm.get(key)
-                    data[key] = cvar.value
-                with open(yml_path, "w+") as outfile:
-                    yaml.dump(data, outfile)
-        except Exception as e:
-            logging.getLogger().error("Error writing configs: %s" % (str(e),), exc_info=True)
-
-    save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
-    save_to_yml(strategy_file_path, strategy_config_map)
+    await save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
+    await save_to_yml(strategy_file_path, strategy_config_map)
 
 
 async def create_yml_files():
