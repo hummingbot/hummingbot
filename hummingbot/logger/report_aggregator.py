@@ -3,8 +3,23 @@ import logging
 from hummingbot.logger.struct_logger import StructLogger
 from collections import defaultdict
 from typing import Optional
-REPORT_EVENT_QUEUE = asyncio.Queue()
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
+from hummingbot.market.binance.binance_market import BinanceMarket
+from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
+from hummingbot.market.ddex.ddex_market import DDEXMarket
+from hummingbot.market.idex.idex_market import IDEXMarket
+from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 
+REPORT_EVENT_QUEUE = asyncio.Queue()
+MARKETS = {
+    "ddex": DDEXMarket,
+    "coinbase_pro": CoinbaseProMarket,
+    "binance": BinanceMarket,
+    "bamboo_relay": BambooRelayMarket,
+    "radar_relay": RadarRelayMarket,
+    "idex": IDEXMarket
+}
 
 class ReportAggregator:
     ra_logger: Optional[StructLogger] = None
@@ -26,14 +41,14 @@ class ReportAggregator:
         self.get_open_order_stats_task: Optional[asyncio.Task] = None
         self.get_event_task: Optional[asyncio.Task] = None
         self.log_report_task: Optional[asyncio.Task] = None
+        self.exchange_converter: ExchangeRateConversion = ExchangeRateConversion().get_instance()
 
     def receive_event(self, event):
-
         event_name = event["event_name"]
         if event_name == "OrderFilledEvent":
-            self.stats[f"order_filled_quote_volume.{event['event_source']}."
+            self.stats[f"order_filled_quote_volume.{event['event_source']}.{event['symbol']}."
                        f"{str(event['trade_type']).replace('.', '-')}."
-                       f"{str(event['order_type']).replace('.', '-')}.{event['symbol']}"].append(
+                       f"{str(event['order_type']).replace('.', '-')}"].append(
                 (event["ts"], event["price"] * event["amount"])
             )
 
@@ -46,34 +61,57 @@ class ReportAggregator:
                         if not value_list:
                             continue
                         namespaces = metric_name.split(".")
-
+                        market_name = namespaces[1]
+                        trading_pair = namespaces[2]
+                        quote_token = MARKETS[market_name].split_symbol(trading_pair)[1].upper()
                         if namespaces[0] == "open_order_quote_volume_sum":
                             avg_volume = float(sum([value[1] for value in value_list]) / len(value_list))
-                            self.logger().metric_log({
-                                "metric": "hummingbot_client.open_order_quote_volume_sum",
+                            usd_avg_volume = self.exchange_converter.exchange_rate.get(quote_token, 1) * avg_volume
+                            metric_attributes = {
                                 "type": "gauge",
+                                "tags": [f"symbol:{trading_pair}",
+                                         f"market:{market_name}"]
+                            }
+                            open_order_quote_volume_sum_metrics = {
+                                "metric": "hummingbot_client.open_order_quote_volume_sum",
                                 "points": [[self.hummingbot_app.clock.current_timestamp, avg_volume]],
-                                "tags": [f"symbol:{namespaces[2]}",
-                                         f"market:{namespaces[1]}"]
-                            })
+                                **metric_attributes
+                            }
+                            open_order_usd_volume_sum_metrics = {
+                                "metric": "hummingbot_client.open_order_usd_volume_sum",
+                                "points": [[self.hummingbot_app.clock.current_timestamp, usd_avg_volume]],
+                                **metric_attributes
+                            }
+                            self.logger().metric_log(open_order_quote_volume_sum_metrics)
+                            self.logger().metric_log(open_order_usd_volume_sum_metrics)
                             self.stats[metric_name] = []
                         if namespaces[0] == "order_filled_quote_volume":
                             sum_volume = float(sum([value[1] for value in value_list]))
-                            self.logger().metric_log({
-                                "metric": "hummingbot_client.order_filled_quote_volume",
+                            usd_sum_volume = self.exchange_converter.exchange_rate.get(quote_token, 1) * sum_volume
+                            metric_attributes = {
                                 "type": "gauge",
+                                "tags": [f"symbol:{trading_pair}",
+                                         f"market:{market_name}",
+                                         f"order_side:{namespaces[3]}",
+                                         f"order_type:{namespaces[4]}"]
+                            }
+                            order_filled_quote_volume_metrics = {
+                                "metric": "hummingbot_client.order_filled_quote_volume",
                                 "points": [[self.hummingbot_app.clock.current_timestamp, sum_volume]],
-                                "tags": [f"symbol:{namespaces[4]}",
-                                         f"market:{namespaces[1]}",
-                                         f"order_side:{namespaces[2]}",
-                                         f"order_type:{namespaces[3]}"]
-
-                            })
+                                **metric_attributes
+                            }
+                            order_filled_usd_volume_metrics = {
+                                "metric": "hummingbot_client.order_filled_usd_volume",
+                                "points": [[self.hummingbot_app.clock.current_timestamp, usd_sum_volume]],
+                                **metric_attributes
+                            }
+                            self.logger().metric_log(order_filled_quote_volume_metrics)
+                            self.logger().metric_log(order_filled_usd_volume_metrics)
                             self.stats[metric_name] = []
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(f"Error getting logging report.", exc_info=True, extra={"do_not_send": True})
+                self.logger().warning(f"Error getting logging report.", exc_info=True)
 
             await asyncio.sleep(self.log_report_interval)
 
@@ -97,7 +135,7 @@ class ReportAggregator:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(f"Error getting open orders.", exc_info=True, extra={"do_not_send": True})
+                self.logger().warning(f"Error getting open orders.", exc_info=True)
 
             await asyncio.sleep(self.report_aggregation_interval)
 
@@ -109,7 +147,7 @@ class ReportAggregator:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(f"Error processing events. {event}", exc_info=True, extra={"do_not_send": True})
+                self.logger().warning(f"Error processing events. {event}", exc_info=True)
 
     def start(self):
         self.stop()
