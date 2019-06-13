@@ -130,17 +130,17 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  pricing_delegate: Optional[OrderPricingDelegate] = None,
                  sizing_delegate: Optional[OrderSizingDelegate] = None,
                  cancel_order_wait_time: float = 60,
-                 logging_options: int = OPTION_LOG_ALL,
-                 limit_order_min_expiration: float = 130.0,
-                 status_report_interval: float = 900,
-                 number_of_orders: int =1,
-                 mode: str = "equal_sizing",
+                 number_of_orders: int = 1,
                  order_start_size: float = 1.0,
                  order_step_size: float = 0.5,
                  order_interval_percent: float = 0.1,
                  legacy_order_size: float = 1.0,
                  legacy_bid_spread: float = 0.01,
-                 legacy_ask_spread: float = 0.01):
+                 legacy_ask_spread: float = 0.01,
+                 limit_order_min_expiration: float = 130.0,
+                 status_report_interval: float = 900,
+                 logging_options: int = OPTION_LOG_ALL):
+
         if len(market_infos) < 1:
             raise ValueError(f"market_infos must not be empty.")
 

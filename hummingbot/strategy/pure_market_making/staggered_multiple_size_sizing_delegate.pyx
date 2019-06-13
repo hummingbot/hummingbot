@@ -49,8 +49,14 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
             else:
                 has_active_ask = True
 
+
         for idx in range(self.number_of_orders):
             current_order_size = self.order_start_size + self.order_step_size * idx
+            if market.name == "binance":
+                current_order_size = market.c_quantize_order_amount(market_info.symbol, current_order_size, pricing_proposal.buy_order_prices[idx])
+            else:
+                current_order_size = market.c_quantize_order_amount(market_info.symbol, current_order_size)
+
             required_quote_asset_balance += ( current_order_size * pricing_proposal.buy_order_prices[idx] )
             required_base_asset_balance += current_order_size
             orders.append(current_order_size)

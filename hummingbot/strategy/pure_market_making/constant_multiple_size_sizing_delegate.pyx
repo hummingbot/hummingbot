@@ -40,9 +40,14 @@ cdef class ConstantMultipleSizeSizingDelegate(OrderSizingDelegate):
             else:
                 has_active_ask = True
 
+        if market.name == "binance":
+            per_order_size = market.c_quantize_order_amount(market_info.symbol, per_order_size, pricing_proposal.buy_order_prices[0])
+
+        else:
+            per_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size)
+
         for idx in range(self._number_of_orders):
             required_quote_asset_balance += ( per_order_size * pricing_proposal.buy_order_price[idx] )
-
 
         return SizingProposal(
             ([per_order_size] * self.number_of_orders
