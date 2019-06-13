@@ -5,22 +5,27 @@ The timeline below shows the past milestones we have completed, along with the f
 ## Q4 2018
 * Received development grant from [0x Project](https://0x.org)
 * Added Ethereum wallet interface
-* Added [Binance](https://binance.com) connector
-* Added [DDEX](http:ddex.io) connector
+* Added connectors for [Binance](/connectors/binance) and [DDEX](/connectors/ddex)
 * Released <a href="Hummingbot whitepaper.pdf" class="heap-whitepaper">whitepaper</a>
 
-<br/>
-
 ## Q1 2019
-* [Radar Relay](https://radarrelay.com/) connector
+* [Radar Relay](/connectors/radar-relay) connector
 * Command line user interface
-* Private alpha release (late February)
-* Public beta release (April 4, 2019)
-
-<br/>
+* Private alpha release (February 18, 2019)
 
 ## Q2 2019
-* More connectors for decentralized and centralized exchanges
-* Graphical user interface
-* Support for borrowing and lending protocols
+* Public beta release (April 4, 2019)
+* Released connectors for [Coinbase Pro](/connectors/coinbase) and [IDEX](/connectors/idex)
+* First community contributed connector for [Bamboo Relay](https://bamboorelay.com/)
+* Released [pure market making strategy](/strategies/pure-market-making)
+* Released [Telegram integration](/operation/telegram)
+* Announced [Liquidity Bounty Programs](https://www.hummingbot.io/liquidity-bounties/)
+* Launch 1st liquidity bounty program for [Harmony](https://www.hummingbot.io/liquidity-bounties/harmony)
+
+## Q3 2019
+* More connectors for decentralized and centralized exchanges: Bitfinex, Kraken, Huobi, Bittrex, Bitmex, Binance DEX
 * Support for user defined strategies
+
+## Q4 2019
+* Graphical user interface
+* Connectors to automated market makers
