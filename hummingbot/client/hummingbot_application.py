@@ -848,7 +848,6 @@ class HummingbotApplication:
                 order_interval_percent = strategy_cm.get("order_interval_percent").value
                 maker_market = strategy_cm.get("maker_market").value.lower()
                 raw_maker_symbol = strategy_cm.get("maker_market_symbol").value.upper()
-
                 try:
                     maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_symbol])[0]
                 except ValueError as e:
