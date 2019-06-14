@@ -67,6 +67,7 @@ class MarketTransactionFailureEvent(NamedTuple):
     timestamp: float
     order_id: str
 
+
 class MarketOrderFailureEvent(NamedTuple):
     timestamp: float
     order_id: str
