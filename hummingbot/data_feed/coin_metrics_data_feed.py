@@ -34,7 +34,6 @@ class CoinMetricsDataFeed(DataFeedBase):
         self._price_dict: Dict[str, float] = {}
         self._update_interval = update_interval
         self.fetch_data_loop_task: Optional[asyncio.Task] = None
-        self._started = False
 
     @property
     def name(self):
@@ -44,8 +43,12 @@ class CoinMetricsDataFeed(DataFeedBase):
     def price_dict(self):
         return self._price_dict.copy()
 
+    @property
+    def health_check_endpoint(self):
+        return "https://coinmetrics.io/api/v1/get_supported_assets"
+
     def get_price(self, asset: str) -> float:
-        return self._price_dict.get(asset)
+        return self._price_dict.get(asset.upper())
 
     async def fetch_data_loop(self):
         while True:
@@ -93,19 +96,18 @@ class CoinMetricsDataFeed(DataFeedBase):
                     continue
                 if len(rates_dict["result"]) > 0:
                     # Get the latest price
-                    self._price_dict[asset] = rates_dict["result"][-1][1]
-                await asyncio.sleep(0.001)
+                    self._price_dict[asset.upper()] = rates_dict["result"][-1][1]
+                await asyncio.sleep(0.0001)
             self._ready_event.set()
         except Exception:
             raise
 
-    def start(self):
-        self.stop()
+    async def start_network(self):
+        await self.stop_network()
         self.fetch_data_loop_task = asyncio.ensure_future(self.fetch_data_loop())
-        self._started = True
 
-    def stop(self):
-        if self.fetch_data_loop_task and not self.fetch_data_loop_task.done():
+    async def stop_network(self):
+        if self.fetch_data_loop_task is not None:
             self.fetch_data_loop_task.cancel()
-        self._started = False
+            self.fetch_data_loop_task = None
 
