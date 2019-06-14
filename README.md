@@ -67,11 +67,11 @@ hummingbot/
 ## Install Hummingbot
 See [Installation Guide](https://docs.hummingbot.io/installation/).
 
-## Data Collection
-See [Hummingbot Data Collection](DATA_COLLECTION.md).
-
 ## Learn more
 See [FAQs](https://docs.hummingbot.io/faq/).
+
+## Data Collection Disclosure
+See [Hummingbot Data Collection](DATA_COLLECTION.md).
 
 ## Contributing
 
