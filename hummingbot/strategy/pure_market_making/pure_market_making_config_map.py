@@ -30,44 +30,60 @@ pure_market_making_config_map = {
     "maker_market_symbol":              ConfigVar(key="primary_market_symbol",
                                                   prompt=maker_symbol_prompt,
                                                   validator=is_valid_maker_market_symbol),
-    "order_amount":                     ConfigVar(key="order_amount",
-                                                  prompt="What is your preferred quantity per order (denominated in "
-                                                         "the base asset, default is 1)? >>> ",
-                                                  default=1.0,
-                                                 type_str="float"),
-    "number_of_orders":                 ConfigVar(key="number_of_orders",
-                                                  prompt="How many orders do you want to place on both sides,"
-                                                         " (default is 1) ? >>> ",
-                                                  type_str="int",
-                                                  default=1),
+    "mode":                             ConfigVar(key="mode",
+                                                  prompt="Enter single for single order and multiple for multiple "
+                                                         "order mode, (default is single)>>> ",
+                                                  type_str="str",
+                                                  validator=lambda v: v in {"single", "multiple"},
+                                                  default="single"),
     "bid_place_threshold":              ConfigVar(key="bid_place_threshold",
-                                                  prompt="How far away from the mid price do you want to place the next bid"
-                                                         "(Enter 0.01 to indicate 1%)? >>> ",
+                                                  prompt="How far away from the mid price do you want to place the "
+                                                         "first bid order (Enter 0.01 to indicate 1%)? >>> ",
                                                   type_str="float",
                                                   default=0.01),
     "ask_place_threshold":              ConfigVar(key="ask_place_threshold",
-                                                 prompt="How far away from the mid price do you want to place the next ask"
-                                                      "(Enter 0.01 to indicate 1%)? >>> ",
+                                                 prompt="How far away from the mid price do you want to place the "
+                                                        "first ask order (Enter 0.01 to indicate 1%)? >>> ",
                                                  type_str="float",
                                                  default=0.01),
     "cancel_order_wait_time":           ConfigVar(key="cancel_order_wait_time",
                                                   prompt="How often do you want to cancel and replace bids and asks "
-                                                         "(in seconds)? >>> ",
+                                                         "(in seconds). (Default is 60 seconds) ? >>> ",
                                                   type_str="float",
                                                   default=60),
+    "order_amount":                     ConfigVar(key="order_amount",
+                                                  prompt="What is your preferred quantity per order (denominated in "
+                                                         "the base asset, default is 1)? >>> ",
+                                                  default=1.0,
+                                                  required_if=
+                                                  lambda: pure_market_making_config_map.get("mode").value == "single",
+                                                  type_str="float"),
+    "number_of_orders":                 ConfigVar(key="number_of_orders",
+                                                  prompt="How many orders do you want to place on both sides,"
+                                                         " (default is 1) ? >>> ",
+                                                  required_if=
+                                                  lambda: pure_market_making_config_map.get("mode").value == "multiple",
+                                                  type_str="int",
+                                                  default=1),
     "order_start_size":                 ConfigVar(key="order_start_size",
-                                                  prompt="What is the starting order size (used for multiple orders)"
+                                                  prompt="What is the size of the first bid and ask order"
                                                   " (default is 1) ? >>> ",
+                                                  required_if=
+                                                  lambda: pure_market_making_config_map.get("mode").value == "multiple",
                                                   type_str="float",
                                                   default=1),
-    "order_step_size":                  ConfigVar(key="order_start_size",
-                                                  prompt="What is the step size between orders (used for multiple orders)"
-                                                  " (default is 1) ? >>> ",
+    "order_step_size":                  ConfigVar(key="order_step_size",
+                                                  prompt="How much do you want to increase the order size for each additional order"
+                                                  " (default is 0) ? >>> ",
+                                                  required_if=
+                                                  lambda: pure_market_making_config_map.get("mode").value == "multiple",
                                                   type_str="float",
-                                                  default=1),
+                                                  default=0),
     "order_interval_percent":           ConfigVar(key="order_interval_percent",
-                                                  prompt="What is the interval percentage between orders (used for multiple orders)"
+                                                  prompt="What is the spacing between orders "
                                                   " (Enter 0.01 to indicate 1%)? >>> ",
+                                                  required_if=
+                                                  lambda: pure_market_making_config_map.get("mode").value == "multiple",
                                                   type_str="float",
                                                   default=0.01),
 }

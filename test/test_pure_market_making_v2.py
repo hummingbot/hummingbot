@@ -36,6 +36,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.pure_market_making.pure_market_making_v2 import PureMarketMakingStrategyV2
+from hummingbot.strategy.pure_market_making import ConstantMultipleSpreadPricingDelegate, StaggeredMultipleSizeSizingDelegate
 from hummingbot.strategy.pure_market_making.data_types import MarketInfo
 
 
@@ -57,6 +58,16 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.cancel_order_wait_time = 45
         self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
                                                 max_price=200, price_step_size=1, volume_step_size=10)
+        self.equal_strategy_sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size = 1.0,
+                                                                                  order_step_size= 0,
+                                                                                  number_of_orders= 5)
+        self.staggered_strategy_sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size=1.0,
+                                                                                  order_step_size=0.5,
+                                                                                  number_of_orders=5)
+        self.multiple_order_strategy_pricing_delegate = ConstantMultipleSpreadPricingDelegate(bid_spread=self.bid_threshold,
+                                                                                              ask_spread=self.ask_threshold,
+                                                                                              order_interval_size=0.01,
+                                                                                              number_of_orders=5)
         self.maker_market.add_data(self.maker_data)
         self.maker_market.set_balance("COINALPHA", 500)
         self.maker_market.set_balance("WETH", 5000)
@@ -91,10 +102,8 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             legacy_bid_spread=self.bid_threshold,
             legacy_ask_spread=self.ask_threshold,
             cancel_order_wait_time=45,
-            number_of_orders=5,
-            order_start_size=1.0,
-            order_step_size = 0,
-            order_interval_percent = 0.01,
+            sizing_delegate=self.equal_strategy_sizing_delegate,
+            pricing_delegate=self.multiple_order_strategy_pricing_delegate,
             logging_options=logging_options
         )
 
@@ -104,10 +113,8 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             legacy_bid_spread=self.bid_threshold,
             legacy_ask_spread=self.ask_threshold,
             cancel_order_wait_time=45,
-            number_of_orders=5,
-            order_start_size=1.0,
-            order_step_size=0.5,
-            order_interval_percent=0.01,
+            sizing_delegate=self.staggered_strategy_sizing_delegate,
+            pricing_delegate=self.multiple_order_strategy_pricing_delegate,
             logging_options=logging_options
         )
 

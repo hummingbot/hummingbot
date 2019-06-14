@@ -27,8 +27,6 @@ from hummingbot.strategy.strategy_base import StrategyBase
 
 from .constant_spread_pricing_delegate import ConstantSpreadPricingDelegate
 from .constant_size_sizing_delegate import ConstantSizeSizingDelegate
-from .constant_multiple_spread_pricing_delegate import ConstantMultipleSpreadPricingDelegate
-from .staggered_multiple_size_sizing_delegate import StaggeredMultipleSizeSizingDelegate
 
 from .data_types import (
     MarketInfo,
@@ -130,16 +128,12 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  pricing_delegate: Optional[OrderPricingDelegate] = None,
                  sizing_delegate: Optional[OrderSizingDelegate] = None,
                  cancel_order_wait_time: float = 60,
-                 number_of_orders: int = 1,
-                 order_start_size: float = 1.0,
-                 order_step_size: float = 0.5,
-                 order_interval_percent: float = 0.1,
+                 logging_options: int = OPTION_LOG_ALL,
+                 limit_order_min_expiration: float = 130.0,
                  legacy_order_size: float = 1.0,
                  legacy_bid_spread: float = 0.01,
                  legacy_ask_spread: float = 0.01,
-                 limit_order_min_expiration: float = 130.0,
-                 status_report_interval: float = 900,
-                 logging_options: int = OPTION_LOG_ALL):
+                 status_report_interval: float = 900):
 
         if len(market_infos) < 1:
             raise ValueError(f"market_infos must not be empty.")
@@ -172,15 +166,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         if filter_delegate is None:
             filter_delegate = PassThroughFilterDelegate()
         if pricing_delegate is None:
-            if number_of_orders == 1:
-                pricing_delegate = ConstantSpreadPricingDelegate(legacy_bid_spread, legacy_ask_spread)
-            else:
-                pricing_delegate = ConstantMultipleSpreadPricingDelegate(legacy_bid_spread, legacy_ask_spread, order_interval_percent, number_of_orders)
+            pricing_delegate = ConstantSpreadPricingDelegate(legacy_bid_spread, legacy_ask_spread)
         if sizing_delegate is None:
-            if number_of_orders == 1:
-                sizing_delegate = ConstantSizeSizingDelegate(legacy_order_size)
-            else:
-                sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size, order_step_size, number_of_orders)
+            sizing_delegate = ConstantSizeSizingDelegate(legacy_order_size)
+
 
         self._filter_delegate = filter_delegate
         self._pricing_delegate = pricing_delegate

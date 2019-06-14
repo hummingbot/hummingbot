@@ -90,6 +90,8 @@ from hummingbot.strategy.arbitrage import (
 )
 from hummingbot.strategy.pure_market_making import (
     PureMarketMakingStrategyV2,
+    ConstantMultipleSpreadPricingDelegate,
+    StaggeredMultipleSizeSizingDelegate,
     MarketInfo
 )
 
@@ -860,12 +862,25 @@ class HummingbotApplication:
                 cancel_order_wait_time = strategy_cm.get("cancel_order_wait_time").value
                 bid_place_threshold = strategy_cm.get("bid_place_threshold").value
                 ask_place_threshold = strategy_cm.get("ask_place_threshold").value
+                mode = strategy_cm.get("mode").value
                 number_of_orders = strategy_cm.get("number_of_orders").value
                 order_start_size = strategy_cm.get("order_start_size").value
                 order_step_size = strategy_cm.get("order_step_size").value
                 order_interval_percent = strategy_cm.get("order_interval_percent").value
                 maker_market = strategy_cm.get("maker_market").value.lower()
                 raw_maker_symbol = strategy_cm.get("maker_market_symbol").value.upper()
+                pricing_delegate = None
+                sizing_delegate = None
+
+                if mode == "multiple":
+                    pricing_delegate = ConstantMultipleSpreadPricingDelegate(bid_place_threshold,
+                                                                             ask_place_threshold,
+                                                                             order_interval_percent,
+                                                                             number_of_orders)
+                    sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size,
+                                                                          order_step_size,
+                                                                          number_of_orders)
+
                 try:
                     maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_symbol])[0]
                 except ValueError as e:
@@ -885,10 +900,8 @@ class HummingbotApplication:
                 strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
 
                 self.strategy = PureMarketMakingStrategyV2(market_infos=[self.market_info],
-                                                           number_of_orders= number_of_orders,
-                                                           order_start_size= order_start_size,
-                                                           order_step_size= order_step_size,
-                                                           order_interval_percent= order_interval_percent,
+                                                           pricing_delegate = pricing_delegate,
+                                                           sizing_delegate = sizing_delegate,
                                                            legacy_order_size=order_size,
                                                            legacy_bid_spread=bid_place_threshold,
                                                            legacy_ask_spread=ask_place_threshold,
