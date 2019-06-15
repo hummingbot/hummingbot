@@ -9,6 +9,7 @@ from sqlalchemy import (
     Numeric,
     Float
 )
+from sqlalchemy.orm import relationship
 
 from . import HummingbotBase
 
@@ -41,3 +42,4 @@ class TradeFill(HummingbotBase):
     trade_fee_percent = Column(Float, nullable=False)
     trade_fee_flat_fee = Column(Float, nullable=False)
     trade_fee_asset = Column(Text, nullable=False)
+    order = relationship("Order")
