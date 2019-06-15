@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from enum import Enum
+import logging
 from os.path import join
 from sqlalchemy import (
     create_engine,
@@ -10,12 +11,15 @@ from sqlalchemy.engine.base import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import (
     sessionmaker,
-    Session
+    Session,
+    Query
 )
 from typing import Optional
 
 from hummingbot import data_path
+from hummingbot.logger.logger import HummingbotLogger
 from . import get_declarative_base
+from .metadata import Metadata as LocalMetadata
 
 
 class SQLSessionWrapper:
@@ -37,7 +41,17 @@ class SQLConnectionType(Enum):
 
 
 class SQLConnectionManager:
+    _scm_logger: Optional[HummingbotLogger] = None
     _scm_trade_fills_instance: Optional["SQLConnectionManager"] = None
+
+    LOCAL_DB_VERSION_KEY = "local_db_version"
+    LOCAL_DB_VERSION_VALUE = "20190614"
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._scm_logger is None:
+            cls._scm_logger = logging.getLogger(__name__)
+        return cls._scm_logger
 
     @classmethod
     def get_declarative_base(cls):
@@ -61,19 +75,36 @@ class SQLConnectionManager:
         self._session_cls = sessionmaker(bind=self._engine)
         self._shared_session: Session = self._session_cls()
 
+        if connection_type is SQLConnectionType.TRADE_FILLS:
+            self.check_and_upgrade_trade_fills_db()
+
     @property
     def engine(self) -> Engine:
         return self._engine
 
     def get_shared_session(self) -> Session:
-        try:
-            # Detect whether the backing connection is still alive or not.
-            conn = self._shared_session.connection()
-            conn.execute("SELECT 1")
-        except SQLAlchemyError:
-            # Doing rollback will allow the session to reconnect automatically at the next request.
-            self._shared_session.rollback()
         return self._shared_session
+
+    def check_and_upgrade_trade_fills_db(self):
+        try:
+            query: Query = (self._shared_session.query(LocalMetadata)
+                            .filter(LocalMetadata.key == self.LOCAL_DB_VERSION_KEY))
+            result: Optional[LocalMetadata] = query.one_or_none()
+
+            if result is None:
+                version_info: LocalMetadata = LocalMetadata(key=self.LOCAL_DB_VERSION_KEY,
+                                                            value=self.LOCAL_DB_VERSION_VALUE)
+                self._shared_session.add(version_info)
+                self._shared_session.commit()
+            else:
+                # There's no past db version to upgrade from at this moment. So we'll just update the version value
+                # if needed.
+                if result.value < self.LOCAL_DB_VERSION_VALUE:
+                    result.value = self.LOCAL_DB_VERSION_VALUE
+                    self._shared_session.commit()
+        except SQLAlchemyError:
+            self.logger().error("Unexpected error while checking and upgrading the local database.",
+                                exc_info=True)
 
     def commit(self):
         self._shared_session.commit()

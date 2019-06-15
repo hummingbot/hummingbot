@@ -161,6 +161,9 @@ cdef class PubSub:
             listener_weafref = <object>pyref.get()
             typed_listener = <object>PyWeakref_GetObject(listener_weafref)
             try:
+                typed_listener.c_set_event_info(event_tag, self)
                 typed_listener.c_call(arg)
             except Exception:
                 self.c_log_exception(event_tag, arg)
+            finally:
+                typed_listener.c_set_event_info(0, None)

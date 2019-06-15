@@ -6,7 +6,8 @@ HummingbotBase = declarative_base()
 
 
 def get_declarative_base():
-    from .trade_fill import TradeFill
+    from .metadata import Metadata
     from .order import Order
     from .order_status import OrderStatus
+    from .trade_fill import TradeFill
     return HummingbotBase
