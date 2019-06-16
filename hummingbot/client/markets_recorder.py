@@ -147,8 +147,7 @@ class MarketsRecorder:
                                                      order_type=evt.order_type.name,
                                                      price=evt.price,
                                                      amount=evt.amount,
-                                                     trade_fee=TradeFee.to_json(evt.trade_fee)
-                                                     )
+                                                     trade_fee=TradeFee.to_json(evt.trade_fee))
             session.add(order_status)
             session.add(trade_fill_record)
             session.commit()

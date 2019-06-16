@@ -32,6 +32,8 @@ from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.trade import Trade
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.market.binance.binance_market import BinanceMarket
@@ -41,8 +43,7 @@ from hummingbot.market.market_base import MarketBase
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
-from hummingbot.core.data_type.trade import Trade
+from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
@@ -106,6 +107,8 @@ from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 
+from .markets_recorder import MarketsRecorder
+
 s_logger = None
 
 MARKET_CLASSES = {
@@ -167,6 +170,9 @@ class HummingbotApplication:
         self.notifiers: List[NotifierBase] = []
         self._app_warnings: Deque[ApplicationWarning] = deque()
         self._trading_required: bool = True
+
+        self.trade_fill_db: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
+        self.markets_recorder: Optional[MarketsRecorder] = None
 
     def init_reporting_module(self):
         if not self.reporting_module:
@@ -512,6 +518,14 @@ class HummingbotApplication:
                 raise ValueError(f"Market name {market_name} is invalid.")
 
             self.markets[market_name]: MarketBase = market
+
+        self.markets_recorder = MarketsRecorder(
+            self.trade_fill_db,
+            list(self.markets.values()),
+            in_memory_config_map.get("strategy_file_path").value,
+            in_memory_config_map.get("strategy").value
+        )
+        self.markets_recorder.start()
 
     def _initialize_notifiers(self):
         if global_config_map.get("telegram_enabled").value:
@@ -980,11 +994,13 @@ class HummingbotApplication:
             self.strategy.stop()
         ExchangeRateConversion.get_instance().stop()
         self.stop_loss_tracker.stop()
+        self.markets_recorder.stop()
         self.wallet = None
         self.strategy_task = None
         self.strategy = None
         self.market_pair = None
         self.clock = None
+        self.markets_recorder = None
 
     def exit(self, force: bool = False):
         asyncio.ensure_future(self.exit_loop(force), loop=self.ev_loop)
