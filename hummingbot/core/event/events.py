@@ -174,7 +174,23 @@ class TokenApprovedEvent(NamedTuple):
 
 class TradeFee(NamedTuple):
     percent: float # 0.1 = 10%
-    flat_fees: List[Tuple[str, float]] = [] # list of (symbol, amount) ie: ("ETH", 0.05) 
+    flat_fees: List[Tuple[str, float]] = [] # list of (symbol, amount) ie: ("ETH", 0.05)
+
+    @classmethod
+    def to_json(cls, trade_fee: "TradeFee") -> Dict[str, any]:
+        return {
+            "percent": trade_fee.percent,
+            "flat_fees": [{"symbol": symbol, "amount": amount}
+                          for symbol, amount in trade_fee.flat_fees]
+        }
+
+    @classmethod
+    def from_json(cls, data: Dict[str, any]) -> "TradeFee":
+        return TradeFee(
+            data["percent"],
+            [(fee_entry["symbol"], fee_entry["amount"])
+             for fee_entry in data["flat_fees"]]
+        )
 
 
 class OrderBookTradeEvent(NamedTuple):
