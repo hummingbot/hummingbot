@@ -35,3 +35,4 @@ class Order(HummingbotBase):
     amount = Column(Float, nullable=False)
     price = Column(Float, nullable=False)
     status = relationship("OrderStatus", back_populates="order")
+    trade_fills = relationship("TradeFill", back_populates="order")

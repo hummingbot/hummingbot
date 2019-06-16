@@ -2,12 +2,14 @@
 
 from sqlalchemy import (
     Column,
+    ForeignKey,
     Text,
     Integer,
     Index,
     BigInteger,
     Numeric,
-    Float
+    Float,
+    JSON
 )
 from sqlalchemy.orm import relationship
 
@@ -34,12 +36,10 @@ class TradeFill(HummingbotBase):
     base_asset = Column(Text, nullable=False)
     quote_asset = Column(Text, nullable=False)
     timestamp = Column(BigInteger, nullable=False)
-    order_id = Column(Text, nullable=False)
+    order_id = Column(Text, ForeignKey("Order.id"), nullable=False)
     trade_type = Column(Text, nullable=False)
     order_type = Column(Text, nullable=False)
     price = Column(Numeric(precision=65, scale=18), nullable=False)
     amount = Column(Numeric(precision=65, scale=18), nullable=False)
-    trade_fee_percent = Column(Float, nullable=False)
-    trade_fee_flat_fee = Column(Float, nullable=False)
-    trade_fee_asset = Column(Text, nullable=False)
-    order = relationship("Order")
+    trade_fee = Column(JSON, nullable=False)
+    order = relationship("Order", back_populates="trade_fills")
