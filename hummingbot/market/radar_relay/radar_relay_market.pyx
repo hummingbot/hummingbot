@@ -46,7 +46,7 @@ from hummingbot.core.event.events import (
 from zero_ex.order_utils import (
     generate_order_hash_hex,
     jsdict_order_to_struct,
-    Order
+    Order as ZeroExOrder
 )
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils import fix_signature
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_exchange import ZeroExExchange
@@ -144,7 +144,7 @@ cdef class InFlightOrder:
                  order_type: OrderType,
                  amount: Decimal,
                  price: Decimal,
-                 zero_ex_order: Order = None):
+                 zero_ex_order: ZeroExOrder = None):
         self.client_order_id = client_order_id
         self.exchange_order_id = exchange_order_id
         self.tx_hash = tx_hash
@@ -190,6 +190,45 @@ cdef class InFlightOrder:
     @property
     def quote_asset(self) -> str:
         return self.symbol.split('-')[1]
+
+    def to_json(self) -> Dict[str, any]:
+        return {
+            "client_order_id": self.client_order_id,
+            "exchange_order_id": self.exchange_order_id,
+            "tx_hash": self.tx_hash,
+            "symbol": self.symbol,
+            "is_buy": self.is_buy,
+            "order_type": str(self.order_type),
+            "amount": str(self.amount),
+            "price": str(self.price),
+            "executed_amount": str(self.executed_amount),
+            "available_amount": str(self.available_amount),
+            "quote_asset_amount": str(self.quote_asset_amount),
+            "gas_fee_amount": str(self.gas_fee_amount),
+            "last_state": self.last_state,
+            "zero_ex_order": dict(self.zero_ex_order)
+        }
+
+    @classmethod
+    def from_json(cls, data: Dict[str, any]) -> "InFlightOrder":
+        cdef:
+            InFlightOrder retval = InFlightOrder(
+                data["client_order_id"],
+                data["exchange_order_id"],
+                data["tx_hash"],
+                data["symbol"],
+                data["is_buy"],
+                getattr(OrderType, data["order_type"]),
+                Decimal(data["amount"]),
+                Decimal(data["price"]),
+                zero_ex_order=ZeroExOrder(data["zero_ex_order"])
+            )
+        retval.available_amount = Decimal(data["available_amount"])
+        retval.executed_amount = Decimal(data["executed_amount"])
+        retval.quote_asset_amount = Decimal(data["quote_asset_amount"])
+        retval.gas_fee_amount = Decimal(data["gas_fee_amount"])
+        retval.last_state = data["last_state"]
+        return retval
 
 
 cdef class RadarRelayMarket(MarketBase):
@@ -315,6 +354,29 @@ cdef class RadarRelayMarket(MarketBase):
                 Decimal(in_flight_order.amount)
             ))
         return retval
+
+    @property
+    def tracking_states(self) -> Dict[str, any]:
+        return {
+            "market_orders": {
+                key: value.to_json()
+                for key, value in self._in_flight_market_orders.items()
+            },
+            "limit_orders": {
+                key: value.to_json()
+                for key, value in self._in_flight_limit_orders.items()
+            }
+        }
+
+    def restore_tracking_states(self, saved_states: Dict[str, any]):
+        self._in_flight_market_orders.update({
+            key: InFlightOrder.from_json(value)
+            for key, value in saved_states["market_orders"]
+        })
+        self._in_flight_limit_orders.update({
+            key: InFlightOrder.from_json(value)
+            for key, value in saved_states["limit_orders"]
+        })
 
     async def get_active_exchange_markets(self):
         return await RadarRelayAPIOrderBookDataSource.get_active_exchange_markets()

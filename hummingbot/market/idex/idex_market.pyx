@@ -79,7 +79,6 @@ cdef class InFlightOrder:
         public object quote_asset_amount
         public object gas_fee_amount
         public str last_state
-        public object order
         public double created_timestamp
         public object exchange_order_id_update_event
         public object created_timestamp_update_event
@@ -93,7 +92,6 @@ cdef class InFlightOrder:
                  order_type: OrderType,
                  amount: Decimal,
                  price: Decimal,
-                 order: Any,
                  created_timestamp: float):
         self.client_order_id = client_order_id
         self.exchange_order_id = exchange_order_id
@@ -108,7 +106,6 @@ cdef class InFlightOrder:
         self.quote_asset_amount = s_decimal_0
         self.gas_fee_amount = s_decimal_0
         self.last_state = "open"
-        self.order = order
         self.created_timestamp = created_timestamp
         self.exchange_order_id_update_event = asyncio.Event()
         self.created_timestamp_update_event = asyncio.Event()
@@ -164,6 +161,45 @@ cdef class InFlightOrder:
             self.price,
             self.initial_amount
         )
+
+    def to_json(self) -> Dict[str, any]:
+        return {
+            "client_order_id": self.client_order_id,
+            "exchange_order_id": self.exchange_order_id,
+            "tx_hash": self.tx_hash,
+            "symbol": self.symbol,
+            "is_buy": self.is_buy,
+            "order_type": str(self.order_type),
+            "initial_amount": str(self.initial_amount),
+            "price": str(self.price),
+            "executed_amount": str(self.executed_amount),
+            "available_amount": str(self.available_amount),
+            "quote_asset_amount": str(self.quote_asset_amount),
+            "gas_fee_amount": str(self.gas_fee_amount),
+            "last_state": self.last_state,
+            "created_timestamp": self.created_timestamp,
+        }
+
+    @classmethod
+    def from_json(cls, data: Dict[str, any]) -> "InFlightOrder":
+        cdef:
+            InFlightOrder retval = InFlightOrder(
+                data["client_order_id"],
+                data["exchange_order_id"],
+                data["tx_hash"],
+                data["symbol"],
+                data["is_buy"],
+                getattr(OrderType, data["order_type"]),
+                Decimal(data["amount"]),
+                Decimal(data["price"]),
+                data["created_timestamp"]
+            )
+        retval.available_amount = Decimal(data["available_amount"])
+        retval.executed_amount = Decimal(data["executed_amount"])
+        retval.quote_asset_amount = Decimal(data["quote_asset_amount"])
+        retval.gas_fee_amount = Decimal(data["gas_fee_amount"])
+        retval.last_state = data["last_state"]
+        return retval
 
 
 cdef class IDEXMarket(MarketBase):
@@ -298,6 +334,19 @@ cdef class IDEXMarket(MarketBase):
         return [self._in_flight_orders[order_id].to_limit_order()
                 for _, order_id
                 in self._order_expiry_queue]
+
+    @property
+    def tracking_states(self) -> Dict[str, any]:
+        return {
+            key: value.to_json()
+            for key, value in self._in_flight_orders.items()
+        }
+
+    def restore_tracking_states(self, saved_states: Dict[str, any]):
+        self._in_flight_orders.update({
+            key: InFlightOrder.from_json(value)
+            for key, value in saved_states
+        })
 
     async def get_active_exchange_markets(self):
         return await IDEXAPIOrderBookDataSource.get_active_exchange_markets()
@@ -1075,7 +1124,6 @@ cdef class IDEXMarket(MarketBase):
             order_type=order_type,
             amount=amount,
             price=price,
-            order=None,
             created_timestamp=0
         )
 
