@@ -185,6 +185,38 @@ cdef class InFlightOrder:
     def quote_asset(self) -> str:
         return BinanceMarket.split_symbol(self.symbol)[1]
 
+    def to_json(self) -> Dict[str, any]:
+        return {
+            "client_order_id": self.client_order_id,
+            "exchange_order_id": self.exchange_order_id,
+            "symbol": self.symbol,
+            "is_buy": self.is_buy,
+            "amount": str(self.amount),
+            "executed_amount": str(self.executed_amount),
+            "quote_asset_amount": str(self.quote_asset_amount),
+            "fee_asset": self.fee_asset,
+            "fee_paid": str(self.fee_paid),
+            "last_state": self.last_state,
+            "order_type": str(self.order_type)
+        }
+
+    @classmethod
+    def from_json(cls, data: Dict[str, any]) -> "InFlightOrder":
+        cdef:
+            InFlightOrder retval = InFlightOrder(
+                data["client_order_id"],
+                data["exchange_order_id"],
+                data["symbol"],
+                data["is_buy"],
+                Decimal(data["amount"]),
+                getattr(OrderType, data["order_type"])
+            )
+        retval.executed_amount = Decimal(data["executed_amount"])
+        retval.quote_asset_amount = Decimal(data["quote_asset_amount"])
+        retval.fee_asset = data["fee_asset"]
+        retval.fee_paid = Decimal(data["fee_paid"])
+        retval.last_state = data["last_state"],
+        return retval
 
 
 cdef class TradingRule:
@@ -330,6 +362,19 @@ cdef class BinanceMarket(MarketBase):
     @property
     def in_flight_deposits(self) -> Dict[str, InFlightDeposit]:
         return self._in_flight_deposits
+
+    @property
+    def tracking_states(self) -> Dict[str, any]:
+        return {
+            key: value.to_json()
+            for key, value in self._in_flight_orders.items()
+        }
+
+    def restore_tracking_states(self, saved_states: Dict[str, any]):
+        self._in_flight_orders.update({
+            key: InFlightOrder.from_json(value)
+            for key, value in saved_states
+        })
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         return await BinanceAPIOrderBookDataSource.get_active_exchange_markets()

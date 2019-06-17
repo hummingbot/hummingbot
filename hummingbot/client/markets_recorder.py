@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import (
+    Session,
+    Query
+)
 import time
 from typing import (
     Dict,
@@ -94,6 +97,23 @@ class MarketsRecorder:
             for event_pair in self._event_pairs:
                 market.remove_listener(event_pair[0], event_pair[1])
 
+    def get_orders_for_config_and_market(self, config_file_path: str, market_name: str) -> List[Order]:
+        session: Session = self.session
+        query: Query = (session
+                        .query(Order)
+                        .filter(Order.config_file_path == config_file_path,
+                                Order.market == market_name)
+                        .order_by(Order.creation_timestamp))
+        return query.all()
+
+    def get_trades_for_config(self, config_file_path: str) -> List[TradeFill]:
+        session: Session = self.session
+        query: Query = (session
+                        .query(TradeFill)
+                        .filter(TradeFill.config_file_path == config_file_path)
+                        .order_by(TradeFill.timestamp))
+        return query.all()
+
     def _did_create_order(self,
                           event_tag: int,
                           market: MarketBase,
@@ -111,7 +131,9 @@ class MarketsRecorder:
                                     creation_timestamp=timestamp,
                                     order_type=evt.type.name,
                                     amount=evt.amount,
-                                    price=evt.price)
+                                    price=evt.price,
+                                    last_status=event_type.name,
+                                    last_update_timestamp=timestamp)
         order_status: OrderStatus = OrderStatus(order=order_record,
                                                 timestamp=timestamp,
                                                 status=event_type.name)
@@ -132,6 +154,8 @@ class MarketsRecorder:
         # Try to find the order record, and then add an order status entry and trade fill entry.
         order_record: Optional[Order] = session.query(Order).filter(Order.id == order_id).one_or_none()
         if order_record is not None:
+            order_record.last_status = event_type.name
+            order_record.last_update_timestamp = timestamp
             order_status: OrderStatus = OrderStatus(order_id=order_id,
                                                     timestamp=timestamp,
                                                     status=event_type.name)
@@ -166,6 +190,8 @@ class MarketsRecorder:
         order_record: Optional[Order] = session.query(Order).filter(Order.id == order_id).one_or_none()
 
         if order_record is not None:
+            order_record.last_status = event_type.name
+            order_record.last_update_timestamp = timestamp
             order_status: OrderStatus = OrderStatus(order_id=order_id,
                                                     timestamp=timestamp,
                                                     status=event_type.name)

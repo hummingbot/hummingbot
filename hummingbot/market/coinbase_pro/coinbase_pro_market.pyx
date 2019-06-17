@@ -132,6 +132,41 @@ cdef class InFlightOrder:
             await self.exchange_order_id_update_event.wait()
         return self.exchange_order_id
 
+    def to_json(self) -> Dict[str, any]:
+        return {
+            "client_order_id": self.client_order_id,
+            "exchange_order_id": self.exchange_order_id,
+            "symbol": self.symbol,
+            "is_buy": self.is_buy,
+            "order_type": str(self.order_type),
+            "amount": str(self.amount),
+            "price": str(self.price),
+            "executed_amount": str(self.executed_amount),
+            "quote_asset_amount": str(self.quote_asset_amount),
+            "fee_asset": self.fee_asset,
+            "fee_paid": str(self.fee_paid),
+            "last_state": self.last_state,
+        }
+
+    @classmethod
+    def from_json(cls, data: Dict[str, any]) -> "InFlightOrder":
+        cdef:
+            InFlightOrder retval = InFlightOrder(
+                data["client_order_id"],
+                data["exchange_order_id"],
+                data["symbol"],
+                data["is_buy"],
+                getattr(OrderType, data["order_type"]),
+                Decimal(data["amount"]),
+                Decimal(data["price"])
+            )
+        retval.executed_amount = Decimal(data["executed_amount"])
+        retval.quote_asset_amount = Decimal(data["quote_asset_amount"])
+        retval.fee_asset = data["fee_asset"]
+        retval.fee_paid = Decimal(data["fee_paid"])
+        retval.last_state = data["last_state"],
+        return retval
+
 
 cdef class CoinbaseProMarketTransactionTracker(TransactionTracker):
     cdef:
@@ -296,6 +331,19 @@ cdef class CoinbaseProMarket(MarketBase):
     @property
     def ready(self) -> bool:
         return all(self.status_dict.values())
+
+    @property
+    def tracking_states(self) -> Dict[str, any]:
+        return {
+            key: value.to_json()
+            for key, value in self._in_flight_orders.items()
+        }
+
+    def restore_tracking_states(self, saved_states: Dict[str, any]):
+        self._in_flight_orders.update({
+            key: InFlightOrder.from_json(value)
+            for key, value in saved_states
+        })
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         return await CoinbaseProAPIOrderBookDataSource.get_active_exchange_markets()

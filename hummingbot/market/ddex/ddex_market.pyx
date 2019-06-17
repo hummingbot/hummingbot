@@ -194,6 +194,43 @@ cdef class InFlightOrder:
             Decimal(self.amount)
         )
 
+    def to_json(self) -> Dict[str, any]:
+        return {
+            "client_order_id": self.client_order_id,
+            "exchange_order_id": self.exchange_order_id,
+            "symbol": self.symbol,
+            "is_buy": self.is_buy,
+            "order_type": str(self.order_type),
+            "amount": str(self.amount),
+            "available_amount": str(self.available_amount),
+            "price": str(self.price),
+            "executed_amount": str(self.executed_amount),
+            "pending_amount": str(self.pending_amount),
+            "quote_asset_amount": str(self.quote_asset_amount),
+            "gas_fee_amount": str(self.gas_fee_amount),
+            "last_state": self.last_state,
+        }
+
+    @classmethod
+    def from_json(cls, data: Dict[str, any]) -> "InFlightOrder":
+        cdef:
+            InFlightOrder retval = InFlightOrder(
+                data["client_order_id"],
+                data["exchange_order_id"],
+                data["symbol"],
+                data["is_buy"],
+                getattr(OrderType, data["order_type"]),
+                Decimal(data["amount"]),
+                Decimal(data["price"]),
+            )
+        retval.available_amount = Decimal(data["available_amount"])
+        retval.executed_amount = Decimal(data["executed_amount"])
+        retval.pending_amount = Decimal(data["pending_amount"])
+        retval.quote_asset_amount = Decimal(data["quote_asset_amount"])
+        retval.gas_fee_amount = Decimal(data["gas_fee_amount"])
+        retval.last_state = data["last_state"],
+        return retval
+
 
 ZERO_EX_MAINNET_PROXY = "0x74622073a4821dbfd046E9AA2ccF691341A076e1"
 
@@ -324,6 +361,19 @@ cdef class DDEXMarket(MarketBase):
         return [self._in_flight_orders[order_id].to_limit_order()
                 for _, order_id
                 in self._order_expiry_queue]
+
+    @property
+    def tracking_states(self) -> Dict[str, any]:
+        return {
+            key: value.to_json()
+            for key, value in self._in_flight_orders.items()
+        }
+
+    def restore_tracking_states(self, saved_states: Dict[str, any]):
+        self._in_flight_orders.update({
+            key: InFlightOrder.from_json(value)
+            for key, value in saved_states
+        })
 
     async def get_active_exchange_markets(self):
         return await DDEXAPIOrderBookDataSource.get_active_exchange_markets()
