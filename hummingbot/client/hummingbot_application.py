@@ -1052,6 +1052,7 @@ class HummingbotApplication:
     def history(self):
         self.list("trades")
         self.compare_balance_snapshots()
+        self.analyze_performance()
 
     async def wait_till_ready(self, func: Callable, *args, **kwargs):
         while True:
@@ -1093,3 +1094,61 @@ class HummingbotApplication:
         df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Delta"])
         lines = ["", "  Performance:"] + ["    " + line for line in str(df).split("\n")]
         self._notify("\n".join(lines))
+
+    def add_balances(self, msp, asset_type, asset_time, base, quote):
+        market_name = msp.market.name
+
+        if asset_type == "base":
+            asset_list = base
+            asset = msp.base_asset
+        elif asset_type == "quote":
+            asset_list = quote
+            asset = msp.quote_asset
+        else:
+            raise ValueError("asset_type must be either 'base' or 'quote'")
+
+        if asset_time == "starting":
+            amount = self.starting_balances.get(asset).get(market_name)
+        elif asset_time == "current":
+            amount = self.balance_snapshot().get(asset).get(market_name)
+        else:
+            raise ValueError("asset_time must be either 'starting' or 'current'")
+
+        if len(asset_list) == 0:
+            asset_list.insert(0, asset)
+            asset_list.insert(1, amount)
+        else:
+            if asset_list[0] == asset:
+                asset_list[1] += amount
+            else:
+                asset_list[1] += ExchangeRateConversion.convert_token_value(
+                    amount=amount,
+                    from_currency=asset,
+                    to_currency=asset_list[0]
+                )
+
+    def analyze_performance(self):
+        if len(self.starting_balances) == 0:
+            self._notify("  Performance analysis is not available before bot starts")
+            return
+
+        starting_base = list()
+        starting_quote = list()
+        current_base = list()
+        current_quote = list()
+
+        for msp in self.market_symbol_pairs:
+            for asset_type in ["base", "quote"]:
+                for asset_time in ["starting", "current"]:
+                    self.add_balances(
+                        msp=msp,
+                        asset_type=asset_type,
+                        asset_time=asset_time,
+                        base=starting_base,
+                        quote=starting_quote
+                    )
+
+        self._notify(str(starting_base))
+        self._notify(str(starting_quote))
+        self._notify(str(current_base))
+        self._notify(str(current_quote))
