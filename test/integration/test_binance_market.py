@@ -409,7 +409,6 @@ class BinanceMarketUnitTest(unittest.TestCase):
                 market_time.time = delayed_time
                 self.run_parallel(asyncio.sleep(3.0))
                 time_offset = BinanceTime.get_instance().time_offset_ms
-                print("offset", time_offset)
                 # check if it is less than 5% off
                 self.assertTrue(time_offset > 10000)
                 self.assertTrue(abs(time_offset - 30.0 * 1e3) < 1.5 * 1e3)
