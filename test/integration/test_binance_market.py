@@ -7,6 +7,7 @@ import conf
 import contextlib
 from decimal import Decimal
 import logging
+import os
 import time
 from typing import (
     List,
@@ -41,6 +42,12 @@ from hummingbot.market.binance.binance_market import (
     BinanceTime,
     binance_client_module
 )
+from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.model.order import Order
+from hummingbot.model.sql_connection_manager import (
+    SQLConnectionManager,
+    SQLConnectionType
+)
 from hummingbot.wallet.ethereum.mock_wallet import MockWallet
 
 MAINNET_RPC_URL = "http://mainnet-rpc.mainnet:8545"
@@ -61,6 +68,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
     market: BinanceMarket
     market_logger: EventLogger
+    stack: contextlib.ExitStack
 
     @classmethod
     def setUpClass(cls):
@@ -76,10 +84,14 @@ class BinanceMarketUnitTest(unittest.TestCase):
         print("Initializing Binance market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.market)
-        stack = contextlib.ExitStack()
-        cls._clock = stack.enter_context(cls.clock)
+        cls.stack: contextlib.ExitStack = contextlib.ExitStack()
+        cls._clock = cls.stack.enter_context(cls.clock)
         cls.ev_loop.run_until_complete(cls.wait_til_ready())
         print("Ready.")
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.stack.close()
 
     @classmethod
     async def wait_til_ready(cls):
@@ -416,6 +428,53 @@ class BinanceMarketUnitTest(unittest.TestCase):
             time_obj.SERVER_TIME_OFFSET_CHECK_INTERVAL = old_check_interval
             time_obj.stop()
             time_obj.start()
+
+    def test_orders_saving_and_restoration(self):
+        db_path: str = realpath(join(__file__, "../binance_test.sqlite"))
+        config_path: str = "test_config"
+        strategy_name: str = "test_strategy"
+        sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=db_path)
+        recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
+        recorder.start()
+
+        try:
+            self.assertEqual(0, len(self.market.tracking_states))
+
+            # Try to put limit buy order for 0.02 ETH worth of ZRX, and watch for order creation event.
+            current_bid_price: float = self.market.get_price("ZRXETH", True)
+            bid_price: float = current_bid_price * 0.8
+            quantize_bid_price: Decimal = self.market.quantize_order_price("ZRXETH", bid_price)
+
+            amount: float = 0.02 / bid_price
+            quantized_amount: Decimal = self.market.quantize_order_amount("ZRXETH", amount)
+
+            order_id = self.market.buy("ZRXETH", quantized_amount, OrderType.LIMIT, quantize_bid_price)
+            [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+            order_created_event: BuyOrderCreatedEvent = order_created_event
+            self.assertEqual(order_id, order_created_event.order_id)
+
+            # Verify tracking states
+            self.assertEqual(1, len(self.market.tracking_states))
+            self.assertEqual(order_id, list(self.market.tracking_states.keys())[0])
+
+            # Verify orders from recorder
+            recorded_orders: List[Order] = recorder.get_orders_for_config_and_market(config_path, self.market.name)
+            self.assertEqual(1, len(recorded_orders))
+            self.assertEqual(order_id, recorded_orders[0].id)
+
+            # Close out the current market and start another market.
+            self.clock.remove_iterator(self.market)
+            self.market: BinanceMarket = BinanceMarket(
+                MAINNET_RPC_URL, conf.binance_api_key, conf.binance_api_secret,
+                order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
+                symbols=["ZRXETH", "LOOMETH", "IOSTETH"]
+            )
+            self.clock.add_iterator(self.market)
+
+        finally:
+            recorder.stop()
+            os.unlink(db_path)
 
 
 if __name__ == "__main__":

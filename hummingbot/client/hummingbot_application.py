@@ -107,7 +107,7 @@ from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 
-from .markets_recorder import MarketsRecorder
+from hummingbot.market.markets_recorder import MarketsRecorder
 
 s_logger = None
 
