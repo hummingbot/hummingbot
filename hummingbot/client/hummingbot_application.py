@@ -1121,11 +1121,23 @@ class HummingbotApplication:
             if asset_list[0] == asset:
                 asset_list[1] += amount
             else:
-                asset_list[1] += ExchangeRateConversion.convert_token_value(
+                self._notify(str(amount))
+                self._notify(str(asset))
+                self._notify(str(asset_list))
+                erc = ExchangeRateConversion.get_instance()
+                test = erc.convert_token_value(
                     amount=amount,
                     from_currency=asset,
                     to_currency=asset_list[0]
                 )
+                self._notify(test)
+                self._notify(str(asset_list))
+        if asset_type == "base":
+            base = asset_list
+        elif asset_type == "quote":
+            quote = asset_list
+
+        return base, quote
 
     def analyze_performance(self):
         if len(self.starting_balances) == 0:
@@ -1137,16 +1149,27 @@ class HummingbotApplication:
         current_base = list()
         current_quote = list()
 
+        # self._notify(str(starting_base))
+        # self._notify(str(starting_quote))
+        # self._notify(str(current_base))
+        # self._notify(str(current_quote))
+
         for msp in self.market_symbol_pairs:
             for asset_type in ["base", "quote"]:
-                for asset_time in ["starting", "current"]:
-                    self.add_balances(
-                        msp=msp,
-                        asset_type=asset_type,
-                        asset_time=asset_time,
-                        base=starting_base,
-                        quote=starting_quote
-                    )
+                starting_base, starting_quote = self.add_balances(
+                    msp=msp,
+                    asset_type=asset_type,
+                    asset_time="starting",
+                    base=starting_base,
+                    quote=starting_quote
+                )
+                current_base, current_quote = self.add_balances(
+                    msp=msp,
+                    asset_type=asset_type,
+                    asset_time="current",
+                    base=current_base,
+                    quote=current_quote
+                )
 
         self._notify(str(starting_base))
         self._notify(str(starting_quote))
