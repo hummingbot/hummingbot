@@ -4,6 +4,8 @@ from .data_types import MarketInfo
 from .pure_market_pair import PureMarketPair
 from .pure_market_making import PureMarketMakingStrategy
 from .pure_market_making_v2 import PureMarketMakingStrategyV2
+from .constant_multiple_spread_pricing_delegate import ConstantMultipleSpreadPricingDelegate
+from .staggered_multiple_size_sizing_delegate import StaggeredMultipleSizeSizingDelegate
 
 
 __all__ = [
@@ -11,4 +13,6 @@ __all__ = [
     PureMarketPair,
     PureMarketMakingStrategy,
     PureMarketMakingStrategyV2,
+    ConstantMultipleSpreadPricingDelegate,
+    StaggeredMultipleSizeSizingDelegate
 ]
