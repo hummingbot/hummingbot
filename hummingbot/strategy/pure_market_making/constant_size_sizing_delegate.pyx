@@ -29,6 +29,14 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
             bint has_active_bid = False
             bint has_active_ask = False
 
+        if market.name == "binance":
+            bid_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size, pricing_proposal.buy_order_prices[0])
+            ask_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size, pricing_proposal.sell_order_prices[0])
+
+        else:
+            bid_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size)
+            ask_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size)
+
         for active_order in active_orders:
             if active_order.is_buy:
                 has_active_bid = True
@@ -36,10 +44,10 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
                 has_active_ask = True
 
         return SizingProposal(
-            (bid_order_size
-             if quote_asset_balance > pricing_proposal.buy_order_price * bid_order_size and not has_active_bid
-             else 0.0),
-            (ask_order_size
+            ([bid_order_size]
+             if quote_asset_balance > pricing_proposal.buy_order_prices[0] * bid_order_size and not has_active_bid
+             else [0.0]),
+            ([ask_order_size]
              if base_asset_balance > ask_order_size and not has_active_ask else
-             0.0)
+             [0.0])
         )
