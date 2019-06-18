@@ -34,10 +34,6 @@ In addition, we may add a discretionary bonus to bugs that entail security vulne
 ## Evaluation
 The Hummingbot team will investigate your report within 24 hours, contact you to discuss the issue, and send 0.1 ETH to your Ethereum wallet once the team decides to fix the bug that you reported.
 
-## Reported bugs
-
-In this section, we will publish a list of reported bugs and their status.
-
 <br />
 <br />
 **Happy 🐞 hunting!**
