@@ -138,7 +138,7 @@ cdef class InFlightOrder:
             "exchange_order_id": self.exchange_order_id,
             "symbol": self.symbol,
             "is_buy": self.is_buy,
-            "order_type": str(self.order_type),
+            "order_type": self.order_type.name,
             "amount": str(self.amount),
             "price": str(self.price),
             "executed_amount": str(self.executed_amount),
@@ -164,7 +164,7 @@ cdef class InFlightOrder:
         retval.quote_asset_amount = Decimal(data["quote_asset_amount"])
         retval.fee_asset = data["fee_asset"]
         retval.fee_paid = Decimal(data["fee_paid"])
-        retval.last_state = data["last_state"],
+        retval.last_state = data["last_state"]
         return retval
 
 

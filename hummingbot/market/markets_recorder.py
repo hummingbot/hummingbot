@@ -27,6 +27,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.market.market_base import MarketBase
+from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.order_status import OrderStatus
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
@@ -97,12 +98,12 @@ class MarketsRecorder:
             for event_pair in self._event_pairs:
                 market.remove_listener(event_pair[0], event_pair[1])
 
-    def get_orders_for_config_and_market(self, config_file_path: str, market_name: str) -> List[Order]:
+    def get_orders_for_config_and_market(self, config_file_path: str, market: MarketBase) -> List[Order]:
         session: Session = self.session
         query: Query = (session
                         .query(Order)
                         .filter(Order.config_file_path == config_file_path,
-                                Order.market == market_name)
+                                Order.market == market.name)
                         .order_by(Order.creation_timestamp))
         return query.all()
 
@@ -114,6 +115,39 @@ class MarketsRecorder:
                         .order_by(TradeFill.timestamp))
         return query.all()
 
+    def save_market_states(self, config_file_path: str, market: MarketBase, no_commit: bool = False):
+        session: Session = self.session
+        market_states: Optional[MarketState] = self.get_market_states(config_file_path, market)
+        timestamp: int = self.db_timestamp
+
+        if market_states is not None:
+            market_states.saved_state = market.tracking_states
+            market_states.timestamp = timestamp
+        else:
+            market_states = MarketState(config_file_path=config_file_path,
+                                        market=market.name,
+                                        timestamp=timestamp,
+                                        saved_state=market.tracking_states)
+            session.add(market_states)
+
+        if not no_commit:
+            session.commit()
+
+    def restore_market_states(self, config_file_path: str, market: MarketBase):
+        market_states: Optional[MarketState] = self.get_market_states(config_file_path, market)
+
+        if market_states is not None:
+            market.restore_tracking_states(market_states.saved_state)
+
+    def get_market_states(self, config_file_path: str, market: MarketBase) -> Optional[MarketState]:
+        session: Session = self.session
+        query: Query = (session
+                        .query(MarketState)
+                        .filter(MarketState.config_file_path == config_file_path,
+                                MarketState.market == market.name))
+        market_states: Optional[MarketState] = query.one_or_none()
+        return market_states
+
     def _did_create_order(self,
                           event_tag: int,
                           market: MarketBase,
@@ -122,7 +156,8 @@ class MarketsRecorder:
         base_asset, quote_asset = market.split_symbol(evt.symbol)
         timestamp: int = self.db_timestamp
         event_type: MarketEvent = self.market_event_tag_map[event_tag]
-        order_record: Order = Order(config_file_path=self._config_file_path,
+        order_record: Order = Order(id=evt.order_id,
+                                    config_file_path=self._config_file_path,
                                     strategy=self._strategy_name,
                                     market=market.name,
                                     symbol=evt.symbol,
@@ -139,6 +174,7 @@ class MarketsRecorder:
                                                 status=event_type.name)
         session.add(order_record)
         session.add(order_status)
+        self.save_market_states(self._config_file_path, market, no_commit=True)
         session.commit()
 
     def _did_fill_order(self,
@@ -174,15 +210,19 @@ class MarketsRecorder:
                                                      trade_fee=TradeFee.to_json(evt.trade_fee))
             session.add(order_status)
             session.add(trade_fill_record)
+            self.save_market_states(self._config_file_path, market, no_commit=True)
             session.commit()
         else:
             session.rollback()
 
-    def _update_order_status(self, event_tag: int, evt: Union[OrderCancelledEvent,
-                                                              MarketOrderFailureEvent,
-                                                              BuyOrderCompletedEvent,
-                                                              SellOrderCompletedEvent,
-                                                              OrderExpiredEvent]):
+    def _update_order_status(self,
+                             event_tag: int,
+                             market: MarketBase,
+                             evt: Union[OrderCancelledEvent,
+                                        MarketOrderFailureEvent,
+                                        BuyOrderCompletedEvent,
+                                        SellOrderCompletedEvent,
+                                        OrderExpiredEvent]):
         session: Session = self.session
         timestamp: int = self.db_timestamp
         event_type: MarketEvent = self.market_event_tag_map[event_tag]
@@ -196,30 +236,31 @@ class MarketsRecorder:
                                                     timestamp=timestamp,
                                                     status=event_type.name)
             session.add(order_status)
+            self.save_market_states(self._config_file_path, market, no_commit=True)
             session.commit()
         else:
             session.rollback()
 
     def _did_cancel_order(self,
                           event_tag: int,
-                          _: MarketBase,
+                          market: MarketBase,
                           evt: OrderCancelledEvent):
-        self._update_order_status(event_tag, evt)
+        self._update_order_status(event_tag, market, evt)
 
     def _did_fail_order(self,
                         event_tag: int,
-                        _: MarketBase,
+                        market: MarketBase,
                         evt: MarketOrderFailureEvent):
-        self._update_order_status(event_tag, evt)
+        self._update_order_status(event_tag, market, evt)
 
     def _did_complete_order(self,
                             event_tag: int,
-                            _: MarketBase,
+                            market: MarketBase,
                             evt: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent]):
-        self._update_order_status(event_tag, evt)
+        self._update_order_status(event_tag, market, evt)
 
     def _did_expire_order(self,
                           event_tag: int,
-                          _: MarketBase,
+                          market: MarketBase,
                           evt: OrderExpiredEvent):
-        self._update_order_status(event_tag, evt)
+        self._update_order_status(event_tag, market, evt)
