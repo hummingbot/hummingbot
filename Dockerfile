@@ -13,6 +13,8 @@ COPY hummingbot/ hummingbot/
 COPY setup/environment-linux.yml setup/
 COPY setup.py .
 COPY LICENSE .
+COPY README.md .
+COPY DATA_COLLECTION.md .
 
 # Install linux dependencies
 RUN apt update && \
