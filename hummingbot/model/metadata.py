@@ -13,3 +13,6 @@ class Metadata(HummingbotBase):
 
     key = Column(Text, primary_key=True, nullable=False)
     value = Column(Text, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"Metadata(key='{self.key}', value='{self.value}')"

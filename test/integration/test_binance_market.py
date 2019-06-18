@@ -51,6 +51,7 @@ from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
     SQLConnectionType
 )
+from hummingbot.model.trade_fill import TradeFill
 from hummingbot.wallet.ethereum.mock_wallet import MockWallet
 
 MAINNET_RPC_URL = "http://mainnet-rpc.mainnet:8545"
@@ -316,7 +317,6 @@ class BinanceMarketUnitTest(unittest.TestCase):
             self.market_logger.wait_for(MarketWithdrawAssetEvent)
         )
         withdraw_asset_event: MarketWithdrawAssetEvent = withdraw_asset_event
-        print(withdraw_asset_event)
         self.assertEqual(local_wallet.address, withdraw_asset_event.to_address)
         self.assertEqual("ZRX", withdraw_asset_event.asset_name)
         self.assertEqual(10, withdraw_asset_event.amount)
@@ -485,12 +485,66 @@ class BinanceMarketUnitTest(unittest.TestCase):
             )
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)
+            recorder.stop()
+            recorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
+            recorder.start()
+            saved_market_states = recorder.get_market_states(config_path, self.market)
             self.clock.add_iterator(self.market)
             self.assertEqual(0, len(self.market.limit_orders))
             self.assertEqual(0, len(self.market.tracking_states))
             self.market.restore_tracking_states(saved_market_states.saved_state)
             self.assertEqual(1, len(self.market.limit_orders))
             self.assertEqual(1, len(self.market.tracking_states))
+
+            # Cancel the order and verify that the change is saved.
+            self.market.cancel("ZRXETH", order_id)
+            self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+            order_id = None
+            self.assertEqual(0, len(self.market.limit_orders))
+            self.assertEqual(0, len(self.market.tracking_states))
+            saved_market_states = recorder.get_market_states(config_path, self.market)
+            self.assertEqual(0, len(saved_market_states.saved_state))
+        finally:
+            if order_id is not None:
+                self.market.cancel("ZRXETH", order_id)
+                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+
+            recorder.stop()
+            os.unlink(db_path)
+
+    def test_order_fill_record(self):
+        db_path: str = realpath(join(__file__, "../binance_test.sqlite"))
+        config_path: str = "test_config"
+        strategy_name: str = "test_strategy"
+        sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=db_path)
+        order_id: Optional[str] = None
+        recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
+        recorder.start()
+
+        try:
+            # Try to buy 0.02 ETH worth of ZRX from the exchange, and watch for completion event.
+            current_price: float = self.market.get_price("ZRXETH", True)
+            amount: float = 0.02 / current_price
+            order_id = self.market.buy("ZRXETH", amount)
+            [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
+
+            # Reset the logs
+            self.market_logger.clear()
+
+            # Try to sell back the same amount of ZRX to the exchange, and watch for completion event.
+            amount = float(buy_order_completed_event.base_asset_amount)
+            order_id = self.market.sell("ZRXETH", amount)
+            [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
+
+            # Query the persisted trade logs
+            trade_fills: List[TradeFill] = recorder.get_trades_for_config(config_path)
+            self.assertEqual(2, len(trade_fills))
+            buy_fills: List[TradeFill] = [t for t in trade_fills if t.trade_type == "BUY"]
+            sell_fills: List[TradeFill] = [t for t in trade_fills if t.trade_type == "SELL"]
+            self.assertEqual(1, len(buy_fills))
+            self.assertEqual(1, len(sell_fills))
+
+            order_id = None
 
         finally:
             if order_id is not None:

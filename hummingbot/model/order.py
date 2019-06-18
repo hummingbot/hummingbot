@@ -38,3 +38,10 @@ class Order(HummingbotBase):
     last_update_timestamp = Column(BigInteger, nullable=False)
     status = relationship("OrderStatus", back_populates="order")
     trade_fills = relationship("TradeFill", back_populates="order")
+
+    def __repr__(self) -> str:
+        return f"Order(id={self.id}, config_file_path='{self.config_file_path}', strategy='{self.strategy}', " \
+            f"market='{self.market}', symbol='{self.symbol}', base_asset='{self.base_asset}', " \
+            f"quote_asset='{self.quote_asset}', creation_timestamp={self.creation_timestamp}, " \
+            f"order_type='{self.order_type}', amount={self.amount}, price={self.price}, " \
+            f"last_status='{self.last_status}', last_update_timestamp={self.last_update_timestamp})"

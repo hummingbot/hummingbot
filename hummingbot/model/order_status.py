@@ -24,3 +24,7 @@ class OrderStatus(HummingbotBase):
     timestamp = Column(BigInteger, nullable=False)
     status = Column(Text, nullable=False)
     order = relationship("Order", back_populates="status")
+
+    def __repr__(self) -> str:
+        return f"OrderStatus(id={self.id}, order_id='{self.order_id}', timestamp={self.timestamp}, " \
+            f"status='{self.status}')"
