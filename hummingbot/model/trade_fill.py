@@ -7,7 +7,6 @@ from sqlalchemy import (
     Integer,
     Index,
     BigInteger,
-    Numeric,
     Float,
     JSON
 )
@@ -39,7 +38,14 @@ class TradeFill(HummingbotBase):
     order_id = Column(Text, ForeignKey("Order.id"), nullable=False)
     trade_type = Column(Text, nullable=False)
     order_type = Column(Text, nullable=False)
-    price = Column(Numeric(precision=65, scale=18), nullable=False)
-    amount = Column(Numeric(precision=65, scale=18), nullable=False)
+    price = Column(Float, nullable=False)
+    amount = Column(Float, nullable=False)
     trade_fee = Column(JSON, nullable=False)
     order = relationship("Order", back_populates="trade_fills")
+
+    def __repr__(self) -> str:
+        return f"TradeFill(id={self.id}, config_file_path='{self.config_file_path}', strategy='{self.strategy}', " \
+            f"market='{self.market}', symbol='{self.symbol}', base_asset='{self.base_asset}', " \
+            f"quote_asset='{self.quote_asset}', timestamp={self.timestamp}, order_id='{self.order_id}', " \
+            f"trade_type='{self.trade_type}', order_type='{self.order_type}', price={self.price}, " \
+            f"amount={self.amount}, trade_fee={self.trade_fee})"

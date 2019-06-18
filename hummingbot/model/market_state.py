@@ -22,3 +22,7 @@ class MarketState(HummingbotBase):
     market = Column(Text, nullable=False)
     timestamp = Column(BigInteger, nullable=False)
     saved_state = Column(JSON, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"MarketState(id='{self.id}', config_file_path='{self.config_file_path}', market='{self.market}', " \
+            f"timestamp={self.timestamp}, saved_state={self.saved_state})"
