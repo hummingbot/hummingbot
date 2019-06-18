@@ -187,33 +187,34 @@ class MarketsRecorder:
         event_type: MarketEvent = self.market_event_tag_map[event_tag]
         order_id: str = evt.order_id
 
-        # Try to find the order record, and then add an order status entry and trade fill entry.
+        # Try to find the order record, and update it if necessary.
         order_record: Optional[Order] = session.query(Order).filter(Order.id == order_id).one_or_none()
         if order_record is not None:
             order_record.last_status = event_type.name
             order_record.last_update_timestamp = timestamp
-            order_status: OrderStatus = OrderStatus(order_id=order_id,
-                                                    timestamp=timestamp,
-                                                    status=event_type.name)
-            trade_fill_record: TradeFill = TradeFill(config_file_path=self.config_file_path,
-                                                     strategy=self.strategy_name,
-                                                     market=market.name,
-                                                     symbol=evt.symbol,
-                                                     base_asset=base_asset,
-                                                     quote_asset=quote_asset,
-                                                     timestamp=timestamp,
-                                                     order_id=order_id,
-                                                     trade_type=evt.trade_type.name,
-                                                     order_type=evt.order_type.name,
-                                                     price=evt.price,
-                                                     amount=evt.amount,
-                                                     trade_fee=TradeFee.to_json(evt.trade_fee))
-            session.add(order_status)
-            session.add(trade_fill_record)
-            self.save_market_states(self._config_file_path, market, no_commit=True)
-            session.commit()
-        else:
-            session.rollback()
+
+        # Order status and trade fill record should be added even if the order record is not found, because it's
+        # possible for fill event to come in before the order created event for market orders.
+        order_status: OrderStatus = OrderStatus(order_id=order_id,
+                                                timestamp=timestamp,
+                                                status=event_type.name)
+        trade_fill_record: TradeFill = TradeFill(config_file_path=self.config_file_path,
+                                                 strategy=self.strategy_name,
+                                                 market=market.name,
+                                                 symbol=evt.symbol,
+                                                 base_asset=base_asset,
+                                                 quote_asset=quote_asset,
+                                                 timestamp=timestamp,
+                                                 order_id=order_id,
+                                                 trade_type=evt.trade_type.name,
+                                                 order_type=evt.order_type.name,
+                                                 price=evt.price,
+                                                 amount=evt.amount,
+                                                 trade_fee=TradeFee.to_json(evt.trade_fee))
+        session.add(order_status)
+        session.add(trade_fill_record)
+        self.save_market_states(self._config_file_path, market, no_commit=True)
+        session.commit()
 
     def _update_order_status(self,
                              event_tag: int,
