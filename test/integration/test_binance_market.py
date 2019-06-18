@@ -11,7 +11,8 @@ import os
 import time
 from typing import (
     List,
-    Dict
+    Dict,
+    Optional
 )
 import unittest
 from unittest.mock import patch
@@ -28,6 +29,7 @@ from hummingbot.core.event.events import (
     MarketEvent,
     MarketReceivedAssetEvent,
     MarketWithdrawAssetEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
     OrderType,
     SellOrderCompletedEvent,
@@ -43,6 +45,7 @@ from hummingbot.market.binance.binance_market import (
     binance_client_module
 )
 from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
@@ -64,6 +67,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
+        MarketEvent.OrderCancelled
     ]
 
     market: BinanceMarket
@@ -434,6 +438,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=db_path)
+        order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
         recorder.start()
 
@@ -458,21 +463,40 @@ class BinanceMarketUnitTest(unittest.TestCase):
             self.assertEqual(order_id, list(self.market.tracking_states.keys())[0])
 
             # Verify orders from recorder
-            recorded_orders: List[Order] = recorder.get_orders_for_config_and_market(config_path, self.market.name)
+            recorded_orders: List[Order] = recorder.get_orders_for_config_and_market(config_path, self.market)
             self.assertEqual(1, len(recorded_orders))
             self.assertEqual(order_id, recorded_orders[0].id)
 
+            # Verify saved market states
+            saved_market_states: MarketState = recorder.get_market_states(config_path, self.market)
+            self.assertIsNotNone(saved_market_states)
+            self.assertIsInstance(saved_market_states.saved_state, dict)
+            self.assertGreater(len(saved_market_states.saved_state), 0)
+
             # Close out the current market and start another market.
             self.clock.remove_iterator(self.market)
+            for event_tag in self.events:
+                self.market.remove_listener(event_tag, self.market_logger)
             self.market: BinanceMarket = BinanceMarket(
                 MAINNET_RPC_URL, conf.binance_api_key, conf.binance_api_secret,
                 order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                 user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
                 symbols=["ZRXETH", "LOOMETH", "IOSTETH"]
             )
+            for event_tag in self.events:
+                self.market.add_listener(event_tag, self.market_logger)
             self.clock.add_iterator(self.market)
+            self.assertEqual(0, len(self.market.limit_orders))
+            self.assertEqual(0, len(self.market.tracking_states))
+            self.market.restore_tracking_states(saved_market_states.saved_state)
+            self.assertEqual(1, len(self.market.limit_orders))
+            self.assertEqual(1, len(self.market.tracking_states))
 
         finally:
+            if order_id is not None:
+                self.market.cancel("ZRXETH", order_id)
+                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+
             recorder.stop()
             os.unlink(db_path)
 

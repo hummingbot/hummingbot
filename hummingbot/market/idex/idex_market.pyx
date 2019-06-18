@@ -169,7 +169,7 @@ cdef class InFlightOrder:
             "tx_hash": self.tx_hash,
             "symbol": self.symbol,
             "is_buy": self.is_buy,
-            "order_type": str(self.order_type),
+            "order_type": self.order_type.name,
             "initial_amount": str(self.initial_amount),
             "price": str(self.price),
             "executed_amount": str(self.executed_amount),
