@@ -56,9 +56,9 @@ def parse_cvar_value(cvar: ConfigVar, value: any):
             logging.getLogger().error(f"\"{value}\" is not an integer.")
             return 0
     elif cvar.type == 'bool':
-        if type(value) == str and value.lower() in ["true", "yes", "y"]:
+        if isinstance(value, str) and value.lower() in ["true", "yes", "y"]:
             return True
-        elif type(value) == str and value.lower() in ["false", "no", "n"]:
+        elif isinstance(value, str) and value.lower() in ["false", "no", "n"]:
             return False
         else:
             return bool(value)

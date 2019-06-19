@@ -1132,6 +1132,7 @@ class HummingbotApplication:
         self._notify("\n".join(lines))
 
     def bounty(self, register: bool = False, status: bool = False, terms: bool = False):
+        """ Router function for `bounty` command """
         if terms:
             asyncio.ensure_future(self.bounty_print_terms(), loop=self.ev_loop)
         elif register:
@@ -1145,6 +1146,7 @@ class HummingbotApplication:
             self._notify(str(data))
 
     async def bounty_show_status(self):
+        """ Show bounty status """
         if self.liquidity_bounty is None:
             self._notify("Liquidity bounty not active. Please register for the bounty by entering `bounty --register`.")
             return
@@ -1152,9 +1154,11 @@ class HummingbotApplication:
             self._notify(str(self.liquidity_bounty.formatted_status()))
 
     async def bounty_print_terms(self):
+        """ Print bounty Terms and Conditions to output pane """
         await self.print_doc(join(dirname(__file__), "./liquidity_bounty/terms_and_conditions.txt"))
 
     async def bounty_registration(self):
+        """ Register for the bounty program """
         if self.liquidity_bounty:
             self._notify("You are already registered to collect bounties.")
             return
@@ -1173,6 +1177,7 @@ class HummingbotApplication:
             self._notify(str(e))
 
     async def bounty_config_loop(self):
+        """ Configuration loop for bounty registration """
         self.placeholder_mode = True
         self.app.toggle_hide_input()
         self._notify("Starting registration process for liquidity bounties:")
