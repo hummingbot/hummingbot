@@ -1132,14 +1132,12 @@ class HummingbotApplication:
         self._notify("\n".join(lines))
 
     def bounty(self, register: bool = False, status: bool = False, terms: bool = False):
-        if status:
-            asyncio.ensure_future(self.bounty_show_status(), loop=self.ev_loop)
-        elif terms:
+        if terms:
             asyncio.ensure_future(self.bounty_print_terms(), loop=self.ev_loop)
-        elif register or self.liquidity_bounty is None:
+        elif register:
             asyncio.ensure_future(self.bounty_registration(), loop=self.ev_loop)
         else:
-            self.help("bounty")
+            asyncio.ensure_future(self.bounty_show_status(), loop=self.ev_loop)
 
     async def print_doc(self, doc_path: str):
         with open(doc_path) as doc:
@@ -1148,10 +1146,10 @@ class HummingbotApplication:
 
     async def bounty_show_status(self):
         if self.liquidity_bounty is None:
-            self._notify("Liquidity bounty not active.")
+            self._notify("Liquidity bounty not active. Please register for the bounty by entering `bounty --register`.")
             return
         else:
-            self._notify(str(self.liquidity_bounty.status()))
+            self._notify(str(self.liquidity_bounty.formatted_status()))
 
     async def bounty_print_terms(self):
         await self.print_doc(join(dirname(__file__), "./liquidity_bounty/terms_and_conditions.txt"))
