@@ -1116,22 +1116,17 @@ class HummingbotApplication:
 
         if len(asset_list) == 0:
             asset_list.insert(0, asset)
-            asset_list.insert(1, amount)
+            asset_list.insert(1, float(amount))
         else:
             if asset_list[0] == asset:
-                asset_list[1] += amount
+                asset_list[1] += float(amount)
             else:
-                self._notify(str(amount))
-                self._notify(str(asset))
-                self._notify(str(asset_list))
                 erc = ExchangeRateConversion.get_instance()
-                test = erc.convert_token_value(
-                    amount=amount,
+                asset_list[1] += float(erc.convert_token_value(
+                    amount=float(amount),
                     from_currency=asset,
                     to_currency=asset_list[0]
-                )
-                self._notify(test)
-                self._notify(str(asset_list))
+                ))
         if asset_type == "base":
             base = asset_list
         elif asset_type == "quote":
@@ -1148,11 +1143,6 @@ class HummingbotApplication:
         starting_quote = list()
         current_base = list()
         current_quote = list()
-
-        # self._notify(str(starting_base))
-        # self._notify(str(starting_quote))
-        # self._notify(str(current_base))
-        # self._notify(str(current_quote))
 
         for msp in self.market_symbol_pairs:
             for asset_type in ["base", "quote"]:
@@ -1171,7 +1161,11 @@ class HummingbotApplication:
                     quote=current_quote
                 )
 
-        self._notify(str(starting_base))
-        self._notify(str(starting_quote))
-        self._notify(str(current_base))
-        self._notify(str(current_quote))
+        market_pair = self.market_symbol_pairs[0]
+        print(market_pair)
+        print(type(market_pair))
+
+        print(str(starting_base))
+        print(str(starting_quote))
+        print(str(current_base))
+        print(str(current_quote))
