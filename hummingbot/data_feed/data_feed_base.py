@@ -6,10 +6,11 @@ from typing import (
     Dict,
 )
 
+from hummingbot.core.network_base import NetworkBase, NetworkStatus
 from hummingbot.logger import HummingbotLogger
 
 
-class DataFeedBase:
+class DataFeedBase(NetworkBase):
     dfb_logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -19,6 +20,7 @@ class DataFeedBase:
         return cls.dfb_logger
 
     def __init__(self):
+        super().__init__()
         self._ready_event = asyncio.Event()
         self._shared_client: Optional[aiohttp.ClientSession] = None
 
@@ -28,6 +30,10 @@ class DataFeedBase:
 
     @property
     def price_dict(self) -> Dict[str, float]:
+        raise NotImplementedError
+
+    @property
+    def health_check_endpoint(self) -> Dict[str, float]:
         raise NotImplementedError
 
     def get_price(self, asset: str) -> float:
@@ -48,8 +54,29 @@ class DataFeedBase:
             self.logger().error("Unexpected error while waiting for data feed to get ready.",
                                 exc_info=True)
 
+    async def start_network(self):
+        raise NotImplementedError
+
+    async def stop_network(self):
+        raise NotImplementedError
+
+    async def check_network(self) -> NetworkStatus:
+        try:
+            loop = asyncio.get_event_loop()
+            async with aiohttp.ClientSession(loop=loop,
+                                             connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+                async with session.get(self.health_check_endpoint) as resp:
+                    status_text = await resp.text()
+                    if resp.status != 200:
+                        raise Exception(f"Data feed {self.name} server is down.")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return NetworkStatus.NOT_CONNECTED
+        return NetworkStatus.CONNECTED
+
     def start(self):
-        pass
+        NetworkBase.start(self)
 
     def stop(self):
-        pass
+        NetworkBase.stop(self)
