@@ -44,6 +44,7 @@ from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
     SQLConnectionType
 )
+from hummingbot.model.trade_fill import TradeFill
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 
@@ -109,6 +110,12 @@ class DDEXMarketUnitTest(unittest.TestCase):
             await asyncio.sleep(1.0)
 
     def setUp(self):
+        self.db_path: str = realpath(join(__file__, "../ddex_test.sqlite"))
+        try:
+            os.unlink(self.db_path)
+        except FileNotFoundError:
+            pass
+
         self.market_logger = EventLogger()
         self.wallet_logger = EventLogger()
         for event_tag in self.market_events:
@@ -361,16 +368,10 @@ class DDEXMarketUnitTest(unittest.TestCase):
             self.assertEqual(cr.success, False)
 
     def test_orders_saving_and_restoration(self):
-        db_path: str = realpath(join(__file__, "../ddex_test.sqlite"))
-        try:
-            os.unlink(db_path)
-        except FileNotFoundError:
-            pass
-
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
         symbol: str = "HOT-WETH"
-        sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=db_path)
+        sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
         recorder.start()
@@ -443,7 +444,49 @@ class DDEXMarketUnitTest(unittest.TestCase):
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
-            os.unlink(db_path)
+            os.unlink(self.db_path)
+
+    def test_order_fill_record(self):
+        config_path: str = "test_config"
+        strategy_name: str = "test_strategy"
+        symbol: str = "HOT-WETH"
+        sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
+        order_id: Optional[str] = None
+        recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
+        recorder.start()
+
+        try:
+            # Try to buy 0.05 ETH worth of HOT from the exchange, and watch for completion event.
+            current_price: float = self.market.get_price(symbol, True)
+            amount: float = 0.05 / current_price
+            order_id = self.market.buy(symbol, amount)
+            [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
+
+            # Reset the logs
+            self.market_logger.clear()
+
+            # Try to sell back the same amount of ZRX to the exchange, and watch for completion event.
+            amount = float(buy_order_completed_event.base_asset_amount)
+            order_id = self.market.sell(symbol, amount)
+            [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
+
+            # Query the persisted trade logs
+            trade_fills: List[TradeFill] = recorder.get_trades_for_config(config_path)
+            self.assertEqual(2, len(trade_fills))
+            buy_fills: List[TradeFill] = [t for t in trade_fills if t.trade_type == "BUY"]
+            sell_fills: List[TradeFill] = [t for t in trade_fills if t.trade_type == "SELL"]
+            self.assertEqual(1, len(buy_fills))
+            self.assertEqual(1, len(sell_fills))
+
+            order_id = None
+
+        finally:
+            if order_id is not None:
+                self.market.cancel(symbol, order_id)
+                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+
+            recorder.stop()
+            os.unlink(self.db_path)
 
 
 def main():
