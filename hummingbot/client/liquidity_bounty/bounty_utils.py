@@ -5,6 +5,7 @@ import sys; sys.path.insert(0, realpath(join(__file__, "../../../../")))
 import aiohttp
 import asyncio
 import logging
+import pandas as pd
 from typing import (
     Any,
     Dict,
@@ -44,7 +45,7 @@ class LiquidityBounty(NetworkBase):
         return self._status
 
     def formatted_status(self) -> str:
-        raise NotImplementedError
+        return pd.DataFrame(self._status.items()).to_string(index=False, header=False)
 
     async def _http_client(self) -> aiohttp.ClientSession:
         if self._shared_client is None:
