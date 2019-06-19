@@ -107,13 +107,18 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return DDEXOrderBook
 
     async def get_trading_pairs(self) -> List[str]:
-        if self._symbols is None:
-            active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-            trading_pairs: List[str] = active_markets.index.tolist()
-            self._symbols = trading_pairs
-        else:
-            trading_pairs: List[str] = self._symbols
-        return trading_pairs
+        if not self._symbols:
+            try:
+                active_markets: pd.DataFrame = await self.get_active_exchange_markets()
+                self._symbols = active_markets.index.tolist()
+            except Exception:
+                self._symbols = []
+                self.logger().network(
+                    f"Error getting active exchange information.",
+                    exc_info=True,
+                    app_warning_msg=f"Error getting active exchange information. Check network connection."
+                )
+        return self._symbols
 
     async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str, level: int = 3) -> Dict[str, any]:
             params: Dict = {"level": level}
@@ -128,8 +133,7 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         data: Dict[str, any] = await response.json()
                         return data
                 except Exception:
-                    self.logger().error(f"Error getting snapshot for {trading_pair}. Retrying {retry} more times.",
-                                        exc_info=True)
+                    self.logger().warning(f"Error requesting order book snapshot. Retrying {retry} more times.")
                     await asyncio.sleep(10)
                     retry -= 1
                     if retry == 0:
@@ -166,11 +170,16 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     self.logger().info(f"Initialized order book for {trading_pair}. "
                                        f"{index+1}/{number_of_pairs} completed.")
                     await asyncio.sleep(1.3)
-
+                except IOError:
+                    self.logger().network(
+                        f"Error getting snapshot for {trading_pair}.",
+                        exc_info=True,
+                        app_warning_msg=f"Error getting snapshot for {trading_pair}. Check network connection."
+                    )
+                    await asyncio.sleep(5.0)
                 except Exception:
-                    self.logger().error(f"Error getting snapshot for {trading_pair} in get_tracking_pairs.",
-                                        exc_info=True)
-                    await asyncio.sleep(5)
+                    self.logger().error(f"Error initializing order book for {trading_pair}.", exc_info=True)
+                    await asyncio.sleep(5.0)
 
             self._get_tracking_pair_done_event.set()
             return retval
@@ -220,8 +229,11 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
-                                    exc_info=True)
+                self.logger().network(
+                    f"Error getting order book diff messages.",
+                    exc_info=True,
+                    app_warning_msg=f"Error getting order book diff messages. Check network connection."
+                )
                 await asyncio.sleep(30.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
@@ -244,8 +256,15 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             await asyncio.sleep(5.0)
                         except asyncio.CancelledError:
                             raise
+                        except IOError:
+                            self.logger().network(
+                                f"Error getting snapshot for {trading_pair}.",
+                                exc_info=True,
+                                app_warning_msg=f"Error getting snapshot for {trading_pair}. Check network connection."
+                            )
+                            await asyncio.sleep(5.0)
                         except Exception:
-                            self.logger().error("Unexpected error.", exc_info=True)
+                            self.logger().error(f"Error processing snapshot for {trading_pair}.", exc_info=True)
                             await asyncio.sleep(5.0)
                     this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
                     next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
@@ -254,5 +273,9 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error.", exc_info=True)
+                self.logger().network(
+                    f"Unexpected error listening for order book snapshot.",
+                    exc_info=True,
+                    app_warning_msg=f"Unexpected error listening for order book snapshot. Check network connection."
+                )
                 await asyncio.sleep(5.0)

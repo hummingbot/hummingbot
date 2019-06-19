@@ -61,6 +61,8 @@ class BinanceTime:
     def stop(self):
         if self._set_server_time_offset_task:
             self._set_server_time_offset_task.cancel()
+            self._set_server_time_offset_task = None
+            self._time_offset_ms.clear()
             self._started = False
 
     async def set_server_time_offset(self):

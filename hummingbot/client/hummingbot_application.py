@@ -40,6 +40,7 @@ from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
+from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.trade import Trade
 
@@ -94,6 +95,8 @@ from hummingbot.strategy.arbitrage import (
 )
 from hummingbot.strategy.pure_market_making import (
     PureMarketMakingStrategyV2,
+    ConstantMultipleSpreadPricingDelegate,
+    StaggeredMultipleSizeSizingDelegate,
     MarketInfo
 )
 
@@ -116,6 +119,7 @@ MARKET_CLASSES = {
     "bamboo_relay": BambooRelayMarket,
     "binance": BinanceMarket,
     "coinbase_pro": CoinbaseProMarket,
+    "idex": IDEXMarket,
     "ddex": DDEXMarket,
     "radar_relay": RadarRelayMarket,
 }
@@ -123,6 +127,7 @@ MARKET_CLASSES = {
 
 class HummingbotApplication:
     KILL_TIMEOUT = 5.0
+    IDEX_KILL_TIMEOUT = 30.0
     APP_WARNING_EXPIRY_DURATION = 3600.0
     APP_WARNING_STATUS_LIMIT = 6
 
@@ -209,13 +214,18 @@ class HummingbotApplication:
     async def _cancel_outstanding_orders(self) -> bool:
         on_chain_cancel_on_exit = global_config_map.get("on_chain_cancel_on_exit").value
         success = True
+        kill_timeout: float = self.KILL_TIMEOUT
         self._notify("Cancelling outstanding orders...")
+
         for market_name, market in self.markets.items():
+            if market_name == "idex":
+                self._notify(f"IDEX cancellations may take up to {int(self.IDEX_KILL_TIMEOUT)} seconds...")
+                kill_timeout = self.IDEX_KILL_TIMEOUT
             # By default, the bot does not cancel orders on exit on Radar Relay or Bamboo Relay,
             # since all open orders will expire in a short window
             if not on_chain_cancel_on_exit and (market_name == "radar_relay" or market_name == "bamboo_relay"):
                 continue
-            cancellation_results = await market.cancel_all(self.KILL_TIMEOUT)
+            cancellation_results = await market.cancel_all(kill_timeout)
             uncancelled = list(filter(lambda cr: cr.success is False, cancellation_results))
             if len(uncancelled) > 0:
                 success = False
@@ -284,7 +294,7 @@ class HummingbotApplication:
     def config(self, key: str = None, key_list: Optional[List[str]] = None):
         self.app.clear_input()
 
-        if self.strategy or self.config_complete:
+        if self.strategy or (self.config_complete and key is None):
             asyncio.ensure_future(self.reset_config_loop(key))
             return
         if key is not None and key not in load_required_configs().keys():
@@ -463,6 +473,16 @@ class HummingbotApplication:
                                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                     symbols=symbols,
                                     trading_required=self._trading_required)
+
+            elif market_name == "idex" and self.wallet:
+                try:
+                    market = IDEXMarket(wallet=self.wallet,
+                                        ethereum_rpc_url=ethereum_rpc_url,
+                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                        symbols=symbols,
+                                        trading_required=self._trading_required)
+                except Exception as e:
+                    self.logger().error(str(e))
 
             elif market_name == "binance":
                 binance_api_key = global_config_map.get("binance_api_key").value
@@ -849,8 +869,25 @@ class HummingbotApplication:
                 cancel_order_wait_time = strategy_cm.get("cancel_order_wait_time").value
                 bid_place_threshold = strategy_cm.get("bid_place_threshold").value
                 ask_place_threshold = strategy_cm.get("ask_place_threshold").value
+                mode = strategy_cm.get("mode").value
+                number_of_orders = strategy_cm.get("number_of_orders").value
+                order_start_size = strategy_cm.get("order_start_size").value
+                order_step_size = strategy_cm.get("order_step_size").value
+                order_interval_percent = strategy_cm.get("order_interval_percent").value
                 maker_market = strategy_cm.get("maker_market").value.lower()
                 raw_maker_symbol = strategy_cm.get("maker_market_symbol").value.upper()
+                pricing_delegate = None
+                sizing_delegate = None
+
+                if mode == "multiple":
+                    pricing_delegate = ConstantMultipleSpreadPricingDelegate(bid_place_threshold,
+                                                                             ask_place_threshold,
+                                                                             order_interval_percent,
+                                                                             number_of_orders)
+                    sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size,
+                                                                          order_step_size,
+                                                                          number_of_orders)
+
                 try:
                     maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_symbol])[0]
                 except ValueError as e:
@@ -870,6 +907,8 @@ class HummingbotApplication:
                 strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
 
                 self.strategy = PureMarketMakingStrategyV2(market_infos=[self.market_info],
+                                                           pricing_delegate = pricing_delegate,
+                                                           sizing_delegate = sizing_delegate,
                                                            legacy_order_size=order_size,
                                                            legacy_bid_spread=bid_place_threshold,
                                                            legacy_ask_spread=ask_place_threshold,

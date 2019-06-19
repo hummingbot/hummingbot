@@ -70,6 +70,9 @@ See [Installation Guide](https://docs.hummingbot.io/installation/).
 ## Learn more
 See [FAQs](https://docs.hummingbot.io/faq/).
 
+## Data Collection Disclosure
+See [Hummingbot Data Collection](DATA_COLLECTION.md).
+
 ## Contributing
 
 We welcome code contributions (via [pull requests](./pulls)) as well as bug reports and feature requests through [github issues](./issues).

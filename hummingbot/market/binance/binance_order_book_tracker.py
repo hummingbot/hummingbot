@@ -115,7 +115,7 @@ class BinanceOrderBookTracker(OrderBookTracker):
                 # Log some statistics.
                 now: float = time.time()
                 if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                    self.logger().info("Diff messages processed: %d, rejected: %d, queued: %d",
+                    self.logger().debug("Diff messages processed: %d, rejected: %d, queued: %d",
                                        messages_accepted,
                                        messages_rejected,
                                        messages_queued)
@@ -127,7 +127,11 @@ class BinanceOrderBookTracker(OrderBookTracker):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unknown error. Retrying after 5 seconds.", exc_info=True)
+                self.logger().network(
+                    f"Unexpected error routing order book messages.",
+                    exc_info=True,
+                    app_warning_msg=f"Unexpected error routing order book messages. Retrying after 5 seconds."
+                )
                 await asyncio.sleep(5.0)
 
     async def _track_single_book(self, symbol: str):
@@ -160,7 +164,7 @@ class BinanceOrderBookTracker(OrderBookTracker):
                     # Output some statistics periodically.
                     now: float = time.time()
                     if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                        self.logger().info("Processed %d order book diffs for %s.",
+                        self.logger().debug("Processed %d order book diffs for %s.",
                                            diff_messages_accepted, symbol)
                         diff_messages_accepted = 0
                     last_message_timestamp = now
@@ -171,5 +175,9 @@ class BinanceOrderBookTracker(OrderBookTracker):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unknown error. Retrying after 5 seconds.", exc_info=True)
+                self.logger().network(
+                    f"Unexpected error tracking order book for {symbol}.",
+                    exc_info=True,
+                    app_warning_msg=f"Unexpected error tracking order book. Retrying after 5 seconds."
+                )
                 await asyncio.sleep(5.0)

@@ -29,11 +29,11 @@ class CoinCapDataFeed(DataFeedBase):
 
     def __init__(self, update_interval: float = 5.0):
         super().__init__()
+        self._check_network_interval = 30.0
         self._ev_loop = asyncio.get_event_loop()
         self._price_dict: Dict[str, float] = {}
         self._update_interval: float = update_interval
         self._fetch_price_task: Optional[asyncio.Task] = None
-        self._started = False
 
     @property
     def name(self):
@@ -43,8 +43,12 @@ class CoinCapDataFeed(DataFeedBase):
     def price_dict(self):
         return self._price_dict.copy()
 
+    @property
+    def health_check_endpoint(self):
+        return "http://api.coincap.io/v2/assets"
+
     def get_price(self, asset: str) -> float:
-        return self._price_dict.get(asset)
+        return self._price_dict.get(asset.upper())
 
     async def fetch_price_loop(self):
         while True:
@@ -65,28 +69,27 @@ class CoinCapDataFeed(DataFeedBase):
             async with client.request("GET", f"{self.COIN_CAP_BASE_URL}/assets") as resp:
                 rates_dict = await resp.json()
                 for rate_obj in rates_dict["data"]:
-                    symbol = rate_obj["symbol"]
+                    symbol = rate_obj["symbol"].upper()
                     self._price_dict[symbol] = float(rate_obj["priceUsd"])
 
             # coincap does not include all coins in assets
             async with client.request("GET", f"{self.COIN_CAP_BASE_URL}/rates") as resp:
                 rates_dict = await resp.json()
                 for rate_obj in rates_dict["data"]:
-                    symbol = rate_obj["symbol"]
+                    symbol = rate_obj["symbol"].upper()
                     self._price_dict[symbol] = float(rate_obj["rateUsd"])
 
             # CoinCap does not have a separate feed for WETH
             self._price_dict["WETH"] = self._price_dict["ETH"]
             self._ready_event.set()
         except Exception:
-            raise IOError("Error fetching prices from Coin Cap API")
+            raise
 
-    def start(self):
-        self.stop()
+    async def start_network(self):
+        await self.stop_network()
         self._fetch_price_task = asyncio.ensure_future(self.fetch_price_loop())
-        self._started = True
 
-    def stop(self):
-        if self._fetch_price_task and not self._fetch_price_task.done():
+    async def stop_network(self):
+        if self._fetch_price_task is not None:
             self._fetch_price_task.cancel()
-        self._started = False
+            self._fetch_price_task = None
