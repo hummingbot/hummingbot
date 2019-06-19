@@ -331,7 +331,7 @@ cdef class BambooRelayMarket(MarketBase):
             str base_currency
             str quote_currency
 
-        for in_flight_order in self._in_flight_limit_orders:
+        for in_flight_order in self._in_flight_limit_orders.values():
             typed_in_flight_order = in_flight_order
             if typed_in_flight_order.order_type is not OrderType.LIMIT:
                 continue
