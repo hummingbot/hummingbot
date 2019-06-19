@@ -345,7 +345,7 @@ cdef class IDEXMarket(MarketBase):
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self._in_flight_orders.update({
             key: InFlightOrder.from_json(value)
-            for key, value in saved_states
+            for key, value in saved_states.items()
         })
 
     async def get_active_exchange_markets(self):
