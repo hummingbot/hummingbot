@@ -131,7 +131,6 @@ nav:
         - 0.2.0: release-notes/0.2.0.md
     - Bounties: 
       - Intro: bounties/intro.md
-      - Tutorial: bounties/tutorial.md
+      - Quick tutorial: bounties/tutorial.md
       - Programs: 
-        - Programs: bounties/programs.md
-        - Harmony: bounties/programs/harmony.md
+        - Harmony $ONE Makers: bounties/programs/harmony.md
