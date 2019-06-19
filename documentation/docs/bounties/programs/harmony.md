@@ -16,12 +16,12 @@ This reward schedule is tentative and subject to change without prior notice.
 - Step 4: Have fun market making! 😎 
 
 !!! note 
-    To qualify for this liquidity bounty at this moment, please choose **pure market making strategy** on **Binance** for any available $ONE token pairs.  
+    To qualify for $ONE Makers at this moment, please choose **pure market making strategy** on **Binance** for any available $ONE token pairs.  
 
 
 ## Evaluation
 
-Once the program officially kicks off, the rewards will be paid out **monthly** based on the **actual trading activity** of the participants. The data collected is solely used to verify users' actual trading activities. 
+Once the program officially kicks off, the rewards will be paid out **monthly** based on the **actual trading activity** of the participants. The data collected is solely used to verify participants' actual trading activities. 
 
 All rewards will be subject to the sole discretion of the token issuer and/or the Hummingbot team. 
 
