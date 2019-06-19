@@ -173,7 +173,8 @@ class HummingbotApplication:
         self.data_feed: Optional[DataFeedBase] = None
         self.stop_loss_tracker: Optional[StopLossTracker] = None
         self.notifiers: List[NotifierBase] = []
-        self.liquidity_bounty: Optional[LiquidityBounty] = LiquidityBounty.get_instance()
+        self.liquidity_bounty: Optional[LiquidityBounty] = None
+        self._initialize_liquidity_bounty()
         self._app_warnings: Deque[ApplicationWarning] = deque()
         self._trading_required: bool = True
 
@@ -533,6 +534,12 @@ class HummingbotApplication:
                                                        hb=self))
         for notifier in self.notifiers:
             notifier.start()
+
+    def _initialize_liquidity_bounty(self):
+        if liquidity_bounty_config_map.get("liquidity_bounty_enabled").value is not None and \
+           liquidity_bounty_config_map.get("liquidity_bounty_client_id").value is not None:
+            self.liquidity_bounty = LiquidityBounty.get_instance()
+            asyncio.ensure_future(self.liquidity_bounty.start_network(), loop=self.ev_loop)
 
     def _format_application_warnings(self) -> str:
         lines: List[str] = []
@@ -1125,12 +1132,12 @@ class HummingbotApplication:
         self._notify("\n".join(lines))
 
     def bounty(self, register: bool = False, status: bool = False, terms: bool = False):
-        if register:
-            asyncio.ensure_future(self.bounty_registration(), loop=self.ev_loop)
-        elif status:
+        if status:
             asyncio.ensure_future(self.bounty_show_status(), loop=self.ev_loop)
         elif terms:
             asyncio.ensure_future(self.bounty_print_terms(), loop=self.ev_loop)
+        elif register or self.liquidity_bounty is None:
+            asyncio.ensure_future(self.bounty_registration(), loop=self.ev_loop)
         else:
             self.help("bounty")
 
@@ -1150,24 +1157,27 @@ class HummingbotApplication:
         await self.print_doc(join(dirname(__file__), "./liquidity_bounty/terms_and_conditions.txt"))
 
     async def bounty_registration(self):
+        if self.liquidity_bounty:
+            self._notify("You are already registered to collect bounties.")
+            return
         await self.bounty_config_loop()
         self._notify("Registering for liquidity bounties...")
         self.liquidity_bounty = LiquidityBounty.get_instance()
         try:
             registration_results = await self.liquidity_bounty.register()
+            self._notify("Registration successful.")
             client_id = registration_results["client_id"]
             liquidity_bounty_config_map.get("liquidity_bounty_client_id").value = client_id
+            await save_to_yml(LIQUIDITY_BOUNTY_CONFIG_PATH, liquidity_bounty_config_map)
+            await self.liquidity_bounty.start_network()
+            self._notify("Hooray! You are now collecting bounties. ")
         except Exception as e:
             self._notify(str(e))
 
-        await save_to_yml(LIQUIDITY_BOUNTY_CONFIG_PATH, liquidity_bounty_config_map)
-        await self.liquidity_bounty.start_network()
-        self._notify("Registration successful.")
-
     async def bounty_config_loop(self):
-        self._notify("Starting registration process for liquidity bounties:")
         self.placeholder_mode = True
         self.app.toggle_hide_input()
+        self._notify("Starting registration process for liquidity bounties:")
 
         try:
             for key, cvar in liquidity_bounty_config_map.items():
@@ -1177,16 +1187,15 @@ class HummingbotApplication:
                     await self.bounty_print_terms()
                 elif key == "agree_to_data_collection":
                     await self.print_doc(join(dirname(__file__), "./liquidity_bounty/data_collection_policy.txt"))
-                elif key == "public_ethereum_wallet_address":
+                elif key == "eth_address":
                     self._notify("\nYour wallets:")
                     self.list("wallets")
 
                 value = await self.config_single_variable(cvar)
                 cvar.value = parse_cvar_value(cvar, value)
-                self.logger().warning(value)
-                self.logger().warning(cvar.value)
                 if cvar.type == "bool" and cvar.value is False:
                     raise ValueError(f"{cvar.key} is required.")
+                await save_to_yml(LIQUIDITY_BOUNTY_CONFIG_PATH, liquidity_bounty_config_map)
         except ValueError as e:
             self._notify(f"Registration aborted: {str(e)}")
         except Exception as e:

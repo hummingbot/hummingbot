@@ -27,7 +27,7 @@ liquidity_bounty_config_map = {
                                                   type_str="bool",
                                                   default=False),
 
-    "public_ethereum_wallet_address":   ConfigVar(key="public_ethereum_wallet_address",
+    "eth_address":                      ConfigVar(key="eth_address",
                                                   prompt=f"Please enter your ethereum wallet address (This is the "
                                                          f"wallet to which we will send the bounty payouts. Please "
                                                          f"also make sure you maintain a minimum balance "

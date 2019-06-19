@@ -14,8 +14,6 @@ from hummingbot.client.liquidity_bounty.liquidity_bounty_config_map import liqui
 from hummingbot.core.network_base import NetworkBase, NetworkStatus
 from hummingbot.logger import HummingbotLogger
 
-from hummingbot.client.config.config_helpers import read_configs_from_yml
-
 
 class LiquidityBounty(NetworkBase):
     lb_logger: Optional[HummingbotLogger] = None
@@ -34,11 +32,12 @@ class LiquidityBounty(NetworkBase):
             cls.lb_logger = logging.getLogger(__name__)
         return cls.lb_logger
 
-    def __init__(self):
+    def __init__(self, update_interval: int = 30):
         super().__init__()
         self._ev_loop = asyncio.get_event_loop()
         self._status: Dict[str, Any] = {}
         self._shared_client: Optional[aiohttp.ClientSession] = None
+        self._update_interval = update_interval
         self.fetch_bounty_status_task: Optional[asyncio.Task] = None
 
     def status(self) -> Dict[str, Any]:
@@ -60,7 +59,7 @@ class LiquidityBounty(NetworkBase):
         assert bounty_config["final_confirmation"]
 
         email = bounty_config["email"]
-        eth_address = bounty_config["public_ethereum_wallet_address"]
+        eth_address = bounty_config["eth_address"]
         try:
             client = await self._http_client()
             data = {"email": email, "eth_address": eth_address}
@@ -89,7 +88,6 @@ class LiquidityBounty(NetworkBase):
                                           f"{self.LIQUIDITY_BOUNTY_REST_API}/client",
                                           json={"client_id": client_id}) as resp:
                     results = await resp.json()
-                    self.logger().error(results)
                     if results.get("status", "") == "Unknown client id":
                         raise Exception("User not registered")
                     self._status = results
@@ -97,10 +95,11 @@ class LiquidityBounty(NetworkBase):
                 raise
             except Exception as e:
                 if "User not registered" in str(e):
-                    self.logger().warning("User not registered. Aborting.")
+                    self.logger().error("User not registered. Aborting.")
                     break
                 else:
-                    await asyncio.sleep(30)
+                    self.logger().network(f"Error fetching bounty status", exc_info=True)
+            await asyncio.sleep(self._update_interval)
 
     async def start_network(self):
         await self.stop_network()
@@ -124,14 +123,6 @@ class LiquidityBounty(NetworkBase):
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
-
-if __name__ == '__main__':
-    read_configs_from_yml()
-    lb = LiquidityBounty()
-    # asyncio.get_event_loop().run_until_complete(lb.start_network())
-    asyncio.get_event_loop().run_until_complete(lb.fetch_bounty_status_loop())
-    # asyncio.get_event_loop().run_until_complete(lb.register())
-    asyncio.get_event_loop().run_until_complete(lb.stop_network())
 
 
 
