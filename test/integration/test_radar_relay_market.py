@@ -8,17 +8,18 @@ import conf
 import contextlib
 from decimal import Decimal
 import logging
+import os
 import time
+from typing import (
+    List,
+    Optional
+)
 import unittest
-from typing import List
-from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
-from hummingbot.wallet.ethereum.web3_wallet_backend import EthereumChain
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.market.market_base import OrderType
+
 from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
-from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
     WalletEvent,
@@ -32,8 +33,21 @@ from hummingbot.core.event.events import (
     OrderExpiredEvent,
     OrderFilledEvent,
     TradeType,
-    TradeFee
+    TradeFee,
 )
+from hummingbot.logger import NETWORK
+from hummingbot.market.market_base import OrderType
+from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
+from hummingbot.model.market_state import MarketState
+from hummingbot.model.order import Order
+from hummingbot.model.sql_connection_manager import (
+    SQLConnectionManager,
+    SQLConnectionType
+)
+from hummingbot.model.trade_fill import TradeFill
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
+from hummingbot.wallet.ethereum.web3_wallet_backend import EthereumChain
 
 
 class RadarRelayMarketUnitTest(unittest.TestCase):
@@ -46,7 +60,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderCancelled,
         MarketEvent.OrderExpired,
         MarketEvent.OrderFilled,
-        MarketEvent.WithdrawAsset
+        MarketEvent.WithdrawAsset,
     ]
 
     wallet_events: List[WalletEvent] = [
@@ -67,11 +81,12 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
                                 backend_urls=conf.test_web3_provider_list,
                                 erc20_token_addresses=[conf.mn_zerox_token_address, conf.mn_weth_token_address],
                                 chain=EthereumChain.MAIN_NET)
-        cls.market: RadarRelayMarket = RadarRelayMarket(wallet=cls.wallet,
-                                                        ethereum_rpc_url=conf.test_web3_provider_list[0],
-                                                        order_book_tracker_data_source_type=
-                                                            OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                                        symbols=["ZRX-WETH"])
+        cls.market: RadarRelayMarket = RadarRelayMarket(
+            wallet=cls.wallet,
+            ethereum_rpc_url=conf.test_web3_provider_list[0],
+            order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+            symbols=["ZRX-WETH"]
+        )
         print("Initializing Radar Relay market... ")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.wallet)
@@ -97,6 +112,12 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
             await asyncio.sleep(1.0)
 
     def setUp(self):
+        self.db_path: str = realpath(join(__file__, "../radar_relay_test.sqlite"))
+        try:
+            os.unlink(self.db_path)
+        except FileNotFoundError:
+            pass
+
         self.market_logger = EventLogger()
         self.wallet_logger = EventLogger()
         for event_tag in self.market_events:
@@ -273,9 +294,91 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
         self.assertEqual(amount_to_unwrap, tx_completed_event.amount)
         self.assertEqual(self.wallet.address, tx_completed_event.address)
 
+    def test_orders_saving_and_restoration(self):
+        config_path: str = "test_config"
+        strategy_name: str = "test_strategy"
+        symbol: str = "ZRX-WETH"
+        sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
+        order_id: Optional[str] = None
+        recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
+        recorder.start()
+
+        try:
+            self.assertEqual(0, len(self.market.tracking_states["limit_orders"]))
+
+            # Try to put limit buy order for 0.05 ETH worth of ZRX, and watch for order creation event.
+            current_bid_price: float = self.market.get_price(symbol, True)
+            bid_price: float = current_bid_price * 0.8
+            quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
+
+            amount: float = 0.05 / bid_price
+            quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+
+            expires = int(time.time() + 60 * 5)
+            order_id = self.market.buy(symbol, float(quantized_amount), OrderType.LIMIT, float(quantize_bid_price),
+                                       expiration_ts=expires)
+            [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+            order_created_event: BuyOrderCreatedEvent = order_created_event
+            self.assertEqual(order_id, order_created_event.order_id)
+
+            # Verify tracking states
+            self.assertEqual(1, len(self.market.tracking_states["limit_orders"]))
+            self.assertEqual(order_id, list(self.market.tracking_states["limit_orders"].keys())[0])
+
+            # Verify orders from recorder
+            recorded_orders: List[Order] = recorder.get_orders_for_config_and_market(config_path, self.market)
+            self.assertEqual(1, len(recorded_orders))
+            self.assertEqual(order_id, recorded_orders[0].id)
+
+            # Verify saved market states
+            saved_market_states: MarketState = recorder.get_market_states(config_path, self.market)
+            self.assertIsNotNone(saved_market_states)
+            self.assertIsInstance(saved_market_states.saved_state, dict)
+            self.assertIsInstance(saved_market_states.saved_state["limit_orders"], dict)
+            self.assertGreater(len(saved_market_states.saved_state["limit_orders"]), 0)
+
+            # Close out the current market and start another market.
+            self.clock.remove_iterator(self.market)
+            for event_tag in self.market_events:
+                self.market.remove_listener(event_tag, self.market_logger)
+            self.market: RadarRelayMarket = RadarRelayMarket(
+                wallet=self.wallet,
+                ethereum_rpc_url=conf.test_web3_provider_list[0],
+                order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                symbols=["ZRX-WETH"]
+            )
+            for event_tag in self.market_events:
+                self.market.add_listener(event_tag, self.market_logger)
+            recorder.stop()
+            recorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
+            recorder.start()
+            saved_market_states = recorder.get_market_states(config_path, self.market)
+            self.clock.add_iterator(self.market)
+            self.assertEqual(0, len(self.market.limit_orders))
+            self.assertEqual(0, len(self.market.tracking_states["limit_orders"]))
+            self.market.restore_tracking_states(saved_market_states.saved_state)
+            self.assertEqual(1, len(self.market.limit_orders))
+            self.assertEqual(1, len(self.market.tracking_states["limit_orders"]))
+
+            # Cancel the order and verify that the change is saved.
+            self.market.cancel(symbol, order_id)
+            self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+            order_id = None
+            self.assertEqual(0, len(self.market.limit_orders))
+            self.assertEqual(1, len(self.market.tracking_states["limit_orders"]))
+            saved_market_states = recorder.get_market_states(config_path, self.market)
+            self.assertEqual(1, len(saved_market_states.saved_state["limit_orders"]))
+        finally:
+            if order_id is not None:
+                self.market.cancel(symbol, order_id)
+                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+
+            recorder.stop()
+            os.unlink(self.db_path)
+
 
 def main():
-    logging.basicConfig(level=logging.ERROR)
+    logging.basicConfig(level=NETWORK)
     unittest.main()
 
 

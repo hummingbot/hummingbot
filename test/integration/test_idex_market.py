@@ -35,6 +35,7 @@ from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 
 ETH_FXC = "ETH_FXC"
 
+
 class IDEXMarketUnitTest(unittest.TestCase):
     market_events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,
@@ -56,6 +57,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
     market: IDEXMarket
     market_logger: EventLogger
     wallet_logger: EventLogger
+    stack: contextlib.ExitStack
 
     @classmethod
     def setUpClass(cls):
@@ -74,10 +76,14 @@ class IDEXMarketUnitTest(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.wallet)
         cls.clock.add_iterator(cls.market)
-        stack = contextlib.ExitStack()
-        cls._clock = stack.enter_context(cls.clock)
+        cls.stack = contextlib.ExitStack()
+        cls._clock = cls.stack.enter_context(cls.clock)
         cls.ev_loop.run_until_complete(cls.wait_til_ready())
         print("Ready.")
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.stack.close()
 
     @classmethod
     async def wait_til_ready(cls):
