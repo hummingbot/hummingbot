@@ -2,11 +2,12 @@
 
 ## How it works
 
-In the pure market making strategy, the user keeps posting limit bid and ask offers on a market and expects other users to fill their orders. 
-You have control over how far away from the mid price your posted bid and asks are, whats the order quantity and how often you want to cancel and replace them.  
+In the *pure* market making strategy, Hummingbot continually posts limit bid and ask offers on a market and waits for other market participants ("takers") to fill their orders.
+
+Users can specify how far away ("spreads") from the mid price the bid and asks are, the order quantity, and how often prices should be updated (order cancels + new orders posted).
 
 !!! warning
-    Please exercise caution while running this strategy and set appropriate stop loss limits. The current version of this strategy is intended to be a basic template that users can test and customize. Running the strategy with substantial capital without additional modifications will likely lose money.
+    Please exercise caution while running this strategy and set appropriate stop loss limits. The current version of this strategy is intended to be a basic template that users can test and customize. Running the strategy with substantial capital without additional modifications may result in losses.
 
 ### Schematic
 
