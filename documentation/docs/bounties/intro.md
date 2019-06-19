@@ -1,36 +1,16 @@
-# Hummingbot: Decentralized Market Making
-Hummingbot is an [open-source **software** client](https://www.hummingbot.io/whitepaper.pdf) that allows users to create and customize automated, algorithmic trading bots on both centralized and decentralized digital asset exchanges. 
+# Hummingbot liquidity bounties
+Liquidity bounties are a community-based approach to market making. Inspired by bug bounties, liquidity bounties allow Hummingbot users to earn rewards from providing liquidity to a token project. 
 
-Unlike fiat exchanges, crypto exchanges offer **direct market access**: open trading APIs and free data feeds to everyone. This allows anyone to configure their own hummingbot, and trade on different exchanges without barriers.
+Hummingbot is a free [open-source **software** client](https://www.hummingbot.io/whitepaper.pdf) that allows users to create and customize automated, algorithmic trading bots on both centralized and decentralized digital asset exchanges. Anyone who is eligible to trade the token can now compete with others to **earn extra rewards** based on their periodic trading activity. In addtion, participants can also see where they rank versus others via a **public leaderboard**.
 
-Hummingbot is enabling an ever growing community of individuals and smaller firms to act as market makers for digital assets, a new model for liquidity provision that we call **decentralized market making**. 
+We take compliance extremely seriously, because we want to reward only genuine providers of liquidity. For this reason, liquidity bounty participants need to opt into data collection, which allows us to attempt to verify their trading activity against our internal exchange data feeds. 
 
-<br>
-# What is market making?
-The fundamental theory behind market making is quite simple. That is: buy low, sell high. Market making strategy allows traders to earn profit by exploiting and fixing the market inefficiencies (i.e. big bid-ask spread). Market makers create limit orders in both buy and sell directions and they take the **bid-ask spread** as their earned income.
+Liquidity bounties also enable token projects to leverage their native communities to act as liquidity providers across multiple exchanges. The program is designed to reward participants based on how much liquidity they provide in a given time period. For partnership inquiries, email us at [partnerships@coinalpha.com](email to:partnerships@coinalpha.com) for more information.
 
-Since traders would naturally set the buy price lower than the sell price, market making can be a **positive expectation strategy**, where the expected value of each trade may be positive. 
 
-That being said, market making has its own risks, mainly inventory risks. If the price of the trading pair changes in any direction significantly in a short time period, you will have chance ending up on the losing side.
+## More resources
 
-More details on different market making strategies:
-[Pure market making (market making on a single exchange)](https://docs.hummingbot.io/strategies/pure-market-making/)
-[Cross-exchange market making](https://docs.hummingbot.io/strategies/cross-exchange-market-making/)
-
-<br>
-# Why market makers are important for the crypto ecosystem?
-<a href="https://en.wikipedia.org/wiki/Market_maker" target="_blank">Market makers</a> play an important role in providing liquidity in a trade, especially in the cryptocurrency world. In the traditional financial world, liquidity providers(i.e. **market makers**) are dominated by highly technical quantitative hedge funds and trading firms who have the infrastructure and intelligence to deploy sophisticated algorithms at scale.
-
-Liquidity is an even bigger issue in the fragmented world of crypto. While large professional market makers fight over the most actively traded pairs on the highest volume exchanges, there exists a massive **long tail of smaller markets** who also need liquidity: tokens outside the top 10, smaller exchanges, decentralized exchanges, and new blockchains. In addition, the prohibitively high payment demanded by pro market makers, coupled with lack of transparency and industry standards, creates perverse incentives for certain bad players to act maliciously via wash trading and market manipulation. 
-
-For more discussion on the liquidity problem, please check out [this blog post](https://www.hummingbot.io/blog/2019-01-thin-crust-of-liquidity/). 
-
-<br>
-# Why liquidity is so important?
-Liquidity is necessary for any publicly traded asset. In a market, buyers and sellers want to transact at a fair price in a deep, orderly market with little slippage. Liquidity is very important primarily for the following reasons -
- 
-First and foremost, it impacts how easily and quickly one can buy and/or sell an asset in the market. In a liquid market, buyers won’t have to pay an increased price to secure the assets they want. On the other hand, sellers will quickly find buyers at the set price without having to cut it down to attract buyers. 
- 
-Second, higher liquidity is generally associated with less risk and higher market efficiency. A liquid market tends to attract more traders, investors and holders. This contributes to the favorable market conditions and forms a virtuous cycle. More participants, better liquidity. 
- 
-There are a few commonly-used indicators of liquidity. Primary ones include tighter bid-ask spreads and deeper order books. 
+- [Announcement blog post](https://www.hummingbot.io/blog/2019-06-introducing-liquidity-bounties-harmony/)
+- [Quick tutorial](/bounties/tutorial)
+- [Harmony $ONE Makers](/bounties/programs/harmony)
+- [FAQ](/bounties/faq)
