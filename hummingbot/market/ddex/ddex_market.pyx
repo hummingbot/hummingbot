@@ -372,7 +372,7 @@ cdef class DDEXMarket(MarketBase):
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self._in_flight_orders.update({
             key: InFlightOrder.from_json(value)
-            for key, value in saved_states
+            for key, value in saved_states.items()
         })
 
     async def get_active_exchange_markets(self):
@@ -692,7 +692,9 @@ cdef class DDEXMarket(MarketBase):
         return response_data["data"]["order"]
 
     async def cancel_order(self, client_order_id: str) -> Dict[str, Any]:
-        order = self.in_flight_orders.get(client_order_id)
+        cdef:
+            InFlightOrder order = self.in_flight_orders.get(client_order_id)
+
         if not order:
             self.logger().info(f"Failed to cancel order {client_order_id}. Order not found in tracked orders.")
             if client_order_id in self._in_flight_cancels:
@@ -704,8 +706,15 @@ cdef class DDEXMarket(MarketBase):
         response_data = await self._api_request('delete', url=url, headers=self._generate_auth_headers())
         if isinstance(response_data, dict) and response_data.get("desc") == "success":
             self.logger().info(f"Successfully cancelled order {exchange_order_id}.")
+
+            # Simulate cancelled state earlier.
+            order.available_amount = s_decimal_0
+            order.pending_amount = s_decimal_0
+
+            # Notify listeners.
             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                  OrderCancelledEvent(self._current_timestamp, client_order_id))
+
         response_data["client_order_id"] = client_order_id
         return response_data
 
@@ -780,6 +789,11 @@ cdef class DDEXMarket(MarketBase):
             order_result = await self.place_order(amount=q_amt, price=q_price, side="buy", symbol=symbol,
                                                   order_type=order_type)
             exchange_order_id = order_result["id"]
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is not None:
+                self.logger().info(f"Created {order_type} buy order {exchange_order_id} for "
+                                   f"{q_amt} {symbol}.")
+                tracked_order.update_exchange_order_id(exchange_order_id)
             self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
                                  BuyOrderCreatedEvent(
                                      self._current_timestamp,
@@ -789,11 +803,6 @@ cdef class DDEXMarket(MarketBase):
                                      Decimal(q_price),
                                      order_id
                                  ))
-            tracked_order = self._in_flight_orders.get(order_id)
-            if tracked_order is not None:
-                self.logger().info(f"Created {order_type} buy order {exchange_order_id} for "
-                                   f"{q_amt} {symbol}.")
-                tracked_order.update_exchange_order_id(exchange_order_id)
             return order_id
         except Exception:
             self.c_stop_tracking_order(order_id)
@@ -836,6 +845,11 @@ cdef class DDEXMarket(MarketBase):
             order_result = await self.place_order(amount=q_amt, price=q_price, side="sell", symbol=symbol,
                                                   order_type=order_type)
             exchange_order_id = order_result["id"]
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is not None:
+                self.logger().info(f"Created {order_type} sell order {exchange_order_id} for "
+                                   f"{q_amt} {symbol}.")
+                tracked_order.update_exchange_order_id(exchange_order_id)
             self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
                                  SellOrderCreatedEvent(
                                      self._current_timestamp,
@@ -845,11 +859,6 @@ cdef class DDEXMarket(MarketBase):
                                      Decimal(q_price),
                                      order_id
                                  ))
-            tracked_order = self._in_flight_orders.get(order_id)
-            if tracked_order is not None:
-                self.logger().info(f"Created {order_type} sell order {exchange_order_id} for "
-                                   f"{q_amt} {symbol}.")
-                tracked_order.update_exchange_order_id(exchange_order_id)
             return order_id
         except Exception:
             self.c_stop_tracking_order(order_id)

@@ -371,11 +371,11 @@ cdef class RadarRelayMarket(MarketBase):
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self._in_flight_market_orders.update({
             key: InFlightOrder.from_json(value)
-            for key, value in saved_states["market_orders"]
+            for key, value in saved_states["market_orders"].items()
         })
         self._in_flight_limit_orders.update({
             key: InFlightOrder.from_json(value)
-            for key, value in saved_states["limit_orders"]
+            for key, value in saved_states["limit_orders"].items()
         })
 
     async def get_active_exchange_markets(self):
