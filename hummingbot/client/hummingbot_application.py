@@ -459,7 +459,15 @@ class HummingbotApplication:
 
     def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
+
+        # aggregate symbols if there are duplicate markets
+        market_symbols_map = {}
         for market_name, symbols in market_names:
+            if market_name not in market_symbols_map:
+                market_symbols_map[market_name] = []
+            market_symbols_map[market_name] += symbols
+
+        for market_name, symbols in market_symbols_map.items():
             if market_name == "ddex" and self.wallet:
                 market = DDEXMarket(wallet=self.wallet,
                                     ethereum_rpc_url=ethereum_rpc_url,
