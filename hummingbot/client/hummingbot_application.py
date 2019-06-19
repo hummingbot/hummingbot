@@ -1161,11 +1161,15 @@ class HummingbotApplication:
                     quote=current_quote
                 )
 
-        market_pair = self.market_symbol_pairs[0]
-        print(market_pair)
-        print(type(market_pair))
+        market_pair_info = self.market_symbol_pairs[0]
+        market = market_pair_info.market
+        buy_price = market.get_price(symbol=market_pair_info.trading_pair, is_buy=True)
+        sell_price = market.get_price(symbol=market_pair_info.trading_pair, is_buy=False)
+        price = (buy_price + sell_price)/2.0
 
-        print(str(starting_base))
-        print(str(starting_quote))
-        print(str(current_base))
-        print(str(current_quote))
+        starting_amount = (float(starting_base[1]) * price) + float(starting_quote[1])
+        current_amount = (float(current_base[1]) * price) + float(current_quote[1])
+
+        percent = ((current_amount / starting_amount) - 1) * 100
+
+        self._notify("\n" + "  Profitability:\n" + "    " + str(percent) + "%")
