@@ -5,12 +5,12 @@ Hummingbot is a free [open-source **software** client](https://www.hummingbot.io
 
 We take compliance extremely seriously, because we want to reward only genuine providers of liquidity. For this reason, liquidity bounty participants need to opt into data collection, which allows us to attempt to verify their trading activity against our internal exchange data feeds. 
 
-Liquidity bounties also enable token projects to leverage their native communities to act as liquidity providers across multiple exchanges. The program is designed to reward participants based on how much liquidity they provide in a given time period. For partnership inquiries, email us at [partnerships@coinalpha.com](email to:partnerships@coinalpha.com) for more information.
+Liquidity bounties also enable token projects to leverage their native communities to act as liquidity providers across multiple exchanges. The program is designed to reward participants based on how much liquidity they provide in a given time period. For partnership inquiries, email us at [partnerships@coinalpha.com](mailto:partnerships@coinalpha.com).
 
 
 ## More resources
 
 - [Announcement blog post](https://www.hummingbot.io/blog/2019-06-introducing-liquidity-bounties-harmony/)
-- [Quick tutorial](/bounties/tutorial)
+- [Quick tutorial](/bounties/tutorial/tutorial)
 - [Harmony $ONE Makers](/bounties/programs/harmony)
 - [FAQ](/bounties/faq)

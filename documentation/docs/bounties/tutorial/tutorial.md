@@ -52,7 +52,8 @@ First, you need to <a href="https://docs.docker.com/v17.12/install/#supported-pl
 - Watch the <a href="https://www.youtube.com/watch?v=eCfMKfS9HsM" target="_blank">step-by-step instruction video</a>
 - Read [documentation](/installation/docker_macOS_linux) 
 
-If you want to install hummingbot from source, here's how to -
+If you want to install hummingbot from source, here's how -
+
 - Watch the <a href="https://www.youtube.com/watch?v=LX57Q26LZcw&t=27s" target="_blank">step-by-step instruction video</a>
 - Read [documentation](/installation/source/) 
 
@@ -81,7 +82,7 @@ The left bottom pane is where you enter [commands](https://docs.hummingbot.io/op
 ## Configuration
 Every time you start running Hummingbot, you need to configure the settings. You can choose to `create` new settings or `import` previous config files. They can be [edited directly](https://docs.hummingbot.io/operation/configuration/) or accessed later in the `conf/` folder that hummingbot automactially creates when you first configure it. 
 
-To participate in liquidity bounties, you should choose either **pure market making** strategy or **cross-exchange market making** startegy so that you can make market for designated tokens. The bounty rewards will be paid out based on the volume of your filled limit maker orders. 
+To participate in liquidity bounties, you should choose either **pure market making strategy** or **cross-exchange market making startegy** so that you can make market for designated tokens. The bounty rewards will be paid out based on the volume of your filled limit maker orders. 
 
 ### [Pure market making](https://docs.hummingbot.io/strategies/pure-market-making/)
 

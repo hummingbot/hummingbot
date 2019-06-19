@@ -6,8 +6,9 @@ Since traders would naturally set the buy price lower than the sell price, marke
 That being said, market making has its own risks, mainly inventory risks. If the price of the trading pair changes in any direction significantly in a short time period, you will have chance ending up on the losing side.
 
 More details on different market making strategies:
-[Pure market making (market making on a single exchange)](https://docs.hummingbot.io/strategies/pure-market-making/)
-[Cross-exchange market making](https://docs.hummingbot.io/strategies/cross-exchange-market-making/)
+
+- [Pure market making (market making on a single exchange)](https://docs.hummingbot.io/strategies/pure-market-making/)
+- [Cross-exchange market making](https://docs.hummingbot.io/strategies/cross-exchange-market-making/)
 
 
 ## Why market makers are important for the crypto ecosystem?
