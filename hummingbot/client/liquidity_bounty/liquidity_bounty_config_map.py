@@ -42,5 +42,8 @@ liquidity_bounty_config_map = {
                                                          "correct? (y/n) >>> ",
                                                   type_str="bool",
                                                   required_if=liquidity_bounty_enabled),
+    "liquidity_bounty_client_id":       ConfigVar(key="liquidity_bounty_client_id",
+                                                  prompt="What is your liquidity bounty client ID? >>> ",
+                                                  required_if=lambda: False),
 }
 

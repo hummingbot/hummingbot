@@ -112,6 +112,7 @@ from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.client.liquidity_bounty.bounty_utils import LiquidityBounty
 
 s_logger = None
 
@@ -172,6 +173,7 @@ class HummingbotApplication:
         self.data_feed: Optional[DataFeedBase] = None
         self.stop_loss_tracker: Optional[StopLossTracker] = None
         self.notifiers: List[NotifierBase] = []
+        self.liquidity_bounty: Optional[LiquidityBounty] = LiquidityBounty.get_instance()
         self._app_warnings: Deque[ApplicationWarning] = deque()
         self._trading_required: bool = True
 
@@ -1124,11 +1126,11 @@ class HummingbotApplication:
 
     def bounty(self, register: bool = False, status: bool = False, terms: bool = False):
         if register:
-            asyncio.ensure_future(self.bounty_config_loop(), loop=self.ev_loop)
+            asyncio.ensure_future(self.bounty_registration(), loop=self.ev_loop)
         elif status:
-            asyncio.ensure_future(self.bounty_show_status())
+            asyncio.ensure_future(self.bounty_show_status(), loop=self.ev_loop)
         elif terms:
-            asyncio.ensure_future(self.bounty_print_terms())
+            asyncio.ensure_future(self.bounty_print_terms(), loop=self.ev_loop)
         else:
             self.help("bounty")
 
@@ -1138,14 +1140,29 @@ class HummingbotApplication:
             self._notify(str(data))
 
     async def bounty_show_status(self):
-        self._notify("bounty_show_status")
-        raise NotImplementedError
+        if self.liquidity_bounty is None:
+            self._notify("Liquidity bounty not active.")
+            return
+        else:
+            self._notify(str(self.liquidity_bounty.status()))
 
     async def bounty_print_terms(self):
         await self.print_doc(join(dirname(__file__), "./liquidity_bounty/terms_and_conditions.txt"))
 
     async def bounty_registration(self):
-        raise NotImplementedError
+        await self.bounty_config_loop()
+        self._notify("Registering for liquidity bounties...")
+        self.liquidity_bounty = LiquidityBounty.get_instance()
+        try:
+            registration_results = await self.liquidity_bounty.register()
+            client_id = registration_results["client_id"]
+            liquidity_bounty_config_map.get("liquidity_bounty_client_id").value = client_id
+        except Exception as e:
+            self._notify(str(e))
+
+        await save_to_yml(LIQUIDITY_BOUNTY_CONFIG_PATH, liquidity_bounty_config_map)
+        await self.liquidity_bounty.start_network()
+        self._notify("Registration successful.")
 
     async def bounty_config_loop(self):
         self._notify("Starting registration process for liquidity bounties:")
@@ -1170,7 +1187,6 @@ class HummingbotApplication:
                 self.logger().warning(cvar.value)
                 if cvar.type == "bool" and cvar.value is False:
                     raise ValueError(f"{cvar.key} is required.")
-            await save_to_yml(LIQUIDITY_BOUNTY_CONFIG_PATH, liquidity_bounty_config_map)
         except ValueError as e:
             self._notify(f"Registration aborted: {str(e)}")
         except Exception as e:
@@ -1179,6 +1195,9 @@ class HummingbotApplication:
         self.app.change_prompt(prompt=">>> ")
         self.app.toggle_hide_input()
         self.placeholder_mode = False
+
+
+
 
 
 
