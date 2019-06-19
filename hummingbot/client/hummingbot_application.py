@@ -963,6 +963,7 @@ class HummingbotApplication:
                                                              self.stop(*args, **kwargs)
                                                          ))
                 await self.wait_till_ready(self.stop_loss_tracker.start)
+                self.markets_recorder.restore_market_states()
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
 

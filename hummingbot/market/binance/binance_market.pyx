@@ -1011,6 +1011,13 @@ cdef class BinanceMarket(MarketBase):
             else:
                 raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
 
+            exchange_order_id = order_result["orderId"]
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is not None:
+                self.logger().info(f"Created {order_type} buy order {order_id} for "
+                                   f"{decimal_amount} {symbol}.")
+                tracked_order.exchange_order_id = exchange_order_id
+
             self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
                                  BuyOrderCreatedEvent(
                                      self._current_timestamp,
@@ -1020,13 +1027,6 @@ cdef class BinanceMarket(MarketBase):
                                      0.0 if math.isnan(price) else price,
                                      order_id
                                  ))
-
-            exchange_order_id = order_result["orderId"]
-            tracked_order = self._in_flight_orders.get(order_id)
-            if tracked_order is not None:
-                self.logger().info(f"Created {order_type} buy order {order_id} for "
-                                   f"{decimal_amount} {symbol}.")
-                tracked_order.exchange_order_id = exchange_order_id
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -1085,6 +1085,13 @@ cdef class BinanceMarket(MarketBase):
             else:
                 raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
 
+            exchange_order_id = order_result["orderId"]
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is not None:
+                self.logger().info(f"Created {order_type} sell order {order_id} for "
+                                   f"{decimal_amount} {symbol}.")
+                tracked_order.exchange_order_id = exchange_order_id
+
             self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
                                  SellOrderCreatedEvent(
                                      self._current_timestamp,
@@ -1094,12 +1101,6 @@ cdef class BinanceMarket(MarketBase):
                                      0.0 if math.isnan(price) else price,
                                      order_id
                                  ))
-            exchange_order_id = order_result["orderId"]
-            tracked_order = self._in_flight_orders.get(order_id)
-            if tracked_order is not None:
-                self.logger().info(f"Created {order_type} sell order {order_id} for "
-                                   f"{decimal_amount} {symbol}.")
-                tracked_order.exchange_order_id = exchange_order_id
         except asyncio.CancelledError:
             raise
         except Exception:
