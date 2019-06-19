@@ -110,6 +110,12 @@ class BinanceMarketUnitTest(unittest.TestCase):
             await asyncio.sleep(1.0)
 
     def setUp(self):
+        self.db_path: str = realpath(join(__file__, "../binance_test.sqlite"))
+        try:
+            os.unlink(self.db_path)
+        except FileNotFoundError:
+            pass
+
         self.market_logger = EventLogger()
         for event_tag in self.events:
             self.market.add_listener(event_tag, self.market_logger)
@@ -434,10 +440,9 @@ class BinanceMarketUnitTest(unittest.TestCase):
             time_obj.start()
 
     def test_orders_saving_and_restoration(self):
-        db_path: str = realpath(join(__file__, "../binance_test.sqlite"))
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=db_path)
+        sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
         recorder.start()
@@ -510,13 +515,12 @@ class BinanceMarketUnitTest(unittest.TestCase):
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
-            os.unlink(db_path)
+            os.unlink(self.db_path)
 
     def test_order_fill_record(self):
-        db_path: str = realpath(join(__file__, "../binance_test.sqlite"))
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=db_path)
+        sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
         recorder.start()
@@ -552,7 +556,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
-            os.unlink(db_path)
+            os.unlink(self.db_path)
 
 
 if __name__ == "__main__":

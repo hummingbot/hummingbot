@@ -17,7 +17,11 @@ from web3 import Web3
 from libc.stdint cimport int64_t
 
 from hummingbot.core.clock cimport Clock
-from hummingbot.logger import HummingbotLogger
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
     TradeType,
     TradeFee,
@@ -33,21 +37,18 @@ from hummingbot.core.event.events import (
     MarketTransactionFailureEvent,
     MarketOrderFailureEvent
 )
-from hummingbot.market.market_base import (
-    MarketBase,
-    OrderType,
-)
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.wallet.wallet_base import WalletBase
-from hummingbot.wallet.wallet_base cimport WalletBase
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
-from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.logger import HummingbotLogger
 from hummingbot.market.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from hummingbot.market.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
 from hummingbot.market.coinbase_pro.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.transaction_tracker import TransactionTracker
+from hummingbot.market.market_base import (
+    MarketBase,
+    OrderType,
+)
+from hummingbot.wallet.wallet_base import WalletBase
+from hummingbot.wallet.wallet_base cimport WalletBase
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -131,6 +132,22 @@ cdef class InFlightOrder:
         if self.exchange_order_id == "":
             await self.exchange_order_id_update_event.wait()
         return self.exchange_order_id
+
+    def to_limit_order(self) -> LimitOrder:
+        cdef:
+            str base_currency
+            str quote_currency
+
+        base_currency, quote_currency = CoinbaseProMarket.split_symbol(self.symbol)
+        return LimitOrder(
+            self.client_order_id,
+            self.symbol,
+            self.is_buy,
+            base_currency,
+            quote_currency,
+            Decimal(self.price),
+            Decimal(self.amount)
+        )
 
     def to_json(self) -> Dict[str, any]:
         return {
@@ -331,6 +348,13 @@ cdef class CoinbaseProMarket(MarketBase):
     @property
     def ready(self) -> bool:
         return all(self.status_dict.values())
+
+    @property
+    def limit_orders(self) -> List[LimitOrder]:
+        return [
+            in_flight_order.to_limit_order()
+            for in_flight_order in self._in_flight_orders.values()
+        ]
 
     @property
     def tracking_states(self) -> Dict[str, any]:
@@ -764,15 +788,16 @@ cdef class CoinbaseProMarket(MarketBase):
         try:
             self.c_start_tracking_order(order_id, "", symbol, True, order_type, decimal_amount, decimal_price)
             order_result = await self.place_order(order_id, symbol, decimal_amount, True, order_type, decimal_price)
-            self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
-                                 BuyOrderCreatedEvent(self._current_timestamp, order_type, symbol, decimal_amount,
-                                                      price, order_id))
 
             exchange_order_id = order_result["id"]
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type} buy order {order_id} for {decimal_amount} {symbol}.")
                 tracked_order.update_exchange_order_id(exchange_order_id)
+
+            self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
+                                 BuyOrderCreatedEvent(self._current_timestamp, order_type, symbol, decimal_amount,
+                                                      price, order_id))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -815,15 +840,16 @@ cdef class CoinbaseProMarket(MarketBase):
         try:
             self.c_start_tracking_order(order_id, "", symbol, False, order_type, decimal_amount, decimal_price)
             order_result = await self.place_order(order_id, symbol, decimal_amount, False, order_type, decimal_price)
-            self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
-                                 SellOrderCreatedEvent(self._current_timestamp, order_type, symbol, decimal_amount,
-                                                       price, order_id))
 
             exchange_order_id = order_result["id"]
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type} sell order {order_id} for {decimal_amount} {symbol}.")
                 tracked_order.update_exchange_order_id(exchange_order_id)
+
+            self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
+                                 SellOrderCreatedEvent(self._current_timestamp, order_type, symbol, decimal_amount,
+                                                       price, order_id))
         except asyncio.CancelledError:
             raise
         except Exception:

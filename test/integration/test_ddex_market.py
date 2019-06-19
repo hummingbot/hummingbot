@@ -465,7 +465,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
             # Reset the logs
             self.market_logger.clear()
 
-            # Try to sell back the same amount of ZRX to the exchange, and watch for completion event.
+            # Try to sell back the same amount of HOT to the exchange, and watch for completion event.
             amount = float(buy_order_completed_event.base_asset_amount)
             order_id = self.market.sell(symbol, amount)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
