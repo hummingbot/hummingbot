@@ -54,10 +54,10 @@ class LiquidityBounty(NetworkBase):
 
     async def register(self) -> Dict[str, Any]:
         bounty_config: Dict[str, Any] = {key: cvar.value for key, cvar in liquidity_bounty_config_map.items()}
-        assert bounty_config["liquidity_bounty_enabled"]
-        assert bounty_config["agree_to_terms"]
-        assert bounty_config["agree_to_data_collection"]
-        assert bounty_config["final_confirmation"]
+        assert bounty_config["liquidity_bounty_enabled"].value
+        assert bounty_config["agree_to_terms"].value
+        assert bounty_config["agree_to_data_collection"].value
+        assert bounty_config["final_confirmation"].value
 
         email = bounty_config["email"]
         eth_address = bounty_config["eth_address"]
@@ -73,6 +73,8 @@ class LiquidityBounty(NetworkBase):
                 if results["registration_status"] != "success":
                     raise Exception(f"Failed to register for liquidity bounty: {results['registration_status']}")
                 return results
+        except AssertionError:
+            raise
         except asyncio.CancelledError:
             raise
         except Exception:

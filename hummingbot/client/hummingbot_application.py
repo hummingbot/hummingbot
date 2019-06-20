@@ -1208,10 +1208,3 @@ class HummingbotApplication:
         self.app.toggle_hide_input()
         self.placeholder_mode = False
 
-
-
-
-
-
-
-
