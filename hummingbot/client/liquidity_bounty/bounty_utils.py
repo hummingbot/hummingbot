@@ -39,14 +39,15 @@ class LiquidityBounty(NetworkBase):
             cls.lb_logger = logging.getLogger(__name__)
         return cls.lb_logger
 
-    def __init__(self, update_interval: int = 30):
+    def __init__(self, update_interval: int = 15):
         super().__init__()
         self._update_interval = update_interval
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client: Optional[aiohttp.ClientSession] = None
 
         self._status: Dict[str, Any] = {}
-        self._last_submitted_trade_timestamp: int = 0
+        # timestamp = -1 when when no data has been fetched / timestamp = 0 when no trades have ever been submitted
+        self._last_submitted_trade_timestamp: int = -1
         self.fetch_bounty_status_task: Optional[asyncio.Task] = None
         self.fetch_last_submitted_timestamp_task: Optional[asyncio.Task] = None
         self.submit_trades_task: Optional[asyncio.Task] = None
@@ -58,7 +59,8 @@ class LiquidityBounty(NetworkBase):
         return pd.DataFrame(self._status.items()).to_string(index=False, header=False)
 
     async def get_local_trades(self) -> List[Dict[str, Any]]:
-        trade_fill_sql: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance
+        self.logger().error("in get_local_trades")
+        trade_fill_sql: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
         trade_fill_session: Session = trade_fill_sql.get_shared_session()
         # TODO: filter by markets and trading pairs participating in liquidity bounties
         trade_fill_data = trade_fill_session \
@@ -136,7 +138,7 @@ class LiquidityBounty(NetworkBase):
             try:
                 url = f"{self.LIQUIDITY_BOUNTY_REST_API}/trade/last_recorded_timestamp"
                 results = await self.authenticated_request("GET", url)
-                self._last_submitted_trade_timestamp = results.get("last_recorded_timestamp", 0)
+                self._last_submitted_trade_timestamp = results.get("last_recorded_timestamp", -1)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -148,18 +150,24 @@ class LiquidityBounty(NetworkBase):
     async def submit_trades_loop(self):
         while True:
             try:
-                if self._last_submitted_trade_timestamp > 0:
+                self.logger().error("in submit_trades_loop")
+                self.logger().error(self._last_submitted_trade_timestamp)
+                if self._last_submitted_trade_timestamp >= 0:
+                    self.logger().error("in 2")
                     trades = await self.get_local_trades()
+                    self.logger().error("in 3")
+                    self.logger().error(trades)
                     if len(trades) > 0:
                         url = f"{self.LIQUIDITY_BOUNTY_REST_API}/trade"
                         results = await self.authenticated_request("POST", url, json={"trades": trades})
-                        self.logger().info(results)
+                        self.logger().error(results)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 if "User not registered" in str(e):
                     self.logger().warning("User not registered. Aborting submit_trades_loop.")
                     break
+                self.logger().error(str(e))
             await asyncio.sleep(self._update_interval)
 
     async def start_network(self):
