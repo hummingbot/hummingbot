@@ -190,7 +190,7 @@ cdef class InFlightOrder:
                 data["symbol"],
                 data["is_buy"],
                 getattr(OrderType, data["order_type"]),
-                Decimal(data["amount"]),
+                Decimal(data["initial_amount"]),
                 Decimal(data["price"]),
                 data["created_timestamp"]
             )
@@ -493,13 +493,14 @@ cdef class IDEXMarket(MarketBase):
             if not previous_is_cancelled and tracked_limit_order.is_cancelled:
                 self.logger().info(f"The limit order {tracked_limit_order.client_order_id} has cancelled according "
                                     f"to order status API.")
+                self.c_expire_order(tracked_limit_order.client_order_id)
                 self.c_trigger_event(
                     self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                     OrderCancelledEvent(self._current_timestamp, tracked_limit_order.client_order_id)
                 )
-                self.c_expire_order(tracked_limit_order.client_order_id)
 
             elif not previous_is_done and tracked_limit_order.is_done:
+                self.c_expire_order(tracked_limit_order.client_order_id)
                 if tracked_limit_order.is_buy:
                     self.logger().info(f"The limit buy order {tracked_limit_order.client_order_id}"
                                         f"has completed according to order status API.")
@@ -526,7 +527,6 @@ cdef class IDEXMarket(MarketBase):
                                                                     float(tracked_limit_order.quote_asset_amount),
                                                                     float(tracked_limit_order.gas_fee_amount),
                                                                     OrderType.LIMIT))
-                self.c_expire_order(tracked_limit_order.client_order_id)
         self._last_update_order_timestamp = current_timestamp
 
     async def _http_client(self) -> aiohttp.ClientSession:
