@@ -1140,25 +1140,31 @@ class HummingbotApplication:
         lines = ["", "  Performance:"] + ["    " + line for line in str(df).split("\n")]
         self._notify("\n".join(lines))
 
-    def add_balances(self, msp, asset_type, asset_time, base, quote):
-        market_name = msp.market.name
+    def add_balances(self, market_symbol_pair, is_base, is_starting, base, quote):
+        """ Adds the balance of either the base or the quote in the given market symbol pair token to the corresponding
+        tuple pair.
 
-        if asset_type == "base":
-            asset_list = base
-            asset = msp.base_asset
-        elif asset_type == "quote":
-            asset_list = quote
-            asset = msp.quote_asset
+        :param market_symbol_pair: type market_symbol_pair
+        :param is_base: boolean indicating whether to add base amount of token or quote
+        :param is_starting: boolean indicating whether to calculating starting amount of token or current
+        :param base: tuple that is the base currency token pair
+        :param quote: tuple that is the quote currency token pair
+        """
+        market_name = market_symbol_pair.market.name
+
+        if is_base:
+            asset_tuple = base
+            asset = market_symbol_pair.base_asset
         else:
-            raise ValueError("asset_type must be either 'base' or 'quote'")
+            asset_tuple = quote
+            asset = market_symbol_pair.quote_asset
 
-        if asset_time == "starting":
+        if is_starting:
             amount = self.starting_balances.get(asset).get(market_name)
-        elif asset_time == "current":
-            amount = self.balance_snapshot().get(asset).get(market_name)
         else:
-            raise ValueError("asset_time must be either 'starting' or 'current'")
+            amount = self.balance_snapshot().get(asset).get(market_name)
 
+        asset_list = list(asset_tuple)
         if len(asset_list) == 0:
             asset_list.insert(0, asset)
             asset_list.insert(1, float(amount))
@@ -1172,40 +1178,48 @@ class HummingbotApplication:
                     from_currency=asset,
                     to_currency=asset_list[0]
                 ))
-        if asset_type == "base":
-            base = asset_list
-        elif asset_type == "quote":
-            quote = asset_list
+
+        asset_tuple = tuple(asset_list)
+        if is_base:
+            base = asset_tuple
+        else:
+            quote = asset_tuple
 
         return base, quote
 
     def analyze_performance(self):
+        """ Determine the profitability of the trading bot. """
         if len(self.starting_balances) == 0:
             self._notify("  Performance analysis is not available before bot starts")
             return
 
-        starting_base = list()
-        starting_quote = list()
-        current_base = list()
-        current_quote = list()
+        # Each of these is in the format (currency, amount)
+        starting_base = tuple()
+        starting_quote = tuple()
+        current_base = tuple()
+        current_quote = tuple()
 
-        for msp in self.market_symbol_pairs:
-            for asset_type in ["base", "quote"]:
+        for market_symbol_pair in self.market_symbol_pairs:
+            for is_base in [True, False]:
                 starting_base, starting_quote = self.add_balances(
-                    msp=msp,
-                    asset_type=asset_type,
-                    asset_time="starting",
+                    market_symbol_pair=market_symbol_pair,
+                    is_base=is_base,
+                    is_starting=True,
                     base=starting_base,
                     quote=starting_quote
                 )
                 current_base, current_quote = self.add_balances(
-                    msp=msp,
-                    asset_type=asset_type,
-                    asset_time="current",
+                    market_symbol_pair=market_symbol_pair,
+                    is_base=is_base,
+                    is_starting=False,
                     base=current_base,
                     quote=current_quote
                 )
 
+        # Compute the current exchange rate. We use the first market_symbol_pair because
+        # if the trading pairs are different, such as WETH-DAI and ETH-USD, the tuples
+        # above will contain the information in terms of the first trading pair based on
+        # the way that the balances were computed in the for loop above.
         market_pair_info = self.market_symbol_pairs[0]
         market = market_pair_info.market
         buy_price = market.get_price(symbol=market_pair_info.trading_pair, is_buy=True)
