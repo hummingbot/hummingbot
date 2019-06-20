@@ -90,7 +90,9 @@ nav:
         - Install on cloud: installation/cloud.md
         - API keys: installation/api-keys.md
         - Ethereum wallet: installation/wallet.md
-        - Ethereum node: installation/node.md
+        - Ethereum node: 
+          - Ethereum node: installation/node/node.md
+          - Get a free Ethererum node: installation/node/infura.md
       - Operation:
         - Client: operation/client.md
         - Configuration: operation/configuration.md
