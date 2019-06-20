@@ -19,12 +19,14 @@ import shutil
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.liquidity_bounty.liquidity_bounty_config_map import liquidity_bounty_config_map
 from hummingbot.client.settings import (
     GLOBAL_CONFIG_PATH,
     TEMPLATE_PATH,
     CONF_FILE_PATH,
     CONF_POSTFIX,
     CONF_PREFIX,
+    LIQUIDITY_BOUNTY_CONFIG_PATH,
 )
 
 # Use ruamel.yaml to preserve order and comments in .yml file
@@ -54,9 +56,9 @@ def parse_cvar_value(cvar: ConfigVar, value: any):
             logging.getLogger().error(f"\"{value}\" is not an integer.")
             return 0
     elif cvar.type == 'bool':
-        if type(value) == str and value.lower() in ["true", "yes"]:
+        if isinstance(value, str) and value.lower() in ["true", "yes", "y"]:
             return True
-        elif type(value) == str and value.lower() in ["false", "no"]:
+        elif isinstance(value, str) and value.lower() in ["false", "no", "n"]:
             return False
         else:
             return bool(value)
@@ -151,8 +153,22 @@ def read_configs_from_yml(strategy_file_path: str = None):
                                       exc_info=True)
 
     load_yml_into_cm(GLOBAL_CONFIG_PATH, global_config_map)
+    load_yml_into_cm(LIQUIDITY_BOUNTY_CONFIG_PATH, liquidity_bounty_config_map)
     if strategy_file_path:
         load_yml_into_cm(join(CONF_FILE_PATH, strategy_file_path), strategy_config_map)
+
+
+async def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
+    try:
+        with open(yml_path) as stream:
+            data = yaml.load(stream) or {}
+            for key in cm:
+                cvar = cm.get(key)
+                data[key] = cvar.value
+            with open(yml_path, "w+") as outfile:
+                yaml.dump(data, outfile)
+    except Exception as e:
+        logging.getLogger().error("Error writing configs: %s" % (str(e),), exc_info=True)
 
 
 async def write_config_to_yml():
@@ -164,20 +180,8 @@ async def write_config_to_yml():
     strategy_config_map = get_strategy_config_map(current_strategy)
     strategy_file_path = join(CONF_FILE_PATH, in_memory_config_map.get("strategy_file_path").value)
 
-    def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
-        try:
-            with open(yml_path) as stream:
-                data = yaml.load(stream) or {}
-                for key in cm:
-                    cvar = cm.get(key)
-                    data[key] = cvar.value
-                with open(yml_path, "w+") as outfile:
-                    yaml.dump(data, outfile)
-        except Exception as e:
-            logging.getLogger().error("Error writing configs: %s" % (str(e),), exc_info=True)
-
-    save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
-    save_to_yml(strategy_file_path, strategy_config_map)
+    await save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
+    await save_to_yml(strategy_file_path, strategy_config_map)
 
 
 async def create_yml_files():
