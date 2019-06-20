@@ -60,6 +60,7 @@ class LiquidityBounty(NetworkBase):
     async def get_local_trades(self) -> List[Dict[str, Any]]:
         trade_fill_sql: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance
         trade_fill_session: Session = trade_fill_sql.get_shared_session()
+        # TODO: filter by markets and trading pairs participating in liquidity bounties
         trade_fill_data = trade_fill_session \
             .query(TradeFill)\
             .filter(TradeFill.timestamp >= self._last_submitted_trade_timestamp)\
