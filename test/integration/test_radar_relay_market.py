@@ -16,7 +16,10 @@ from typing import (
 )
 import unittest
 
-from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.clock import (
+    Clock,
+    ClockMode
+)
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.event.event_logger import EventLogger
