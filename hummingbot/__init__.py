@@ -12,14 +12,12 @@ from hummingbot.logger.struct_logger import (
 STRUCT_LOGGER_SET = False
 _prefix_path = None
 
-__all__ = ["root_path", "get_executor", "init_logging"]
-
-
 # Do not raise exceptions during log handling
 logging.setLogRecordFactory(StructLogRecord)
 logging.setLoggerClass(StructLogger)
 
 _shared_executor = None
+_data_path = None
 
 
 def root_path() -> str:
@@ -37,7 +35,10 @@ def get_executor() -> ThreadPoolExecutor:
 def prefix_path() -> str:
     global _prefix_path
     if _prefix_path is None:
-        from os.path import realpath, join
+        from os.path import (
+            realpath,
+            join
+        )
         _prefix_path = realpath(join(__file__, "../../"))
     return _prefix_path
 
@@ -47,12 +48,32 @@ def set_prefix_path(path: str):
     _prefix_path = path
 
 
+def data_path() -> str:
+    global _data_path
+    if _data_path is None:
+        from os.path import (
+            realpath,
+            join
+        )
+        _data_path = realpath(join(prefix_path(), "data"))
+
+    import os
+    if not os.path.exists(_data_path):
+        os.makedirs(_data_path)
+    return _data_path
+
+
+def set_data_path(path: str):
+    global _data_path
+    _data_path = path
+
+
 def check_dev_mode():
     try:
         current_branch = subprocess.check_output(["git", "symbolic-ref", "--short", "HEAD"]).decode("utf8").rstrip()
         if current_branch != "master":
             return True
-    except:
+    except Exception:
         return False
 
 
@@ -86,7 +107,6 @@ def init_logging(conf_filename: str, override_log_level: Optional[str] = None, d
         StructLogRecord,
         StructLogger
     )
-
     global STRUCT_LOGGER_SET
     if not STRUCT_LOGGER_SET:
         logging.setLogRecordFactory(StructLogRecord)
