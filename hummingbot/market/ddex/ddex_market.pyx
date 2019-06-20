@@ -799,8 +799,8 @@ cdef class DDEXMarket(MarketBase):
                                      self._current_timestamp,
                                      order_type,
                                      symbol,
-                                     Decimal(q_amt),
-                                     Decimal(q_price),
+                                     float(q_amt),
+                                     float(q_price),
                                      order_id
                                  ))
             return order_id
@@ -855,8 +855,8 @@ cdef class DDEXMarket(MarketBase):
                                      self._current_timestamp,
                                      order_type,
                                      symbol,
-                                     Decimal(q_amt),
-                                     Decimal(q_price),
+                                     float(q_amt),
+                                     float(q_price),
                                      order_id
                                  ))
             return order_id
