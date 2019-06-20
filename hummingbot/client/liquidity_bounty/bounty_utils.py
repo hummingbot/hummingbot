@@ -9,11 +9,17 @@ import pandas as pd
 from typing import (
     Any,
     Dict,
+    List,
     Optional,
+)
+from sqlalchemy.orm import (
+    Session,
 )
 from hummingbot.client.liquidity_bounty.liquidity_bounty_config_map import liquidity_bounty_config_map
 from hummingbot.core.network_base import NetworkBase, NetworkStatus
 from hummingbot.logger import HummingbotLogger
+from hummingbot.model.sql_connection_manager import SQLConnectionManager
+from hummingbot.model.trade_fill import TradeFill
 
 
 class LiquidityBounty(NetworkBase):
@@ -35,17 +41,33 @@ class LiquidityBounty(NetworkBase):
 
     def __init__(self, update_interval: int = 30):
         super().__init__()
-        self._ev_loop = asyncio.get_event_loop()
-        self._status: Dict[str, Any] = {}
-        self._shared_client: Optional[aiohttp.ClientSession] = None
         self._update_interval = update_interval
+        self._ev_loop = asyncio.get_event_loop()
+        self._shared_client: Optional[aiohttp.ClientSession] = None
+
+        self._status: Dict[str, Any] = {}
+        self._last_submitted_trade_timestamp: int = 0
         self.fetch_bounty_status_task: Optional[asyncio.Task] = None
+        self.fetch_last_submitted_timestamp_task: Optional[asyncio.Task] = None
+        self.submit_trades_task: Optional[asyncio.Task] = None
 
     def status(self) -> Dict[str, Any]:
         return self._status
 
     def formatted_status(self) -> str:
         return pd.DataFrame(self._status.items()).to_string(index=False, header=False)
+
+    async def get_local_trades(self) -> List[Dict[str, Any]]:
+        trade_fill_sql: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance
+        trade_fill_session: Session = trade_fill_sql.get_shared_session()
+        trade_fill_data = trade_fill_session \
+            .query(TradeFill)\
+            .filter(TradeFill.timestamp >= self._last_submitted_trade_timestamp)\
+            .order_by(TradeFill.timestamp)\
+            .all()
+        self.logger().error("trade_fill_data")
+        self.logger().error(trade_fill_data)
+        return []
 
     async def _http_client(self) -> aiohttp.ClientSession:
         if self._shared_client is None:
@@ -80,40 +102,79 @@ class LiquidityBounty(NetworkBase):
         except Exception:
             raise
 
+    async def authenticated_request(self, request_method: str, url: str, **kwargs) -> Dict[str, Any]:
+        try:
+            client = await self._http_client()
+            client_id = liquidity_bounty_config_map.get("liquidity_bounty_client_id").value
+            assert client_id is not None
+            headers = {"Client-ID": client_id}
+
+            async with client.request(request_method, url, headers=headers, **kwargs) as resp:
+                results = await resp.json()
+                if results.get("status", "") == "Unknown client id":
+                    raise Exception("User not registered")
+                return results
+        except Exception as e:
+            self.logger().network(f"Error fetching bounty status: {str(e)}", exc_info=True)
+            raise
+
     async def fetch_bounty_status_loop(self):
         while True:
             try:
-                client = await self._http_client()
-                client_id = liquidity_bounty_config_map.get("liquidity_bounty_client_id").value
-                assert client_id is not None
-
-                async with client.request("GET",
-                                          f"{self.LIQUIDITY_BOUNTY_REST_API}/client",
-                                          headers={"Client-ID": client_id}) as resp:
-                    results = await resp.json()
-                    if results.get("status", "") == "Unknown client id":
-                        raise Exception("User not registered")
-                    self._status = results
+                self._status = await self.authenticated_request("GET", f"{self.LIQUIDITY_BOUNTY_REST_API}/client")
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                self.logger().error(str(e))
-
                 if "User not registered" in str(e):
-                    self.logger().error("User not registered. Aborting.")
+                    self.logger().warning("User not registered. Aborting fetch_bounty_status_loop.")
                     break
-                else:
-                    self.logger().network(f"Error fetching bounty status", exc_info=True)
+            await asyncio.sleep(self._update_interval)
+
+    async def fetch_last_timestamp_loop(self):
+        while True:
+            try:
+                url = f"{self.LIQUIDITY_BOUNTY_REST_API}/trade/last_recorded_timestamp"
+                results = await self.authenticated_request("GET", url)
+                self._last_submitted_trade_timestamp = results.get("last_recorded_timestamp", 0)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                if "User not registered" in str(e):
+                    self.logger().warning("User not registered. Aborting fetch_last_timestamp_loop.")
+                    break
+            await asyncio.sleep(self._update_interval)
+
+    async def submit_trades_loop(self):
+        while True:
+            try:
+                if self._last_submitted_trade_timestamp > 0:
+                    trades = await self.get_local_trades()
+                    if len(trades) > 0:
+                        url = f"{self.LIQUIDITY_BOUNTY_REST_API}/trade"
+                        results = await self.authenticated_request("POST", url, json={"trades": trades})
+                        self.logger().info(results)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                if "User not registered" in str(e):
+                    self.logger().warning("User not registered. Aborting submit_trades_loop.")
+                    break
             await asyncio.sleep(self._update_interval)
 
     async def start_network(self):
         await self.stop_network()
         self.fetch_bounty_status_task = asyncio.ensure_future(self.fetch_bounty_status_loop())
+        self.fetch_last_submitted_timestamp_task = asyncio.ensure_future(self.fetch_last_timestamp_loop())
+        self.submit_trades_task = asyncio.ensure_future(self.submit_trades_loop())
 
     async def stop_network(self):
         if self.fetch_bounty_status_task is not None:
             self.fetch_bounty_status_task.cancel()
             self.fetch_bounty_status_task = None
+            self.fetch_last_submitted_timestamp_task.cancel()
+            self.fetch_last_submitted_timestamp_task = None
+            self.submit_trades_task.cancel()
+            self.submit_trades_task = None
 
     async def check_network(self) -> NetworkStatus:
         try:
