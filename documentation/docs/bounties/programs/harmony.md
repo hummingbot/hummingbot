@@ -15,7 +15,7 @@ This reward schedule is tentative and subject to change without prior notice.
 - Step 3: Learn [how to configure the bot](/bounties/tutorial/config) in order to be qualified for the liquidity bounty
 - Step 4: Have fun market making! 😎 
 
-!!! note 
+!!! note "Note: Pure market making strategy" 
     To qualify for $ONE Makers at this moment, please choose **pure market making strategy** on **Binance** for any available $ONE token pairs.  
 
 
@@ -56,3 +56,24 @@ For additional terms related to the sharing and use of your data, please review 
 - [Hummingbot Apache License 2.0](https://github.com/CoinAlpha/hummingbot/blob/master/LICENSE)
 - [Hummingbot Website Terms of Use](https://www.hummingbot.io/terms.pdf)
 - Each Token Issuer’s respective Privacy Policy that relates to your use of Hummingbot
+
+### Data Monitoring
+It is the policy of CoinAlpha to prohibit and prevent market manipulation and unlawful trading activities. Users are prohibited from using Hummingbot for purposes of market manipulation, including but not limited to wash trading, spoofing, pump-and-dump schemes or any other practices intended to mislead others by artificially affecting market activity.
+
+In the course of providing the Services, CoinAlpha may monitor and detect “suspicious activity” in the form of potential market manipulation, including activity conducted by Hummingbot accounts that have opted-in to liquidity bounty programs and associated data collection. Based on any “suspicious activity" data, CoinAlpha may determine whether any additional steps are required, including reporting this activity to the Client, which may include the relevant token issuer(s) or exchange(s). Throughout the process CoinAlpha may document when and how this monitoring is carried out and the rationale for handling the activity.
+
+### Compensation Disclosure
+CoinAlpha may receive compensation from Token Issuers in exchange for providing Hummingbot-related software and services, including trading monitoring, bounty advising, and technical support. CoinAlpha is not responsible for (and makes no guarantees about) possible bounty rewards or other payments to a given User; any such decisions and payments are made solely by and through the Token Issuers.
+
+### No Guarantee of Profits
+CoinAlpha makes no guarantees or claims that participation in the bounty program will be profitable, however measured, for the user. Users determine and set their own parameters for their software usage and possible trading and, relatedly, take on any and all associated risk, including short-term gain or loss, any tax consequences, or loss of funds. CoinAlpha makes no guarantees that use of Hummingbot will bring the user any form of profit or “reward,” including in the form of bounty, the volume of tokens, or the net value of user account as measured in fiat currencies or any cryptocurrency. By using this program, user affirms full responsibility for any consequences of Hummingbot-based trading.
+
+### Legality Disclaimer
+CoinAlpha makes no claim or endorsement as to the regulatory classification of any token, including tokens paid out in this Bounty Program. Before signing up for this program, users should check with appropriate advisers and authorities to ensure that receipt, purchase and/or sale of these tokens is consistent with the rules of their relevant legal jurisdiction.
+
+Users are prohibited from utilizing Hummingbot to trade any tokens that they are prohibited from buying, selling, or trading by the rules of their local jurisdiction. By using Hummingbot and participating in any bounty program, users are acknowledging that they are allowed, consistent with any applicable laws and regulations, to use Hummingbot to buy, sell, trade, or receive as bounty any tokens they buy, sell trade, or receive.
+
+Hummingbot is open-source software available globally and CoinAlpha makes no assurances or representations about whether a given use of the software is permitted in their local jurisdiction -- or about the regulatory classification of any tokens used or traded with Hummingbot or on Hummingbot-linked exchanges. Users are responsible for consulting with their legal advisors. By downloading Hummingbot, users acknowledge that neither CoinAlpha nor any Hummingbot developers are responsible for any legal or economic consequences stemming from their use of the trading bot or bounty program participation.
+
+### Updating this Policy
+CoinAlpha reserves the right, at its sole discretion, to update, modify, and/or make any changes to the terms of this policy, including in order to improve Services or comply with any applicable law, regulations, or orders.
