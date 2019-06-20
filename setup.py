@@ -22,6 +22,7 @@ def main():
         "hummingbot",
         "hummingbot.client",
         "hummingbot.client.config",
+        "hummingbot.client.liquidity_bounty",
         "hummingbot.client.ui",
         "hummingbot.core",
         "hummingbot.core.data_type",
@@ -54,6 +55,7 @@ def main():
     package_data = {
         "hummingbot": [
             "core/cpp/*",
+            "client/liquidity_bounty/*.txt",
             "wallet/ethereum/zero_ex/zero_ex_exchange_abi.json"
             "wallet/ethereum/token_abi/*.json"
             "wallet/ethereum/erc20_tokens.json"
