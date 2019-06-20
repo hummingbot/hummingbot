@@ -92,7 +92,6 @@ class ExchangeRateConversion:
         except Exception:
             cls.logger().error("Error initiating config for exchange rate conversion.", exc_info=True)
 
-
     @property
     def exchange_rate(self):
         return self._exchange_rate.copy()

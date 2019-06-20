@@ -143,7 +143,7 @@ global_config_map = {
                                                       global_config_map.get("stop_loss_pct").value >= 0,
                                                   validator=lambda v: v in {"fixed", "dynamic"}),
     "stop_loss_base_token":             ConfigVar(key="stop_loss_base_token",
-                                                  prompt="Would base token would you like to use to calculate your "
+                                                  prompt="What base token would you like to use to calculate your "
                                                          "inventory value? (Default \"USD\") >>> ",
                                                   default="USD",
                                                   required_if=lambda:
