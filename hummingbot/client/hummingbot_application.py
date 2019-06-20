@@ -938,8 +938,8 @@ class HummingbotApplication:
                 strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
 
                 self.strategy = PureMarketMakingStrategyV2(market_infos=[self.market_info],
-                                                           pricing_delegate = pricing_delegate,
-                                                           sizing_delegate = sizing_delegate,
+                                                           pricing_delegate=pricing_delegate,
+                                                           sizing_delegate=sizing_delegate,
                                                            legacy_order_size=order_size,
                                                            legacy_bid_spread=bid_place_threshold,
                                                            legacy_ask_spread=ask_place_threshold,
