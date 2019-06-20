@@ -15,34 +15,33 @@ from typing import (
 import unittest
 from unittest.mock import patch
 
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType
-)
-from hummingbot.market.binance.binance_market import (
-    BinanceMarket,
-    BinanceTime
-)
 from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 from hummingbot.core.event.events import (
-    MarketEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
     MarketReceivedAssetEvent,
     MarketWithdrawAssetEvent,
     OrderFilledEvent,
-    BuyOrderCreatedEvent,
+    OrderType,
+    SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeFee
+    TradeFee,
+    TradeType,
+)
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
+from hummingbot.market.binance.binance_market import (
+    BinanceMarket,
+    BinanceTime,
+    binance_client_module
 )
 from hummingbot.wallet.ethereum.mock_wallet import MockWallet
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 
 MAINNET_RPC_URL = "http://mainnet-rpc.mainnet:8545"
 logging.basicConfig(level=METRICS_LOG_LEVEL)
@@ -397,18 +396,26 @@ class BinanceMarketUnitTest(unittest.TestCase):
             self.assertEqual(cr.success, True)
 
     def test_server_time_offset(self):
-        BinanceTime.get_instance().SERVER_TIME_OFFSET_CHECK_INTERVAL = 3.0
-        self.run_parallel(asyncio.sleep(60))
-        with patch("hummingbot.market.binance.binance_market.time") as market_time:
-            def delayed_time():
-                return time.time() - 30.0
-            market_time.time = delayed_time
-            self.run_parallel(asyncio.sleep(5.0))
-            time_offset = BinanceTime.get_instance().time_offset_ms
-            print("offest", time_offset)
-            # check if it is less than 5% off
-            self.assertTrue(time_offset > 0)
-            self.assertTrue(abs(time_offset - 30.0 * 1e3) < 1.5 * 1e3)
+        time_obj: BinanceTime = binance_client_module.time
+        old_check_interval: float = time_obj.SERVER_TIME_OFFSET_CHECK_INTERVAL
+        time_obj.SERVER_TIME_OFFSET_CHECK_INTERVAL = 1.0
+        time_obj.stop()
+        time_obj.start()
+
+        try:
+            with patch("hummingbot.market.binance.binance_time.time") as market_time:
+                def delayed_time():
+                    return time.time() - 30.0
+                market_time.time = delayed_time
+                self.run_parallel(asyncio.sleep(3.0))
+                time_offset = BinanceTime.get_instance().time_offset_ms
+                # check if it is less than 5% off
+                self.assertTrue(time_offset > 10000)
+                self.assertTrue(abs(time_offset - 30.0 * 1e3) < 1.5 * 1e3)
+        finally:
+            time_obj.SERVER_TIME_OFFSET_CHECK_INTERVAL = old_check_interval
+            time_obj.stop()
+            time_obj.start()
 
 
 if __name__ == "__main__":
