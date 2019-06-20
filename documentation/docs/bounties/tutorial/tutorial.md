@@ -19,7 +19,7 @@ Make sure that your computer environment is up to date:
 
 If you want to install hummingbot from source and run locally, you need to install <a href="https://www.anaconda.com/distribution/" target="_blank">Anaconda</a> since Hummingbot requires Python.
 
-###💰 Token inventory 
+### Token inventory 
 You need to have enough inventory of the token pairs you want to trade. Be aware of the minimum order size requirements on different exchanges.
 
 ### Centralized exchange account and API 
@@ -82,7 +82,7 @@ The left bottom pane is where you enter [commands](https://docs.hummingbot.io/op
 ## Configuration
 Every time you start running Hummingbot, you need to configure the settings. You can choose to `create` new settings or `import` previous config files. They can be [edited directly](https://docs.hummingbot.io/operation/configuration/) or accessed later in the `conf/` folder that hummingbot automactially creates when you first configure it. 
 
-To participate in liquidity bounties, you should choose either **pure market making strategy** or **cross-exchange market making startegy** so that you can make market for designated tokens. The bounty rewards will be paid out based on the volume of your filled limit maker orders. 
+To participate in liquidity bounties, you should choose either **pure market making strategy** or **cross-exchange market making startegy** so that you can make market for designated tokens. The bounty rewards will be paid out based on the volume of your filled limit orders. 
 
 ### [Pure market making](https://docs.hummingbot.io/strategies/pure-market-making/)
 
