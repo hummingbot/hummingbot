@@ -190,7 +190,7 @@ cdef class InFlightOrder:
                 data["symbol"],
                 data["is_buy"],
                 getattr(OrderType, data["order_type"]),
-                Decimal(data["amount"]),
+                Decimal(data["initial_amount"]),
                 Decimal(data["price"]),
                 data["created_timestamp"]
             )
@@ -319,11 +319,14 @@ cdef class IDEXMarket(MarketBase):
         cdef:
             list retval = []
             InFlightOrder typed_in_flight_order
+            set expiring_order_ids = set([order_id for _, order_id in self._order_expiry_queue])
 
         for in_flight_order in self._in_flight_orders.values():
             typed_in_flight_order = in_flight_order
             if ((typed_in_flight_order.order_type is not OrderType.LIMIT) or
                     typed_in_flight_order.is_done):
+                continue
+            if typed_in_flight_order.client_order_id in expiring_order_ids:
                 continue
             retval.append(typed_in_flight_order.to_limit_order())
 
@@ -493,13 +496,14 @@ cdef class IDEXMarket(MarketBase):
             if not previous_is_cancelled and tracked_limit_order.is_cancelled:
                 self.logger().info(f"The limit order {tracked_limit_order.client_order_id} has cancelled according "
                                     f"to order status API.")
+                self.c_expire_order(tracked_limit_order.client_order_id)
                 self.c_trigger_event(
                     self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                     OrderCancelledEvent(self._current_timestamp, tracked_limit_order.client_order_id)
                 )
-                self.c_expire_order(tracked_limit_order.client_order_id)
 
             elif not previous_is_done and tracked_limit_order.is_done:
+                self.c_expire_order(tracked_limit_order.client_order_id)
                 if tracked_limit_order.is_buy:
                     self.logger().info(f"The limit buy order {tracked_limit_order.client_order_id}"
                                         f"has completed according to order status API.")
@@ -526,7 +530,6 @@ cdef class IDEXMarket(MarketBase):
                                                                     float(tracked_limit_order.quote_asset_amount),
                                                                     float(tracked_limit_order.gas_fee_amount),
                                                                     OrderType.LIMIT))
-                self.c_expire_order(tracked_limit_order.client_order_id)
         self._last_update_order_timestamp = current_timestamp
 
     async def _http_client(self) -> aiohttp.ClientSession:
@@ -777,6 +780,7 @@ cdef class IDEXMarket(MarketBase):
         response_data = await self.post_cancel_order(cancel_order_request)
         if isinstance(response_data, dict) and response_data.get("success"):
             self.logger().info(f"Successfully cancelled order {exchange_order_id}.")
+            self.c_expire_order(client_order_id)
             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                  OrderCancelledEvent(self._current_timestamp, client_order_id))
         return response_data
@@ -845,6 +849,13 @@ cdef class IDEXMarket(MarketBase):
                                                          price=Decimal(price),
                                                          side="buy")
                 order_result = await self.post_limit_order(limit_order)
+                tracked_order = self._in_flight_orders.get(order_id)
+                if tracked_order is not None:
+                    exchange_order_id = order_result["orderHash"]
+                    self.logger().info(f"Created limit buy order {exchange_order_id} for "
+                                    f"{q_amt} {symbol}.")
+                    tracked_order.update_exchange_order_id(exchange_order_id)
+                    tracked_order.update_created_timestamp(time.time())
                 self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
                                      BuyOrderCreatedEvent(
                                          self._current_timestamp,
@@ -854,13 +865,6 @@ cdef class IDEXMarket(MarketBase):
                                          Decimal(price),
                                          order_id
                                      ))
-                tracked_order = self._in_flight_orders.get(order_id)
-                if tracked_order is not None:
-                    exchange_order_id = order_result["orderHash"]
-                    self.logger().info(f"Created limit buy order {exchange_order_id} for "
-                                    f"{q_amt} {symbol}.")
-                    tracked_order.update_exchange_order_id(exchange_order_id)
-                    tracked_order.update_created_timestamp(time.time())
             else:
                 best_limit_orders = self._order_book_tracker._active_order_trackers[symbol].get_best_limit_orders(is_buy=True, amount=Decimal(q_amt))
                 signed_market_orders = self._generate_buy_market_order(Decimal(q_amt), best_limit_orders, symbol)
@@ -875,7 +879,7 @@ cdef class IDEXMarket(MarketBase):
                                          0.0,
                                          order_id
                                      ))
-                quote_asset_amount_spent = s_decimal_0    
+                quote_asset_amount_spent = s_decimal_0
                 for completed_order in completed_orders:
                     quote_asset_amount_spent += Decimal(completed_order["total"])
                 tracked_order = self._in_flight_orders.get(order_id)
@@ -928,6 +932,13 @@ cdef class IDEXMarket(MarketBase):
                                                          price=Decimal(price),
                                                          side="sell")
                 order_result = await self.post_limit_order(limit_order)
+                tracked_order = self._in_flight_orders.get(order_id)
+                if tracked_order is not None:
+                    exchange_order_id = order_result["orderHash"]
+                    self.logger().info(f"Created limit sell order {exchange_order_id} for "
+                                    f"{q_amt} {symbol}.")
+                    tracked_order.update_exchange_order_id(exchange_order_id)
+                    tracked_order.update_created_timestamp(time.time())
                 self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
                                      SellOrderCreatedEvent(
                                          self._current_timestamp,
@@ -937,13 +948,6 @@ cdef class IDEXMarket(MarketBase):
                                          Decimal(price),
                                          order_id
                                      ))
-                tracked_order = self._in_flight_orders.get(order_id)
-                if tracked_order is not None:
-                    exchange_order_id = order_result["orderHash"]
-                    self.logger().info(f"Created limit sell order {exchange_order_id} for "
-                                    f"{q_amt} {symbol}.")
-                    tracked_order.update_exchange_order_id(exchange_order_id)
-                    tracked_order.update_created_timestamp(time.time())
             else:
                 best_limit_orders = self._order_book_tracker._active_order_trackers[symbol].get_best_limit_orders(is_buy=False, amount=Decimal(q_amt))
                 signed_market_orders = self._generate_sell_market_order(Decimal(q_amt), best_limit_orders, symbol)
