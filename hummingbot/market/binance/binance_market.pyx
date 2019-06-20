@@ -986,6 +986,9 @@ cdef class BinanceMarket(MarketBase):
         # token requested is adjusted to account for fees.
         adjusted_amount = amount / (1 - buy_fee.percent)
         decimal_amount = self.c_quantize_order_amount(symbol, adjusted_amount)
+        decimal_price = (self.c_quantize_order_price(symbol, price)
+                         if order_type is OrderType.LIMIT
+                         else s_decimal_0)
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
@@ -994,7 +997,6 @@ cdef class BinanceMarket(MarketBase):
             order_result = None
             order_decimal_amount = f"{decimal_amount:f}"
             if order_type is OrderType.LIMIT:
-                decimal_price = self.c_quantize_order_price(symbol, price)
                 order_decimal_price = f"{decimal_price:f}"
                 self.c_start_tracking_order(order_id, -1, symbol, True, decimal_price, decimal_amount, order_type)
                 order_result = await self.query_api(self._binance_client.order_limit_buy,
@@ -1024,7 +1026,7 @@ cdef class BinanceMarket(MarketBase):
                                      order_type,
                                      symbol,
                                      float(decimal_amount),
-                                     0.0 if math.isnan(price) else price,
+                                     float(decimal_price),
                                      order_id
                                  ))
         except asyncio.CancelledError:
@@ -1034,7 +1036,8 @@ cdef class BinanceMarket(MarketBase):
             order_type_str = 'MARKET' if order_type == OrderType.MARKET else 'LIMIT'
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Binance for "
-                f"{decimal_amount} {symbol} {price}.",
+                f"{decimal_amount} {symbol} "
+                f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit buy order to Binance. Check API key and network connection."
             )
@@ -1059,16 +1062,17 @@ cdef class BinanceMarket(MarketBase):
             TradingRule trading_rule = self._trading_rules[symbol]
 
         decimal_amount = self.quantize_order_amount(symbol, amount)
+        decimal_price = (self.c_quantize_order_price(symbol, price)
+                         if order_type is OrderType.LIMIT
+                         else s_decimal_0)
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
-
 
         try:
             order_result = None
             order_decimal_amount = f"{decimal_amount:f}"
             if order_type is OrderType.LIMIT:
-                decimal_price = self.c_quantize_order_price(symbol, price)
                 order_decimal_price = f"{decimal_price:f}"
                 self.c_start_tracking_order(order_id, -1, symbol, False, decimal_price, decimal_amount, order_type)
                 order_result = await self.query_api(self._binance_client.order_limit_sell,
@@ -1098,17 +1102,18 @@ cdef class BinanceMarket(MarketBase):
                                      order_type,
                                      symbol,
                                      float(decimal_amount),
-                                     0.0 if math.isnan(price) else price,
+                                     float(decimal_price),
                                      order_id
                                  ))
         except asyncio.CancelledError:
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            order_type_str = 'MARKET' if order_type == OrderType.MARKET else 'LIMIT'
+            order_type_str = 'MARKET' if order_type is OrderType.MARKET else 'LIMIT'
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Binance for "
-                f"{decimal_amount} {symbol} {price}.",
+                f"{decimal_amount} {symbol} "
+                f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit sell order to Binance. Check API key and network connection."
             )
