@@ -291,9 +291,9 @@ class IDEXMarketUnitTest(unittest.TestCase):
             self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
-            self.assertEqual(0, len(self.market.tracking_states))
+            self.assertEqual(1, len(self.market.tracking_states))
             saved_market_states = recorder.get_market_states(config_path, self.market)
-            self.assertEqual(0, len(saved_market_states.saved_state))
+            self.assertEqual(1, len(saved_market_states.saved_state))
         finally:
             if order_id is not None:
                 self.market.cancel(symbol, order_id)
