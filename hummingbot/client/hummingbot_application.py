@@ -69,6 +69,7 @@ from hummingbot.client.errors import (
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.in_memory_config_map import in_memory_config_map
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.liquidity_bounty.liquidity_bounty_config_map import liquidity_bounty_config_map
 from hummingbot.client.config.config_helpers import (
     get_strategy_config_map,
     write_config_to_yml,
@@ -76,8 +77,12 @@ from hummingbot.client.config.config_helpers import (
     parse_cvar_value,
     copy_strategy_template,
     get_erc20_token_addresses,
+    save_to_yml,
 )
-from hummingbot.client.settings import EXCHANGES
+from hummingbot.client.settings import (
+    EXCHANGES,
+    LIQUIDITY_BOUNTY_CONFIG_PATH,
+)
 from hummingbot.logger.report_aggregator import ReportAggregator
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import (
@@ -107,6 +112,7 @@ from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.client.liquidity_bounty.bounty_utils import LiquidityBounty
 
 s_logger = None
 
@@ -167,6 +173,8 @@ class HummingbotApplication:
         self.data_feed: Optional[DataFeedBase] = None
         self.stop_loss_tracker: Optional[StopLossTracker] = None
         self.notifiers: List[NotifierBase] = []
+        self.liquidity_bounty: Optional[LiquidityBounty] = None
+        self._initialize_liquidity_bounty()
         self._app_warnings: Deque[ApplicationWarning] = deque()
         self._trading_required: bool = True
 
@@ -286,7 +294,7 @@ class HummingbotApplication:
         else:
             self._notify("Aborted.")
 
-    def config(self, key: str = None):
+    def config(self, key: str = None, key_list: Optional[List[str]] = None):
         self.app.clear_input()
 
         if self.strategy or (self.config_complete and key is None):
@@ -297,6 +305,8 @@ class HummingbotApplication:
             return
         if key is not None:
             keys = [key]
+        elif key_list is not None:
+            keys = key_list
         else:
             keys = self._get_empty_configs()
         asyncio.ensure_future(self._config_loop(keys), loop=self.ev_loop)
@@ -380,34 +390,34 @@ class HummingbotApplication:
             strategy_path = await self._import_or_create_strategy_config()
         return strategy_path
 
+    async def config_single_variable(self, cvar: ConfigVar, is_single_key: bool = False) -> Any:
+        if cvar.required or is_single_key:
+            if cvar.key == "strategy_file_path":
+                val = await self._import_or_create_strategy_config()
+            elif cvar.key == "wallet":
+                wallets = list_wallets()
+                if len(wallets) > 0:
+                    val = await self._unlock_wallet()
+                else:
+                    val = await self._create_or_import_wallet()
+                logging.getLogger("hummingbot.public_eth_address").info(val)
+            else:
+                val = await self.app.prompt(prompt=cvar.prompt, is_password=cvar.is_secure)
+            if not cvar.validate(val):
+                self._notify("%s is not a valid %s value" % (val, cvar.key))
+                val = await self.config_single_variable(cvar)
+        else:
+            val = cvar.value
+        if val is None or (isinstance(val, string_types) and len(val) == 0):
+            val = cvar.default
+        return val
+
     async def _config_loop(self, keys: List[str] = []):
         self._notify("Please follow the prompt to complete configurations: ")
         self.placeholder_mode = True
         self.app.toggle_hide_input()
 
         single_key = len(keys) == 1
-
-        async def single_prompt(cvar: ConfigVar):
-            if cvar.required or single_key:
-                if cvar.key == "strategy_file_path":
-                    val = await self._import_or_create_strategy_config()
-                elif cvar.key == "wallet":
-                    wallets = list_wallets()
-                    if len(wallets) > 0:
-                        val = await self._unlock_wallet()
-                    else:
-                        val = await self._create_or_import_wallet()
-                    logging.getLogger("hummingbot.public_eth_address").info(val)
-                else:
-                    val = await self.app.prompt(prompt=cvar.prompt, is_password=cvar.is_secure)
-                if not cvar.validate(val):
-                    self._notify("%s is not a valid %s value" % (val, cvar.key))
-                    val = await single_prompt(cvar)
-            else:
-                val = cvar.value
-            if val is None or (isinstance(val, string_types) and len(val) == 0):
-                val = cvar.default
-            return val
 
         async def inner_loop(_keys: List[str]):
             for key in _keys:
@@ -420,7 +430,7 @@ class HummingbotApplication:
                 else:
                     cv: ConfigVar = strategy_cm.get(key)
 
-                value = await single_prompt(cv)
+                value = await self.config_single_variable(cv, is_single_key=single_key)
                 cv.value = parse_cvar_value(cv, value)
                 if single_key:
                     self._notify(f"\nNew config saved:\n{key}: {str(value)}")
@@ -459,7 +469,15 @@ class HummingbotApplication:
 
     def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
+
+        # aggregate symbols if there are duplicate markets
+        market_symbols_map = {}
         for market_name, symbols in market_names:
+            if market_name not in market_symbols_map:
+                market_symbols_map[market_name] = []
+            market_symbols_map[market_name] += symbols
+
+        for market_name, symbols in market_symbols_map.items():
             if market_name == "ddex" and self.wallet:
                 market = DDEXMarket(wallet=self.wallet,
                                     ethereum_rpc_url=ethereum_rpc_url,
@@ -524,6 +542,12 @@ class HummingbotApplication:
                                                        hb=self))
         for notifier in self.notifiers:
             notifier.start()
+
+    def _initialize_liquidity_bounty(self):
+        if liquidity_bounty_config_map.get("liquidity_bounty_enabled").value is not None and \
+           liquidity_bounty_config_map.get("liquidity_bounty_client_id").value is not None:
+            self.liquidity_bounty = LiquidityBounty.get_instance()
+            asyncio.ensure_future(self.liquidity_bounty.start_network(), loop=self.ev_loop)
 
     def _format_application_warnings(self) -> str:
         lines: List[str] = []
@@ -773,6 +797,8 @@ class HummingbotApplication:
             await clock.run()
 
     async def start_market_making(self, strategy_name: str):
+        await ExchangeRateConversion.get_instance().ready_notifier.wait()
+
         strategy_cm = get_strategy_config_map(strategy_name)
         if strategy_name == "cross_exchange_market_making":
             maker_market = strategy_cm.get("maker_market").value.lower()
@@ -1114,3 +1140,81 @@ class HummingbotApplication:
         df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Delta"])
         lines = ["", "  Performance:"] + ["    " + line for line in str(df).split("\n")]
         self._notify("\n".join(lines))
+
+    def bounty(self, register: bool = False, status: bool = False, terms: bool = False):
+        """ Router function for `bounty` command """
+        if terms:
+            asyncio.ensure_future(self.bounty_print_terms(), loop=self.ev_loop)
+        elif register:
+            asyncio.ensure_future(self.bounty_registration(), loop=self.ev_loop)
+        else:
+            asyncio.ensure_future(self.bounty_show_status(), loop=self.ev_loop)
+
+    async def print_doc(self, doc_path: str):
+        with open(doc_path) as doc:
+            data = doc.read()
+            self._notify(str(data))
+
+    async def bounty_show_status(self):
+        """ Show bounty status """
+        if self.liquidity_bounty is None:
+            self._notify("Liquidity bounty not active. Please register for the bounty by entering `bounty --register`.")
+            return
+        else:
+            self._notify(str(self.liquidity_bounty.formatted_status()))
+
+    async def bounty_print_terms(self):
+        """ Print bounty Terms and Conditions to output pane """
+        await self.print_doc(join(dirname(__file__), "./liquidity_bounty/terms_and_conditions.txt"))
+
+    async def bounty_registration(self):
+        """ Register for the bounty program """
+        if self.liquidity_bounty:
+            self._notify("You are already registered to collect bounties.")
+            return
+        await self.bounty_config_loop()
+        self._notify("Registering for liquidity bounties...")
+        self.liquidity_bounty = LiquidityBounty.get_instance()
+        try:
+            registration_results = await self.liquidity_bounty.register()
+            self._notify("Registration successful.")
+            client_id = registration_results["client_id"]
+            liquidity_bounty_config_map.get("liquidity_bounty_client_id").value = client_id
+            await save_to_yml(LIQUIDITY_BOUNTY_CONFIG_PATH, liquidity_bounty_config_map)
+            await self.liquidity_bounty.start_network()
+            self._notify("Hooray! You are now collecting bounties. ")
+        except Exception as e:
+            self._notify(str(e))
+
+    async def bounty_config_loop(self):
+        """ Configuration loop for bounty registration """
+        self.placeholder_mode = True
+        self.app.toggle_hide_input()
+        self._notify("Starting registration process for liquidity bounties:")
+
+        try:
+            for key, cvar in liquidity_bounty_config_map.items():
+                if key == "liquidity_bounty_enabled":
+                    await self.print_doc(join(dirname(__file__), "./liquidity_bounty/requirements.txt"))
+                elif key == "agree_to_terms":
+                    await self.bounty_print_terms()
+                elif key == "agree_to_data_collection":
+                    await self.print_doc(join(dirname(__file__), "./liquidity_bounty/data_collection_policy.txt"))
+                elif key == "eth_address":
+                    self._notify("\nYour wallets:")
+                    self.list("wallets")
+
+                value = await self.config_single_variable(cvar)
+                cvar.value = parse_cvar_value(cvar, value)
+                if cvar.type == "bool" and cvar.value is False:
+                    raise ValueError(f"{cvar.key} is required.")
+                await save_to_yml(LIQUIDITY_BOUNTY_CONFIG_PATH, liquidity_bounty_config_map)
+        except ValueError as e:
+            self._notify(f"Registration aborted: {str(e)}")
+        except Exception as e:
+            self.logger().error(f"Error configuring liquidity bounty: {str(e)}")
+
+        self.app.change_prompt(prompt=">>> ")
+        self.app.toggle_hide_input()
+        self.placeholder_mode = False
+
