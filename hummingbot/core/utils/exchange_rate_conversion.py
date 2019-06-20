@@ -25,6 +25,11 @@ class ExchangeRateConversion:
     _exchange_rate_config: Dict[str, Dict] = {"conversion_required": {}, "global_config": {}}
     _exchange_rate: Dict[str, float] = {}
     _started: bool = False
+    _ready_notifier: asyncio.Event = asyncio.Event()
+
+    @property
+    def ready_notifier(self) -> asyncio.Event:
+        return self._ready_notifier
 
     @classmethod
     def get_instance(cls) -> "ExchangeRateConversion":
@@ -91,7 +96,6 @@ class ExchangeRateConversion:
             cls._exchange_rate = {k: v["default"] for k, v in cls._exchange_rate_config["global_config"].items()}
         except Exception:
             cls.logger().error("Error initiating config for exchange rate conversion.", exc_info=True)
-
 
     @property
     def exchange_rate(self):
@@ -162,6 +166,7 @@ class ExchangeRateConversion:
             try:
                 await self.wait_till_ready()
                 await self.update_exchange_rates_from_data_feeds()
+                self._ready_notifier.set()
             except asyncio.CancelledError:
                 raise
             except Exception:
