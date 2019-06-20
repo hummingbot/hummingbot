@@ -230,14 +230,14 @@ class IDEXMarketUnitTest(unittest.TestCase):
         recorder.start()
 
         try:
-            self.assertEqual(0, len(self.market.tracking_states["limit_orders"]))
+            self.assertEqual(0, len(self.market.tracking_states))
 
             # Try to put limit buy order for 0.05 ETH worth of FXC, and watch for order creation event.
             current_bid_price: float = self.market.get_price(symbol, True)
-            bid_price: float = current_bid_price * 0.8
+            bid_price: float = current_bid_price * 0.9
             quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
-            amount: float = 0.05 / bid_price
+            amount: float = 0.18 / bid_price
             quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
             expires = int(time.time() + 60 * 5)
@@ -248,8 +248,8 @@ class IDEXMarketUnitTest(unittest.TestCase):
             self.assertEqual(order_id, order_created_event.order_id)
 
             # Verify tracking states
-            self.assertEqual(1, len(self.market.tracking_states["limit_orders"]))
-            self.assertEqual(order_id, list(self.market.tracking_states["limit_orders"].keys())[0])
+            self.assertEqual(1, len(self.market.tracking_states))
+            self.assertEqual(order_id, list(self.market.tracking_states.keys())[0])
 
             # Verify orders from recorder
             recorded_orders: List[Order] = recorder.get_orders_for_config_and_market(config_path, self.market)
@@ -260,8 +260,8 @@ class IDEXMarketUnitTest(unittest.TestCase):
             saved_market_states: MarketState = recorder.get_market_states(config_path, self.market)
             self.assertIsNotNone(saved_market_states)
             self.assertIsInstance(saved_market_states.saved_state, dict)
-            self.assertIsInstance(saved_market_states.saved_state["limit_orders"], dict)
-            self.assertGreater(len(saved_market_states.saved_state["limit_orders"]), 0)
+            self.assertIsInstance(saved_market_states.saved_state, dict)
+            self.assertGreater(len(saved_market_states.saved_state), 0)
 
             # Close out the current market and start another market.
             self.clock.remove_iterator(self.market)
@@ -281,19 +281,19 @@ class IDEXMarketUnitTest(unittest.TestCase):
             saved_market_states = recorder.get_market_states(config_path, self.market)
             self.clock.add_iterator(self.market)
             self.assertEqual(0, len(self.market.limit_orders))
-            self.assertEqual(0, len(self.market.tracking_states["limit_orders"]))
+            self.assertEqual(0, len(self.market.tracking_states))
             self.market.restore_tracking_states(saved_market_states.saved_state)
             self.assertEqual(1, len(self.market.limit_orders))
-            self.assertEqual(1, len(self.market.tracking_states["limit_orders"]))
+            self.assertEqual(1, len(self.market.tracking_states))
 
             # Cancel the order and verify that the change is saved.
             self.market.cancel(symbol, order_id)
             self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
-            self.assertEqual(1, len(self.market.tracking_states["limit_orders"]))
+            self.assertEqual(0, len(self.market.tracking_states))
             saved_market_states = recorder.get_market_states(config_path, self.market)
-            self.assertEqual(1, len(saved_market_states.saved_state["limit_orders"]))
+            self.assertEqual(0, len(saved_market_states.saved_state))
         finally:
             if order_id is not None:
                 self.market.cancel(symbol, order_id)
