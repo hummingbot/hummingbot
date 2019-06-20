@@ -1,4 +1,4 @@
-# Install from Docker
+# Install from Docker (Windows)
 
 Using a pre-compiled version of `hummingbot` from Docker allows you to run `hummingbot` with a single line command.
 
@@ -8,9 +8,11 @@ Docker images of `hummingbot` are available on Docker Hub at [coinalpha/hummingb
 
 For Windows users without Windows-Pro or Windows-Enterprise, you will need to install the Docker Toolbox. Download the latest version Toolbox .exe file at the following link: [Docker Toolbox Releases](https://github.com/docker/toolbox/releases/).
 
-Install Toolbox from the .exe file, including VirtualBox and Git if you do not have those on your computer. Otherwise, maintain default settings and restart after installation.
+- [Docker Toolbox](https://github.com/docker/toolbox/releases/) with included VirtualBox
+- [git](https://gitforwindows.org/)
 
-You can now open Docker via the Quickstart Terminal. On the first start-up, give the Toolbox a few minutes to initialize.
+!!! note
+    In order to proceed, ensure that you are able to launch Docker via the Quickstart Terminal.
 
 ## Create new instance of `hummingbot` (Windows)
 
