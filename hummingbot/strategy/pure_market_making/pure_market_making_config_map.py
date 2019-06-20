@@ -31,8 +31,8 @@ pure_market_making_config_map = {
                                                   prompt=maker_symbol_prompt,
                                                   validator=is_valid_maker_market_symbol),
     "mode":                             ConfigVar(key="mode",
-                                                  prompt="Enter single for single order and multiple for multiple "
-                                                         "order mode, (default is single)>>> ",
+                                                  prompt="Enter quantity of orders per side (bid/ask) "
+                                                         "(single/multiple, default is single) >>> ",
                                                   type_str="str",
                                                   validator=lambda v: v in {"single", "multiple"},
                                                   default="single"),
@@ -53,7 +53,7 @@ pure_market_making_config_map = {
                                                   default=60),
     "order_amount":                     ConfigVar(key="order_amount",
                                                   prompt="What is your preferred quantity per order (denominated in "
-                                                         "the base asset, default is 1)? >>> ",
+                                                         "the base asset, default is 1) ? >>> ",
                                                   default=1.0,
                                                   required_if=
                                                   lambda: pure_market_making_config_map.get("mode").value == "single",
@@ -80,7 +80,7 @@ pure_market_making_config_map = {
                                                   type_str="float",
                                                   default=0),
     "order_interval_percent":           ConfigVar(key="order_interval_percent",
-                                                  prompt="What is the spacing between orders "
+                                                  prompt="Enter the price increments (as percentage) for subsequent orders"
                                                   " (Enter 0.01 to indicate 1%)? >>> ",
                                                   required_if=
                                                   lambda: pure_market_making_config_map.get("mode").value == "multiple",
