@@ -16,20 +16,16 @@ from typing import (
 from decimal import Decimal
 from libc.stdint cimport int64_t
 from web3 import Web3
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.market.market_base cimport MarketBase
-from hummingbot.market.market_base import (
-  OrderType,
-  NaN
+from zero_ex.order_utils import (
+    generate_order_hash_hex,
+    jsdict_order_to_struct,
+    Order as ZeroExOrder
 )
-from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
-from hummingbot.core.data_type.order_book cimport OrderBook
+
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
-from hummingbot.market.bamboo_relay.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
 from hummingbot.core.event.events import (
     MarketEvent,
     BuyOrderCreatedEvent,
@@ -43,11 +39,21 @@ from hummingbot.core.event.events import (
     TradeType,
     TradeFee
 )
-from zero_ex.order_utils import (
-    generate_order_hash_hex,
-    jsdict_order_to_struct,
-    Order
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.logger import HummingbotLogger
+from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
+from hummingbot.market.bamboo_relay.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
+from hummingbot.market.market_base cimport MarketBase
+from hummingbot.market.market_base import (
+    MarketBase,
+    OrderType,
+    NaN
 )
+from hummingbot.market.utils import (
+    zrx_order_to_json,
+    json_to_zrx_order
+)
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils import fix_signature
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_exchange import ZeroExExchange
 
@@ -144,7 +150,7 @@ cdef class InFlightOrder:
                  order_type: OrderType,
                  amount: Decimal,
                  price: Decimal,
-                 zero_ex_order: Order = None):
+                 zero_ex_order: ZeroExOrder = None):
         self.client_order_id = client_order_id
         self.exchange_order_id = exchange_order_id
         self.tx_hash = tx_hash
@@ -191,6 +197,45 @@ cdef class InFlightOrder:
     def quote_asset(self) -> str:
         return self.symbol.split('-')[1]
 
+    def to_json(self) -> Dict[str, any]:
+        return {
+            "client_order_id": self.client_order_id,
+            "exchange_order_id": self.exchange_order_id,
+            "tx_hash": self.tx_hash,
+            "symbol": self.symbol,
+            "is_buy": self.is_buy,
+            "order_type": self.order_type.name,
+            "amount": str(self.amount),
+            "price": str(self.price),
+            "executed_amount": str(self.executed_amount),
+            "available_amount": str(self.available_amount),
+            "quote_asset_amount": str(self.quote_asset_amount),
+            "gas_fee_amount": str(self.gas_fee_amount),
+            "last_state": self.last_state,
+            "zero_ex_order": zrx_order_to_json(self.zero_ex_order)
+        }
+
+    @classmethod
+    def from_json(cls, data: Dict[str, any]) -> "InFlightOrder":
+        cdef:
+            InFlightOrder retval = InFlightOrder(
+                data["client_order_id"],
+                data["exchange_order_id"],
+                data["tx_hash"],
+                data["symbol"],
+                data["is_buy"],
+                getattr(OrderType, data["order_type"]),
+                Decimal(data["amount"]),
+                Decimal(data["price"]),
+                zero_ex_order=json_to_zrx_order(data["zero_ex_order"])
+            )
+        retval.available_amount = Decimal(data["available_amount"])
+        retval.executed_amount = Decimal(data["executed_amount"])
+        retval.quote_asset_amount = Decimal(data["quote_asset_amount"])
+        retval.gas_fee_amount = Decimal(data["gas_fee_amount"])
+        retval.last_state = data["last_state"]
+        return retval
+
 
 cdef class BambooRelayMarket(MarketBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
@@ -227,7 +272,7 @@ cdef class BambooRelayMarket(MarketBase):
                  symbols: Optional[List[str]] = None):
         super().__init__()
         self._order_book_tracker = BambooRelayOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                              symbols=symbols)
+                                                               symbols=symbols)
         self._account_balances = {}
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
@@ -291,10 +336,13 @@ cdef class BambooRelayMarket(MarketBase):
             InFlightOrder typed_in_flight_order
             str base_currency
             str quote_currency
+            set expiring_order_ids = set([order_id for _, order_id in self._order_expiry_queue])
 
-        for in_flight_order in self._in_flight_limit_orders:
+        for in_flight_order in self._in_flight_limit_orders.values():
             typed_in_flight_order = in_flight_order
             if typed_in_flight_order.order_type is not OrderType.LIMIT:
+                continue
+            if typed_in_flight_order.client_order_id in expiring_order_ids:
                 continue
             base_currency, quote_currency = in_flight_order.symbol.split("-")
             retval.append(LimitOrder(
@@ -307,6 +355,29 @@ cdef class BambooRelayMarket(MarketBase):
                 Decimal(in_flight_order.amount)
             ))
         return retval
+
+    @property
+    def tracking_states(self) -> Dict[str, any]:
+        return {
+            "market_orders": {
+                key: value.to_json()
+                for key, value in self._in_flight_market_orders.items()
+            },
+            "limit_orders": {
+                key: value.to_json()
+                for key, value in self._in_flight_limit_orders.items()
+            }
+        }
+
+    def restore_tracking_states(self, saved_states: Dict[str, any]):
+        self._in_flight_market_orders.update({
+            key: InFlightOrder.from_json(value)
+            for key, value in saved_states["market_orders"].items()
+        })
+        self._in_flight_limit_orders.update({
+            key: InFlightOrder.from_json(value)
+            for key, value in saved_states["limit_orders"].items()
+        })
 
     async def get_active_exchange_markets(self):
         return await BambooRelayAPIOrderBookDataSource.get_active_exchange_markets()
@@ -458,30 +529,31 @@ cdef class BambooRelayMarket(MarketBase):
                 if not previous_is_cancelled and tracked_limit_order.is_cancelled:
                     self.logger().info(f"The limit order {tracked_limit_order.client_order_id} has cancelled according "
                                        f"to order status API.")
+                    self.c_expire_order(tracked_limit_order.client_order_id)
                     self.c_trigger_event(
                         self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                         OrderCancelledEvent(self._current_timestamp, tracked_limit_order.client_order_id)
                     )
-                    self.c_expire_order(tracked_limit_order.client_order_id)
                 elif not previous_is_expired and tracked_limit_order.is_expired:
                     self.logger().info(f"The limit order {tracked_limit_order.client_order_id} has expired according "
                                        f"to order status API.")
+                    self.c_expire_order(tracked_limit_order.client_order_id)
                     self.c_trigger_event(
                         self.MARKET_ORDER_EXPIRED_EVENT_TAG,
                         OrderExpiredEvent(self._current_timestamp, tracked_limit_order.client_order_id)
                     )
-                    self.c_expire_order(tracked_limit_order.client_order_id)
                 elif not previous_is_failure and tracked_limit_order.is_failure:
                     self.logger().info(f"The limit order {tracked_limit_order.client_order_id} has failed"
                                        f"according to order status API.")
+                    self.c_expire_order(tracked_limit_order.client_order_id)
                     self.c_trigger_event(
                         self.MARKET_ORDER_FAILURE_EVENT_TAG,
                         MarketOrderFailureEvent(self._current_timestamp,
                                                       tracked_limit_order.client_order_id,
                                                       OrderType.LIMIT)
                     )
-                    self.c_expire_order(tracked_limit_order.client_order_id)
                 elif not previous_is_done and tracked_limit_order.is_done:
+                    self.c_expire_order(tracked_limit_order.client_order_id)
                     if tracked_limit_order.is_buy:
                         self.logger().info(f"The limit buy order {tracked_limit_order.client_order_id}"
                                            f"has completed according to order status API.")
@@ -508,7 +580,6 @@ cdef class BambooRelayMarket(MarketBase):
                                                                      float(tracked_limit_order.quote_asset_amount),
                                                                      float(tracked_limit_order.gas_fee_amount),
                                                                      OrderType.LIMIT))
-                    self.c_expire_order(tracked_limit_order.client_order_id)
         self._last_update_limit_order_timestamp = current_timestamp
 
     async def _update_market_order_status(self):
@@ -548,7 +619,7 @@ cdef class BambooRelayMarket(MarketBase):
                             OrderType.MARKET,
                             tracked_market_order.price,
                             tracked_market_order.amount,
-                            TradeFee(0.0, ["ETH", gas_used])
+                            TradeFee(0.0, [("ETH", gas_used)])
                         )
                     )
                     if tracked_market_order.is_buy:
