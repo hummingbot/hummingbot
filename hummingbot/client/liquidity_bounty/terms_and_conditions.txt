@@ -1,0 +1,32 @@
+
+---------------------------------------------------------------------------
+
+TERMS AND CONDITIONS:
+
+* Important Disclaimers
+
+Not Financial, Legal, or Tax Advice
+The content of this Site does not constitute financial, investment, legal, or tax advice. You (the reader of this disclaimer, as well as any user of the Hummingbot software) are solely responsible for conducting any legal, accounting, or due diligence review before determining whether to download and use this open-source software and/or participate in any Bounty Programs. You should obtain investment and tax advice from the appropriate advisers before deciding to use Hummingbot or participate in any Bounty Programs.
+
+
+None of the information contained on this Site constitutes a recommendation, solicitation, or offer to buy or sell any securities, options, or other financial instruments or other assets, or to provide any investment advice or service. The information contained in this Site has been prepared without reference to any particular User’s jurisdiction or location, applicable regulatory authorities, or financial situation, or any other relevant factor that may affect whether a given User can use Hummingbot consistent with any relevant law.
+
+
+Data Sharing
+By participating in a Bounty Program, you are agreeing to sharing the following information with CoinAlpha, the Token Issuer that is conducting the Bounty Program, and their respective affiliates:
+
+Orders created by your use of Hummingbot;
+Transactions completed by your use of Hummingbot;
+Your Ethereum wallet address: where bounty awards, if any, are to be received.
+
+When sharing data from Hummingbot, you are solely responsible for configuring what information you agree to share through the Hummingbot log configuration settings (please see example log templates).
+
+
+For additional terms related to the sharing and use of your data, please review the following:
+
+Hummingbot Privacy Policy
+Hummingbot Apache License 2.0
+Hummingbot Website Terms of Use
+Each Token Issuer’s respective Privacy Policy that relates to your use of Hummingbot
+
+---------------------------------------------------------------------------
