@@ -943,12 +943,17 @@ class HummingbotApplication:
             raise NotImplementedError
 
         try:
+            config_path: str = in_memory_config_map.get("strategy_file_path").value
             self.clock = Clock(ClockMode.REALTIME)
             if self.wallet is not None:
                 self.clock.add_iterator(self.wallet)
             for market in self.markets.values():
                 if market is not None:
                     self.clock.add_iterator(market)
+                    self.markets_recorder.restore_market_states(config_path, market)
+                    if len(market.limit_orders) > 0:
+                        self._notify(f"  Cancelling dangling limit orders on {market.name}...")
+                        await market.cancel_all(5.0)
             if self.strategy:
                 self.clock.add_iterator(self.strategy)
             self.strategy_task: asyncio.Task = asyncio.ensure_future(self._run_clock(), loop=self.ev_loop)
@@ -963,7 +968,7 @@ class HummingbotApplication:
                                                              self.stop(*args, **kwargs)
                                                          ))
                 await self.wait_till_ready(self.stop_loss_tracker.start)
-                self.markets_recorder.restore_market_states()
+
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
 
