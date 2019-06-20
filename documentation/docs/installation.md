@@ -26,7 +26,7 @@ Installing from source gives you full access to the codebase and allows you to e
 
 *Estimated installation time: 10 minutes*
 
-### [Install in the cloud](installation/cloud)
+### [Install in the cloud](/installation/cloud)
 Utilizing cloud virtual machines makes it easier to run Hummingbot continuously for longer periods of time and can be configured to any OS.
 
 *Estimated installation time: 15 minutes*
