@@ -272,7 +272,7 @@ cdef class BambooRelayMarket(MarketBase):
                  symbols: Optional[List[str]] = None):
         super().__init__()
         self._order_book_tracker = BambooRelayOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                              symbols=symbols)
+                                                               symbols=symbols)
         self._account_balances = {}
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
