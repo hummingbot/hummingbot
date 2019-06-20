@@ -795,7 +795,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 total_flat_fees += flat_fee_amount
             else:
                 # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
-                total_flat_fees += ExchangeRateConversion.get_instance().adjust_token_rate(
+                total_flat_fees += ExchangeRateConversion.get_instance().convert_token_value(
                     amount=flat_fee_amount,
                     from_currency=flat_fee_currency,
                     to_currency=quote_currency

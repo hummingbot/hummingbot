@@ -27,6 +27,7 @@ from hummingbot.strategy.strategy_base import StrategyBase
 
 from .constant_spread_pricing_delegate import ConstantSpreadPricingDelegate
 from .constant_size_sizing_delegate import ConstantSizeSizingDelegate
+
 from .data_types import (
     MarketInfo,
     OrdersProposal,
@@ -110,7 +111,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION = 60.0
     CANCEL_EXPIRY_DURATION = 60.0
 
-    NO_OP_ORDERS_PROPOSAL = OrdersProposal(0, OrderType.LIMIT, 0, 0, OrderType, 0, 0, [])
+    NO_OP_ORDERS_PROPOSAL = OrdersProposal(0, OrderType.LIMIT, [0], [0], OrderType.LIMIT, [0], [0], [])
 
     # These are exchanges where you're expected to expire orders instead of actively cancelling them.
     RADAR_RELAY_TYPE_EXCHANGES = {"radar_relay", "bamboo_relay"}
@@ -129,10 +130,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  cancel_order_wait_time: float = 60,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
-                 status_report_interval: float = 900,
                  legacy_order_size: float = 1.0,
                  legacy_bid_spread: float = 0.01,
-                 legacy_ask_spread: float = 0.01):
+                 legacy_ask_spread: float = 0.01,
+                 status_report_interval: float = 900):
+
         if len(market_infos) < 1:
             raise ValueError(f"market_infos must not be empty.")
 
@@ -167,6 +169,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             pricing_delegate = ConstantSpreadPricingDelegate(legacy_bid_spread, legacy_ask_spread)
         if sizing_delegate is None:
             sizing_delegate = ConstantSizeSizingDelegate(legacy_order_size)
+
+
         self._filter_delegate = filter_delegate
         self._pricing_delegate = pricing_delegate
         self._sizing_delegate = sizing_delegate
@@ -305,11 +309,13 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
 
             pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self, market_info, active_orders)
+            bid_orders = [str(price) for price in pricing_proposal.buy_order_prices]
+            ask_orders = [str(price) for price in pricing_proposal.sell_order_prices]
             lines.extend([
                 f"{market_info.symbol}:",
                 f"  {maker_symbol} bid/ask: {bid_price}/{ask_price}",
-                f"  Bid to be placed at: {pricing_proposal.buy_order_price}",
-                f"  Ask to be placed at: {pricing_proposal.sell_order_price}",
+                f"  Bids to be placed at: {bid_orders}",
+                f"  Asks to be placed at: {ask_orders}",
                 f"  {maker_base}/{maker_quote} balance: "
                     f"{maker_base_balance}/{maker_quote_balance}"
             ])
@@ -489,7 +495,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                           market_info,
                                                                           active_orders,
                                                                           pricing_proposal)
-        if sizing_proposal.buy_order_size > 0 or sizing_proposal.sell_order_size > 0:
+        if sizing_proposal.buy_order_sizes[0] > 0 or sizing_proposal.sell_order_sizes[0] > 0:
             actions |= ORDER_PROPOSAL_ACTION_CREATE_ORDERS
 
         if maker_market.name not in self.RADAR_RELAY_TYPE_EXCHANGES:
@@ -506,11 +512,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         return OrdersProposal(actions,
                               OrderType.LIMIT,
-                              pricing_proposal.buy_order_price,
-                              sizing_proposal.buy_order_size,
+                              pricing_proposal.buy_order_prices,
+                              sizing_proposal.buy_order_sizes,
                               OrderType.LIMIT,
-                              pricing_proposal.sell_order_price,
-                              sizing_proposal.sell_order_size,
+                              pricing_proposal.sell_order_prices,
+                              sizing_proposal.sell_order_sizes,
                               cancel_order_ids)
 
 
@@ -654,58 +660,60 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         # Create orders.
         if actions & ORDER_PROPOSAL_ACTION_CREATE_ORDERS:
-            if orders_proposal.buy_order_size > 0:
-                if orders_proposal.buy_order_type is OrderType.LIMIT and orders_proposal.buy_order_price > 0:
+            if orders_proposal.buy_order_sizes[0] > 0:
+                if orders_proposal.buy_order_type is OrderType.LIMIT and orders_proposal.buy_order_prices[0] > 0:
                     if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                         self.log_with_clock(
                             logging.INFO,
-                            f"({market_info.symbol}) Creating limit bid order for "
-                            f"{orders_proposal.buy_order_size} {market_info.base_currency} at "
-                            f"{orders_proposal.buy_order_price} {market_info.quote_currency}."
+                            f"({market_info.symbol}) Creating limit bid orders for "
+                            f"  Bids (Size,Price) to be placed at: {[str(size) + ' ' + market_info.base_currency + ' @ ' + ' ' + str(price) + ' ' + market_info.quote_currency for size,price in zip(orders_proposal.buy_order_sizes, orders_proposal.buy_order_prices)]}"
                         )
-                    bid_order_id = self.c_buy_with_specific_market(
-                        market,
-                        symbol,
-                        orders_proposal.buy_order_size,
-                        orders_proposal.buy_order_price,
-                        order_type=OrderType.LIMIT,
-                        expiration_seconds=expiration_seconds
-                    )
-                    self.c_start_tracking_order(
-                        market_info,
-                        bid_order_id,
-                        True,
-                        orders_proposal.buy_order_price,
-                        orders_proposal.buy_order_size
-                    )
-                    self._time_to_cancel[bid_order_id] = self._current_timestamp + self._cancel_order_wait_time
+
+                    for idx in range(len(orders_proposal.buy_order_sizes)):
+                        bid_order_id = self.c_buy_with_specific_market(
+                            market,
+                            symbol,
+                            orders_proposal.buy_order_sizes[idx],
+                            orders_proposal.buy_order_prices[idx],
+                            order_type=OrderType.LIMIT,
+                            expiration_seconds=expiration_seconds
+                        )
+                        self.c_start_tracking_order(
+                            market_info,
+                            bid_order_id,
+                            True,
+                            orders_proposal.buy_order_prices[idx],
+                            orders_proposal.buy_order_sizes[idx]
+                        )
+                        self._time_to_cancel[bid_order_id] = self._current_timestamp + self._cancel_order_wait_time
                 elif orders_proposal.buy_order_type is OrderType.MARKET:
                     raise RuntimeError("Market buy order in orders proposal is not supported yet.")
 
-            if orders_proposal.sell_order_size > 0:
-                if orders_proposal.sell_order_type is OrderType.LIMIT and orders_proposal.sell_order_price > 0:
+            if orders_proposal.sell_order_sizes[0] > 0:
+                if orders_proposal.sell_order_type is OrderType.LIMIT and orders_proposal.sell_order_prices[0] > 0:
                     if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                         self.log_with_clock(
                             logging.INFO,
                             f"({market_info.symbol}) Creating limit ask order for "
-                            f"{orders_proposal.sell_order_size} {market_info.base_currency} at "
-                            f"{orders_proposal.sell_order_price} {market_info.quote_currency}."
+                            f"  Asks (Size,Price) to be placed at: {[str(size) + ' ' + market_info.base_currency + ' @ ' + ' ' + str(price) + ' ' + market_info.quote_currency for size,price in zip(orders_proposal.sell_order_sizes, orders_proposal.sell_order_prices)]}"
                         )
-                    ask_order_id = self.c_sell_with_specific_market(
-                        market,
-                        symbol,
-                        orders_proposal.sell_order_size,
-                        orders_proposal.sell_order_price,
-                        order_type=OrderType.LIMIT,
-                        expiration_seconds=expiration_seconds
-                    )
-                    self.c_start_tracking_order(
-                        market_info,
-                        ask_order_id,
-                        False,
-                        orders_proposal.sell_order_price,
-                        orders_proposal.sell_order_size
-                    )
-                    self._time_to_cancel[ask_order_id] = self._current_timestamp + self._cancel_order_wait_time
+
+                    for idx in range(len(orders_proposal.sell_order_sizes)):
+                        ask_order_id = self.c_sell_with_specific_market(
+                            market,
+                            symbol,
+                            orders_proposal.sell_order_sizes[idx],
+                            orders_proposal.sell_order_prices[idx],
+                            order_type=OrderType.LIMIT,
+                            expiration_seconds=expiration_seconds
+                        )
+                        self.c_start_tracking_order(
+                            market_info,
+                            ask_order_id,
+                            False,
+                            orders_proposal.sell_order_prices[idx],
+                            orders_proposal.sell_order_sizes[idx]
+                        )
+                        self._time_to_cancel[ask_order_id] = self._current_timestamp + self._cancel_order_wait_time
                 elif orders_proposal.sell_order_type is OrderType.MARKET:
                     raise RuntimeError("Market sell order in orders proposal is not supported yet.")
