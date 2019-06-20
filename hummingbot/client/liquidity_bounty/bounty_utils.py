@@ -19,7 +19,7 @@ from hummingbot.logger import HummingbotLogger
 class LiquidityBounty(NetworkBase):
     lb_logger: Optional[HummingbotLogger] = None
     _lb_shared_instance: Optional["LiquidityBounty"] = None
-    LIQUIDITY_BOUNTY_REST_API = "http://localhost:16118"
+    LIQUIDITY_BOUNTY_REST_API = "http://localhost:16118/bounty"
 
     @classmethod
     def get_instance(cls) -> "LiquidityBounty":
@@ -89,7 +89,7 @@ class LiquidityBounty(NetworkBase):
 
                 async with client.request("GET",
                                           f"{self.LIQUIDITY_BOUNTY_REST_API}/client",
-                                          json={"client_id": client_id}) as resp:
+                                          headers={"Client-ID": client_id}) as resp:
                     results = await resp.json()
                     if results.get("status", "") == "Unknown client id":
                         raise Exception("User not registered")
@@ -97,6 +97,8 @@ class LiquidityBounty(NetworkBase):
             except asyncio.CancelledError:
                 raise
             except Exception as e:
+                self.logger().error(str(e))
+
                 if "User not registered" in str(e):
                     self.logger().error("User not registered. Aborting.")
                     break
