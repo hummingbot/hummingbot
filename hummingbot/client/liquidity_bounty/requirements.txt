@@ -1,0 +1,10 @@
+
+---------------------------------------------------------------------------
+
+REQUIREMENTS:
+
+- You would need to have an ETH wallet to receive the bounty rewards
+- You would need to stake a certain amount of ETH in your wallet staked during the bounty period, in order to participate
+- You would need to submit a read-only exchange API key if his bounty goes above a certain amount, for us to verify the authenticity of your trades
+
+---------------------------------------------------------------------------
