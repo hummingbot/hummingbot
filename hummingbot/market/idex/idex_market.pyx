@@ -866,7 +866,9 @@ cdef class IDEXMarket(MarketBase):
                                          order_id
                                      ))
             else:
-                best_limit_orders = self._order_book_tracker._active_order_trackers[symbol].get_best_limit_orders(is_buy=True, amount=Decimal(q_amt))
+                best_limit_orders = (self._order_book_tracker
+                                     ._active_order_trackers[symbol]
+                                     .get_best_limit_orders(is_buy=True, amount=Decimal(q_amt)))
                 signed_market_orders = self._generate_buy_market_order(Decimal(q_amt), best_limit_orders, symbol)
                 completed_orders = await self.post_market_order(signed_market_orders)
                 self.logger().info(f"Created market buy order for {q_amt} {symbol}.")
@@ -879,21 +881,43 @@ cdef class IDEXMarket(MarketBase):
                                          0.0,
                                          order_id
                                      ))
-                quote_asset_amount_spent = s_decimal_0
-                for completed_order in completed_orders:
-                    quote_asset_amount_spent += Decimal(completed_order["total"])
+                fill_quote_amount = sum([float(completed_order["amount"]) for completed_order in completed_orders])
+                fill_base_amount = sum([float(completed_order["total"]) for completed_order in completed_orders])
+                avg_fill_price = fill_quote_amount / fill_base_amount
                 tracked_order = self._in_flight_orders.get(order_id)
                 if tracked_order is not None:
                     self.logger().info(f"The market buy order {order_id} has completed according to trade API.")
+                    self.c_trigger_event(
+                        self.MARKET_ORDER_FILLED_EVENT_TAG,
+                        OrderFilledEvent(
+                            self._current_timestamp,
+                            tracked_order.client_order_id,
+                            tracked_order.symbol,
+                            TradeType.BUY,
+                            OrderType.MARKET,
+                            avg_fill_price,
+                            fill_base_amount,
+                            self.c_get_fee(
+                                tracked_order.base_asset,
+                                tracked_order.quote_asset,
+                                OrderType.MARKET,
+                                TradeType.BUY,
+                                fill_base_amount,
+                                tracked_order.price
+                            )
+                        )
+                    )
                     self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
                                          BuyOrderCompletedEvent(timestamp=self._current_timestamp,
                                                                 order_id=order_id,
                                                                 base_asset=tracked_order.base_asset,
                                                                 quote_asset=tracked_order.quote_asset,
                                                                 fee_asset=tracked_order.quote_asset,
-                                                                base_asset_amount=float(q_amt),
-                                                                quote_asset_amount=float(quote_asset_amount_spent),
-                                                                fee_amount=float(quote_asset_amount_spent * Decimal(0.002)),
+                                                                base_asset_amount=fill_base_amount,
+                                                                quote_asset_amount=fill_quote_amount,
+                                                                fee_amount=float(
+                                                                    fill_quote_amount * self.IDEX_TAKER_PERCENT_FEE
+                                                                ),
                                                                 order_type=OrderType.MARKET))
                     self.c_stop_tracking_order(order_id)
 
@@ -949,7 +973,9 @@ cdef class IDEXMarket(MarketBase):
                                          order_id
                                      ))
             else:
-                best_limit_orders = self._order_book_tracker._active_order_trackers[symbol].get_best_limit_orders(is_buy=False, amount=Decimal(q_amt))
+                best_limit_orders = (self._order_book_tracker
+                                     ._active_order_trackers[symbol]
+                                     .get_best_limit_orders(is_buy=False, amount=Decimal(q_amt)))
                 signed_market_orders = self._generate_sell_market_order(Decimal(q_amt), best_limit_orders, symbol)
                 completed_orders = await self.post_market_order(signed_market_orders)
                 self.logger().info(f"Created market sell order for {q_amt} {symbol}.")
@@ -962,21 +988,43 @@ cdef class IDEXMarket(MarketBase):
                                          0.0,
                                          order_id
                                      ))
-                quote_asset_amount_spent = s_decimal_0    
-                for completed_order in completed_orders:
-                    quote_asset_amount_spent += Decimal(completed_order["total"])
+                fill_quote_amount = sum([float(completed_order["amount"]) for completed_order in completed_orders])
+                fill_base_amount = sum([float(completed_order["total"]) for completed_order in completed_orders])
+                avg_fill_price = fill_quote_amount / fill_base_amount
                 tracked_order = self._in_flight_orders.get(order_id)
                 if tracked_order is not None:
                     self.logger().info(f"The market sell order {order_id} has completed according to trade API.")
+                    self.c_trigger_event(
+                        self.MARKET_ORDER_FILLED_EVENT_TAG,
+                        OrderFilledEvent(
+                            self._current_timestamp,
+                            tracked_order.client_order_id,
+                            tracked_order.symbol,
+                            TradeType.SELL,
+                            OrderType.MARKET,
+                            avg_fill_price,
+                            fill_base_amount,
+                            self.c_get_fee(
+                                tracked_order.base_asset,
+                                tracked_order.quote_asset,
+                                OrderType.MARKET,
+                                TradeType.SELL,
+                                fill_base_amount,
+                                tracked_order.price
+                            )
+                        )
+                    )
                     self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
                                          SellOrderCompletedEvent(timestamp=self._current_timestamp,
                                                                  order_id=order_id,
                                                                  base_asset=tracked_order.base_asset,
                                                                  quote_asset=tracked_order.quote_asset,
                                                                  fee_asset=tracked_order.quote_asset,
-                                                                 base_asset_amount=float(q_amt),
-                                                                 quote_asset_amount=float(quote_asset_amount_spent),
-                                                                 fee_amount=float(quote_asset_amount_spent * Decimal(0.002)),
+                                                                 base_asset_amount=fill_base_amount,
+                                                                 quote_asset_amount=fill_quote_amount,
+                                                                 fee_amount=float(
+                                                                     fill_quote_amount * self.IDEX_TAKER_PERCENT_FEE
+                                                                 ),
                                                                  order_type=OrderType.MARKET))
                     self.c_stop_tracking_order(order_id)
 
