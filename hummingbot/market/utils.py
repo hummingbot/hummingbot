@@ -1,11 +1,17 @@
 #!/usr/bin/env python
 
 import base64
-from typing import Dict
+from typing import (
+    Dict,
+    Optional
+)
 from zero_ex.order_utils import Order as ZeroExOrder
 
 
-def zrx_order_to_json(order: ZeroExOrder) -> Dict[str, any]:
+def zrx_order_to_json(order: Optional[ZeroExOrder]) -> Optional[Dict[str, any]]:
+    if order is None:
+        return None
+
     retval: Dict[str, any] = {}
     for key, value in order.items():
         if not isinstance(value, bytes):
@@ -15,7 +21,10 @@ def zrx_order_to_json(order: ZeroExOrder) -> Dict[str, any]:
     return retval
 
 
-def json_to_zrx_order(data: Dict[str, any]) -> ZeroExOrder:
+def json_to_zrx_order(data: Optional[Dict[str, any]]) -> Optional[ZeroExOrder]:
+    if data is None:
+        return None
+
     intermediate: Dict[str, any] = {}
     for key, value in data.items():
         if key.startswith("__binary__"):

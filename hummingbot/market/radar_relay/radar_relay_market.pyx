@@ -43,6 +43,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import (
+    MarketBase,
     OrderType,
     NaN
 )
@@ -626,7 +627,7 @@ cdef class RadarRelayMarket(MarketBase):
                             OrderType.MARKET,
                             tracked_market_order.price,
                             tracked_market_order.amount,
-                            TradeFee(0.0, ["ETH", gas_used])
+                            TradeFee(0.0, [("ETH", gas_used)])
                         )
                     )
                     if tracked_market_order.is_buy:
