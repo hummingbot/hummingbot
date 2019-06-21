@@ -40,7 +40,7 @@ class LiquidityBounty(NetworkBase):
             cls.lb_logger = logging.getLogger(__name__)
         return cls.lb_logger
 
-    def __init__(self, update_interval: int = 15):
+    def __init__(self, update_interval: int = 60):
         super().__init__()
         self._update_interval = update_interval
         self._ev_loop = asyncio.get_event_loop()
