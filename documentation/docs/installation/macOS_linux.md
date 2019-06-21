@@ -1,4 +1,4 @@
-# Install from source
+# MacOS/Linux Source Installation
 
 ## OS-specific dependencies
 
