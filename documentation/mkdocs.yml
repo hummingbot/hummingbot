@@ -91,6 +91,7 @@ nav:
           - From Docker: installation/docker_linux.md
           - From Source: installation/linux.md
         - Install in cloud: installation/cloud.md
+        - Run on Docker: installation/docker.md
         - API keys: installation/api-keys.md
         - Ethereum wallet: installation/wallet.md
         - Ethereum node:
