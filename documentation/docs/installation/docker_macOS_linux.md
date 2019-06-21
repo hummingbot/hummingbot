@@ -1,10 +1,10 @@
-# Install from Docker (MacOS/Linux)
+# MacOS/Linux Installation from Docker
 
 Using a pre-compiled version of `hummingbot` from Docker allows you to run `hummingbot` with a single line command.
 
 Docker images of `hummingbot` are available on Docker Hub at [coinalpha/hummingbot](https://hub.docker.com/r/coinalpha/hummingbot).
 
-## Docker installation for MacOS/Linux
+## Installing Hummingbot via Docker
 
 If you do not already have Docker on your system, you will need to download the installer from the following link: [Docker Installer Downloads](https://docs.docker.com/v17.12/install/#supported-platforms).
 
@@ -13,7 +13,7 @@ Run the installer, and restart your computer if necessary. You should now be abl
 ## Create new instance of `hummingbot` (MacOS/Linux)
 
 ``` bash tab="Terminal: Start hummingbot with Docker"
-# 1) Create a label for your container and specify which docker 
+# 1) Create a label for your container and specify which docker
 #    image of hummingbot to use
 export NAME=myhummingbot && \
 export TAG=latest

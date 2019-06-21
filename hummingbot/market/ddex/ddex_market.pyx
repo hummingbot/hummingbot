@@ -194,6 +194,43 @@ cdef class InFlightOrder:
             Decimal(self.amount)
         )
 
+    def to_json(self) -> Dict[str, any]:
+        return {
+            "client_order_id": self.client_order_id,
+            "exchange_order_id": self.exchange_order_id,
+            "symbol": self.symbol,
+            "is_buy": self.is_buy,
+            "order_type": self.order_type.name,
+            "amount": str(self.amount),
+            "available_amount": str(self.available_amount),
+            "price": str(self.price),
+            "executed_amount": str(self.executed_amount),
+            "pending_amount": str(self.pending_amount),
+            "quote_asset_amount": str(self.quote_asset_amount),
+            "gas_fee_amount": str(self.gas_fee_amount),
+            "last_state": self.last_state,
+        }
+
+    @classmethod
+    def from_json(cls, data: Dict[str, any]) -> "InFlightOrder":
+        cdef:
+            InFlightOrder retval = InFlightOrder(
+                data["client_order_id"],
+                data["exchange_order_id"],
+                data["symbol"],
+                data["is_buy"],
+                getattr(OrderType, data["order_type"]),
+                Decimal(data["amount"]),
+                Decimal(data["price"]),
+            )
+        retval.available_amount = Decimal(data["available_amount"])
+        retval.executed_amount = Decimal(data["executed_amount"])
+        retval.pending_amount = Decimal(data["pending_amount"])
+        retval.quote_asset_amount = Decimal(data["quote_asset_amount"])
+        retval.gas_fee_amount = Decimal(data["gas_fee_amount"])
+        retval.last_state = data["last_state"]
+        return retval
+
 
 ZERO_EX_MAINNET_PROXY = "0x74622073a4821dbfd046E9AA2ccF691341A076e1"
 
@@ -324,6 +361,19 @@ cdef class DDEXMarket(MarketBase):
         return [self._in_flight_orders[order_id].to_limit_order()
                 for _, order_id
                 in self._order_expiry_queue]
+
+    @property
+    def tracking_states(self) -> Dict[str, any]:
+        return {
+            key: value.to_json()
+            for key, value in self._in_flight_orders.items()
+        }
+
+    def restore_tracking_states(self, saved_states: Dict[str, any]):
+        self._in_flight_orders.update({
+            key: InFlightOrder.from_json(value)
+            for key, value in saved_states.items()
+        })
 
     async def get_active_exchange_markets(self):
         return await DDEXAPIOrderBookDataSource.get_active_exchange_markets()
@@ -642,7 +692,9 @@ cdef class DDEXMarket(MarketBase):
         return response_data["data"]["order"]
 
     async def cancel_order(self, client_order_id: str) -> Dict[str, Any]:
-        order = self.in_flight_orders.get(client_order_id)
+        cdef:
+            InFlightOrder order = self.in_flight_orders.get(client_order_id)
+
         if not order:
             self.logger().info(f"Failed to cancel order {client_order_id}. Order not found in tracked orders.")
             if client_order_id in self._in_flight_cancels:
@@ -654,8 +706,15 @@ cdef class DDEXMarket(MarketBase):
         response_data = await self._api_request('delete', url=url, headers=self._generate_auth_headers())
         if isinstance(response_data, dict) and response_data.get("desc") == "success":
             self.logger().info(f"Successfully cancelled order {exchange_order_id}.")
+
+            # Simulate cancelled state earlier.
+            order.available_amount = s_decimal_0
+            order.pending_amount = s_decimal_0
+
+            # Notify listeners.
             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                  OrderCancelledEvent(self._current_timestamp, client_order_id))
+
         response_data["client_order_id"] = client_order_id
         return response_data
 
@@ -730,20 +789,20 @@ cdef class DDEXMarket(MarketBase):
             order_result = await self.place_order(amount=q_amt, price=q_price, side="buy", symbol=symbol,
                                                   order_type=order_type)
             exchange_order_id = order_result["id"]
-            self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
-                                 BuyOrderCreatedEvent(
-                                     self._current_timestamp,
-                                     order_type,
-                                     symbol,
-                                     Decimal(q_amt),
-                                     Decimal(q_price),
-                                     order_id
-                                 ))
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type} buy order {exchange_order_id} for "
                                    f"{q_amt} {symbol}.")
                 tracked_order.update_exchange_order_id(exchange_order_id)
+            self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
+                                 BuyOrderCreatedEvent(
+                                     self._current_timestamp,
+                                     order_type,
+                                     symbol,
+                                     float(q_amt),
+                                     float(q_price),
+                                     order_id
+                                 ))
             return order_id
         except Exception:
             self.c_stop_tracking_order(order_id)
@@ -786,20 +845,20 @@ cdef class DDEXMarket(MarketBase):
             order_result = await self.place_order(amount=q_amt, price=q_price, side="sell", symbol=symbol,
                                                   order_type=order_type)
             exchange_order_id = order_result["id"]
-            self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
-                                 SellOrderCreatedEvent(
-                                     self._current_timestamp,
-                                     order_type,
-                                     symbol,
-                                     Decimal(q_amt),
-                                     Decimal(q_price),
-                                     order_id
-                                 ))
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type} sell order {exchange_order_id} for "
                                    f"{q_amt} {symbol}.")
                 tracked_order.update_exchange_order_id(exchange_order_id)
+            self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
+                                 SellOrderCreatedEvent(
+                                     self._current_timestamp,
+                                     order_type,
+                                     symbol,
+                                     float(q_amt),
+                                     float(q_price),
+                                     order_id
+                                 ))
             return order_id
         except Exception:
             self.c_stop_tracking_order(order_id)
