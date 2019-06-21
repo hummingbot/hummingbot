@@ -23,7 +23,7 @@ For Windows users, we strongly recommend using Docker as Hummingbot does not cur
 
 ### MacOS and Linux Systems
 
-On MacOS or Linux systems, it's quicker and easier to install Hummingbot using Docker. If you are looking to make their own modifications, however, installing from source might be a better fit.
+On MacOS or Linux systems, it's quicker and easier to install Hummingbot using Docker. If you are looking to make your own modifications, however, installing from source might be a better fit.
 
 * [Install using Docker](/installation/docker_macOS_linux)
 * [Install from source](/installation/macOS_linux)
