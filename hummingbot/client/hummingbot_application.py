@@ -561,7 +561,7 @@ class HummingbotApplication:
         if liquidity_bounty_config_map.get("liquidity_bounty_enabled").value is not None and \
            liquidity_bounty_config_map.get("liquidity_bounty_client_id").value is not None:
             self.liquidity_bounty = LiquidityBounty.get_instance()
-            asyncio.ensure_future(self.liquidity_bounty.start_network(), loop=self.ev_loop)
+            self.liquidity_bounty.start()
 
     def _format_application_warnings(self) -> str:
         lines: List[str] = []
@@ -1074,6 +1074,9 @@ class HummingbotApplication:
             await asyncio.sleep(1)
         ExchangeRateConversion.get_instance().stop()
 
+        self._notify("Winding down liquidity bounty submission...")
+        await self.liquidity_bounty.stop_network()
+
         self._notify("Winding down notifiers...")
         for notifier in self.notifiers:
             notifier.stop()
@@ -1203,7 +1206,7 @@ class HummingbotApplication:
             client_id = registration_results["client_id"]
             liquidity_bounty_config_map.get("liquidity_bounty_client_id").value = client_id
             await save_to_yml(LIQUIDITY_BOUNTY_CONFIG_PATH, liquidity_bounty_config_map)
-            await self.liquidity_bounty.start_network()
+            self.liquidity_bounty.start()
             self._notify("Hooray! You are now collecting bounties. ")
         except Exception as e:
             self._notify(str(e))

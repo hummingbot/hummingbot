@@ -6,6 +6,7 @@ import aiohttp
 import asyncio
 import logging
 import pandas as pd
+from collections import deque
 from typing import (
     Any,
     Dict,
@@ -45,7 +46,7 @@ class LiquidityBounty(NetworkBase):
         self._update_interval = update_interval
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client: Optional[aiohttp.ClientSession] = None
-        self._new_trades_queue: asyncio.Queue = asyncio.Queue()
+        self._new_trades_queue = deque([])
         self._status: Dict[str, Any] = {}
         # timestamp = -1 when when no data has been fetched / timestamp = 0 when no trades have ever been submitted
         self._last_submitted_trade_timestamp: int = -1
@@ -63,7 +64,7 @@ class LiquidityBounty(NetworkBase):
         return pd.DataFrame(self._status.items()).to_string(index=False, header=False)
 
     def did_receive_new_trade_records(self, new_trades: List[TradeFill]):
-        self._new_trades_queue.put_nowait(new_trades)
+        self._new_trades_queue.extend(new_trades)
 
     async def add_unsubmitted_trades_to_queue(self):
         """ Get locally saved trades that have not been submitted to liquidity bounties """
@@ -74,7 +75,7 @@ class LiquidityBounty(NetworkBase):
             # TODO: add filters so that only trades from certain markets and certain trading_pairs get sent
             query: Query = (session
                             .query(TradeFill)
-                            .filter(TradeFill.timestamp >= self._last_submitted_trade_timestamp)
+                            .filter(TradeFill.timestamp > self._last_submitted_trade_timestamp)
                             .order_by(TradeFill.timestamp))
             new_trades: List[TradeFill] = query.all()
             self.did_receive_new_trade_records(new_trades)
@@ -155,25 +156,35 @@ class LiquidityBounty(NetworkBase):
                     break
             await asyncio.sleep(self._update_interval)
 
+    async def submit_trades(self):
+        try:
+            formatted_trades: List[Dict[str, Any]] = []
+            # fix size to prevent never ending loop (in case lots of new trades are added simultaneously)
+            trade_queue_size: int = len(self._new_trades_queue)
+            for i in range(trade_queue_size):
+                trade: TradeFill = self._new_trades_queue.popleft()
+                formatted_trades.append(TradeFill.to_bounty_api_json(trade))
+
+            if self._last_submitted_trade_timestamp >= 0 and len(formatted_trades) > 0:
+                url = f"{self.LIQUIDITY_BOUNTY_REST_API}/trade"
+                results = await self.authenticated_request("POST", url, json={"trades": formatted_trades})
+                if "error" in results:
+                    raise Exception(results["error"])
+                num_submitted = results.get("trades_submitted", 0)
+                num_recorded = results.get("trades_recorded", 0)
+                if num_submitted != num_recorded:
+                    self.logger().warning(f"Failed to submit {num_submitted - num_recorded} trade(s)")
+                if num_recorded > 0:
+                    self.logger().info(f"Successfully sent {num_recorded} trade(s) to claim bounty")
+        except Exception:
+            raise
+
     async def submit_trades_loop(self):
         if not self._last_timestamp_fetched_event.is_set():
             await self._last_timestamp_fetched_event.wait()
         while True:
             try:
-                new_trades_records: List[TradeFill] = await self._new_trades_queue.get()
-                formatted_trades: List[Dict[str, Any]] = [
-                    TradeFill.to_bounty_api_json(trade) for trade in new_trades_records
-                ]
-                if self._last_submitted_trade_timestamp >= 0:
-                    if len(formatted_trades) > 0:
-                        url = f"{self.LIQUIDITY_BOUNTY_REST_API}/trade"
-                        results = await self.authenticated_request("POST", url, json={"trades": formatted_trades})
-                        # {'trades_submitted': 44, 'trades_recorded': 44}
-                        num_submitted = results.get("trades_submitted", 0)
-                        num_recorded = results.get("trades_recorded", 0)
-                        if num_submitted != num_recorded:
-                            self.logger().warning(f"Failed to submit {num_submitted - num_recorded} trades")
-                        self.logger().info(f"Successfully sent {num_recorded} trades to claim bounty")
+                await self.submit_trades()
             except asyncio.CancelledError:
                     raise
             except asyncio.TimeoutError:
@@ -194,29 +205,42 @@ class LiquidityBounty(NetworkBase):
         self.submit_trades_task = asyncio.ensure_future(self.submit_trades_loop())
 
     async def stop_network(self):
+        # Submit remaining trades left in queue
+        try:
+            if len(self._new_trades_queue) > 0:
+                await self.submit_trades()
+        except Exception as e:
+            self.logger().error(f"Error submitting trades: {str(e)}")
+
         if self.fetch_bounty_status_task is not None:
-            self.add_unsubmitted_trades_task.cancel()
-            self.add_unsubmitted_trades_task = None
-            self.fetch_last_submitted_timestamp_task.cancel()
-            self.fetch_last_submitted_timestamp_task = None
             self.fetch_bounty_status_task.cancel()
             self.fetch_bounty_status_task = None
+        if self.add_unsubmitted_trades_task is not None:
+            self.add_unsubmitted_trades_task.cancel()
+            self.add_unsubmitted_trades_task = None
+        if self.fetch_last_submitted_timestamp_task is not None:
+            self.fetch_last_submitted_timestamp_task.cancel()
+            self.fetch_last_submitted_timestamp_task = None
+        if self.submit_trades_task is not None:
             self.submit_trades_task.cancel()
             self.submit_trades_task = None
 
     async def check_network(self) -> NetworkStatus:
         try:
-            async with aiohttp.ClientSession(loop=self._ev_loop,
-                                             connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
-                async with session.get(self.LIQUIDITY_BOUNTY_REST_API) as resp:
-                    if resp.status != 200:
-                        raise Exception(f"Liquidity bounty server is down.")
+            client = await self._http_client()
+            async with client.request("GET", f"{self.LIQUIDITY_BOUNTY_REST_API}/") as resp:
+                if resp.status != 200:
+                    raise Exception(f"Liquidity bounty server is down.")
         except asyncio.CancelledError:
             raise
         except Exception:
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
+    def start(self):
+        NetworkBase.start(self)
 
+    def stop(self):
+        NetworkBase.stop(self)
 
 
