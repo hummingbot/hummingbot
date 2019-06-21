@@ -1,24 +1,27 @@
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import MarketBase
+from typing import Optional
 import logging
 
 from .data_types import SizingProposal
 from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
+from hummingbot.logger import HummingbotLogger
 
-s_logger = None
+constant_sizing_logger:Optional[HummingbotLogger] = None
 
 cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
+
     def __init__(self, order_size: float):
         super().__init__()
         self._order_size = order_size
 
     @classmethod
-    def logger(cls):
-        global s_logger
-        if s_logger is None:
-            s_logger = logging.getLogger(__name__)
-        return s_logger
+    def logger(cls) -> HummingbotLogger:
+        global constant_sizing_logger
+        if constant_sizing_logger is None:
+            constant_sizing_logger = logging.getLogger(__name__)
+        return constant_sizing_logger
 
     @property
     def order_size(self) -> float:
@@ -47,10 +50,10 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
             ask_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size)
 
         if (bid_order_size ==0):
-            self.logger().warning(f"Buy(bid) order size is less than minimum order size. Buy order will not be placed")
+            self.logger().network("", f"Buy(bid) order size is less than minimum order size. Buy order will not be placed")
 
         if (ask_order_size ==0):
-             self.logger().warning(f"Sell(ask) order size is less than minimum order size. Sell order will not be placed")
+             self.logger().network("",f"Sell(ask) order size is less than minimum order size. Sell order will not be placed")
 
 
         for active_order in active_orders:
@@ -60,10 +63,10 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
                 has_active_ask = True
 
         if (quote_asset_balance < pricing_proposal.buy_order_prices[0] * bid_order_size):
-            self.logger().warning(f"Not enough asset to place the required buy(bid) order. Check balances.")
+            self.logger().network("", f"Not enough asset to place the required buy(bid) order. Check balances.")
 
         if (base_asset_balance < ask_order_size):
-            self.logger().warning(f"Not enough asset to place the required sell(ask) order. Check balances.")
+            self.logger().network("", f"Not enough asset to place the required sell(ask) order. Check balances.")
 
         return SizingProposal(
             ([bid_order_size]
