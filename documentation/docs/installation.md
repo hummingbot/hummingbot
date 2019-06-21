@@ -4,29 +4,27 @@
 
 Hummingbot is tested and supported on the following 64-bit systems:
 
-* Ubuntu 16.04 or later
+* Windows 10 or later
 * macOS 10.12.6 (Sierra) or later
-* Windows 10 or later (**see Windows sections below**)
+* Linux: Ubuntu 16.04 or later, Debian GNU/Linux 9, CentOS 7
 
 ## Installation options
 
-### Run a Docker image
-Hummingbot Docker images include all dependencies and run in a virtual environment in any OS.
+Hummingbot can be installed locally in two ways: via Docker or from source.  Choosing how to install depends on your preferences for intended use.
 
-* [MacOS/Linux](/installation/docker_macOS_linux)
-* [Windows](/installation/docker_windows)
+| | Source | Docker |
+|----|----|----|
+| **Windows** | ❌ No native support; available only by installing Linux subsystem | <font color="green">✓</font> |
+| **Installation** | Requires installation of dependencies and then downloading, installing, and compiling code | <font color="green">✓</font> Simple installation: hummingbot docker image is pre-installed, pre-compiled, and includes all dependendencies |
+| **Updating versions** | Download latest code using `git`, uninstall, reinstall, recompile | <font color="green">✓</font> Remove and recreate container (can be single command) |
+| **Code accessibility** | <font color="green">✓</font> Easy access for editing | Less accessible |
+| **Running multiple instances** | Requires multiple installations | <font color="green">✓</font> Easy to deploy multiple instances |
 
-*Estimated installation time: 10 minutes*
 
-### Install from source
-Installing from source gives you full access to the codebase and allows you to edit strategy and connector files on the fly.
+## Installation Guides
 
-* [MacOS/Linux](/installation/source)
-* [Windows](/installation/windows)
-
-*Estimated installation time: 10 minutes*
-
-### [Install in the cloud](/installation/cloud)
-Utilizing cloud virtual machines makes it easier to run Hummingbot continuously for longer periods of time and can be configured to any OS.
-
-*Estimated installation time: 15 minutes*
+| | | |  |
+|---|---|---|---|
+| **Install from source** | [Windows](/installation/windows) | [MacOS](/installation/macos) | [Linux](/installation/linux) |
+| **Install with Docker** | [Windows](/installation/docker_windows) | [MacOS](/installation/docker_macos) | [Linux](/installation/docker_linux) |
+| [**Install in the cloud**](/installation/cloud/) |
