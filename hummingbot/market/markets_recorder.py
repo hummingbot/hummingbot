@@ -32,7 +32,6 @@ from hummingbot.model.order import Order
 from hummingbot.model.order_status import OrderStatus
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.client.liquidity_bounty.bounty_utils import LiquidityBounty
 
 
 class MarketsRecorder:
@@ -212,7 +211,6 @@ class MarketsRecorder:
                                                  price=evt.price,
                                                  amount=evt.amount,
                                                  trade_fee=TradeFee.to_json(evt.trade_fee))
-        LiquidityBounty.get_instance().did_receive_new_trade_records([trade_fill_record])
         session.add(order_status)
         session.add(trade_fill_record)
         self.save_market_states(self._config_file_path, market, no_commit=True)
