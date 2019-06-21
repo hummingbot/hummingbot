@@ -119,23 +119,25 @@ nav:
       - Support:
         - Support: support.md
         - Bug bounty program: support/bug-bounty-program.md
-      - Release notes:
-        - Release notes: release-notes.md
-        - 0.8.1: release-notes/0.8.1.md
-        - 0.8.0: release-notes/0.8.0.md
-        - 0.7.0: release-notes/0.7.0.md
-        - 0.6.0: release-notes/0.6.0.md
-        - 0.5.1: release-notes/0.5.1.md
-        - 0.5.0: release-notes/0.5.0.md
-        - 0.4.0: release-notes/0.4.0.md
-        - 0.3.1 (beta): release-notes/0.3.1.md
-        - 0.3.0: release-notes/0.3.0.md
-        - 0.2.0: release-notes/0.2.0.md
+    - Release notes:
+      - Release notes: release-notes.md
+      - 0.8.1: release-notes/0.8.1.md
+      - 0.8.0: release-notes/0.8.0.md
+      - 0.7.0: release-notes/0.7.0.md
+      - 0.6.0: release-notes/0.6.0.md
+      - 0.5.1: release-notes/0.5.1.md
+      - 0.5.0: release-notes/0.5.0.md
+      - 0.4.0: release-notes/0.4.0.md
+      - 0.3.1 (beta): release-notes/0.3.1.md
+      - 0.3.0: release-notes/0.3.0.md
+      - 0.2.0: release-notes/0.2.0.md
     - Bounties: 
       - Intro: bounties/intro.md
-      - Tutorial: 
-        - Quick tutorial: bounties/tutorial/tutorial.md
-        - Configuration for liquidity bounties: bounties/tutorial/config.md
-      - Programs: 
-        - Harmony $ONE Makers: bounties/programs/harmony.md
-      - FAQ: bounties/faq.md 
+      - FAQ: bounties/faq.md
+      - Tutorial:   
+        - Tutorial: bounties/tutorial.md
+        - 1. Install: bounties/tutorial/install.md
+        - 2. Register: bounties/tutorial/register.md
+        - 3. Run a bot: bounties/tutorial/bot.md
+      - Active bounties: 
+        - Harmony $ONE Makers: bounties/active/harmony.md

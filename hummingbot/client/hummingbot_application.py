@@ -811,6 +811,8 @@ class HummingbotApplication:
             await clock.run()
 
     async def start_market_making(self, strategy_name: str):
+        await ExchangeRateConversion.get_instance().ready_notifier.wait()
+
         strategy_cm = get_strategy_config_map(strategy_name)
         if strategy_name == "cross_exchange_market_making":
             maker_market = strategy_cm.get("maker_market").value.lower()
