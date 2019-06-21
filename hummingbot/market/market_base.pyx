@@ -74,6 +74,18 @@ cdef class MarketBase(NetworkIterator):
     def limit_orders(self) -> List[LimitOrder]:
         raise NotImplementedError
 
+    @property
+    def tracking_states(self) -> Dict[str, any]:
+        return {}
+
+    def restore_tracking_states(self, saved_states: Dict[str, any]):
+        """
+        Restores the tracking states from a previously saved state.
+
+        :param saved_states: Previously saved tracking states from `tracking_states` property.
+        """
+        pass
+
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         """
         :return: data frame with symbol as index, and at least the following columns --
