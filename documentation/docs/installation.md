@@ -4,15 +4,25 @@
 
 Hummingbot is tested and supported on the following 64-bit systems:
 
-* Ubuntu 16.04 or later
+* Windows 10 or later
 * macOS 10.12.6 (Sierra) or later
-* Windows 10 or later (**see Windows sections below**)
+* Ubuntu 16.04 or later, Debian GNU/Linux 9, CentOS 7
 
 ## Installation options
 
-Hummingbot can be installed locally in two ways: via Docker or from source. Docker images are easy to run in a local virtual environment regardless of OS. On the other hand, installing from source gives you full access to the code base and allows you edit strategy files on your own.
+Hummingbot can be installed locally in two ways: via Docker or from source.
 
-### Windows Systems
+| | Source | Docker |
+|----|----|----|
+| **Windows** | ❌ Not currently supported | <font color="green">✓</font> |
+| **Installation** | Requires installation of dependencies and then downloading, installing, and compiling code | <font color="green">✓</font> Simple installation: hummingbot docker image is pre-installed, pre-compiled, and includes all dependendencies |
+| **Updating versions** | Download latest code using `git`, uninstall, reinstall, recompile | <font color="green">✓</font> Remove and recreate container (can be single command) |
+| **Code accessibility** | <font color="green">✓</font> Easy access for editing | Less accessible |
+| **Running multiple instances** | Requires multiple installations | <font color="green">✓</font> Easy to deploy multiple instances |
+
+
+
+### Windows
 
 For Windows users, we strongly recommend using Docker as Hummingbot does not currently have native Windows support.
 
@@ -21,14 +31,21 @@ For Windows users, we strongly recommend using Docker as Hummingbot does not cur
 
 *Estimated installation time: 10 minutes*
 
-### MacOS and Linux Systems
+### MacOS
 
-On MacOS or Linux systems, it's quicker and easier to install Hummingbot using Docker. If you are looking to make your own modifications, however, installing from source might be a better fit.
+On MacOS, it's quicker and easier to install Hummingbot using Docker. If you are looking to make your own modifications, however, installing from source might be a better fit.
 
-* [Install using Docker](/installation/docker_macOS_linux)
-* [Install from source](/installation/macOS_linux)
+* [Install using Docker](/installation/docker_macOS)
+* [Install from source](/installation/macOS)
 
-*Estimated installation time: 15 minutes*
+### Linux
+
+On Linux systems, it's quicker and easier to install Hummingbot using Docker. If you are looking to make your own modifications, however, installing from source might be a better fit.
+
+* [Install using Docker](/installation/docker_linux)
+* [Install from source](/installation/linux)
+
+*Estimated installation time: 10 minutes*
 
 ### Using Cloud Servers
 

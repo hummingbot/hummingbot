@@ -1,4 +1,4 @@
-# MacOS/Linux Installation from Docker
+# MacOS Installation from Docker
 
 Using a pre-compiled version of `hummingbot` from Docker allows you to run `hummingbot` with a single line command.
 

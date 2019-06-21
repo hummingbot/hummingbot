@@ -46,4 +46,4 @@ Run the installer:
 
 Afterwards, installation should be identical to installing from source on macOS or Linux.
 
-Follow the [macOS/Linux guide](/installation/macOS_linux) starting on step 2.
+Follow the [MacOS guide](/installation/MacOS) starting on step 3.
