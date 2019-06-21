@@ -136,7 +136,7 @@ coinalpha/hummingbot:$TAG
 
 ![Installing Hummingbot from Docker](/assets/img/gcp-ssh-docker-installing.png)
 
-   * After docker completion installed, you’ll see the following screen, where Hummingbot successfully starts
+   * After Docker has completed the installation, you’ll see the following screen, where Hummingbot successfully starts
 
 ![Hummingbot Welcome Screen](/assets/img/gcp-ssh-hummingbot.png)
 
