@@ -41,6 +41,7 @@ cdef class BinanceMarket(MarketBase):
                                 int64_t exchange_order_id,
                                 str symbol,
                                 bint is_buy,
+                                object price,
                                 object amount,
                                 object order_type)
     cdef c_stop_tracking_order(self, str order_id)
