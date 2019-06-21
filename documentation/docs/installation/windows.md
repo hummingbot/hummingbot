@@ -1,4 +1,4 @@
-# Windows installation
+# Windows Source Installation
 
 The Hummingbot code base is designed and optimized for UNIX-based systems such as macOS and Linux. We recommend that Windows users either:
 
@@ -8,6 +8,9 @@ The Hummingbot code base is designed and optimized for UNIX-based systems such a
 Hummingbot can also be installed by utilizing the built-in Windows Subsystem for Linux. However, this is only recommended for users familiar with development.
 
 ## Installing Hummingbot on Windows Subsystems for Linux
+
+!!! Warning
+    Windows source installation has minimal support and is not recommended. We suggest users either install via Docker or use a cloud VM.
 
 Below, we summarize instructions for installing Hummingbot from source on Windows 10, using Windows Subsystem for Linux (WSL). Users may use <a href="ttps://www.virtualbox.org/" target="_blank">VirtualBox</a> rather than WSL.
 
@@ -25,7 +28,7 @@ sudo apt-get update
 sudo apt-get install build-essential
 ```
 
-### 2. Download and run the Anaconda for Linux installer
+### 3. Download and run the Anaconda for Linux installer
 
 To manage Python and Python library dependencies, Hummingbot uses Anaconda, an open source environment and package manager that is the current industry standard for data scientists and data engineers.
 
@@ -39,8 +42,8 @@ Run the installer:
 ./Anaconda3-2019.03-Linux-x86_64.sh
 ```
 
-### 3. Install and compile Hummingbot
+### 4. Install and compile Hummingbot
 
 Afterwards, installation should be identical to installing from source on macOS or Linux.
 
-Follow the [Install from source](/installation/source) guide starting on step 2.
+Follow the [macOS/Linux guide](/installation/macOS_linux) starting on step 2.

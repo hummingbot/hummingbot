@@ -32,6 +32,8 @@ from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.trade import Trade
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.market.binance.binance_market import BinanceMarket
@@ -41,8 +43,7 @@ from hummingbot.market.market_base import MarketBase
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
-from hummingbot.core.data_type.trade import Trade
+from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
@@ -115,6 +116,8 @@ from hummingbot.notifier.telegram_notifier import TelegramNotifier
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.client.liquidity_bounty.bounty_utils import LiquidityBounty
 
+from hummingbot.market.markets_recorder import MarketsRecorder
+
 s_logger = None
 
 MARKET_CLASSES = {
@@ -178,6 +181,9 @@ class HummingbotApplication:
         self._initialize_liquidity_bounty()
         self._app_warnings: Deque[ApplicationWarning] = deque()
         self._trading_required: bool = True
+
+        self.trade_fill_db: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
+        self.markets_recorder: Optional[MarketsRecorder] = None
 
     def init_reporting_module(self):
         if not self.reporting_module:
@@ -534,6 +540,14 @@ class HummingbotApplication:
 
             self.markets[market_name]: MarketBase = market
 
+        self.markets_recorder = MarketsRecorder(
+            self.trade_fill_db,
+            list(self.markets.values()),
+            in_memory_config_map.get("strategy_file_path").value,
+            in_memory_config_map.get("strategy").value
+        )
+        self.markets_recorder.start()
+
     def _initialize_notifiers(self):
         if global_config_map.get("telegram_enabled").value:
             # TODO: refactor to use single instance
@@ -798,6 +812,8 @@ class HummingbotApplication:
             await clock.run()
 
     async def start_market_making(self, strategy_name: str):
+        await ExchangeRateConversion.get_instance().ready_notifier.wait()
+
         strategy_cm = get_strategy_config_map(strategy_name)
         if strategy_name == "cross_exchange_market_making":
             maker_market = strategy_cm.get("maker_market").value.lower()
@@ -975,12 +991,17 @@ class HummingbotApplication:
             raise NotImplementedError
 
         try:
+            config_path: str = in_memory_config_map.get("strategy_file_path").value
             self.clock = Clock(ClockMode.REALTIME)
             if self.wallet is not None:
                 self.clock.add_iterator(self.wallet)
             for market in self.markets.values():
                 if market is not None:
                     self.clock.add_iterator(market)
+                    self.markets_recorder.restore_market_states(config_path, market)
+                    if len(market.limit_orders) > 0:
+                        self._notify(f"  Cancelling dangling limit orders on {market.name}...")
+                        await market.cancel_all(5.0)
             if self.strategy:
                 self.clock.add_iterator(self.strategy)
             self.strategy_task: asyncio.Task = asyncio.ensure_future(self._run_clock(), loop=self.ev_loop)
@@ -995,6 +1016,7 @@ class HummingbotApplication:
                                                              self.stop(*args, **kwargs)
                                                          ))
                 await self.wait_till_ready(self.stop_loss_tracker.start)
+
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
 
@@ -1026,11 +1048,13 @@ class HummingbotApplication:
             self.strategy.stop()
         ExchangeRateConversion.get_instance().stop()
         self.stop_loss_tracker.stop()
+        self.markets_recorder.stop()
         self.wallet = None
         self.strategy_task = None
         self.strategy = None
         self.market_pair = None
         self.clock = None
+        self.markets_recorder = None
 
     def exit(self, force: bool = False):
         asyncio.ensure_future(self.exit_loop(force), loop=self.ev_loop)

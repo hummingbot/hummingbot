@@ -44,7 +44,7 @@ __pycache__
 **/.DS_Store
 portfolio_value.csv
 /notebooks
-/data/cache/
+/data
 debug.log
 
 # Distribution files
