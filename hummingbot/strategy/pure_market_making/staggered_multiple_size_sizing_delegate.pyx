@@ -8,7 +8,7 @@ from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
 from hummingbot.logger import HummingbotLogger
 
 
-s_logger: Optional[HummingbotLogger] = None
+staggered_sizing_logger: Optional[HummingbotLogger] = None
 
 cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
 
@@ -22,10 +22,10 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global s_logger
-        if s_logger is None:
-            s_logger = logging.getLogger(__name__)
-        return s_logger
+        global staggered_sizing_logger
+        if staggered_sizing_logger is None:
+            staggered_sizing_logger = logging.getLogger(__name__)
+        return staggered_sizing_logger
 
     @property
     def order_start_size(self) -> float:
