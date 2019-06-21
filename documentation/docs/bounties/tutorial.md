@@ -2,6 +2,9 @@
 
 This tutorial shows you how to install Hummingbot, register for Liquidity Bounties, and start earning rewards!
 
+!!! note
+    You can install Hummingbot now, but registration for bounties and earning rewards be available until Liquidity Bounties commences in **early July 2019**.
+
 ## Prerequisites
 Below, we list what you'll need before you install and run Hummingbot. 
 
