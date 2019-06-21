@@ -26,6 +26,15 @@ The `config`, you are asked to select a strategy and enter strategy-specific con
 
 * [Cross-exchange market making](/strategies/cross-exchange-market-making#configuration-walkthrough)
 * [Arbitrage](/strategies/arbitrage#configuration-walkthrough)
+* [Pure market making](/strategies/pure-market-making#configuration-walkthrough)
+* [Discovery](/strategies/discovery#configuration-walkthrough)
+
+!!! note "Note 1: Minimum order size"
+    When configuring your bot, make sure you are aware of the minimum order size requirements for different exchanges.
+
+!!! note "Note 2: Open interest"
+    Certain strategies may be limited due to empty order books or low order book volume. 
+
 
 ## Config file templates
 
