@@ -1160,18 +1160,25 @@ class HummingbotApplication:
             amount = self.balance_snapshot().get(asset_name).get(market_name)
 
         if asset_curr_amount.token is None:
-            asset_curr_amount.token = asset_name
-            asset_curr_amount.amount = float(amount)
+            asset_curr_amount = CurrencyAmount(token=asset_name, amount=asset_curr_amount.amount)
+            asset_curr_amount = CurrencyAmount(token=asset_curr_amount.token, amount=float(amount))
         else:
             if asset_curr_amount.token == asset_name:
-                asset_curr_amount.amount += float(amount)
+                asset_curr_amount = CurrencyAmount(
+                    token=asset_curr_amount.token,
+                    amount=asset_curr_amount.amount + float(amount)
+                )
             else:
                 erc = ExchangeRateConversion.get_instance()
-                asset_curr_amount.amount += float(erc.convert_token_value(
+                temp_amount = float(erc.convert_token_value(
                     amount=float(amount),
                     from_currency=asset_name,
                     to_currency=asset_curr_amount.token
                 ))
+                asset_curr_amount = CurrencyAmount(
+                    token=asset_curr_amount.token,
+                    amount=asset_curr_amount.amount + temp_amount
+                )
 
         if is_base:
             base = asset_curr_amount
@@ -1187,10 +1194,10 @@ class HummingbotApplication:
             return
 
         # Each of these is in the format (currency, amount)
-        starting_base = CurrencyAmount()
-        starting_quote = CurrencyAmount()
-        current_base = CurrencyAmount()
-        current_quote = CurrencyAmount()
+        starting_base = CurrencyAmount(token=None, amount=None)
+        starting_quote = CurrencyAmount(token=None, amount=None)
+        current_base = CurrencyAmount(token=None, amount=None)
+        current_quote = CurrencyAmount(token=None, amount=None)
 
         for market_symbol_pair in self.market_symbol_pairs:
             for is_base in [True, False]:
