@@ -796,8 +796,12 @@ cdef class CoinbaseProMarket(MarketBase):
                 tracked_order.update_exchange_order_id(exchange_order_id)
 
             self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
-                                 BuyOrderCreatedEvent(self._current_timestamp, order_type, symbol, decimal_amount,
-                                                      price, order_id))
+                                 BuyOrderCreatedEvent(self._current_timestamp,
+                                                      order_type,
+                                                      symbol,
+                                                      float(decimal_amount),
+                                                      float(decimal_price),
+                                                      order_id))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -848,8 +852,12 @@ cdef class CoinbaseProMarket(MarketBase):
                 tracked_order.update_exchange_order_id(exchange_order_id)
 
             self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
-                                 SellOrderCreatedEvent(self._current_timestamp, order_type, symbol, decimal_amount,
-                                                       price, order_id))
+                                 SellOrderCreatedEvent(self._current_timestamp,
+                                                       order_type,
+                                                       symbol,
+                                                       float(decimal_amount),
+                                                       float(decimal_price),
+                                                       order_id))
         except asyncio.CancelledError:
             raise
         except Exception:

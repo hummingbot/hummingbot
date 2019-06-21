@@ -839,14 +839,17 @@ cdef class IDEXMarket(MarketBase):
 
     async def execute_buy(self, order_id: str, symbol: str, amount: float, order_type: OrderType, price: float) -> str:
         cdef:
-            str q_amt = str(self.c_quantize_order_amount(symbol, amount))
+            object q_amt = self.c_quantize_order_amount(symbol, amount)
+            object q_price = (self.c_quantize_order_price(symbol, price)
+                              if order_type is OrderType.LIMIT
+                              else s_decimal_0)
         
         try:
-            self.c_start_tracking_order(order_id, symbol, True, order_type, Decimal(q_amt), Decimal(price))
+            self.c_start_tracking_order(order_id, symbol, True, order_type, q_amt, q_price)
             if order_type is OrderType.LIMIT:
                 limit_order = self._generate_limit_order(symbol=symbol,
-                                                         amount=Decimal(q_amt),
-                                                         price=Decimal(price),
+                                                         amount=q_amt,
+                                                         price=q_price,
                                                          side="buy")
                 order_result = await self.post_limit_order(limit_order)
                 tracked_order = self._in_flight_orders.get(order_id)
@@ -861,15 +864,15 @@ cdef class IDEXMarket(MarketBase):
                                          self._current_timestamp,
                                          order_type,
                                          symbol,
-                                         Decimal(q_amt),
-                                         Decimal(price),
+                                         float(q_amt),
+                                         float(q_price),
                                          order_id
                                      ))
             else:
                 best_limit_orders = (self._order_book_tracker
                                      ._active_order_trackers[symbol]
-                                     .get_best_limit_orders(is_buy=True, amount=Decimal(q_amt)))
-                signed_market_orders = self._generate_buy_market_order(Decimal(q_amt), best_limit_orders, symbol)
+                                     .get_best_limit_orders(is_buy=True, amount=q_amt))
+                signed_market_orders = self._generate_buy_market_order(q_amt, best_limit_orders, symbol)
                 completed_orders = await self.post_market_order(signed_market_orders)
                 self.logger().info(f"Created market buy order for {q_amt} {symbol}.")
                 self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
@@ -877,7 +880,7 @@ cdef class IDEXMarket(MarketBase):
                                          self._current_timestamp,
                                          order_type,
                                          symbol,
-                                         Decimal(q_amt),
+                                         float(q_amt),
                                          0.0,
                                          order_id
                                      ))
@@ -887,6 +890,7 @@ cdef class IDEXMarket(MarketBase):
                 tracked_order = self._in_flight_orders.get(order_id)
                 if tracked_order is not None:
                     self.logger().info(f"The market buy order {order_id} has completed according to trade API.")
+                    self.c_stop_tracking_order(order_id)
                     self.c_trigger_event(
                         self.MARKET_ORDER_FILLED_EVENT_TAG,
                         OrderFilledEvent(
@@ -919,8 +923,6 @@ cdef class IDEXMarket(MarketBase):
                                                                     fill_quote_amount * self.IDEX_TAKER_PERCENT_FEE
                                                                 ),
                                                                 order_type=OrderType.MARKET))
-                    self.c_stop_tracking_order(order_id)
-
         except Exception as e:
             self.c_stop_tracking_order(order_id)
             self.logger().network(
@@ -946,14 +948,16 @@ cdef class IDEXMarket(MarketBase):
 
     async def execute_sell(self, order_id: str, symbol: str, amount: float, order_type: OrderType, price: float) -> str:
         cdef:
-            str q_amt = str(self.c_quantize_order_amount(symbol, amount))
-
+            object q_amt = self.c_quantize_order_amount(symbol, amount)
+            object q_price = (self.c_quantize_order_price(symbol, price)
+                              if order_type is OrderType.LIMIT
+                              else s_decimal_0)
         try:
-            self.c_start_tracking_order(order_id, symbol, False, order_type, Decimal(amount), Decimal(price))
+            self.c_start_tracking_order(order_id, symbol, False, order_type, q_amt, q_price)
             if order_type is OrderType.LIMIT:
                 limit_order = self._generate_limit_order(symbol=symbol,
-                                                         amount=Decimal(q_amt),
-                                                         price=Decimal(price),
+                                                         amount=q_amt,
+                                                         price=q_price,
                                                          side="sell")
                 order_result = await self.post_limit_order(limit_order)
                 tracked_order = self._in_flight_orders.get(order_id)
@@ -968,14 +972,14 @@ cdef class IDEXMarket(MarketBase):
                                          self._current_timestamp,
                                          order_type,
                                          symbol,
-                                         Decimal(q_amt),
-                                         Decimal(price),
+                                         float(q_amt),
+                                         float(q_price),
                                          order_id
                                      ))
             else:
                 best_limit_orders = (self._order_book_tracker
                                      ._active_order_trackers[symbol]
-                                     .get_best_limit_orders(is_buy=False, amount=Decimal(q_amt)))
+                                     .get_best_limit_orders(is_buy=False, amount=q_amt))
                 signed_market_orders = self._generate_sell_market_order(Decimal(q_amt), best_limit_orders, symbol)
                 completed_orders = await self.post_market_order(signed_market_orders)
                 self.logger().info(f"Created market sell order for {q_amt} {symbol}.")
@@ -984,7 +988,7 @@ cdef class IDEXMarket(MarketBase):
                                          self._current_timestamp,
                                          order_type,
                                          symbol,
-                                         Decimal(q_amt),
+                                         float(q_amt),
                                          0.0,
                                          order_id
                                      ))
@@ -994,6 +998,7 @@ cdef class IDEXMarket(MarketBase):
                 tracked_order = self._in_flight_orders.get(order_id)
                 if tracked_order is not None:
                     self.logger().info(f"The market sell order {order_id} has completed according to trade API.")
+                    self.c_stop_tracking_order(order_id)
                     self.c_trigger_event(
                         self.MARKET_ORDER_FILLED_EVENT_TAG,
                         OrderFilledEvent(
@@ -1026,7 +1031,6 @@ cdef class IDEXMarket(MarketBase):
                                                                      fill_quote_amount * self.IDEX_TAKER_PERCENT_FEE
                                                                  ),
                                                                  order_type=OrderType.MARKET))
-                    self.c_stop_tracking_order(order_id)
 
         except Exception as e:
             self.c_stop_tracking_order(order_id)
