@@ -71,7 +71,7 @@ cdef class DDEXActiveOrderTracker:
                         return np.array([[timestamp, float(price), quantity, message.update_id]], dtype="float64"), \
                                s_empty_diff
                 else:
-                    self.logger().info(f"Order not found in active bids: {message.content}. {price in self._active_bids}")
+                    self.logger().debug(f"Order not found in active bids: {message.content}. {price in self._active_bids}")
 
             elif side == "sell":
                 if price in self._active_asks and order_id in self._active_asks[price]:
@@ -88,7 +88,7 @@ cdef class DDEXActiveOrderTracker:
                         return s_empty_diff, \
                                np.array([[timestamp, float(price), quantity, message.update_id]], dtype="float64")
                 else:
-                    self.logger().info(f"Order not found in active asks: {message.content}. {price in self._active_bids}")
+                    self.logger().debug(f"Order not found in active asks: {message.content}. {price in self._active_bids}")
 
             return s_empty_diff, s_empty_diff
         # If it is "receive", it means a new order is opened. Start tracking it and output a diff row on the respective
@@ -127,7 +127,7 @@ cdef class DDEXActiveOrderTracker:
                     if order_id in self._active_bids[price]:
                         del self._active_bids[price][order_id]
                     else:
-                        self.logger().info(f"Order not found in active bids: {message.content}.")
+                        self.logger().debug(f"Order not found in active bids: {message.content}.")
 
                     if len(self._active_bids[price]) < 1:
                         del self._active_bids[price]
@@ -144,7 +144,7 @@ cdef class DDEXActiveOrderTracker:
                     if order_id in self._active_asks[price]:
                         del self._active_asks[price][order_id]
                     else:
-                        self.logger().info(f"Order not found in active asks: {message.content}.")
+                        self.logger().debug(f"Order not found in active asks: {message.content}.")
 
                     if len(self._active_asks[price]) < 1:
                         del self._active_asks[price]

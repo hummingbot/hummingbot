@@ -897,8 +897,8 @@ cdef class BambooRelayMarket(MarketBase):
                                          self._current_timestamp,
                                          order_type,
                                          symbol,
-                                         Decimal(q_amt),
-                                         Decimal(q_price),
+                                         float(q_amt),
+                                         float(q_price),
                                          order_id
                                      ))
             else:
@@ -907,11 +907,10 @@ cdef class BambooRelayMarket(MarketBase):
                                         self._current_timestamp,
                                         order_type,
                                         symbol,
-                                        Decimal(q_amt),
-                                        Decimal(q_price),
+                                        float(q_amt),
+                                        float(q_price),
                                         order_id
                                     ))
-
             return order_id
         except Exception:
             self.c_stop_tracking_order(order_id)
