@@ -14,6 +14,7 @@ from typing import (
 )
 from sqlalchemy.orm import (
     Session,
+    Query
 )
 from hummingbot.client.liquidity_bounty.liquidity_bounty_config_map import liquidity_bounty_config_map
 from hummingbot.core.network_base import NetworkBase, NetworkStatus
@@ -44,10 +45,13 @@ class LiquidityBounty(NetworkBase):
         self._update_interval = update_interval
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client: Optional[aiohttp.ClientSession] = None
-
+        self._new_trades_queue: asyncio.Queue = asyncio.Queue()
         self._status: Dict[str, Any] = {}
         # timestamp = -1 when when no data has been fetched / timestamp = 0 when no trades have ever been submitted
         self._last_submitted_trade_timestamp: int = -1
+        self._last_timestamp_fetched_event = asyncio.Event()
+
+        self.add_unsubmitted_trades_task: Optional[asyncio.Task] = None
         self.fetch_bounty_status_task: Optional[asyncio.Task] = None
         self.fetch_last_submitted_timestamp_task: Optional[asyncio.Task] = None
         self.submit_trades_task: Optional[asyncio.Task] = None
@@ -58,19 +62,22 @@ class LiquidityBounty(NetworkBase):
     def formatted_status(self) -> str:
         return pd.DataFrame(self._status.items()).to_string(index=False, header=False)
 
-    async def get_local_trades(self) -> List[Dict[str, Any]]:
-        self.logger().error("in get_local_trades")
-        trade_fill_sql: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
-        trade_fill_session: Session = trade_fill_sql.get_shared_session()
-        # TODO: filter by markets and trading pairs participating in liquidity bounties
-        trade_fill_data = trade_fill_session \
-            .query(TradeFill)\
-            .filter(TradeFill.timestamp >= self._last_submitted_trade_timestamp)\
-            .order_by(TradeFill.timestamp)\
-            .all()
-        self.logger().error("trade_fill_data")
-        self.logger().error(trade_fill_data)
-        return []
+    def did_receive_new_trade_records(self, new_trades: List[TradeFill]):
+        self._new_trades_queue.put_nowait(new_trades)
+
+    async def add_unsubmitted_trades_to_queue(self):
+        """ Get locally saved trades that have not been submitted to liquidity bounties """
+        if not self._last_timestamp_fetched_event.is_set():
+            await self._last_timestamp_fetched_event.wait()
+        session: Session = SQLConnectionManager.get_trade_fills_instance().get_shared_session()
+        if self._last_submitted_trade_timestamp > -1:
+            # TODO: add filters so that only trades from certain markets and certain trading_pairs get sent
+            query: Query = (session
+                            .query(TradeFill)
+                            .filter(TradeFill.timestamp >= self._last_submitted_trade_timestamp)
+                            .order_by(TradeFill.timestamp))
+            new_trades: List[TradeFill] = query.all()
+            self.did_receive_new_trade_records(new_trades)
 
     async def _http_client(self) -> aiohttp.ClientSession:
         if self._shared_client is None:
@@ -139,6 +146,7 @@ class LiquidityBounty(NetworkBase):
                 url = f"{self.LIQUIDITY_BOUNTY_REST_API}/trade/last_recorded_timestamp"
                 results = await self.authenticated_request("GET", url)
                 self._last_submitted_trade_timestamp = results.get("last_recorded_timestamp", -1)
+                self._last_timestamp_fetched_event.set()
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -148,40 +156,51 @@ class LiquidityBounty(NetworkBase):
             await asyncio.sleep(self._update_interval)
 
     async def submit_trades_loop(self):
+        if not self._last_timestamp_fetched_event.is_set():
+            await self._last_timestamp_fetched_event.wait()
         while True:
             try:
-                self.logger().error("in submit_trades_loop")
-                self.logger().error(self._last_submitted_trade_timestamp)
+                new_trades_records: List[TradeFill] = await self._new_trades_queue.get()
+                formatted_trades: List[Dict[str, Any]] = [
+                    TradeFill.to_bounty_api_json(trade) for trade in new_trades_records
+                ]
                 if self._last_submitted_trade_timestamp >= 0:
-                    self.logger().error("in 2")
-                    trades = await self.get_local_trades()
-                    self.logger().error("in 3")
-                    self.logger().error(trades)
-                    if len(trades) > 0:
+                    if len(formatted_trades) > 0:
                         url = f"{self.LIQUIDITY_BOUNTY_REST_API}/trade"
-                        results = await self.authenticated_request("POST", url, json={"trades": trades})
-                        self.logger().error(results)
+                        results = await self.authenticated_request("POST", url, json={"trades": formatted_trades})
+                        # {'trades_submitted': 44, 'trades_recorded': 44}
+                        num_submitted = results.get("trades_submitted", 0)
+                        num_recorded = results.get("trades_recorded", 0)
+                        if num_submitted != num_recorded:
+                            self.logger().warning(f"Failed to submit {num_submitted - num_recorded} trades")
+                        self.logger().info(f"Successfully sent {num_recorded} trades to claim bounty")
             except asyncio.CancelledError:
-                raise
+                    raise
+            except asyncio.TimeoutError:
+                    continue
             except Exception as e:
                 if "User not registered" in str(e):
                     self.logger().warning("User not registered. Aborting submit_trades_loop.")
                     break
-                self.logger().error(str(e))
+                else:
+                    self.logger().error(f"Error submitting trades: {str(e)}")
             await asyncio.sleep(self._update_interval)
 
     async def start_network(self):
         await self.stop_network()
-        self.fetch_bounty_status_task = asyncio.ensure_future(self.fetch_bounty_status_loop())
+        self.add_unsubmitted_trades_task = asyncio.ensure_future(self.add_unsubmitted_trades_to_queue())
         self.fetch_last_submitted_timestamp_task = asyncio.ensure_future(self.fetch_last_timestamp_loop())
+        self.fetch_bounty_status_task = asyncio.ensure_future(self.fetch_bounty_status_loop())
         self.submit_trades_task = asyncio.ensure_future(self.submit_trades_loop())
 
     async def stop_network(self):
         if self.fetch_bounty_status_task is not None:
-            self.fetch_bounty_status_task.cancel()
-            self.fetch_bounty_status_task = None
+            self.add_unsubmitted_trades_task.cancel()
+            self.add_unsubmitted_trades_task = None
             self.fetch_last_submitted_timestamp_task.cancel()
             self.fetch_last_submitted_timestamp_task = None
+            self.fetch_bounty_status_task.cancel()
+            self.fetch_bounty_status_task = None
             self.submit_trades_task.cancel()
             self.submit_trades_task = None
 
