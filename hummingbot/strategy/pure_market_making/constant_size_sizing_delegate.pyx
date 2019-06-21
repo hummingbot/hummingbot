@@ -8,7 +8,7 @@ from .data_types import SizingProposal
 from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
 from hummingbot.logger import HummingbotLogger
 
-s_logger:Optional[HummingbotLogger] = None
+constant_sizing_logger:Optional[HummingbotLogger] = None
 
 cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
 
@@ -18,10 +18,10 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global s_logger
-        if s_logger is None:
-            s_logger = logging.getLogger(__name__)
-        return s_logger
+        global constant_sizing_logger
+        if constant_sizing_logger is None:
+            constant_sizing_logger = logging.getLogger(__name__)
+        return constant_sizing_logger
 
     @property
     def order_size(self) -> float:
