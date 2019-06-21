@@ -6,7 +6,7 @@ Hummingbot uses a command-line interface (CLI) that helps users configure and ru
 
 ### Installed from Docker
 
-Creating a new instance of `hummingbot` with `docker run` will automatically start the `hummingbot` client (see [Docker - Create new instance of hummingbot](/installation/docker#create-new-instance-of-hummingbot)).
+Creating a new instance of `hummingbot` with `docker run` will automatically start the `hummingbot` client (see Docker installation guides for [Windows](/installation/docker_windows#2.-create-new-instance-of-hummingbot) and [MacOS/Linux](/installation/docker_macOS_linux#create-new-instance-of-hummingbot)).
 
 To run a previously created, stopped container:
 
