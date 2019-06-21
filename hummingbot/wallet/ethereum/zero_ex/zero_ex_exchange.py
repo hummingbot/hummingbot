@@ -45,19 +45,31 @@ class ZeroExExchange:
     def market_buy_orders(self, orders: List[Order], maker_asset_fill_amount: Decimal, signatures: List[str]) -> str:
         order_tuples: List[Tuple] = [convert_order_to_tuple(order) for order in orders]
         signatures: List[bytes] = [self._w3.toBytes(hexstr=signature) for signature in signatures]
+        # Add 10 wei to the standard price to beat the default gas price ppl.
+        gas_price: int = self._wallet.gas_price + 10
         tx_hash: str = self._wallet.execute_transaction(
-            self._contract.functions.marketBuyOrders(order_tuples,
-                                                     int(maker_asset_fill_amount),
-                                                     signatures))
+            self._contract.functions.marketBuyOrders(
+                order_tuples,
+                int(maker_asset_fill_amount),
+                signatures
+            ),
+            gasPrice=gas_price
+        )
         return tx_hash
 
     def market_sell_orders(self, orders: List[Order], taker_asset_fill_amount: Decimal, signatures: List[str]) -> str:
         order_tuples: List[Tuple] = [convert_order_to_tuple(order) for order in orders]
         signatures: List[bytes] = [self._w3.toBytes(hexstr=signature) for signature in signatures]
+        # Add 10 wei to the standard price to beat the default gas price ppl.
+        gas_price: int = self._wallet.gas_price + 10
         tx_hash: str = self._wallet.execute_transaction(
-            self._contract.functions.marketSellOrders(order_tuples,
-                                                      int(taker_asset_fill_amount),
-                                                      signatures))
+            self._contract.functions.marketSellOrders(
+                order_tuples,
+                int(taker_asset_fill_amount),
+                signatures
+            ),
+            gasPrice=gas_price
+        )
         return tx_hash
 
     def cancel_order(self, order: Order) -> str:
