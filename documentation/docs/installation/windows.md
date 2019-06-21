@@ -18,32 +18,11 @@ Below, we summarize instructions for installing Hummingbot from source on Window
 
 Follow these <a href="https://docs.microsoft.com/en-us/windows/wsl/install-win10" target="_blank">instructions</a> for installing Windows Subsystem for Linux, and then Ubuntu.
 
-### 2. Get the `build-essential` package
+### 2. Install Hummingbot on Linux Subsystem
 
 ![Bash for Windows](/assets/img/bash-for-windows.png)
 
-Start the Bash app and install the `build-essential` package which contains `gcc` and `make`, utility libraries used by Hummingbot's installation script:
-```
-sudo apt-get update
-sudo apt-get install build-essential
-```
+Once you can run Linux on your computer, you can proceed to either of the following guides to setup and run `hummingbot`:
 
-### 3. Download and run the Anaconda for Linux installer
-
-To manage Python and Python library dependencies, Hummingbot uses Anaconda, an open source environment and package manager that is the current industry standard for data scientists and data engineers.
-
-From Bash, download the Anaconda for Linux installer:
-```
-wget https://repo.anaconda.com/archive/Anaconda3-2019.03-Linux-x86_64.sh
-```
-
-Run the installer:
-```
-./Anaconda3-2019.03-Linux-x86_64.sh
-```
-
-### 4. Install and compile Hummingbot
-
-Afterwards, installation should be identical to installing from source on macOS or Linux.
-
-Follow the [macOS/Linux guide](/installation/macOS_linux) starting on step 2.
+- [Install on Linux from source](/installation/linux/)
+- [Install on Linux from Docker](/installation/docker_linux/)

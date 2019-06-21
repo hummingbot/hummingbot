@@ -84,10 +84,14 @@ nav:
         - Install on Windows:
           - From Docker: installation/docker_windows.md
           - From Source: installation/windows.md
-        - Install on MacOS/Linux:
-          - From Docker: installation/docker_macOS_linux.md
-          - From Source: installation/macOS_linux.md
+        - Install on MacOS:
+          - From Docker: installation/docker_macOS.md
+          - From Source: installation/macOS.md
+        - Install on Linux:
+          - From Docker: installation/docker_linux.md
+          - From Source: installation/linux.md
         - Install in cloud: installation/cloud.md
+        - Run on Docker: installation/docker.md
         - API keys: installation/api-keys.md
         - Ethereum wallet: installation/wallet.md
         - Ethereum node:
