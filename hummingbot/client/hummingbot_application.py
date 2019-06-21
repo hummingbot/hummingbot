@@ -1155,29 +1155,29 @@ class HummingbotApplication:
             asset_name = market_symbol_pair.quote_asset
 
         if is_starting:
-            amount = self.starting_balances.get(asset_name).get(market_name)
+            amount = self.starting_balances[asset_name][market_name]
         else:
-            amount = self.balance_snapshot().get(asset_name).get(market_name)
+            amount = self.balance_snapshot()[asset_name][market_name]
 
         if asset_curr_amount.token is None:
-            asset_curr_amount = CurrencyAmount(token=asset_name, amount=asset_curr_amount.amount)
-            asset_curr_amount = CurrencyAmount(token=asset_curr_amount.token, amount=float(amount))
+            asset_curr_amount = CurrencyAmount(asset_name, asset_curr_amount.amount)
+            asset_curr_amount = CurrencyAmount(asset_curr_amount.token, float(amount))
         else:
             if asset_curr_amount.token == asset_name:
                 asset_curr_amount = CurrencyAmount(
-                    token=asset_curr_amount.token,
-                    amount=asset_curr_amount.amount + float(amount)
+                    asset_curr_amount.token,
+                    asset_curr_amount.amount + float(amount)
                 )
             else:
                 erc = ExchangeRateConversion.get_instance()
                 temp_amount = float(erc.convert_token_value(
-                    amount=float(amount),
-                    from_currency=asset_name,
-                    to_currency=asset_curr_amount.token
+                    float(amount),
+                    asset_name,
+                    asset_curr_amount.token
                 ))
                 asset_curr_amount = CurrencyAmount(
-                    token=asset_curr_amount.token,
-                    amount=asset_curr_amount.amount + temp_amount
+                    asset_curr_amount.token,
+                    asset_curr_amount.amount + temp_amount
                 )
 
         if is_base:
@@ -1194,27 +1194,17 @@ class HummingbotApplication:
             return
 
         # Each of these is in the format (currency, amount)
-        starting_base = CurrencyAmount(token=None, amount=None)
-        starting_quote = CurrencyAmount(token=None, amount=None)
-        current_base = CurrencyAmount(token=None, amount=None)
-        current_quote = CurrencyAmount(token=None, amount=None)
+        starting_base = CurrencyAmount(None, None)
+        starting_quote = CurrencyAmount(None, None)
+        current_base = CurrencyAmount(None, None)
+        current_quote = CurrencyAmount(None, None)
 
         for market_symbol_pair in self.market_symbol_pairs:
             for is_base in [True, False]:
-                starting_base, starting_quote = self.add_balances(
-                    market_symbol_pair=market_symbol_pair,
-                    is_base=is_base,
-                    is_starting=True,
-                    base=starting_base,
-                    quote=starting_quote
-                )
-                current_base, current_quote = self.add_balances(
-                    market_symbol_pair=market_symbol_pair,
-                    is_base=is_base,
-                    is_starting=False,
-                    base=current_base,
-                    quote=current_quote
-                )
+                starting_base, starting_quote = self.add_balances(market_symbol_pair, is_base, True, starting_base,
+                                                                  starting_quote)
+                current_base, current_quote = self.add_balances(market_symbol_pair, is_base, False, current_base,
+                                                                current_quote)
 
         # Compute the current exchange rate. We use the first market_symbol_pair because
         # if the trading pairs are different, such as WETH-DAI and ETH-USD, the tuples
@@ -1222,8 +1212,8 @@ class HummingbotApplication:
         # the way that the balances were computed in the for loop above.
         market_pair_info = self.market_symbol_pairs[0]
         market = market_pair_info.market
-        buy_price = market.get_price(symbol=market_pair_info.trading_pair, is_buy=True)
-        sell_price = market.get_price(symbol=market_pair_info.trading_pair, is_buy=False)
+        buy_price = market.get_price(market_pair_info.trading_pair, True)
+        sell_price = market.get_price(market_pair_info.trading_pair, False)
         price = (buy_price + sell_price)/2.0
 
         starting_amount = (float(starting_base.amount) * price) + float(starting_quote.amount)
