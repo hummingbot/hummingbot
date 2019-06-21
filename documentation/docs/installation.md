@@ -15,7 +15,7 @@ Hummingbot can be installed locally in two ways: via Docker or from source.  Cho
 | | Source | Docker |
 |----|----|----|
 | **Windows** | ❌ No native support; available only by installing Linux subsystem | <font color="green">✓</font> |
-| **Installation** | Requires installation of dependencies and then downloading, installing, and compiling code | <font color="green">✓</font> Simple installation: hummingbot docker image is pre-installed, pre-compiled, and includes all dependendencies |
+| **Installation process** | Requires installation of dependencies and then downloading, installing, and compiling code | <font color="green">✓</font> Simple installation: hummingbot docker image is pre-installed, pre-compiled, and includes all dependendencies |
 | **Updating versions** | Download latest code using `git`, uninstall, reinstall, recompile | <font color="green">✓</font> Remove and recreate container (can be single command) |
 | **Code accessibility** | <font color="green">✓</font> Easy access for editing | Less accessible |
 | **Running multiple instances** | Requires multiple installations | <font color="green">✓</font> Easy to deploy multiple instances |

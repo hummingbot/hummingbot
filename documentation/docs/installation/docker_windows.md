@@ -1,9 +1,5 @@
 # Windows Installation from Docker
 
-Using a pre-compiled version of `hummingbot` from Docker allows you to run `hummingbot` with a single line command.
-
-Docker images of `hummingbot` are available on Docker Hub at [coinalpha/hummingbot](https://hub.docker.com/r/coinalpha/hummingbot).
-
 ## Installing Hummingbot via the Docker Toolbox
 
 For Windows users without Windows-Pro or Windows-Enterprise, you will need to install the Docker Toolbox, as Windows-Home is not supported by the standard Docker application. Below, we list instructions for running Hummingbot using the Docker Toolbox.

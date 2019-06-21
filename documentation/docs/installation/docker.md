@@ -1,12 +1,12 @@
-# Running Hummingbot with Docker
+# Running Hummingbot via Docker
 
 Using a pre-compiled version of `hummingbot` from Docker allows you to run `hummingbot` with a single line command.
 
 Docker images of `hummingbot` are available on Docker Hub at [coinalpha/hummingbot](https://hub.docker.com/r/coinalpha/hummingbot).
 
-## Docker installation guides
+## Docker Installation Guides
 
-The instructions below assume you already of Docker installed.  If you do not have it installed, you can follow the installation guides: 
+The instructions below assume you already have Docker installed.  If you do not have it installed, you can follow the installation guides:
 
 - [Docker for Windows](/installation/docker_windows/)
 - [Docker for MacOS](/installation/docker_macOS/)
@@ -14,7 +14,7 @@ The instructions below assume you already of Docker installed.  If you do not ha
 
 ## Docker commands for MacOSX/Linux
 
-``` bash tab="Create new instance"
+``` bash tab="Create New Instance"
 # 1) Create folder for your new instance and navigate inside
 mkdir my-instance-1 && cd my-instance-1
 
@@ -29,14 +29,12 @@ docker run -it \
 coinalpha/hummingbot:latest
 ```
 
-``` bash tab="Restart instance"
-# The command below restarts a previously created instance
+``` bash tab="Restart Instance"
+# 1)
 docker start my-instance-1 && docker attach my-instance-1
 ```
 
-``` bash tab="Update version"
-# The command below updates the hummingbot image and re-creates the instance
-
+``` bash tab="Update Version"
 # 1) Navigate to your instance folder
 cd my-instance-1
 

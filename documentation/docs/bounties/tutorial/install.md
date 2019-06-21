@@ -1,12 +1,12 @@
 # Install Hummingbot
 
-See below for installation guides for each supported platform. Note that we highlight the Docker-based installation path since it's easier for new users. 
+See below for installation guides for each supported platform. Note that we highlight the Docker-based installation path since it's easier for new users.
 
 Advanced users who wish to install Hummingbot from source can find instructions in our main [Installation](/installation) section.
 
 ## Cloud platforms
 
-Because an active, stable network connection is ideal, we recommend that you run Hummingbot on a cloud provider if possible. In addition, running Hummingbot in the cloud may increases performance if you select servers in the same region as the exchanges on which you trade.
+Because an active, stable network connection is ideal, we recommend that you run Hummingbot on a cloud provider if possible. In addition, running Hummingbot in the cloud may increase performance if you select servers in the same region as the exchanges on which you trade.
 
 !!! Tip
     Don't know which cloud platform to use? Read out [blog post](https://www.hummingbot.io/blog/2019-06-cloud-providers/) that compares and contrasts the different providers.
@@ -33,7 +33,7 @@ We have tested Hummingbot extensively on Mac and Linux-based machines. Below are
 
 ## Windows
 
-While there is no native Windows Hummingbot binary available, users can install the Docker version.
+While there is no native Windows binary for Hummingbot available, users can install the Docker version.
 
 - Read the [Windows installation guide](/installation/docker_windows)
 - Watch the [Windows installation video](https://www.youtube.com/watch?v=K67qN4nmSnw&list=PLDwlNkL_4MMczSzZiomX5wFFuF40z-KLl&index=5)
