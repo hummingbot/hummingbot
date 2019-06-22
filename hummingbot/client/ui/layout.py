@@ -87,7 +87,8 @@ def create_output_field():
     return TextArea(
         style='class:output-field',
         focus_on_click=False,
-        read_only=False
+        read_only=False,
+        scrollbar=True,
     )
 
 
@@ -96,7 +97,8 @@ def create_log_field():
         style='class:log-field',
         text="Running logs\n",
         focus_on_click=False,
-        read_only=False
+        read_only=False,
+        scrollbar=True,
     )
 
 
