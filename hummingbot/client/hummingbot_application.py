@@ -1169,7 +1169,7 @@ class HummingbotApplication:
 
         df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Delta"])
         lines = ["", "  Performance:"] + ["    " + line for line in str(df).split("\n")]
-        self._notify("\n".join(lines)
+        self._notify("\n".join(lines))
 
     def analyze_performance(self):
         """ Determine the profitability of the trading bot. """
@@ -1180,10 +1180,11 @@ class HummingbotApplication:
         for market_symbol_pair in self.market_symbol_pairs:
             for is_base in [True, False]:
                 for is_starting in [True, False]:
-                    market_name = market_symbol_pair.market
+                    market_name = market_symbol_pair.market.name
                     asset_name = market_symbol_pair.base_asset if is_base else market_symbol_pair.quote_asset
                     amount = self.starting_balances[asset_name][market_name] if is_starting \
                         else self.balance_snapshot()[asset_name][market_name]
+                    amount = float(amount)
                     self.performance_analysis.add_balances(asset_name, amount, is_base, is_starting)
 
         # Compute the current exchange rate. We use the first market_symbol_pair because
