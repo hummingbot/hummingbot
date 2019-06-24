@@ -79,6 +79,22 @@ class LiquidityBounty(NetworkBase):
             self._shared_client = aiohttp.ClientSession()
         return self._shared_client
 
+    async def get_bounties(self) -> List[Dict[str, Any]]:
+        try:
+            client: aiohttp.ClientSession = await self._http_client()
+            async with client.request("GET", f"{self.LIQUIDITY_BOUNTY_REST_API}/list") as resp:
+                # registration_status = "success" or <reason_for_failure>
+                if resp.status not in {200, 400}:
+                    raise Exception(f"Liquidity bounty server error. Server responded with status {resp.status}")
+                results = await resp.json()
+                return results
+        except AssertionError:
+            raise
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            raise
+
     async def register(self) -> Dict[str, Any]:
         bounty_config: Dict[str, Any] = {key: cvar.value for key, cvar in liquidity_bounty_config_map.items()}
         assert bounty_config["liquidity_bounty_enabled"]
