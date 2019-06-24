@@ -140,7 +140,7 @@ class LiquidityBounty(NetworkBase):
             try:
                 url = f"{self.LIQUIDITY_BOUNTY_REST_API}/trade/last_recorded_timestamp"
                 results = await self.authenticated_request("GET", url)
-                self._last_submitted_trade_timestamp = results.get("last_recorded_timestamp", -1)
+                self._last_submitted_trade_timestamp = int(results.get("last_recorded_timestamp", -1))
                 self._last_timestamp_fetched_event.set()
             except asyncio.CancelledError:
                 raise
