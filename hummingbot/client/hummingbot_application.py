@@ -1074,7 +1074,7 @@ class HummingbotApplication:
             await asyncio.sleep(1)
         ExchangeRateConversion.get_instance().stop()
 
-        if self.liquidity_bounty:
+        if force is False and self.liquidity_bounty is not None:
             self._notify("Winding down liquidity bounty submission...")
             await self.liquidity_bounty.stop_network()
 
