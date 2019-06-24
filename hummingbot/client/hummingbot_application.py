@@ -1167,12 +1167,14 @@ class HummingbotApplication:
         lines = ["", "  Performance:"] + ["    " + line for line in str(df).split("\n")]
         self._notify("\n".join(lines))
 
-    def bounty(self, register: bool = False, status: bool = False, terms: bool = False):
+    def bounty(self, register: bool = False, status: bool = False, terms: bool = False, list: bool = False):
         """ Router function for `bounty` command """
         if terms:
             asyncio.ensure_future(self.bounty_print_terms(), loop=self.ev_loop)
         elif register:
             asyncio.ensure_future(self.bounty_registration(), loop=self.ev_loop)
+        elif list:
+            asyncio.ensure_future(self.bounty_list(), loop=self.ev_loop)
         else:
             asyncio.ensure_future(self.bounty_show_status(), loop=self.ev_loop)
 
@@ -1209,6 +1211,31 @@ class HummingbotApplication:
             await save_to_yml(LIQUIDITY_BOUNTY_CONFIG_PATH, liquidity_bounty_config_map)
             self.liquidity_bounty.start()
             self._notify("Hooray! You are now collecting bounties. ")
+        except Exception as e:
+            self._notify(str(e))
+
+    async def bounty_list(self):
+        """ List available bounties """
+        self.liquidity_bounty = LiquidityBounty.get_instance()
+        try:
+            response: Dict[str, Any] = await self.liquidity_bounty.get_bounties()
+            if response.get("error") is not None:
+                raise ValueError(response.get("error"))
+            bounties: List[Dict[str, Any]] = response.get("bounties", [])
+            rows = [[
+                bounty["market"],
+                bounty["base_asset"],
+                bounty["start_timestamp"],
+                bounty["end_timestamp"],
+                bounty["link"]
+            ] for bounty in bounties]
+            df: pd.DataFrame = pd.DataFrame(
+                rows,
+                index=None,
+                columns=["Market", "Asset", "Start (DD/MM/YYYY)", "End (DD/MM/YYYY)", "More Info"]
+            )
+            lines = ["", "  Bounties:"] + ["    " + line for line in df.to_string(index=False).split("\n")]
+            self._notify("\n".join(lines))
         except Exception as e:
             self._notify(str(e))
 
