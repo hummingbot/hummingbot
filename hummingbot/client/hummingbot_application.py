@@ -564,7 +564,7 @@ class HummingbotApplication:
         if liquidity_bounty_config_map.get("liquidity_bounty_enabled").value is not None and \
            liquidity_bounty_config_map.get("liquidity_bounty_client_id").value is not None:
             self.liquidity_bounty = LiquidityBounty.get_instance()
-            asyncio.ensure_future(self.liquidity_bounty.start_network(), loop=self.ev_loop)
+            self.liquidity_bounty.start()
 
     def _format_application_warnings(self) -> str:
         lines: List[str] = []
@@ -943,8 +943,8 @@ class HummingbotApplication:
                 strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
 
                 self.strategy = PureMarketMakingStrategyV2(market_infos=[self.market_info],
-                                                           pricing_delegate = pricing_delegate,
-                                                           sizing_delegate = sizing_delegate,
+                                                           pricing_delegate=pricing_delegate,
+                                                           sizing_delegate=sizing_delegate,
                                                            legacy_order_size=order_size,
                                                            legacy_bid_spread=bid_place_threshold,
                                                            legacy_ask_spread=ask_place_threshold,
@@ -1077,6 +1077,10 @@ class HummingbotApplication:
             await asyncio.sleep(1)
         ExchangeRateConversion.get_instance().stop()
 
+        if force is False and self.liquidity_bounty is not None:
+            self._notify("Winding down liquidity bounty submission...")
+            await self.liquidity_bounty.stop_network()
+
         self._notify("Winding down notifiers...")
         for notifier in self.notifiers:
             notifier.stop()
@@ -1165,7 +1169,7 @@ class HummingbotApplication:
 
         df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Delta"])
         lines = ["", "  Performance:"] + ["    " + line for line in str(df).split("\n")]
-        self._notify("\n".join(lines))
+        self._notify("\n".join(lines)
 
     def analyze_performance(self):
         """ Determine the profitability of the trading bot. """
@@ -1195,12 +1199,14 @@ class HummingbotApplication:
 
         self._notify("\n" + "  Profitability:\n" + "    " + str(percent) + "%")
 
-    def bounty(self, register: bool = False, status: bool = False, terms: bool = False):
+    def bounty(self, register: bool = False, status: bool = False, terms: bool = False, list: bool = False):
         """ Router function for `bounty` command """
         if terms:
             asyncio.ensure_future(self.bounty_print_terms(), loop=self.ev_loop)
         elif register:
             asyncio.ensure_future(self.bounty_registration(), loop=self.ev_loop)
+        elif list:
+            asyncio.ensure_future(self.bounty_list(), loop=self.ev_loop)
         else:
             asyncio.ensure_future(self.bounty_show_status(), loop=self.ev_loop)
 
@@ -1235,8 +1241,33 @@ class HummingbotApplication:
             client_id = registration_results["client_id"]
             liquidity_bounty_config_map.get("liquidity_bounty_client_id").value = client_id
             await save_to_yml(LIQUIDITY_BOUNTY_CONFIG_PATH, liquidity_bounty_config_map)
-            await self.liquidity_bounty.start_network()
+            self.liquidity_bounty.start()
             self._notify("Hooray! You are now collecting bounties. ")
+        except Exception as e:
+            self._notify(str(e))
+
+    async def bounty_list(self):
+        """ List available bounties """
+        self.liquidity_bounty = LiquidityBounty.get_instance()
+        try:
+            response: Dict[str, Any] = await self.liquidity_bounty.get_bounties()
+            if response.get("error") is not None:
+                raise ValueError(response.get("error"))
+            bounties: List[Dict[str, Any]] = response.get("bounties", [])
+            rows = [[
+                bounty["market"],
+                bounty["base_asset"],
+                bounty["start_timestamp"],
+                bounty["end_timestamp"],
+                bounty["link"]
+            ] for bounty in bounties]
+            df: pd.DataFrame = pd.DataFrame(
+                rows,
+                index=None,
+                columns=["Market", "Asset", "Start (DD/MM/YYYY)", "End (DD/MM/YYYY)", "More Info"]
+            )
+            lines = ["", "  Bounties:"] + ["    " + line for line in df.to_string(index=False).split("\n")]
+            self._notify("\n".join(lines))
         except Exception as e:
             self._notify(str(e))
 

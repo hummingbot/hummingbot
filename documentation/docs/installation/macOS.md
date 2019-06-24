@@ -1,16 +1,16 @@
-# MacOS/Linux Source Installation
+# MacOS Source Installation
 
-## OS-specific dependencies
+## Dependencies
 
-We provide users with binaries compiled for each operating systems. Below, we list OS-specific dependencies and suggestions.
+Running `hummingbot` on **Mac OSX** requires [Xcode](https://developer.apple.com/xcode/) and Xcode command line tools.
 
-OS | Notes
----|---
-**Mac OSX** | You may need to install [Xcode](https://developer.apple.com/xcode/) or Xcode command line tools.
-**Linux** | We recommend Ubuntu 18.04, though Hummingbot should work on other version of Linux as well. If you are installing Hummingbot on a fresh Linux virtual machine, we recommend installing the `build-essential` package beforehand, since Hummingbot uses the `gcc` compiler and other libraries it contains: <br/><br/> ```sudo apt-get update```<br/>```sudo apt-get install build-essential```
-**Windows** | Hummingbot is designed and optimized for macOS and Linux. While a Windows binary is available, it is not actively supported. Instead, we recommend that Windows users install <a href="https://docs.microsoft.com/en-us/windows/wsl/faq" target="_blank">Windows Subsystem for Linux</a>, which allows you to run the Linux version.
+### 1. Install Xcode command line tools
 
-## 1. Install Anaconda
+```
+xcode-select --install
+```
+
+### 2. Install Anaconda3
 
 Hummingbot requires Python 3 and other Python libraries. To manage these dependencies, Hummingbot uses Anaconda, an open source environment and package manager for Python that is the current industry standard for data scientists and data engineers.
 

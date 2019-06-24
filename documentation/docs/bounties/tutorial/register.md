@@ -1,5 +1,10 @@
 # Register for liquidity bounties
 
+!!! note
+    These registration commands won't be available until Liquidity Bounties commence in **early July 2019**.
+
+
+
 Now that you have [installed](bounties/tutorial/install) Hummingbot, you can now register to earn rewards from Liquidity Bounties!
 
 ## The Hummingbot client interface
