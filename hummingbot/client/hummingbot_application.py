@@ -49,6 +49,7 @@ from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot import init_logging
+from hummingbot.client.performance_analysis import PerformanceAnalysis
 from hummingbot.client.ui.keybindings import load_key_bindings
 from hummingbot.client.ui.parser import (
     load_parser,
@@ -56,7 +57,6 @@ from hummingbot.client.ui.parser import (
 )
 from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.completer import load_completer
-from hummingbot.client.data_type.currency_amount import CurrencyAmount
 from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
 from hummingbot.core.utils.wallet_setup import (
     create_and_save_wallet,
@@ -184,6 +184,8 @@ class HummingbotApplication:
 
         self.trade_fill_db: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
         self.markets_recorder: Optional[MarketsRecorder] = None
+
+        self.performance_analysis = PerformanceAnalysis()
 
     def init_reporting_module(self):
         if not self.reporting_module:
@@ -1165,70 +1167,20 @@ class HummingbotApplication:
         lines = ["", "  Performance:"] + ["    " + line for line in str(df).split("\n")]
         self._notify("\n".join(lines))
 
-    def add_balances(self, market_symbol_pair: MarketSymbolPair, is_base: bool, is_starting: bool, base: CurrencyAmount,
-                     quote: CurrencyAmount):
-        """ Adds the balance of either the base or the quote in the given market symbol pair token to the corresponding
-        CurrencyAmount object. """
-        market_name = market_symbol_pair.market.name
-
-        if is_base:
-            asset_curr_amount = base
-            asset_name = market_symbol_pair.base_asset
-        else:
-            asset_curr_amount = quote
-            asset_name = market_symbol_pair.quote_asset
-
-        if is_starting:
-            amount = self.starting_balances[asset_name][market_name]
-        else:
-            amount = self.balance_snapshot()[asset_name][market_name]
-
-        if asset_curr_amount.token is None:
-            asset_curr_amount = CurrencyAmount(asset_name, asset_curr_amount.amount)
-            asset_curr_amount = CurrencyAmount(asset_curr_amount.token, float(amount))
-        else:
-            if asset_curr_amount.token == asset_name:
-                asset_curr_amount = CurrencyAmount(
-                    asset_curr_amount.token,
-                    asset_curr_amount.amount + float(amount)
-                )
-            else:
-                erc = ExchangeRateConversion.get_instance()
-                temp_amount = float(erc.convert_token_value(
-                    float(amount),
-                    asset_name,
-                    asset_curr_amount.token
-                ))
-                asset_curr_amount = CurrencyAmount(
-                    asset_curr_amount.token,
-                    asset_curr_amount.amount + temp_amount
-                )
-
-        if is_base:
-            base = asset_curr_amount
-        else:
-            quote = asset_curr_amount
-
-        return base, quote
-
     def analyze_performance(self):
         """ Determine the profitability of the trading bot. """
         if len(self.starting_balances) == 0:
             self._notify("  Performance analysis is not available before bot starts")
             return
 
-        # Each of these is in the format (currency, amount)
-        starting_base = CurrencyAmount(None, None)
-        starting_quote = CurrencyAmount(None, None)
-        current_base = CurrencyAmount(None, None)
-        current_quote = CurrencyAmount(None, None)
-
         for market_symbol_pair in self.market_symbol_pairs:
             for is_base in [True, False]:
-                starting_base, starting_quote = self.add_balances(market_symbol_pair, is_base, True, starting_base,
-                                                                  starting_quote)
-                current_base, current_quote = self.add_balances(market_symbol_pair, is_base, False, current_base,
-                                                                current_quote)
+                for is_starting in [True, False]:
+                    market_name = market_symbol_pair.market
+                    asset_name = market_symbol_pair.base_asset if is_base else market_symbol_pair.quote_asset
+                    amount = self.starting_balances[asset_name][market_name] if is_starting \
+                        else self.balance_snapshot()[asset_name][market_name]
+                    self.performance_analysis.add_balances(asset_name, amount, is_base, is_starting)
 
         # Compute the current exchange rate. We use the first market_symbol_pair because
         # if the trading pairs are different, such as WETH-DAI and ETH-USD, the tuples
@@ -1239,11 +1191,7 @@ class HummingbotApplication:
         buy_price = market.get_price(market_pair_info.trading_pair, True)
         sell_price = market.get_price(market_pair_info.trading_pair, False)
         price = (buy_price + sell_price)/2.0
-
-        starting_amount = (float(starting_base.amount) * price) + float(starting_quote.amount)
-        current_amount = (float(current_base.amount) * price) + float(current_quote.amount)
-
-        percent = ((current_amount / starting_amount) - 1) * 100
+        percent = self.performance_analysis.compute_profitability(price)
 
         self._notify("\n" + "  Profitability:\n" + "    " + str(percent) + "%")
 
