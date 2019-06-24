@@ -98,7 +98,6 @@ def create_log_field():
         text="Running logs\n",
         focus_on_click=False,
         read_only=False,
-        scrollbar=True,
     )
 
 
