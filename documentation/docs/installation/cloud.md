@@ -2,7 +2,7 @@
 
 Running `hummingbot` as a long running service can be achieved with the help of cloud platforms such as Google Cloud Platform, Amazon Web Services, and Microsoft Azure.
 
-## Setup a new VM instance on Google Cloud Platform
+## Google Cloud Platform
 
    * Navigate to the Google Cloud Platform console
    * Create an instance of Compute Instance
@@ -14,7 +14,7 @@ Running `hummingbot` as a long running service can be achieved with the help of 
 
    ![Connect SSH](/assets/img/gcp-ssh.png)
 
-## Setup a new VM instance on Amazon Web Services
+## Amazon Web Services
 
    * Navigate to the AWS Management Console
    * Click on "Launch a Virtual Machine"
@@ -39,7 +39,7 @@ Running `hummingbot` as a long running service can be achieved with the help of 
 
    ![Connect to AWS Instance](/assets/img/aws5.png)
 
-## Setup a new VM instance on Microsoft Azure
+## Microsoft Azure
 
   * Navigate to the Virtual Machines console.
   * Click on the "Add" button in the top-left corner.
@@ -74,70 +74,9 @@ Running `hummingbot` as a long running service can be achieved with the help of 
 
   ![Connect to Azure Instance](/assets/img/azure7.png)
 
-## Install Docker on Ubuntu (or refer to [Docker official instructions](https://docs.docker.com/install/linux/docker-ce/ubuntu/))
+## Install Hummingbot
 
-   * Update the apt package index
+Once you can access your cloud server, you can proceed to either of the following guides to setup and run `hummingbot`:
 
-```
-sudo apt-get update
-```
-
-   * Install packages to allow apt to use a repository over HTTPS
-
-```
-sudo apt-get install \
-    apt-transport-https \
-    ca-certificates \
-    curl \
-    gnupg-agent \
-    software-properties-common
-```
-
-   * Add Docker’s official GPG key
-
-```
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-sudo apt-key fingerprint 0EBFCD88
-sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
-    $(lsb_release -cs) stable edge test"
-```
-
-   * Do another apt-get update
-
-```
-sudo apt-get update
-```
-
-   * Install Docker
-
-```
-sudo apt-get install docker-ce docker-ce-cli containerd.io
-```
-
-   * Change sudo permissions for docker
-
-```
-sudo usermod -a -G docker $USER
-```
-
-## Install Hummingbot from Docker
-
-   * Run the following command
-
-```
-export NAME=myhummingbot
-export TAG=latest
-sudo docker run -it \
---name $NAME \
--v "$PWD"/conf/:/conf/ \
--v "$PWD"/logs/:/logs/ \
-coinalpha/hummingbot:$TAG
-```
-
-![Installing Hummingbot from Docker](/assets/img/gcp-ssh-docker-installing.png)
-
-   * After Docker has completed the installation, you’ll see the following screen, where Hummingbot successfully starts
-
-![Hummingbot Welcome Screen](/assets/img/gcp-ssh-hummingbot.png)
-
-Start market making!
+- [Install hummingbot on Linux from source](/installation/linux/)
+- [Install hummingbot on Linux from Docker](/installation/docker_linux/)
