@@ -72,15 +72,20 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
                 current_order_size = market.c_quantize_order_amount(market_info.symbol, current_order_size)
 
             if current_order_size == 0:
-                self.logger().network("", f"Order size is less than minimum order size. The orders for price of {pricing_proposal.buy_order_prices[idx]} is not placed")
+                self.logger().network(f"Order size is less than minimum order size for Price: {pricing_proposal.buy_order_prices[idx]} ",
+                                      f"The orders for price of {pricing_proposal.buy_order_prices[idx]} are too small for the market. Check configuration")
 
             orders.append(current_order_size)
 
         if quote_asset_balance < required_quote_asset_balance:
-            self.logger().network("", f"Not enough asset to place the required buy(bid) orders. Check balances.")
+            self.logger().network(f"Buy(bid) order is not placed because there is not enough Quote asset. "
+                                  f"Quote Asset: {quote_asset_balance}, Required Quote Asset: {required_quote_asset_balance}",
+                                  f"Not enough asset to place the required buy(bid) orders. Check balances.")
 
         if (base_asset_balance < required_base_asset_balance):
-            self.logger().network("", f"Not enough asset to place the required sell(ask) orders. Check balances.")
+            self.logger().network(f"Sell(ask) order is not placed because there is not enough Base asset. "
+                                  f"Base Asset: {base_asset_balance}, Required Base Asset: {required_base_asset_balance}",
+                                  f"Not enough asset to place the required sell(ask) orders. Check balances.")
 
         return SizingProposal(
             (orders

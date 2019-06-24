@@ -50,10 +50,12 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
             ask_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size)
 
         if (bid_order_size ==0):
-            self.logger().network("", f"Buy(bid) order size is less than minimum order size. Buy order will not be placed")
+            self.logger().network(f"Buy(bid) order size is less than minimum order size. Buy order will not be placed",
+                                  f"The order size is too small for the market for buy order. Check order size in configuration.")
 
         if (ask_order_size ==0):
-             self.logger().network("",f"Sell(ask) order size is less than minimum order size. Sell order will not be placed")
+             self.logger().network(f"Sell(ask) order size is less than minimum order size. Sell order will not be placed",
+                                   f"The order size is too small for the market for sell order. Check order size in configuration.")
 
 
         for active_order in active_orders:
@@ -63,10 +65,15 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
                 has_active_ask = True
 
         if (quote_asset_balance < pricing_proposal.buy_order_prices[0] * bid_order_size):
-            self.logger().network("", f"Not enough asset to place the required buy(bid) order. Check balances.")
+            self.logger().network(f"Buy(bid) order is not placed because there is not enough Quote asset. "
+                                  f"Quote Asset: {quote_asset_balance}, Price: {pricing_proposal.buy_order_prices[0]},"
+                                  f"Size: {bid_order_size}",
+                                  f"Not enough asset to place the required buy(bid) order. Check balances.")
 
         if (base_asset_balance < ask_order_size):
-            self.logger().network("", f"Not enough asset to place the required sell(ask) order. Check balances.")
+            self.logger().network(f"Sell(ask) order is not placed because there is not enough Base asset. "
+                                  f"Base Asset: {base_asset_balance}, Size: {ask_order_size}",
+                                  f"Not enough asset to place the required sell(ask) order. Check balances.")
 
         return SizingProposal(
             ([bid_order_size]
