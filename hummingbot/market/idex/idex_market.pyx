@@ -1194,7 +1194,8 @@ cdef class IDEXMarket(MarketBase):
 
         while len(self._order_expiry_queue) > 0 and self._order_expiry_queue[0][0] < current_timestamp:
             _, order_id = self._order_expiry_queue.popleft()
-            self._order_expiry_set.remove(order_id)
+            if order_id in self._order_expiry_set:
+                self._order_expiry_set.remove(order_id)
             self.c_stop_tracking_order(order_id)
 
     cdef c_stop_tracking_order(self, str order_id):
