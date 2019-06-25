@@ -20,6 +20,7 @@ from sqlalchemy.orm import (
     Session,
     Query,
 )
+from sqlalchemy.sql.elements import BooleanClauseList
 from hummingbot.client.liquidity_bounty.liquidity_bounty_config_map import liquidity_bounty_config_map
 from hummingbot.core.network_base import NetworkBase, NetworkStatus
 from hummingbot.logger import HummingbotLogger
@@ -50,7 +51,12 @@ class LiquidityBounty(NetworkBase):
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client: Optional[aiohttp.ClientSession] = None
         self._status: Dict[str, Any] = {}
-        self._active_bounties: List[Dict[str, Any]] = []
+        self._active_bounties: List[Dict[str, Any]] = [{
+            "base_asset": "ONE",
+            "market": "binance",
+            "start_time": 1559347200000,
+            "end_time": 1564617600000,
+        }]
         # timestamp = -1 when when no data has been fetched / timestamp = 0 when no trades have ever been submitted
         self._last_submitted_trade_timestamp: int = -1
         self._last_timestamp_fetched_event = asyncio.Event()
@@ -81,12 +87,12 @@ class LiquidityBounty(NetworkBase):
         await self._wait_till_ready()
         session: Session = SQLConnectionManager.get_trade_fills_instance().get_shared_session()
 
-        if self._last_submitted_trade_timestamp > -1:
-            and_conditions = [and_(TradeFill.base_asset == ab["base_asset"],
-                                   TradeFill.market == ab["market"],
-                                   TradeFill.timestamp >= ab["start_time"],
-                                   TradeFill.timestamp <= ab["end_time"]) for ab in self._active_bounties]
-
+        try:
+            and_conditions: BooleanClauseList = [and_(TradeFill.base_asset == ab["base_asset"],
+                                                      TradeFill.market == ab["market"],
+                                                      TradeFill.timestamp >= ab["start_time"],
+                                                      TradeFill.timestamp <= ab["end_time"])
+                                                 for ab in self._active_bounties]
             query: Query = (session
                             .query(TradeFill)
                             .filter(TradeFill.timestamp > self._last_submitted_trade_timestamp)
@@ -95,8 +101,8 @@ class LiquidityBounty(NetworkBase):
 
             new_trades: List[TradeFill] = query.all()
             return new_trades
-        else:
-            return []
+        except Exception as e:
+            self.logger().error(f"Failed to query for unsubmitted trades: {str(e)}")
 
     async def _http_client(self) -> aiohttp.ClientSession:
         if self._shared_client is None:
@@ -234,7 +240,7 @@ class LiquidityBounty(NetworkBase):
 
     async def start_network(self):
         await self.stop_network()
-        self.fetch_active_bounties_task = asyncio.ensure_future(self.fetch_active_bounties())
+        # self.fetch_active_bounties_task = asyncio.ensure_future(self.fetch_active_bounties())
         self.fetch_last_submitted_timestamp_task = asyncio.ensure_future(self.fetch_last_timestamp_loop())
         self.fetch_bounty_status_task = asyncio.ensure_future(self.fetch_bounty_status_loop())
         self.submit_trades_task = asyncio.ensure_future(self.submit_trades_loop())
@@ -275,4 +281,4 @@ class LiquidityBounty(NetworkBase):
 if __name__ == '__main__':
     from hummingbot.client.config.config_helpers import read_configs_from_yml
     read_configs_from_yml()
-    asyncio.get_event_loop().run_until_complete(LiquidityBounty.get_instance().fetch_active_bounties())
+    asyncio.get_event_loop().run_until_complete(LiquidityBounty.get_instance().get_unsubmitted_trades())
