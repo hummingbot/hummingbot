@@ -1188,9 +1188,8 @@ class HummingbotApplication:
                     self.performance_analysis.add_balances(asset_name, amount, is_base, is_starting)
 
         # Compute the current exchange rate. We use the first market_symbol_pair because
-        # if the trading pairs are different, such as WETH-DAI and ETH-USD, the tuples
-        # above will contain the information in terms of the first trading pair based on
-        # the way that the balances were computed in the for loop above.
+        # if the trading pairs are different, such as WETH-DAI and ETH-USD, the currency
+        # pairs above will contain the information in terms of the first trading pair.
         market_pair_info = self.market_symbol_pairs[0]
         market = market_pair_info.market
         buy_price = market.get_price(market_pair_info.trading_pair, True)
