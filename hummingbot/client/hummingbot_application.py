@@ -667,18 +667,6 @@ class HummingbotApplication:
         if len(self._app_warnings) > 0:
             self._notify(self._format_application_warnings())
 
-        # See if we can print out the strategy status.
-        self._notify("   - Market check: All markets ready")
-        if self.strategy is None:
-            self._notify("   x initializing strategy.")
-        else:
-            self._notify(self.strategy.format_status() + "\n")
-
-        # Application warnings.
-        self._expire_old_application_warnings()
-        if len(self._app_warnings) > 0:
-            self._notify(self._format_application_warnings())
-
         return True
 
     def help(self, command):
