@@ -577,7 +577,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 self.log_with_clock(
                     logging.INFO,
                     f"({market_pair.taker_symbol}) Taker buy order {order_id} for "
-                    f"({market_order_record.quantity} {market_order_record.base_asset} has been completely filled."
+                    f"({market_order_record.amount} {market_order_record.base_asset} has been completely filled."
                 )
                 self.c_stop_tracking_market_order(market_pair, order_id)
 
@@ -603,7 +603,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 self.log_with_clock(
                     logging.INFO,
                     f"({market_pair.taker_symbol}) Taker sell order {order_id} for "
-                    f"({market_order_record.quantity} {market_order_record.base_asset} has been completely filled."
+                    f"({market_order_record.amount} {market_order_record.base_asset} has been completely filled."
                 )
                 self.c_stop_tracking_market_order(market_pair, order_id)
 
