@@ -1184,7 +1184,8 @@ cdef class IDEXMarket(MarketBase):
         )
 
     cdef c_expire_order(self, str order_id):
-        self._order_expiry_queue.append((self._current_timestamp + self.ORDER_EXPIRY_TIME, order_id))
+        if order_id not in self._order_expiry_set:
+            self._order_expiry_queue.append((self._current_timestamp + self.ORDER_EXPIRY_TIME, order_id))
         self._order_expiry_set.add(order_id)
 
     cdef c_check_and_remove_expired_orders(self):
@@ -1194,8 +1195,7 @@ cdef class IDEXMarket(MarketBase):
 
         while len(self._order_expiry_queue) > 0 and self._order_expiry_queue[0][0] < current_timestamp:
             _, order_id = self._order_expiry_queue.popleft()
-            if order_id in self._order_expiry_set:
-                self._order_expiry_set.remove(order_id)
+            self._order_expiry_set.remove(order_id)
             self.c_stop_tracking_order(order_id)
 
     cdef c_stop_tracking_order(self, str order_id):
