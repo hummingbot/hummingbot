@@ -166,6 +166,20 @@ class LiquidityBounty(NetworkBase):
                     break
             await asyncio.sleep(self._update_interval)
 
+    async def fetch_filled_volume_metrics(self, start_time: int, market: str, trading_pair: str):
+        try:
+            url = f"{self.LIQUIDITY_BOUNTY_REST_API}/metrics"
+            data = {
+                "market": market,
+                "trading_pair": trading_pair,
+                "start_time": start_time,
+            }
+            results = await self.authenticated_request("GET", url, json=data)
+            self.logger().error(results)
+        except Exception as e:
+            if "User not registered" in str(e):
+                self.logger().warning("User not registered. Aborting fetch_filled_volume_metrics.")
+
     async def submit_trades_loop(self):
         if not self._last_timestamp_fetched_event.is_set():
             await self._last_timestamp_fetched_event.wait()
@@ -233,3 +247,9 @@ class LiquidityBounty(NetworkBase):
         NetworkBase.stop(self)
 
 
+if __name__ == '__main__':
+    from hummingbot.client.config.config_helpers import read_configs_from_yml
+    read_configs_from_yml()
+    asyncio.get_event_loop().run_until_complete(LiquidityBounty.get_instance().fetch_filled_volume_metrics(
+        1561340159000, "binance", "ONEUSDT"
+    ))
