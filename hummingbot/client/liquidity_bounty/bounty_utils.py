@@ -12,9 +12,13 @@ from typing import (
     List,
     Optional,
 )
+from sqlalchemy import (
+    and_,
+    or_,
+)
 from sqlalchemy.orm import (
     Session,
-    Query
+    Query,
 )
 from hummingbot.client.liquidity_bounty.liquidity_bounty_config_map import liquidity_bounty_config_map
 from hummingbot.core.network_base import NetworkBase, NetworkStatus
@@ -46,10 +50,13 @@ class LiquidityBounty(NetworkBase):
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client: Optional[aiohttp.ClientSession] = None
         self._status: Dict[str, Any] = {}
+        self._active_bounties: List[Dict[str, Any]] = []
         # timestamp = -1 when when no data has been fetched / timestamp = 0 when no trades have ever been submitted
         self._last_submitted_trade_timestamp: int = -1
         self._last_timestamp_fetched_event = asyncio.Event()
+        self._active_bounties_fetched_event = asyncio.Event()
 
+        self.fetch_active_bounties_task: Optional[asyncio.Task] = None
         self.fetch_bounty_status_task: Optional[asyncio.Task] = None
         self.fetch_last_submitted_timestamp_task: Optional[asyncio.Task] = None
         self.submit_trades_task: Optional[asyncio.Task] = None
@@ -60,40 +67,55 @@ class LiquidityBounty(NetworkBase):
     def formatted_status(self) -> str:
         return pd.DataFrame(self._status.items()).to_string(index=False, header=False)
 
-    async def get_unsubmitted_trades(self) -> List[TradeFill]:
-        """ Get locally saved trades that have not been submitted to liquidity bounties """
+    def active_bounties(self) -> List[Dict[str, Any]]:
+        return self._active_bounties
+
+    async def _wait_till_ready(self):
         if not self._last_timestamp_fetched_event.is_set():
             await self._last_timestamp_fetched_event.wait()
+        if not self._active_bounties_fetched_event.is_set():
+            await self._active_bounties_fetched_event.wait()
+
+    async def get_unsubmitted_trades(self) -> List[TradeFill]:
+        """ Get locally saved trades that have not been submitted to liquidity bounties """
+        await self._wait_till_ready()
         session: Session = SQLConnectionManager.get_trade_fills_instance().get_shared_session()
+
         if self._last_submitted_trade_timestamp > -1:
-            # TODO: add filters so that only trades from certain markets and certain trading_pairs get sent
+            and_conditions = [and_(TradeFill.base_asset == ab["base_asset"],
+                                   TradeFill.market == ab["market"],
+                                   TradeFill.timestamp >= ab["start_time"],
+                                   TradeFill.timestamp <= ab["end_time"]) for ab in self._active_bounties]
+
             query: Query = (session
                             .query(TradeFill)
                             .filter(TradeFill.timestamp > self._last_submitted_trade_timestamp)
+                            .filter(or_(*and_conditions))
                             .order_by(TradeFill.timestamp))
+
             new_trades: List[TradeFill] = query.all()
             return new_trades
+        else:
+            return []
 
     async def _http_client(self) -> aiohttp.ClientSession:
         if self._shared_client is None:
             self._shared_client = aiohttp.ClientSession()
         return self._shared_client
 
-    async def get_bounties(self) -> List[Dict[str, Any]]:
+    async def fetch_active_bounties(self):
+        """ fetch a list of active bounties from server. Only executed once. """
         try:
             client: aiohttp.ClientSession = await self._http_client()
             async with client.request("GET", f"{self.LIQUIDITY_BOUNTY_REST_API}/list") as resp:
-                # registration_status = "success" or <reason_for_failure>
                 if resp.status not in {200, 400}:
                     raise Exception(f"Liquidity bounty server error. Server responded with status {resp.status}")
-                results = await resp.json()
-                return results
-        except AssertionError:
-            raise
+                self._active_bounties = await resp.json()
+                self._active_bounties_fetched_event.set()
         except asyncio.CancelledError:
             raise
-        except Exception:
-            raise
+        except Exception as e:
+            self.logger().error(f"Failed to fetch active bounties: {str(e)}")
 
     async def register(self) -> Dict[str, Any]:
         bounty_config: Dict[str, Any] = {key: cvar.value for key, cvar in liquidity_bounty_config_map.items()}
@@ -175,14 +197,13 @@ class LiquidityBounty(NetworkBase):
                 "start_time": start_time,
             }
             results = await self.authenticated_request("GET", url, json=data)
-            self.logger().error(results)
+            return results
         except Exception as e:
             if "User not registered" in str(e):
                 self.logger().warning("User not registered. Aborting fetch_filled_volume_metrics.")
 
     async def submit_trades_loop(self):
-        if not self._last_timestamp_fetched_event.is_set():
-            await self._last_timestamp_fetched_event.wait()
+        await self._wait_till_ready()
         while True:
             try:
                 trades: List[TradeFill] = await self.get_unsubmitted_trades()
@@ -213,11 +234,15 @@ class LiquidityBounty(NetworkBase):
 
     async def start_network(self):
         await self.stop_network()
+        self.fetch_active_bounties_task = asyncio.ensure_future(self.fetch_active_bounties())
         self.fetch_last_submitted_timestamp_task = asyncio.ensure_future(self.fetch_last_timestamp_loop())
         self.fetch_bounty_status_task = asyncio.ensure_future(self.fetch_bounty_status_loop())
         self.submit_trades_task = asyncio.ensure_future(self.submit_trades_loop())
 
     async def stop_network(self):
+        if self.fetch_active_bounties_task is not None:
+            self.fetch_active_bounties_task.cancel()
+            self.fetch_active_bounties_task = None
         if self.fetch_bounty_status_task is not None:
             self.fetch_bounty_status_task.cancel()
             self.fetch_bounty_status_task = None
@@ -250,6 +275,4 @@ class LiquidityBounty(NetworkBase):
 if __name__ == '__main__':
     from hummingbot.client.config.config_helpers import read_configs_from_yml
     read_configs_from_yml()
-    asyncio.get_event_loop().run_until_complete(LiquidityBounty.get_instance().fetch_filled_volume_metrics(
-        1561340159000, "binance", "ONEUSDT"
-    ))
+    asyncio.get_event_loop().run_until_complete(LiquidityBounty.get_instance().fetch_active_bounties())
