@@ -43,10 +43,10 @@ In the course of providing the Services, CoinAlpha may monitor and detect “sus
 CoinAlpha reserves the right, at its sole discretion, to share user-provided information and analysis, and reports about potential market manipulation to the Sponsors. By participating in Bounty Programs, you consent to such sharing, acknowledge that it may have an impact on your accounts and activity, disclaim any potential liability against CoinAlpha or Hummingbot, and waive any potential claims against CoinAlpha or Hummingbot.
 
 For additional terms related to the sharing and use of your data, please review the following:
-- CoinAlpha’s Privacy Policy
-- Hummingbot Apache License 2.0
-- Hummingbot Data Collection Policy
-- Hummingbot Website Terms of Use
+- CoinAlpha’s Privacy Policy (https://hummingbot.io/privacy/)
+- Hummingbot Apache License 2.0 (https://github.com/CoinAlpha/hummingbot/blob/master/LICENSE)
+- Hummingbot Data Collection Policy (https://github.com/CoinAlpha/hummingbot/blob/development/DATA_COLLECTION.md)
+- Hummingbot Website Terms of Use (https://hummingbot.io/terms/)
 - Each Sponsor’s respective Privacy Policy that relates to your use of Hummingbot
 
 Compensation Disclosure
