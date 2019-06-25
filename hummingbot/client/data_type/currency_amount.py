@@ -2,8 +2,8 @@
 class CurrencyAmount:
 
     def __init__(self):
-        self._token = None
-        self._amount = None
+        self._token: str = None
+        self._amount: float = None
 
     def set_token(self, token: str):
         self._token = token
