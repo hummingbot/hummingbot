@@ -1225,28 +1225,10 @@ class HummingbotApplication:
 
     async def bounty_list(self):
         """ List available bounties """
-        self.liquidity_bounty = LiquidityBounty.get_instance()
-        try:
-            response: Dict[str, Any] = await self.liquidity_bounty.get_bounties()
-            if response.get("error") is not None:
-                raise ValueError(response.get("error"))
-            bounties: List[Dict[str, Any]] = response.get("bounties", [])
-            rows = [[
-                bounty["market"],
-                bounty["base_asset"],
-                bounty["start_timestamp"],
-                bounty["end_timestamp"],
-                bounty["link"]
-            ] for bounty in bounties]
-            df: pd.DataFrame = pd.DataFrame(
-                rows,
-                index=None,
-                columns=["Market", "Asset", "Start (DD/MM/YYYY)", "End (DD/MM/YYYY)", "More Info"]
-            )
-            lines = ["", "  Bounties:"] + ["    " + line for line in df.to_string(index=False).split("\n")]
-            self._notify("\n".join(lines))
-        except Exception as e:
-            self._notify(str(e))
+        if self.liquidity_bounty is None:
+            self.liquidity_bounty = LiquidityBounty.get_instance()
+        await self.liquidity_bounty.fetch_active_bounties()
+        self._notify(self.liquidity_bounty.formatted_bounties())
 
     async def bounty_config_loop(self):
         """ Configuration loop for bounty registration """

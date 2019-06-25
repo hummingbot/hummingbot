@@ -76,6 +76,22 @@ class LiquidityBounty(NetworkBase):
     def active_bounties(self) -> List[Dict[str, Any]]:
         return self._active_bounties
 
+    def formatted_bounties(self) -> str:
+        rows = [[
+            bounty["market"],
+            bounty["base_asset"],
+            bounty["start_timestamp"],
+            bounty["end_timestamp"],
+            bounty["link"]
+        ] for bounty in self._active_bounties]
+        df: pd.DataFrame = pd.DataFrame(
+            rows,
+            index=None,
+            columns=["Market", "Asset", "Start (DD/MM/YYYY)", "End (DD/MM/YYYY)", "More Info"]
+        )
+        lines = ["", "  Bounties:"] + ["    " + line for line in df.to_string(index=False).split("\n")]
+        return "\n".join(lines)
+
     async def _wait_till_ready(self):
         if not self._last_timestamp_fetched_event.is_set():
             await self._last_timestamp_fetched_event.wait()
@@ -116,7 +132,8 @@ class LiquidityBounty(NetworkBase):
             async with client.request("GET", f"{self.LIQUIDITY_BOUNTY_REST_API}/list") as resp:
                 if resp.status not in {200, 400}:
                     raise Exception(f"Liquidity bounty server error. Server responded with status {resp.status}")
-                self._active_bounties = await resp.json()
+                results = await resp.json()
+                self._active_bounties = results.get("bounties", [])
                 self._active_bounties_fetched_event.set()
         except asyncio.CancelledError:
             raise
