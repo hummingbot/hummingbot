@@ -49,6 +49,7 @@ from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot import init_logging
+from hummingbot.client.performance_analysis import PerformanceAnalysis
 from hummingbot.client.ui.keybindings import load_key_bindings
 from hummingbot.client.ui.parser import (
     load_parser,
@@ -1115,6 +1116,7 @@ class HummingbotApplication:
     def history(self):
         self.list("trades")
         self.compare_balance_snapshots()
+        self.analyze_performance()
 
     async def wait_till_ready(self, func: Callable, *args, **kwargs):
         while True:
@@ -1156,6 +1158,36 @@ class HummingbotApplication:
         df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Delta"])
         lines = ["", "  Performance:"] + ["    " + line for line in str(df).split("\n")]
         self._notify("\n".join(lines))
+
+    def analyze_performance(self):
+        """ Determine the profitability of the trading bot. """
+        if len(self.starting_balances) == 0:
+            self._notify("  Performance analysis is not available before bot starts")
+            return
+
+        performance_analysis = PerformanceAnalysis()
+
+        for market_symbol_pair in self.market_symbol_pairs:
+            for is_base in [True, False]:
+                for is_starting in [True, False]:
+                    market_name = market_symbol_pair.market.name
+                    asset_name = market_symbol_pair.base_asset if is_base else market_symbol_pair.quote_asset
+                    amount = self.starting_balances[asset_name][market_name] if is_starting \
+                        else self.balance_snapshot()[asset_name][market_name]
+                    amount = float(amount)
+                    performance_analysis.add_balances(asset_name, amount, is_base, is_starting)
+
+        # Compute the current exchange rate. We use the first market_symbol_pair because
+        # if the trading pairs are different, such as WETH-DAI and ETH-USD, the currency
+        # pairs above will contain the information in terms of the first trading pair.
+        market_pair_info = self.market_symbol_pairs[0]
+        market = market_pair_info.market
+        buy_price = market.get_price(market_pair_info.trading_pair, True)
+        sell_price = market.get_price(market_pair_info.trading_pair, False)
+        price = (buy_price + sell_price)/2.0
+        percent = performance_analysis.compute_profitability(price)
+
+        self._notify("\n" + "  Profitability:\n" + "    " + str(percent) + "%")
 
     def bounty(self, register: bool = False, status: bool = False, terms: bool = False, list: bool = False):
         """ Router function for `bounty` command """
@@ -1247,4 +1279,3 @@ class HummingbotApplication:
         self.app.change_prompt(prompt=">>> ")
         self.app.toggle_hide_input()
         self.placeholder_mode = False
-
