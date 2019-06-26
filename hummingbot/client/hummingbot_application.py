@@ -12,7 +12,6 @@ from os.path import (
 import logging
 import argparse
 from eth_account.local import LocalAccount
-import math
 import pandas as pd
 import platform
 import re
