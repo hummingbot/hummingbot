@@ -32,7 +32,7 @@ pipeline {
         // Get commit message
         echo 'Get commit message'
         script {
-          GIT_COMMIT_MESSAGE = sh returnStdout: true, script: "git log -1 --pretty=one-line"
+          GIT_COMMIT_MESSAGE = sh returnStdout: true, script: "git log -1 --pretty=oneline"
         }
       }
     }
