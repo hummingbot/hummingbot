@@ -71,7 +71,9 @@ class LiquidityBounty(NetworkBase):
         return self._status
 
     def formatted_status(self) -> str:
-        return pd.DataFrame(self._status.items()).to_string(index=False, header=False)
+        df: pd.DataFrame = pd.DataFrame(self._status.items())
+        lines = ["", "  Client Status:"] + ["    " + line for line in df.to_string(index=False, header=False).split("\n")]
+        return "\n".join(lines)
 
     def active_bounties(self) -> List[Dict[str, Any]]:
         return self._active_bounties
@@ -80,16 +82,31 @@ class LiquidityBounty(NetworkBase):
         rows = [[
             bounty["market"],
             bounty["base_asset"],
-            bounty["start_timestamp"],
-            bounty["end_timestamp"],
+            bounty["start_timestamp"] if bounty["start_timestamp"] > 0 else "TBA",
+            bounty["end_timestamp"] if bounty["end_timestamp"] > 0 else "TBA",
             bounty["link"]
         ] for bounty in self._active_bounties]
         df: pd.DataFrame = pd.DataFrame(
             rows,
-            index=None,
             columns=["Market", "Asset", "Start (DD/MM/YYYY)", "End (DD/MM/YYYY)", "More Info"]
         )
         lines = ["", "  Bounties:"] + ["    " + line for line in df.to_string(index=False).split("\n")]
+        return "\n".join(lines)
+
+    @staticmethod
+    def format_volume_metrics(volume_metrics: List[Dict[str, Any]]) -> str:
+        rows = [[
+            vm["market"],
+            vm["base_asset"],
+            vm["total_filled_volume"],
+            vm["total_filled_volume_in_session"],
+            vm["trades_submitted_count"]
+        ] for vm in volume_metrics]
+        df: pd.DataFrame = pd.DataFrame(
+            rows,
+            columns=["Market", "Asset", "Filled Volume", "Filled volume in current session", "Total trades submitted"]
+        )
+        lines = ["", "  Volume Metrics:"] + ["    " + line for line in df.to_string(index=False).split("\n")]
         return "\n".join(lines)
 
     async def _wait_till_ready(self):
@@ -104,11 +121,13 @@ class LiquidityBounty(NetworkBase):
         session: Session = SQLConnectionManager.get_trade_fills_instance().get_shared_session()
 
         try:
-            and_conditions: BooleanClauseList = [and_(TradeFill.base_asset == ab["base_asset"],
-                                                      TradeFill.market == ab["market"],
-                                                      TradeFill.timestamp >= ab["start_time"],
-                                                      TradeFill.timestamp <= ab["end_time"])
-                                                 for ab in self._active_bounties]
+            and_conditions: BooleanClauseList = [and_(
+                TradeFill.base_asset == ab["base_asset"],
+                TradeFill.market == ab["market"],
+                TradeFill.timestamp >= ab["start_timestamp"], # does not matter if start_timestamp == -1
+                TradeFill.timestamp <= (ab["end_timestamp"] if ab["end_timestamp"] > 0 else 1e14)
+            ) for ab in self._active_bounties]
+
             query: Query = (session
                             .query(TradeFill)
                             .filter(TradeFill.timestamp > self._last_submitted_trade_timestamp)
@@ -133,6 +152,7 @@ class LiquidityBounty(NetworkBase):
                 if resp.status not in {200, 400}:
                     raise Exception(f"Liquidity bounty server error. Server responded with status {resp.status}")
                 results = await resp.json()
+                self.logger().debug(results)
                 self._active_bounties = results.get("bounties", [])
                 self._active_bounties_fetched_event.set()
         except asyncio.CancelledError:
@@ -177,6 +197,8 @@ class LiquidityBounty(NetworkBase):
 
             async with client.request(request_method, url, headers=headers, **kwargs) as resp:
                 results = await resp.json()
+                if resp.status == 500:
+                    raise Exception("Server side error.")
                 if results.get("status", "") == "Unknown client id":
                     raise Exception("User not registered")
                 return results
@@ -211,19 +233,19 @@ class LiquidityBounty(NetworkBase):
                     break
             await asyncio.sleep(self._update_interval)
 
-    async def fetch_filled_volume_metrics(self, start_time: int, market: str, trading_pair: str):
+    async def fetch_filled_volume_metrics(self, start_time: int) -> List[Dict[str, Any]]:
         try:
             url = f"{self.LIQUIDITY_BOUNTY_REST_API}/metrics"
-            data = {
-                "market": market,
-                "trading_pair": trading_pair,
-                "start_time": start_time,
-            }
-            results = await self.authenticated_request("GET", url, json=data)
-            return results
+            data = {"start_time": start_time}
+            results: Dict[str, Any] = await self.authenticated_request("GET", url, json=data)
+            if results["status"] != "success":
+                raise Exception(results["error"])
+            return results["metrics"]
         except Exception as e:
             if "User not registered" in str(e):
                 self.logger().warning("User not registered. Aborting fetch_filled_volume_metrics.")
+            else:
+                self.logger().error(f"Error fetching filled volume metrics: {str(e)}")
 
     async def submit_trades_loop(self):
         await self._wait_till_ready()
@@ -257,7 +279,7 @@ class LiquidityBounty(NetworkBase):
 
     async def start_network(self):
         await self.stop_network()
-        # self.fetch_active_bounties_task = asyncio.ensure_future(self.fetch_active_bounties())
+        self.fetch_active_bounties_task = asyncio.ensure_future(self.fetch_active_bounties())
         self.fetch_last_submitted_timestamp_task = asyncio.ensure_future(self.fetch_last_timestamp_loop())
         self.fetch_bounty_status_task = asyncio.ensure_future(self.fetch_bounty_status_loop())
         self.submit_trades_task = asyncio.ensure_future(self.submit_trades_loop())
@@ -293,9 +315,3 @@ class LiquidityBounty(NetworkBase):
 
     def stop(self):
         NetworkBase.stop(self)
-
-
-if __name__ == '__main__':
-    from hummingbot.client.config.config_helpers import read_configs_from_yml
-    read_configs_from_yml()
-    asyncio.get_event_loop().run_until_complete(LiquidityBounty.get_instance().get_unsubmitted_trades())

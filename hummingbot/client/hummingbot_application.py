@@ -168,7 +168,7 @@ class HummingbotApplication:
         self.market_symbol_pairs: List[MarketSymbolPair] = []
         self.clock: Optional[Clock] = None
 
-        self.start_time = Optional[int] = None
+        self.start_time: Optional[int] = None
         self.assets: Optional[Set[str]] = set()
         self.starting_balances = {}
         self.placeholder_mode = False
@@ -992,7 +992,7 @@ class HummingbotApplication:
 
         try:
             config_path: str = in_memory_config_map.get("strategy_file_path").value
-            self._start_time = time.time()
+            self.start_time = time.time() * 1e3 # Time in milliseconds
             self.clock = Clock(ClockMode.REALTIME)
             if self.wallet is not None:
                 self.clock.add_iterator(self.wallet)
@@ -1194,11 +1194,9 @@ class HummingbotApplication:
             status_table: str = self.liquidity_bounty.formatted_status()
             self._notify(status_table)
 
-            volume_metrics: Dict[str, Any] = await self.liquidity_bounty.fetch_filled_volume_metrics(
-                start_time=self.start_time, market="binance", trading_pair="ONEUSDT")
-            formatted_metrics: str = pd.DataFrame(volume_metrics).to_string(index=False, header=False)
-            if volume_metrics is not None:
-                self._notify(formatted_metrics)
+            volume_metrics: List[Dict[str, Any]] = \
+                await self.liquidity_bounty.fetch_filled_volume_metrics(start_time=self.start_time or -1)
+            self._notify(self.liquidity_bounty.format_volume_metrics(volume_metrics))
 
     async def bounty_print_terms(self):
         """ Print bounty Terms and Conditions to output pane """
