@@ -23,22 +23,39 @@ class PerformanceAnalysis:
 
     def add_balances(self, asset_name: str, amount: float, is_base: bool, is_starting: bool):
         """ Adds the balance of either the base or the quote in the given market symbol pair token to the corresponding
-        CurrencyAmount object. """
+        CurrencyAmount object.
+
+        NOTE: This is not to say that base / quote pairs between different markets are equivalent because that is NOT
+        the case. Instead, this method will determine the current conversion rate between two stable coins before
+        adding the balance to the corresponding CurrencyAmount object. Additionally, since it is possible that the
+        exchange rate varies from the starting time of the bot to the current time, this conversion will always be
+        performed using the SAME conversion rate - that is, the current conversion rate.
+
+        So for example, let's say we are trading WETH/DAI and ETH/USD. Let's also assume that in  the
+        hummingbot_application class, the first MarketSymbolPair in the market_symbol_pair list is WETH/DAI. This means
+        that in theory, the base and quote balances will be computed in terms of WETH and DAI, respectively. When the
+        ETH and USD balances are added to those of WETH and DAI, the token conversion method - see
+        erc.convert_token_value() will be called to convert the currencies using the CURRENT conversion rate. The
+        current WETH/ETH conversion rate as well as the current DAI/USD conversion rates will be used for BOTH the
+        starting and the current balance to ensure that any changes in the conversion rates while the bot was running
+        do not affect the performance analysis feature."""
         currency_amount = self._get_currency_amount_pair(is_base, is_starting)
-        if currency_amount.get_token() is None:
-            currency_amount.set_token(asset_name)
-            currency_amount.set_amount(amount)
+        if currency_amount.token is None:
+            currency_amount.token = asset_name
+            currency_amount.amount = amount
         else:
-            if currency_amount.get_token() == asset_name:
-                currency_amount.add_amount(amount)
+            if currency_amount.token == asset_name:
+                currency_amount.amount += amount
             else:
                 erc = ExchangeRateConversion.get_instance()
-                temp_amount = erc.convert_token_value(amount, asset_name, currency_amount.get_token())
-                currency_amount.add_amount(temp_amount)
+                temp_amount = erc.convert_token_value(amount, asset_name, currency_amount.token)
+                currency_amount.amount += temp_amount
 
     def compute_profitability(self, price: float) -> float:
-        """ Compute the profitability of the trading bot based on the starting and current prices"""
-        starting_amount = (self._starting_base.get_amount() * price) + self._starting_quote.get_amount()
-        current_amount = (self._current_base.get_amount() * price) + self._current_quote.get_amount()
+        """ Compute the profitability of the trading bot based on the starting and current prices """
+        starting_amount = (self._starting_base.amount * price) + self._starting_quote.amount
+        if starting_amount == 0:
+            return float('nan')
+        current_amount = (self._current_base.amount * price) + self._current_quote.amount
         percent = ((current_amount / starting_amount) - 1) * 100
         return percent
