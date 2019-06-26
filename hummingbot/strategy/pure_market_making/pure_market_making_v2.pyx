@@ -312,7 +312,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             bid_orders = [str(price) for price in pricing_proposal.buy_order_prices]
             ask_orders = [str(price) for price in pricing_proposal.sell_order_prices]
             lines.extend([
-                f"{market_info.symbol}:",
+                f"\n{market_info.symbol}:",
                 f"  {maker_symbol} bid/ask: {bid_price}/{ask_price}",
                 f"  Bids to be placed at: {bid_orders}",
                 f"  Asks to be placed at: {ask_orders}",
