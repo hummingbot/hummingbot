@@ -12,6 +12,7 @@ from os.path import (
 import logging
 import argparse
 from eth_account.local import LocalAccount
+import math
 import pandas as pd
 import platform
 import re
@@ -184,8 +185,6 @@ class HummingbotApplication:
 
         self.trade_fill_db: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
         self.markets_recorder: Optional[MarketsRecorder] = None
-
-        self.performance_analysis = PerformanceAnalysis()
 
     def init_reporting_module(self):
         if not self.reporting_module:
@@ -1165,6 +1164,8 @@ class HummingbotApplication:
             self._notify("  Performance analysis is not available before bot starts")
             return
 
+        performance_analysis = PerformanceAnalysis()
+
         for market_symbol_pair in self.market_symbol_pairs:
             for is_base in [True, False]:
                 for is_starting in [True, False]:
@@ -1173,7 +1174,7 @@ class HummingbotApplication:
                     amount = self.starting_balances[asset_name][market_name] if is_starting \
                         else self.balance_snapshot()[asset_name][market_name]
                     amount = float(amount)
-                    self.performance_analysis.add_balances(asset_name, amount, is_base, is_starting)
+                    performance_analysis.add_balances(asset_name, amount, is_base, is_starting)
 
         # Compute the current exchange rate. We use the first market_symbol_pair because
         # if the trading pairs are different, such as WETH-DAI and ETH-USD, the currency
@@ -1183,7 +1184,7 @@ class HummingbotApplication:
         buy_price = market.get_price(market_pair_info.trading_pair, True)
         sell_price = market.get_price(market_pair_info.trading_pair, False)
         price = (buy_price + sell_price)/2.0
-        percent = self.performance_analysis.compute_profitability(price)
+        percent = performance_analysis.compute_profitability(price)
 
         self._notify("\n" + "  Profitability:\n" + "    " + str(percent) + "%")
 

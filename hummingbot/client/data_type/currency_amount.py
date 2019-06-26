@@ -5,20 +5,18 @@ class CurrencyAmount:
         self._token: str = None
         self._amount: float = None
 
-    def set_token(self, token: str):
-        self._token = token
-
-    def get_token(self) -> str:
+    @property
+    def token(self) -> str:
         return self._token
 
-    def set_amount(self, amount: float):
-        self._amount = amount
+    @token.setter
+    def token(self, token: str):
+        self._token = token
 
-    def get_amount(self) -> float:
+    @property
+    def amount(self) -> float:
         return self._amount
 
-    def add_amount(self, amount: float):
-        self._amount += amount
-
-    def subtract_amount(self, amount: float):
-        self._amount -= amount
+    @amount.setter
+    def amount(self, amount: float):
+        self._amount = amount
