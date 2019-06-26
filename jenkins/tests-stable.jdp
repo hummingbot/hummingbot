@@ -10,6 +10,10 @@ def envPath = '/root/miniconda/envs/hummingbot/bin'
 pipeline {
   agent any
 
+  environment {
+    GIT_COMMIT_MESSAGE = ''
+  }
+
   stages {
 
     stage('Retrieve tooling versions') {
@@ -24,6 +28,11 @@ pipeline {
 
         echo "Base hummingbot version:"
         sh "cat hummingbot/VERSION"
+
+        // Get commit message
+        script {
+          GIT_COMMIT_MESSAGE = sh returnStdout: true, script: "git log -1 | head -6 | tail -1 | sed -e 's/^[ \t]*//'"
+        }
       }
     }
 
@@ -52,7 +61,7 @@ pipeline {
           echo "=> [Build hummingbot]: SUCCESS"
         }
         failure {
-          handleResult('Build hummingbot', 'FAILURE', testName, githubContext, githubUrl)
+          handleResult('Build hummingbot', 'FAILURE', testName, githubContext, githubUrl, GIT_COMMIT_MESSAGE)
         }
       }
     }
@@ -71,10 +80,10 @@ pipeline {
           echo '=> [Run tests]: SUCCESS'
         }
         unstable {
-          handleResult('Run tests', 'UNSTABLE', testName, githubContext, githubUrl)
+          handleResult('Run tests', 'UNSTABLE', testName, githubContext, githubUrl, GIT_COMMIT_MESSAGE)
         }
         failure {
-          handleResult('Run tests', 'FAILURE', testName, githubContext, githubUrl)
+          handleResult('Run tests', 'FAILURE', testName, githubContext, githubUrl, GIT_COMMIT_MESSAGE)
         }
       }
     }
@@ -87,13 +96,13 @@ pipeline {
       deleteDir()
     }
     success {
-      handleResult('Your tests passed on Jenkins!', 'SUCCESS', testName, githubContext, githubUrl)
+      handleResult('Your tests passed on Jenkins!', 'SUCCESS', testName, githubContext, githubUrl, GIT_COMMIT_MESSAGE)
     }
     failure {
-      handleResult('Uh oh, your tests failed on Jenkins :(', 'FAILURE', testName, githubContext, githubUrl)
+      handleResult('Uh oh, your tests failed on Jenkins :(', 'FAILURE', testName, githubContext, githubUrl, GIT_COMMIT_MESSAGE)
     }
     unstable {
-      handleResult('Uh oh, your PR is unstable on Jenkins :(', 'FAILURE', testName, githubContext, githubUrl)
+      handleResult('Uh oh, your PR is unstable on Jenkins :(', 'FAILURE', testName, githubContext, githubUrl, GIT_COMMIT_MESSAGE)
     }
   }
 
@@ -116,7 +125,7 @@ void setBuildStatus(String message, String state, String context, String url) {
   ]);
 }
 
-void notifyDiscord(String buildStatus = 'STARTED', String testNameInput = 'not defined', String githubUrl) {
+void notifyDiscord(String buildStatus = 'STARTED', String testNameInput = 'not defined', String githubUrl, String commitMessage) {
   // build status of null means successful
   buildStatus =  buildStatus ?: 'SUCCESS'
   
@@ -134,20 +143,20 @@ void notifyDiscord(String buildStatus = 'STARTED', String testNameInput = 'not d
     buildStatus = 'Uh oh, your tests failed on Jenkins :('
   }
 
-  def footer
+  def footer = commitMessage
   if (env.CHANGE_ID) {
-    footer = "${githubUrl}/pull/${env.CHANGE_ID}"
+    footer = footer + "\n${githubUrl}/pull/${env.CHANGE_ID}"
   }
 
-  def subject = "**[${env.JOB_NAME} #${env.BUILD_NUMBER}]** ${buildStatus}"
-  def description = "${subject}\n(${env.BUILD_URL})"
+  def title = "**[${env.JOB_NAME} #${env.BUILD_NUMBER}]**"
+  def description = "${buildStatus}"
 
   // Send notifications
-  discordSend (webhookURL: env.DISCORD_INTEGRATIONS, description: description, result: result, link: env.BUILD_URL, footer: footer)
+  discordSend (webhookURL: env.DISCORD_INTEGRATIONS, description: description, result: result, title: title, link: env.BUILD_URL, footer: footer)
 }
 
-void handleResult(String label, String state, String testNameInput, String githubContext, String githubUrl) {
+void handleResult(String label, String state, String testNameInput, String githubContext, String githubUrl, String commitMessage) {
   echo "=> ${label}: ${state}"
   setBuildStatus("${label}", state, githubContext, githubUrl)
-  notifyDiscord(state, "${testNameInput}: ${label}")
+  notifyDiscord(state, "${testNameInput}: ${label}", commitMessage)
 }
