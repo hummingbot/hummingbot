@@ -26,12 +26,13 @@ pipeline {
         sh "which ${envPath}/python"
         sh "${envPath}/python --version"
 
-        echo "Base hummingbot version:"
-        sh "cat hummingbot/VERSION"
+        echo 'Base hummingbot version:'
+        sh 'cat hummingbot/VERSION'
 
         // Get commit message
+        echo 'Get commit message'
         script {
-          GIT_COMMIT_MESSAGE = sh returnStdout: true, script: "git log -1 | head -6 | tail -1 | sed -e 's/^[ \t]*//'"
+          GIT_COMMIT_MESSAGE = sh returnStdout: true, script: "git log -1 --pretty=oneline"
         }
       }
     }
