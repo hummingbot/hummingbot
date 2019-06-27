@@ -64,7 +64,9 @@ pipeline {
           echo "=> [Build hummingbot]: SUCCESS"
         }
         failure {
-          ERROR_MESSAGE = '=> Build failed'
+          script {
+            ERROR_MESSAGE = '=> Build failed'
+          }
         }
       }
     }
@@ -85,10 +87,14 @@ pipeline {
               echo '=> [Run tests: stable tests]: SUCCESS'
             }
             unstable {
-              ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: stable tests'
+              script {
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: stable tests'
+              }
             }
             failure {
-              ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: stable tests'
+              script {
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: stable tests'
+              }
             }
           }
         }
@@ -103,10 +109,14 @@ pipeline {
               echo '=> [Run tests: arbitrage]: SUCCESS'
             }
             unstable {
-              ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: arbitrage strategy test'
+              script {
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: arbitrage strategy test'
+              }
             }
             failure {
-              ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: arbitrage strategy test'
+              script {
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: arbitrage strategy test'
+              }
             }
           }
         }
@@ -121,10 +131,14 @@ pipeline {
               echo '=> [Run tests: cross_exchange_market_making]: SUCCESS'
             }
             unstable {
-              ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: cross_exchange_market_making strategy test'
+              script {
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: cross_exchange_market_making strategy test'
+              }
             }
             failure {
-              ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: cross_exchange_market_making strategy test'
+              script {
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: cross_exchange_market_making strategy test'
+              }
             }
           }
         }
@@ -139,10 +153,14 @@ pipeline {
               echo '=> [Run tests: discovery_: SUCCESS'
             }
             unstable {
-              ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: discovery_strategy test'
+              script {
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: discovery_strategy test'
+              }
             }
             failure {
-              ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: discovery_strategy test'
+              script {
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: discovery_strategy test'
+              }
             }
           }
         }
@@ -157,10 +175,14 @@ pipeline {
               echo '=> [Run tests: discovery_: SUCCESS'
             }
             unstable {
-              ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: pure_market_making strategy test'
+              script {
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: pure_market_making strategy test'
+              }
             }
             failure {
-              ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: pure_market_making strategy test'
+              script {
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: pure_market_making strategy test'
+              }
             }
           }
         }
@@ -175,10 +197,14 @@ pipeline {
               echo '=> [Run tests: discovery_: SUCCESS'
             }
             unstable {
-              ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: pure_market_making_v2 strategy test'
+              script {
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: pure_market_making_v2 strategy test'
+              }
             }
             failure {
-              ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: pure_market_making_v2 strategy test'
+              script {
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: pure_market_making_v2 strategy test'
+              }
             }
           }
         }
