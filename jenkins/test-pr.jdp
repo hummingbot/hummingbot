@@ -30,7 +30,6 @@ pipeline {
 
         // Get commit message
         echo 'Get commit message'
-        sh "printenv"
         script {
           PR_TAG = sh returnStdout: true, script: 'echo "**PR #${ghprbPullId}: ${ghprbPullTitle}**\nby ${ghprbActualCommitAuthor}"'
           PR_URL = sh returnStdout: true, script: 'echo "${ghprbPullLink}"'
