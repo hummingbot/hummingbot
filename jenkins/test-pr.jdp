@@ -1,6 +1,6 @@
 // Variabiles for the pipeline
 def testName = 'all stable tests'
-def githubUrl = 'https://github.com/coinalpha/hummingbot'
+def githubUrl = 'https://github.com/CoinAlpha/hummingbot'
 def githubContext = 'ci/jenkins: stable tests'
 
 // Jenkins environment variables
@@ -11,7 +11,8 @@ pipeline {
   agent any
 
   environment {
-    GIT_COMMIT_MESSAGE = ''
+    PR_TAG = ''
+    PR_URL = ''
     ERROR_MESSAGE = ''
   }
 
@@ -24,16 +25,14 @@ pipeline {
         sh 'which python'
         sh 'python --version'
 
-        sh "which ${envPath}/python"
-        sh "${envPath}/python --version"
-
         echo 'Base hummingbot version:'
         sh 'cat hummingbot/VERSION'
 
         // Get commit message
         echo 'Get commit message'
         script {
-          GIT_COMMIT_MESSAGE = sh returnStdout: true, script: "git log -1 --pretty=oneline"
+          PR_TAG = sh returnStdout: true, script: 'echo "**PR #${ghprbPullId}: ${ghprbPullTitle}**\nby ${ghprbActualCommitAuthor}"'
+          PR_URL = sh returnStdout: true, script: 'echo "${ghprbPullLink}"'
           ERROR_MESSAGE = ''
         }
       }
@@ -65,7 +64,7 @@ pipeline {
         }
         failure {
           script {
-            ERROR_MESSAGE = '=> Build failed'
+            ERROR_MESSAGE = '\n => Build failed'
           }
         }
       }
@@ -88,12 +87,12 @@ pipeline {
             }
             unstable {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: stable tests'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Unstable: stable tests'
               }
             }
             failure {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: stable tests'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Failed: stable tests'
               }
             }
           }
@@ -110,12 +109,12 @@ pipeline {
             }
             unstable {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: arbitrage strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Unstable: arbitrage strategy test'
               }
             }
             failure {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: arbitrage strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Failed: arbitrage strategy test'
               }
             }
           }
@@ -132,12 +131,12 @@ pipeline {
             }
             unstable {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: cross_exchange_market_making strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Unstable: cross_exchange_market_making strategy test'
               }
             }
             failure {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: cross_exchange_market_making strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Failed: cross_exchange_market_making strategy test'
               }
             }
           }
@@ -150,16 +149,16 @@ pipeline {
           }
           post {
             success {
-              echo '=> [Run tests: discovery_: SUCCESS'
+              echo '=> [Run tests: discovery]: SUCCESS'
             }
             unstable {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: discovery_strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Unstable: discovery_strategy test'
               }
             }
             failure {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: discovery_strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Failed: discovery_strategy test'
               }
             }
           }
@@ -172,16 +171,16 @@ pipeline {
           }
           post {
             success {
-              echo '=> [Run tests: discovery_: SUCCESS'
+              echo '=> [Run tests: pure_market_making]: SUCCESS'
             }
             unstable {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: pure_market_making strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Unstable: pure_market_making strategy test'
               }
             }
             failure {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: pure_market_making strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Failed: pure_market_making strategy test'
               }
             }
           }
@@ -194,16 +193,16 @@ pipeline {
           }
           post {
             success {
-              echo '=> [Run tests: discovery_: SUCCESS'
+              echo '=> [Run tests: pure_market_making_v2]: SUCCESS'
             }
             unstable {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: pure_market_making_v2 strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Unstable: pure_market_making_v2 strategy test'
               }
             }
             failure {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: pure_market_making_v2 strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Failed: pure_market_making_v2 strategy test'
               }
             }
           }
@@ -220,13 +219,13 @@ pipeline {
       deleteDir()
     }
     success {
-      handleResult('Your tests passed on Jenkins!', 'SUCCESS', testName, githubContext, githubUrl, GIT_COMMIT_MESSAGE, ERROR_MESSAGE)
+      handleResult('Your tests passed on Jenkins!', 'SUCCESS', testName, githubContext, githubUrl, PR_TAG, PR_URL, ERROR_MESSAGE)
     }
     failure {
-      handleResult('Uh oh, your tests failed on Jenkins :(', 'FAILURE', testName, githubContext, githubUrl, GIT_COMMIT_MESSAGE, ERROR_MESSAGE)
+      handleResult('Uh oh, your tests failed on Jenkins :(', 'FAILURE', testName, githubContext, githubUrl, PR_TAG, PR_URL, ERROR_MESSAGE)
     }
     unstable {
-      handleResult('Uh oh, your PR is unstable on Jenkins :(', 'FAILURE', testName, githubContext, githubUrl, GIT_COMMIT_MESSAGE, ERROR_MESSAGE)
+      handleResult('Uh oh, your PR is unstable on Jenkins :(', 'FAILURE', testName, githubContext, githubUrl, PR_TAG, PR_URL, ERROR_MESSAGE)
     }
   }
 
@@ -249,7 +248,7 @@ void setBuildStatus(String message, String state, String context, String url) {
   ]);
 }
 
-void notifyDiscord(String buildStatus = 'STARTED', String testNameInput = 'not defined', String githubUrl, String commitMessage, String errorMessage) {
+void notifyDiscord(String buildStatus = 'STARTED', String testNameInput = 'not defined', String githubUrl, String prTag, String prUrl, String errorMessage) {
   // build status of null means successful
   buildStatus =  buildStatus ?: 'SUCCESS'
   
@@ -263,24 +262,19 @@ void notifyDiscord(String buildStatus = 'STARTED', String testNameInput = 'not d
   } else if (buildStatus == 'SUCCESS') {
     buildStatus = 'Your tests passed on Jenkins!'
     result = 'SUCCESS'
-  } else if (buildStatus == 'FAILED') {
+  } else if (buildStatus == 'FAILURE') {
     buildStatus = 'Uh oh, your tests failed on Jenkins :('
   }
 
-  def footer = commitMessage
-  if (env.CHANGE_ID) {
-    footer = footer + "\n${githubUrl}/pull/${env.CHANGE_ID}"
-  }
-
-  def title = "**[${env.JOB_NAME} #${env.BUILD_NUMBER}]**"
-  def description = "${buildStatus}${errorMessage}"
+  def footer = prUrl
+  def title = "[${env.JOB_NAME} #${env.BUILD_NUMBER}]"
+  def description = "${prTag}\n${buildStatus}${errorMessage}"
 
   // Send notifications
   discordSend (webhookURL: env.DISCORD_INTEGRATIONS, description: description, result: result, title: title, link: env.BUILD_URL, footer: footer)
 }
 
-void handleResult(String label, String state, String testNameInput, String githubContext, String githubUrl, String commitMessage, String errorMessage) {
-  echo "=> ${label}: ${state}"
+void handleResult(String label, String state, String testNameInput, String githubContext, String githubUrl, String prTag, String prUrl, String errorMessage) {
   setBuildStatus("${label}", state, githubContext, githubUrl)
-  notifyDiscord(state, "${testNameInput}: ${label}", commitMessage, errorMessage)
+  notifyDiscord(state, "${testNameInput}: ${label}", prTag, prUrl, errorMessage)
 }
