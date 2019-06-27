@@ -52,7 +52,6 @@ cross_exchange_market_making_config_map = {
     "min_profitability":                ConfigVar(key="min_profitability",
                                                   prompt="What is the minimum profitability for you to make a trade? "\
                                                          "(Enter 0.01 to indicate 1%) >>> ",
-                                                  default=0.003,
                                                   type_str="float"),
     "trade_size_override":              ConfigVar(key="trade_size_override",
                                                   prompt="What is your preferred trade size? (denominated in "
@@ -66,9 +65,9 @@ cross_exchange_market_making_config_map = {
                                                   type_str="list",
                                                   required_if=lambda: False,
                                                   default=[
-                                                      ["^.+(USDT|USDC|USDS|DAI|PAX|TUSD)$", 1000],
-                                                      ["^.+ETH$", 10],
-                                                      ["^.+BTC$", 0.5],
+                                                      ["^.+(USDT|USDC|USDS|DAI|PAX|TUSD)$", 0],
+                                                      ["^.+ETH$", 0],
+                                                      ["^.+BTC$", 0],
                                                   ]),
     "active_order_canceling":           ConfigVar(key="active_order_canceling",
                                                   prompt="Do you want to actively adjust/cancel orders? (Default "\
