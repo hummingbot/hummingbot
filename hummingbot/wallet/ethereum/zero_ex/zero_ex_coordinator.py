@@ -351,7 +351,7 @@ class ZeroExCoordinator:
         }
 
         try:
-            response = await self._post_request(endpoint + '/v1/request_transaction?networkId=50', requestPayload)
+            response = await self._post_request(endpoint + '/v1/request_transaction?networkId=' + self._wallet.chain, requestPayload)
 
             status = response.status
 
