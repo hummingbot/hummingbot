@@ -6,6 +6,7 @@ from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 cdef class BambooRelayMarket(MarketBase):
     cdef:
         str _wallet_spender_address
+        object _chain
         object _wallet
         object _provider
         object _weth_token
@@ -20,10 +21,13 @@ cdef class BambooRelayMarket(MarketBase):
         double _poll_interval
         dict _in_flight_limit_orders
         dict _in_flight_market_orders
+        object _in_flight_cancels
         object _order_expiry_queue
         TransactionTracker _tx_tracker
         object _w3
         object _exchange
+        object _coordinator
+        bint _use_coordinator
         dict _withdraw_rules
         dict _trading_rules
         object _pending_approval_tx_hashes
@@ -32,6 +36,7 @@ cdef class BambooRelayMarket(MarketBase):
         public object _approval_tx_polling_task
         public object _order_tracker_task
         int64_t _latest_salt
+        str _api_prefix
 
     cdef c_start_tracking_limit_order(self,
                                       str order_id,

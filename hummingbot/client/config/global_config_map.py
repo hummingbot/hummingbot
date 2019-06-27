@@ -99,6 +99,10 @@ global_config_map = {
                                                   prompt="Enter your Coinbase passphrase >>> ",
                                                   required_if=using_exchange("coinbase_pro"),
                                                   is_secure=True),
+    "bamboo_relay_use_coordinator":     ConfigVar(key="bamboo_relay_use_coordinator",
+                                                  prompt="Would you like to use the Bamboo Relay Coordinator >>> ",
+                                                  required_if=using_exchange("bamboo_relay"),
+                                                  is_secure=True),
     "wallet":                           ConfigVar(key="wallet",
                                                   prompt="Would you like to import an existing wallet or create a new"
                                                          " wallet? (import/create) >>> ",

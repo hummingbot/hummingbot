@@ -10,12 +10,12 @@ import ujson
 from web3 import Web3
 from web3.contract import Contract
 from zero_ex.order_utils import Order
-from zero_ex_transaction_encoder import (
+from hummingbot.wallet.ethereum.zero_ex.zero_ex_transaction_encoder import (
     ZeroExTransaction,
     SignedZeroExTransaction,
     get_transaction_hash_hex
 )
-
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils import (
     convert_order_to_tuple,
@@ -45,7 +45,8 @@ class ZeroExCoordinator:
                  exchange_address: str,
                  coordinator_address: str,
                  coordinator_registry_address: str,
-                 wallet: Web3WalletBackend):
+                 wallet: Web3Wallet,
+                 chain: EthereumChain = EthereumChain.MAIN_NET):
         self._provider: Web3.HTTPProvider = provider
         self._w3: Web3 = w3
         self._exchange_contract: Contract = w3.eth.contract(address=exchange_address, abi=exchange_abi)
@@ -54,8 +55,9 @@ class ZeroExCoordinator:
         self._coordinator_address: str = coordinator_address
         self._registry_contract: Contract = w3.eth.contract(address=coordinator_registry_address, abi=coordinator_registry_abi)
         self._registry_address: str = coordinator_registry_address
-        self._wallet: Web3WalletBackend = wallet
+        self._wallet: Web3Wallet = wallet
         self._feeRecipientToEndpoint = {}
+        self._chain = chain
 
     @property
     def contract(self) -> Contract:
@@ -66,7 +68,7 @@ class ZeroExCoordinator:
         return self._coordinator_address
 
     @property
-    def wallet(self) -> Web3WalletBackend:
+    def wallet(self) -> Web3Wallet:
         return self._wallet
 
     async def fill_order(self, order: Order, taker_asset_fill_amount: Decimal, signature: str) -> str:
@@ -337,7 +339,7 @@ class ZeroExCoordinator:
 
         order_hash_hex = get_transaction_hash_hex(transaction['verifyingContractAddress'], data, transaction['salt'], signerAddress)
 
-        signature = self._wallet.sign_hash(hexstr=order_hash_hex)
+        signature = self._wallet.current_backend.sign_hash(hexstr=order_hash_hex)
         fixed_signature = fix_signature(self._provider, signerAddress, order_hash_hex, signature)
 
         transaction['signature'] = fixed_signature
@@ -351,7 +353,7 @@ class ZeroExCoordinator:
         }
 
         try:
-            response = await self._post_request(endpoint + '/v1/request_transaction?networkId=' + self._wallet.chain, requestPayload)
+            response = await self._post_request(endpoint + '/v1/request_transaction?networkId=' + str(self._chain.value), requestPayload)
 
             status = response.status
 
@@ -371,14 +373,14 @@ class ZeroExCoordinator:
                     isError = True
                     isValidationError = False
                     body = None
-                    error = None
+                    error = str(ex)
             else:
                 body = None
                 error = None
-        except:
+        except Exception as ex:
             status = 500
             body = None
-            error = None
+            error = str(ex)
             isError = True
             isValidationError = False
 
