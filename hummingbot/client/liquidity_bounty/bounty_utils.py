@@ -6,6 +6,7 @@ import aiohttp
 import asyncio
 import logging
 import pandas as pd
+from datetime import datetime
 from typing import (
     Any,
     Dict,
@@ -81,13 +82,13 @@ class LiquidityBounty(NetworkBase):
         rows = [[
             bounty["market"],
             bounty["base_asset"],
-            bounty["start_timestamp"] if bounty["start_timestamp"] > 0 else "TBA",
-            bounty["end_timestamp"] if bounty["end_timestamp"] > 0 else "TBA",
+            datetime.fromtimestamp(bounty["start_timestamp"] / 1e3).strftime("%m/%d/%Y %H:%M") if bounty["start_timestamp"] > 0 else "TBA",
+            datetime.fromtimestamp(bounty["end_timestamp"] / 1e3).strftime("%m/%d/%Y %H:%M") if bounty["end_timestamp"] > 0 else "TBA",
             bounty["link"]
         ] for bounty in self._active_bounties]
         df: pd.DataFrame = pd.DataFrame(
             rows,
-            columns=["Market", "Asset", "Start (DD/MM/YYYY)", "End (DD/MM/YYYY)", "More Info"]
+            columns=["Market", "Asset", "Start (MM/DD/YYYY)", "End (MM/DD/YYYY)", "More Info"]
         )
         lines = ["", "  Bounties:"] + ["    " + line for line in df.to_string(index=False).split("\n")]
         return "\n".join(lines)
@@ -136,7 +137,7 @@ class LiquidityBounty(NetworkBase):
             new_trades: List[TradeFill] = query.all()
             return new_trades
         except Exception as e:
-            self.logger().error(f"Failed to query for unsubmitted trades: {str(e)}")
+            self.logger().error(f"Failed to query for unsubmitted trades: {str(e)}", exc_info=True)
 
     async def _http_client(self) -> aiohttp.ClientSession:
         if self._shared_client is None:
@@ -249,7 +250,7 @@ class LiquidityBounty(NetworkBase):
             if "User not registered" in str(e):
                 self.logger().warning("User not registered. Aborting fetch_filled_volume_metrics.")
             else:
-                self.logger().error(f"Error fetching filled volume metrics: {str(e)}")
+                self.logger().error(f"Error fetching filled volume metrics: {str(e)}", exc_info=True)
 
     async def submit_trades(self):
         try:
@@ -261,7 +262,7 @@ class LiquidityBounty(NetworkBase):
                 results = await self.authenticated_request("POST", url, json={"trades": formatted_trades})
                 if "error" in results:
                     raise Exception(results["error"])
-                self.logger().debug(results)
+                self.logger().info(results)
                 num_submitted = results.get("trades_submitted", 0)
                 num_recorded = results.get("trades_recorded", 0)
                 if num_submitted != num_recorded:
@@ -285,7 +286,7 @@ class LiquidityBounty(NetworkBase):
                     self.logger().warning("User not registered. Aborting submit_trades_loop.")
                     break
                 else:
-                    self.logger().error(f"Error submitting trades: {str(e)}")
+                    self.logger().error(f"Error submitting trades: {str(e)}", exc_info=True)
             await asyncio.sleep(self._update_interval)
 
     async def start_network(self):
