@@ -250,5 +250,5 @@ void notifyDiscord(String buildStatus = 'STARTED', String commitMessage, String 
   def description = "**[${env.GIT_BRANCH}]**: ${buildStatus}${errorMessage}"
 
   // Send notifications
-  discordSend (webhookURL: env.DISCORD_URL, description: description, result: result, title: title, link: env.BUILD_URL, footer: footer)
+  discordSend (webhookURL: env.DISCORD_INTEGRATIONS, description: description, result: result, title: title, link: env.BUILD_URL, footer: footer)
 }
