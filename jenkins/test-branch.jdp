@@ -19,9 +19,6 @@ pipeline {
         sh 'which python'
         sh 'python --version'
 
-        sh "which ${envPath}/python"
-        sh "${envPath}/python --version"
-
         echo 'Base hummingbot version:'
         sh 'cat hummingbot/VERSION'
 
