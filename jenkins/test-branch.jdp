@@ -1,8 +1,3 @@
-// Variabiles for the pipeline
-def testName = 'all stable tests'
-def githubUrl = 'https://github.com/coinalpha/hummingbot'
-def githubContext = 'ci/jenkins: stable tests'
-
 // Jenkins environment variables
 def path = '/root/miniconda/bin'
 def envPath = '/root/miniconda/envs/hummingbot/bin'
@@ -33,7 +28,7 @@ pipeline {
         // Get commit message
         echo 'Get commit message'
         script {
-          GIT_COMMIT_MESSAGE = sh returnStdout: true, script: "git log -1 --pretty=oneline"
+          GIT_COMMIT_MESSAGE = sh returnStdout: true, script: 'git log -1 --pretty=oneline'
           ERROR_MESSAGE = ''
         }
       }
@@ -41,9 +36,6 @@ pipeline {
 
     stage('Build hummingbot') {
       steps {
-        echo 'Set git commit status'
-        setBuildStatus('Jenkins is building hummingbot...', 'PENDING', githubContext, githubUrl)
-
         echo 'Running build...'
 
         // Clean-up environment
@@ -65,7 +57,7 @@ pipeline {
         }
         failure {
           script {
-            ERROR_MESSAGE = '=> Build failed'
+            ERROR_MESSAGE = '\n => Build failed'
           }
         }
       }
@@ -77,7 +69,6 @@ pipeline {
         stage('Run stable tests') {
           steps {
             echo 'Run stable tests'
-            setBuildStatus('Jenkins is running your tests...', 'PENDING', githubContext, githubUrl)
 
             // make test
             sh "${envPath}/nosetests -d -v test/test*.py"
@@ -88,12 +79,12 @@ pipeline {
             }
             unstable {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: stable tests'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Unstable: stable tests'
               }
             }
             failure {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: stable tests'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Failed: stable tests'
               }
             }
           }
@@ -110,12 +101,12 @@ pipeline {
             }
             unstable {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: arbitrage strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Unstable: arbitrage strategy test'
               }
             }
             failure {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: arbitrage strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Failed: arbitrage strategy test'
               }
             }
           }
@@ -132,12 +123,12 @@ pipeline {
             }
             unstable {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: cross_exchange_market_making strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Unstable: cross_exchange_market_making strategy test'
               }
             }
             failure {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: cross_exchange_market_making strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Failed: cross_exchange_market_making strategy test'
               }
             }
           }
@@ -150,16 +141,16 @@ pipeline {
           }
           post {
             success {
-              echo '=> [Run tests: discovery_: SUCCESS'
+              echo '=> [Run tests: discovery]: SUCCESS'
             }
             unstable {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: discovery_strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Unstable: discovery_strategy test'
               }
             }
             failure {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: discovery_strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Failed: discovery_strategy test'
               }
             }
           }
@@ -172,16 +163,16 @@ pipeline {
           }
           post {
             success {
-              echo '=> [Run tests: discovery_: SUCCESS'
+              echo '=> [Run tests: pure_market_making]: SUCCESS'
             }
             unstable {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: pure_market_making strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Unstable: pure_market_making strategy test'
               }
             }
             failure {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: pure_market_making strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Failed: pure_market_making strategy test'
               }
             }
           }
@@ -194,16 +185,16 @@ pipeline {
           }
           post {
             success {
-              echo '=> [Run tests: discovery_: SUCCESS'
+              echo '=> [Run tests: pure_market_making_v2]: SUCCESS'
             }
             unstable {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Unstable: pure_market_making_v2 strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Unstable: pure_market_making_v2 strategy test'
               }
             }
             failure {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n=> Failed: pure_market_making_v2 strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Failed: pure_market_making_v2 strategy test'
               }
             }
           }
@@ -220,13 +211,13 @@ pipeline {
       deleteDir()
     }
     success {
-      handleResult('Your tests passed on Jenkins!', 'SUCCESS', testName, githubContext, githubUrl, GIT_COMMIT_MESSAGE, ERROR_MESSAGE)
+      notifyDiscord('SUCCESS', GIT_COMMIT_MESSAGE, ERROR_MESSAGE)
     }
     failure {
-      handleResult('Uh oh, your tests failed on Jenkins :(', 'FAILURE', testName, githubContext, githubUrl, GIT_COMMIT_MESSAGE, ERROR_MESSAGE)
+      notifyDiscord('FAILURE', GIT_COMMIT_MESSAGE, ERROR_MESSAGE)
     }
     unstable {
-      handleResult('Uh oh, your PR is unstable on Jenkins :(', 'FAILURE', testName, githubContext, githubUrl, GIT_COMMIT_MESSAGE, ERROR_MESSAGE)
+      notifyDiscord('FAILURE', GIT_COMMIT_MESSAGE, ERROR_MESSAGE)
     }
   }
 
@@ -239,17 +230,7 @@ pipeline {
 
 // Define helper methods
 
-void setBuildStatus(String message, String state, String context, String url) {
-  step([
-      $class: 'GitHubCommitStatusSetter',
-      reposSource: [$class: 'ManuallyEnteredRepositorySource', url: url],
-      contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: context],
-      errorHandlers: [[$class: 'ChangingBuildStatusErrorHandler', result: 'UNSTABLE']],
-      statusResultSource: [ $class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: message, state: state]] ]
-  ]);
-}
-
-void notifyDiscord(String buildStatus = 'STARTED', String testNameInput = 'not defined', String githubUrl, String commitMessage, String errorMessage) {
+void notifyDiscord(String buildStatus = 'STARTED', String commitMessage, String errorMessage) {
   // build status of null means successful
   buildStatus =  buildStatus ?: 'SUCCESS'
   
@@ -258,29 +239,19 @@ void notifyDiscord(String buildStatus = 'STARTED', String testNameInput = 'not d
 
   // Override default values based on build status
   if (buildStatus == 'STARTED') {
-    buildStatus = "Initiating ${testNameInput} test... "
+    buildStatus = "Initiating test... "
     result = 'UNSTABLE'
   } else if (buildStatus == 'SUCCESS') {
     buildStatus = 'Your tests passed on Jenkins!'
     result = 'SUCCESS'
-  } else if (buildStatus == 'FAILED') {
+  } else if (buildStatus == 'FAILURE') {
     buildStatus = 'Uh oh, your tests failed on Jenkins :('
   }
 
   def footer = commitMessage
-  if (env.CHANGE_ID) {
-    footer = footer + "\n${githubUrl}/pull/${env.CHANGE_ID}"
-  }
-
-  def title = "**[${env.JOB_NAME} #${env.BUILD_NUMBER}]**"
-  def description = "${buildStatus}${errorMessage}"
+  def title = "[${env.JOB_NAME} #${env.BUILD_NUMBER}]"
+  def description = "**[${env.GIT_BRANCH}]**: ${buildStatus}${errorMessage}"
 
   // Send notifications
-  discordSend (webhookURL: env.DISCORD_INTEGRATIONS, description: description, result: result, title: title, link: env.BUILD_URL, footer: footer)
-}
-
-void handleResult(String label, String state, String testNameInput, String githubContext, String githubUrl, String commitMessage, String errorMessage) {
-  echo "=> ${label}: ${state}"
-  setBuildStatus("${label}", state, githubContext, githubUrl)
-  notifyDiscord(state, "${testNameInput}: ${label}", commitMessage, errorMessage)
+  discordSend (webhookURL: env.DISCORD_URL, description: description, result: result, title: title, link: env.BUILD_URL, footer: footer)
 }
