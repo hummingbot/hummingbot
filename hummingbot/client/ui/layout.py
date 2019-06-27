@@ -21,6 +21,11 @@ from prompt_toolkit.utils import is_windows
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.layout.controls import FormattedTextControl
 
+from hummingbot.client.settings import (
+    MAXIMUM_OUTPUT_PANE_LINE_COUNT,
+    MAXIMUM_LOG_PANE_LINE_COUNT,
+)
+
 
 HEADER = """
                                                    *,.                     
@@ -89,6 +94,8 @@ def create_output_field():
         focus_on_click=False,
         read_only=False,
         scrollbar=True,
+        max_line_count=MAXIMUM_OUTPUT_PANE_LINE_COUNT,
+        initial_text=HEADER,
     )
 
 
@@ -98,6 +105,9 @@ def create_log_field():
         text="Running logs\n",
         focus_on_click=False,
         read_only=False,
+        scrollbar=True,
+        max_line_count=MAXIMUM_LOG_PANE_LINE_COUNT,
+        initial_text="Running Logs \n"
     )
 
 
