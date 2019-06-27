@@ -33,15 +33,15 @@ pipeline {
 
         // Get commit message
         echo 'Get commit message'
+        sh "printenv"
         script {
-          env.PR_TAG = sh returnStdout: true, script: 'echo "**PR #${ghprbPullId}: ${ghprbPullTitle}**\nby ${ghprbActualCommitAuthor}"'
-          env.PR_URL = sh returnStdout: true, script: 'echo "${ghprbPullLink}"'
+          PR_TAG = sh returnStdout: true, script: 'echo "**PR #${ghprbPullId}: ${ghprbPullTitle}**\nby ${ghprbActualCommitAuthor}"'
+          PR_URL = sh returnStdout: true, script: 'echo "${ghprbPullLink}"'
           ERROR_MESSAGE = ''
           echo "assigned vars"
         }
-        echo "print vars"
-        echo env.PR_TAG
-        echo env.PR_URL
+        echo PR_TAG
+        echo PR_URL
       }
     }
 
