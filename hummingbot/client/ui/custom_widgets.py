@@ -1,5 +1,10 @@
 from __future__ import unicode_literals
 import six
+from collections import deque
+from typing import (
+    List,
+    Deque,
+)
 
 from prompt_toolkit.auto_suggest import DynamicAutoSuggest
 from prompt_toolkit.buffer import Buffer
@@ -49,7 +54,7 @@ class CustomTextArea:
                  dont_extend_height=False, dont_extend_width=False,
                  line_numbers=False, get_line_prefix=None, scrollbar=False,
                  style='', search_field=None, preview_search=True, prompt='',
-                 input_processors=None):
+                 input_processors=None, max_line_count=1000, initial_text=""):
         assert isinstance(text, six.text_type)
         assert search_field is None or isinstance(search_field, SearchToolbar)
 
@@ -68,6 +73,7 @@ class CustomTextArea:
         self.auto_suggest = auto_suggest
         self.read_only = read_only
         self.wrap_lines = wrap_lines
+        self.max_line_count = max_line_count
 
         self.buffer = CustomBuffer(
             document=Document(text, 0),
@@ -125,6 +131,9 @@ class CustomTextArea:
             right_margins=right_margins,
             get_line_prefix=get_line_prefix)
 
+        self.log_lines: Deque[str] = deque()
+        self.log(initial_text)
+
     @property
     def text(self):
         """
@@ -160,3 +169,26 @@ class CustomTextArea:
 
     def __pt_container__(self):
         return self.window
+
+    def log(self, text: str):
+        # Getting the max width of the window area
+        if self.window.render_info is None:
+            max_width = 100
+        else:
+            max_width = self.window.render_info.window_width - 2
+
+        # Split the string into multiple lines if there is a "\n" or if the string exceeds max window width
+        # This operation should not be too expensive because only the newly added lines are processed
+        new_lines_raw: List[str] = str(text).split('\n')
+        new_lines = []
+        for line in new_lines_raw:
+            while len(line) > max_width:
+                new_lines.append(line[0:max_width])
+                line = line[max_width:]
+            new_lines.append(line)
+
+        self.log_lines.extend(new_lines)
+        while len(self.log_lines) > self.max_line_count:
+            self.log_lines.popleft()
+        new_text: str = "\n".join(self.log_lines)
+        self.buffer.document = Document(text=new_text, cursor_position=len(new_text))
