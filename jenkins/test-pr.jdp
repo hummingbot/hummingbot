@@ -25,9 +25,6 @@ pipeline {
         sh 'which python'
         sh 'python --version'
 
-        sh "which ${envPath}/python"
-        sh "${envPath}/python --version"
-
         echo 'Base hummingbot version:'
         sh 'cat hummingbot/VERSION'
 
@@ -38,10 +35,7 @@ pipeline {
           PR_TAG = sh returnStdout: true, script: 'echo "**PR #${ghprbPullId}: ${ghprbPullTitle}**\nby ${ghprbActualCommitAuthor}"'
           PR_URL = sh returnStdout: true, script: 'echo "${ghprbPullLink}"'
           ERROR_MESSAGE = ''
-          echo "assigned vars"
         }
-        echo PR_TAG
-        echo PR_URL
       }
     }
 
