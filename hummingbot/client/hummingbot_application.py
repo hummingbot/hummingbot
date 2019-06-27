@@ -523,6 +523,7 @@ class HummingbotApplication:
                 use_coordinator = global_config_map.get("bamboo_relay_use_coordinator").value
                 market = BambooRelayMarket(wallet=self.wallet,
                                            ethereum_rpc_url=ethereum_rpc_url,
+                                           chain=EthereumChain.MAIN_NET,
                                            symbols=symbols,
                                            use_coordinator=use_coordinator)
 

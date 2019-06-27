@@ -112,8 +112,6 @@ def _encode_data(primaryType: str, data: any, types) -> str:
             hashValue = keccak(text=value)
             encodedTypes.append('bytes32')
             encodedValues.append(hashValue)
-            print(hashValue)
-            print(" ")
 
         elif field['type'] == 'bytes':
             hashValue = keccak(hexstr=value)
