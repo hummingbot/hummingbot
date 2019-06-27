@@ -39,6 +39,7 @@ cdef class BambooRelayMarket(MarketBase):
                                       str symbol,
                                       bint is_buy,
                                       object order_type,
+                                      bint is_coordinated,
                                       object amount,
                                       object price,
                                       int expires,
@@ -49,6 +50,7 @@ cdef class BambooRelayMarket(MarketBase):
                                        str symbol,
                                        bint is_buy,
                                        object order_type,
+                                       bint is_coordinated,
                                        object amount,
                                        object price)
     cdef c_expire_order(self, str order_id)

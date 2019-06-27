@@ -519,9 +519,11 @@ class HummingbotApplication:
                                           trading_required=self._trading_required)
 
             elif market_name == "bamboo_relay" and self.wallet:
+                use_coordinator = bool(global_config_map.get("bamboo_relay_use_coordinator").value)
                 market = BambooRelayMarket(wallet=self.wallet,
                                            ethereum_rpc_url=ethereum_rpc_url,
-                                           symbols=symbols)
+                                           symbols=symbols,
+                                           use_coordinator=use_coordinator)
 
             elif market_name == "coinbase_pro":
                 coinbase_pro_api_key = global_config_map.get("coinbase_pro_api_key").value
