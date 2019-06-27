@@ -2,12 +2,8 @@
 
 from __future__ import unicode_literals
 from prompt_toolkit.eventloop import get_event_loop
-from prompt_toolkit.document import Document
-from hummingbot.client.settings import MAXIMUM_LOG_PANE_LINE_COUNT
 
 from contextlib import contextmanager
-from collections import deque
-from typing import Deque
 import threading
 import sys
 
@@ -56,19 +52,13 @@ class StdoutProxy(object):
         self.errors = original_stdout.errors
         self.encoding = original_stdout.encoding
         self.log_field = log_field
-        self.log_lines: Deque[str] = deque()
-        self.log_lines.append("Running logs\n")
 
     def _write_and_flush(self, text):
         if not text:
             return
 
         def write_and_flush():
-            self.log_lines.extend(text.split("\n"))
-            while len(self.log_lines) > MAXIMUM_LOG_PANE_LINE_COUNT:
-                self.log_lines.popleft()
-            new_text: str = "\n".join(self.log_lines)
-            self.log_field.buffer.document = Document(text=new_text, cursor_position=len(new_text))
+            self.log_field.log(text)
 
         get_event_loop().call_from_executor(write_and_flush)
 
