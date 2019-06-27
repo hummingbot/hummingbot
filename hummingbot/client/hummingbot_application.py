@@ -634,7 +634,7 @@ class HummingbotApplication:
 
         if len(loading_markets) > 0:
             self._notify(f"   x Market check:  Waiting for markets " +
-                         ",".join([m.name.capitalize()  for m in loading_markets]) + f" to get ready for trading. \n"
+                         ",".join([m.name.capitalize() for m in loading_markets]) + f" to get ready for trading. \n"
                          f"                    Please keep the bot running and try to start again in a few minutes. \n")
 
             for market in loading_markets:
