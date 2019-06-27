@@ -171,10 +171,14 @@ class CustomTextArea:
         return self.window
 
     def log(self, text: str):
+        # Getting the max width of the window area
         if self.window.render_info is None:
             max_width = 100
         else:
             max_width = self.window.render_info.window_width - 2
+
+        # Split the string into multiple lines if there is a "\n" or if the string exceeds max window width
+        # This operation should not be too expensive because only the newly added lines are processed
         new_lines_raw: List[str] = str(text).split('\n')
         new_lines = []
         for line in new_lines_raw:
