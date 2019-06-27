@@ -1,6 +1,6 @@
 ---
 version: 1
-template_version: 4
+template_version: 5
 
 formatters:
     simple:
@@ -32,7 +32,7 @@ handlers:
         class: hummingbot.logger.reporting_proxy_handler.ReportingProxyHandler
         level: DEBUG
         proxy_url: https://api.coinalpha.com/reporting-proxy
-        capacity: 5
+        capacity: 1
     "null":
         class: logging.NullHandler
         level: DEBUG
