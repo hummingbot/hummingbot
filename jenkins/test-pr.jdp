@@ -37,9 +37,11 @@ pipeline {
           env.PR_TAG = sh returnStdout: true, script: 'echo "**PR #${ghprbPullId}: ${ghprbPullTitle}**\nby ${ghprbActualCommitAuthor}"'
           env.PR_URL = sh returnStdout: true, script: 'echo "${ghprbPullLink}"'
           ERROR_MESSAGE = ''
+          echo "assigned vars"
         }
-        echo PR_TAG
-        echo PR_URL
+        echo "print vars"
+        echo env.PR_TAG
+        echo env.PR_URL
       }
     }
 
