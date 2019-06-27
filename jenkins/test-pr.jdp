@@ -271,7 +271,7 @@ void notifyDiscord(String buildStatus = 'STARTED', String testNameInput = 'not d
   def description = "${prTag}\n${buildStatus}${errorMessage}"
 
   // Send notifications
-  discordSend (webhookURL: env.DISCORD_URL, description: description, result: result, title: title, link: env.BUILD_URL, footer: footer)
+  discordSend (webhookURL: env.DISCORD_INTEGRATIONS, description: description, result: result, title: title, link: env.BUILD_URL, footer: footer)
 }
 
 void handleResult(String label, String state, String testNameInput, String githubContext, String githubUrl, String prTag, String prUrl, String errorMessage) {
