@@ -34,10 +34,12 @@ pipeline {
         // Get commit message
         echo 'Get commit message'
         script {
-          PR_TAG = sh returnStdout: true, script: 'echo "**PR #${ghprbPullId}: ${ghprbPullTitle}**\nby ${ghprbActualCommitAuthor}"'
-          PR_URL = sh returnStdout: true, script: 'echo "${ghprbPullLink}"'
+          env.PR_TAG = sh returnStdout: true, script: 'echo "**PR #${ghprbPullId}: ${ghprbPullTitle}**\nby ${ghprbActualCommitAuthor}"'
+          env.PR_URL = sh returnStdout: true, script: 'echo "${ghprbPullLink}"'
           ERROR_MESSAGE = ''
         }
+        echo PR_TAG
+        echo PR_URL
       }
     }
 
