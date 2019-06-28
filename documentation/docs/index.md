@@ -16,7 +16,7 @@ Here are some helpful links to get started:
 Information about Liquidity Bounties
 
 * [Bounties](/bounties/intro)
-* [Harmony $ONE Makers](/bounties/programs/harmony)
+* [Harmony $ONE Makers](/bounties/active/harmony)
 
 
 !!! warning "Experimental software"
