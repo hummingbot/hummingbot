@@ -1,6 +1,6 @@
 // Jenkins environment variables
-def path = '/root/miniconda/bin'
-def envPath = '/root/miniconda/envs/hummingbot/bin'
+def path = '/root/miniconda'
+def envPath = "${path}/envs/hummingbot"
 
 pipeline {
   agent any
@@ -36,15 +36,16 @@ pipeline {
         echo 'Running build...'
 
         // Clean-up environment
-        sh ". ${path}/deactivate"
+        sh ". ${path}/bin/deactivate"
         sh './uninstall'
+        sh "rm -rf ${envPath}"
 
         // Install hummingbot
         sh './install'
-        sh ". ${path}/activate hummingbot"
+        sh ". ${path}/bin/activate hummingbot"
 
         // ./compile
-        sh "${envPath}/python setup.py build_ext --inplace"
+        sh "${envPath}/bin/python setup.py build_ext --inplace"
 
       }
 
@@ -68,7 +69,7 @@ pipeline {
             echo 'Run stable tests'
 
             // make test
-            sh "${envPath}/nosetests -d -v test/test*.py"
+            sh "${envPath}/bin/nosetests -d -v test/test*.py"
           }
           post {
             success {
@@ -90,7 +91,7 @@ pipeline {
         stage('Run arbitrage strategy test') {
           steps {
             echo 'Run arbitrage test'
-            sh "${envPath}/nosetests -d -v test/test_arbitrage.py"
+            sh "${envPath}/bin/nosetests -d -v test/test_arbitrage.py"
           }
           post {
             success {
@@ -112,7 +113,7 @@ pipeline {
         stage('Run cross_exchange_market_making strategy test') {
           steps {
             echo 'Run cross_exchange_market_making test'
-            sh "${envPath}/nosetests -d -v test/test_cross_exchange_market_making.py"
+            sh "${envPath}/bin/nosetests -d -v test/test_cross_exchange_market_making.py"
           }
           post {
             success {
@@ -134,7 +135,7 @@ pipeline {
         stage('Run discovery_strategy test') {
           steps {
             echo 'Run discovery_strategy test'
-            sh "${envPath}/nosetests -d -v test/test_discovery_strategy.py"
+            sh "${envPath}/bin/nosetests -d -v test/test_discovery_strategy.py"
           }
           post {
             success {
@@ -156,7 +157,7 @@ pipeline {
         stage('Run pure_market_making strategy test') {
           steps {
             echo 'Run pure_market_making strategy test'
-            sh "${envPath}/nosetests -d -v test/test_pure_market_making.py"
+            sh "${envPath}/bin/nosetests -d -v test/test_pure_market_making.py"
           }
           post {
             success {
@@ -178,7 +179,7 @@ pipeline {
         stage('Run pure_market_making_v2 strategy test') {
           steps {
             echo 'Run pure_market_making_v2 strategy test'
-            sh "${envPath}/nosetests -d -v test/test_pure_market_making_v2.py"
+            sh "${envPath}/bin/nosetests -d -v test/test_pure_market_making_v2.py"
           }
           post {
             success {
@@ -205,6 +206,10 @@ pipeline {
   // Run after all stages
   post {
     always {
+      // Cleanup environment
+      sh './uninstall'
+      sh "rm -rf ${envPath}"
+
       deleteDir()
     }
     success {
