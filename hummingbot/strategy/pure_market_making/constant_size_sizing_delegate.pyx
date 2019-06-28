@@ -29,13 +29,6 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
     def order_size(self) -> float:
         return self._order_size
 
-    @property
-    def log_warning_order_size(self) -> bool:
-        return self._log_warning_order_size
-
-    @property
-    def log_warning_balance(self) -> bool:
-        return self._log_warning_balance
 
     cdef object c_get_order_size_proposal(self,
                                           PureMarketMakingStrategyV2 strategy,
@@ -59,7 +52,7 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
             bid_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size)
             ask_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size)
 
-        if self.log_warning_order_size:
+        if self._log_warning_order_size:
 
             if (bid_order_size ==0):
                 self.logger().network(f"Buy(bid) order size is less than minimum order size. Buy order will not be placed",
@@ -80,7 +73,7 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
             else:
                 has_active_ask = True
 
-        if self.log_warning_balance:
+        if self._log_warning_balance:
 
             if (quote_asset_balance < pricing_proposal.buy_order_prices[0] * bid_order_size):
                 self.logger().network(f"Buy(bid) order is not placed because there is not enough Quote asset. "
