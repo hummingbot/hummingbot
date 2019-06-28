@@ -169,6 +169,7 @@ class HummingbotApplication:
         self.market_symbol_pairs: List[MarketSymbolPair] = []
         self.clock: Optional[Clock] = None
 
+        self.start_time: Optional[int] = None
         self.assets: Optional[Set[str]] = set()
         self.starting_balances = {}
         self.placeholder_mode = False
@@ -634,7 +635,7 @@ class HummingbotApplication:
 
         if len(loading_markets) > 0:
             self._notify(f"   x Market check:  Waiting for markets " +
-                         ",".join([m.name.capitalize()  for m in loading_markets]) + f" to get ready for trading. \n"
+                         ",".join([m.name.capitalize() for m in loading_markets]) + f" to get ready for trading. \n"
                          f"                    Please keep the bot running and try to start again in a few minutes. \n")
 
             for market in loading_markets:
@@ -980,6 +981,7 @@ class HummingbotApplication:
 
         try:
             config_path: str = in_memory_config_map.get("strategy_file_path").value
+            self.start_time = time.time() * 1e3 # Time in milliseconds
             self.clock = Clock(ClockMode.REALTIME)
             if self.wallet is not None:
                 self.clock.add_iterator(self.wallet)
@@ -1209,7 +1211,12 @@ class HummingbotApplication:
             self._notify("Liquidity bounty not active. Please register for the bounty by entering `bounty --register`.")
             return
         else:
-            self._notify(str(self.liquidity_bounty.formatted_status()))
+            status_table: str = self.liquidity_bounty.formatted_status()
+            self._notify(status_table)
+
+            volume_metrics: List[Dict[str, Any]] = \
+                await self.liquidity_bounty.fetch_filled_volume_metrics(start_time=self.start_time or -1)
+            self._notify(self.liquidity_bounty.format_volume_metrics(volume_metrics))
 
     async def bounty_print_terms(self):
         """ Print bounty Terms and Conditions to output pane """
@@ -1236,28 +1243,10 @@ class HummingbotApplication:
 
     async def bounty_list(self):
         """ List available bounties """
-        self.liquidity_bounty = LiquidityBounty.get_instance()
-        try:
-            response: Dict[str, Any] = await self.liquidity_bounty.get_bounties()
-            if response.get("error") is not None:
-                raise ValueError(response.get("error"))
-            bounties: List[Dict[str, Any]] = response.get("bounties", [])
-            rows = [[
-                bounty["market"],
-                bounty["base_asset"],
-                bounty["start_timestamp"],
-                bounty["end_timestamp"],
-                bounty["link"]
-            ] for bounty in bounties]
-            df: pd.DataFrame = pd.DataFrame(
-                rows,
-                index=None,
-                columns=["Market", "Asset", "Start (DD/MM/YYYY)", "End (DD/MM/YYYY)", "More Info"]
-            )
-            lines = ["", "  Bounties:"] + ["    " + line for line in df.to_string(index=False).split("\n")]
-            self._notify("\n".join(lines))
-        except Exception as e:
-            self._notify(str(e))
+        if self.liquidity_bounty is None:
+            self.liquidity_bounty = LiquidityBounty.get_instance()
+        await self.liquidity_bounty.fetch_active_bounties()
+        self._notify(self.liquidity_bounty.formatted_bounties())
 
     async def bounty_config_loop(self):
         """ Configuration loop for bounty registration """

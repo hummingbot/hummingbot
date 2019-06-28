@@ -64,9 +64,9 @@ class TradeFill(HummingbotBase):
             "quantity": trade_fill.amount,
             "trading_pair": trade_fill.symbol,
             "trade_timestamp": trade_fill.timestamp,
+            "base_asset": trade_fill.base_asset,
+            "quote_asset": trade_fill.quote_asset,
             "raw_json": {
-                "base_asset": trade_fill.base_asset,
-                "quote_asset": trade_fill.quote_asset,
                 "trade_fee": trade_fill.trade_fee,
             }
         }
