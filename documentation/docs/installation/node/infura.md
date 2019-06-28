@@ -1,10 +1,10 @@
-[Infura](https://infura.io/) provides free and the most widely used Ethereum nodes. 
+[Infura](https://infura.io/) provides free and the most widely used Ethereum nodes.
 
-## How to get a free Ethereum node from Infura?
+## How to Get a Free Ethereum Node via Infura
 
 *Estimated time: 5 minutes*
 
-1 - Sign up for an account on infura.io 
+1 - Sign up for an account on infura.io
 ![](/assets/img/infura1.png)
 
 !!! tip "VPN"
@@ -26,4 +26,4 @@
 ![](/assets/img/infura5.png)
 
 !!! tip
-    If you lose your Ethereum node url, you can always delete the project and create a new one. 
+    If you lose your Ethereum node url, you can always delete the project and create a new one.

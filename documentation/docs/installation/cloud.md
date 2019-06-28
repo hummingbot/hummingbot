@@ -1,6 +1,6 @@
 # Install on Cloud Platforms
 
-Using `hummingbot` as a long running service can be achieved with the help of cloud platforms such as Google Cloud Platform, Amazon Web Services, and Microsoft Azure.
+Using Hummingbot as a long running service can be achieved with the help of cloud platforms such as Google Cloud Platform, Amazon Web Services, and Microsoft Azure.
 
 ## Google Cloud Platform
 
@@ -29,7 +29,7 @@ Using `hummingbot` as a long running service can be achieved with the help of cl
 
    ![Select Instance Type](/assets/img/aws3.png)
 
-   * Select “create a new key pair”, name the key pair (e.g. hummingbot), download key pair, and then click on “Launch Instances”.
+   * Select “create a new key pair”, name the key pair (e.g. Hummingbot), download key pair, and then click on “Launch Instances”.
 
    ![Create a New Key Pair](/assets/img/aws4.png)
 
@@ -76,7 +76,7 @@ Using `hummingbot` as a long running service can be achieved with the help of cl
 
 ## Install Hummingbot
 
-Once you can access your cloud server, you can proceed to either of the following guides to setup and run `hummingbot`:
+Once you can access your cloud server, you can proceed to either of the following guides to setup and run Hummingbot:
 
-- [Install hummingbot on Linux from source](/installation/linux/)
-- [Install hummingbot on Linux from Docker](/installation/docker_linux/)
+- [Install Hummingbot on Linux from Docker](/installation/docker_linux/)
+- [Install Hummingbot on Linux from source](/installation/linux/)

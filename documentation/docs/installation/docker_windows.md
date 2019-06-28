@@ -20,8 +20,8 @@ By default, a shortcut to the Docker Quickstart terminal will be created on your
 
 ### 2. Run Hummingbot
 
-Open Docker Toolbox using the Quickstart shortcut. It may take a few minutes to initialize. Proceed to the next step when you reach the following screen.
+Open Docker Toolbox using the Quickstart shortcut. It may take a few minutes to initialize. Move onto the next step when you reach the following screen.
 
 ![Docker Ready](/assets/img/docker_toolbox_cmdline.PNG)
 
-Once Docker is ready, you can proceed to [Docker commands for Windows](/installation/docker/#docker-commands-for-windows).
+Once Docker is ready, you can proceed to the [Hummingbot installation commands](/installation/docker/#docker-commands-for-windows).

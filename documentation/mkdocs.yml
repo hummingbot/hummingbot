@@ -108,17 +108,17 @@ nav:
         - The Debug Console: operation/debug.md
       - Connectors:
         - About Connectors: connectors.md
-        - Coinbase Pro: connectors/coinbase.md
         - Binance: connectors/binance.md
+        - Coinbase Pro: connectors/coinbase.md
         - DDEX: connectors/ddex.md
         - IDEX: connectors/idex.md
         - Radar Relay: connectors/radar-relay.md
         - 0x Relayers: connectors/0x.md
       - Strategies:
         - Strategy Overview: strategies.md
+        - Arbitrage: strategies/arbitrage.md
         - Pure Market Making: strategies/pure-market-making.md
         - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
-        - Arbitrage: strategies/arbitrage.md
         - Discovery: strategies/discovery.md
       - Support:
         - Contact and Support: support.md
