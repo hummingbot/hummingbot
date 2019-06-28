@@ -1,11 +1,10 @@
 // Variabiles for the pipeline
-def testName = 'all stable tests'
 def githubUrl = 'https://github.com/CoinAlpha/hummingbot'
 def githubContext = 'ci/jenkins: stable tests'
 
 // Jenkins environment variables
-def path = '/root/miniconda/bin'
-def envPath = '/root/miniconda/envs/hummingbot/bin'
+def path = '/root/miniconda'
+def envPath = "${path}/envs/hummingbot"
 
 pipeline {
   agent any
@@ -46,15 +45,16 @@ pipeline {
         echo 'Running build...'
 
         // Clean-up environment
-        sh ". ${path}/deactivate"
+        sh ". ${path}/bin/deactivate"
         sh './uninstall'
+        sh "rm -rf ${envPath}"
 
         // Install hummingbot
         sh './install'
-        sh ". ${path}/activate hummingbot"
+        sh ". ${path}/bin/activate hummingbot"
 
         // ./compile
-        sh "${envPath}/python setup.py build_ext --inplace"
+        sh "${envPath}/bin/python setup.py build_ext --inplace"
 
       }
 
@@ -79,7 +79,7 @@ pipeline {
             setBuildStatus('Jenkins is running your tests...', 'PENDING', githubContext, githubUrl)
 
             // make test
-            sh "${envPath}/nosetests -d -v test/test*.py"
+            sh "${envPath}/bin/nosetests -d -v test/test*.py"
           }
           post {
             success {
@@ -101,7 +101,7 @@ pipeline {
         stage('Run arbitrage strategy test') {
           steps {
             echo 'Run arbitrage test'
-            sh "${envPath}/nosetests -d -v test/test_arbitrage.py"
+            sh "${envPath}/bin/nosetests -d -v test/test_arbitrage.py"
           }
           post {
             success {
@@ -123,7 +123,7 @@ pipeline {
         stage('Run cross_exchange_market_making strategy test') {
           steps {
             echo 'Run cross_exchange_market_making test'
-            sh "${envPath}/nosetests -d -v test/test_cross_exchange_market_making.py"
+            sh "${envPath}/bin/nosetests -d -v test/test_cross_exchange_market_making.py"
           }
           post {
             success {
@@ -145,7 +145,7 @@ pipeline {
         stage('Run discovery_strategy test') {
           steps {
             echo 'Run discovery_strategy test'
-            sh "${envPath}/nosetests -d -v test/test_discovery_strategy.py"
+            sh "${envPath}/bin/nosetests -d -v test/test_discovery_strategy.py"
           }
           post {
             success {
@@ -167,7 +167,7 @@ pipeline {
         stage('Run pure_market_making strategy test') {
           steps {
             echo 'Run pure_market_making strategy test'
-            sh "${envPath}/nosetests -d -v test/test_pure_market_making.py"
+            sh "${envPath}/bin/nosetests -d -v test/test_pure_market_making.py"
           }
           post {
             success {
@@ -189,7 +189,7 @@ pipeline {
         stage('Run pure_market_making_v2 strategy test') {
           steps {
             echo 'Run pure_market_making_v2 strategy test'
-            sh "${envPath}/nosetests -d -v test/test_pure_market_making_v2.py"
+            sh "${envPath}/bin/nosetests -d -v test/test_pure_market_making_v2.py"
           }
           post {
             success {
@@ -216,16 +216,20 @@ pipeline {
   // Run after all stages
   post {
     always {
+      // Cleanup environment
+      sh './uninstall'
+      sh "rm -rf ${envPath}"
+
       deleteDir()
     }
     success {
-      handleResult('Your tests passed on Jenkins!', 'SUCCESS', testName, githubContext, githubUrl, PR_TAG, PR_URL, ERROR_MESSAGE)
+      handleResult('Your tests passed on Jenkins!', 'SUCCESS', githubContext, githubUrl, PR_TAG, PR_URL, ERROR_MESSAGE)
     }
     failure {
-      handleResult('Uh oh, your tests failed on Jenkins :(', 'FAILURE', testName, githubContext, githubUrl, PR_TAG, PR_URL, ERROR_MESSAGE)
+      handleResult('Uh oh, your tests failed on Jenkins :(', 'FAILURE', githubContext, githubUrl, PR_TAG, PR_URL, ERROR_MESSAGE)
     }
     unstable {
-      handleResult('Uh oh, your PR is unstable on Jenkins :(', 'FAILURE', testName, githubContext, githubUrl, PR_TAG, PR_URL, ERROR_MESSAGE)
+      handleResult('Uh oh, your PR is unstable on Jenkins :(', 'FAILURE', githubContext, githubUrl, PR_TAG, PR_URL, ERROR_MESSAGE)
     }
   }
 
@@ -248,7 +252,7 @@ void setBuildStatus(String message, String state, String context, String url) {
   ]);
 }
 
-void notifyDiscord(String buildStatus = 'STARTED', String testNameInput = 'not defined', String githubUrl, String prTag, String prUrl, String errorMessage) {
+void notifyDiscord(String buildStatus = 'STARTED', String prTag, String prUrl, String errorMessage) {
   // build status of null means successful
   buildStatus =  buildStatus ?: 'SUCCESS'
   
@@ -257,7 +261,7 @@ void notifyDiscord(String buildStatus = 'STARTED', String testNameInput = 'not d
 
   // Override default values based on build status
   if (buildStatus == 'STARTED') {
-    buildStatus = "Initiating ${testNameInput} test... "
+    buildStatus = "Initiating test... "
     result = 'UNSTABLE'
   } else if (buildStatus == 'SUCCESS') {
     buildStatus = 'Your tests passed on Jenkins!'
@@ -274,7 +278,7 @@ void notifyDiscord(String buildStatus = 'STARTED', String testNameInput = 'not d
   discordSend (webhookURL: env.DISCORD_INTEGRATIONS, description: description, result: result, title: title, link: env.BUILD_URL, footer: footer)
 }
 
-void handleResult(String label, String state, String testNameInput, String githubContext, String githubUrl, String prTag, String prUrl, String errorMessage) {
+void handleResult(String label, String state, String githubContext, String githubUrl, String prTag, String prUrl, String errorMessage) {
   setBuildStatus("${label}", state, githubContext, githubUrl)
-  notifyDiscord(state, "${testNameInput}: ${label}", prTag, prUrl, errorMessage)
+  notifyDiscord(state, prTag, prUrl, errorMessage)
 }
