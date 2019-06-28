@@ -51,20 +51,4 @@ arbitrage_config_map = {
                                                          "(Enter 0.01 to indicate 1%) >>> ",
                                                   default=0.003,
                                                   type_str="float"),
-    "trade_size_override":              ConfigVar(key="trade_size_override",
-                                                  prompt="What is your preferred trade size? (denominated in "
-                                                         "the quote asset) >>> ",
-                                                  required_if=lambda: False,
-                                                  default=0.0,
-                                                  type_str="float"),
-    "top_depth_tolerance":              ConfigVar(key="top_depth_tolerance",
-                                                  prompt="What is the maximum depth you would go into th"
-                                                         "e order book to make a trade? >>>",
-                                                  type_str="list",
-                                                  required_if=lambda: False,
-                                                  default=[
-                                                      ["^.+(USDT|USDC|USDS|DAI|PAX|TUSD)$", 1000],
-                                                      ["^.+ETH$", 10],
-                                                      ["^.+BTC$", 0.5],
-                                                  ]),
 }
