@@ -10,8 +10,6 @@ pipeline {
   agent any
 
   environment {
-    PR_TAG = ''
-    PR_URL = ''
     ERROR_MESSAGE = ''
   }
 
@@ -27,11 +25,8 @@ pipeline {
         echo 'Base hummingbot version:'
         sh 'cat hummingbot/VERSION'
 
-        // Get commit message
-        echo 'Get commit message'
+        // Set ERROR_MESSAGE
         script {
-          PR_TAG = sh returnStdout: true, script: 'echo "**PR #${ghprbPullId}: ${ghprbPullTitle}**\nby ${ghprbActualCommitAuthor}"'
-          PR_URL = sh returnStdout: true, script: 'echo "${ghprbPullLink}"'
           ERROR_MESSAGE = ''
         }
       }
@@ -232,13 +227,13 @@ pipeline {
       deleteDir()
     }
     success {
-      handleResult('Your tests passed on Jenkins!', 'SUCCESS', githubContext, githubUrl, PR_TAG, PR_URL, ERROR_MESSAGE)
+      handleResult('Your tests passed on Jenkins!', 'SUCCESS', githubContext, githubUrl, ERROR_MESSAGE)
     }
     failure {
-      handleResult('Uh oh, your tests failed on Jenkins :(', 'FAILURE', githubContext, githubUrl, PR_TAG, PR_URL, ERROR_MESSAGE)
+      handleResult('Uh oh, your tests failed on Jenkins :(', 'FAILURE', githubContext, githubUrl, ERROR_MESSAGE)
     }
     unstable {
-      handleResult('Uh oh, your PR is unstable on Jenkins :(', 'FAILURE', githubContext, githubUrl, PR_TAG, PR_URL, ERROR_MESSAGE)
+      handleResult('Uh oh, your PR is unstable on Jenkins :(', 'FAILURE', githubContext, githubUrl, ERROR_MESSAGE)
     }
   }
 
@@ -261,7 +256,7 @@ void setBuildStatus(String message, String state, String context, String url) {
   ]);
 }
 
-void notifyDiscord(String buildStatus = 'STARTED', String prTag, String prUrl, String errorMessage) {
+void notifyDiscord(String buildStatus = 'STARTED', String errorMessage) {
   // build status of null means successful
   buildStatus =  buildStatus ?: 'SUCCESS'
   
@@ -279,15 +274,15 @@ void notifyDiscord(String buildStatus = 'STARTED', String prTag, String prUrl, S
     buildStatus = 'Uh oh, your tests failed on Jenkins :('
   }
 
-  def footer = prUrl
-  def title = "[${env.JOB_NAME} #${env.BUILD_NUMBER}]"
-  def description = "${prTag}\n${buildStatus}${errorMessage}"
+  def title = "PR #${ghprbPullId}: ${ghprbPullTitle}"
+  def description = "by ${ghprbActualCommitAuthor}\n${buildStatus}${errorMessage}\n[${env.JOB_NAME} #${env.BUILD_NUMBER}](${BUILD_URL})"
+  def footer = "Commit: ${ghprbActualCommit}".take(15)
 
   // Send notifications
-  discordSend (webhookURL: env.DISCORD_INTEGRATIONS, description: description, result: result, title: title, link: env.BUILD_URL, footer: footer)
+  discordSend (webhookURL: env.DISCORD_INTEGRATIONS, description: description, result: result, title: title, link: env.ghprbPullLink, footer: footer)
 }
 
-void handleResult(String label, String state, String githubContext, String githubUrl, String prTag, String prUrl, String errorMessage) {
-  setBuildStatus("${label}", state, githubContext, githubUrl)
-  notifyDiscord(state, prTag, prUrl, errorMessage)
+void handleResult(String label, String state, String githubContext, String githubUrl, String errorMessage) {
+  setBuildStatus(label, state, githubContext, githubUrl)
+  notifyDiscord(state, errorMessage)
 }
