@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 import asyncio
-from typing import Callable, Deque
-from collections import deque
+from typing import Callable
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.application import Application
 from prompt_toolkit.clipboard.pyperclip import PyperclipClipboard
@@ -11,9 +10,13 @@ from prompt_toolkit.eventloop import use_asyncio_event_loop
 from prompt_toolkit.layout.processors import BeforeInput, PasswordProcessor
 from prompt_toolkit.completion import Completer
 
-from hummingbot.client.ui.layout import create_input_field, create_log_field, create_output_field, generate_layout, HEADER
+from hummingbot.client.ui.layout import (
+    create_input_field,
+    create_log_field,
+    create_output_field,
+    generate_layout,
+)
 from hummingbot.client.ui.style import load_style
-from hummingbot.client.settings import MAXIMUM_OUTPUT_PANE_LINE_COUNT
 
 
 class HummingbotCLI:
@@ -32,8 +35,6 @@ class HummingbotCLI:
         self.input_field.accept_handler = self.accept
         self.app = Application(layout=self.layout, full_screen=True, key_bindings=self.bindings, style=load_style(),
                                mouse_support=True, clipboard=PyperclipClipboard())
-        self.log_lines: Deque[str] = deque()
-        self.log(HEADER)
 
         # settings
         self.prompt_text = ">>> "
@@ -66,11 +67,7 @@ class HummingbotCLI:
         self.pending_input = None
 
     def log(self, text: str):
-        self.log_lines.extend(str(text).split('\n'))
-        while len(self.log_lines) > MAXIMUM_OUTPUT_PANE_LINE_COUNT:
-            self.log_lines.popleft()
-        new_text: str = "\n".join(self.log_lines)
-        self.output_field.buffer.document = Document(text=new_text, cursor_position=len(new_text))
+        self.output_field.log(text)
 
     def change_prompt(self, prompt: str, is_password: bool = False):
         self.prompt_text = prompt
