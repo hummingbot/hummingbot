@@ -5,4 +5,5 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
         double _order_step_size
         double _order_start_size
         int _number_of_orders
-        bint _log_warn
+        bint _log_warning_order_size
+        bint _log_warning_balance
