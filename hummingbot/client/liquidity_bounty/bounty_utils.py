@@ -32,7 +32,7 @@ from hummingbot.model.trade_fill import TradeFill
 class LiquidityBounty(NetworkBase):
     lb_logger: Optional[HummingbotLogger] = None
     _lb_shared_instance: Optional["LiquidityBounty"] = None
-    LIQUIDITY_BOUNTY_REST_API = "http://localhost:16118/bounty"
+    LIQUIDITY_BOUNTY_REST_API = "https://api.hummingbot.io/bounty"
 
     @classmethod
     def get_instance(cls) -> "LiquidityBounty":
@@ -199,8 +199,10 @@ class LiquidityBounty(NetworkBase):
 
             async with client.request(request_method, url, headers=headers, **kwargs) as resp:
                 results = await resp.json()
+                if "error" in results:
+                    raise Exception(results.get("error"))
                 if resp.status == 500:
-                    raise Exception("Server side error.")
+                    raise Exception(f"Server side error when submitting to {url}")
                 if results.get("status", "") == "Unknown client id":
                     raise Exception("User not registered")
                 return results
@@ -260,8 +262,6 @@ class LiquidityBounty(NetworkBase):
             if self._last_submitted_trade_timestamp >= 0 and len(formatted_trades) > 0:
                 url = f"{self.LIQUIDITY_BOUNTY_REST_API}/trade"
                 results = await self.authenticated_request("POST", url, json={"trades": formatted_trades})
-                if "error" in results:
-                    raise Exception(results["error"])
                 self.logger().info(results)
                 num_submitted = results.get("trades_submitted", 0)
                 num_recorded = results.get("trades_recorded", 0)
