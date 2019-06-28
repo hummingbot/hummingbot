@@ -262,7 +262,6 @@ class LiquidityBounty(NetworkBase):
             if self._last_submitted_trade_timestamp >= 0 and len(formatted_trades) > 0:
                 url = f"{self.LIQUIDITY_BOUNTY_REST_API}/trade"
                 results = await self.authenticated_request("POST", url, json={"trades": formatted_trades})
-                self.logger().info(results)
                 num_submitted = results.get("trades_submitted", 0)
                 num_recorded = results.get("trades_recorded", 0)
                 if num_submitted != num_recorded:
@@ -291,9 +290,9 @@ class LiquidityBounty(NetworkBase):
 
     async def start_network(self):
         await self.stop_network()
-        self.fetch_active_bounties_task = asyncio.ensure_future(self.fetch_active_bounties())
-        self.status_polling_task = asyncio.ensure_future(self.status_polling_loop())
-        self.submit_trades_task = asyncio.ensure_future(self.submit_trades_loop())
+        self.fetch_active_bounties_task = asyncio.ensure_future(self.fetch_active_bounties(), loop=self._ev_loop)
+        self.status_polling_task = asyncio.ensure_future(self.status_polling_loop(), loop=self._ev_loop)
+        self.submit_trades_task = asyncio.ensure_future(self.submit_trades_loop(), loop=self._ev_loop)
 
     async def stop_network(self):
         if self.fetch_active_bounties_task is not None:
