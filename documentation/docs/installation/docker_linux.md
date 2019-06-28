@@ -61,4 +61,4 @@ sudo usermod -a -G docker $USER
 
 ## Run Hummingbot
 
-Once you have Docker installed, you can proceed to the [Hummingbot installation commands](/installation/docker/#docker-commands-for-macosxlinux).
+Once you have Docker installed, you can proceed to the [Hummingbot installation commands](/installation/docker/#install-hummingbot).

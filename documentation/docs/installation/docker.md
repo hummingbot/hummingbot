@@ -78,3 +78,19 @@ docker run -it \
 --mount "type=bind,source=$(pwd)/hummingbot_logs,destination=/logs/" \
 coinalpha/hummingbot:latest
 ```
+
+## Handling Common Errors
+
+Windows users may encounter the following error when running the Docker Toolbox for Windows:
+
+```
+C:\Program Files\Docker Toolbox\docker.exe: Error response from daemon: Get https://registry-1.docker.io/v2/: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers).
+See 'C:\Program Files\Docker Toolbox\docker.exe run --help'.
+```
+
+This appears to be an environment configuration problem. The solution is to refresh the environment settings and restart the environment which can be done with the following commands:
+
+```
+docker-machine restart default      # Restart the environment
+eval $(docker-machine env default)  # Refresh your environment settings
+```
