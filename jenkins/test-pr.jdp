@@ -37,11 +37,8 @@ pipeline {
       }
     }
 
-    stage('Build hummingbot') {
+    stage('Setup hummingbot environment') {
       steps {
-        echo 'Set git commit status'
-        setBuildStatus('Jenkins is building hummingbot...', 'PENDING', githubContext, githubUrl)
-
         echo 'Running build...'
 
         // Clean-up environment
@@ -52,10 +49,26 @@ pipeline {
         // Install hummingbot
         sh './install'
         sh ". ${path}/bin/activate hummingbot"
+      }
+
+      post {
+        success {
+          echo "=> [Setup environment]: SUCCESS"
+        }
+        failure {
+          script {
+            ERROR_MESSAGE = '\n => Failed: setup environment'
+          }
+        }
+      }
+    }
+
+    stage('Compile hummingbot') {
+      steps {
+        echo 'Compile hummingbot...'
 
         // ./compile
         sh "${envPath}/bin/python setup.py build_ext --inplace"
-
       }
 
       post {
@@ -64,7 +77,7 @@ pipeline {
         }
         failure {
           script {
-            ERROR_MESSAGE = '\n => Build failed'
+            ERROR_MESSAGE = '\n => Failed: compile hummingbot'
           }
         }
       }
@@ -216,10 +229,6 @@ pipeline {
   // Run after all stages
   post {
     always {
-      // Cleanup environment
-      sh './uninstall'
-      sh "rm -rf ${envPath}"
-
       deleteDir()
     }
     success {
