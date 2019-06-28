@@ -810,7 +810,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             double maker_bid_price = maker_order_book.c_get_price_for_quote_volume(
                 False,
-                market_pair.top_depth_tolerance
+                0.0
             ).result_price
             double taker_bid_price = taker_order_book.c_get_price(False)
             double maker_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
@@ -865,7 +865,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             double maker_ask_price = maker_order_book.c_get_price_for_quote_volume(
                 True,
-                market_pair.top_depth_tolerance
+                0.0
             ).result_price
             double taker_ask_price = taker_order_book.c_get_price(True)
             double maker_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
