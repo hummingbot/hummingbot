@@ -37,18 +37,9 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
     def order_step_size(self) -> float:
         return self._order_step_size
 
-
     @property
     def number_of_orders(self) -> int:
         return self._number_of_orders
-
-    @property
-    def log_warning_order_size(self) -> bool:
-        return self._log_warning_order_size
-
-    @property
-    def log_warning_balance(self) -> bool:
-        return self._log_warning_balance
 
     cdef object c_get_order_size_proposal(self,
                                           PureMarketMakingStrategyV2 strategy,
@@ -81,7 +72,7 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
             else:
                 current_order_size = market.c_quantize_order_amount(market_info.symbol, current_order_size)
 
-            if self.log_warning_order_size:
+            if self._log_warning_order_size:
                 if current_order_size == 0:
                     self.logger().network(f"Order size is less than minimum order size for Price: {pricing_proposal.buy_order_prices[idx]} ",
                                           f"The orders for price of {pricing_proposal.buy_order_prices[idx]} are too small for the market. Check configuration")
@@ -91,7 +82,7 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
 
             orders.append(current_order_size)
 
-        if self.log_warning_balance:
+        if self._log_warning_balance:
             if quote_asset_balance < required_quote_asset_balance:
                 self.logger().network(f"Buy(bid) order is not placed because there is not enough Quote asset. "
                                       f"Quote Asset: {quote_asset_balance}, Required Quote Asset: {required_quote_asset_balance}",
