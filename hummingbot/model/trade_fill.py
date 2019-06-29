@@ -45,6 +45,7 @@ class TradeFill(HummingbotBase):
     price = Column(Float, nullable=False)
     amount = Column(Float, nullable=False)
     trade_fee = Column(JSON, nullable=False)
+    exchange_trade_id = Column(Text, nullable=False)
     order = relationship("Order", back_populates="trade_fills")
 
     def __repr__(self) -> str:
@@ -52,20 +53,20 @@ class TradeFill(HummingbotBase):
             f"market='{self.market}', symbol='{self.symbol}', base_asset='{self.base_asset}', " \
             f"quote_asset='{self.quote_asset}', timestamp={self.timestamp}, order_id='{self.order_id}', " \
             f"trade_type='{self.trade_type}', order_type='{self.order_type}', price={self.price}, " \
-            f"amount={self.amount}, trade_fee={self.trade_fee})"
+            f"amount={self.amount}, trade_fee={self.trade_fee}, exchange_trade_id={self.exchange_trade_id})"
 
     @staticmethod
     def to_bounty_api_json(trade_fill: "TradeFill") -> Dict[str, Any]:
         return {
             "market": trade_fill.market,
-            "trade_id": trade_fill.id,
+            "trade_id": trade_fill.exchange_trade_id,
             "price": trade_fill.price,
             "quantity": trade_fill.amount,
             "trading_pair": trade_fill.symbol,
             "trade_timestamp": trade_fill.timestamp,
+            "base_asset": trade_fill.base_asset,
+            "quote_asset": trade_fill.quote_asset,
             "raw_json": {
-                "base_asset": trade_fill.base_asset,
-                "quote_asset": trade_fill.quote_asset,
                 "trade_fee": trade_fill.trade_fee,
             }
         }

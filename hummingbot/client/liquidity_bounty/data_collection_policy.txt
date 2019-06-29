@@ -7,6 +7,7 @@ DATA SHARING
 By participating in a Bounty Program, you are agreeing to sharing the following information with CoinAlpha and the Sponsor that is conducting the Bounty Program, and their respective affiliates:
 
 - Email address
+- IP address
 - Ethereum wallet address
 - Orders created: base currency, quote currency, fees, price, and size
 - Orders filled: base currency, quote currency, fees, price, and size
