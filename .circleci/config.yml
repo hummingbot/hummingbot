@@ -101,8 +101,10 @@ jobs:
           name: Run Bamboo Relay Tests
           command: |
             source activate $(head -1 setup/environment-linux.yml | cut -d ' ' -f2)
-            # nosetests -d -v test/test_bamboo_relay_order_book_loader.py
-            # nosetests -d -v test/test_bamboo_relay_order_book_tracker.py
+            # nosetests -d -v test/integration/test_bamboo_relay_order_book_loader.py
+            # nosetests -d -v test/integration/test_bamboo_relay_order_book_tracker.py
+            # nosetests -d -v test/integration/test_bamboo_relay_market_uncoordinated.py
+            # nosetests -d -v test/integration/test_bamboo_relay_market_coordinated.py
 
       - run:
           name: Run Bittrex Tests
