@@ -103,6 +103,10 @@ global_config_map = {
                                                   prompt="Would you like to use the Bamboo Relay Coordinator >>> ",
                                                   required_if=using_exchange("bamboo_relay"),
                                                   is_secure=True),
+    "bamboo_relay_pre_emptive_soft_cancels":      ConfigVar(key="bamboo_relay_pre_emptive_soft_cancels",
+                                                            prompt="Would you like to pre-emptively soft cancel orders >>> ",
+                                                            required_if=using_exchange("bamboo_relay"),
+                                                            is_secure=True),
     "wallet":                           ConfigVar(key="wallet",
                                                   prompt="Would you like to import an existing wallet or create a new"
                                                          " wallet? (import/create) >>> ",

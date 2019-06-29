@@ -23,12 +23,11 @@ from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerE
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, BambooRelayOrderBookMessage
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.logger import HummingbotLogger
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 
-TRADING_PAIR_FILTER = re.compile(r"(WETH|DAI|CUSD)$")
+TRADING_PAIR_FILTER = re.compile(r"(WETH|DAI|CUSD|USDC|TUSD)$")
 
-REST_BASE_URL = "https://rest.bamboorelay.com/main/0x"
-TOKENS_URL = f"{REST_BASE_URL}/tokens"
-MARKETS_URL = f"{REST_BASE_URL}/markets"
+REST_BASE_URL = "https://rest.bamboorelay.com/"
 WS_URL = "wss://rest.bamboorelay.com/0x/ws"
 
 
@@ -37,34 +36,46 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
-    _rraobds_logger: Optional[HummingbotLogger] = None
+    _braobds_logger: Optional[HummingbotLogger] = None
     _client: Optional[aiohttp.ClientSession] = None
 
     @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._rraobds_logger is None:
-            cls._rraobds_logger = logging.getLogger(__name__)
-        return cls._rraobds_logger
+    def logger(self) -> HummingbotLogger:
+        if self._braobds_logger is None:
+            self._braobds_logger = logging.getLogger(__name__)
+        return self._braobds_logger
 
-    def __init__(self, symbols: Optional[List[str]] = None):
+    def __init__(self, symbols: Optional[List[str]] = None, chain: EthereumChain = EthereumChain.MAIN_NET):
         super().__init__()
         self._symbols: Optional[List[str]] = symbols
+        if chain is EthereumChain.MAIN_NET:
+            self._api_prefix = "main/0x"
+            self._network_id = 1
+        elif chain is EthereumChain.ROPSTEN:
+            self._api_prefix = "ropsten/0x"
+            self._network_id = 3
+        elif chain is EthereumChain.RINKEBY:
+            self._api_prefix = "rinkeby/0x"
+            self._network_id = 4
+        elif chain is EthereumChain.KOVAN:
+            self._api_prefix = "kovan/0x"
+            self._network_id = 42
 
     @classmethod
-    def http_client(cls) -> aiohttp.ClientSession:
-        if cls._client is None:
+    def http_client(self) -> aiohttp.ClientSession:
+        if self._client is None:
             if not asyncio.get_event_loop().is_running():
                 raise EnvironmentError("Event loop must be running to start HTTP client session.")
-            cls._client = aiohttp.ClientSession()
-        return cls._client
+            self._client = aiohttp.ClientSession()
+        return self._client
 
     @classmethod
-    async def get_all_token_info(cls) -> Dict[str, any]:
+    async def get_all_token_info(self) -> Dict[str, any]:
         """
         Returns all token information
         """
-        client: aiohttp.ClientSession = cls.http_client()
-        async with client.get(f"{TOKENS_URL}?perPage=1000") as response:
+        client: aiohttp.ClientSession = self.http_client()
+        async with client.get(f"{REST_BASE_URL}{self._api_prefix}/tokens?perPage=1000") as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching token info. HTTP status is {response.status}.")
@@ -72,12 +83,12 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return {d["address"]: d for d in data}
 
     @classmethod
-    async def get_active_exchange_markets(cls) -> pd.DataFrame:
+    async def get_active_exchange_markets(self) -> pd.DataFrame:
         """
         Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
         """
-        client: aiohttp.ClientSession = cls.http_client()
-        async with client.get(f"{MARKETS_URL}?include=ticker,stats") as response:
+        client: aiohttp.ClientSession = self.http_client()
+        async with client.get(f"{REST_BASE_URL}{self._api_prefix}/markets?include=ticker,stats") as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching active Bamboo Relay markets. HTTP status is {response.status}.")
@@ -110,8 +121,14 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return BambooRelayOrderBook
 
     @staticmethod
-    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, any]:
-        async with client.get(f"{REST_BASE_URL}/markets/{trading_pair}/book") as response:
+    async def get_snapshot(client: aiohttp.ClientSession, 
+                           trading_pair: str, 
+                           self = None) -> Dict[str, any]:
+        if self:
+            api_prefix = self._api_prefix
+        else:
+            api_prefix = "main/0x"
+        async with client.get(f"{REST_BASE_URL}{api_prefix}/markets/{trading_pair}/book") as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching Bamboo Relay market snapshot for {trading_pair}. "
@@ -192,7 +209,8 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         request: Dict[str, str] = {
                             "type": "SUBSCRIBE",
                             "topic": "BOOK",
-                            "market": trading_pair
+                            "market": trading_pair,
+                            "networkId": self._network_id
                         }
                         await ws.send(ujson.dumps(request))
                     async for raw_msg in self._inner_messages(ws):

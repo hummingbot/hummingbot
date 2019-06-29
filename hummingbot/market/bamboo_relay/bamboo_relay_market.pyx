@@ -62,13 +62,29 @@ from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils import fix_signatur
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_exchange import ZeroExExchange
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_coordinator import ZeroExCoordinator
 
-rrm_logger = None
+brm_logger = None
 s_decimal_0 = Decimal(0)
 
-ZERO_EX_MAINNET_ERC20_PROXY = "0x2240Dab907db71e64d3E0dbA4800c83B5C502d4E"
-ZERO_EX_MAINNET_EXCHANGE_ADDRESS = "0x4F833a24e1f95D70F028921e27040Ca56E09AB0b"
+ZERO_EX_MAINNET_ERC20_PROXY = "0x2240dab907db71e64d3e0dba4800c83b5c502d4e"
+ZERO_EX_MAINNET_EXCHANGE_ADDRESS = "0x4f833a24e1f95d70f028921e27040ca56e09ab0b"
 ZERO_EX_MAINNET_COORDINATOR_ADDRESS = "0x25aae5b981ce6683cc5aeea1855d927e0b59066f"
 ZERO_EX_MAINNET_COORDINATOR_REGISTRY_ADDRESS = "0x45797531b873fd5e519477a070a955764c1a5b07"
+
+ZERO_EX_ROPSTEN_ERC20_PROXY = "0xb1408f4c245a23c31b98d2c626777d4c0d766caa"
+ZERO_EX_ROPSTEN_EXCHANGE_ADDRESS = "0x4530c0483a1633c7a1c97d2c53721caff2caaaaf"
+ZERO_EX_ROPSTEN_COORDINATOR_ADDRESS = "0x25aae5b981ce6683cc5aeea1855d927e0b59066f"
+ZERO_EX_ROPSTEN_COORDINATOR_REGISTRY_ADDRESS = "0x403cc23e88c17c4652fb904784d1af640a6722d9"
+
+ZERO_EX_RINKEBY_ERC20_PROXY = "0x2f5ae4f6106e89b4147651688a92256885c5f410"
+ZERO_EX_RINKEBY_EXCHANGE_ADDRESS = "0xbce0b5f6eb618c565c3e5f5cd69652bbc279f44e"
+ZERO_EX_RINKEBY_COORDINATOR_ADDRESS = "0x25aae5b981ce6683cc5aeea1855d927e0b59066f"
+ZERO_EX_RINKEBY_COORDINATOR_REGISTRY_ADDRESS = "0x1084b6a398e47907bae43fec3ff4b677db6e4fee"
+
+ZERO_EX_KOVAN_ERC20_PROXY = "0xf1ec01d6236d3cd881a0bf0130ea25fe4234003e"
+ZERO_EX_KOVAN_EXCHANGE_ADDRESS = "0x35dd2932454449b14cee11a94d3674a936d5d7b2"
+ZERO_EX_KOVAN_COORDINATOR_ADDRESS = "0x25aae5b981ce6683cc5aeea1855d927e0b59066f"
+ZERO_EX_KOVAN_COORDINATOR_REGISTRY_ADDRESS = "0x09fb99968c016a3ff537bf58fb3d9fe55a7975d5"
+
 BAMBOO_RELAY_REST_ENDPOINT = "https://rest.bamboorelay.com/"
 
 
@@ -142,6 +158,7 @@ cdef class InFlightOrder:
         public bint is_coordinated
         public object amount
         public object price
+        public int expires
         public object executed_amount
         public object available_amount
         public object quote_asset_amount
@@ -159,6 +176,7 @@ cdef class InFlightOrder:
                  is_coordinated: bool,
                  amount: Decimal,
                  price: Decimal,
+                 expires: int = None,
                  zero_ex_order: ZeroExOrder = None):
         self.client_order_id = client_order_id
         self.exchange_order_id = exchange_order_id
@@ -170,6 +188,7 @@ cdef class InFlightOrder:
         self.amount = amount # initial amount (constant)
         self.available_amount = amount
         self.price = price
+        self.expires = expires
         self.executed_amount = s_decimal_0
         self.quote_asset_amount = s_decimal_0
         self.gas_fee_amount = s_decimal_0
@@ -218,6 +237,7 @@ cdef class InFlightOrder:
             "is_coordinated": self.is_coordinated,
             "amount": str(self.amount),
             "price": str(self.price),
+            "expires": self.expires,
             "executed_amount": str(self.executed_amount),
             "available_amount": str(self.available_amount),
             "quote_asset_amount": str(self.quote_asset_amount),
@@ -239,6 +259,7 @@ cdef class InFlightOrder:
                 bool(data["is_coordinated"]),
                 Decimal(data["amount"]),
                 Decimal(data["price"]),
+                data["expires"],
                 zero_ex_order=json_to_zrx_order(data["zero_ex_order"])
             )
         retval.available_amount = Decimal(data["available_amount"])
@@ -247,7 +268,6 @@ cdef class InFlightOrder:
         retval.gas_fee_amount = Decimal(data["gas_fee_amount"])
         retval.last_state = data["last_state"]
         return retval
-
 
 cdef class BambooRelayMarket(MarketBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
@@ -264,16 +284,18 @@ cdef class BambooRelayMarket(MarketBase):
     API_CALL_TIMEOUT = 10.0
     CANCEL_EXPIRY_TIME = 60.0
     ORDER_EXPIRY_TIME = 60.0 * 15
+    PRE_EMPTIVE_SOFT_CANCEL_TIME = 30.0
+    ORDER_CREATION_BACKOFF_TIME = 3
     UPDATE_RULES_INTERVAL = 60.0
     UPDATE_OPEN_LIMIT_ORDERS_INTERVAL = 10.0
     UPDATE_MARKET_ORDERS_INTERVAL = 10.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global rrm_logger
-        if rrm_logger is None:
-            rrm_logger = logging.getLogger(__name__)
-        return rrm_logger
+        global brm_logger
+        if brm_logger is None:
+            brm_logger = logging.getLogger(__name__)
+        return brm_logger
 
     def __init__(self,
                  wallet: Web3Wallet,
@@ -282,23 +304,30 @@ cdef class BambooRelayMarket(MarketBase):
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                     OrderBookTrackerDataSourceType.EXCHANGE_API,
-                 wallet_spender_address: str = ZERO_EX_MAINNET_ERC20_PROXY,
                  symbols: Optional[List[str]] = None,
-                 use_coordinator: Optional[bool] = False):
+                 use_coordinator: Optional[bool] = True,
+                 pre_emptive_soft_cancels: Optional[bool] = True):
+        cdef:
+            str coordinator_address
+            str coordinator_registry_address
         super().__init__()
         self._order_book_tracker = BambooRelayOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                               symbols=symbols)
+                                                               symbols=symbols,
+                                                               chain=chain)
         self._account_balances = {}
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
+        self._last_failed_limit_order_timestamp = 0
         self._last_update_limit_order_timestamp = 0
         self._last_update_market_order_timestamp = 0
         self._last_update_trading_rules_timestamp = 0
         self._poll_interval = poll_interval
         self._in_flight_limit_orders = {} # limit orders are off chain
         self._in_flight_market_orders = {} # market orders are on chain
+        self._in_flight_pending_limit_orders = OrderedDict() # in the case that an order needs to be cancelled before its been accepted
         self._in_flight_cancels = OrderedDict()
+        self._in_flight_pending_cancels = OrderedDict()
         self._order_expiry_queue = deque()
         self._tx_tracker = BambooRelayTransactionTracker(self)
         self._w3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
@@ -311,25 +340,41 @@ cdef class BambooRelayMarket(MarketBase):
         self._approval_tx_polling_task = None
         self._chain = chain
         self._wallet = wallet
-        self._wallet_spender_address = wallet_spender_address
         self._use_coordinator = use_coordinator
-        self._exchange = ZeroExExchange(self._w3, ZERO_EX_MAINNET_EXCHANGE_ADDRESS, wallet)
-        self._coordinator = ZeroExCoordinator(self._provider, 
-                                              self._w3, 
-                                              Web3.toChecksumAddress(ZERO_EX_MAINNET_EXCHANGE_ADDRESS), 
-                                              Web3.toChecksumAddress(ZERO_EX_MAINNET_COORDINATOR_ADDRESS),
-                                              Web3.toChecksumAddress(ZERO_EX_MAINNET_COORDINATOR_REGISTRY_ADDRESS),
-                                              wallet,
-                                              chain)
+        self._pre_emptive_soft_cancels = pre_emptive_soft_cancels
         self._latest_salt = -1
         if chain is EthereumChain.MAIN_NET:
             self._api_prefix = "main/0x"
+            self._exchange_address = Web3.toChecksumAddress(ZERO_EX_MAINNET_EXCHANGE_ADDRESS)
+            coordinator_address = Web3.toChecksumAddress(ZERO_EX_MAINNET_COORDINATOR_ADDRESS)
+            coordinator_registry_address = Web3.toChecksumAddress(ZERO_EX_MAINNET_COORDINATOR_REGISTRY_ADDRESS)
+            self._wallet_spender_address = Web3.toChecksumAddress(ZERO_EX_MAINNET_ERC20_PROXY)
         elif chain is EthereumChain.ROPSTEN:
             self._api_prefix = "ropsten/0x"
+            self._exchange_address = Web3.toChecksumAddress(ZERO_EX_ROPSTEN_EXCHANGE_ADDRESS)
+            coordinator_address = Web3.toChecksumAddress(ZERO_EX_ROPSTEN_COORDINATOR_ADDRESS)
+            coordinator_registry_address = Web3.toChecksumAddress(ZERO_EX_ROPSTEN_COORDINATOR_REGISTRY_ADDRESS)
+            self._wallet_spender_address = Web3.toChecksumAddress(ZERO_EX_ROPSTEN_ERC20_PROXY)
         elif chain is EthereumChain.RINKEBY:
             self._api_prefix = "rinkeby/0x"
+            self._exchange_address = Web3.toChecksumAddress(ZERO_EX_RINKEBY_EXCHANGE_ADDRESS)
+            coordinator_address = Web3.toChecksumAddress(ZERO_EX_RINKEBY_COORDINATOR_ADDRESS)
+            coordinator_registry_address = Web3.toChecksumAddress(ZERO_EX_RINKEBY_COORDINATOR_REGISTRY_ADDRESS)
+            self._wallet_spender_address = Web3.toChecksumAddress(ZERO_EX_RINKEBY_ERC20_PROXY)
         elif chain is EthereumChain.KOVAN:
             self._api_prefix = "kovan/0x"
+            self._exchange_address = Web3.toChecksumAddress(ZERO_EX_KOVAN_EXCHANGE_ADDRESS)
+            coordinator_address = Web3.toChecksumAddress(ZERO_EX_KOVAN_COORDINATOR_ADDRESS)
+            coordinator_registry_address = Web3.toChecksumAddress(ZERO_EX_KOVAN_COORDINATOR_REGISTRY_ADDRESS)
+            self._wallet_spender_address = Web3.toChecksumAddress(ZERO_EX_KOVAN_ERC20_PROXY)
+        self._exchange = ZeroExExchange(self._w3, self._exchange_address, wallet)
+        self._coordinator = ZeroExCoordinator(self._provider, 
+                                              self._w3, 
+                                              self._exchange_address, 
+                                              coordinator_address,
+                                              coordinator_registry_address,
+                                              wallet,
+                                              chain)
 
     @property
     def name(self) -> str:
@@ -460,7 +505,7 @@ cdef class BambooRelayMarket(MarketBase):
 
     async def list_market(self) -> Dict[str, Any]:
         url = f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/markets?include=base"
-        return await self._api_request(http_method="get", url=url)
+        return await self._api_request(http_method="get", url=url, headers={"User-Agent":"hummingbot"})
 
     async def _update_trading_rules(self):
         cdef:
@@ -476,11 +521,11 @@ cdef class BambooRelayMarket(MarketBase):
 
     async def get_account_orders(self) -> List[Dict[str, Any]]:
         list_account_orders_url = f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/accounts/{self._wallet.address}/orders"
-        return await self._api_request(http_method="get", url=list_account_orders_url)
+        return await self._api_request(http_method="get", url=list_account_orders_url, headers={"User-Agent":"hummingbot"})
 
     async def get_order(self, order_hash: str) -> Dict[str, Any]:
         order_url = f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/orders/{order_hash}"
-        return await self._api_request("get", url=order_url)
+        return await self._api_request("get", url=order_url, headers={"User-Agent":"hummingbot"})
 
     async def _get_order_updates(self, tracked_limit_orders: List[InFlightOrder]) -> List[Dict[str, Any]]:
         account_orders_list = await self.get_account_orders()
@@ -560,13 +605,19 @@ cdef class BambooRelayMarket(MarketBase):
 
                 # do not retrigger order events if order was already in that state previously
                 if not previous_is_cancelled and tracked_limit_order.is_cancelled:
-                    self.logger().info(f"The limit order {tracked_limit_order.client_order_id} has cancelled according "
-                                       f"to order status API.")
-                    self.c_expire_order(tracked_limit_order.client_order_id)
-                    self.c_trigger_event(
-                        self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                        OrderCancelledEvent(self._current_timestamp, tracked_limit_order.client_order_id)
-                    )
+                    if (self._in_flight_cancels.get(tracked_limit_order.client_order_id, 0) >
+                            self._current_timestamp - self.CANCEL_EXPIRY_TIME):
+                        # This cancel was originated from this connector, and the cancel event should have been
+                        # emitted in the cancel_order() call already.
+                        del self._in_flight_cancels[tracked_limit_order.client_order_id]
+                    else:
+                        self.logger().info(f"The limit order {tracked_limit_order.client_order_id} has cancelled according "
+                                           f"to order status API.")
+                        self.c_expire_order(tracked_limit_order.client_order_id)
+                        self.c_trigger_event(
+                            self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                            OrderCancelledEvent(self._current_timestamp, tracked_limit_order.client_order_id)
+                        )
                 elif not previous_is_expired and tracked_limit_order.is_expired:
                     self.logger().info(f"The limit order {tracked_limit_order.client_order_id} has expired according "
                                        f"to order status API.")
@@ -613,6 +664,20 @@ cdef class BambooRelayMarket(MarketBase):
                                                                      float(tracked_limit_order.quote_asset_amount),
                                                                      float(tracked_limit_order.gas_fee_amount),
                                                                      OrderType.LIMIT))
+                elif self._pre_emptive_soft_cancels and (
+                     tracked_limit_order.is_coordinated and
+                     not tracked_limit_order.is_cancelled and 
+                     not tracked_limit_order.is_expired and 
+                     not tracked_limit_order.is_failure and
+                     not tracked_limit_order.is_done and
+                     tracked_limit_order.expires <= current_timestamp + self.PRE_EMPTIVE_SOFT_CANCEL_TIME):
+                        if tracked_limit_order.is_buy:
+                            self.logger().info(f"The limit buy order {tracked_limit_order.client_order_id} "
+                                               f"will be pre-emptively soft cancelled.")
+                        else:
+                            self.logger().info(f"The limit sell order {tracked_limit_order.client_order_id} "
+                                               f"will be pre-emptively soft cancelled.")
+                        self.c_cancel("", tracked_limit_order.client_order_id)
         self._last_update_limit_order_timestamp = current_timestamp
 
     async def _update_market_order_status(self):
@@ -756,7 +821,7 @@ cdef class BambooRelayMarket(MarketBase):
             "type": order_type,
             "quantity": amount
         }
-        response_data = await self._api_request(http_method="post", url=url, data=data)
+        response_data = await self._api_request(http_method="post", url=url, data=data, headers={"User-Agent":"hummingbot"})
         return response_data
 
     async def request_unsigned_limit_order(self, 
@@ -780,12 +845,12 @@ cdef class BambooRelayMarket(MarketBase):
             "price": price,
             "expiration": expires
         }
-        return await self._api_request(http_method="post", url=url, data=data)
+        return await self._api_request(http_method="post", url=url, data=data, headers={"User-Agent":"hummingbot"})
 
     def get_order_hash_hex(self, unsigned_order: Dict[str, Any]) -> str:
         order_struct = jsdict_order_to_struct(unsigned_order)
         order_hash_hex = generate_order_hash_hex(order=order_struct,
-                                                 exchange_address=ZERO_EX_MAINNET_EXCHANGE_ADDRESS.lower())
+                                                 exchange_address=self._exchange_address.lower())
         return order_hash_hex
 
     def get_zero_ex_signature(self, order_hash_hex: str) -> str:
@@ -863,20 +928,33 @@ cdef class BambooRelayMarket(MarketBase):
                                                                        expires=expires)
         unsigned_limit_order["makerAddress"] = self._wallet.address.lower()
         order_hash_hex = self.get_order_hash_hex(unsigned_limit_order)
+        self.logger().info("Hash Hex")
+        self.logger().info(order_hash_hex)
+        self.logger().info(unsigned_limit_order)
         signed_limit_order = copy.deepcopy(unsigned_limit_order)
         signature = self.get_zero_ex_signature(order_hash_hex)
         signed_limit_order["signature"] = signature
-        await self._api_request(http_method="post", url=url, data=signed_limit_order)
-        self._latest_salt = int(unsigned_limit_order["salt"])
-        order_hash = self._w3.toHex(hexstr=order_hash_hex)
-        del unsigned_limit_order["signature"]
-        zero_ex_order = jsdict_order_to_struct(unsigned_limit_order)
-        return order_hash, zero_ex_order
+        try:
+            await self._api_request(http_method="post", url=url, data=signed_limit_order, headers={"User-Agent":"hummingbot"})
+            self._latest_salt = int(unsigned_limit_order["salt"])
+            order_hash = self._w3.toHex(hexstr=order_hash_hex)
+            del unsigned_limit_order["signature"]
+            zero_ex_order = jsdict_order_to_struct(unsigned_limit_order)
+            return order_hash, zero_ex_order
+        except Exception as ex:
+            self._last_failed_limit_order_timestamp = self._current_timestamp
+            raise ex
+
 
     cdef c_cancel(self, str symbol, str client_order_id):
         # Skip this logic if we are not using the coordinator
         if not self._use_coordinator:
             asyncio.ensure_future(self.cancel_order(client_order_id))
+            return
+
+        # Limit order is pending has not been created, so it can't be cancelled yet
+        if client_order_id in self._in_flight_pending_limit_orders:
+            self._in_flight_pending_cancels[client_order_id] = self._current_timestamp
             return
 
         # If there's an ongoing cancel on this order within the expiry time, don't do it again.
@@ -904,6 +982,7 @@ cdef class BambooRelayMarket(MarketBase):
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         in_flight_limit_orders = self._in_flight_limit_orders.values()
         incomplete_order_ids = []
+        incomplete_orders = []
         has_coordinated_order = False
 
         for order in in_flight_limit_orders:
@@ -911,15 +990,17 @@ cdef class BambooRelayMarket(MarketBase):
                     order.is_cancelled or 
                     order.is_expired or 
                     order.is_failure or 
-                    order.client_order_id in self._in_flight_cancels):
+                    order.client_order_id in self._in_flight_cancels or
+                    order.client_order_id in self._in_flight_pending_cancels):
                 incomplete_order_ids.append(order.client_order_id)
+                incomplete_orders.append(order)
             if order.is_coordinated:
                 has_coordinated_order = True
         if self._latest_salt == -1 or len(incomplete_order_ids) == 0:
             return []
 
         if has_coordinated_order:
-            orders = [o.zero_ex_order for o in in_flight_limit_orders]
+            orders = [o.zero_ex_order for o in incomplete_orders]
             try:
                 soft_cancel_result = await self._coordinator.batch_soft_cancel_orders(orders)
 
@@ -1001,6 +1082,12 @@ cdef class BambooRelayMarket(MarketBase):
                                                       price=Decimal(q_price),
                                                       expires=expires,
                                                       zero_ex_order=zero_ex_order)
+                    if order_id in self._in_flight_pending_limit_orders:
+                        # We have attempted to previously cancel this order before it was resolved as placed
+                        if order_id in self._in_flight_pending_cancels:
+                            del self._in_flight_pending_cancels[order_id]
+                            self.c_cancel("", order_id)
+                        del self._in_flight_pending_limit_orders[order_id]
             elif order_type is OrderType.MARKET:
                 avg_price, tx_hash, is_coordinated = await self.submit_market_order(symbol=symbol,
                                                                                     side=order_side,
@@ -1012,6 +1099,7 @@ cdef class BambooRelayMarket(MarketBase):
                                                    is_buy=is_buy,
                                                    order_type= order_type,
                                                    is_coordinated=is_coordinated,
+                                                   expires=expires,
                                                    amount=Decimal(q_amt),
                                                    price=Decimal(q_price))
             if is_buy:
@@ -1057,9 +1145,18 @@ cdef class BambooRelayMarket(MarketBase):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"buy-{symbol}-{tracking_nonce}")
+            double current_timestamp = self._current_timestamp
         expires = kargs.get("expiration_ts", None)
         if expires is not None:
             expires = int(expires)
+        else:
+            expires = int(current_timestamp + 1200)
+        if order_type is OrderType.LIMIT:
+            # Don't spam the server endpoint if a order placement failed recently
+            if current_timestamp - self._last_failed_limit_order_timestamp <= self.ORDER_CREATION_BACKOFF_TIME:
+                raise
+            # Record the in-flight limit order placement.
+            self._in_flight_pending_limit_orders[order_id] = self._current_timestamp
         asyncio.ensure_future(self.execute_trade(order_id=order_id,
                                                  order_type=order_type,
                                                  order_side=TradeType.BUY,
@@ -1078,9 +1175,18 @@ cdef class BambooRelayMarket(MarketBase):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"sell-{symbol}-{tracking_nonce}")
+            double current_timestamp = self._current_timestamp
         expires = kargs.get("expiration_ts", None)
         if expires is not None:
             expires = int(expires)
+        else:
+            expires = int(current_timestamp + 1200)
+        if order_type is OrderType.LIMIT:
+            # Don't spam the server endpoint if a order placement failed recently
+            if current_timestamp - self._last_failed_limit_order_timestamp <= self.ORDER_CREATION_BACKOFF_TIME:
+                raise
+            # Record the in-flight limit order placement.
+            self._in_flight_pending_limit_orders[order_id] = self._current_timestamp
         asyncio.ensure_future(self.execute_trade(order_id=order_id,
                                                  order_type=order_type,
                                                  order_side=TradeType.SELL,
@@ -1101,7 +1207,17 @@ cdef class BambooRelayMarket(MarketBase):
             return {}
 
         if order.is_coordinated:
-            return await self._coordinator.soft_cancel_order(order.zero_ex_order)
+            await self._coordinator.soft_cancel_order(order.zero_ex_order)
+
+            self.logger().info(f"The limit order {order.client_order_id} has been soft cancelled according "
+                               f"to the Coordinator server.")
+            self.c_expire_order(order.client_order_id)
+            self.c_trigger_event(
+                self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                OrderCancelledEvent(self._current_timestamp, order.client_order_id)
+            )
+
+            return True
         else:
             return self._exchange.cancel_order(order.zero_ex_order)
 
@@ -1119,7 +1235,7 @@ cdef class BambooRelayMarket(MarketBase):
 
     async def list_account_orders(self) -> List[Dict[str, Any]]:
         url = f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/accounts/{self._wallet.address}/orders"
-        response_data = await self._api_request("get", url=url)
+        response_data = await self._api_request("get", url=url, headers={"User-Agent":"hummingbot"})
         return response_data
 
     def wrap_eth(self, amount: float) -> str:
@@ -1173,7 +1289,7 @@ cdef class BambooRelayMarket(MarketBase):
             return NetworkStatus.NOT_CONNECTED
 
         try:
-            await self._api_request("GET", f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/tokens")
+            await self._api_request("GET", f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/tokens", headers={"User-Agent":"hummingbot"})
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -1214,6 +1330,7 @@ cdef class BambooRelayMarket(MarketBase):
             is_coordinated=is_coordinated,
             amount=amount,
             price=price,
+            expires=expires,
             zero_ex_order=zero_ex_order
         )
 
@@ -1225,7 +1342,8 @@ cdef class BambooRelayMarket(MarketBase):
                                        object order_type,
                                        bint is_coordinated,
                                        object amount,
-                                       object price):
+                                       object price,
+                                       int expires):
         self._in_flight_market_orders[tx_hash] = InFlightOrder(
             client_order_id=order_id,
             exchange_order_id=None,
@@ -1235,7 +1353,8 @@ cdef class BambooRelayMarket(MarketBase):
             order_type=order_type,
             is_coordinated=is_coordinated,
             amount=amount,
-            price=price
+            price=price,
+            expires=expires
         )
 
     cdef c_expire_order(self, str order_id):

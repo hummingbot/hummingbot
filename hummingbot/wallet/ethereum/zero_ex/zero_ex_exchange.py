@@ -50,7 +50,7 @@ class ZeroExExchange:
         tx_hash: str = self._wallet.execute_transaction(
             self._contract.functions.fillOrder(
                 order_tuple,
-                taker_asset_fill_amount,
+                int(taker_asset_fill_amount),
                 signature
             ),
             gasPrice=gas_price

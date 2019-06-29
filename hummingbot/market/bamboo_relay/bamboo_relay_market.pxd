@@ -15,19 +15,23 @@ cdef class BambooRelayMarket(MarketBase):
         object _ev_loop
         object _poll_notifier
         double _last_timestamp
+        double _last_failed_limit_order_timestamp
         double _last_update_limit_order_timestamp
         double _last_update_market_order_timestamp
         double _last_update_trading_rules_timestamp
         double _poll_interval
         dict _in_flight_limit_orders
         dict _in_flight_market_orders
+        object _in_flight_pending_limit_orders
         object _in_flight_cancels
+        object _in_flight_pending_cancels
         object _order_expiry_queue
         TransactionTracker _tx_tracker
         object _w3
         object _exchange
         object _coordinator
         bint _use_coordinator
+        bint _pre_emptive_soft_cancels
         dict _withdraw_rules
         dict _trading_rules
         object _pending_approval_tx_hashes
@@ -37,6 +41,7 @@ cdef class BambooRelayMarket(MarketBase):
         public object _order_tracker_task
         int64_t _latest_salt
         str _api_prefix
+        str _exchange_address
 
     cdef c_start_tracking_limit_order(self,
                                       str order_id,
@@ -57,7 +62,8 @@ cdef class BambooRelayMarket(MarketBase):
                                        object order_type,
                                        bint is_coordinated,
                                        object amount,
-                                       object price)
+                                       object price,
+                                       int expires)
     cdef c_expire_order(self, str order_id)
     cdef c_check_and_remove_expired_orders(self)
     cdef c_stop_tracking_order(self, str order_id)

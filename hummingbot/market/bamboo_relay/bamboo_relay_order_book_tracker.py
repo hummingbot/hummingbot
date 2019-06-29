@@ -21,20 +21,21 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessageType, B
 from hummingbot.core.data_type.order_book_tracker_entry import BambooRelayOrderBookTrackerEntry
 from hummingbot.market.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
 from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
-
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 
 class BambooRelayOrderBookTracker(OrderBookTracker):
-    _rrobt_logger: Optional[HummingbotLogger] = None
+    _brobt_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._rrobt_logger is None:
-            cls._rrobt_logger = logging.getLogger(__name__)
-        return cls._rrobt_logger
+        if cls._brobt_logger is None:
+            cls._brobt_logger = logging.getLogger(__name__)
+        return cls._brobt_logger
 
     def __init__(self,
                  data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
-                 symbols: Optional[List[str]] = None):
+                 symbols: Optional[List[str]] = None,
+                 chain: EthereumChain = EthereumChain.MAIN_NET):
         super().__init__(data_source_type=data_source_type)
 
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -47,12 +48,14 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
         self._saved_message_queues: Dict[str, Deque[BambooRelayOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
         self._active_order_trackers: Dict[str, BambooRelayActiveOrderTracker] = defaultdict(BambooRelayActiveOrderTracker)
         self._symbols: Optional[List[str]] = symbols
+        self._chain = chain
 
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
         if not self._data_source:
             if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = BambooRelayAPIOrderBookDataSource(symbols=self._symbols)
+                print("Should start orderbook data source!")
+                self._data_source = BambooRelayAPIOrderBookDataSource(symbols=self._symbols, chain=self._chain)
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source

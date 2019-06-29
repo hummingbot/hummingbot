@@ -77,8 +77,7 @@ class DiscoveryUnitTest(unittest.TestCase):
     def test_market_info_spec(self):
         exchange_get_market_func_list = [
             RadarRelayAPIOrderBookDataSource.get_active_exchange_markets,
-            # TODO: re-enable test
-            # BambooRelayAPIOrderBookDataSource.get_active_exchange_markets,
+            BambooRelayAPIOrderBookDataSource.get_active_exchange_markets,
             BinanceAPIOrderBookDataSource.get_active_exchange_markets,
             DDEXAPIOrderBookDataSource.get_active_exchange_markets
         ]
