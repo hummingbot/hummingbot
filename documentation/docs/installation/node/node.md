@@ -1,4 +1,4 @@
-# Setting up your Ethereum node
+# Using Ethereum Nodes
 
 ## Do I need an Ethereum node?
 
