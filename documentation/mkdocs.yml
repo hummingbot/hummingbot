@@ -125,6 +125,7 @@ nav:
         - Bug bounty program: support/bug-bounty-program.md
     - Release notes:
       - Release notes: release-notes.md
+      - 0.9.0: release-notes/0.9.0.md
       - 0.8.1: release-notes/0.8.1.md
       - 0.8.0: release-notes/0.8.0.md
       - 0.7.0: release-notes/0.7.0.md
