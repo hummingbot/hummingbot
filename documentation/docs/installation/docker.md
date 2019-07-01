@@ -4,17 +4,33 @@ Using a pre-compiled version of `hummingbot` from Docker allows you to run `humm
 
 Docker images of `hummingbot` are available on Docker Hub at [coinalpha/hummingbot](https://hub.docker.com/r/coinalpha/hummingbot).
 
-## Docker installation guides
+!!! note "Docker installation guides"
+    The instructions below assume you already of Docker installed.  If you do not have Docker installed, you can follow the installation guides:
 
-The instructions below assume you already of Docker installed.  If you do not have it installed, you can follow the installation guides: 
+    - [Docker for Windows](/installation/docker_windows/)
+    - [Docker for MacOS](/installation/docker_macOS/)
+    - [Docker for Linux](/installation/docker_linux/)
 
-- [Docker for Windows](/installation/docker_windows/)
-- [Docker for MacOS](/installation/docker_macOS/)
-- [Docker for Linux](/installation/docker_linux/)
+
+---
 
 ## Docker commands for MacOSX/Linux
 
-``` bash tab="Create new instance"
+The commands below are the install, restart, and update commands for Docker in MacOSX or Linux.
+
+!!! note "You can customize the following parameters in the commands below"
+    - `my-instance-1`: name of your instance
+    - `latest`: the image version, e.g. `latest`, `development`, or a specific version `0.8.1`
+    - `hummingbot_conf`: path on your host machine for `conf/`
+    - `hummingbot_logs`: path on your host machine for `logs/`
+
+### Create new instance
+
+The commands below (1) create a new `my-instance-1` folder for your instance and (2) `hummingbot_conf` and `hummingbot_logs` folders within that folder.
+
+The third command creats and starts up the instance of Hummingbot.
+
+```
 # 1) Create folder for your new instance and navigate inside
 mkdir my-instance-1 && cd my-instance-1
 
@@ -29,14 +45,19 @@ docker run -it \
 coinalpha/hummingbot:latest
 ```
 
-``` bash tab="Restart instance"
-# The command below restarts a previously created instance
+### Restart instance
+
+The command below restarts and attaches to a previously created instance:
+
+```
 docker start my-instance-1 && docker attach my-instance-1
 ```
 
-``` bash tab="Update version"
-# The command below updates the hummingbot image and re-creates the instance
+### Update Hummingbot version 
 
+The command below updates the hummingbot image and re-creates the instance:
+
+```
 # 1) Navigate to your instance folder
 cd my-instance-1
 
@@ -51,17 +72,27 @@ docker run -it \
 coinalpha/hummingbot:latest
 ```
 
-!!! note "You can customize the parameters above"
-    - `my-instance-1`: name of your instance
-    - `latest`: the image version, e.g. `latest`, `development`, or a specific version `0.8.1`
-    - `hummingbot_conf`: path on your host machine for `conf/`
-    - `hummingbot_logs`: path on your host machine for `logs/`
+----
 
 ## Docker commands for Windows
 
 The commands below will create a new `my-instance-1` folder in `C:/users/YOUR_USER_NAME.`
 
-``` bash tab="Create new instance"
+The commands below are the install, restart, and update commands for Docker in Windows.
+
+!!! note "You can customize the following parameters in the commands below"
+    - `my-instance-1`: name of your instance
+    - `latest`: the image version, e.g. `latest`, `development`, or a specific version `0.8.1`
+    - `hummingbot_conf`: path on your host machine for `conf/`
+    - `hummingbot_logs`: path on your host machine for `logs/`
+
+### Create new instance
+
+The commands below (1) create a new `my-instance-1` folder for your instance and (2) `hummingbot_conf` and `hummingbot_logs` folders within that folder.
+
+The third command creats and starts up the instance of Hummingbot.
+
+```
 # 1) Create folder for your new instance and navigate inside
 mkdir ~/my-instance-1 && cd ~/my-instance-1
 
@@ -76,14 +107,19 @@ docker run -it \
 coinalpha/hummingbot:latest
 ```
 
-``` bash tab="Restart instance"
-# The command below restarts a previously created instance
+### Restart instance
+
+The command below restarts and attaches to a previously created instance:
+
+```
 docker start my-instance-1 && docker attach my-instance-1
 ```
 
-``` bash tab="Update version"
-# The command below updates the hummingbot image and re-creates the instance
+### Update Hummingbot version
 
+The command below updates the hummingbot image and re-creates the instance
+
+```
 # 1) Navigate to your instance folder
 cd ~/my-instance-1
 
@@ -98,11 +134,7 @@ docker run -it \
 coinalpha/hummingbot:latest
 ```
 
-!!! note "You can customize the parameters above"
-    - `my-instance-1`: name of your instance
-    - `latest`: the image version, e.g. `latest`, `development`, or a specific version `0.8.1`
-    - `hummingbot_conf`: path on your host machine for `conf/`
-    - `hummingbot_logs`: path on your host machine for `logs/`
+---
 
 ## Config and log files
 
