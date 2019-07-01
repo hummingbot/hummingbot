@@ -12,9 +12,18 @@ This section contains information about official connectors for individual excha
 * [Radar Relay](/connectors/radar-relay)
 * [DDEX](/connectors/ddex)
 * [0x open order book relayers](/connectors/0x)
+* [IDEX](/connectors/IDEX)
+* [Coinbase Pro](/connectors/coinbase)
 
-## Coming soon
+## Community contributed connectors
 
-* IDEX
-* Coinbase Pro
-* Uniswap
+* [Bamboo Relay](https://bamboorelay.com)
+
+## Coming soon to Hummingbot
+
+* Bitfinex
+* Kraken
+* Huobi
+* Bittrex
+* Bitmex
+* Binance DEX

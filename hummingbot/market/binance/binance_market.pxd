@@ -14,6 +14,7 @@ cdef class BinanceMarket(MarketBase):
         object _poll_notifier
         double _last_timestamp
         double _poll_interval
+        double _last_pull_timestamp
         dict _in_flight_deposits
         dict _in_flight_orders
         TransactionTracker _tx_tracker
@@ -41,6 +42,7 @@ cdef class BinanceMarket(MarketBase):
                                 int64_t exchange_order_id,
                                 str symbol,
                                 bint is_buy,
+                                object price,
                                 object amount,
                                 object order_type)
     cdef c_stop_tracking_order(self, str order_id)

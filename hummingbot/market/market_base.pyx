@@ -37,7 +37,7 @@ cdef class MarketBase(NetworkIterator):
 
     def __init__(self):
         super().__init__()
-        self.event_reporter = EventReporter(event_source=self.__class__.__name__)
+        self.event_reporter = EventReporter(event_source=self.name)
         self.event_logger = EventLogger(event_source=self.name)
         for event_tag in self.MARKET_EVENTS:
             self.c_add_listener(event_tag.value, self.event_reporter)
@@ -73,6 +73,18 @@ cdef class MarketBase(NetworkIterator):
     @property
     def limit_orders(self) -> List[LimitOrder]:
         raise NotImplementedError
+
+    @property
+    def tracking_states(self) -> Dict[str, any]:
+        return {}
+
+    def restore_tracking_states(self, saved_states: Dict[str, any]):
+        """
+        Restores the tracking states from a previously saved state.
+
+        :param saved_states: Previously saved tracking states from `tracking_states` property.
+        """
+        pass
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         """
