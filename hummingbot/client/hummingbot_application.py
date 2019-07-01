@@ -1006,7 +1006,6 @@ class HummingbotApplication:
                                                              self.stop(*args, **kwargs)
                                                          ))
                 await self.wait_till_ready(self.stop_loss_tracker.start)
-
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
 

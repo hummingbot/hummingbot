@@ -1054,6 +1054,8 @@ cdef class DDEXMarket(MarketBase):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
         global s_decimal_0
+
+
         quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
         
         # Check against min_order_size and. If not passing the check, return 0.
