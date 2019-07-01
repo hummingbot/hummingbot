@@ -27,7 +27,6 @@ from hummingbot.strategy.strategy_base import StrategyBase
 
 from .constant_spread_pricing_delegate import ConstantSpreadPricingDelegate
 from .constant_size_sizing_delegate import ConstantSizeSizingDelegate
-
 from .data_types import (
     MarketInfo,
     OrdersProposal,
