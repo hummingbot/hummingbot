@@ -1,153 +1,95 @@
-# Running Hummingbot with Docker
+# Running Hummingbot via Docker
 
-Using a pre-compiled version of `hummingbot` from Docker allows you to run `hummingbot` with a single line command.
+Using a pre-compiled version of Hummingbot from Docker allows you to run Hummingbot with a a few simple commands.
 
-Docker images of `hummingbot` are available on Docker Hub at [coinalpha/hummingbot](https://hub.docker.com/r/coinalpha/hummingbot).
+Docker images of Hummingbot are available on Docker Hub at [coinalpha/hummingbot](https://hub.docker.com/r/coinalpha/hummingbot).
 
-!!! note "Docker installation guides"
-    The instructions below assume you already of Docker installed.  If you do not have Docker installed, you can follow the installation guides:
+!!! warning
+    The instructions below assume you already have Docker installed.  If you do not have it installed, you can follow the installation guide for your system:
+    - [Docker for Windows](/installation/docker_windows)
+    - [Docker for MacOS](/installation/docker_macOS)
+    - [Docker for Linux](/installation/docker_linux)
 
-    - [Docker for Windows](/installation/docker_windows/)
-    - [Docker for MacOS](/installation/docker_macOS/)
-    - [Docker for Linux](/installation/docker_linux/)
+## Installing Hummingbot
 
-
----
-
-## Docker commands for MacOSX/Linux
-
-The commands below are the install, restart, and update commands for Docker in MacOSX or Linux.
-
-!!! note "You can customize the following parameters in the commands below"
-    - `my-instance-1`: name of your instance
-    - `latest`: the image version, e.g. `latest`, `development`, or a specific version `0.8.1`
-    - `hummingbot_conf`: path on your host machine for `conf/`
-    - `hummingbot_logs`: path on your host machine for `logs/`
-
-### Create new instance
-
-The commands below (1) create a new `my-instance-1` folder for your instance and (2) `hummingbot_conf` and `hummingbot_logs` folders within that folder.
-
-The third command creats and starts up the instance of Hummingbot.
-
-```
+``` bash="Create New Instance"
 # 1) Create folder for your new instance and navigate inside
-mkdir my-instance-1 && cd my-instance-1
+mkdir myhummingbot && cd myhummingbot
 
 # 2) Create folders for log and config files
 mkdir hummingbot_conf && mkdir hummingbot_logs
 
-# 3) Launch new hummingbot instance hummingbot
+# 3) Launch a new instance of hummingbot
 docker run -it \
---name my-instance-1 \
+--name myhummingbot \
 --mount "type=bind,source=$(pwd)/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_logs,destination=/logs/" \
 coinalpha/hummingbot:latest
 ```
 
-### Restart instance
-
-The command below restarts and attaches to a previously created instance:
-
-```
-docker start my-instance-1 && docker attach my-instance-1
-```
-
-### Update Hummingbot version 
-
-The command below updates the hummingbot image and re-creates the instance:
-
-```
-# 1) Navigate to your instance folder
-cd my-instance-1
-
-# 2) Delete instance and old hummingbot image
-#    Re-create instance with latest hummingbot release
-docker rm my-instance-1 && \
-docker image rm coinalpha/hummingbot:latest && \
-docker run -it \
---name my-instance-1 \
---mount "type=bind,source=$(pwd)/hummingbot_conf,destination=/conf/" \
---mount "type=bind,source=$(pwd)/hummingbot_logs,destination=/logs/" \
-coinalpha/hummingbot:latest
-```
-
-----
-
-## Docker commands for Windows
-
-The commands below will create a new `my-instance-1` folder in `C:/users/YOUR_USER_NAME.`
-
-The commands below are the install, restart, and update commands for Docker in Windows.
-
-!!! note "You can customize the following parameters in the commands below"
-    - `my-instance-1`: name of your instance
+!!! note "You can customize the parameters above"
+    - `myhummingbot`: the name of your instance
     - `latest`: the image version, e.g. `latest`, `development`, or a specific version `0.8.1`
     - `hummingbot_conf`: path on your host machine for `conf/`
     - `hummingbot_logs`: path on your host machine for `logs/`
 
-### Create new instance
-
-The commands below (1) create a new `my-instance-1` folder for your instance and (2) `hummingbot_conf` and `hummingbot_logs` folders within that folder.
-
-The third command creats and starts up the instance of Hummingbot.
-
-```
-# 1) Create folder for your new instance and navigate inside
-mkdir ~/my-instance-1 && cd ~/my-instance-1
-
-# 2) Create folders for log and config files
-mkdir hummingbot_conf && mkdir hummingbot_logs
-
-# 3) Launch new hummingbot instance hummingbot
-docker run -it \
---name my-instance-1 \
---mount "type=mount,source=~/my-instance-1/hummingbot_conf,destination=/conf/" \
---mount "type=mount,source=~/my-instance-1/hummingbot_logs,destination=/logs/" \
-coinalpha/hummingbot:latest
-```
-
-### Restart instance
-
-The command below restarts and attaches to a previously created instance:
-
-```
-docker start my-instance-1 && docker attach my-instance-1
-```
-
-### Update Hummingbot version
-
-The command below updates the hummingbot image and re-creates the instance
-
-```
-# 1) Navigate to your instance folder
-cd ~/my-instance-1
-
-# 2) Delete instance and old hummingbot image
-#    Re-create instance with latest hummingbot release
-docker rm my-instance-1 && \
-docker image rm coinalpha/hummingbot:latest && \
-docker run -it \
---name my-instance-1 \
---mount "type=mount,source=~/my-instance-1/hummingbot_conf,destination=/conf/" \
---mount "type=mount,source=~/my-instance-1/hummingbot_logs,destination=/logs/" \
-coinalpha/hummingbot:latest
-```
-
----
-
-## Config and log files
+### Config and Log Files
 
 The above methodology requires you to explicitly specify the paths where you want to mount the `conf/` and `logs/` folders on your local machine.
 
 The example commands above assume that you create three folders:
 
 ```
-my-instance-1          # Top level folder for your instance
+myhummingbot           # Top level folder for your instance
 ├── hummingbot_conf    # Maps to hummingbot's conf/ folder, which stores configuration files
 └── hummingbot_logs    # Maps to hummingbot's logs/ folder, which stores log files
 ```
 
-!!! info "`docker run` command from `my-instance-1` folder"
-    - The `docker run` command (when creating a new instance or updating `hummingbot` version) must be run from inside of the `my-instance-1` folder.
-    - You must create the folders prior to running the `docker run` command.
+!!! info "`docker run` command from `myhummingbot` folder"
+    - The `docker run` command (when creating a new instance or updating Hummingbot version) must be run from inside of the `myhummingbot` folder.
+    - You must create all folders prior to using the `docker run` command.
+
+## Restarting Hummingbot
+
+For users unfamiliar with Docker, it may not be clear how to restart Hummingbot given the immediate start after the initial download. Doing so, however, is very simple with the right command.
+
+``` bash="Restart Instance"
+# 1) Restart and connect to your Hummingbot image
+docker start myhummingbot && docker attach myhummingbot
+```
+
+## Updating Hummingbot
+
+Hummingbot does not currently have a way of updating existing releases. Instead, users must delete the old image and re-install the newer version. See below for the required commands:
+
+``` bash="Update Version"
+# 1) Navigate to your instance folder
+cd myhummingbot
+
+# 2) Delete instance and old hummingbot image
+docker rm myhummingbot && \
+docker image rm coinalpha/hummingbot:latest
+
+# 3) Re-create instance with latest hummingbot release
+docker run -it \
+--name myhummingbot \
+--mount "type=bind,source=$(pwd)/hummingbot_conf,destination=/conf/" \
+--mount "type=bind,source=$(pwd)/hummingbot_logs,destination=/logs/" \
+coinalpha/hummingbot:latest
+```
+
+## Handling Common Errors
+
+Windows users may encounter the following error when running the Docker Toolbox for Windows:
+
+```
+C:\Program Files\Docker Toolbox\docker.exe: Error response from daemon: Get https://registry-1.docker.io/v2/: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers).
+See 'C:\Program Files\Docker Toolbox\docker.exe run --help'.
+```
+
+This appears to be an environment configuration problem. The solution is to refresh the environment settings and restart the environment which can be done with the following commands:
+
+```
+docker-machine restart default      # Restart the environment
+eval $(docker-machine env default)  # Refresh your environment settings
+```

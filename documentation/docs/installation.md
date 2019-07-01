@@ -1,6 +1,6 @@
-# Installing Hummingbot
+# Overview of Installing Hummingbot
 
-## System requirements
+## System Requirements
 
 Hummingbot is tested and supported on the following 64-bit systems:
 
@@ -8,23 +8,35 @@ Hummingbot is tested and supported on the following 64-bit systems:
 * macOS 10.12.6 (Sierra) or later
 * Linux: Ubuntu 16.04 or later, Debian GNU/Linux 9, CentOS 7
 
-## Installation options
+## Installation Options
 
-Hummingbot can be installed locally in two ways: via Docker or from source.  Choosing how to install depends on your preferences for intended use.
+Hummingbot can be installed locally in two ways: via Docker or from source.  The table below contains key differences between the two methods for you to choose your preferred option.
+
+!!! note "A Third Option: Using the Cloud"
+    It is also possible to run instances of Hummingbot on a virtual machine by using cloud providers. In fact, **we recommend setting up bots on cloud servers** as they will likely have more stable networks, and can improve performance if you select servers close to exchanges you are trading on.
 
 | | Source | Docker |
 |----|----|----|
-| **Windows** | ❌ No native support; available only by installing Linux subsystem | <font color="green">✓</font> |
-| **Installation** | Requires installation of dependencies and then downloading, installing, and compiling code | <font color="green">✓</font> Simple installation: hummingbot docker image is pre-installed, pre-compiled, and includes all dependendencies |
-| **Updating versions** | Download latest code using `git`, uninstall, reinstall, recompile | <font color="green">✓</font> Remove and recreate container (can be single command) |
-| **Code accessibility** | <font color="green">✓</font> Easy access for editing | Less accessible |
+| **Windows compatibility** | ❌ No native support; available only by installing Linux subsystem | <font color="green">✓</font> Available with both native Docker application and Docker Toolbox|
+| **Installation process** | Requires installation of dependencies and then downloading, installing, and compiling code | <font color="green">✓</font> Easy to use as Hummingbot docker image is pre-installed, pre-compiled, and includes all dependencies |
+| **Updating versions** | Download latest code using `git`, uninstall old version, reinstall, recompile | <font color="green">✓</font> Remove and recreate container (can be done with a single command) |
+| **Code accessibility** | <font color="green">✓</font> Easy access for editing and perusing files | Difficult to access and read through files |
 | **Running multiple instances** | Requires multiple installations | <font color="green">✓</font> Easy to deploy multiple instances |
-
 
 ## Installation Guides
 
-| | | |  |
-|---|---|---|---|
-| **Install from source** | [Windows](/installation/windows) | [MacOS](/installation/macos) | [Linux](/installation/linux) |
-| **Install with Docker** | [Windows](/installation/docker_windows) | [MacOS](/installation/docker_macos) | [Linux](/installation/docker_linux) |
-| [**Install in the cloud**](/installation/cloud/) |
+Installing via the Cloud:
+
+* [Setting up a Virtual Machine](/installation/cloud.md)
+
+Installing from Docker:
+
+* [For Windows Systems](/installation/windows.md)
+* [For macOS Systems](/installation/macOS.md)
+* [For Linux Systems](/installation/linux.md)
+
+Installing from source:
+
+* [For Windows Systems](/installation/docker_windows.md)
+* [For macOS Systems](/installation/docker_macOS.md)
+* [For Linux Systems](/installation/docker_linux.md)

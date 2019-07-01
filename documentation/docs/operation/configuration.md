@@ -1,46 +1,42 @@
 # Configuring Hummingbot
 
 !!! note
-    The commands below assume that you are already inside the Hummingbot CLI. Please see [Installation](/installation) and [Client](/operation/client) if you need help on installing and launching the CLI.
+    The commands below assume that you are already inside the Hummingbot CLI. Please see our  [installation](/installation) and [client UI](/operation/client) guides if you need help installing and launching the CLI.
 
-See the [Hummingbot whitepaper](https://www.hummingbot.io/whitepaper.pdf) for more details about these strategies.
+We also recommend that users read the [Hummingbot whitepaper](https://www.hummingbot.io/whitepaper.pdf) for more details about trading strategies.
 
-## Getting started
+## Getting Started
 
-The `config` command walks you through the process of initializing and configuring the global and strategy-specific settings necessary to run the bot, and will create the following files in the `conf/` folder:
+The `config` command walks you through the process of initializing and configuring the global and strategy-specific settings necessary to run the bot. Running the command will create the following files in the `conf/` folder:
 
 File | Description
 ---|---
-`conf_global.yml` | Global configuration settings, e.g. Binance api keys and Ethereum node.
-`conf_cross_exchange_market_making_strategy_[#].yml` | Settings for the cross-exchange market making strategy.
+`conf_global.yml` | Global configuration settings, e.g. Binance API keys and Ethereum node.
 `conf_arbitrage_strategy_[#].yml` | Settings for the [arbitrage](/strategies/arbitrage/) strategy.
+`conf_cross_exchange_market_making_strategy_[#].yml` | Settings for the [cross-exchange market making](/strategies/cross-exchange-market-making/) strategy.
 `conf_pure_market_making_[#].yml` | Settings for the [pure market making](/strategies/pure-market-making/) strategy.
 `conf_discovery_strategy_[#].yml` | Settings for the [discovery](/strategies/discovery/) strategy.
 
-!!! tip "Tip: Edit Files Directly in `conf/`"
-    Once they are created, you may find it easier to edit the configuration files in the `conf/` folder.
+!!! tip "Editing Configuration Files Directly"
+    Once they are created, you may find it easier to edit the configuration files in the `conf/` folder. Simply open them with a text editor and make any desired modifications.
 
-## Walkthrough
+## Setup Walkthrough
 
-The `config`, you are asked to select a strategy and enter strategy-specific configuration parameters. We have developed walkthroughs for each strategy:
+When running `config`, you are asked to select a strategy and enter strategy-specific configuration parameters. We have developed walkthroughs for each strategy:
 
-* [Cross-exchange market making](/strategies/cross-exchange-market-making#configuration-walkthrough)
 * [Arbitrage](/strategies/arbitrage#configuration-walkthrough)
+* [Cross-exchange market making](/strategies/cross-exchange-market-making#configuration-walkthrough)
 * [Pure market making](/strategies/pure-market-making#configuration-walkthrough)
 * [Discovery](/strategies/discovery#configuration-walkthrough)
 
-!!! note "Note 1: Minimum order size"
-    When configuring your bot, make sure you are aware of the minimum order size requirements for different exchanges.
-
-!!! note "Note 2: Open interest"
-    Certain strategies may be limited due to empty order books or low order book volume. 
-
+!!! note "Essential Trading Considerations"
+    When configuring your bot, make sure you are aware of your exchange's minimum order sizes and fees, and check that your trading pair has sufficient order book and trading volumes. You can find more info about specific exchanges in the [connector section](/connectors.md).
 
 ## Config file templates
 
-This config files created and used by `hummingbot` are saved in the `conf/` directory, which you can edit directly.
+This configuration files created and used by Hummingbot are saved in the `conf/` directory of your instance, which you can edit directly with a standard text editor.
 
-The template configuration files can be found here: [config templates](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/templates).
+The template configuration files can be found here: [Config Templates](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/templates).
 
 !!! warning
-    Exit Hummingbot and ensure it is not running when you modify the config files.  Changes will take effect the next time Hummingbot is started.
+    Exit Hummingbot and ensure it is not running when you modify the config files. Changes will take effect the next time Hummingbot is started.
