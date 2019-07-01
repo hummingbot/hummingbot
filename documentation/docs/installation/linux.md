@@ -6,7 +6,7 @@ In the instructions below, we are using [Miniconda3](), a lighter version of [An
 
 ## Install Commands for Ubuntu
 
-```bash="Ubuntu"
+```
 # 1) Install dependencies
 sudo apt-get update
 sudo apt-get install -y build-essential
@@ -34,7 +34,7 @@ bin/hummingbot.py
 
 ## Install Commands for Debian
 
-```bash="Debian"
+```
 # 1) Install dependencies
 sudo apt-get update
 sudo apt-get install -y build-essential git
@@ -62,7 +62,7 @@ bin/hummingbot.py
 
 ## Install Commands for CentOS
 
-```bash="CentOS"
+```
 # 1) Install dependencies
 sudo yum install -y wget bzip2 git
 sudo yum groupinstall -y 'Development Tools'
