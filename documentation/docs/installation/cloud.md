@@ -2,81 +2,107 @@
 
 Running `hummingbot` as a long running service can be achieved with the help of cloud platforms such as Google Cloud Platform, Amazon Web Services, and Microsoft Azure.
 
-## Google Cloud Platform
+## Setup a new VM instance on Google Cloud Platform 
 
    * Navigate to the Google Cloud Platform console
    * Create an instance of Compute Instance
    * Select “New VM Instance”, then pick `Ubuntu 18.04 LTS`
-
+    
    ![Create New Instance](/assets/img/gcp-new-vm.png)
+   
+   * Click on "SSH" to SSH into the newly created VM instance 
 
-   * Click on "SSH" to SSH into the newly created VM instance
+![Connect SSH](/assets/img/gcp-ssh.png)
 
-   ![Connect SSH](/assets/img/gcp-ssh.png)
-
-## Amazon Web Services
+## Setup a new VM instance on Amazon Web Services
 
    * Navigate to the AWS Management Console
    * Click on "Launch a Virtual Machine"
-
+   
    ![Create New Instance](/assets/img/aws1.png)
-
+   
    * Select `Ubuntu Server 18.04 LTS (HVM)`
-
+   
    ![Select Server Type](/assets/img/aws2.png)
-
+   
    * Click on "Review and Launch", and then "Launch"
-
+   
    ![Select Instance Type](/assets/img/aws3.png)
-
-   * Select “create a new key pair”, name the key pair (e.g. hummingbot), download key pair, and then click on “Launch Instances”.
-
+   
+   * Select “create a new key pair”, name the key pair (e.g. hummingbot), download key pair, and then click on “Launch Instances”. 
+   
    ![Create a New Key Pair](/assets/img/aws4.png)
-
+   
    * Click on “View Instances”
-
+   
    * To connect to the instance from the terminal, click on “Connect” and then follow the instructions on the resulting page.
-
+   
    ![Connect to AWS Instance](/assets/img/aws5.png)
 
-## Microsoft Azure
+## Install Docker on Ubuntu (or refer to [Docker official instructions](https://docs.docker.com/install/linux/docker-ce/ubuntu/))
 
-  * Navigate to the Virtual Machines console.
-  * Click on the "Add" button in the top-left corner.
+   * Update the apt package index
 
-  ![Create New Instance](/assets/img/azure1.png)
+```
+sudo apt-get update
+```
 
-  * Choose a name for the resource group and for the VM itself.
-  * Select `Ubuntu 18.04 LTS` for the image type and `Standard D2s v3` for the size.
+   * Install packages to allow apt to use a repository over HTTPS
 
-  ![Select Server Type](/assets/img/azure2.png)
+```
+sudo apt-get install \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg-agent \
+    software-properties-common
+```
 
-  * Under "Administrator Account", choose password and select a username and password.
-  * Under "Inbound Port Rules", select SSH and HTTP.
+   * Add Docker’s official GPG key
 
-  ![Configure Server Protocols](/assets/img/azure3.png)
+```
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+sudo apt-key fingerprint 0EBFCD88
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+    $(lsb_release -cs) stable edge test"
+```
 
-  * Scroll up to the top and click on "Management" tab.
-  * Choose a valid name for your diagnostics storage account.
+   * Do another apt-get update
 
-  ![Set Up Diagnostics](/assets/img/azure4.png)
+```
+sudo apt-get update
+```
 
-  * Go to the "Review and Create" tab, click on "Create".
+   * Install Docker
 
-  ![Create the Virtual Machine](/assets/img/azure5.png)
+```
+sudo apt-get install docker-ce docker-ce-cli containerd.io
+```
 
-  * While your VM is being created, download and install PuTTY for your OS.
+   * Change sudo permissions for docker
 
-  ![Download and Install PuTTY](/assets/img/azure6.png)
+```
+sudo usermod -a -G docker $USER
+```
 
-  * After your VM has been initialized, copy the public IP address.
-  * Open the PuTTY app and paste the IP address into the host name, then open.
+## Install Hummingbot from Docker
 
-  ![Connect to Azure Instance](/assets/img/azure7.png)
+   * Run the following command
 
-## Install Hummingbot
+```
+export NAME=myhummingbot
+export TAG=latest
+sudo docker run -it \
+--name $NAME \
+-v "$PWD"/conf/:/conf/ \
+-v "$PWD"/logs/:/logs/ \
+coinalpha/hummingbot:$TAG
+```
 
-Once you can access your cloud server, you can proceed to either of the following guides to setup and run `hummingbot`:
+![Installing Hummingbot from Docker](/assets/img/gcp-ssh-docker-installing.png)
 
-- [Install hummingbot on Linux from source](/installation/linux/)
-- [Install hummingbot on Linux from Docker](/installation/docker_linux/)
+   * After docker completion installed, you’ll see the following screen, where Hummingbot successfully starts
+
+![Hummingbot Welcome Screen](/assets/img/gcp-ssh-hummingbot.png)
+
+Start market making!
