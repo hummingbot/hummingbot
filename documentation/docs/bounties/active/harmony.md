@@ -17,7 +17,7 @@ This program will be officially kicking off in **early July**. Anyone who has [s
 
 Tier | Requirements | Bonus Rewards
 ---|---|---
-**$ONE Maker** | Unique users that have signed up for $ONE Makers and have at least 1 limit order filled using Hummingbot | <ul><li>**0.05 ETH**<li>**2x reward (0.10 ETH) for the *first 300 signups***</ul>
+**$ONE Maker** | Unique users that have signed up for $ONE Makers and have at least 1 limit order filled using Hummingbot | <ul><li>**0.05 ETH**<li>**2x reward (additional +0.05 ETH) for the *first 300 signups***</ul>
 **$ONE Pro** | Unique users whose filled limit order volume is equal to or exceeds 2,000,000 $ONE per month | <ul><li>**0.5 ETH**<li>**Leaderboard recognition**</ul> 
 **$ONE Ultimate** | Top monthly market maker based on filled limit order volume | <ul><li>**5 ETH**<li>**Leaderboard recognition** 
 
