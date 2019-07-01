@@ -12,7 +12,7 @@ Docker images of Hummingbot are available on Docker Hub at [coinalpha/hummingbot
 
 ## Installing Hummingbot
 
-``` bash="Create New Instance"
+```
 # 1) Create folder for your new instance and navigate inside
 mkdir myhummingbot && cd myhummingbot
 
@@ -53,7 +53,7 @@ myhummingbot           # Top level folder for your instance
 
 For users unfamiliar with Docker, it may not be clear how to restart Hummingbot given the immediate start after the initial download. Doing so, however, is very simple with the right command.
 
-``` bash="Restart Instance"
+```
 # 1) Restart and connect to your Hummingbot image
 docker start myhummingbot && docker attach myhummingbot
 ```
@@ -62,7 +62,7 @@ docker start myhummingbot && docker attach myhummingbot
 
 Hummingbot does not currently have a way of updating existing releases. Instead, users must delete the old image and re-install the newer version. See below for the required commands:
 
-``` bash="Update Version"
+```
 # 1) Navigate to your instance folder
 cd myhummingbot
 
