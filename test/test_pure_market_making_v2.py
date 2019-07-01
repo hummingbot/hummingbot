@@ -86,7 +86,6 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
         logging_options: int = (PureMarketMakingStrategyV2.OPTION_LOG_ALL &
                                 (~PureMarketMakingStrategyV2.OPTION_LOG_NULL_ORDER_SIZE))
-
         self.strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
             legacy_order_size=1.0,
