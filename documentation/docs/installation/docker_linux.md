@@ -2,7 +2,7 @@
 
 ## Install Docker on Ubuntu
 
-```bash="Ubuntu"
+```
 # 1) Update Ubuntu's database of software
 sudo apt-get update
 
@@ -20,7 +20,7 @@ sudo usermod -a -G docker $USER
 
 ## Install Docker on Debian
 
-```bash="Debian"
+```
 # 1) Update package database
 sudo apt update
 
@@ -43,7 +43,7 @@ sudo usermod -a -G docker $USER
 
 ## Install Docker on CentOS
 
-```bash="CentOS"
+```
 # 1) Update package database
 sudo yum check-update
 
