@@ -2,11 +2,11 @@
 
 Hummingbot has been tested on [Ubuntu](https://ubuntu.com/), [Debian](https://www.debian.org/), and [CentOS](https://www.centos.org/) distributions of Linux.
 
-In the instructions below, we are using [Miniconda3](), a lighter version of [Anaconda]() which is sufficient to run `hummingbot`.  To learn more about the differences and what works best for you, see [this post](http://deeplearning.lipingyang.org/2018/12/23/anaconda-vs-miniconda-vs-virtualenv/).
+In the instructions below, we are using [Miniconda3](), a lighter version of [Anaconda]() which is sufficient to run Hummingbot.  To learn more about the differences and what works best for you, see [this post](http://deeplearning.lipingyang.org/2018/12/23/anaconda-vs-miniconda-vs-virtualenv/).
 
-## Install Commands for Linux
+## Install Commands for Ubuntu
 
-```bash tab="Ubuntu"
+```bash="Ubuntu"
 # 1) Install dependencies
 sudo apt-get update
 sudo apt-get install -y build-essential
@@ -32,7 +32,9 @@ conda activate hummingbot && ./compile
 bin/hummingbot.py
 ```
 
-```bash tab="Debian"
+## Install Commands for Debian
+
+```bash="Debian"
 # 1) Install dependencies
 sudo apt-get update
 sudo apt-get install -y build-essential git
@@ -58,7 +60,9 @@ conda activate hummingbot && ./compile
 bin/hummingbot.py
 ```
 
-```bash tab="CentOS"
+## Install Commands for CentOS
+
+```bash="CentOS"
 # 1) Install dependencies
 sudo yum install -y wget bzip2 git
 sudo yum groupinstall -y 'Development Tools'

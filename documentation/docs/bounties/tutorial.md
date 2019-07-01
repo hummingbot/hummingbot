@@ -3,10 +3,10 @@
 This tutorial shows you how to install Hummingbot, register for Liquidity Bounties, and start earning rewards!
 
 !!! note
-    You can install Hummingbot now, but registration for bounties and earning rewards be available until Liquidity Bounties commences in **early July 2019**.
+    Users can install and run Hummingbot now, but registration for the bounty rewards program will not be available until Liquidity Bounties commences in **early July 2019**.
 
 ## Prerequisites
-Below, we list what you'll need before you install and run Hummingbot. 
+Below, we list what you'll need before you install and run Hummingbot.
 
 ### System requirements
 
@@ -18,12 +18,12 @@ If you are installing Hummingbot on your local machine, below are the recommende
 
 ### Inventory of digital assets
 
-Since market makers post offers to buy and sell an asset, they need some inventory in the exchange where they trade. You need inventory of both the **base asset** (the asset that you are buying and selling) and the **quote asset** (the asset that you exchange for it). 
+Since market makers post offers to buy and sell an asset, they need some inventory in the exchange where they trade. You need inventory of both the **base asset** (the asset that you are buying and selling) and the **quote asset** (the asset that you exchange for it).
 
 For example, if you are making a market in the `BTC/USDT` trading pair on Binance, you'll need some `BTC` and `USDT`. In addition, be aware of the minimum order size requirements on different exchanges.
 
 ### Exchange API keys
-In order to trade on a centralized exchange such as Binance, you will need to import its API keys into Hummingbot. 
+In order to trade on a centralized exchange such as Binance, you will need to import its API keys into Hummingbot.
 
 For more information, please see [API Keys](/installation/api-keys).
 
