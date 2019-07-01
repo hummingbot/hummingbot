@@ -100,6 +100,10 @@ cdef class Web3Wallet(WalletBase):
         return self._local_account.address
 
     @property
+    def private_key(self) -> str:
+        return self._local_account.privateKey.hex()
+
+    @property
     def block_number(self) -> int:
         return self._best_backend.block_number
 

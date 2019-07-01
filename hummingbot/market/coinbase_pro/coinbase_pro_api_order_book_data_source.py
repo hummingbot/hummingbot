@@ -117,26 +117,29 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return CoinbaseProOrderBook
 
     async def get_trading_pairs(self) -> List[str]:
-        if self._symbols is not None:
-            return self._symbols
-        active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-        return active_markets.index.tolist()
+        if not self._symbols:
+            try:
+                active_markets: pd.DataFrame = await self.get_active_exchange_markets()
+                self._symbols = active_markets.index.tolist()
+            except Exception:
+                self._symbols = []
+                self.logger().network(
+                    f"Error getting active exchange information.",
+                    exc_info=True,
+                    app_warning_msg=f"Error getting active exchange information. Check network connection."
+                )
+        return self._symbols
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, any]:
-            product_order_book_url: str = f"{COINBASE_REST_URL}/products/{trading_pair}/book?level=3"
-            async with client.get(product_order_book_url) as response:
-                response: aiohttp.ClientResponse = response
-                if response.status != 200:
-                    raise IOError(f"Error fetching Coinbase Pro market snapshot for {trading_pair}. "
-                                  f"HTTP status is {response.status}.")
-                data: Dict[str, Any] = await response.json()
-
-                # Need to add the symbol into the snapshot message for the Kafka message queue.
-                # Because otherwise, there'd be no way for the receiver to know which market the
-                # snapshot belongs to.
-
-                return data
+        product_order_book_url: str = f"{COINBASE_REST_URL}/products/{trading_pair}/book?level=3"
+        async with client.get(product_order_book_url) as response:
+            response: aiohttp.ClientResponse = response
+            if response.status != 200:
+                raise IOError(f"Error fetching Coinbase Pro market snapshot for {trading_pair}. "
+                              f"HTTP status is {response.status}.")
+            data: Dict[str, Any] = await response.json()
+            return data
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         # Get the currently active markets
@@ -168,8 +171,14 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     self.logger().info(f"Initialized order book for {trading_pair}. "
                                        f"{index+1}/{number_of_pairs} completed.")
                     await asyncio.sleep(0.6)
+                except IOError:
+                    self.logger().network(
+                        f"Error getting snapshot for {trading_pair}.",
+                        exc_info=True,
+                        app_warning_msg=f"Error getting snapshot for {trading_pair}. Check network connection."
+                    )
                 except Exception:
-                    self.logger().error(f"Error getting snapshot for {trading_pair}. ", exc_info=True)
+                    self.logger().error(f"Error initializing order book for {trading_pair}. ", exc_info=True)
             return retval
 
     async def _inner_messages(self,
@@ -227,8 +236,12 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error with Coinbase Pro WebSocket connection. Retrying after 30 seconds...",
-                                    exc_info=True)
+                self.logger().network(
+                    f"Unexpected error with WebSocket connection.",
+                    exc_info=True,
+                    app_warning_msg=f"Unexpected error with WebSocket connection. Retrying in 30 seconds. "
+                                    f"Check network connection."
+                )
                 await asyncio.sleep(30.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
@@ -247,12 +260,17 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             )
                             output.put_nowait(snapshot_msg)
                             self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-                            # Be careful not to go above Binance's API rate limits.
+                            # Be careful not to go above API rate limits.
                             await asyncio.sleep(5.0)
                         except asyncio.CancelledError:
                             raise
                         except Exception:
-                            self.logger().error("Unexpected error.", exc_info=True)
+                            self.logger().network(
+                                f"Unexpected error with WebSocket connection.",
+                                exc_info=True,
+                                app_warning_msg=f"Unexpected error with WebSocket connection. Retrying in 5 seconds. "
+                                                f"Check network connection."
+                            )
                             await asyncio.sleep(5.0)
                     this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
                     next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)

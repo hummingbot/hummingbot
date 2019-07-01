@@ -36,6 +36,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.pure_market_making.pure_market_making_v2 import PureMarketMakingStrategyV2
+from hummingbot.strategy.pure_market_making import ConstantMultipleSpreadPricingDelegate, StaggeredMultipleSizeSizingDelegate
 from hummingbot.strategy.pure_market_making.data_types import MarketInfo
 
 
@@ -57,13 +58,23 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.cancel_order_wait_time = 45
         self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
                                                 max_price=200, price_step_size=1, volume_step_size=10)
+        self.equal_strategy_sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size = 1.0,
+                                                                                  order_step_size= 0,
+                                                                                  number_of_orders= 5)
+        self.staggered_strategy_sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size=1.0,
+                                                                                  order_step_size=0.5,
+                                                                                  number_of_orders=5)
+        self.multiple_order_strategy_pricing_delegate = ConstantMultipleSpreadPricingDelegate(bid_spread=self.bid_threshold,
+                                                                                              ask_spread=self.ask_threshold,
+                                                                                              order_interval_size=0.01,
+                                                                                              number_of_orders=5)
         self.maker_market.add_data(self.maker_data)
         self.maker_market.set_balance("COINALPHA", 500)
-        self.maker_market.set_balance("WETH", 500)
+        self.maker_market.set_balance("WETH", 5000)
         self.maker_market.set_balance("QETH", 500)
         self.maker_market.set_quantization_param(
             QuantizationParams(
-                self.maker_symbols[0], 5, 5, 5, 5
+                self.maker_symbols[0], 6, 6, 6, 6
             )
         )
 
@@ -83,10 +94,32 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             cancel_order_wait_time=45,
             logging_options=logging_options
         )
+
+        self.multi_order_equal_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+            [self.market_info],
+            legacy_order_size=1.0,
+            legacy_bid_spread=self.bid_threshold,
+            legacy_ask_spread=self.ask_threshold,
+            cancel_order_wait_time=45,
+            sizing_delegate=self.equal_strategy_sizing_delegate,
+            pricing_delegate=self.multiple_order_strategy_pricing_delegate,
+            logging_options=logging_options
+        )
+
+        self.multi_order_staggered_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+            [self.market_info],
+            legacy_order_size=1.0,
+            legacy_bid_spread=self.bid_threshold,
+            legacy_ask_spread=self.ask_threshold,
+            cancel_order_wait_time=45,
+            sizing_delegate=self.staggered_strategy_sizing_delegate,
+            pricing_delegate=self.multiple_order_strategy_pricing_delegate,
+            logging_options=logging_options
+        )
+
         self.logging_options = logging_options
         self.clock.add_iterator(self.maker_market)
         self.clock.add_iterator(self.strategy)
-
         self.maker_order_fill_logger: EventLogger = EventLogger()
         self.cancel_order_logger: EventLogger = EventLogger()
         self.maker_market.add_listener(MarketEvent.OrderFilled, self.maker_order_fill_logger)
@@ -344,3 +377,140 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
         self.assertEqual(0, len(self.strategy.active_bids))
         self.assertEqual(0, len(self.strategy.active_asks))
+
+
+    def test_multiple_orders_equal_sizes(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(self.multi_order_equal_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(5, len(self.multi_order_equal_strategy.active_bids))
+        self.assertEqual(5, len(self.multi_order_equal_strategy.active_asks))
+
+        first_bid_order: LimitOrder = self.multi_order_equal_strategy.active_bids[0][1]
+        first_ask_order: LimitOrder = self.multi_order_equal_strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("101"), first_ask_order.price)
+        self.assertEqual(Decimal("1.0"), first_bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), first_ask_order.quantity)
+
+        last_bid_order: LimitOrder = self.multi_order_equal_strategy.active_bids[-1][1]
+        last_ask_order: LimitOrder = self.multi_order_equal_strategy.active_asks[-1][1]
+        last_bid_price = round(99 * (1 - 0.01)**4, 3)
+        last_ask_price = round(101 * (1 + 0.01) ** 4, 3)
+        self.assertAlmostEqual(last_bid_price, round(last_bid_order.price, 3))
+        self.assertAlmostEqual(last_ask_price, round(last_ask_order.price, 3))
+        self.assertEqual(Decimal("1.0"), last_bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), last_ask_order.quantity)
+
+        self.simulate_maker_market_trade(True, 5.0)
+        self.assertEqual(5, len(self.multi_order_equal_strategy.active_bids))
+        self.assertEqual(4, len(self.multi_order_equal_strategy.active_asks))
+
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+
+        maker_fill: OrderFilledEvent = self.maker_order_fill_logger.event_log[0]
+        self.assertEqual(TradeType.SELL, maker_fill.trade_type)
+        self.assertAlmostEqual(101, maker_fill.price)
+        self.assertAlmostEqual(1.0, maker_fill.amount)
+
+        self.strategy.cancel_order(self.market_info, first_bid_order.client_order_id)
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        self.assertEqual(0, len(self.strategy.active_bids))
+        self.assertEqual(0, len(self.strategy.active_asks))
+
+    def test_multiple_orders_staggered_sizes(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(self.multi_order_staggered_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(5, len(self.multi_order_staggered_strategy.active_bids))
+        self.assertEqual(5, len(self.multi_order_staggered_strategy.active_asks))
+
+        first_bid_order: LimitOrder = self.multi_order_staggered_strategy.active_bids[0][1]
+        first_ask_order: LimitOrder = self.multi_order_staggered_strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("101"), first_ask_order.price)
+        self.assertEqual(Decimal("1.0"), first_bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), first_ask_order.quantity)
+
+        last_bid_order: LimitOrder = self.multi_order_staggered_strategy.active_bids[-1][1]
+        last_ask_order: LimitOrder = self.multi_order_staggered_strategy.active_asks[-1][1]
+        last_bid_price = round(99 * (1 - 0.01) ** 4, 3)
+        last_ask_price = round(101 * (1 + 0.01) ** 4, 3)
+
+        last_bid_order_size = 1 + (0.5 * 4)
+        last_ask_order_size = 1 + (0.5 * 4)
+        self.assertAlmostEqual(last_bid_price, round(last_bid_order.price, 3))
+        self.assertAlmostEqual(last_ask_price, round(last_ask_order.price, 3))
+        self.assertAlmostEqual(last_bid_order_size, last_bid_order.quantity)
+        self.assertAlmostEqual(last_ask_order_size, last_ask_order.quantity)
+
+        self.simulate_maker_market_trade(True, 5.0)
+
+        self.assertEqual(5, len(self.multi_order_staggered_strategy.active_bids))
+        self.assertEqual(4, len(self.multi_order_staggered_strategy.active_asks))
+
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+
+        maker_fill: OrderFilledEvent = self.maker_order_fill_logger.event_log[0]
+        self.assertEqual(TradeType.SELL, maker_fill.trade_type)
+        self.assertAlmostEqual(101, maker_fill.price)
+        self.assertAlmostEqual(1.0, maker_fill.amount)
+
+        self.strategy.cancel_order(self.market_info, first_bid_order.client_order_id)
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        self.assertEqual(0, len(self.strategy.active_bids))
+        self.assertEqual(0, len(self.strategy.active_asks))
+
+    def test_balance_for_multiple_equal_orders(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(self.multi_order_equal_strategy)
+        self.maker_market.set_balance("WETH", 0)
+        end_ts = self.start_timestamp + self.clock_tick_size
+        self.clock.backtest_til(end_ts)
+
+        self.assertEqual(0, len(self.multi_order_equal_strategy.active_bids))
+        self.assertEqual(5, len(self.multi_order_equal_strategy.active_asks))
+
+        self.maker_market.set_balance("COINALPHA", 0)
+        end_ts += self.clock_tick_size
+        self.clock.backtest_til(end_ts)
+        self.assertEqual(0, len(self.multi_order_equal_strategy.active_bids))
+        self.assertEqual(0, len(self.multi_order_equal_strategy.active_asks))
+
+        self.maker_market.set_balance("COINALPHA", 500)
+        self.maker_market.set_balance("WETH", 5000)
+        end_ts += self.clock_tick_size
+        self.clock.backtest_til(end_ts)
+        self.assertEqual(5, len(self.multi_order_equal_strategy.active_bids))
+        self.assertEqual(5, len(self.multi_order_equal_strategy.active_asks))
+
+
+    def test_balance_for_multiple_staggered_orders(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(self.multi_order_staggered_strategy)
+        self.maker_market.set_balance("WETH", 0)
+        end_ts = self.start_timestamp + self.clock_tick_size
+        self.clock.backtest_til(end_ts)
+
+        self.assertEqual(0, len(self.multi_order_staggered_strategy.active_bids))
+        self.assertEqual(5, len(self.multi_order_staggered_strategy.active_asks))
+
+        self.maker_market.set_balance("COINALPHA", 0)
+        end_ts += self.clock_tick_size
+        self.clock.backtest_til(end_ts)
+        self.assertEqual(0, len(self.multi_order_staggered_strategy.active_bids))
+        self.assertEqual(0, len(self.multi_order_staggered_strategy.active_asks))
+
+        self.maker_market.set_balance("COINALPHA", 500)
+        self.maker_market.set_balance("WETH", 5000)
+        end_ts += self.clock_tick_size
+        self.clock.backtest_til(end_ts)
+        self.assertEqual(5, len(self.multi_order_staggered_strategy.active_bids))
+        self.assertEqual(5, len(self.multi_order_staggered_strategy.active_asks))
+
+
+
+
+

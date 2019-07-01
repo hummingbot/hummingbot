@@ -32,5 +32,5 @@ cdef class ConstantSpreadPricingDelegate(OrderPricingDelegate):
             str market_name = maker_market.name
             double mid_price = (top_bid_price + top_ask_price) * 0.5
 
-        return PricingProposal(mid_price * (1.0 - self._bid_spread),
-                               mid_price * (1.0 + self._ask_spread))
+        return PricingProposal([mid_price * (1.0 - self._bid_spread)],
+                               [mid_price * (1.0 + self._ask_spread)])

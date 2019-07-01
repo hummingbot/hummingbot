@@ -119,7 +119,8 @@ global_config_map = {
                                                   prompt="Enter your custom exchange rate conversion settings >>> ",
                                                   required_if=lambda: False,
                                                   type_str="list",
-                                                  default=[["DAI", 1.0, "coincap_api"],
+                                                  default=[["USD", 1.0, "manual"],
+                                                           ["DAI", 1.0, "coincap_api"],
                                                            ["USDT", 1.0, "coincap_api"],
                                                            ["USDC", 1.0, "coincap_api"],
                                                            ["TUSD", 1.0, "coincap_api"]]),
@@ -143,7 +144,7 @@ global_config_map = {
                                                       global_config_map.get("stop_loss_pct").value >= 0,
                                                   validator=lambda v: v in {"fixed", "dynamic"}),
     "stop_loss_base_token":             ConfigVar(key="stop_loss_base_token",
-                                                  prompt="Would base token would you like to use to calculate your "
+                                                  prompt="What base token would you like to use to calculate your "
                                                          "inventory value? (Default \"USD\") >>> ",
                                                   default="USD",
                                                   required_if=lambda:

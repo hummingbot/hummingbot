@@ -1,0 +1,13 @@
+
+---------------------------------------------------------------------------
+
+REQUIREMENTS:
+
+In order to be eligible to participate in liquidity bounty programs, you must
+
+(1) register on this Site,
+(2) use Hummingbot to transact in the tokens for the liquidity bounty program,
+(3) enable data sharing, and
+(4) comply with all of the Terms and Conditions outlined on this Site.
+
+---------------------------------------------------------------------------

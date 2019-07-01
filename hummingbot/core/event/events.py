@@ -67,6 +67,7 @@ class MarketTransactionFailureEvent(NamedTuple):
     timestamp: float
     order_id: str
 
+
 class MarketOrderFailureEvent(NamedTuple):
     timestamp: float
     order_id: str
@@ -173,7 +174,23 @@ class TokenApprovedEvent(NamedTuple):
 
 class TradeFee(NamedTuple):
     percent: float # 0.1 = 10%
-    flat_fees: List[Tuple[str, float]] = [] # list of (symbol, amount) ie: ("ETH", 0.05) 
+    flat_fees: List[Tuple[str, float]] = [] # list of (symbol, amount) ie: ("ETH", 0.05)
+
+    @classmethod
+    def to_json(cls, trade_fee: "TradeFee") -> Dict[str, any]:
+        return {
+            "percent": trade_fee.percent,
+            "flat_fees": [{"symbol": symbol, "amount": amount}
+                          for symbol, amount in trade_fee.flat_fees]
+        }
+
+    @classmethod
+    def from_json(cls, data: Dict[str, any]) -> "TradeFee":
+        return TradeFee(
+            data["percent"],
+            [(fee_entry["symbol"], fee_entry["amount"])
+             for fee_entry in data["flat_fees"]]
+        )
 
 
 class OrderBookTradeEvent(NamedTuple):
@@ -193,6 +210,7 @@ class OrderFilledEvent(NamedTuple):
     price: float
     amount: float
     trade_fee: TradeFee
+    exchange_trade_id: str = ""
 
     @classmethod
     def order_filled_events_from_order_book_rows(cls,
@@ -202,9 +220,11 @@ class OrderFilledEvent(NamedTuple):
                                                  trade_type: TradeType,
                                                  order_type: OrderType,
                                                  trade_fee: TradeFee,
-                                                 order_book_rows: List[OrderBookRow],) -> List["OrderFilledEvent"]:
+                                                 order_book_rows: List[OrderBookRow],
+                                                 exchange_trade_id: str = "") -> List["OrderFilledEvent"]:
         return [
-            OrderFilledEvent(timestamp, order_id, symbol, trade_type, order_type, r.price, r.amount, trade_fee)
+            OrderFilledEvent(timestamp, order_id, symbol, trade_type, order_type,
+                             r.price, r.amount, trade_fee, exchange_trade_id=exchange_trade_id)
             for r in order_book_rows
         ]
 
@@ -222,6 +242,7 @@ class OrderFilledEvent(NamedTuple):
             float(execution_report["L"]),
             float(execution_report["l"]),
             TradeFee(percent=0.0, flat_fees=[(execution_report["N"], float(execution_report["n"]))]),
+            exchange_trade_id=execution_report["t"]
         )
 
 

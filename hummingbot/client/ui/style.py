@@ -13,20 +13,24 @@ def load_style():
 
 
 default_ui_style = {
-    'output-field':               'bg:#171E2B #1CD085',
-    'input-field':                'bg:#000000 #ffffff',
-    'log-field':                  'bg:#171E2B #ffffff',
-    'line':                       '#1CD085',
-    'label':                      'bg:#000000 #1CD085',
+    "output-field":               "bg:#171E2B #1CD085",
+    "input-field":                "bg:#000000 #FFFFFF",
+    "log-field":                  "bg:#171E2B #FFFFFF",
+    "title":                      "bg:#000000 #AAAAAA",
+    "primary":                    "#1CD085",
+    "warning":                    "#93C36D",
+    "error":                      "#F5634A",
 }
 
 
 # Style for Windows consoles. They support only 16 colors,
 # so we choose a combination that displays nicely.
 win32_code_style = {
-    'output-field':               'bg:#000000 #44ff44',
-    'input-field':                'bg:#000000 #ffffff',
-    'log-field':                  'bg:#000000 #ffffff',
-    'line':                       '#44ff44',
-    'label':                      'bg:#000000 #44ff44',
+    "output-field":               "bg:#000000 #44FF44",
+    "input-field":                "bg:#000000 #FFFFFF",
+    "log-field":                  "bg:#000000 #FFFFFF",
+    "title":                      "bg:#000000 #808080",
+    "primary":                    "#44FF44",
+    "warning":                    "#FFFF00",
+    "error":                      "#FF0000",
 }
