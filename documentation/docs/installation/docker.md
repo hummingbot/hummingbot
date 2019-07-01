@@ -33,7 +33,6 @@ coinalpha/hummingbot:latest
     - `hummingbot_conf`: path on your host machine for `conf/`
     - `hummingbot_logs`: path on your host machine for `logs/`
 
-
 ### Config and Log Files
 
 The above methodology requires you to explicitly specify the paths where you want to mount the `conf/` and `logs/` folders on your local machine.

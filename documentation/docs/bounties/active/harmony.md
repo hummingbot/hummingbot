@@ -4,18 +4,24 @@
 
 This program will be officially kicking off in **early July**. Anyone who has [signed up](https://www.hummingbot.io/liquidity-bounties/harmony/) for this program will receive a notification email when it starts.
 
-## Rewards
+## Rewards¹
 
-!!! info
-    Participants in the bounty program will be receive rewards equivalent to 0.2% of their filled limit order volume. In addition, they may be eligible for bonuses outlined below.
+1. All users who register for $ONE Makers will eligibile to receive the [Basic Rewards](#basic-rewards-for-all-users).
+2. In addition, [Bonus Rewards](#bonus-rewards) will be awarded to participants based on filled limit order volume.
 
-| Tier | Requirements | Extra Bonus |
-|----|----|----|
-| **ONE Maker** | Unique users that have signed up for $ONE Makers and have at least 1 filled limit order in Hummingbot  | 0.05 ETH (0.10 ETH for the **first** 300 signups) |
-| **$ONE Pro** | Unique users whose filled limit order volume is greater than or equal to 2,000,000 $ONE in a single month  | 0.5 ETH for that month and leaderboard recognition  |
-| **$ONE Ultimate** | The top market maker based on filled limit order volume of $ONE in a given month | 5 ETH for that month and leaderboard recognition |
+### Basic Rewards for All Users
 
-This reward schedule is tentative and subject to change without prior notice.
+- **0.2%** on all filled volume of ONE
+
+### Bonus Rewards
+
+Tier | Requirements | Bonus Rewards
+---|---|---
+**$ONE Maker** | Unique users that have signed up for $ONE Makers and have at least 1 limit order filled using Hummingbot | <ul><li>**0.05 ETH**<li>**2x reward (additional +0.05 ETH) for the *first 300 signups***</ul>
+**$ONE Pro** | Unique users whose filled limit order volume is equal to or exceeds 2,000,000 $ONE per month | <ul><li>**0.5 ETH**<li>**Leaderboard recognition**</ul> 
+**$ONE Ultimate** | Top monthly market maker based on filled limit order volume | <ul><li>**5 ETH**<li>**Leaderboard recognition** 
+
+¹ This reward schedule is tentative and subject to change without prior notice. 
 
 ## How to participate
 

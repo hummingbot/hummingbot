@@ -49,6 +49,7 @@ from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot import init_logging
+from hummingbot.client.performance_analysis import PerformanceAnalysis
 from hummingbot.client.ui.keybindings import load_key_bindings
 from hummingbot.client.ui.parser import (
     load_parser,
@@ -168,6 +169,7 @@ class HummingbotApplication:
         self.market_symbol_pairs: List[MarketSymbolPair] = []
         self.clock: Optional[Clock] = None
 
+        self.start_time: Optional[int] = None
         self.assets: Optional[Set[str]] = set()
         self.starting_balances = {}
         self.placeholder_mode = False
@@ -561,7 +563,7 @@ class HummingbotApplication:
         if liquidity_bounty_config_map.get("liquidity_bounty_enabled").value is not None and \
            liquidity_bounty_config_map.get("liquidity_bounty_client_id").value is not None:
             self.liquidity_bounty = LiquidityBounty.get_instance()
-            asyncio.ensure_future(self.liquidity_bounty.start_network(), loop=self.ev_loop)
+            self.liquidity_bounty.start()
 
     def _format_application_warnings(self) -> str:
         lines: List[str] = []
@@ -633,7 +635,7 @@ class HummingbotApplication:
 
         if len(loading_markets) > 0:
             self._notify(f"   x Market check:  Waiting for markets " +
-                         ",".join([m.name.capitalize()  for m in loading_markets]) + f" to get ready for trading. \n"
+                         ",".join([m.name.capitalize() for m in loading_markets]) + f" to get ready for trading. \n"
                          f"                    Please keep the bot running and try to start again in a few minutes. \n")
 
             for market in loading_markets:
@@ -654,18 +656,6 @@ class HummingbotApplication:
             ]
             for offline_market in offline_markets:
                 self._notify(f"   x Market check:  {offline_market} is currently offline.")
-
-        # See if we can print out the strategy status.
-        self._notify("   - Market check: All markets ready")
-        if self.strategy is None:
-            self._notify("   x initializing strategy.")
-        else:
-            self._notify(self.strategy.format_status() + "\n")
-
-        # Application warnings.
-        self._expire_old_application_warnings()
-        if len(self._app_warnings) > 0:
-            self._notify(self._format_application_warnings())
 
         # See if we can print out the strategy status.
         self._notify("   - Market check: All markets ready")
@@ -940,8 +930,8 @@ class HummingbotApplication:
                 strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
 
                 self.strategy = PureMarketMakingStrategyV2(market_infos=[self.market_info],
-                                                           pricing_delegate = pricing_delegate,
-                                                           sizing_delegate = sizing_delegate,
+                                                           pricing_delegate=pricing_delegate,
+                                                           sizing_delegate=sizing_delegate,
                                                            legacy_order_size=order_size,
                                                            legacy_bid_spread=bid_place_threshold,
                                                            legacy_ask_spread=ask_place_threshold,
@@ -991,6 +981,7 @@ class HummingbotApplication:
 
         try:
             config_path: str = in_memory_config_map.get("strategy_file_path").value
+            self.start_time = time.time() * 1e3 # Time in milliseconds
             self.clock = Clock(ClockMode.REALTIME)
             if self.wallet is not None:
                 self.clock.add_iterator(self.wallet)
@@ -1074,6 +1065,10 @@ class HummingbotApplication:
             await asyncio.sleep(1)
         ExchangeRateConversion.get_instance().stop()
 
+        if force is False and self.liquidity_bounty is not None:
+            self._notify("Winding down liquidity bounty submission...")
+            await self.liquidity_bounty.stop_network()
+
         self._notify("Winding down notifiers...")
         for notifier in self.notifiers:
             notifier.stop()
@@ -1121,6 +1116,7 @@ class HummingbotApplication:
     def history(self):
         self.list("trades")
         self.compare_balance_snapshots()
+        self.analyze_performance()
 
     async def wait_till_ready(self, func: Callable, *args, **kwargs):
         while True:
@@ -1163,12 +1159,44 @@ class HummingbotApplication:
         lines = ["", "  Performance:"] + ["    " + line for line in str(df).split("\n")]
         self._notify("\n".join(lines))
 
-    def bounty(self, register: bool = False, status: bool = False, terms: bool = False):
+    def analyze_performance(self):
+        """ Determine the profitability of the trading bot. """
+        if len(self.starting_balances) == 0:
+            self._notify("  Performance analysis is not available before bot starts")
+            return
+
+        performance_analysis = PerformanceAnalysis()
+
+        for market_symbol_pair in self.market_symbol_pairs:
+            for is_base in [True, False]:
+                for is_starting in [True, False]:
+                    market_name = market_symbol_pair.market.name
+                    asset_name = market_symbol_pair.base_asset if is_base else market_symbol_pair.quote_asset
+                    amount = self.starting_balances[asset_name][market_name] if is_starting \
+                        else self.balance_snapshot()[asset_name][market_name]
+                    amount = float(amount)
+                    performance_analysis.add_balances(asset_name, amount, is_base, is_starting)
+
+        # Compute the current exchange rate. We use the first market_symbol_pair because
+        # if the trading pairs are different, such as WETH-DAI and ETH-USD, the currency
+        # pairs above will contain the information in terms of the first trading pair.
+        market_pair_info = self.market_symbol_pairs[0]
+        market = market_pair_info.market
+        buy_price = market.get_price(market_pair_info.trading_pair, True)
+        sell_price = market.get_price(market_pair_info.trading_pair, False)
+        price = (buy_price + sell_price)/2.0
+        percent = performance_analysis.compute_profitability(price)
+
+        self._notify("\n" + "  Profitability:\n" + "    " + str(percent) + "%")
+
+    def bounty(self, register: bool = False, status: bool = False, terms: bool = False, list: bool = False):
         """ Router function for `bounty` command """
         if terms:
             asyncio.ensure_future(self.bounty_print_terms(), loop=self.ev_loop)
         elif register:
             asyncio.ensure_future(self.bounty_registration(), loop=self.ev_loop)
+        elif list:
+            asyncio.ensure_future(self.bounty_list(), loop=self.ev_loop)
         else:
             asyncio.ensure_future(self.bounty_show_status(), loop=self.ev_loop)
 
@@ -1183,7 +1211,12 @@ class HummingbotApplication:
             self._notify("Liquidity bounty not active. Please register for the bounty by entering `bounty --register`.")
             return
         else:
-            self._notify(str(self.liquidity_bounty.formatted_status()))
+            status_table: str = self.liquidity_bounty.formatted_status()
+            self._notify(status_table)
+
+            volume_metrics: List[Dict[str, Any]] = \
+                await self.liquidity_bounty.fetch_filled_volume_metrics(start_time=self.start_time or -1)
+            self._notify(self.liquidity_bounty.format_volume_metrics(volume_metrics))
 
     async def bounty_print_terms(self):
         """ Print bounty Terms and Conditions to output pane """
@@ -1203,10 +1236,17 @@ class HummingbotApplication:
             client_id = registration_results["client_id"]
             liquidity_bounty_config_map.get("liquidity_bounty_client_id").value = client_id
             await save_to_yml(LIQUIDITY_BOUNTY_CONFIG_PATH, liquidity_bounty_config_map)
-            await self.liquidity_bounty.start_network()
+            self.liquidity_bounty.start()
             self._notify("Hooray! You are now collecting bounties. ")
         except Exception as e:
             self._notify(str(e))
+
+    async def bounty_list(self):
+        """ List available bounties """
+        if self.liquidity_bounty is None:
+            self.liquidity_bounty = LiquidityBounty.get_instance()
+        await self.liquidity_bounty.fetch_active_bounties()
+        self._notify(self.liquidity_bounty.formatted_bounties())
 
     async def bounty_config_loop(self):
         """ Configuration loop for bounty registration """
@@ -1239,4 +1279,3 @@ class HummingbotApplication:
         self.app.change_prompt(prompt=">>> ")
         self.app.toggle_hide_input()
         self.placeholder_mode = False
-
