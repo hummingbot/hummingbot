@@ -871,9 +871,18 @@ cdef class BambooRelayMarket(MarketBase):
         signed_market_orders = response["orders"]
         average_price = float(response["averagePrice"])
         is_coordinated = bool(response["isCoordinated"])
-        base_asset_decimals = self.trading_rules.get(symbol).amount_decimals
-        amt_with_decimals = Decimal(amount) * Decimal(f"1e{base_asset_decimals}")
+        trading_rules = self.trading_rules.get(symbol)
+        max_base_amount_with_decimals = Decimal(amount) * Decimal(f"1e{trading_rules.amount_decimals}")
+
         tx_hash = ""
+        total_base_quantity = Decimal(response["totalBaseQuantity"])
+        total_quote_quantity = Decimal(response["totalQuoteQuantity"])
+        total_base_amount = Decimal(response["totalBaseAmount"])
+        total_quote_amount = Decimal(response["totalQuoteAmount"])
+
+        # Sanity check
+        if total_base_quantity > Decimal(amount):
+            raise ValueError(f"API returned incorrect values for market order")
 
         # Single orders to use fillOrder, multiple to use batchFill
         if len(signed_market_orders) == 1:
@@ -882,28 +891,61 @@ cdef class BambooRelayMarket(MarketBase):
             del signed_market_order["signature"]
             order = jsdict_order_to_struct(signed_market_order)
 
-            if is_coordinated:
-                tx_hash = await self._coordinator.fill_order(order, amt_with_decimals, signature)
+            # Sanity check on rates returned
+            if side is TradeType.BUY:
+                calculated_maker_amount = math.floor((total_base_amount * Decimal(signed_market_order["takerAssetAmount"])) / 
+                                                 Decimal(signed_market_order["takerAssetAmount"]))
+                taker_asset_fill_amount = total_quote_amount
+                if calculated_maker_amount > max_base_amount_with_decimals:
+                    raise ValueError(f"API returned incorrect values for market order")
             else:
-                tx_hash = self._exchange.fill_order(order, amt_with_decimals, signature)
+                taker_asset_fill_amount = total_base_amount
+
+            if is_coordinated:
+                tx_hash = await self._coordinator.fill_order(order, taker_asset_fill_amount, signature)
+            else:
+                tx_hash = self._exchange.fill_order(order, taker_asset_fill_amount, signature)
         else:
             taker_asset_fill_amounts: List[Decimal] = []
             signatures: List[str] = []
             orders: List[ZeroExOrder] = []
-            remaining_amount = amt_with_decimals
-            remaining_taker_fill_amounts = response["remainingTakerFillAmounts"]
 
-            for idx, order in signed_market_orders:
+            if side is TradeType.BUY:
+                target_taker_amount = total_quote_amount
+            else:
+                target_taker_amount = total_base_amount
+            remaining_taker_fill_amounts = response["remainingTakerFillAmounts"]
+            remaining_maker_fill_amounts = response["remainingMakerFillAmounts"]
+            total_maker_asset_fill_amount = Decimal(0)
+            total_taker_asset_fill_amount = Decimal(0)
+
+            for idx, order in enumerate(signed_market_orders):
                 signatures.append(order["signature"])
                 del order["signature"]
                 orders.append(jsdict_order_to_struct(order))
-                remaining_taker_fill_amount = Decimal(response["remainingTakerFillAmounts"][idx])
-                if remaining_amount < remaining_taker_fill_amount:
-                    taker_asset_fill_amounts.append(remaining_amount)
-                    break
+                taker_fill_amount = Decimal(remaining_taker_fill_amounts[idx])
+                maker_fill_amount = Decimal(remaining_maker_fill_amounts[idx])
+                new_total_taker_asset_fill_amount = total_taker_asset_fill_amount + taker_fill_amount
+                if target_taker_amount < new_total_taker_asset_fill_amount:
+                    taker_asset_fill_amounts.append(taker_fill_amount)
+                    total_maker_asset_fill_amount = total_maker_asset_fill_amount + maker_fill_amount
+                    total_taker_asset_fill_amount = new_total_taker_asset_fill_amount
                 else:
-                    taker_asset_fill_amounts.append(remaining_taker_fill_amount)
-                    remaining_amount = remaining_amount - remaining_taker_fill_amount
+                    # calculate
+                    remaining_taker_amount = target_taker_amount - total_taker_asset_fill_amount
+                    taker_asset_fill_amounts.append(remaining_taker_amount)
+                    order_maker_fill_amount = math.floor((remaining_taker_amount * Decimal(order["makerAssetAmount"])) / 
+                                                     Decimal(order["takerAssetAmount"]))
+
+                    total_maker_asset_fill_amount = total_maker_asset_fill_amount + order_maker_fill_amount
+                    total_taker_asset_fill_amount = remaining_taker_amount
+                    break
+
+            # Sanity check on rates returned
+            if side is TradeType.BUY and total_maker_asset_fill_amount > max_base_amount_with_decimals:
+                raise ValueError(f"API returned incorrect values for market order")
+            elif total_taker_asset_fill_amount > max_base_amount_with_decimals:
+                raise ValueError(f"API returned incorrect values for market order")
 
             if is_coordinated:
                 tx_hash = await self._coordinator.batch_fill_orders(orders, taker_asset_fill_amounts, signatures)
@@ -928,9 +970,6 @@ cdef class BambooRelayMarket(MarketBase):
                                                                        expires=expires)
         unsigned_limit_order["makerAddress"] = self._wallet.address.lower()
         order_hash_hex = self.get_order_hash_hex(unsigned_limit_order)
-        self.logger().info("Hash Hex")
-        self.logger().info(order_hash_hex)
-        self.logger().info(unsigned_limit_order)
         signed_limit_order = copy.deepcopy(unsigned_limit_order)
         signature = self.get_zero_ex_signature(order_hash_hex)
         signed_limit_order["signature"] = signature
@@ -1049,6 +1088,7 @@ cdef class BambooRelayMarket(MarketBase):
             TradingRule trading_rule = self._trading_rules[symbol]
             bint is_buy = order_side is TradeType.BUY
             str order_side_desc = "buy" if is_buy else "sell"
+            str type_str = "limit" if order_type is OrderType.LIMIT else "market"
         try:
             if float(q_amt) < trading_rule.min_order_size:
                 raise ValueError(f"{order_side_desc.capitalize()} order amount {q_amt} is lower than the "
@@ -1126,7 +1166,7 @@ cdef class BambooRelayMarket(MarketBase):
         except Exception:
             self.c_stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting {order_side_desc} order to Bamboo Relay for {str(q_amt)} {symbol}.",
+                f"Error submitting {type_str} {order_side_desc} order to Bamboo Relay for {str(q_amt)} {symbol}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit {order_side_desc} order to Bamboo Relay. "
                                 f"Check Ethereum wallet and network connection."

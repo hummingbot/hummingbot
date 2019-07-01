@@ -60,6 +60,7 @@ class ZeroExExchange:
     def batch_fill_orders(self, orders: List[Order], taker_asset_fill_amounts: List[Decimal], signatures: List[str]) -> str:
         order_tuples: List[Tuple] = [convert_order_to_tuple(order) for order in orders]
         signatures: List[bytes] = [self._w3.toBytes(hexstr=signature) for signature in signatures]
+        taker_asset_fill_amounts: List[int] = [int(taker_asset_fill_amount) for taker_asset_fill_amount in taker_asset_fill_amounts]
         # Add 10 wei to the standard price to beat the default gas price ppl.
         gas_price: int = self._wallet.gas_price + 10
         tx_hash: str = self._wallet.execute_transaction(
