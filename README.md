@@ -2,7 +2,7 @@
 
 ----
 [![CircleCI](https://circleci.com/gh/CoinAlpha/hummingbot.svg?style=svg&circle-token=c9c4825f21e34926ac8a406eeb260ddee0f726ff)](https://circleci.com/gh/CoinAlpha/hummingbot)
-[![Jenkins](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-stable&subject=jenkins:stable)](https://jenkins-hb.coinalpha.com/job/hb_test-stable)
+[![Jenkins](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb-test_branch&subject=jenkins:stable)](https://jenkins-hb.coinalpha.com/job/hb-test_branch)
 [![Discord](https://img.shields.io/discord/530578568154054663.svg?color=768AD4&label=discord&logo=https%3A%2F%2Fdiscordapp.com%2Fassets%2F8c9701b98ad4372b58f13fd9f65f966e.svg)](https://discord.hummingbot.io/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-informational.svg)](https://github.com/CoinAlpha/hummingbot/blob/master/LICENSE)
 [![Twitter Follow](https://img.shields.io/twitter/follow/hummingbot_io.svg?style=social&label=hummingbot)](https://twitter.com/hummingbot_io)
@@ -25,6 +25,12 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | [![Radar Relay](https://i.ibb.co/7RW75mf/Screen-Shot-2019-03-14-at-10-47-07-AM.png)](https://radarrelay.com/) | radar_relay | [Radar Relay](https://radarrelay.com/) | 2 | [API](https://developers.radarrelay.com/api/trade-api) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-exchange_radar_relay&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-exchange_radar_relay/) |
 | [![DDEX](https://i.ibb.co/Lrpps2G/Screen-Shot-2019-03-14-at-10-39-23-AM.png)](https://ddex.io/) | ddex | [DDEX](https://ddex.io/) | 3 | [API](https://docs.ddex.io/) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-exchange_ddex&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-exchange_ddex/) |
 | [![IDEX](https://i.ibb.co/k97fzrg/idex.png)](https://idex.market/) | idex | [IDEX](https://idex.market/) | * | [API](https://docs.idex.market/) | |
+
+## Community contributed exchanges
+
+| logo | id | name | ver | doc|
+|:---:|:---:|:---:|:---:|:---:|
+| [![Bamboo Relay](https://i.ibb.co/1sPt940/Screen-Shot-2019-06-06-at-17-50-04.png)](https://bamboorelay.com/) | bamboo_relay | [Bamboo Relay](https://bamboorelay.com/) | * | [API](https://sra.bamboorelay.com/) |
 
 ## Community contributed exchanges
 

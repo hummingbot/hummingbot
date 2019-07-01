@@ -382,6 +382,14 @@ cdef class BinanceMarket(MarketBase):
         except Exception as e:
             raise ValueError(f"Error parsing symbol {symbol}: {str(e)}")
 
+    @staticmethod
+    def split_symbol(symbol: str) -> Tuple[str, str]:
+        try:
+            m = SYMBOL_SPLITTER.match(symbol)
+            return m.group(1), m.group(2)
+        except Exception as e:
+            raise ValueError(f"Error parsing symbol {symbol}: {str(e)}")
+
     @property
     def name(self) -> str:
         return "binance"
