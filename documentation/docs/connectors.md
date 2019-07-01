@@ -4,7 +4,7 @@ This section contains information about official connectors for individual excha
 
 * General information
 * Setup and configuration
-* Tips and protocols
+* Minimum order sizes, fees, etc.
 
 ## What are Connectors?
 
