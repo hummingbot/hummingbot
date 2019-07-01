@@ -1,8 +1,8 @@
 #!/usr/bin/env python
+import numpy
 from typing import (
     Any,
     Dict,
-    List,
 )
 from sqlalchemy import (
     Column,
@@ -60,8 +60,8 @@ class TradeFill(HummingbotBase):
         return {
             "market": trade_fill.market,
             "trade_id": trade_fill.exchange_trade_id,
-            "price": trade_fill.price,
-            "quantity": trade_fill.amount,
+            "price": numpy.format_float_positional(trade_fill.price),
+            "quantity": numpy.format_float_positional(trade_fill.amount),
             "trading_pair": trade_fill.symbol,
             "trade_timestamp": trade_fill.timestamp,
             "base_asset": trade_fill.base_asset,
