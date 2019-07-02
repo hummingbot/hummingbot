@@ -10,7 +10,6 @@ from os.path import (
     dirname
 )
 import logging
-import argparse
 from eth_account.local import LocalAccount
 import pandas as pd
 import platform
@@ -27,10 +26,8 @@ from typing import (
     Deque
 )
 
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
+import hummingbot.client.commands as commands
+from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.trade import Trade
 from hummingbot.logger import HummingbotLogger
@@ -47,7 +44,6 @@ from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot import init_logging
 from hummingbot.client.performance_analysis import PerformanceAnalysis
 from hummingbot.client.ui.keybindings import load_key_bindings
 from hummingbot.client.ui.parser import (
@@ -72,7 +68,6 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.liquidity_bounty.liquidity_bounty_config_map import liquidity_bounty_config_map
 from hummingbot.client.config.config_helpers import (
     get_strategy_config_map,
-    get_strategy_starter_file,
     write_config_to_yml,
     load_required_configs,
     parse_cvar_value,
@@ -83,7 +78,6 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.settings import (
     EXCHANGES,
     LIQUIDITY_BOUNTY_CONFIG_PATH,
-    STRATEGIES,
 )
 from hummingbot.logger.report_aggregator import ReportAggregator
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -95,13 +89,12 @@ from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversio
 from hummingbot.core.utils.ethereum import check_web3
 from hummingbot.core.utils.stop_loss_tracker import StopLossTracker
 from hummingbot.data_feed.data_feed_base import DataFeedBase
-from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.client.liquidity_bounty.bounty_utils import LiquidityBounty
-
 from hummingbot.market.markets_recorder import MarketsRecorder
+
 
 s_logger = None
 
@@ -115,7 +108,7 @@ MARKET_CLASSES = {
 }
 
 
-class HummingbotApplication:
+class HummingbotApplication(*commands):
     KILL_TIMEOUT = 5.0
     IDEX_KILL_TIMEOUT = 30.0
     APP_WARNING_EXPIRY_DURATION = 3600.0
@@ -656,17 +649,6 @@ class HummingbotApplication:
 
         return True
 
-    def help(self, command):
-        if command == 'all':
-            self._notify(self.parser.format_help())
-        else:
-            subparsers_actions = [
-                action for action in self.parser._actions if isinstance(action, argparse._SubParsersAction)]
-
-            for subparsers_action in subparsers_actions:
-                subparser = subparsers_action.choices.get(command)
-                self._notify(subparser.format_help())
-
     def get_balance(self, currency: str = "WETH", wallet: bool = False, exchange: str = None):
         if wallet:
             if self.wallet is None:
@@ -757,72 +739,9 @@ class HummingbotApplication:
         else:
             self.help("describe")
 
-    def start(self, log_level: Optional[str] = None):
-        is_valid = self.status()
-        if not is_valid:
-            return
-
-        if log_level is not None:
-            init_logging("hummingbot_logs.yml", override_log_level=log_level.upper())
-
-        # If macOS, disable App Nap.
-        if platform.system() == "Darwin":
-            import appnope
-            appnope.nope()
-
-        # TODO add option to select data feed
-        self.data_feed: DataFeedBase = CoinCapDataFeed.get_instance()
-
-        self._initialize_notifiers()
-
-        ExchangeRateConversion.get_instance().start()
-        strategy_name = in_memory_config_map.get("strategy").value
-        self.init_reporting_module()
-        self._notify(f"\n  Status check complete. Starting '{strategy_name}' strategy...")
-        asyncio.ensure_future(self.start_market_making(strategy_name), loop=self.ev_loop)
-
     async def _run_clock(self):
         with self.clock as clock:
             await clock.run()
-
-    async def start_market_making(self, strategy_name: str):
-        await ExchangeRateConversion.get_instance().ready_notifier.wait()
-
-        start_strategy: Callable = get_strategy_starter_file(strategy_name)
-        if strategy_name in STRATEGIES:
-            start_strategy(self)
-        else:
-            raise NotImplementedError
-
-        try:
-            config_path: str = in_memory_config_map.get("strategy_file_path").value
-            self.start_time = time.time() * 1e3 # Time in milliseconds
-            self.clock = Clock(ClockMode.REALTIME)
-            if self.wallet is not None:
-                self.clock.add_iterator(self.wallet)
-            for market in self.markets.values():
-                if market is not None:
-                    self.clock.add_iterator(market)
-                    self.markets_recorder.restore_market_states(config_path, market)
-                    if len(market.limit_orders) > 0:
-                        self._notify(f"  Cancelling dangling limit orders on {market.name}...")
-                        await market.cancel_all(5.0)
-            if self.strategy:
-                self.clock.add_iterator(self.strategy)
-            self.strategy_task: asyncio.Task = asyncio.ensure_future(self._run_clock(), loop=self.ev_loop)
-            self._notify(f"\n  '{strategy_name}' strategy started.\n"
-                         f"  You can use the `status` command to query the progress.")
-
-            self.starting_balances = await self.wait_till_ready(self.balance_snapshot)
-            if self._trading_required:
-                self.stop_loss_tracker = StopLossTracker(self.data_feed,
-                                                         self.market_symbol_pairs,
-                                                         lambda *args, **kwargs: asyncio.ensure_future(
-                                                             self.stop(*args, **kwargs)
-                                                         ))
-                await self.wait_till_ready(self.stop_loss_tracker.start)
-        except Exception as e:
-            self.logger().error(str(e), exc_info=True)
 
     def stop(self, skip_order_cancellation: bool = False):
         asyncio.ensure_future(self.stop_loop(skip_order_cancellation), loop=self.ev_loop)
