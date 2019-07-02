@@ -896,6 +896,7 @@ cdef class CoinbaseProMarket(MarketBase):
             if "order not found" in e.message:
                 # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
                 self.logger().info(f"The order {order_id} does not exist on Coinbase Pro. No cancellation needed.")
+                self.c_stop_tracking_order(order_id)
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
