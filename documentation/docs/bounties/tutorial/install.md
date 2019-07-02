@@ -4,7 +4,7 @@ See below for installation guides for each supported platform. Note that we high
 
 Advanced users who wish to install Hummingbot from source can find instructions in our main [Installation](/installation) section.
 
-## Cloud platforms
+## Cloud Platforms
 
 Because an active, stable network connection is ideal, we recommend that you run Hummingbot on a cloud provider if possible. In addition, running Hummingbot in the cloud may increase performance if you select servers in the same region as the exchanges on which you trade.
 
