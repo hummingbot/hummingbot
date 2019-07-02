@@ -24,4 +24,4 @@ Open Docker Toolbox using the Quickstart shortcut. It may take a few minutes to 
 
 ![Docker Ready](/assets/img/docker_toolbox_cmdline.PNG)
 
-Once Docker is ready, you can proceed to the [Hummingbot installation commands](/installation/docker/#install-hummingbot).
+Once Docker is ready, you can proceed to the [Hummingbot installation commands](/installation/docker/#installing-hummingbot).

@@ -30,7 +30,7 @@ When running `config`, you are asked to select a strategy and enter strategy-spe
 * [Discovery](/strategies/discovery#configuration-walkthrough)
 
 !!! note "Essential Trading Considerations"
-    When configuring your bot, make sure you are aware of your exchange's minimum order sizes and fees, and check that your trading pair has sufficient order book and trading volumes. You can find more info about specific exchanges in the [connector section](/connectors.md).
+    When configuring your bot, make sure you are aware of your exchange's minimum order sizes and fees, and check that your trading pair has sufficient order book and trading volumes. You can find more info about specific exchanges in the [connector section](/connectors).
 
 ## Config file templates
 
