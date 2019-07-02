@@ -32,9 +32,9 @@ class CoinbaseProAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._bausds_logger is None:
-            cls._bausds_logger = logging.getLogger(__name__)
-        return cls._bausds_logger
+        if cls._cbpausds_logger is None:
+            cls._cbpausds_logger = logging.getLogger(__name__)
+        return cls._cbpausds_logger
 
     def __init__(self, coinbase_pro_auth: CoinbaseProAuth, symbols: Optional[List[str]] = []):
         self._coinbase_pro_auth: CoinbaseProAuth = coinbase_pro_auth
