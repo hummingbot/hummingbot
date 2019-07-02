@@ -404,10 +404,6 @@ cdef class ArbitrageStrategy(StrategyBase):
             self.c_start_tracking_market_order(sell_market_symbol_pair, sell_order_id, True, quantized_order_amount)
             self.logger().info(self.format_status())
 
-    def log_with_clock(self, log_level: int, msg: str):
-        clock_timestamp = pd.Timestamp(self._current_timestamp, unit="s", tz="UTC")
-        self.logger().log(log_level, f"{msg} [clock={str(clock_timestamp)}]")
-
     cdef c_buy_with_specific_market(self, object market_symbol_pair, double amount,
                                     object order_type = OrderType.MARKET, double price = 0.0):
         cdef:

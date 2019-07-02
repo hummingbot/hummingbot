@@ -1,3 +1,4 @@
+import logging
 from typing import (
     List)
 
@@ -13,6 +14,10 @@ NaN = float("nan")
 
 
 cdef class StrategyBase(TimeIterator):
+    @classmethod
+    def logger(cls) -> logging.Logger:
+        raise NotImplementedError
+
     def __init__(self):
         super().__init__()
 
@@ -25,6 +30,10 @@ cdef class StrategyBase(TimeIterator):
 
     def stop(self):
         pass
+
+    def log_with_clock(self, log_level: int, msg: str, **kwargs):
+        clock_timestamp = pd.Timestamp(self._current_timestamp, unit="s", tz="UTC")
+        self.logger().log(log_level, f"{msg} [clock={str(clock_timestamp)}]", **kwargs)
 
     @property
     def trades(self) -> List[Trade]:
