@@ -300,6 +300,3 @@ class HummingbotApplication(*commands):
            liquidity_bounty_config_map.get("liquidity_bounty_client_id").value is not None:
             self.liquidity_bounty = LiquidityBounty.get_instance()
             self.liquidity_bounty.start()
-
-
-
