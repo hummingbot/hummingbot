@@ -6,7 +6,7 @@ The timeline below shows the past milestones we have completed, along with the f
 * Received development grant from [0x Project](https://0x.org)
 * Added Ethereum wallet interface
 * Added connectors for [Binance](/connectors/binance) and [DDEX](/connectors/ddex)
-* Released <a href="Hummingbot whitepaper.pdf" class="heap-whitepaper">whitepaper</a>
+* Released [whitepaper](https://www.hummingbot.io/whitepaper.pdf)
 
 ## Q1 2019
 * [Radar Relay](/connectors/radar-relay) connector

@@ -117,8 +117,8 @@ nav:
       - Strategies:
         - Strategy Overview: strategies.md
         - Arbitrage: strategies/arbitrage.md
-        - Pure Market Making: strategies/pure-market-making.md
         - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
+        - Pure Market Making: strategies/pure-market-making.md
         - Discovery: strategies/discovery.md
       - Support:
         - Contact and Support: support.md
@@ -133,8 +133,8 @@ nav:
         - 3. Run a bot: bounties/tutorial/bot.md
       - Active Bounties:
         - Harmony $ONE Makers: bounties/active/harmony.md
-    - Release notes:
-      - Release notes: release-notes.md
+    - Release Notes:
+      - About Releases: release-notes.md
       - 0.9.1: release-notes/0.9.1.md
       - 0.9.0: release-notes/0.9.0.md
       - 0.8.1: release-notes/0.8.1.md
