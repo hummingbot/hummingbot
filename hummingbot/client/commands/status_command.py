@@ -1,8 +1,9 @@
+import pandas as pd
+import time
 from collections import (
     deque,
     OrderedDict
 )
-import pandas as pd
 from typing import List
 
 from hummingbot.logger.application_warning import ApplicationWarning
@@ -17,6 +18,13 @@ if TYPE_CHECKING:
 
 
 class StatusCommand:
+    def _expire_old_application_warnings(self,  # type: HummingbotApplication
+                                         ):
+        now: float = time.time()
+        expiry_threshold: float = now - self.APP_WARNING_EXPIRY_DURATION
+        while len(self._app_warnings) > 0 and self._app_warnings[0].timestamp < expiry_threshold:
+            self._app_warnings.popleft()
+
     def _format_application_warnings(self,  # type: HummingbotApplication
                                      ) -> str:
         lines: List[str] = []
