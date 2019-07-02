@@ -9,20 +9,17 @@ Hummingbot can also be installed by utilizing the built-in Windows Subsystem for
 
 ## Installing Hummingbot on Windows Subsystems for Linux
 
-!!! Warning
-    Windows source installation has minimal support and is not recommended. We suggest users either install via Docker or use a cloud VM.
-
-Below, we summarize instructions for installing Hummingbot from source on Windows 10, using Windows Subsystem for Linux (WSL). Users may use <a href="ttps://www.virtualbox.org/" target="_blank">VirtualBox</a> rather than WSL.
+Below, we summarize instructions for installing Hummingbot from source on Windows 10, using Windows Subsystem for Linux (WSL). Users may use [VirtualBox](https://www.virtualbox.org/) rather than WSL.
 
 ### 1. Install Ubuntu in Windows Subsystem for Linux
 
-Follow these <a href="https://docs.microsoft.com/en-us/windows/wsl/install-win10" target="_blank">instructions</a> for installing Windows Subsystem for Linux, and then Ubuntu.
+Follow these [instructions](https://docs.microsoft.com/en-us/windows/wsl/install-win10) for installing Windows Subsystem for Linux, and then Ubuntu.
 
 ### 2. Install Hummingbot on Linux Subsystem
 
 ![Bash for Windows](/assets/img/bash-for-windows.png)
 
-Once you can run Linux on your computer, you can proceed to either of the following guides to setup and run `hummingbot`:
+Once you can run Linux on your computer, you can proceed to either of the following guides to setup and run Hummingbot:
 
 - [Install on Linux from source](/installation/linux/)
 - [Install on Linux from Docker](/installation/docker_linux/)
