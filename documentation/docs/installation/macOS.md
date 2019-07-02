@@ -2,7 +2,7 @@
 
 ## Dependencies
 
-Running `hummingbot` on **Mac OSX** requires [Xcode](https://developer.apple.com/xcode/) and Xcode command line tools.
+Running Hummingbot on **Mac OSX** requires [Xcode](https://developer.apple.com/xcode/) and Xcode command line tools.
 
 ### 1. Install Xcode command line tools
 
@@ -68,7 +68,7 @@ The environment has been activated when you see a `(hummingbot)` prefix before y
     to type `conda init bash` if you see a message saying that your shell is not configured to use `conda activate`.
 
 !!! note
-    Ensure that you have activated the `hummingbot` environment before **compiling** or **running the bot**.
+    Ensure that you have activated the Hummingbot environment before **compiling** or **running the bot**.
 
 ## 5. Compile
 

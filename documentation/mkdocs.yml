@@ -74,13 +74,13 @@ markdown_extensions:
 nav:
     - General:
       - Intro:
-        - Getting started: index.md
-        - FAQ: faq.md
-        - Whitepaper: whitepaper.md
-        - Roadmap: roadmap.md
-        - Terminology: glossary.md
+        - Getting Started: index.md
+        - Hummingbot FAQs: faq.md
+        - Our Whitepaper: whitepaper.md
+        - Our Timeline: roadmap.md
+        - Useful Terminology: glossary.md
       - Installation:
-        - Installation: installation.md
+        - Installing Overview: installation.md
         - Install on Windows:
           - From Docker: installation/docker_windows.md
           - From Source: installation/windows.md
@@ -90,41 +90,52 @@ nav:
         - Install on Linux:
           - From Docker: installation/docker_linux.md
           - From Source: installation/linux.md
-        - Install in cloud: installation/cloud.md
-        - Run on Docker: installation/docker.md
-        - API keys: installation/api-keys.md
-        - Ethereum wallet: installation/wallet.md
-        - Ethereum node:
-          - Ethereum node: installation/node/node.md
-          - Get a free Ethererum node: installation/node/infura.md
+        - Install in the Cloud: installation/cloud.md
+        - Starting Bots on Docker: installation/docker.md
+        - Using API Keys: installation/api-keys.md
+        - Ethereum Wallet: installation/wallet.md
+        - Ethereum Node:
+          - Using Ethereum Nodes: installation/node/node.md
+          - Set Up a Free Node: installation/node/infura.md
       - Operation:
-        - Client: operation/client.md
-        - Configuration: operation/configuration.md
-        - Running bots: operation/running-bots.md
-        - Running bots in the cloud: operation/running-bots-in-the-cloud.md
-        - Logging: operation/logging.md
-        - Exchange rates: operation/exchange-rates.md
-        - Telegram integration: operation/telegram.md
-        - Debug console: operation/debug.md
+        - Using the Client: operation/client.md
+        - Configuring Hummingbot: operation/configuration.md
+        - Running Trading Bots: operation/running-bots.md
+        - Tips for Cloud Users: operation/running-bots-in-the-cloud.md
+        - Logs and Logging: operation/logging.md
+        - Using Exchange Rates: operation/exchange-rates.md
+        - Integrating Telegram: operation/telegram.md
+        - The Debug Console: operation/debug.md
       - Connectors:
-        - Connectors: connectors.md
+        - About Connectors: connectors.md
         - Binance: connectors/binance.md
         - Coinbase Pro: connectors/coinbase.md
         - DDEX: connectors/ddex.md
-        - Radar Relay: connectors/radar-relay.md
         - IDEX: connectors/idex.md
-        - 0x open order book relayers: connectors/0x.md
+        - Radar Relay: connectors/radar-relay.md
+        - 0x Relayers: connectors/0x.md
       - Strategies:
-        - Strategies: strategies.md
-        - Cross-exchange market making: strategies/cross-exchange-market-making.md
+        - Strategy Overview: strategies.md
         - Arbitrage: strategies/arbitrage.md
+        - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
+        - Pure Market Making: strategies/pure-market-making.md
         - Discovery: strategies/discovery.md
-        - Pure market making: strategies/pure-market-making.md
       - Support:
-        - Support: support.md
-        - Bug bounty program: support/bug-bounty-program.md
-    - Release notes:
-      - Release notes: release-notes.md
+        - Contact and Support: support.md
+        - Bug Bounty Program: support/bug-bounty-program.md
+    - Bounties:
+      - Introduction: bounties/intro.md
+      - Bounty FAQ: bounties/faq.md
+      - Tutorial:
+        - Important Info: bounties/tutorial.md
+        - 1. Install: bounties/tutorial/install.md
+        - 2. Register: bounties/tutorial/register.md
+        - 3. Run a bot: bounties/tutorial/bot.md
+      - Active Bounties:
+        - Harmony $ONE Makers: bounties/active/harmony.md
+    - Release Notes:
+      - About Releases: release-notes.md
+      - 0.9.1: release-notes/0.9.1.md
       - 0.9.0: release-notes/0.9.0.md
       - 0.8.1: release-notes/0.8.1.md
       - 0.8.0: release-notes/0.8.0.md
@@ -136,13 +147,3 @@ nav:
       - 0.3.1 (beta): release-notes/0.3.1.md
       - 0.3.0: release-notes/0.3.0.md
       - 0.2.0: release-notes/0.2.0.md
-    - Bounties:
-      - Intro: bounties/intro.md
-      - FAQ: bounties/faq.md
-      - Tutorial:
-        - Tutorial: bounties/tutorial.md
-        - 1. Install: bounties/tutorial/install.md
-        - 2. Register: bounties/tutorial/register.md
-        - 3. Run a bot: bounties/tutorial/bot.md
-      - Active bounties:
-        - Harmony $ONE Makers: bounties/active/harmony.md

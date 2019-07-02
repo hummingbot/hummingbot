@@ -2,28 +2,32 @@
 
 This section contains information about official connectors for individual exchanges and protocols, including:
 
-* Setup
-* Configuration
-* Connector-specific tips and issues
+* General information
+* Setup and configuration
+* Minimum order sizes, fees, etc.
 
-## Currently supported connectors
+## What are Connectors?
+
+Connectors are packages of code that link Hummingbot's internal trading algorithms with live information from different cryptocurrency exchanges. They interact with a given exchange's API, such as by gathering order book data and sending and cancelling trades. See below for the list of exchanges which Hummingbot currently has connectors to.
+
+## Currently Supported Exchanges
 
 * [Binance](/connectors/binance)
-* [Radar Relay](/connectors/radar-relay)
-* [DDEX](/connectors/ddex)
-* [0x open order book relayers](/connectors/0x)
-* [IDEX](/connectors/IDEX)
 * [Coinbase Pro](/connectors/coinbase)
+* [DDEX](/connectors/ddex)
+* [IDEX](/connectors/IDEX)
+* [Radar Relay](/connectors/radar-relay)
+* [0x Relayers](/connectors/0x)
 
-## Community contributed connectors
+## Community Contributed Connectors
 
 * [Bamboo Relay](https://bamboorelay.com)
 
-## Coming soon to Hummingbot
+## Coming Soon to Hummingbot
 
-* Bitfinex
-* Kraken
 * Huobi
 * Bittrex
+* Bitfinex
+* Kraken
 * Bitmex
 * Binance DEX
