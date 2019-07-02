@@ -31,6 +31,19 @@ if TYPE_CHECKING:
 
 
 class StartCommand:
+    async def _run_clock(self):
+        with self.clock as clock:
+            await clock.run()
+
+    async def wait_till_ready(self,  # type: HummingbotApplication
+                              func: Callable, *args, **kwargs):
+        while True:
+            all_ready = all([market.ready for market in self.markets.values()])
+            if not all_ready:
+                await asyncio.sleep(0.5)
+            else:
+                return func(*args, **kwargs)
+
     def start(self,  # type: HummingbotApplication
               log_level: Optional[str] = None):
         is_valid = self.status()
