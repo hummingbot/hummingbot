@@ -10,7 +10,7 @@ Because Binance is a centralized exchange, you will need to generate and provide
 
 ### Creating Binance API Keys
 
-1 - Log into your account at https://www.binance.com/, then select **Account** (If you do not have an account, you will have to create one and verify your ID).
+1 - Log into your account at https://www.binance.com, then select **Account** (If you do not have an account, you will have to create one and verify your ID).
 
 !!! tip "Important tip"
     You must enable 2FA in your Binance account to create the API key. [How to enable 2FA?](https://support.binance.com/hc/en-us/sections/360000011592-Two-Factor-Authentication)
