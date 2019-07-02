@@ -27,16 +27,16 @@ Hummingbot can be installed locally in two ways: via Docker or from source.  The
 
 Installing via the Cloud:
 
-* [Setting up a Virtual Machine](/installation/cloud.md)
+* [Setting up a Virtual Machine](/installation/cloud)
 
 Installing from Docker:
 
-* [For Windows Systems](/installation/windows.md)
-* [For macOS Systems](/installation/macOS.md)
-* [For Linux Systems](/installation/linux.md)
+* [For Windows Systems](/installation/windows)
+* [For macOS Systems](/installation/macOS)
+* [For Linux Systems](/installation/linux)
 
 Installing from source:
 
-* [For Windows Systems](/installation/docker_windows.md)
-* [For macOS Systems](/installation/docker_macOS.md)
-* [For Linux Systems](/installation/docker_linux.md)
+* [For Windows Systems](/installation/docker_windows)
+* [For macOS Systems](/installation/docker_macOS)
+* [For Linux Systems](/installation/docker_linux)
