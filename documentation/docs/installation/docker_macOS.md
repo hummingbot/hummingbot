@@ -6,4 +6,4 @@ You can install Docker by [downloading an installer](https://docs.docker.com/v17
 
 ## Run Hummingbot
 
-Once you have Docker installed, you can proceed to the [Hummingbot installation commands](/installation/docker/#install-hummingbot).
+Once you have Docker installed, you can proceed to the [Hummingbot installation commands](/installation/docker/#installing-hummingbot).
