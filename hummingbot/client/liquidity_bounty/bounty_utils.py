@@ -52,12 +52,7 @@ class LiquidityBounty(NetworkBase):
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client: Optional[aiohttp.ClientSession] = None
         self._status: Dict[str, Any] = {}
-        self._active_bounties: List[Dict[str, Any]] = [{
-            "base_asset": "ONE",
-            "market": "binance",
-            "start_time": 1559347200000,
-            "end_time": 1564617600000,
-        }]
+        self._active_bounties: List[Dict[str, Any]] = []
         # timestamp = -1 when when no data has been fetched / timestamp = 0 when no trades have ever been submitted
         self._last_submitted_trade_timestamp: int = -1
         self._last_timestamp_fetched_event = asyncio.Event()
