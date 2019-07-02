@@ -158,6 +158,10 @@ class DDEXMarketUnitTest(unittest.TestCase):
         self.assertGreaterEqual((balances["ETH"]), 0)
         self.assertGreaterEqual((balances["WETH"]), 0)
 
+    def test_get_available_balances(self):
+        balance = self.market.get_available_balance("ETH")
+        self.assertGreaterEqual(balance, 0)
+
     def test_list_orders(self):
         [orders] = self.run_parallel(self.market.list_orders())
         self.assertGreaterEqual(len(orders), 0)
