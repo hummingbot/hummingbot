@@ -3,7 +3,6 @@
 import asyncio
 from collections import (
     deque,
-    OrderedDict
 )
 from os.path import (
     join,
@@ -43,8 +42,6 @@ from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.client.performance_analysis import PerformanceAnalysis
 from hummingbot.client.ui.keybindings import load_key_bindings
 from hummingbot.client.ui.parser import (
     load_parser,
@@ -73,11 +70,9 @@ from hummingbot.client.config.config_helpers import (
     parse_cvar_value,
     copy_strategy_template,
     get_erc20_token_addresses,
-    save_to_yml,
 )
 from hummingbot.client.settings import (
     EXCHANGES,
-    LIQUIDITY_BOUNTY_CONFIG_PATH,
 )
 from hummingbot.logger.report_aggregator import ReportAggregator
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -86,7 +81,6 @@ from hummingbot.strategy.cross_exchange_market_making import (
 )
 from hummingbot.strategy.pure_market_making import MarketInfo
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
-from hummingbot.core.utils.ethereum import check_web3
 from hummingbot.core.utils.stop_loss_tracker import StopLossTracker
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.notifier.notifier_base import NotifierBase
@@ -543,112 +537,6 @@ class HummingbotApplication(*commands):
             self.liquidity_bounty = LiquidityBounty.get_instance()
             self.liquidity_bounty.start()
 
-    def _format_application_warnings(self) -> str:
-        lines: List[str] = []
-        if len(self._app_warnings) < 1:
-            return ""
-
-        lines.append("\n  Warnings:")
-
-        if len(self._app_warnings) < self.APP_WARNING_STATUS_LIMIT:
-            for app_warning in reversed(self._app_warnings):
-                lines.append(f"    * {pd.Timestamp(app_warning.timestamp, unit='s')} - "
-                             f"({app_warning.logger_name}) - {app_warning.warning_msg}")
-        else:
-            module_based_warnings: OrderedDict = OrderedDict()
-            for app_warning in reversed(self._app_warnings):
-                logger_name: str = app_warning.logger_name
-                if logger_name not in module_based_warnings:
-                    module_based_warnings[logger_name] = deque([app_warning])
-                else:
-                    module_based_warnings[logger_name].append(app_warning)
-
-            warning_lines: List[str] = []
-            while len(warning_lines) < self.APP_WARNING_STATUS_LIMIT:
-                logger_keys: List[str] = list(module_based_warnings.keys())
-                for key in logger_keys:
-                    warning_item: ApplicationWarning = module_based_warnings[key].popleft()
-                    if len(module_based_warnings[key]) < 1:
-                        del module_based_warnings[key]
-                    warning_lines.append(f"    * {pd.Timestamp(warning_item.timestamp, unit='s')} - "
-                                         f"({key}) - {warning_item.warning_msg}")
-            lines.extend(warning_lines[:self.APP_WARNING_STATUS_LIMIT])
-
-        return "\n".join(lines)
-
-    def status(self) -> bool:
-        # Preliminary checks.
-        self._notify("\n  Preliminary checks:")
-        if self.config_complete:
-            self._notify("   - Config check: Config complete")
-        else:
-            self._notify('   x Config check: Pending config. Please enter "config" before starting the bot.')
-            return False
-
-        eth_node_valid = check_web3(global_config_map.get("ethereum_rpc_url").value)
-        if eth_node_valid:
-            self._notify("   - Node check: Ethereum node running and current")
-        else:
-            self._notify('   x Node check: Bad ethereum rpc url. Your node may be syncing. '
-                         'Please re-configure by entering "config ethereum_rpc_url"')
-            return False
-
-        if self.wallet is not None:
-            if self.wallet.network_status is NetworkStatus.CONNECTED:
-                if self._trading_required:
-                    has_minimum_eth = self.wallet.get_balance("ETH") > 0.01
-                    if has_minimum_eth:
-                        self._notify("   - ETH wallet check: Minimum ETH requirement satisfied")
-                    else:
-                        self._notify("   x ETH wallet check: Not enough ETH in wallet. "
-                                     "A small amount of Ether is required for sending transactions on "
-                                     "Decentralized Exchanges")
-            else:
-                self._notify("   x ETH wallet check: ETH wallet is not connected.")
-
-        loading_markets: List[MarketBase] = []
-        for market in self.markets.values():
-            if not market.ready:
-                loading_markets.append(market)
-
-        if len(loading_markets) > 0:
-            self._notify(f"   x Market check:  Waiting for markets " +
-                         ",".join([m.name.capitalize() for m in loading_markets]) + f" to get ready for trading. \n"
-                         f"                    Please keep the bot running and try to start again in a few minutes. \n")
-
-            for market in loading_markets:
-                market_status_df = pd.DataFrame(data=market.status_dict.items(), columns=["description", "status"])
-                self._notify(
-                    f"   x {market.name.capitalize()} market status:\n" +
-                    "\n".join(["     " + line for line in market_status_df.to_string(index=False,).split("\n")]) +
-                    "\n"
-                )
-            return False
-
-        elif not all([market.network_status is NetworkStatus.CONNECTED for market in self.markets.values()]):
-            offline_markets: List[str] = [
-                market_name
-                for market_name, market
-                in self.markets.items()
-                if market.network_status is not NetworkStatus.CONNECTED
-            ]
-            for offline_market in offline_markets:
-                self._notify(f"   x Market check:  {offline_market} is currently offline.")
-
-        # See if we can print out the strategy status.
-        self._notify("   - Market check: All markets ready")
-        if self.strategy is None:
-            self._notify("   x initializing strategy.")
-        else:
-            self._notify(self.strategy.format_status() + "\n")
-
-        # Application warnings.
-        self._expire_old_application_warnings()
-        if len(self._app_warnings) > 0:
-            self._notify(self._format_application_warnings())
-
-        return True
-
     def get_balance(self, currency: str = "WETH", wallet: bool = False, exchange: str = None):
         if wallet:
             if self.wallet is None:
@@ -722,26 +610,6 @@ class HummingbotApplication(*commands):
             self._notify("\n".join(lines))
         else:
             self.help("list")
-
-    def describe(self, wallet: bool = False, exchange: str = None):
-        if wallet:
-            if self.wallet is None:
-                self._notify('None available. Your wallet may not have been initialized. Enter "start" to initialize '
-                             'your wallet.')
-            else:
-                self._notify(self.wallet.address)
-                self._notify(f"{self.get_wallet_balance()}")
-        elif exchange is not None:
-            if exchange in self.markets:
-                self._notify(f"{self.get_exchange_balance(exchange)}")
-            else:
-                raise InvalidCommandError("The exchange you specified has not been initialized")
-        else:
-            self.help("describe")
-
-    async def _run_clock(self):
-        with self.clock as clock:
-            await clock.run()
 
     def stop(self, skip_order_cancellation: bool = False):
         asyncio.ensure_future(self.stop_loop(skip_order_cancellation), loop=self.ev_loop)
@@ -846,169 +714,4 @@ class HummingbotApplication(*commands):
             else:
                 self._notify("No past trades to export")
 
-    def history(self):
-        self.list("trades")
-        self.compare_balance_snapshots()
-        self.analyze_performance()
 
-    async def wait_till_ready(self, func: Callable, *args, **kwargs):
-        while True:
-            all_ready = all([market.ready for market in self.markets.values()])
-            if not all_ready:
-                await asyncio.sleep(0.5)
-            else:
-                return func(*args, **kwargs)
-
-    def balance_snapshot(self) -> Dict[str, Dict[str, float]]:
-        snapshot: Dict[str, Any] = {}
-        for market_name in self.markets:
-            balance_dict = self.markets[market_name].get_all_balances()
-            for c in self.assets:
-                if c not in snapshot:
-                    snapshot[c] = {}
-                if c in balance_dict:
-                    snapshot[c][market_name] = balance_dict[c]
-                else:
-                    snapshot[c][market_name] = 0.0
-        return snapshot
-
-    def compare_balance_snapshots(self):
-        if len(self.starting_balances) == 0:
-            self._notify("  Balance snapshots are not available before bot starts")
-            return
-
-        rows = []
-        for market_name in self.markets:
-            for asset in self.assets:
-                starting_balance = self.starting_balances.get(asset).get(market_name)
-                current_balance = self.balance_snapshot().get(asset).get(market_name)
-                rows.append([market_name,
-                             asset,
-                             starting_balance,
-                             current_balance,
-                             current_balance - starting_balance])
-
-        df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Delta"])
-        lines = ["", "  Performance:"] + ["    " + line for line in str(df).split("\n")]
-        self._notify("\n".join(lines))
-
-    def analyze_performance(self):
-        """ Determine the profitability of the trading bot. """
-        if len(self.starting_balances) == 0:
-            self._notify("  Performance analysis is not available before bot starts")
-            return
-
-        performance_analysis = PerformanceAnalysis()
-
-        for market_symbol_pair in self.market_symbol_pairs:
-            for is_base in [True, False]:
-                for is_starting in [True, False]:
-                    market_name = market_symbol_pair.market.name
-                    asset_name = market_symbol_pair.base_asset if is_base else market_symbol_pair.quote_asset
-                    amount = self.starting_balances[asset_name][market_name] if is_starting \
-                        else self.balance_snapshot()[asset_name][market_name]
-                    amount = float(amount)
-                    performance_analysis.add_balances(asset_name, amount, is_base, is_starting)
-
-        # Compute the current exchange rate. We use the first market_symbol_pair because
-        # if the trading pairs are different, such as WETH-DAI and ETH-USD, the currency
-        # pairs above will contain the information in terms of the first trading pair.
-        market_pair_info = self.market_symbol_pairs[0]
-        market = market_pair_info.market
-        buy_price = market.get_price(market_pair_info.trading_pair, True)
-        sell_price = market.get_price(market_pair_info.trading_pair, False)
-        price = (buy_price + sell_price)/2.0
-        percent = performance_analysis.compute_profitability(price)
-
-        self._notify("\n" + "  Profitability:\n" + "    " + str(percent) + "%")
-
-    def bounty(self, register: bool = False, status: bool = False, terms: bool = False, list: bool = False):
-        """ Router function for `bounty` command """
-        if terms:
-            asyncio.ensure_future(self.bounty_print_terms(), loop=self.ev_loop)
-        elif register:
-            asyncio.ensure_future(self.bounty_registration(), loop=self.ev_loop)
-        elif list:
-            asyncio.ensure_future(self.bounty_list(), loop=self.ev_loop)
-        else:
-            asyncio.ensure_future(self.bounty_show_status(), loop=self.ev_loop)
-
-    async def print_doc(self, doc_path: str):
-        with open(doc_path) as doc:
-            data = doc.read()
-            self._notify(str(data))
-
-    async def bounty_show_status(self):
-        """ Show bounty status """
-        if self.liquidity_bounty is None:
-            self._notify("Liquidity bounty not active. Please register for the bounty by entering `bounty --register`.")
-            return
-        else:
-            status_table: str = self.liquidity_bounty.formatted_status()
-            self._notify(status_table)
-
-            volume_metrics: List[Dict[str, Any]] = \
-                await self.liquidity_bounty.fetch_filled_volume_metrics(start_time=self.start_time or -1)
-            self._notify(self.liquidity_bounty.format_volume_metrics(volume_metrics))
-
-    async def bounty_print_terms(self):
-        """ Print bounty Terms and Conditions to output pane """
-        await self.print_doc(join(dirname(__file__), "./liquidity_bounty/terms_and_conditions.txt"))
-
-    async def bounty_registration(self):
-        """ Register for the bounty program """
-        if self.liquidity_bounty:
-            self._notify("You are already registered to collect bounties.")
-            return
-        await self.bounty_config_loop()
-        self._notify("Registering for liquidity bounties...")
-        self.liquidity_bounty = LiquidityBounty.get_instance()
-        try:
-            registration_results = await self.liquidity_bounty.register()
-            self._notify("Registration successful.")
-            client_id = registration_results["client_id"]
-            liquidity_bounty_config_map.get("liquidity_bounty_client_id").value = client_id
-            await save_to_yml(LIQUIDITY_BOUNTY_CONFIG_PATH, liquidity_bounty_config_map)
-            self.liquidity_bounty.start()
-            self._notify("Hooray! You are now collecting bounties. ")
-        except Exception as e:
-            self._notify(str(e))
-
-    async def bounty_list(self):
-        """ List available bounties """
-        if self.liquidity_bounty is None:
-            self.liquidity_bounty = LiquidityBounty.get_instance()
-        await self.liquidity_bounty.fetch_active_bounties()
-        self._notify(self.liquidity_bounty.formatted_bounties())
-
-    async def bounty_config_loop(self):
-        """ Configuration loop for bounty registration """
-        self.placeholder_mode = True
-        self.app.toggle_hide_input()
-        self._notify("Starting registration process for liquidity bounties:")
-
-        try:
-            for key, cvar in liquidity_bounty_config_map.items():
-                if key == "liquidity_bounty_enabled":
-                    await self.print_doc(join(dirname(__file__), "./liquidity_bounty/requirements.txt"))
-                elif key == "agree_to_terms":
-                    await self.bounty_print_terms()
-                elif key == "agree_to_data_collection":
-                    await self.print_doc(join(dirname(__file__), "./liquidity_bounty/data_collection_policy.txt"))
-                elif key == "eth_address":
-                    self._notify("\nYour wallets:")
-                    self.list("wallets")
-
-                value = await self.config_single_variable(cvar)
-                cvar.value = parse_cvar_value(cvar, value)
-                if cvar.type == "bool" and cvar.value is False:
-                    raise ValueError(f"{cvar.key} is required.")
-                await save_to_yml(LIQUIDITY_BOUNTY_CONFIG_PATH, liquidity_bounty_config_map)
-        except ValueError as e:
-            self._notify(f"Registration aborted: {str(e)}")
-        except Exception as e:
-            self.logger().error(f"Error configuring liquidity bounty: {str(e)}")
-
-        self.app.change_prompt(prompt=">>> ")
-        self.app.toggle_hide_input()
-        self.placeholder_mode = False
