@@ -18,6 +18,8 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.core.data_type.order_book import OrderBook
 
+from .deposit_info import DepositInfo
+
 NaN = float("nan")
 
 
@@ -108,8 +110,8 @@ cdef class MarketBase(NetworkIterator):
     def withdraw(self, address: str, currency: str, amount: float) -> str:
         return self.c_withdraw(address, currency, amount)
 
-    def deposit(self, from_wallet: WalletBase, currency: str, amount: float) -> str:
-        return self.c_deposit(from_wallet, currency, amount)
+    async def get_deposit_info(self, asset: str, amount: float) -> DepositInfo:
+        raise NotImplementedError
 
     def get_order_book(self, symbol: str) -> OrderBook:
         return self.c_get_order_book(symbol)
@@ -172,9 +174,6 @@ cdef class MarketBase(NetworkIterator):
         raise NotImplementedError
 
     cdef str c_withdraw(self, str address, str currency, double amount):
-        raise NotImplementedError
-
-    cdef str c_deposit(self, WalletBase from_wallet, str currency, double amount):
         raise NotImplementedError
 
     cdef OrderBook c_get_order_book(self, str symbol):
