@@ -2,9 +2,7 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import MarketBase
 import logging
-from hummingbot.core.event.events import (
-TradeFee
-)
+
 from .data_types import SizingProposal
 from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
 from hummingbot.logger import HummingbotLogger
@@ -67,17 +65,12 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
 
         for idx in range(self.number_of_orders):
             current_order_size = self.order_start_size + self.order_step_size * idx
-            # buy_fees = market.c_get_fee(market_info.base_currency, market_info.quote_currency,
-            #                         OrderType.MARKET, TradeType.BUY,
-            #                         current_order_size, pricing_proposal.buy_order_prices[idx])
-            buy_fees = TradeFee(percent=0.001)
+            required_quote_asset_balance += ( float(current_order_size) * float(pricing_proposal.buy_order_prices[idx]) )
             required_base_asset_balance += float(current_order_size)
             if market.name == "binance":
-                current_order_size = market.c_quantize_order_amount(market_info.symbol, current_order_size*(1+float(buy_fees.percent)), pricing_proposal.buy_order_prices[idx])
-                required_quote_asset_balance += ( float(current_order_size) * float(pricing_proposal.buy_order_prices[idx]) )
+                current_order_size = market.c_quantize_order_amount(market_info.symbol, current_order_size, pricing_proposal.buy_order_prices[idx])
             else:
                 current_order_size = market.c_quantize_order_amount(market_info.symbol, current_order_size)
-                required_quote_asset_balance += ( float(current_order_size) * float(pricing_proposal.buy_order_prices[idx]) *(1+float(buy_fees.percent)) )
 
             if self._log_warning_order_size:
                 if current_order_size == 0:

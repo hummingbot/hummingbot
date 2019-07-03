@@ -6,11 +6,9 @@ import logging; logging.basicConfig(level=logging.DEBUG)
 import pandas as pd
 
 import hummingsim
-from hummingbot.strategy.pure_market_making import ConstantMultipleSpreadPricingDelegate, StaggeredMultipleSizeSizingDelegate
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.binance_order_book_loader_v2 import BinanceOrderBookLoaderV2
 from hummingsim.backtest.market import QuantizationParams
-from hummingbot.strategy.pure_market_making.data_types import *
 from hummingsim.backtest.market_config import (
     MarketConfig,
     AssetType
@@ -21,7 +19,7 @@ from hummingbot.core.clock import (
     ClockMode
 )
 from hummingbot.strategy.pure_market_making import (
-    PureMarketMakingStrategyV2,
+    PureMarketMakingStrategy,
     PureMarketPair,
 )
 
@@ -35,12 +33,6 @@ def main():
     end = pd.Timestamp("2019-01-02", tz="UTC")
     binance_symbol = ("ETHUSDT", "ETH", "USDT")
     #ddex_symbol = ("WETH-DAI", "WETH", "DAI")
-    equal_strategy_sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size=1.0,
-                                                                              order_step_size=0,
-                                                                              number_of_orders=5)
-    staggered_strategy_sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size=1.0,
-                                                                                  order_step_size=0.5,
-                                                                                  number_of_orders=5)
 
     binance_market = BacktestMarket()
     ddex_market = BacktestMarket()
@@ -55,14 +47,12 @@ def main():
     binance_market.set_quantization_param(QuantizationParams("ETHUSDT", 5, 3, 5, 3))
     #ddex_market.set_quantization_param(QuantizationParams("WETH-DAI", 5, 3, 5, 3))
 
-    market_pair = MarketInfo(market=binance_market, symbol="ETHUSDT", base_currency="ETH", quote_currency="USDT")
-    strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
-        [market_pair],
-        legacy_order_size=50000,
-        legacy_bid_spread=0.003,
-        legacy_ask_spread=0.003,
-        cancel_order_wait_time=45
-    )
+    market_pair = PureMarketPair(*([binance_market] + list(binance_symbol)))
+    strategy = PureMarketMakingStrategy([market_pair],
+                                        order_size = 50000,
+                                        bid_place_threshold = 0.003,
+                                        ask_place_threshold = 0.003,
+                                        logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL)
 
     clock = Clock(ClockMode.BACKTEST, tick_size=60,
                   start_time=start.timestamp(), end_time=end.timestamp() )
