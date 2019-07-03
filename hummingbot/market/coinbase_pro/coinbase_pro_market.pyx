@@ -49,6 +49,7 @@ from hummingbot.market.market_base import (
 )
 from hummingbot.wallet.wallet_base import WalletBase
 from hummingbot.wallet.wallet_base cimport WalletBase
+from hummingbot.market.trading_rule cimport TradingRule
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -222,46 +223,6 @@ cdef class InFlightDeposit:
     def __repr__(self) -> str:
         return f"InFlightDeposit(tracking_id='{self.tracking_id}', timestamp_ms={self.timestamp_ms}, " \
         f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
-
-
-cdef class TradingRule:
-    cdef:
-        public str symbol
-        public object quote_increment
-        public object base_min_size
-        public object base_max_size
-        public bint limit_only
-
-    @classmethod
-    def parse_exchange_info(cls, trading_rules: List[Any]) -> List[TradingRule]:
-        cdef:
-            list retval = []
-        for rule in trading_rules:
-            try:
-                symbol = rule.get("id")
-                retval.append(TradingRule(symbol,
-                                          Decimal(rule.get("quote_increment")),
-                                          Decimal(rule.get("base_min_size")),
-                                          Decimal(rule.get("base_max_size")),
-                                          rule.get("limit_only")))
-            except Exception:
-                CoinbaseProMarket.logger().error(f"Error parsing the symbol rule {rule}. Skipping.", exc_info=True)
-        return retval
-
-    def __init__(self, symbol: str,
-                 quote_increment: Decimal,
-                 base_min_size: Decimal,
-                 base_max_size: Decimal,
-                 limit_only: bool):
-        self.symbol = symbol
-        self.quote_increment = quote_increment
-        self.base_min_size = base_min_size
-        self.base_max_size = base_max_size
-        self.limit_only = limit_only
-
-    def __repr__(self) -> str:
-        return f"TradingRule(symbol='{self.symbol}', quote_increment={self.quote_increment}, " \
-               f"base_min_size={self.base_min_size}, base_max_size={self.base_max_size}, limit_only={self.limit_only}"
 
 
 cdef class CoinbaseProMarket(MarketBase):
@@ -518,10 +479,25 @@ cdef class CoinbaseProMarket(MarketBase):
             int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) <= 0:
             product_info = await self._api_request("get", path_url="/products")
-            trading_rules_list = TradingRule.parse_exchange_info(product_info)
+            trading_rules_list = self._format_trading_rules(product_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
                 self._trading_rules[trading_rule.symbol] = trading_rule
+
+    def _format_trading_rules(self, trading_rules: List[Any]) -> List[TradingRule]:
+        cdef:
+            list retval = []
+        for rule in trading_rules:
+            try:
+                symbol = rule.get("id")
+                retval.append(TradingRule(symbol,
+                                          min_price_increment=Decimal(rule.get("quote_increment")),
+                                          min_order_size=Decimal(rule.get("base_min_size")),
+                                          max_order_size=Decimal(rule.get("base_max_size")),
+                                          supports_market_orders=(not rule.get("limit_only"))))
+            except Exception:
+                self.logger().error(f"Error parsing the symbol rule {rule}. Skipping.", exc_info=True)
+        return retval
 
     async def _update_order_status(self):
         cdef:
@@ -781,9 +757,9 @@ cdef class CoinbaseProMarket(MarketBase):
 
         decimal_amount = self.quantize_order_amount(symbol, amount)
         decimal_price = self.quantize_order_price(symbol, price)
-        if decimal_amount < trading_rule.base_min_size:
+        if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
-                             f"{trading_rule.base_min_size}.")
+                             f"{trading_rule.min_order_size}.")
 
         try:
             self.c_start_tracking_order(order_id, "", symbol, True, order_type, decimal_amount, decimal_price)
@@ -837,9 +813,9 @@ cdef class CoinbaseProMarket(MarketBase):
 
         decimal_amount = self.quantize_order_amount(symbol, amount)
         decimal_price = self.quantize_order_price(symbol, price)
-        if decimal_amount < trading_rule.base_min_size:
+        if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
-                             f"{trading_rule.base_min_size}.")
+                             f"{trading_rule.min_order_size}.")
 
         try:
             self.c_start_tracking_order(order_id, "", symbol, False, order_type, decimal_amount, decimal_price)
@@ -1133,15 +1109,15 @@ cdef class CoinbaseProMarket(MarketBase):
     cdef object c_get_order_price_quantum(self, str symbol, double price):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
-        return trading_rule.quote_increment
+        return trading_rule.min_price_increment
 
     cdef object c_get_order_size_quantum(self, str symbol, double order_size):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
 
-        # Coinbase Pro is using the base_min_size as max_precision
-        # Order size must be a multiple of the base_min_size
-        return trading_rule.base_min_size
+        # Coinbase Pro is using the min_order_size as max_precision
+        # Order size must be a multiple of the min_order_size
+        return trading_rule.min_order_size
 
     cdef object c_quantize_order_amount(self, str symbol, double amount, double price=0.0):
         cdef:
@@ -1150,12 +1126,12 @@ cdef class CoinbaseProMarket(MarketBase):
         global s_decimal_0
         quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
 
-        # Check against base_min_size. If not passing either check, return 0.
-        if quantized_amount < trading_rule.base_min_size:
+        # Check against min_order_size. If not passing either check, return 0.
+        if quantized_amount < trading_rule.min_order_size:
             return s_decimal_0
 
-        # Check against base_max_size. If not passing either check, return 0.
-        if quantized_amount > trading_rule.base_max_size:
+        # Check against max_order_size. If not passing either check, return 0.
+        if quantized_amount > trading_rule.max_order_size:
             return s_decimal_0
 
         return quantized_amount
