@@ -414,7 +414,8 @@ cdef class DDEXMarket(MarketBase):
             locked_balances = await self.list_locked_balances()
             total_balances = self.get_all_balances()
             for currency, balance in total_balances.items():
-                self._account_available_balances[currency] = total_balances[currency] - locked_balances.get(currency, 0.0)
+                self._account_available_balances[currency] = Decimal(total_balances[currency]) - \
+                                                             locked_balances.get(currency, 0.0)
             self._last_update_available_balance_timestamp = current_timestamp
 
     async def _update_trading_rules(self):
@@ -743,12 +744,12 @@ cdef class DDEXMarket(MarketBase):
         response_data = await self._api_request('get', url, headers=self._generate_auth_headers())
         return response_data["data"]["order"]
 
-    async def list_locked_balances(self) -> Dict[str, float]:
+    async def list_locked_balances(self) -> Dict[str, Decimal]:
         url = "%s/account/lockedBalances" % (self.DDEX_REST_ENDPOINT,)
         response_data = await self._api_request('get', url=url, headers=self._generate_auth_headers())
         locked_balance_list = response_data["data"]["lockedBalances"]
         locked_balance_dict = {
-            locked_balance["symbol"]: float(locked_balance["amount"]) for locked_balance in locked_balance_list
+            locked_balance["symbol"]: Decimal(locked_balance["amount"]) for locked_balance in locked_balance_list
         }
         return locked_balance_dict
 
