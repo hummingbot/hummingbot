@@ -1173,10 +1173,6 @@ cdef class BinanceMarket(MarketBase):
         self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                              MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
 
-    cdef c_did_fail_tx(self, str tracking_id):
-        self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                             MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
-
     cdef c_start_tracking_order(self,
                                 str order_id,
                                 int64_t exchange_order_id,
