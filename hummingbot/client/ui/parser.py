@@ -58,11 +58,6 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
                              help="Type of object to list", nargs="?")
     list_parser.set_defaults(func=hummingbot.list)
 
-    describe_parser = subparsers.add_parser("describe", help="Print detailed description of objects ")
-    describe_parser.add_argument("-w", "--wallet", action="store_true", help="Describe current wallet")
-    describe_parser.add_argument("-e", "--exchange", help="Describe an exchange")
-    describe_parser.set_defaults(func=hummingbot.describe)
-
     get_balance_parser = subparsers.add_parser("get_balance", help="Print balance of a certain currency ")
     get_balance_parser.add_argument("-c", "--currency", help="Specify the currency you are querying balance for")
     get_balance_parser.add_argument("-w", "--wallet", action="store_true", help="Get balance in the current wallet")
