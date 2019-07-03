@@ -1310,7 +1310,7 @@ cdef class BinanceMarket(MarketBase):
         global s_decimal_0
         quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
 
-        # Check against min_order_size and min_quote_amount_increment. If not passing either check, return 0.
+        # Check against min_order_size and min_notional_size. If not passing either check, return 0.
         if quantized_amount < trading_rule.min_order_size:
             return s_decimal_0
         if price == 0:
