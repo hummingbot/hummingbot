@@ -1,6 +1,9 @@
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import MarketBase
+from hummingbot.core.event.events import (
+TradeFee
+)
 from typing import Optional
 import logging
 
@@ -36,6 +39,7 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
                                           object pricing_proposal):
         cdef:
             MarketBase market = market_info.market
+            object buy_fees
             double base_asset_balance = market.c_get_balance(market_info.base_currency)
             double quote_asset_balance = market.c_get_balance(market_info.quote_currency)
             double bid_order_size = self._order_size
@@ -43,13 +47,20 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
             bint has_active_bid = False
             bint has_active_ask = False
 
+        # buy_fees = market.c_get_fee(market_info.base_currency, market_info.quote_currency,
+        #                             OrderType.MARKET, TradeType.BUY,
+        #                             bid_order_size, pricing_proposal.buy_order_prices[0])
+        buy_fees = TradeFee(percent=0.001)
+
         if market.name == "binance":
-            bid_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size, pricing_proposal.buy_order_prices[0])
+            bid_order_size = market.c_quantize_order_amount(market_info.symbol, (self.order_size * (1+buy_fees.percent)), pricing_proposal.buy_order_prices[0])
             ask_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size, pricing_proposal.sell_order_prices[0])
+            required_quote_asset_balance = pricing_proposal.buy_order_prices[0] * bid_order_size
 
         else:
             bid_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size)
             ask_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size)
+            required_quote_asset_balance = pricing_proposal.buy_order_prices[0] * (1+float(buy_fees.percent)) * bid_order_size
 
         if self._log_warning_order_size:
 
@@ -74,7 +85,7 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
 
         if self._log_warning_balance:
 
-            if (quote_asset_balance < pricing_proposal.buy_order_prices[0] * bid_order_size):
+            if quote_asset_balance < required_quote_asset_balance:
                 self.logger().network(f"Buy(bid) order is not placed because there is not enough Quote asset. "
                                       f"Quote Asset: {quote_asset_balance}, Price: {pricing_proposal.buy_order_prices[0]},"
                                       f"Size: {bid_order_size}",
@@ -91,7 +102,7 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
 
 
         #Reset warning flag for balances if there is enough balance to place orders
-        if (quote_asset_balance >= pricing_proposal.buy_order_prices[0] * bid_order_size) and \
+        if (quote_asset_balance >= required_quote_asset_balance) and \
                 (base_asset_balance >= ask_order_size):
             self._log_warning_balance = True
 
@@ -101,7 +112,7 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
 
         return SizingProposal(
             ([bid_order_size]
-             if quote_asset_balance >= pricing_proposal.buy_order_prices[0] * bid_order_size and not has_active_bid
+             if quote_asset_balance >= required_quote_asset_balance and not has_active_bid
              else [0.0]),
             ([ask_order_size]
              if base_asset_balance >= ask_order_size and not has_active_ask else
