@@ -247,6 +247,7 @@ cdef class IDEXMarket(MarketBase):
                                                         symbols=symbols)
         self._trading_required = trading_required
         self._account_balances = {}
+        self._account_available_balances = {}
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
@@ -381,8 +382,9 @@ cdef class IDEXMarket(MarketBase):
             double current_timestamp = self._current_timestamp
 
         if current_timestamp - self._last_update_balances_timestamp > self.UPDATE_BALANCES_INTERVAL or len(self._account_balances) > 0:
-            balances = await self.get_idex_balances()
-            self._account_balances = balances
+            available_balances, total_balances = await self.get_idex_balances()
+            self._account_available_balances = available_balances
+            self._account_balances = total_balances
             self._last_update_balances_timestamp = current_timestamp
 
     async def _update_asset_info(self):
@@ -815,13 +817,15 @@ cdef class IDEXMarket(MarketBase):
         response_data = await self._api_request("get", url=url)
         return response_data
 
-    async def get_idex_balances(self) -> Dict[str, float]:
+    async def get_idex_balances(self) -> Tuple[Dict[str, float], Dict[str, float]]:
         url = f"{self.IDEX_REST_ENDPOINT}/returnCompleteBalances"
         response_data = await self._api_request("get", url=url, params={"address": self._wallet.address})
-        balances = {}
+        available_balances = {}
+        total_balances = {}
         for asset, value in response_data.items():
-            balances[asset] = float(Decimal(value["available"]) + Decimal(value["onOrders"]))
-        return balances
+            available_balances[asset] = float(value["available"])
+            total_balances[asset] = float(Decimal(value["available"]) + Decimal(value["onOrders"]))
+        return available_balances, total_balances
 
     async def get_next_nonce(self) -> str:
         url = f"{self.IDEX_REST_ENDPOINT}/returnNextNonce"
@@ -1105,6 +1109,9 @@ cdef class IDEXMarket(MarketBase):
 
     cdef double c_get_balance(self, str currency) except? -1:
         return float(self._account_balances.get(currency, 0.0))
+
+    cdef double c_get_available_balance(self, str currency) except? -1:
+        return float(self._account_available_balances.get(currency, 0.0))
 
     cdef OrderBook c_get_order_book(self, str symbol):
         cdef:
