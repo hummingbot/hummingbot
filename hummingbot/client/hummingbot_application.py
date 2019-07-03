@@ -13,7 +13,7 @@ from typing import (
     Deque
 )
 
-from hummingbot.client.commands import __all__ as commands
+from hummingbot.client.command import __all__ as commands
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.logger import HummingbotLogger
