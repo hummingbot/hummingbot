@@ -91,7 +91,7 @@ nav:
           - From Docker: installation/docker_linux.md
           - From Source: installation/linux.md
         - Install in the Cloud: installation/cloud.md
-        - Starting Bots on Docker: installation/docker.md
+        - Docker Commands: installation/docker.md
         - Using API Keys: installation/api-keys.md
         - Ethereum Wallet: installation/wallet.md
         - Ethereum Node:
