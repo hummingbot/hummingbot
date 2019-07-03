@@ -54,7 +54,7 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
                                     bid_order_size, pricing_proposal.buy_order_prices[0])
 
         if market.name == "binance":
-            bid_order_size = market.c_quantize_order_amount(market_info.symbol, (self.order_size * (1+buy_fees.percent)), pricing_proposal.buy_order_prices[0])
+            bid_order_size = market.c_quantize_order_amount(market_info.symbol, (self.order_size * (1+float(buy_fees.percent))), pricing_proposal.buy_order_prices[0])
             ask_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size, pricing_proposal.sell_order_prices[0])
             required_quote_asset_balance = pricing_proposal.buy_order_prices[0] * bid_order_size
 
