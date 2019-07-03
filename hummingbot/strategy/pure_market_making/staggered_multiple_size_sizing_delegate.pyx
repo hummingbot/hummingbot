@@ -76,7 +76,7 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
 
             if market.name == "binance":
                 #For binance fees is calculated in base token, so need to adjust for that
-                buy_order_size = market.c_quantize_order_amount(market_info.symbol, current_order_size*(1+float(buy_fees.percent)), pricing_proposal.buy_order_prices[idx])
+                buy_order_size = market.c_quantize_order_amount(market_info.symbol, current_order_size, pricing_proposal.buy_order_prices[idx])
                 #Check whether you have enough quote tokens
                 required_quote_asset_balance += ( float(buy_order_size) * float(pricing_proposal.buy_order_prices[idx]) )
 
