@@ -5,35 +5,69 @@ Using a pre-compiled version of Hummingbot from Docker allows you to run instanc
 Docker images of Hummingbot are available on Docker Hub at [coinalpha/hummingbot](https://hub.docker.com/r/coinalpha/hummingbot).
 
 !!! warning
-    The instructions below assume you already have Docker installed.  If you do not have it installed, you can follow the appropriate installation guide for your system: <br/><br/><ul><li>[Docker for Windows](/installation/docker_windows)</li><li>[Docker for MacOS](/installation/docker_macOS)</li><li>[Docker for Linux](/installation/docker_linux)</li></ul>
+    The instructions below assume you already have Docker installed.  If you do not have Docker installed, you can follow the appropriate installation guide for your system: 
+    
+    - [Docker for Windows](/installation/docker_windows)
+    - [Docker for MacOS](/installation/docker_macOS)
+    - [Docker for Linux](/installation/docker_linux)
 
 ## Installing Hummingbot
 
 In order to make Hummingbot as easy to use as possible, we recommend creating a directory for all related files and running the instance using that directory as the base. This can be done by following the commands below:
 
-!!! note
-    For Windows users, you must enter the following command **first** in order to get your directory to the right place: `cd ~`
+!!! note "Note for Windows Users"
+    You must first enter `cd ~` in order to navigate to the appropriate directory prior to running any of the commands below.
 
-```
+```bash tab="Summary Commands"
 # 1) Create folder for your new instance and navigate inside
-mkdir myhummingbot && cd myhummingbot
+mkdir hummingbot_files && cd hummingbot_files
 
 # 2) Create folders for log and config files
 mkdir hummingbot_conf && mkdir hummingbot_logs
 
 # 3) Launch a new instance of hummingbot
 docker run -it \
---name myhummingbot \
+--name hummingbot-instance \
 --mount "type=bind,source=$(pwd)/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_logs,destination=/logs/" \
 coinalpha/hummingbot:latest
 ```
 
-!!! note "You can customize the parameters above"
-    - `myhummingbot`: the name of your instance
-    - `latest`: the image version, e.g. `latest`, `development`, or a specific version such as `0.9.1`
-    - `hummingbot_conf`: path on your host machine for `conf/`
-    - `hummingbot_logs`: path on your host machine for `logs/`
+```bash tab="Detailed Commands"
+# 1) Create folder for your new instance
+#    You can choose to name this folder something other than "hummingbot_files"
+mkdir hummingbot_files
+
+# 2) Navigate to the folder
+cd hummingbot_files
+
+# 3) Create folder for config files
+mkdir hummingbot_conf
+
+# 4) Create folder for log files
+mkdir hummingbot_logs
+
+# 5) Launch a new instance of hummingbot
+#    The command below names your new instance "hummingbot-instance" (line 19)
+#    and uses the "latest" docker image (line 22).
+#    Lines 20-21 specify the location for the folders created in steps 3 and 4.
+docker run -it \
+--name hummingbot-instance \
+--mount "type=bind,source=$(pwd)/hummingbot_conf,destination=/conf/" \
+--mount "type=bind,source=$(pwd)/hummingbot_logs,destination=/logs/" \
+coinalpha/hummingbot:latest
+```
+### Docker Command Parameters
+
+The instructions on this page assume the following variable names and/or parameters.  You can customize these names.
+
+Parameter | Description
+---|---
+`hummingbot_files` | Name of the folder where your config and log files will be saved
+`hummingbot-instance` | Name of your instance
+`latest` | Image version, e.g. `latest`, `development`, or a specific version such as `0.9.1`
+`hummingbot_conf` | Folder in `hummingbot_files` where config files will be saved (mapped to `conf/` folder used by Hummingbot)
+`hummingbot_logs` | Folder in `hummingbot_files` where logs files will be saved (mapped to `logs/` folder used by Hummingbot)
 
 ### Config and Log Files
 
@@ -42,45 +76,80 @@ The above methodology requires you to explicitly specify the paths where you wan
 The example commands above assume that you create three folders:
 
 ```
-myhummingbot           # Top level folder for your instance
+hummingbot_files       # Top level folder for your instance
 ├── hummingbot_conf    # Maps to hummingbot's conf/ folder, which stores configuration files
 └── hummingbot_logs    # Maps to hummingbot's logs/ folder, which stores log files
 ```
 
-!!! info "`docker run` command from `myhummingbot` folder"
-    - The `docker run` command (when creating a new instance or updating Hummingbot version) must be run from inside of the `myhummingbot` folder.
+!!! info "`docker run` command from `hummingbot_files` folder"
+    - The `docker run` command (when creating a new instance or updating Hummingbot version) must be run from inside of the `hummingbot_files` folder.
     - You must create all folders prior to using the `docker run` command.
 
-## Restarting Hummingbot
+## Connecting to a Running Hummingbot Instance
 
-For users unfamiliar with Docker, it may not be clear how to restart Hummingbot given the immediate start after the initial download. Doing so, however, is very simple with the right command.
+If you exited terminal (e.g. closed window) and left Hummingbot running, the following command will reconnect to your Hummingbot instance:
 
 ```
-# 1) Restart and connect to your Hummingbot image
-docker start myhummingbot && docker attach myhummingbot
+docker attach hummingbot-instance
+```
+
+## Restarting Hummingbot after Shutdown
+
+If you have previously created an instance of Hummingbot which you shut down (e.g. by command `exit`), the following command restarts the intance and connects to it:
+
+```bash tab="Concise Command"
+docker start hummingbot-instance && docker attach hummingbot-instance
+```
+
+```bash tab="Detailed Commands"
+# 1) Start hummingbot instance
+docker start hummingbot-instance
+
+# 2) Connect to hummingbot instance
+docker attach hummingbot-instance
 ```
 
 ## Updating Hummingbot
 
-Hummingbot does not currently have a way of updating existing releases. Instead, users must delete the old image and re-install the newer version. See below for the required commands:
+We regularly update Hummingbot (see: [releases](/release-notes/)) and recommend users to regularly update their installations to get the latest version of the software.  
 
-```
+Updating to the latest docker image (e.g. `coinalpha/hummingbot:latest`) requires users to (1) delete any instances of Hummingbot using that image, (2) delete the old image, and (3) recreate the Hummingbot instance:
+
+```bash tab="Concise Commands"
 # 1) Navigate to your instance folder
-cd myhummingbot
+cd hummingbot_files
 
 # 2) Delete instance and old hummingbot image
-docker rm myhummingbot && \
+docker rm hummingbot-instance && \
 docker image rm coinalpha/hummingbot:latest
 
 # 3) Re-create instance with latest hummingbot release
 docker run -it \
---name myhummingbot \
+--name hummingbot-instance \
 --mount "type=bind,source=$(pwd)/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_logs,destination=/logs/" \
 coinalpha/hummingbot:latest
 ```
 
-## Enabling Copy and Paste in Docker Toolbox
+```bash tab="Detailed Commands"
+# 1) Navigate to your instance folder
+cd hummingbot_files
+
+# 2) Delete instance
+docker rm hummingbot-instance
+
+# 3) Delete old hummingbot image
+docker image rm coinalpha/hummingbot:latest
+
+# 4) Re-create instance with latest hummingbot release
+docker run -it \
+--name hummingbot-instance \
+--mount "type=bind,source=$(pwd)/hummingbot_conf,destination=/conf/" \
+--mount "type=bind,source=$(pwd)/hummingbot_logs,destination=/logs/" \
+coinalpha/hummingbot:latest
+```
+
+## Enabling Copy and Paste in Docker Toolbox (Windows)
 
 By default, the Docker Toolbox has copy and paste disabled within the command line. This can make it difficult to port long API and wallet keys to Hummingbot. However, there is a simple fix which can be enabled as follows:
 
@@ -98,7 +167,72 @@ By default, the Docker Toolbox has copy and paste disabled within the command li
 
 Close any warnings, and you're done! Just hit enter to move onto the next line and you should be able to copy and paste text using **Ctrl+Shift+C** and **Ctrl+Shift+V**.
 
-## Handling Common Errors
+## FAQs / Troubleshooting for Docker
+
+### How do I find out the name of my hummingbot instance?
+
+Run the following command to list all docker instances you have created:
+
+```
+docker ps -a
+```
+
+### How do I list all the containers I have created?
+
+```
+docker ps -a
+```
+
+### How do I check that my Hummingbot instance is running?
+
+The following command will list all currently running docker containers:
+
+```
+docker ps
+```
+
+### How do I find out where the config and log files are on my local computer?
+
+Run the following command to view the details of your instance:
+
+```
+docker inspect hummingbot-instance
+```
+
+Look for a field `Mounts`, which will describe where the folders are on you local machine:
+
+```
+"Mounts": [
+    {
+        "Type": "bind",
+        "Source": "/home/ubuntu/hummingbot_files/hummingbot_conf",
+        "Destination": "/conf",
+        "Mode": "",
+        "RW": true,
+        "Propagation": "rprivate"
+    },
+    {
+        "Type": "bind",
+        "Source": "/home/ubuntu/hummingbot_files/hummingbot_logs",
+        "Destination": "/logs",
+        "Mode": "",
+        "RW": true,
+        "Propagation": "rprivate"
+    }
+],
+```
+
+### How do I connect to my Hummingbot instance?
+
+```
+docker attach hummingbot-instance
+```
+
+### How do I edit the conf files or access the log files used by my docker instance?
+
+You can access the files from your local file system, in the `hummingbot_conf` and `hummingbot_logs` folders on your machine.  The docker instance reads from/writes to these local files.
+
+### Common Errors with Windows + Docker
 
 Windows users may encounter the following error when running the Docker Toolbox for Windows:
 

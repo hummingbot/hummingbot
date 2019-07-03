@@ -221,10 +221,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     def exchange_rate_conversion(self) -> ExchangeRateConversion:
         return self._exchange_rate_conversion
 
-    def log_with_clock(self, log_level: int, msg: str, **kwargs):
-        clock_timestamp = pd.Timestamp(self._current_timestamp, unit="s", tz="UTC")
-        self.logger().log(log_level, f"{msg} [clock={str(clock_timestamp)}]", **kwargs)
-
     def format_status(self) -> str:
         cdef:
             object maker_market_symbol_pair # MarketSymbolPair
