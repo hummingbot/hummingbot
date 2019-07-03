@@ -743,7 +743,7 @@ cdef class DDEXMarket(MarketBase):
         response_data = await self._api_request('get', url, headers=self._generate_auth_headers())
         return response_data["data"]["order"]
 
-    async def list_locked_balances(self) -> Dict[str, Decimal]:
+    async def list_locked_balances(self) -> Dict[str, float]:
         url = "%s/account/lockedBalances" % (self.DDEX_REST_ENDPOINT,)
         response_data = await self._api_request('get', url=url, headers=self._generate_auth_headers())
         locked_balance_list = response_data["data"]["lockedBalances"]
