@@ -102,9 +102,7 @@ class StartCommand:
             if self._trading_required:
                 self.stop_loss_tracker = StopLossTracker(self.data_feed,
                                                          self.market_symbol_pairs,
-                                                         lambda *args, **kwargs: asyncio.ensure_future(
-                                                             self.stop(*args, **kwargs)
-                                                         ))
+                                                         self.stop)
                 await self.wait_till_ready(self.stop_loss_tracker.start)
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
