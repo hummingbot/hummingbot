@@ -3,6 +3,8 @@ from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import MarketBase
 import logging
 from hummingbot.core.event.events import (
+OrderType,
+TradeType,
 TradeFee
 )
 from .data_types import SizingProposal

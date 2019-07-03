@@ -2,6 +2,8 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import MarketBase
 from hummingbot.core.event.events import (
+OrderType,
+TradeType,
 TradeFee
 )
 from typing import Optional
@@ -47,10 +49,9 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
             bint has_active_bid = False
             bint has_active_ask = False
 
-        # buy_fees = market.c_get_fee(market_info.base_currency, market_info.quote_currency,
-        #                             OrderType.MARKET, TradeType.BUY,
-        #                             bid_order_size, pricing_proposal.buy_order_prices[0])
-        buy_fees = TradeFee(percent=0.001)
+        buy_fees = market.c_get_fee(market_info.base_currency, market_info.quote_currency,
+                                    OrderType.MARKET, TradeType.BUY,
+                                    bid_order_size, pricing_proposal.buy_order_prices[0])
 
         if market.name == "binance":
             bid_order_size = market.c_quantize_order_amount(market_info.symbol, (self.order_size * (1+buy_fees.percent)), pricing_proposal.buy_order_prices[0])
