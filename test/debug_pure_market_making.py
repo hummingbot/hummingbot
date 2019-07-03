@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import sys, os; sys.path.insert(0, os.path.realpath(os.path.join(__file__, "../../")))
 import logging; logging.basicConfig(level=logging.DEBUG)
 
@@ -79,4 +81,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+main()
