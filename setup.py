@@ -21,6 +21,7 @@ def main():
     packages = [
         "hummingbot",
         "hummingbot.client",
+        "hummingbot.client.command",
         "hummingbot.client.config",
         "hummingbot.client.liquidity_bounty",
         "hummingbot.client.ui",

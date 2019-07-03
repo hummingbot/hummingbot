@@ -10,10 +10,12 @@ cdef class DDEXMarket(MarketBase):
         object _weth_token
         object _order_book_tracker
         dict _account_balances
+        dict _account_available_balances
         object _ev_loop
         object _poll_notifier
         double _last_timestamp
         double _last_update_order_timestamp
+        double _last_update_available_balance_timestamp
         double _last_update_trading_rules_timestamp
         double _last_update_trade_fees_timestamp
         double _poll_interval
