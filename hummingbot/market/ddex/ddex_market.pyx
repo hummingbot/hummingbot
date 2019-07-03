@@ -273,10 +273,12 @@ cdef class DDEXMarket(MarketBase):
                                                         symbols=symbols)
         self._trading_required = trading_required
         self._account_balances = {}
+        self._account_available_balances = {}
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._last_update_order_timestamp = 0
+        self._last_update_available_balance_timestamp = 0
         self._last_update_trading_rules_timestamp = 0
         self._last_update_trade_fees_timestamp = 0
         self._poll_interval = poll_interval
@@ -308,6 +310,7 @@ cdef class DDEXMarket(MarketBase):
     def status_dict(self):
         return {
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
+            "account_available_balance": len(self._account_available_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
             "token_approval": len(self._pending_approval_tx_hashes) == 0 if self._trading_required else True,
@@ -386,6 +389,7 @@ cdef class DDEXMarket(MarketBase):
 
                 self._update_balances()
                 await asyncio.gather(
+                    self._update_available_balances(),
                     self._update_trading_rules(),
                     self._update_order_status(),
                     self._update_trade_fees()
@@ -401,6 +405,18 @@ cdef class DDEXMarket(MarketBase):
 
     def _update_balances(self):
         self._account_balances = self.wallet.get_all_balances()
+
+    async def _update_available_balances(self):
+        cdef:
+            double current_timestamp = self._current_timestamp
+
+        if current_timestamp - self._last_update_available_balance_timestamp > 10.0:
+            locked_balances = await self.list_locked_balances()
+            total_balances = self.get_all_balances()
+            for currency, balance in total_balances.items():
+                self._account_available_balances[currency] = Decimal(total_balances[currency]) - \
+                                                             locked_balances.get(currency, 0.0)
+            self._last_update_available_balance_timestamp = current_timestamp
 
     async def _update_trading_rules(self):
         cdef:
@@ -728,10 +744,14 @@ cdef class DDEXMarket(MarketBase):
         response_data = await self._api_request('get', url, headers=self._generate_auth_headers())
         return response_data["data"]["order"]
 
-    async def list_locked_balances(self) -> Dict[str, Any]:
+    async def list_locked_balances(self) -> Dict[str, Decimal]:
         url = "%s/account/lockedBalances" % (self.DDEX_REST_ENDPOINT,)
         response_data = await self._api_request('get', url=url, headers=self._generate_auth_headers())
-        return response_data["data"]["lockedBalances"]
+        locked_balance_list = response_data["data"]["lockedBalances"]
+        locked_balance_dict = {
+            locked_balance["symbol"]: Decimal(locked_balance["amount"]) for locked_balance in locked_balance_list
+        }
+        return locked_balance_dict
 
     async def get_market(self, symbol: str) -> Dict[str, Any]:
         url = "%s/markets/%s" % (self.DDEX_REST_ENDPOINT, symbol)
@@ -926,12 +946,6 @@ cdef class DDEXMarket(MarketBase):
     def get_all_balances(self) -> Dict[str, float]:
         return self._account_balances.copy()
 
-    def get_balance(self, currency: str) -> float:
-        return self.c_get_balance(currency)
-
-    def get_price(self, symbol: str, is_buy: bool) -> float:
-        return self.c_get_price(symbol, is_buy)
-
     def wrap_eth(self, amount: float) -> str:
         return self._wallet.wrap_eth(amount)
 
@@ -940,6 +954,9 @@ cdef class DDEXMarket(MarketBase):
 
     cdef double c_get_balance(self, str currency) except? -1:
         return float(self._account_balances.get(currency, 0.0))
+
+    cdef double c_get_available_balance(self, str currency) except? -1:
+        return float(self._account_available_balances.get(currency, 0.0))
 
     cdef OrderBook c_get_order_book(self, str symbol):
         cdef:
