@@ -74,10 +74,9 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: CoinbaseProMarket = CoinbaseProMarket(
-            ethereum_rpc_url=conf.test_web3_provider_list[0],
-            coinbase_pro_api_key=conf.coinbase_pro_api_key,
-            coinbase_pro_secret_key=conf.coinbase_pro_secret_key,
-            coinbase_pro_passphrase=conf.coinbase_pro_passphrase,
+            conf.coinbase_pro_api_key,
+            conf.coinbase_pro_secret_key,
+            conf.coinbase_pro_passphrase,
             symbols=["ETH-USDC", "ETH-USD"]
         )
         cls.wallet: Web3Wallet = Web3Wallet(private_key=conf.web3_private_key_coinbase_pro,

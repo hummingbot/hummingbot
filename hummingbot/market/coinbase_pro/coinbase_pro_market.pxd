@@ -13,10 +13,8 @@ cdef class CoinbaseProMarket(MarketBase):
         double _last_timestamp
         double _last_order_update_timestamp
         double _poll_interval
-        dict _in_flight_deposits
         dict _in_flight_orders
         TransactionTracker _tx_tracker
-        object _w3
         dict _trading_rules
         object _data_source_type
         object _coro_queue
@@ -31,7 +29,4 @@ cdef class CoinbaseProMarket(MarketBase):
     cdef c_start_tracking_order(self, str order_id, str exchange_order_id, str symbol, bint is_buy, object order_type,
                                 object amount, object price)
     cdef c_stop_tracking_order(self, str order_id)
-    cdef c_start_tracking_deposit(self, str tracking_id, str tx_hash, str from_address, str to_address, object amount, str currency)
-    cdef c_stop_tracking_deposit(self, str tracking_id)
     cdef c_did_timeout_tx(self, str tracking_id)
-    cdef c_did_fail_tx(self, str tracking_id)
