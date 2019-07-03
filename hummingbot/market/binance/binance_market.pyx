@@ -1047,12 +1047,7 @@ cdef class BinanceMarket(MarketBase):
             object buy_fee = self.c_get_fee(base_currency, quote_currency, order_type, TradeType.BUY, amount, price)
             double adjusted_amount
 
-        # Unlike most other exchanges, Binance takes fees out of requested base amount instead of
-        # charging additional fees for limit and market buy orders.
-        # To make the Binance market class function like other market classes, the amount base
-        # token requested is adjusted to account for fees.
-        adjusted_amount = amount / (1 - buy_fee.percent)
-        decimal_amount = self.c_quantize_order_amount(symbol, adjusted_amount)
+        decimal_amount = self.c_quantize_order_amount(symbol, amount)
         decimal_price = (self.c_quantize_order_price(symbol, price)
                          if order_type is OrderType.LIMIT
                          else s_decimal_0)
