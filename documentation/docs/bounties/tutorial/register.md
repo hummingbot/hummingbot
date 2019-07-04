@@ -1,20 +1,20 @@
-# Register for liquidity bounties
+# Register for Liquidity Bounties
 
 !!! note
     These registration commands won't be available until Liquidity Bounties commence in **early July 2019**.
 
 
 
-Now that you have [installed](bounties/tutorial/install) Hummingbot, you can now register to earn rewards from Liquidity Bounties!
+Now that you have [installed](https://docs.hummingbot.io/bounties/tutorial/install) Hummingbot, you can now register to earn rewards from Liquidity Bounties!
 
-## The Hummingbot client interface
+## The Hummingbot Client Interface
 
 You should see the command line-based Hummingbot interface below:
-![](https://www.hummingbot.io/blog/2019-04-announcing-hummingbot/hummingbot-cli.png)
+![](assets/img/hummingbot-cli.png)
 
-The left bottom pane is where you enter [commands](https://docs.hummingbot.io/operation/client/#commands) to run the bot. The upper left pane prints the output of your commands and the right pane logs messages in real time.
+The left bottom pane is where you enter [commands](https://docs.hummingbot.io/operation/client/#client-commands) to run the bot. The upper left pane prints the output of your commands and the right pane logs messages in real time.
 
-## Register for bounties
+## Register for Bounties
 
 Enter `bounty --register` to start the registration process:
 
@@ -24,9 +24,9 @@ Enter `bounty --register` to start the registration process:
 4. Enter your email address
 5. Confirm information and finalize
 
-Note that in order to accumulate rewards, you need to maintain at least 0.1 ETH in your Ethereum wallet. This prevents spam attacks and ensures that everyone has a fair chance to earn bounties.
+Note that in order to accumulate rewards, you need to maintain at least 0.05 ETH in your Ethereum wallet. This prevents spam attacks and ensures that everyone has a fair chance to earn bounties.
 
-## Bounty-related commands
+## Bounty-Related Commands
 
 | Command | Description |
 |-------- | ----------- |

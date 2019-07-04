@@ -69,10 +69,6 @@ cdef class DiscoveryStrategy(StrategyBase):
             for market in [market_pair.market_1, market_pair.market_2]:
                 self._markets.add(market)
 
-    def log_with_clock(self, log_level: int, msg: str):
-        clock_timestamp = pd.Timestamp(self._current_timestamp, unit="s", tz="UTC")
-        self.logger().log(log_level, f"{msg} [clock={str(clock_timestamp)}]")
-
     @classmethod
     def parse_equivalent_token(cls, equivalent_token: List[list] = []):
         equivalent_token_dict = {}

@@ -1,6 +1,6 @@
 # FAQ
 
-Below is a summary of frequently asked questions regarding Hummingbot.  If you have additional questions or need support, please join the official [Hummingbot Discord server](https://discord.hummingbot.io) or email us at [contact@hummingbot.io](mailto:contact@hummingbot.io). 
+Below is a summary of frequently asked questions regarding Hummingbot.  If you have additional questions or need support, please join the official [Hummingbot Discord server](https://discord.hummingbot.io) or email us at [contact@hummingbot.io](mailto:contact@hummingbot.io).
 
 ## General
 
@@ -13,7 +13,7 @@ For more detailed information, please read the [Hummingbot whitepaper](https://w
 ### How can I keep up to date on Hummingbot?
 
 You can sign up for our [mailing list](https://hummingbot.io) or join the official [Hummingbot Discord server](https://discord.hummingbot.io).
- 
+
 ### Why are you making Hummingbot available to the general public rather than just running it in-house?
 
 - **Mission alignment**: We founded CoinAlpha, the company behind Hummingbot, because we believe that blockchain technology empowers individuals to compete on a level playing field with large financial institutions. Releasing Hummingbot as open source software available to the general public furthers this mission.
@@ -46,9 +46,9 @@ Always use caution and make sure the computer you are running Hummingbot on is s
 
 ### Do I need an Ethereum node to run Hummingbot?
 
-You can use Hummingbot to create bots that trade on a centralized exchange, a decentralized exchange (DEX), or both. For Ethereum-based DEXs, you need access to an Ethereum node. 
+You can use Hummingbot to create bots that trade on a centralized exchange, a decentralized exchange (DEX), or both. For Ethereum-based DEXs, you need access to an Ethereum node.
 
-We describe [various ways](/installation/node) that you can get access to a node.
+We describe [various ways](/installation/node/node) that you can get access to a node.
 
 ### What does it cost for me to run Hummingbot?
 
@@ -82,5 +82,4 @@ We only utilize user data for the purposes listed above. CoinAlpha and our emplo
 
 ### Can I opt-out of sharing my usage data?
 
-Absolutely - the logger configuration file is fully editable. In addition, we maintain [templates](https://github.com/coinalpha/hummingbot/blob/master/hummingbot/templates) that users can use to override the default configuration settings. 
-
+Absolutely - the logger configuration file is fully editable. In addition, we maintain [templates](https://github.com/coinalpha/hummingbot/blob/master/hummingbot/templates) that users can use to override the default configuration settings.
