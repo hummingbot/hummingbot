@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from typing import Dict, Any
 
 from sqlalchemy import (
     Column,
@@ -28,3 +29,13 @@ class OrderStatus(HummingbotBase):
     def __repr__(self) -> str:
         return f"OrderStatus(id={self.id}, order_id='{self.order_id}', timestamp={self.timestamp}, " \
             f"status='{self.status}')"
+
+    @staticmethod
+    def to_bounty_api_json(order_status: "OrderStatus") -> Dict[str, Any]:
+        return {
+            "order_id": order_status.order_id,
+            "timestamp": order_status.timestamp,
+            "event_type": order_status.status,
+            "raw_json": {
+            }
+        }
