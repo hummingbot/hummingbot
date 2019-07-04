@@ -382,6 +382,14 @@ cdef class BinanceMarket(MarketBase):
         except Exception as e:
             raise ValueError(f"Error parsing symbol {symbol}: {str(e)}")
 
+    @staticmethod
+    def split_symbol(symbol: str) -> Tuple[str, str]:
+        try:
+            m = SYMBOL_SPLITTER.match(symbol)
+            return m.group(1), m.group(2)
+        except Exception as e:
+            raise ValueError(f"Error parsing symbol {symbol}: {str(e)}")
+
     @property
     def name(self) -> str:
         return "binance"
@@ -1195,6 +1203,7 @@ cdef class BinanceMarket(MarketBase):
             if "Unknown order sent" in e.message or e.code == 2011:
                 # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
                 self.logger().debug(f"The order {order_id} does not exist on Binance. No cancellation needed.")
+                self.c_stop_tracking_order(order_id)
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return {

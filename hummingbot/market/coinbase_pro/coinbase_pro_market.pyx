@@ -307,6 +307,7 @@ cdef class CoinbaseProMarket(MarketBase):
         self._user_stream_tracker = CoinbaseProUserStreamTracker(coinbase_pro_auth=self._coinbase_auth,
                                                                  symbols=symbols)
         self._account_balances = {}
+        self._account_available_balances = {}
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
@@ -478,12 +479,15 @@ cdef class CoinbaseProMarket(MarketBase):
 
         for balance_entry in account_balances:
             asset_name = balance_entry["currency"]
-            balance = Decimal(balance_entry["balance"])
-            self._account_balances[asset_name] = balance
+            available_balance = Decimal(balance_entry["available"])
+            total_balance = Decimal(balance_entry["balance"])
+            self._account_available_balances[asset_name] = available_balance
+            self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
         for asset_name in asset_names_to_remove:
+            del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
     async def _update_eth_tx_status(self):
@@ -896,6 +900,7 @@ cdef class CoinbaseProMarket(MarketBase):
             if "order not found" in e.message:
                 # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
                 self.logger().info(f"The order {order_id} does not exist on Coinbase Pro. No cancellation needed.")
+                self.c_stop_tracking_order(order_id)
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
@@ -1075,6 +1080,9 @@ cdef class CoinbaseProMarket(MarketBase):
 
     cdef double c_get_balance(self, str currency) except? -1:
         return float(self._account_balances.get(currency, 0.0))
+    
+    cdef double c_get_available_balance(self, str currency) except? -1:
+        return float(self._account_available_balances.get(currency, 0.0))
 
     cdef double c_get_price(self, str symbol, bint is_buy) except? -1:
         cdef:

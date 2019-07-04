@@ -11,6 +11,7 @@ from os.path import (
 )
 from collections import OrderedDict
 from typing import (
+    Callable,
     Dict,
     Optional,
 )
@@ -109,6 +110,17 @@ def get_strategy_config_map(strategy: str) -> Optional[Dict[str, ConfigVar]]:
         strategy_module = __import__(f"hummingbot.strategy.{strategy}.{cm_key}",
                                      fromlist=[f"hummingbot.strategy.{strategy}"])
         return getattr(strategy_module, cm_key)
+    except Exception as e:
+        logging.getLogger().error(e, exc_info=True)
+
+
+def get_strategy_starter_file(strategy: str) -> Callable:
+    if strategy is None:
+        return lambda: None
+    try:
+        strategy_module = __import__(f"hummingbot.strategy.{strategy}.start",
+                                     fromlist=[f"hummingbot.strategy.{strategy}"])
+        return getattr(strategy_module, "start")
     except Exception as e:
         logging.getLogger().error(e, exc_info=True)
 
