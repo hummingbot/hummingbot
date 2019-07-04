@@ -44,6 +44,7 @@ from hummingbot.market.binance.binance_market import (
     BinanceTime,
     binance_client_module
 )
+from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
@@ -304,6 +305,17 @@ class BinanceMarketUnitTest(unittest.TestCase):
         self.assertEqual(tracking_id, received_asset_event.tx_hash)
         self.assertEqual(local_wallet.address, received_asset_event.from_address)
         self.assertEqual(1, received_asset_event.amount_received)
+
+    def test_deposit_info(self):
+        [deposit_info] = self.run_parallel(
+            self.market.get_deposit_info("BNB")
+        )
+        deposit_info: DepositInfo = deposit_info
+        self.assertIsInstance(deposit_info, DepositInfo)
+        self.assertGreater(len(deposit_info.address), 0)
+        self.assertGreater(len(deposit_info.extras), 0)
+        self.assertTrue("addressTag" in deposit_info.extras)
+        self.assertEqual("BNB", deposit_info.extras["asset"])
 
     @unittest.skipUnless(any("test_withdraw" in arg for arg in sys.argv), "Withdraw test requires manual action.")
     def test_withdraw(self):
