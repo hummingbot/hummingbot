@@ -64,6 +64,7 @@ class TradeFill(HummingbotBase):
             "quantity": numpy.format_float_positional(trade_fill.amount),
             "trading_pair": trade_fill.symbol,
             "trade_timestamp": trade_fill.timestamp,
+            "trade_type": trade_fill.trade_type.name,
             "base_asset": trade_fill.base_asset,
             "quote_asset": trade_fill.quote_asset,
             "raw_json": {

@@ -23,8 +23,8 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     OrderExpiredEvent,
     MarketEvent,
-    TradeFee
-)
+    TradeFee,
+    TradeType)
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.market.market_base import MarketBase
 from hummingbot.model.market_state import MarketState
@@ -156,6 +156,7 @@ class MarketsRecorder:
         base_asset, quote_asset = market.split_symbol(evt.symbol)
         timestamp: int = self.db_timestamp
         event_type: MarketEvent = self.market_event_tag_map[event_tag]
+        trade_type: TradeType = TradeType.BUY if type(evt) == BuyOrderCreatedEvent else TradeType.SELL
         order_record: Order = Order(id=evt.order_id,
                                     config_file_path=self._config_file_path,
                                     strategy=self._strategy_name,
@@ -165,6 +166,7 @@ class MarketsRecorder:
                                     quote_asset=quote_asset,
                                     creation_timestamp=timestamp,
                                     order_type=evt.type.name,
+                                    trade_type=trade_type.name,
                                     amount=evt.amount,
                                     price=evt.price,
                                     last_status=event_type.name,
