@@ -260,52 +260,6 @@ class BinanceMarketUnitTest(unittest.TestCase):
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
 
-    @unittest.skipUnless(any("test_deposit_eth" in arg for arg in sys.argv), "Deposit test requires manual action.")
-    def test_deposit_eth(self):
-        with open(realpath(join(__file__, "../../../data/ZRXABI.json"))) as fd:
-            zrx_abi: str = fd.read()
-        local_wallet: MockWallet = MockWallet(conf.web3_test_private_key_a,
-                                              MAINNET_RPC_URL,
-                                              {"0xE41d2489571d322189246DaFA5ebDe1F4699F498": zrx_abi},
-                                              chain_id=1)
-
-        # Ensure the local wallet has enough balance for deposit testing.
-        self.assertGreaterEqual(local_wallet.get_balance("ETH"), 0.02)
-
-        # Deposit ETH to Binance, and wait.
-        tracking_id: str = self.market.deposit(local_wallet, "ETH", 0.01)
-        [received_asset_event] = self.run_parallel(
-            self.market_logger.wait_for(MarketReceivedAssetEvent, timeout_seconds=1800)
-        )
-        received_asset_event: MarketReceivedAssetEvent = received_asset_event
-        self.assertEqual("ETH", received_asset_event.asset_name)
-        self.assertEqual(tracking_id, received_asset_event.tx_hash)
-        self.assertEqual(local_wallet.address, received_asset_event.from_address)
-        self.assertAlmostEqual(0.01, received_asset_event.amount_received)
-
-    @unittest.skipUnless(any("test_deposit_zrx" in arg for arg in sys.argv), "Deposit test requires manual action.")
-    def test_deposit_zrx(self):
-        with open(realpath(join(__file__, "../../../data/ZRXABI.json"))) as fd:
-            zrx_abi: str = fd.read()
-        local_wallet: MockWallet = MockWallet(conf.web3_test_private_key_a,
-                                              MAINNET_RPC_URL,
-                                              {"0xE41d2489571d322189246DaFA5ebDe1F4699F498": zrx_abi},
-                                              chain_id=1)
-
-        # Ensure the local wallet has enough balance for deposit testing.
-        self.assertGreaterEqual(local_wallet.get_balance("ZRX"), 1)
-
-        # Deposit ZRX to Binance, and wait.
-        tracking_id: str = self.market.deposit(local_wallet, "ZRX", 1)
-        [received_asset_event] = self.run_parallel(
-            self.market_logger.wait_for(MarketReceivedAssetEvent, timeout_seconds=1800)
-        )
-        received_asset_event: MarketReceivedAssetEvent = received_asset_event
-        self.assertEqual("ZRX", received_asset_event.asset_name)
-        self.assertEqual(tracking_id, received_asset_event.tx_hash)
-        self.assertEqual(local_wallet.address, received_asset_event.from_address)
-        self.assertEqual(1, received_asset_event.amount_received)
-
     def test_deposit_info(self):
         [deposit_info] = self.run_parallel(
             self.market.get_deposit_info("BNB")
