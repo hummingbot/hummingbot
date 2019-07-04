@@ -382,10 +382,7 @@ cdef class BambooRelayMarket(MarketBase):
 
     @property
     def ready(self) -> bool:
-        return len(self._account_balances) > 0 \
-               and len(self._trading_rules) > 0 \
-               and len(self._order_book_tracker.order_books) > 0 \
-               and len(self._pending_approval_tx_hashes) == 0
+        return all(self.status_dict.values())
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -446,6 +443,14 @@ cdef class BambooRelayMarket(MarketBase):
                 for key, value in self._in_flight_limit_orders.items()
             }
         }
+
+    def reset_state(self):
+        self._in_flight_market_orders = {}
+        self._in_flight_limit_orders = {}
+        self._in_flight_pending_limit_orders = OrderedDict()
+        self._in_flight_cancels = OrderedDict()
+        self._in_flight_pending_cancels = OrderedDict()
+        self._order_expiry_queue = deque()
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self._in_flight_market_orders.update({
@@ -882,6 +887,7 @@ cdef class BambooRelayMarket(MarketBase):
 
         # Sanity check
         if total_base_quantity > Decimal(amount):
+            print("API Returned too large a quantity")
             raise ValueError(f"API returned incorrect values for market order")
 
         # Single orders to use fillOrder, multiple to use batchFill
@@ -936,7 +942,6 @@ cdef class BambooRelayMarket(MarketBase):
                     taker_asset_fill_amounts.append(remaining_taker_amount)
                     order_maker_fill_amount = math.floor((remaining_taker_amount * Decimal(order["makerAssetAmount"])) / 
                                                      Decimal(order["takerAssetAmount"]))
-
                     total_maker_asset_fill_amount = total_maker_asset_fill_amount + order_maker_fill_amount
                     total_taker_asset_fill_amount = remaining_taker_amount
                     break

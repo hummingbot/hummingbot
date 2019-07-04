@@ -54,7 +54,6 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
     def data_source(self) -> OrderBookTrackerDataSource:
         if not self._data_source:
             if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
-                print("Should start orderbook data source!")
                 self._data_source = BambooRelayAPIOrderBookDataSource(symbols=self._symbols, chain=self._chain)
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
