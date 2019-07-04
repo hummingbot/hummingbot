@@ -381,6 +381,15 @@ cdef class BambooRelayMarket(MarketBase):
         return "bamboo_relay"
 
     @property
+    def status_dict(self) -> Dict[str, bool]:
+        return {
+            "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
+            "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
+            "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True,
+            "token_approval": len(self._pending_approval_tx_hashes) == 0 if self._trading_required else True
+        }
+
+    @property
     def ready(self) -> bool:
         return all(self.status_dict.values())
 
