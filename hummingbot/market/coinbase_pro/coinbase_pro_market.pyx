@@ -977,7 +977,7 @@ cdef class CoinbaseProMarket(MarketBase):
         deposit_result = await self._api_request("post", path_url=path_url)
         return deposit_result.get("address")
 
-    async def get_deposit_info(self, asset: str, amount: float) -> DepositInfo:
+    async def get_deposit_info(self, asset: str) -> DepositInfo:
         return DepositInfo(await self.get_deposit_address(asset))
 
     async def execute_withdraw(self, str tracking_id, str to_address, str currency, double amount):

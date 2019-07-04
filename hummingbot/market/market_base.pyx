@@ -110,7 +110,7 @@ cdef class MarketBase(NetworkIterator):
     def withdraw(self, address: str, currency: str, amount: float) -> str:
         return self.c_withdraw(address, currency, amount)
 
-    async def get_deposit_info(self, asset: str, amount: float) -> DepositInfo:
+    async def get_deposit_info(self, asset: str) -> DepositInfo:
         raise NotImplementedError
 
     def get_order_book(self, symbol: str) -> OrderBook:

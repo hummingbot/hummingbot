@@ -835,7 +835,7 @@ cdef class BinanceMarket(MarketBase):
     def get_all_balances(self) -> Dict[str, float]:
         return self._account_balances.copy()
 
-    async def get_deposit_info(self, asset: str, amount: float) -> DepositInfo:
+    async def get_deposit_info(self, asset: str) -> DepositInfo:
         cdef:
             dict deposit_reply
             str err_msg
@@ -847,6 +847,7 @@ cdef class BinanceMarket(MarketBase):
             self.logger().network(f"Could not get deposit address for {asset}: {err_msg}",
                                   app_warning_msg=f"Could not get deposit address for {asset}: {err_msg}.")
 
+        deposit_address = deposit_reply["address"]
         del deposit_reply["address"]
         return DepositInfo(deposit_address, **deposit_reply)
 
