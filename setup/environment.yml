@@ -26,6 +26,7 @@ dependencies:
   - mkl=2019.3=199
   - mkl_fft=1.0.10=py36h5e564d8_0
   - mkl_random=1.0.2=py36h27c97d8_0
+  - nose=1.3.7=py36_2
   - ncurses=6.1=h0a44026_1
   - nose=1.3.7=py36_2
   - numexpr=2.6.9=py36h7413580_0
@@ -90,7 +91,7 @@ dependencies:
     - eth-typing==2.1.0
     - eth-utils==1.4.1
     - hexbytes==0.1.0
-    - hummingsim==20190619.1
+    - hummingsim==20190703
     - hyperlink==18.0.0
     - hypothesis==4.14.2
     - idna-ssl==1.1.0

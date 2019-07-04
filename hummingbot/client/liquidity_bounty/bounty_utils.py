@@ -52,12 +52,7 @@ class LiquidityBounty(NetworkBase):
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client: Optional[aiohttp.ClientSession] = None
         self._status: Dict[str, Any] = {}
-        self._active_bounties: List[Dict[str, Any]] = [{
-            "base_asset": "ONE",
-            "market": "binance",
-            "start_time": 1559347200000,
-            "end_time": 1564617600000,
-        }]
+        self._active_bounties: List[Dict[str, Any]] = []
         # timestamp = -1 when when no data has been fetched / timestamp = 0 when no trades have ever been submitted
         self._last_submitted_trade_timestamp: int = -1
         self._last_timestamp_fetched_event = asyncio.Event()
@@ -262,7 +257,6 @@ class LiquidityBounty(NetworkBase):
             if self._last_submitted_trade_timestamp >= 0 and len(formatted_trades) > 0:
                 url = f"{self.LIQUIDITY_BOUNTY_REST_API}/trade"
                 results = await self.authenticated_request("POST", url, json={"trades": formatted_trades})
-                self.logger().info(results)
                 num_submitted = results.get("trades_submitted", 0)
                 num_recorded = results.get("trades_recorded", 0)
                 if num_submitted != num_recorded:
@@ -291,9 +285,9 @@ class LiquidityBounty(NetworkBase):
 
     async def start_network(self):
         await self.stop_network()
-        self.fetch_active_bounties_task = asyncio.ensure_future(self.fetch_active_bounties())
-        self.status_polling_task = asyncio.ensure_future(self.status_polling_loop())
-        self.submit_trades_task = asyncio.ensure_future(self.submit_trades_loop())
+        self.fetch_active_bounties_task = asyncio.ensure_future(self.fetch_active_bounties(), loop=self._ev_loop)
+        self.status_polling_task = asyncio.ensure_future(self.status_polling_loop(), loop=self._ev_loop)
+        self.submit_trades_task = asyncio.ensure_future(self.submit_trades_loop(), loop=self._ev_loop)
 
     async def stop_network(self):
         if self.fetch_active_bounties_task is not None:

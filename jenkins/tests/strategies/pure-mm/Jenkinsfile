@@ -28,7 +28,7 @@ node {
       }
 
       stage('Run tests') {
-        sh "${envPath}/nosetests -v test/test_pure_market_making.py"
+        sh "${envPath}/nosetests -v test/test_pure_market_making_v2.py"
       }
 
     } catch (c) {

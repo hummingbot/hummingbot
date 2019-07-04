@@ -96,6 +96,9 @@ cdef class MarketBase(NetworkIterator):
     def get_balance(self, currency: str) -> float:
         return self.c_get_balance(currency)
 
+    def get_available_balance(self, currency: str) -> float:
+        return self.c_get_available_balance(currency)
+
     def get_all_balances(self) -> Dict[str, float]:
         raise NotImplementedError
 
@@ -163,6 +166,9 @@ cdef class MarketBase(NetworkIterator):
         raise NotImplementedError
 
     cdef double c_get_balance(self, str currency) except? -1:
+        raise NotImplementedError
+
+    cdef double c_get_available_balance(self, str currency) except? -1:
         raise NotImplementedError
 
     cdef str c_withdraw(self, str address, str currency, double amount):

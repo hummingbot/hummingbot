@@ -27,7 +27,6 @@ from hummingbot.strategy.strategy_base import StrategyBase
 
 from .constant_spread_pricing_delegate import ConstantSpreadPricingDelegate
 from .constant_size_sizing_delegate import ConstantSizeSizingDelegate
-
 from .data_types import (
     MarketInfo,
     OrdersProposal,
@@ -254,10 +253,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     def sizing_delegate(self) -> OrderSizingDelegate:
         return self._sizing_delegate
 
-    def log_with_clock(self, log_level: int, msg: str, **kwargs):
-        clock_timestamp = pd.Timestamp(self._current_timestamp, unit="s", tz="UTC")
-        self.logger().log(log_level, f"{msg} [clock={str(clock_timestamp)}]", **kwargs)
-
     def format_status(self) -> str:
         cdef:
             MarketBase maker_market
@@ -307,18 +302,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             ]
             assets_df = pd.DataFrame(data=assets_data, columns=assets_columns)
             lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
-
-            pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self, market_info, active_orders)
-            bid_orders = [str(price) for price in pricing_proposal.buy_order_prices]
-            ask_orders = [str(price) for price in pricing_proposal.sell_order_prices]
-            lines.extend([
-                f"\n{market_info.symbol}:",
-                f"  {maker_symbol} bid/ask: {bid_price}/{ask_price}",
-                f"  Bids to be placed at: {bid_orders}",
-                f"  Asks to be placed at: {ask_orders}",
-                f"  {maker_base}/{maker_quote} balance: "
-                    f"{maker_base_balance}/{maker_quote_balance}"
-            ])
 
             # See if there're any open orders.
             if len(active_orders) > 0:

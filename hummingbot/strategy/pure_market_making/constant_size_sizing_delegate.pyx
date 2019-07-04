@@ -15,6 +15,8 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
     def __init__(self, order_size: float):
         super().__init__()
         self._order_size = order_size
+        self._log_warning_order_size = True
+        self._log_warning_balance = True
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -49,13 +51,19 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
             bid_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size)
             ask_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size)
 
-        if (bid_order_size ==0):
-            self.logger().network(f"Buy(bid) order size is less than minimum order size. Buy order will not be placed",
-                                  f"The order size is too small for the market for buy order. Check order size in configuration.")
+        if self._log_warning_order_size:
 
-        if (ask_order_size ==0):
-             self.logger().network(f"Sell(ask) order size is less than minimum order size. Sell order will not be placed",
-                                   f"The order size is too small for the market for sell order. Check order size in configuration.")
+            if (bid_order_size ==0):
+                self.logger().network(f"Buy(bid) order size is less than minimum order size. Buy order will not be placed",
+                                      f"The order size is too small for the market for buy order. Check order size in configuration.")
+                #After warning once, set warning flag to False
+                self._log_warning_order_size = False
+
+            if (ask_order_size ==0):
+                 self.logger().network(f"Sell(ask) order size is less than minimum order size. Sell order will not be placed",
+                                       f"The order size is too small for the market for sell order. Check order size in configuration.")
+                 #After warning once, set warning flag to False
+                 self._log_warning_order_size = False
 
 
         for active_order in active_orders:
@@ -64,16 +72,32 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
             else:
                 has_active_ask = True
 
-        if (quote_asset_balance < pricing_proposal.buy_order_prices[0] * bid_order_size):
-            self.logger().network(f"Buy(bid) order is not placed because there is not enough Quote asset. "
-                                  f"Quote Asset: {quote_asset_balance}, Price: {pricing_proposal.buy_order_prices[0]},"
-                                  f"Size: {bid_order_size}",
-                                  f"Not enough asset to place the required buy(bid) order. Check balances.")
+        if self._log_warning_balance:
 
-        if (base_asset_balance < ask_order_size):
-            self.logger().network(f"Sell(ask) order is not placed because there is not enough Base asset. "
-                                  f"Base Asset: {base_asset_balance}, Size: {ask_order_size}",
-                                  f"Not enough asset to place the required sell(ask) order. Check balances.")
+            if (quote_asset_balance < pricing_proposal.buy_order_prices[0] * bid_order_size):
+                self.logger().network(f"Buy(bid) order is not placed because there is not enough Quote asset. "
+                                      f"Quote Asset: {quote_asset_balance}, Price: {pricing_proposal.buy_order_prices[0]},"
+                                      f"Size: {bid_order_size}",
+                                      f"Not enough asset to place the required buy(bid) order. Check balances.")
+                #After warning once, set warning flag to False
+                self._log_warning_balance = False
+
+            if (base_asset_balance < ask_order_size):
+                self.logger().network(f"Sell(ask) order is not placed because there is not enough Base asset. "
+                                      f"Base Asset: {base_asset_balance}, Size: {ask_order_size}",
+                                      f"Not enough asset to place the required sell(ask) order. Check balances.")
+                #After warning once, set warning flag to False
+                self._log_warning_balance = False
+
+
+        #Reset warning flag for balances if there is enough balance to place orders
+        if (quote_asset_balance >= pricing_proposal.buy_order_prices[0] * bid_order_size) and \
+                (base_asset_balance >= ask_order_size):
+            self._log_warning_balance = True
+
+        #Reset warning flag for order size if both order sizes are greater than zero
+        if bid_order_size >0 and ask_order_size>0:
+            self._log_warning_order_size = True
 
         return SizingProposal(
             ([bid_order_size]
