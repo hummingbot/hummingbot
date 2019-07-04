@@ -306,11 +306,13 @@ cdef class BambooRelayMarket(MarketBase):
                     OrderBookTrackerDataSourceType.EXCHANGE_API,
                  symbols: Optional[List[str]] = None,
                  use_coordinator: Optional[bool] = True,
-                 pre_emptive_soft_cancels: Optional[bool] = True):
+                 pre_emptive_soft_cancels: Optional[bool] = True,
+                 trading_required: bool = True):
         cdef:
             str coordinator_address
             str coordinator_registry_address
         super().__init__()
+        self._trading_required = trading_required
         self._order_book_tracker = BambooRelayOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
                                                                symbols=symbols,
                                                                chain=chain)
@@ -472,7 +474,7 @@ cdef class BambooRelayMarket(MarketBase):
         })
 
     async def get_active_exchange_markets(self):
-        return await BambooRelayAPIOrderBookDataSource.get_active_exchange_markets()
+        return await BambooRelayAPIOrderBookDataSource.get_active_exchange_markets(self._api_prefix)
 
     async def _status_polling_loop(self):
         while True:
@@ -896,7 +898,6 @@ cdef class BambooRelayMarket(MarketBase):
 
         # Sanity check
         if total_base_quantity > Decimal(amount):
-            print("API Returned too large a quantity")
             raise ValueError(f"API returned incorrect values for market order")
 
         # Single orders to use fillOrder, multiple to use batchFill
@@ -941,7 +942,7 @@ cdef class BambooRelayMarket(MarketBase):
                 taker_fill_amount = Decimal(remaining_taker_fill_amounts[idx])
                 maker_fill_amount = Decimal(remaining_maker_fill_amounts[idx])
                 new_total_taker_asset_fill_amount = total_taker_asset_fill_amount + taker_fill_amount
-                if target_taker_amount < new_total_taker_asset_fill_amount:
+                if target_taker_amount > new_total_taker_asset_fill_amount:
                     taker_asset_fill_amounts.append(taker_fill_amount)
                     total_maker_asset_fill_amount = total_maker_asset_fill_amount + maker_fill_amount
                     total_taker_asset_fill_amount = new_total_taker_asset_fill_amount
@@ -1182,7 +1183,7 @@ cdef class BambooRelayMarket(MarketBase):
             self.logger().network(
                 f"Error submitting {type_str} {order_side_desc} order to Bamboo Relay for {str(q_amt)} {symbol}.",
                 exc_info=True,
-                app_warning_msg=f"Failed to submit {order_side_desc} order to Bamboo Relay. "
+                app_warning_msg=f"Failed to submit {type_str} {order_side_desc} order to Bamboo Relay. "
                                 f"Check Ethereum wallet and network connection."
             )
             self.c_trigger_event(

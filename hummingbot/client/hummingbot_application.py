@@ -264,7 +264,8 @@ class HummingbotApplication(*commands):
                                            chain=EthereumChain.MAIN_NET,
                                            symbols=symbols,
                                            use_coordinator=use_coordinator,
-                                           pre_emptive_soft_cancels=pre_emptive_soft_cancels)
+                                           pre_emptive_soft_cancels=pre_emptive_soft_cancels,
+                                           trading_required=self._trading_required)
 
             elif market_name == "coinbase_pro":
                 coinbase_pro_api_key = global_config_map.get("coinbase_pro_api_key").value

@@ -83,14 +83,14 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return {d["address"]: d for d in data}
 
     @classmethod
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
+    async def get_active_exchange_markets(self, api_prefix: str = "main/0x") -> pd.DataFrame:
         """
         Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
         """
         try:
             api_prefix = self._api_prefix
         except:
-            api_prefix = "main/0x"
+           pass
         client: aiohttp.ClientSession = self.http_client()
         async with client.get(f"{REST_BASE_URL}{api_prefix}/markets?include=ticker,stats") as response:
             response: aiohttp.ClientResponse = response
