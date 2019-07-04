@@ -415,7 +415,7 @@ cdef class DDEXMarket(MarketBase):
             total_balances = self.get_all_balances()
             for currency, balance in total_balances.items():
                 self._account_available_balances[currency] = Decimal(total_balances[currency]) - \
-                                                             locked_balances.get(currency, 0.0)
+                                                             locked_balances.get(currency, s_decimal_0)
             self._last_update_available_balance_timestamp = current_timestamp
 
     async def _update_trading_rules(self):
