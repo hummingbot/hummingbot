@@ -1,4 +1,4 @@
-# Roadmap
+# Hummingbot Roadmap
 
 The timeline below shows the past milestones we have completed, along with the future milestones we plan to achieve. This roadmap is indicative and subject to change.
 
@@ -6,7 +6,7 @@ The timeline below shows the past milestones we have completed, along with the f
 * Received development grant from [0x Project](https://0x.org)
 * Added Ethereum wallet interface
 * Added connectors for [Binance](/connectors/binance) and [DDEX](/connectors/ddex)
-* Released <a href="Hummingbot whitepaper.pdf" class="heap-whitepaper">whitepaper</a>
+* Released [whitepaper](https://www.hummingbot.io/whitepaper.pdf)
 
 ## Q1 2019
 * [Radar Relay](/connectors/radar-relay) connector
@@ -23,7 +23,7 @@ The timeline below shows the past milestones we have completed, along with the f
 * Launch 1st liquidity bounty program for [Harmony](https://www.hummingbot.io/liquidity-bounties/harmony)
 
 ## Q3 2019
-* More connectors for decentralized and centralized exchanges: Bitfinex, Kraken, Huobi, Bittrex, Bitmex, Binance DEX
+* More connectors for decentralized and centralized exchanges: Huobi, Bittrex, Bitfinex, Kraken, Bitmex, Binance DEX
 * Support for user defined strategies
 
 ## Q4 2019

@@ -1,8 +1,8 @@
 # Linux Installation from Docker
 
-## Install Docker
+## Install Docker on Ubuntu
 
-```bash tab="Ubuntu"
+```
 # 1) Update Ubuntu's database of software
 sudo apt-get update
 
@@ -18,7 +18,9 @@ sudo usermod -a -G docker $USER
 # Log out and log back into shell
 ```
 
-```bash tab="Debian"
+## Install Docker on Debian
+
+```
 # 1) Update package database
 sudo apt update
 
@@ -39,7 +41,9 @@ sudo usermod -a -G docker $USER
 # Log out and log back into shell
 ```
 
-```bash tab="CentOS"
+## Install Docker on CentOS
+
+```
 # 1) Update package database
 sudo yum check-update
 
@@ -53,9 +57,8 @@ sudo systemctl start docker && sudo systemctl enable docker
 # Allow docker commands without requiring sudo prefix
 sudo usermod -a -G docker $USER
 # Log out and log back into shell
-
 ```
 
 ## Run Hummingbot
 
-Once you have Docker installed, you can proceed to [Docker commands for MacOSX/Linux](/installation/docker/#docker-commands-for-macosxlinux).
+Once you have Docker installed, you can proceed to the [Hummingbot installation commands](/installation/docker/#installing-hummingbot).

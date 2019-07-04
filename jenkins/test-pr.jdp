@@ -172,28 +172,6 @@ pipeline {
           }
         }
 
-        stage('Run pure_market_making strategy test') {
-          steps {
-            echo 'Run pure_market_making strategy test'
-            sh "${envPath}/bin/nosetests -d -v test/test_pure_market_making.py"
-          }
-          post {
-            success {
-              echo '=> [Run tests: pure_market_making]: SUCCESS'
-            }
-            unstable {
-              script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Unstable: pure_market_making strategy test'
-              }
-            }
-            failure {
-              script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Failed: pure_market_making strategy test'
-              }
-            }
-          }
-        }
-
         stage('Run pure_market_making_v2 strategy test') {
           steps {
             echo 'Run pure_market_making_v2 strategy test'

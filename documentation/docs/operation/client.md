@@ -2,19 +2,21 @@
 
 Hummingbot uses a command-line interface (CLI) that helps users configure and run the bot, as well as generate logs of the trades performed.
 
-## Starting `hummingbot`
+## Starting Hummingbot
 
 ### Installed from Docker
 
-Creating a new instance of `hummingbot` with `docker run` will automatically start the `hummingbot` client (see Docker installation guides for [Windows](/installation/docker_windows#2.-create-new-instance-of-hummingbot) and [MacOS](/installation/docker_macOS#create-new-instance-of-hummingbot-macoslinux)).
+Creating a new instance of Hummingbot with `docker run` will automatically start the Hummingbot client (see Docker installation guides for [Windows](/installation/docker_windows) and [MacOS](/installation/docker_macOS)).
 
-To run a previously created, stopped container:
+To run a previously created, stopped container where $NAME is the name of your instance of Hummingbot:
 
 ```sh
 docker start $NAME && docker attach $NAME
 ```
 
-### Installed from source
+For additional information on useful commands, see [our guide](/installation/docker) to running Hummingbot on Docker.
+
+### Installed from Source
 
 !!! note
     Make sure that you activate the Anaconda environment with `conda activate hummingbot` prior to running Hummingbot.
@@ -24,9 +26,9 @@ Open a Terminal window and go to the root of the directory that contains Humming
 bin/hummingbot.py
 ```
 
-## User interface
+## User Interface
 
-### Layout
+### Client Layout
 ![Hummingbot CLI](/assets/img/hummingbot-cli.png)
 
 The CLI is divided into three panes:
@@ -35,7 +37,7 @@ The CLI is divided into three panes:
 * **Output pane (upper left)**: prints the output of the user's commands
 * **Log pane (right)**: log messages
 
-### Commands
+### Client Commands
 
 | Command | Function |
 |---------|----------|

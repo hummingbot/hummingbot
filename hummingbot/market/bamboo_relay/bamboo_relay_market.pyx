@@ -1292,6 +1292,9 @@ cdef class BambooRelayMarket(MarketBase):
     cdef double c_get_balance(self, str currency) except? -1:
         return float(self._account_balances.get(currency, 0.0))
 
+    cdef double c_get_available_balance(self, str currency) except? -1:
+        return float(self._account_balances.get(currency, 0.0))
+
     cdef OrderBook c_get_order_book(self, str symbol):
         cdef:
             dict order_books = self._order_book_tracker.order_books
