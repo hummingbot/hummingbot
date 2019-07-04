@@ -8,6 +8,7 @@ cdef class CoinbaseProMarket(MarketBase):
         object _user_stream_tracker
         object _coinbase_auth
         dict _account_balances
+        dict _account_available_balances
         object _ev_loop
         object _poll_notifier
         double _last_timestamp
