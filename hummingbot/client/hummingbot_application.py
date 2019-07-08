@@ -242,9 +242,8 @@ class HummingbotApplication(*commands):
             elif market_name == "binance":
                 binance_api_key = global_config_map.get("binance_api_key").value
                 binance_api_secret = global_config_map.get("binance_api_secret").value
-                market = BinanceMarket(ethereum_rpc_url=ethereum_rpc_url,
-                                       binance_api_key=binance_api_key,
-                                       binance_api_secret=binance_api_secret,
+                market = BinanceMarket(binance_api_key,
+                                       binance_api_secret,
                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                        symbols=symbols,
                                        trading_required=self._trading_required)
@@ -265,10 +264,9 @@ class HummingbotApplication(*commands):
                 coinbase_pro_secret_key = global_config_map.get("coinbase_pro_secret_key").value
                 coinbase_pro_passphrase = global_config_map.get("coinbase_pro_passphrase").value
 
-                market = CoinbaseProMarket(ethereum_rpc_url=ethereum_rpc_url,
-                                           coinbase_pro_api_key=coinbase_pro_api_key,
-                                           coinbase_pro_secret_key=coinbase_pro_secret_key,
-                                           coinbase_pro_passphrase=coinbase_pro_passphrase,
+                market = CoinbaseProMarket(coinbase_pro_api_key,
+                                           coinbase_pro_secret_key,
+                                           coinbase_pro_passphrase,
                                            symbols=symbols,
                                            trading_required=self._trading_required)
 
