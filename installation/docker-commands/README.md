@@ -1,5 +1,21 @@
 # Docker Commands
 
+> The followings scripts require Docker to already be installed.  If you do not have Docker installed, please go to [Install with Docker](./install-with-docker).
+
+## Setup: enabling user permissions
+
+The scripts below assume that the user has `docker` permissions without requiring `sudo`.
+
+If you do not have `docker` permissions:
+
+1. Enter the following command:
+
+  ```
+  sudo usermod -a -G docker $USER
+  ```
+
+2. Log out and log back into the terminal to enable.
+
 ## Download all scipts
 
 ```
