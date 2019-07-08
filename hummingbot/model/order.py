@@ -1,6 +1,8 @@
 #!/usr/bin/env python
-from typing import Dict, Any
-
+from typing import (
+    Dict,
+    Any
+)
 from sqlalchemy import (
     Column,
     Text,
@@ -33,7 +35,6 @@ class Order(HummingbotBase):
     quote_asset = Column(Text, nullable=False)
     creation_timestamp = Column(BigInteger, nullable=False)
     order_type = Column(Text, nullable=False)
-    trade_type = Column(Text, nullable=False)
     amount = Column(Float, nullable=False)
     price = Column(Float, nullable=False)
     last_status = Column(Text, nullable=False)
@@ -59,7 +60,6 @@ class Order(HummingbotBase):
             "market": order.market,
             "order_timestamp": order.creation_timestamp,
             "order_type": order.order_type,
-            "trade_type": order.trade_type,
             "base_asset": order.base_asset,
             "quote_asset": order.quote_asset,
             "raw_json": {

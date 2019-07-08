@@ -166,7 +166,6 @@ class MarketsRecorder:
                                     quote_asset=quote_asset,
                                     creation_timestamp=timestamp,
                                     order_type=evt.type.name,
-                                    trade_type=trade_type.name,
                                     amount=evt.amount,
                                     price=evt.price,
                                     last_status=event_type.name,
