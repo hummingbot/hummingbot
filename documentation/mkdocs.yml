@@ -73,39 +73,49 @@ markdown_extensions:
 # Navigation
 nav:
     - General:
-      - Intro:
-        - Getting Started: index.md
+      - Getting Started: index.md
+      - Learn about Hummingbot:
         - Hummingbot FAQs: faq.md
         - Our Whitepaper: whitepaper.md
         - Our Timeline: roadmap.md
         - Useful Terminology: glossary.md
-      - Installation:
+      - Install Hummingbot:
         - Installing Overview: installation.md
-        - Install on Windows:
-          - From Docker: installation/docker_windows.md
-          - From Source: installation/windows.md
-        - Install on MacOS:
-          - From Docker: installation/docker_macOS.md
-          - From Source: installation/macOS.md
-        - Install on Linux:
-          - From Docker: installation/docker_linux.md
-          - From Source: installation/linux.md
-        - Install in the Cloud: installation/cloud.md
+        - Windows: installation/docker_windows.md
+        - MacOS: installation/docker_macOS.md
+        - Linux: installation/docker_linux.md
+        - Cloud: installation/cloud.md
+      - Run a Bot:
         - Docker Commands: installation/docker.md
         - Using API Keys: installation/api-keys.md
-        - Ethereum Wallet: installation/wallet.md
-        - Ethereum Node:
-          - Using Ethereum Nodes: installation/node/node.md
-          - Set Up a Free Node: installation/node/infura.md
-      - Operation:
         - Using the Client: operation/client.md
         - Configuring Hummingbot: operation/configuration.md
         - Running Trading Bots: operation/running-bots.md
         - Tips for Cloud Users: operation/running-bots-in-the-cloud.md
-        - Logs and Logging: operation/logging.md
-        - Using Exchange Rates: operation/exchange-rates.md
-        - Integrating Telegram: operation/telegram.md
-        - The Debug Console: operation/debug.md
+      - Earn Bounties:
+        - Introduction: bounties/intro.md
+        - Bounty FAQ: bounties/faq.md
+        - Tutorial:
+          - Important Info: bounties/tutorial.md
+          - 1. Install: bounties/tutorial/install.md
+          - 2. Register: bounties/tutorial/register.md
+          - 3. Run a bot: bounties/tutorial/bot.md
+        - Active Bounties:
+          - Harmony $ONE Makers: bounties/active/harmony.md
+      - Get Help:
+        - Contact and Support: support.md
+        - Bug Bounty Program: support/bug-bounty-program.md
+    - User Guide:
+      - Overview: guide.md
+      - Installation from Source:
+        - Windows: installation/windows.md
+        - macOS: installation/macOS.md
+        - Linux/Cloud: installation/linux.md
+      - Wallets and Nodes:
+        - Ethereum Wallet: installation/wallet.md
+        - Ethereum Node:
+          - Using Ethereum Nodes: installation/node/node.md
+          - Set Up a Free Node: installation/node/infura.md
       - Connectors:
         - About Connectors: connectors.md
         - Binance: connectors/binance.md
@@ -116,27 +126,21 @@ nav:
         - 0x Relayers: connectors/0x.md
       - Strategies:
         - Strategy Overview: strategies.md
+        - Cross-exchange market making: strategies/cross-exchange-market-making.md
         - Arbitrage: strategies/arbitrage.md
         - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
         - Pure Market Making: strategies/pure-market-making.md
         - Discovery: strategies/discovery.md
-      - Support:
-        - Contact and Support: support.md
-        - Bug Bounty Program: support/bug-bounty-program.md
-    - Bounties:
-      - Introduction: bounties/intro.md
-      - Bounty FAQ: bounties/faq.md
-      - Tutorial:
-        - Important Info: bounties/tutorial.md
-        - 1. Install: bounties/tutorial/install.md
-        - 2. Register: bounties/tutorial/register.md
-        - 3. Run a bot: bounties/tutorial/bot.md
-      - Active Bounties:
-        - Harmony $ONE Makers: bounties/active/harmony.md
+      - Data Feeds:
+        - Overview: feeds.md
+      - Utilities:
+        - Logs and Logging: operation/logging.md
+        - Using Exchange Rates: operation/exchange-rates.md
+        - Integrating Telegram: operation/telegram.md
+      - Advanced:
+        - Debug Console: operation/debug.md
     - Release Notes:
       - About Releases: release-notes.md
-      - 0.9.1: release-notes/0.9.1.md
-      - 0.9.0: release-notes/0.9.0.md
       - 0.8.1: release-notes/0.8.1.md
       - 0.8.0: release-notes/0.8.0.md
       - 0.7.0: release-notes/0.7.0.md
