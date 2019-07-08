@@ -65,10 +65,14 @@ class ListCommand:
 
         elif obj == "trades":
             lines = []
+            if in_memory_config_map.get("strategy_file_path").value is None:
+                self._notify("Enter the config file path")
             if self.strategy is None:
                 self._notify(("No strategy available, cannot show past trades"))
-            #strategy = in_memory_config_map.get("strategy").value
+
             else:
+                strategy1 = in_memory_config_map.get("strategy").value
+                self._notifyf(f"strategy value is {strategy1}")
                 if len(self.strategy.trades) > 0:
                     df = Trade.to_pandas(self.strategy.trades)
                     df_lines = str(df).split("\n")
