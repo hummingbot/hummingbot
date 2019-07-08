@@ -89,15 +89,15 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
             required_base_asset_balance += float(sell_order_size)
             if self._log_warning_order_size:
                 if buy_order_size == 0 :
-                    self.logger().network(f"Order size is less than minimum order size for Price: {pricing_proposal.buy_order_prices[idx]} ",
+                    self.logger().network(f"Buy Order size is less than minimum order size for Price: {pricing_proposal.buy_order_prices[idx]} ",
                                           f"The orders for price of {pricing_proposal.buy_order_prices[idx]} are too small for the market. Check configuration")
 
                     #After warning once, set warning flag to False
                     self._log_warning_order_size = False
 
                 if sell_order_size == 0 :
-                    self.logger().network(f"Order size is less than minimum order size for Price: {pricing_proposal.buy_order_prices[idx]} ",
-                                          f"The orders for price of {pricing_proposal.buy_order_prices[idx]} are too small for the market. Check configuration")
+                    self.logger().network(f"Sell Order size is less than minimum order size for Price: {pricing_proposal.sell_order_prices[idx]} ",
+                                          f"The orders for price of {pricing_proposal.sell_order_prices[idx]} are too small for the market. Check configuration")
 
                     #After warning once, set warning flag to False
                     self._log_warning_order_size = False
