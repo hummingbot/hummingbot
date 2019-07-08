@@ -1,6 +1,8 @@
 #!/usr/bin/env python
-from typing import Dict, Any
-
+from typing import (
+    Dict,
+    Any
+)
 from sqlalchemy import (
     Column,
     Text,

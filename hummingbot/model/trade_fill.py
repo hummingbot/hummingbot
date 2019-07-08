@@ -30,7 +30,7 @@ class TradeFill(HummingbotBase):
                       Index("tf_market_quote_asset_timestamp_index",
                             "market", "quote_asset", "timestamp")
                       )
-
+        
     id = Column(Integer, primary_key=True, nullable=False)
     config_file_path = Column(Text, nullable=False)
     strategy = Column(Text, nullable=False)
@@ -64,7 +64,7 @@ class TradeFill(HummingbotBase):
             "quantity": numpy.format_float_positional(trade_fill.amount),
             "trading_pair": trade_fill.symbol,
             "trade_timestamp": trade_fill.timestamp,
-            "trade_type": trade_fill.trade_type.name,
+            "trade_type": trade_fill.trade_type,
             "base_asset": trade_fill.base_asset,
             "quote_asset": trade_fill.quote_asset,
             "raw_json": {
