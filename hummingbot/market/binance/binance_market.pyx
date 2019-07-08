@@ -59,6 +59,7 @@ from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker
 from hummingbot.market.binance.binance_user_stream_tracker import BinanceUserStreamTracker
 from hummingbot.market.binance.binance_time import BinanceTime
+from hummingbot.market.binance.binance_in_flight_order import BinanceInFlightOrder
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
@@ -119,151 +120,6 @@ cdef class WithdrawRule:
     def __repr__(self) -> str:
         return f"WithdrawRule(asset_name='{self.asset_name}', min_withdraw_amount={self.min_withdraw_amount}, " \
                f"withdraw_fee={self.withdraw_fee})"
-
-
-cdef class InFlightOrder:
-    cdef:
-        public str client_order_id
-        public int64_t exchange_order_id
-        public str symbol
-        public bint is_buy
-        public object price
-        public object amount
-        public object executed_amount
-        public object quote_asset_amount
-        public str fee_asset
-        public object fee_paid
-        public str last_state
-        public object order_type
-        public object trade_id_set
-
-    def __init__(self,
-                 client_order_id: str,
-                 exchange_order_id: int,
-                 symbol: str,
-                 is_buy: bool,
-                 price: Decimal,
-                 amount: Decimal,
-                 order_type: OrderType):
-        global s_decimal_0
-
-        self.client_order_id = client_order_id
-        self.exchange_order_id = exchange_order_id
-        self.symbol = symbol
-        self.is_buy = is_buy
-        self.price = price
-        self.amount = amount
-        self.executed_amount = s_decimal_0
-        self.quote_asset_amount = s_decimal_0
-        self.fee_asset = None
-        self.fee_paid = s_decimal_0
-        self.last_state = 'NEW'
-        self.order_type = order_type
-        self.trade_id_set = set()
-
-    def __repr__(self) -> str:
-        return f"InFlightOrder(client_order_id='{self.client_order_id}', exchange_order_id={self.exchange_order_id}, " \
-               f"symbol='{self.symbol}', is_buy={self.is_buy}, price={self.price}, amount={self.amount}, " \
-               f"executed_amount={self.executed_amount}, quote_asset_amount={self.quote_asset_amount}, " \
-               f"fee_asset='{self.fee_asset}', fee_paid={self.fee_paid}, last_state='{self.last_state}, " \
-               f"order_type='{self.order_type}', trade_id_set='{self.trade_id_set}')"
-
-    def update_with_execution_report(self, execution_report: Dict[str, any]):
-        trade_id = execution_report["t"]
-        if trade_id in self.trade_id_set:
-            # trade already recorded
-            return
-        self.trade_id_set.add(trade_id)
-        last_executed_quantity = Decimal(execution_report["l"])
-        last_commission_amount = Decimal(execution_report["n"])
-        last_commission_asset = execution_report["N"]
-        last_order_state = execution_report["X"]
-        last_executed_price = Decimal(execution_report["L"])
-        quote_asset_amount = last_executed_price * last_executed_quantity
-        self.executed_amount += last_executed_quantity
-        self.quote_asset_amount += quote_asset_amount
-        if last_commission_asset is not None:
-            self.fee_asset = last_commission_asset
-        self.fee_paid += last_commission_amount
-        self.last_state = last_order_state
-
-    def update_with_trade_update(self, trade_update: Dict[str, any]):
-        trade_id = trade_update["id"]
-        if trade_update["orderId"] != self.exchange_order_id or trade_id in self.trade_id_set:
-            # trade already recorded
-            return
-        self.trade_id_set.add(trade_id)
-        self.quote_asset_amount += Decimal(trade_update["qty"])
-        self.fee_paid += Decimal(trade_update["commission"])
-        self.quote_asset_amount += Decimal(trade_update["quoteQty"])
-        return trade_update
-
-    @property
-    def is_done(self) -> bool:
-        return self.last_state in {"FILLED", "CANCELED", "PENDING_CANCEL", "REJECTED", "EXPIRED"}
-
-    @property
-    def is_failure(self) -> bool:
-        return self.last_state in {"CANCELED", "PENDING_CANCEL", "REJECTED", "EXPIRED"}
-
-    @property
-    def base_asset(self) -> str:
-        return BinanceMarket.split_symbol(self.symbol)[0]
-
-    @property
-    def quote_asset(self) -> str:
-        return BinanceMarket.split_symbol(self.symbol)[1]
-
-    def to_limit_order(self) -> LimitOrder:
-        cdef:
-            str base_currency
-            str quote_currency
-
-        base_currency, quote_currency = BinanceMarket.split_symbol(self.symbol)
-        return LimitOrder(
-            self.client_order_id,
-            self.symbol,
-            self.is_buy,
-            base_currency,
-            quote_currency,
-            Decimal(self.price),
-            Decimal(self.amount)
-        )
-
-    def to_json(self) -> Dict[str, any]:
-        return {
-            "client_order_id": self.client_order_id,
-            "exchange_order_id": self.exchange_order_id,
-            "symbol": self.symbol,
-            "is_buy": self.is_buy,
-            "price": str(self.price),
-            "amount": str(self.amount),
-            "executed_amount": str(self.executed_amount),
-            "quote_asset_amount": str(self.quote_asset_amount),
-            "fee_asset": self.fee_asset,
-            "fee_paid": str(self.fee_paid),
-            "last_state": self.last_state,
-            "order_type": self.order_type.name
-        }
-
-    @classmethod
-    def from_json(cls, data: Dict[str, any]) -> "InFlightOrder":
-        cdef:
-            InFlightOrder retval = InFlightOrder(
-                data["client_order_id"],
-                data["exchange_order_id"],
-                data["symbol"],
-                data["is_buy"],
-                Decimal(data["price"]),
-                Decimal(data["amount"]),
-                getattr(OrderType, data["order_type"])
-            )
-        retval.executed_amount = Decimal(data["executed_amount"])
-        retval.quote_asset_amount = Decimal(data["quote_asset_amount"])
-        retval.fee_asset = data["fee_asset"]
-        retval.fee_paid = Decimal(data["fee_paid"])
-        retval.last_state = data["last_state"]
-        return retval
 
 
 cdef class TradingRule:
@@ -374,13 +230,6 @@ cdef class BinanceMarket(MarketBase):
         self._trading_rules_polling_task = None
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._last_pull_timestamp = 0
-    @staticmethod
-    def split_symbol(symbol: str) -> Tuple[str, str]:
-        try:
-            m = SYMBOL_SPLITTER.match(symbol)
-            return m.group(1), m.group(2)
-        except Exception as e:
-            raise ValueError(f"Error parsing symbol {symbol}: {str(e)}")
 
     @staticmethod
     def split_symbol(symbol: str) -> Tuple[str, str]:
@@ -411,7 +260,7 @@ cdef class BinanceMarket(MarketBase):
         return self._trading_rules
 
     @property
-    def in_flight_orders(self) -> Dict[str, InFlightOrder]:
+    def in_flight_orders(self) -> Dict[str, BinanceInFlightOrder]:
         return self._in_flight_orders
 
     @property
@@ -434,7 +283,7 @@ cdef class BinanceMarket(MarketBase):
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self._in_flight_orders.update({
-            key: InFlightOrder.from_json(value)
+            key: BinanceInFlightOrder.from_json(value)
             for key, value in saved_states.items()
         })
 
@@ -637,7 +486,7 @@ cdef class BinanceMarket(MarketBase):
                     )
                     continue
                 for trade in trades:
-                    order_id = trade["orderId"]
+                    order_id = str(trade["orderId"])
                     if order_id in order_map:
                         tracked_order = order_map[order_id]
                         order_type = OrderType.LIMIT if trade["isMaker"] else OrderType.MARKET
@@ -701,8 +550,8 @@ cdef class BinanceMarket(MarketBase):
                                                                         tracked_order.quote_asset,
                                                                         (tracked_order.fee_asset
                                                                          or tracked_order.base_asset),
-                                                                        float(tracked_order.executed_amount),
-                                                                        float(tracked_order.quote_asset_amount),
+                                                                        float(tracked_order.executed_amount_base),
+                                                                        float(tracked_order.executed_amount_quote),
                                                                         float(tracked_order.fee_paid),
                                                                         order_type))
                         else:
@@ -715,8 +564,8 @@ cdef class BinanceMarket(MarketBase):
                                                                          tracked_order.quote_asset,
                                                                          (tracked_order.fee_asset
                                                                           or tracked_order.quote_asset),
-                                                                         float(tracked_order.executed_amount),
-                                                                         float(tracked_order.quote_asset_amount),
+                                                                         float(tracked_order.executed_amount_base),
+                                                                         float(tracked_order.executed_amount_quote),
                                                                          float(tracked_order.fee_paid),
                                                                          order_type))
                     else:
@@ -804,8 +653,8 @@ cdef class BinanceMarket(MarketBase):
                                                                         tracked_order.quote_asset,
                                                                         (tracked_order.fee_asset
                                                                          or tracked_order.base_asset),
-                                                                        float(tracked_order.executed_amount),
-                                                                        float(tracked_order.quote_asset_amount),
+                                                                        float(tracked_order.executed_amount_base),
+                                                                        float(tracked_order.executed_amount_quote),
                                                                         float(tracked_order.fee_paid),
                                                                         tracked_order.order_type))
                         else:
@@ -818,8 +667,8 @@ cdef class BinanceMarket(MarketBase):
                                                                          tracked_order.quote_asset,
                                                                          (tracked_order.fee_asset
                                                                           or tracked_order.quote_asset),
-                                                                         float(tracked_order.executed_amount),
-                                                                         float(tracked_order.quote_asset_amount),
+                                                                         float(tracked_order.executed_amount_base),
+                                                                         float(tracked_order.executed_amount_quote),
                                                                          float(tracked_order.fee_paid),
                                                                          tracked_order.order_type))
                     else:
@@ -1065,14 +914,14 @@ cdef class BinanceMarket(MarketBase):
             order_decimal_amount = f"{decimal_amount:f}"
             if order_type is OrderType.LIMIT:
                 order_decimal_price = f"{decimal_price:f}"
-                self.c_start_tracking_order(order_id, -1, symbol, True, decimal_price, decimal_amount, order_type)
+                self.c_start_tracking_order(order_id, "", symbol, True, decimal_price, decimal_amount, order_type)
                 order_result = await self.query_api(self._binance_client.order_limit_buy,
                                                     symbol=symbol,
                                                     quantity=order_decimal_amount,
                                                     price=order_decimal_price,
                                                     newClientOrderId=order_id)
             elif order_type is OrderType.MARKET:
-                self.c_start_tracking_order(order_id, -1, symbol, True, Decimal("NaN"), decimal_amount, order_type)
+                self.c_start_tracking_order(order_id, "", symbol, True, Decimal("NaN"), decimal_amount, order_type)
                 order_result = await self.query_api(self._binance_client.order_market_buy,
                                                     symbol=symbol,
                                                     quantity=order_decimal_amount,
@@ -1080,7 +929,7 @@ cdef class BinanceMarket(MarketBase):
             else:
                 raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
 
-            exchange_order_id = order_result["orderId"]
+            exchange_order_id = str(order_result["orderId"])
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type} buy order {order_id} for "
@@ -1140,14 +989,14 @@ cdef class BinanceMarket(MarketBase):
             order_decimal_amount = f"{decimal_amount:f}"
             if order_type is OrderType.LIMIT:
                 order_decimal_price = f"{decimal_price:f}"
-                self.c_start_tracking_order(order_id, -1, symbol, False, decimal_price, decimal_amount, order_type)
+                self.c_start_tracking_order(order_id, "", symbol, False, decimal_price, decimal_amount, order_type)
                 order_result = await self.query_api(self._binance_client.order_limit_sell,
                                                     symbol=symbol,
                                                     quantity=order_decimal_amount,
                                                     price=order_decimal_price,
                                                     newClientOrderId=order_id)
             elif order_type is OrderType.MARKET:
-                self.c_start_tracking_order(order_id, -1, symbol, False, Decimal("NaN"), decimal_amount, order_type)
+                self.c_start_tracking_order(order_id, "", symbol, False, Decimal("NaN"), decimal_amount, order_type)
                 order_result = await self.query_api(self._binance_client.order_market_sell,
                                                     symbol=symbol,
                                                     quantity=order_decimal_amount,
@@ -1155,7 +1004,7 @@ cdef class BinanceMarket(MarketBase):
             else:
                 raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
 
-            exchange_order_id = order_result["orderId"]
+            exchange_order_id = str(order_result["orderId"])
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type} sell order {order_id} for "
@@ -1289,19 +1138,21 @@ cdef class BinanceMarket(MarketBase):
 
     cdef c_start_tracking_order(self,
                                 str order_id,
-                                int64_t exchange_order_id,
+                                str exchange_order_id,
                                 str symbol,
                                 bint is_buy,
                                 object price,
                                 object amount,
                                 object order_type):
-        self._in_flight_orders[order_id] = InFlightOrder(order_id,
-                                                         exchange_order_id,
-                                                         symbol,
-                                                         is_buy,
-                                                         price,
-                                                         amount,
-                                                         order_type)
+        self._in_flight_orders[order_id] = BinanceInFlightOrder(
+            client_order_id=order_id,
+            exchange_order_id=exchange_order_id,
+            symbol=symbol,
+            order_type=order_type,
+            is_buy=is_buy,
+            price=price,
+            amount=amount
+        )
 
     cdef c_stop_tracking_order(self, str order_id):
         if order_id in self._in_flight_orders:
