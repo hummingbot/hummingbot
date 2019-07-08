@@ -62,7 +62,7 @@ class BountyCommand:
     async def bounty_print_terms(self,  # type: HummingbotApplication
                                  ):
         """ Print bounty Terms and Conditions to output pane """
-        await self.print_doc(join(dirname(__file__), "./liquidity_bounty/terms_and_conditions.txt"))
+        await self.print_doc(join(dirname(__file__), "../liquidity_bounty/terms_and_conditions.txt"))
 
     async def bounty_registration(self,  # type: HummingbotApplication
                                   ):
@@ -102,11 +102,11 @@ class BountyCommand:
         try:
             for key, cvar in liquidity_bounty_config_map.items():
                 if key == "liquidity_bounty_enabled":
-                    await self.print_doc(join(dirname(__file__), "./liquidity_bounty/requirements.txt"))
+                    await self.print_doc(join(dirname(__file__), "../liquidity_bounty/requirements.txt"))
                 elif key == "agree_to_terms":
                     await self.bounty_print_terms()
                 elif key == "agree_to_data_collection":
-                    await self.print_doc(join(dirname(__file__), "./liquidity_bounty/data_collection_policy.txt"))
+                    await self.print_doc(join(dirname(__file__), "../liquidity_bounty/data_collection_policy.txt"))
                 elif key == "eth_address":
                     self._notify("\nYour wallets:")
                     self.list("wallets")
