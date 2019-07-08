@@ -65,7 +65,9 @@ class ListCommand:
 
         elif obj == "trades":
             lines = []
-            strategy = in_memory_config_map.get("strategy").value
+            if self.strategy is None:
+                self._notify(("No strategy available, cannot show past trades"))
+            #strategy = in_memory_config_map.get("strategy").value
             else:
                 if len(self.strategy.trades) > 0:
                     df = Trade.to_pandas(self.strategy.trades)
