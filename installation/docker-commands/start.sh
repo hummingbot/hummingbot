@@ -1,0 +1,1 @@
+docker start hummingbot-instance && docker attach hummingbot-instance
