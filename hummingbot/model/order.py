@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import numpy
 from typing import (
     Dict,
     Any
@@ -46,7 +47,7 @@ class Order(HummingbotBase):
         return f"Order(id={self.id}, config_file_path='{self.config_file_path}', strategy='{self.strategy}', " \
                f"market='{self.market}', symbol='{self.symbol}', base_asset='{self.base_asset}', " \
                f"quote_asset='{self.quote_asset}', creation_timestamp={self.creation_timestamp}, " \
-               f"order_type='{self.order_type}', trade_type='{self.trade_type}', amount={self.amount}, " \
+               f"order_type='{self.order_type}', amount={self.amount}, " \
                f"price={self.price}, last_status='{self.last_status}', " \
                f"last_update_timestamp={self.last_update_timestamp})"
 
@@ -54,8 +55,8 @@ class Order(HummingbotBase):
     def to_bounty_api_json(order: "Order") -> Dict[str, Any]:
         return {
             "order_id": order.id,
-            "price": order.price,
-            "quantity": order.amount,
+            "price": numpy.format_float_positional(order.price),
+            "quantity": numpy.format_float_positional(order.amount),
             "trading_pair": order.symbol,
             "market": order.market,
             "order_timestamp": order.creation_timestamp,
