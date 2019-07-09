@@ -7,7 +7,7 @@ jobs:
     working_directory: ~/hummingbot-circleci
     docker:
       # Specify base image: using Anaconda
-      - image: coinalpha/condatest:0.1.0
+      - image: coinalpha/condatest:0.2.0
     steps:
       - checkout
 
