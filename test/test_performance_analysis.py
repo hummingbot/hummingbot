@@ -36,14 +36,14 @@ class TestPerformanceAnalysis(unittest.TestCase):
         performance_analysis.add_balances("WETH", current_weth, True, False)
         performance_analysis.add_balances("DAI", current_dai, False, False)
 
-        calculated_percent = performance_analysis.compute_profitability(self._price)
+        calculated_percent = performance_analysis.compute_return(self._price)
 
         starting_balance = (starting_weth * self._price) + starting_dai
         current_balance = (current_weth * self._price) + current_dai
         expected_percent = (current_balance / starting_balance) - 1
         expected_percent *= 100
 
-        self.assertEqual(calculated_percent, expected_percent, "Basic one ex test failed.")
+        self.assertAlmostEquals(calculated_percent, expected_percent, msg="Basic one ex test failed.")
 
     def test_basic_two_ex(self):
         """ Test performance analysis on a two exchange balance with the same currencies trading in both exchanges. """
@@ -66,7 +66,7 @@ class TestPerformanceAnalysis(unittest.TestCase):
         performance_analysis.add_balances("WETH", current_weth_2, True, False)
         performance_analysis.add_balances("DAI", current_dai_2, False, False)
 
-        calculated_percent = performance_analysis.compute_profitability(self._price)
+        calculated_percent = performance_analysis.compute_return(self._price)
 
         starting_weth = starting_weth_1 + starting_weth_2
         starting_dai = starting_dai_1 + starting_dai_2
@@ -77,7 +77,7 @@ class TestPerformanceAnalysis(unittest.TestCase):
         expected_percent = (current_balance / starting_balance) - 1
         expected_percent *= 100
 
-        self.assertEqual(calculated_percent, expected_percent, "Basic one ex test failed.")
+        self.assertAlmostEquals(calculated_percent, expected_percent, msg="Basic one ex test failed.")
 
     def test_different_tokens_two_ex(self):
         """ Test performance analysis on a two exchange balance with different currencies trading. Note that this test
@@ -100,7 +100,7 @@ class TestPerformanceAnalysis(unittest.TestCase):
         performance_analysis.add_balances("DAI", current_dai_1, False, False)
         performance_analysis.add_balances("ETH", current_eth_2, True, False)
         performance_analysis.add_balances("USDC", current_usdc_2, False, False)
-        calculated_percent = performance_analysis.compute_profitability(self._price)
+        calculated_percent = performance_analysis.compute_return(self._price)
 
         starting_weth = starting_weth_1 + starting_eth_2
         starting_dai = starting_dai_1 + (starting_usdc_2 * self._usdc_price * (1 / self._dai_price))
@@ -125,7 +125,7 @@ class TestPerformanceAnalysis(unittest.TestCase):
         performance_analysis.add_balances("DAI", starting_dai, False, True)
         performance_analysis.add_balances("WETH", current_weth, True, False)
         performance_analysis.add_balances("DAI", current_dai, False, False)
-        calculated_percent = performance_analysis.compute_profitability(self._price)
+        calculated_percent = performance_analysis.compute_return(self._price)
         self.assertTrue(math.isnan(calculated_percent), "Starting value of 0 test failed.")
 
 

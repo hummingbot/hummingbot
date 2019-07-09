@@ -66,14 +66,15 @@ class PerformanceAnalysis:
     def compute_delta(self, price: float) -> (str, float):
         """ Computes the current amount of token between both exchanges. """
         starting_token, starting_amount = self.compute_starting(price)
-        if starting_amount == 0:
-            return float('nan')
         _, current_amount = self.compute_current(price)
-        return starting_token, current_amount - starting_amount
+        delta = current_amount - starting_amount
+        return starting_token, delta
 
     def compute_return(self, price: float) -> float:
         """ Compute the profitability of the trading bot based on the starting and current prices """
         _, starting_amount = self.compute_starting(price)
+        if starting_amount == 0:
+            return float('nan')
         _, delta = self.compute_delta(price)
         percent = (delta / starting_amount) * 100
         return percent
