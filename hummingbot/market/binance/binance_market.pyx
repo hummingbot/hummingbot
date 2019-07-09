@@ -633,7 +633,7 @@ cdef class BinanceMarket(MarketBase):
                 client_order_id = tracked_order.client_order_id
                 if isinstance(order_update, Exception):
                     if order_update.code == 2013 or order_update.message == "Order does not exist.":
-                        self.logger().network(
+                        self.logger().warning(
                             f"Order: {client_order_id} does not exist in Tracked orders :{order_update}."
                         )
                         self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG, MarketOrderFailureEvent(self._current_timestamp, client_order_id, order_type))
