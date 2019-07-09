@@ -726,14 +726,20 @@ cdef class BinanceMarket(MarketBase):
                 event_type = event_message.get("e")
 
                 if event_type == "executionReport":
-                    client_order_id = event_message.get("c")
+                    execution_type = event_message.get("x")
+                    if execution_type != "CANCELED":
+                        client_order_id = event_message.get("c")
+                    else:
+                        client_order_id = event_message.get("C")
+
                     tracked_order = self._in_flight_orders.get(client_order_id)
+
                     if tracked_order is None:
-                        self.logger().network(event_message)
-                        self.logger().network(f"Unrecognized order ID from user stream: {client_order_id}. Skipping.")
+                        self.logger().warning(f"Unrecognized order ID from user stream: {client_order_id}.")
+                        self.logger().debug(f"Event: {event_message}")
                         continue
                     tracked_order.update_with_execution_report(event_message)
-                    execution_type = event_message.get("x")
+
                     if execution_type == "TRADE":
                         order_filled_event = OrderFilledEvent.order_filled_event_from_binance_execution_report(event_message)
                         order_filled_event = order_filled_event._replace(trade_fee=self.c_get_fee(
