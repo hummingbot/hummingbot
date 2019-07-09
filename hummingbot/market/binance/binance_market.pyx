@@ -736,7 +736,7 @@ cdef class BinanceMarket(MarketBase):
 
                     if tracked_order is None:
                         self.logger().warning(f"Unrecognized order ID from user stream: {client_order_id}.")
-                        self.logger().debug(f"Event: {event_message}")
+                        self.logger().warning(f"Event: {event_message}")
                         continue
                     tracked_order.update_with_execution_report(event_message)
 
