@@ -1,4 +1,3 @@
-import math
 from collections import defaultdict
 
 import aiohttp
@@ -18,6 +17,7 @@ import pandas as pd
 import re
 import time
 from typing import (
+    Any,
     Dict,
     List,
     AsyncIterable,
@@ -25,7 +25,6 @@ from typing import (
     Coroutine,
     Tuple,
 )
-from web3 import Web3
 import conf
 import hummingbot
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
@@ -35,7 +34,6 @@ from hummingbot.market.binance.binance_api_order_book_data_source import Binance
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import (
     MarketEvent,
-    MarketReceivedAssetEvent,
     MarketWithdrawAssetEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
@@ -59,11 +57,11 @@ from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker
 from hummingbot.market.binance.binance_user_stream_tracker import BinanceUserStreamTracker
 from hummingbot.market.binance.binance_time import BinanceTime
+from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
-from hummingbot.wallet.wallet_base import WalletBase
-from hummingbot.wallet.wallet_base cimport WalletBase
+from hummingbot.market.trading_rule cimport TradingRule
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -265,50 +263,6 @@ cdef class InFlightOrder:
         retval.last_state = data["last_state"]
         return retval
 
-
-cdef class TradingRule:
-    cdef:
-        public str symbol
-        public object price_tick_size
-        public object order_step_size
-        public object min_order_size
-        public object min_notional_size
-
-    @classmethod
-    def parse_exchange_info(cls, exchange_info_dict: Dict[str, any]) -> List[TradingRule]:
-        cdef:
-            list symbol_rules = exchange_info_dict.get("symbols", [])
-            list retval = []
-        for rule in symbol_rules:
-            try:
-                symbol = rule.get("symbol")
-                filters = rule.get("filters")
-                price_filter = [f for f in filters if f.get("filterType") == "PRICE_FILTER"][0]
-                lot_size_filter = [f for f in filters if f.get("filterType") == "LOT_SIZE"][0]
-                min_notional_filter = [f for f in filters if f.get("filterType") == "MIN_NOTIONAL"][0]
-                retval.append(TradingRule(symbol,
-                                          Decimal(price_filter.get("tickSize")),
-                                          Decimal(lot_size_filter.get("stepSize")),
-                                          Decimal(lot_size_filter.get("minQty")),
-                                          Decimal(min_notional_filter.get("minNotional"))))
-            except Exception:
-                BinanceMarket.logger().error(f"Error parsing the symbol rule {rule}. Skipping.", exc_info=True)
-        return retval
-
-    def __init__(self, symbol: str, price_tick_size: Decimal, order_step_size: Decimal, min_order_size: Decimal,
-                 min_notional_size: Decimal):
-        self.symbol = symbol
-        self.price_tick_size = price_tick_size
-        self.order_step_size = order_step_size
-        self.min_order_size = min_order_size
-        self.min_notional_size = min_notional_size
-
-    def __repr__(self) -> str:
-        return f"TradingRule(symbol='{self.symbol}', price_tick_size={self.price_tick_size}, " \
-               f"order_step_size={self.order_step_size}, min_order_size={self.min_order_size}, " \
-               f"min_notional_size={self.min_notional_size})"
-
-
 cdef class BinanceMarket(MarketBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
@@ -334,7 +288,6 @@ cdef class BinanceMarket(MarketBase):
         return s_logger
 
     def __init__(self,
-                 ethereum_rpc_url: str,
                  binance_api_key: str,
                  binance_api_secret: str,
                  poll_interval: float = 5.0,
@@ -359,10 +312,8 @@ cdef class BinanceMarket(MarketBase):
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._poll_interval = poll_interval
-        self._in_flight_deposits = {}
         self._in_flight_orders = {}
         self._tx_tracker = BinanceMarketTransactionTracker(self)
-        self._w3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
         self._withdraw_rules = {}
         self._trading_rules = {}
         self._trade_fees = {}
@@ -414,10 +365,6 @@ cdef class BinanceMarket(MarketBase):
     @property
     def in_flight_orders(self) -> Dict[str, InFlightOrder]:
         return self._in_flight_orders
-
-    @property
-    def in_flight_deposits(self) -> Dict[str, InFlightDeposit]:
-        return self._in_flight_deposits
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
@@ -496,19 +443,6 @@ cdef class BinanceMarket(MarketBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    async def _check_failed_eth_tx(self):
-        in_flight_deposits = [d for d in self._in_flight_deposits.values() if not d.has_tx_receipt]
-        tasks = [self._ev_loop.run_in_executor(hummingbot.get_executor(),
-                                               self._w3.eth.getTransactionReceipt, d.tx_hash)
-                 for d in in_flight_deposits]
-        receipts = await asyncio.gather(*tasks)
-        for d , receipt in zip(in_flight_deposits, receipts):
-            if receipt is None or receipt.blockHash is None:
-                continue
-            if receipt.status == 0:
-                self.c_did_fail_tx(d.tracking_id)
-            d.has_tx_receipt = True
-
     async def _update_trade_fees(self):
         cdef:
             double current_timestamp = self._current_timestamp
@@ -545,44 +479,6 @@ cdef class BinanceMarket(MarketBase):
             maker_trade_fee, taker_trade_fee = self._trade_fees.get(symbol)
         return TradeFee(percent=maker_trade_fee if order_type is OrderType.LIMIT else taker_trade_fee)
 
-    async def _check_deposit_completion(self):
-        if len(self._in_flight_deposits) < 1:
-            return
-
-        # Emit the API call.
-        min_timestamp = min(d.timestamp_ms for d in self._in_flight_deposits.values())
-        tx_hash_to_deposit_map = dict((d.tx_hash, d) for d in self._in_flight_deposits.values())
-        api_reply = await self.query_api(self._binance_client.get_deposit_history, startTime=min_timestamp)
-
-        # Get the deposit list data from the API reply.
-        if not isinstance(api_reply, dict) or api_reply["success"] is not True:
-            err_msg = api_reply.get("msg") or str(api_reply)
-            self.logger().network(f"Invalid reply from Binance deposit history API endpoint: {err_msg}",
-                                  app_warning_msg=f"Could not confirm Binance deposit: {err_msg}.")
-            return
-        deposit_list = api_reply["depositList"]
-
-        # For each record in the deposit list, match it against known in-flight deposits.
-        # Emit received asset events.
-        for deposit_record in deposit_list:
-            if deposit_record["status"] != 1:
-                continue
-            tx_id = deposit_record.get("txId", "")
-            if tx_id in tx_hash_to_deposit_map:
-                tracking_record = tx_hash_to_deposit_map[tx_id]
-                self.logger().info(f"Received {deposit_record['amount']} {deposit_record['asset']} from "
-                                   f"{tracking_record.from_address} via tx id {tx_id}.")
-                self.c_trigger_event(self.MARKET_RECEIVED_ASSET_EVENT_TAG,
-                                     MarketReceivedAssetEvent(
-                                         deposit_record["insertTime"] * 1e-3,
-                                         tracking_record.tracking_id,
-                                         tracking_record.from_address,
-                                         tracking_record.to_address,
-                                         deposit_record["asset"],
-                                         float(deposit_record["amount"])
-                                     ))
-                self.c_stop_tracking_deposit(tracking_record.tracking_id)
-
     async def _update_withdraw_rules(self):
         cdef:
             # The poll interval for withdraw rules is 60 seconds.
@@ -608,10 +504,63 @@ cdef class BinanceMarket(MarketBase):
             int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) < 1:
             exchange_info = await self.query_api(self._binance_client.get_exchange_info)
-            trading_rules_list = TradingRule.parse_exchange_info(exchange_info)
+            trading_rules_list = self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
                 self._trading_rules[trading_rule.symbol] = trading_rule
+
+    def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
+        """
+        Example:
+        {
+            "symbol": "ETHBTC",
+            "baseAssetPrecision": 8,
+            "quotePrecision": 8,
+            "orderTypes": ["LIMIT", "MARKET"],
+            "filters": [
+                {
+                    "filterType": "PRICE_FILTER",
+                    "minPrice": "0.00000100",
+                    "maxPrice": "100000.00000000",
+                    "tickSize": "0.00000100"
+                }, {
+                    "filterType": "LOT_SIZE",
+                    "minQty": "0.00100000",
+                    "maxQty": "100000.00000000",
+                    "stepSize": "0.00100000"
+                }, {
+                    "filterType": "MIN_NOTIONAL",
+                    "minNotional": "0.00100000"
+                }
+            ]
+        }
+        """
+        cdef:
+            list symbol_rules = exchange_info_dict.get("symbols", [])
+            list retval = []
+        for rule in symbol_rules:
+            try:
+                symbol = rule.get("symbol")
+                filters = rule.get("filters")
+                price_filter = [f for f in filters if f.get("filterType") == "PRICE_FILTER"][0]
+                lot_size_filter = [f for f in filters if f.get("filterType") == "LOT_SIZE"][0]
+                min_notional_filter = [f for f in filters if f.get("filterType") == "MIN_NOTIONAL"][0]
+
+                min_order_size = Decimal(lot_size_filter.get("minQty"))
+                tick_size = price_filter.get("tickSize")
+                step_size = Decimal(lot_size_filter.get("stepSize"))
+                min_notional = Decimal(min_notional_filter.get("minNotional"))
+
+                retval.append(
+                    TradingRule(symbol,
+                                min_order_size=min_order_size,
+                                min_price_increment=Decimal(tick_size),
+                                min_base_amount_increment=Decimal(step_size),
+                                min_notional_size=Decimal(min_notional)))
+
+            except Exception:
+                self.logger().error(f"Error parsing the symbol rule {rule}. Skipping.", exc_info=True)
+        return retval
 
     async def _update_order_fills_from_trades(self):
         cdef:
@@ -866,8 +815,6 @@ cdef class BinanceMarket(MarketBase):
                 await self._poll_notifier.wait()
                 await asyncio.gather(
                     self._update_balances(),
-                    self._check_failed_eth_tx(),
-                    self._check_deposit_completion(),
                     self._update_order_status(),
                     self._update_order_fills_from_trades()
                 )
@@ -921,52 +868,21 @@ cdef class BinanceMarket(MarketBase):
     def get_all_balances(self) -> Dict[str, float]:
         return self._account_balances.copy()
 
-    async def execute_deposit(self, tracking_id: str, from_wallet: WalletBase, currency: str, amount: float):
+    async def get_deposit_info(self, asset: str) -> DepositInfo:
         cdef:
             dict deposit_reply
+            str err_msg
             str deposit_address
-            str tx_hash
 
-        # First, get the deposit address from Binance.
-        try:
-            deposit_reply, server_time_ms = await asyncio.gather(
-                self.query_api(self._binance_client.get_deposit_address, asset=currency),
-                self.server_time()
-            )
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().network(f"Error fetching deposit address and server time for depositing {currency}.",
-                                  exc_info=True,
-                                  app_warning_msg=f"Could not fetch the deposit address for depositing {currency}. "
-                                                  f"Check API key and network connection."
-                                  )
-            self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                                 MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
-            return
-
+        deposit_reply = await self.query_api(self._binance_client.get_deposit_address, asset=asset)
         if deposit_reply.get("success") is not True:
             err_msg = deposit_reply.get("msg") or str(deposit_reply)
-            self.logger().network(f"Could not get deposit address for {currency}: {err_msg}",
-                                  app_warning_msg=f"Could not get deposit address for {currency}: {err_msg}.")
-            self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                                 MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
-            return
+            self.logger().network(f"Could not get deposit address for {asset}: {err_msg}",
+                                  app_warning_msg=f"Could not get deposit address for {asset}: {err_msg}.")
 
-        deposit_address = Web3.toChecksumAddress(deposit_reply["address"])
-
-        # Then, send the transaction from the wallet, and remember the in flight transaction.
-        tx_hash = from_wallet.send(deposit_address, currency, amount)
-        self.c_start_tracking_deposit(tracking_id, server_time_ms, tx_hash, from_wallet.address, deposit_address)
-
-    cdef str c_deposit(self, WalletBase from_wallet, str currency, double amount):
-        cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
-            str tracking_id = str(f"deposit://{currency}/{tracking_nonce}")
-        asyncio.ensure_future(self.execute_deposit(tracking_id, from_wallet, currency, amount))
-
-        self._tx_tracker.c_start_tx_tracking(tracking_id, self.DEPOSIT_TIMEOUT)
-        return tracking_id
+        deposit_address = deposit_reply["address"]
+        del deposit_reply["address"]
+        return DepositInfo(deposit_address, **deposit_reply)
 
     async def execute_withdraw(self, tracking_id: str, to_address: str, currency: str, amount: float):
         decimal_amount = str(Decimal(f"{amount:.12g}"))
@@ -1069,12 +985,7 @@ cdef class BinanceMarket(MarketBase):
             object buy_fee = self.c_get_fee(base_currency, quote_currency, order_type, TradeType.BUY, amount, price)
             double adjusted_amount
 
-        # Unlike most other exchanges, Binance takes fees out of requested base amount instead of
-        # charging additional fees for limit and market buy orders.
-        # To make the Binance market class function like other market classes, the amount base
-        # token requested is adjusted to account for fees.
-        adjusted_amount = amount / (1 - buy_fee.percent)
-        decimal_amount = self.c_quantize_order_amount(symbol, adjusted_amount)
+        decimal_amount = self.c_quantize_order_amount(symbol, amount)
         decimal_price = (self.c_quantize_order_price(symbol, price)
                          if order_type is OrderType.LIMIT
                          else s_decimal_0)
@@ -1291,26 +1202,8 @@ cdef class BinanceMarket(MarketBase):
         return order_books[symbol]
 
     cdef c_did_timeout_tx(self, str tracking_id):
-        if tracking_id in self._in_flight_deposits:
-            self.c_stop_tracking_deposit(tracking_id)
         self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                              MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
-
-    cdef c_did_fail_tx(self, str tracking_id):
-        if tracking_id in self._in_flight_deposits:
-            self.c_stop_tracking_deposit(tracking_id)
-        self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                             MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
-
-    cdef c_start_tracking_deposit(self, str tracking_id, int64_t start_time_ms, str tx_hash, str from_address,
-                                  str to_address):
-        self._in_flight_deposits[tracking_id] = InFlightDeposit(tracking_id, start_time_ms, tx_hash, from_address,
-                                                                to_address)
-
-    cdef c_stop_tracking_deposit(self, str tracking_id):
-        self._tx_tracker.c_stop_tx_tracking(tracking_id)
-        if tracking_id in self._in_flight_deposits:
-            del self._in_flight_deposits[tracking_id]
 
     cdef c_start_tracking_order(self,
                                 str order_id,
@@ -1335,12 +1228,12 @@ cdef class BinanceMarket(MarketBase):
     cdef object c_get_order_price_quantum(self, str symbol, double price):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
-        return trading_rule.price_tick_size
+        return trading_rule.min_price_increment
 
     cdef object c_get_order_size_quantum(self, str symbol, double order_size):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
-        return Decimal(trading_rule.order_step_size)
+        return Decimal(trading_rule.min_base_amount_increment)
 
     cdef object c_quantize_order_amount(self, str symbol, double amount, double price = 0.0):
         cdef:
@@ -1359,7 +1252,7 @@ cdef class BinanceMarket(MarketBase):
             notional_size = price * float(quantized_amount)
 
         # Add 1% as a safety factor in case the prices changed while making the order.
-        if notional_size < float(trading_rule.min_notional_size) * 1.01:
+        if notional_size < float(trading_rule.min_notional_size * Decimal(1.01)):
             return s_decimal_0
 
         return quantized_amount
