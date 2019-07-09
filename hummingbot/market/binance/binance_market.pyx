@@ -307,6 +307,7 @@ cdef class BinanceMarket(MarketBase):
         self._user_stream_tracker = BinanceUserStreamTracker(
             data_source_type=user_stream_tracker_data_source_type, binance_client=self._binance_client)
         self._account_balances = {}
+        self._account_available_balances = {}
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
@@ -431,12 +432,15 @@ cdef class BinanceMarket(MarketBase):
         balances = account_info["balances"]
         for balance_entry in balances:
             asset_name = balance_entry["asset"]
-            balance = Decimal(balance_entry["free"]) + Decimal(balance_entry["locked"])
-            self._account_balances[asset_name] = balance
+            free_balance = Decimal(balance_entry["free"])
+            total_balance = Decimal(balance_entry["free"]) + Decimal(balance_entry["locked"])
+            self._account_available_balances[asset_name] = free_balance
+            self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
         for asset_name in asset_names_to_remove:
+            del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
     async def _update_trade_fees(self):
@@ -720,66 +724,84 @@ cdef class BinanceMarket(MarketBase):
         async for event_message in self._iter_user_event_queue():
             try:
                 event_type = event_message.get("e")
-                if event_type != "executionReport":
-                    continue
-                client_order_id = event_message.get("c")
-                tracked_order = self._in_flight_orders.get(client_order_id)
-                if tracked_order is None:
-                    self.logger().network(f"Unrecognized order ID from user stream: {client_order_id}. Skipping.")
-                    continue
-                tracked_order.update_with_execution_report(event_message)
-                execution_type = event_message.get("x")
-                if execution_type == "TRADE":
-                    order_filled_event = OrderFilledEvent.order_filled_event_from_binance_execution_report(event_message)
-                    order_filled_event = order_filled_event._replace(trade_fee=self.c_get_fee(
-                        tracked_order.base_asset,
-                        tracked_order.quote_asset,
-                        OrderType.LIMIT if event_message["o"] == "LIMIT" else OrderType.MARKET,
-                        TradeType.BUY if event_message["S"] == "BUY" else TradeType.SELL,
-                        float(event_message["l"]),
-                        float(event_message["L"])
-                    ))
-                    self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
-                if tracked_order.is_done:
-                    if not tracked_order.is_failure:
-                        if tracked_order.is_buy:
-                            self.logger().info(f"The market buy order {client_order_id} has completed "
-                                               f"according to user stream.")
-                            self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                                 BuyOrderCompletedEvent(self._current_timestamp,
-                                                                        client_order_id,
-                                                                        tracked_order.base_asset,
-                                                                        tracked_order.quote_asset,
-                                                                        (tracked_order.fee_asset
-                                                                         or tracked_order.base_asset),
-                                                                        float(tracked_order.executed_amount),
-                                                                        float(tracked_order.quote_asset_amount),
-                                                                        float(tracked_order.fee_paid),
-                                                                        tracked_order.order_type))
+                if event_type == "executionReport":
+                    client_order_id = event_message.get("c")
+                    tracked_order = self._in_flight_orders.get(client_order_id)
+                    if tracked_order is None:
+                        self.logger().network(f"Unrecognized order ID from user stream: {client_order_id}. Skipping.")
+                        continue
+                    tracked_order.update_with_execution_report(event_message)
+                    execution_type = event_message.get("x")
+                    if execution_type == "TRADE":
+                        order_filled_event = OrderFilledEvent.order_filled_event_from_binance_execution_report(event_message)
+                        order_filled_event = order_filled_event._replace(trade_fee=self.c_get_fee(
+                            tracked_order.base_asset,
+                            tracked_order.quote_asset,
+                            OrderType.LIMIT if event_message["o"] == "LIMIT" else OrderType.MARKET,
+                            TradeType.BUY if event_message["S"] == "BUY" else TradeType.SELL,
+                            float(event_message["l"]),
+                            float(event_message["L"])
+                        ))
+                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
+
+                    if tracked_order.is_done:
+                        if not tracked_order.is_failure:
+                            if tracked_order.is_buy:
+                                self.logger().info(f"The market buy order {client_order_id} has completed "
+                                                f"according to user stream.")
+                                self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
+                                                    BuyOrderCompletedEvent(self._current_timestamp,
+                                                                            client_order_id,
+                                                                            tracked_order.base_asset,
+                                                                            tracked_order.quote_asset,
+                                                                            (tracked_order.fee_asset
+                                                                            or tracked_order.base_asset),
+                                                                            float(tracked_order.executed_amount),
+                                                                            float(tracked_order.quote_asset_amount),
+                                                                            float(tracked_order.fee_paid),
+                                                                            tracked_order.order_type))
+                            else:
+                                self.logger().info(f"The market sell order {client_order_id} has completed "
+                                                f"according to user stream.")
+                                self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
+                                                    SellOrderCompletedEvent(self._current_timestamp,
+                                                                            client_order_id,
+                                                                            tracked_order.base_asset,
+                                                                            tracked_order.quote_asset,
+                                                                            (tracked_order.fee_asset
+                                                                            or tracked_order.quote_asset),
+                                                                            float(tracked_order.executed_amount),
+                                                                            float(tracked_order.quote_asset_amount),
+                                                                            float(tracked_order.fee_paid),
+                                                                            tracked_order.order_type))
                         else:
-                            self.logger().info(f"The market sell order {client_order_id} has completed "
-                                               f"according to user stream.")
-                            self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                                 SellOrderCompletedEvent(self._current_timestamp,
-                                                                         client_order_id,
-                                                                         tracked_order.base_asset,
-                                                                         tracked_order.quote_asset,
-                                                                         (tracked_order.fee_asset
-                                                                          or tracked_order.quote_asset),
-                                                                         float(tracked_order.executed_amount),
-                                                                         float(tracked_order.quote_asset_amount),
-                                                                         float(tracked_order.fee_paid),
-                                                                         tracked_order.order_type))
-                    else:
-                        self.logger().info(f"The market order {client_order_id} has failed according to user stream.")
-                        self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                                             MarketOrderFailureEvent(
-                                                 self._current_timestamp,
-                                                 tracked_order.client_order_id,
-                                                 tracked_order.order_type
-                                             ))
-                    self.c_stop_tracking_order(client_order_id)
+                            self.logger().info(f"The market order {client_order_id} has failed according to user stream.")
+                            self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                                                MarketOrderFailureEvent(
+                                                    self._current_timestamp,
+                                                    tracked_order.client_order_id,
+                                                    tracked_order.order_type
+                                                ))
+                        self.c_stop_tracking_order(client_order_id)
+                
+                elif event_type == "outboundAccountInfo":
+                    local_asset_names = set(self._account_balances.keys())
+                    remote_asset_names = set()
+                    balances = event_message["B"]
+                    for balance_entry in balances:
+                        asset_name = balance_entry["a"]
+                        free_balance = Decimal(balance_entry["f"])
+                        total_balance = Decimal(balance_entry["f"]) + Decimal(balance_entry["l"])
+                        self._account_available_balances[asset_name] = free_balance
+                        self._account_balances[asset_name] = total_balance
+                        remote_asset_names.add(asset_name)
+                    
+                    asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+                    for asset_name in asset_names_to_remove:
+                        del self._account_available_balances[asset_name]
+                        del self._account_balances[asset_name]
+
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -1161,6 +1183,9 @@ cdef class BinanceMarket(MarketBase):
 
     cdef double c_get_balance(self, str currency) except? -1:
         return float(self._account_balances.get(currency, 0.0))
+
+    cdef double c_get_available_balance(self, str currency) except? -1:
+        return float(self._account_available_balances.get(currency, 0.0))
 
     cdef double c_get_price(self, str symbol, bint is_buy) except? -1:
         cdef:
