@@ -621,7 +621,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         if buy_fill_quantity > 0:
             hedged_order_quantity = min(
                 buy_fill_quantity,
-                taker_market.c_get_balance(market_pair.taker_base_currency) * self._order_size_taker_balance_factor
+                taker_market.c_get_available_balance(market_pair.taker_base_currency) * self._order_size_taker_balance_factor
             )
             quantized_hedge_amount = taker_market.c_quantize_order_amount(taker_symbol, hedged_order_quantity)
             taker_top = taker_market.c_get_price(taker_symbol, False)
@@ -652,7 +652,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         if sell_fill_quantity > 0:
             hedged_order_quantity = min(
                 sell_fill_quantity,
-                (taker_market.c_get_balance(market_pair.taker_quote_currency) /
+                (taker_market.c_get_available_balance(market_pair.taker_quote_currency) /
                  taker_order_book.c_get_price_for_volume(True, sell_fill_quantity).result_price *
                  self._order_size_taker_balance_factor)
             )
@@ -768,8 +768,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             MarketBase maker_market = market_pair.maker_market
             str symbol = market_pair.maker_symbol
-            double base_balance = maker_market.c_get_balance(market_pair.maker_base_currency)
-            double quote_balance = maker_market.c_get_balance(market_pair.maker_quote_currency)
+            double base_balance = maker_market.c_get_available_balance(market_pair.maker_base_currency)
+            double quote_balance = maker_market.c_get_available_balance(market_pair.maker_quote_currency)
             double current_price = (maker_market.c_get_price(symbol, True) +
                                     maker_market.c_get_price(symbol, False)) * 0.5
             double maker_portfolio_value = base_balance + quote_balance / current_price
@@ -1034,8 +1034,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             next_price = (round(Decimal(top_bid_price) / price_quantum) + 1) * price_quantum
 
             # Calculate the order size limit from maker and taker market balances.
-            maker_balance_size_limit = maker_market.c_get_balance(market_pair.maker_quote_currency) / float(next_price)
-            taker_balance_size_limit = (taker_market.c_get_balance(market_pair.taker_base_currency) *
+            maker_balance_size_limit = maker_market.c_get_available_balance(market_pair.maker_quote_currency) / float(next_price)
+            taker_balance_size_limit = (taker_market.c_get_available_balance(market_pair.taker_base_currency) *
                                         self._order_size_taker_balance_factor)
 
             # Convert the proposed maker order price to the equivalent price on the taker market.
@@ -1069,8 +1069,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             next_price = (round(Decimal(top_ask_price) / price_quantum) - 1) * price_quantum
 
             # Calculate the order size limit from maker and taker market balances.
-            maker_balance_size_limit = maker_market.c_get_balance(market_pair.maker_base_currency)
-            taker_balance_size_limit = (taker_market.c_get_balance(market_pair.taker_quote_currency) /
+            maker_balance_size_limit = maker_market.c_get_available_balance(market_pair.maker_base_currency)
+            taker_balance_size_limit = (taker_market.c_get_available_balance(market_pair.taker_quote_currency) /
                                         float(next_price) *
                                         self._order_size_taker_balance_factor)
 
@@ -1208,10 +1208,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double order_price = float(active_order.price)
             MarketBase maker_market = market_pair.maker_market
             MarketBase taker_market = market_pair.taker_market
-            double quote_asset_amount = maker_market.c_get_balance(market_pair.maker_quote_currency) if is_buy else \
-                taker_market.c_get_balance(market_pair.taker_quote_currency)
-            double base_asset_amount = taker_market.c_get_balance(market_pair.taker_base_currency) if is_buy else \
-                maker_market.c_get_balance(market_pair.maker_base_currency)
+            double quote_asset_amount = maker_market.c_get_available_balance(market_pair.maker_quote_currency) if is_buy else \
+                taker_market.c_get_available_balance(market_pair.taker_quote_currency)
+            double base_asset_amount = taker_market.c_get_available_balance(market_pair.taker_base_currency) if is_buy else \
+                maker_market.c_get_available_balance(market_pair.maker_base_currency)
             double order_size_limit
 
         order_size_limit = min(base_asset_amount, quote_asset_amount / order_price)

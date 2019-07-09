@@ -52,8 +52,8 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
                                           object pricing_proposal):
         cdef:
             MarketBase market = market_info.market
-            double base_asset_balance = market.c_get_balance(market_info.base_currency)
-            double quote_asset_balance = market.c_get_balance(market_info.quote_currency)
+            double base_asset_balance = market.c_get_available_balance(market_info.base_currency)
+            double quote_asset_balance = market.c_get_available_balance(market_info.quote_currency)
             double required_quote_asset_balance = 0
             double required_base_asset_balance = 0
             list buy_orders = []

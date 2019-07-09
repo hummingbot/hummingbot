@@ -275,8 +275,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             maker_base = market_info.base_currency
             maker_quote = market_info.quote_currency
             maker_order_book = maker_market.c_get_order_book(maker_symbol)
-            maker_base_balance = maker_market.c_get_balance(maker_base)
-            maker_quote_balance = maker_market.c_get_balance(maker_quote)
+            maker_base_balance = maker_market.c_get_available_balance(maker_base)
+            maker_quote_balance = maker_market.c_get_available_balance(maker_quote)
             bid_price = maker_order_book.c_get_price(False)
             ask_price = maker_order_book.c_get_price(True)
             active_orders = market_info_to_active_orders.get(market_info, [])

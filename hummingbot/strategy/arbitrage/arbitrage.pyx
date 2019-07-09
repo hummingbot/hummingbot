@@ -515,8 +515,8 @@ cdef class ArbitrageStrategy(StrategyBase):
             net_buy_costs = total_ask_value_adjusted * (1 + buy_fee.percent) + total_buy_flat_fees
             profitability = net_sell_proceeds / net_buy_costs
 
-            buy_market_quote_balance = buy_market.c_get_balance(buy_market_symbol_pair.quote_asset)
-            sell_market_base_balance = sell_market.c_get_balance(sell_market_symbol_pair.base_asset)
+            buy_market_quote_balance = buy_market.c_get_available_balance(buy_market_symbol_pair.quote_asset)
+            sell_market_base_balance = sell_market.c_get_available_balance(sell_market_symbol_pair.base_asset)
 
             # if current step is within minimum profitability, set to best profitable order
             # because the total amount is greater than the previous step
