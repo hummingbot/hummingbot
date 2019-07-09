@@ -88,7 +88,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
             try:
                 if self._current_listen_key is None:
                     self._current_listen_key = await self.get_listen_key()
-                    self.logger().info(f"Obtained listen key {self._current_listen_key}.")
+                    self.logger().debug(f"Obtained listen key {self._current_listen_key}.")
                     if self._listen_for_user_stream_task is not None:
                         self._listen_for_user_stream_task.cancel()
                     self._listen_for_user_stream_task = asyncio.ensure_future(self.log_user_stream(output))
@@ -101,7 +101,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         self._listen_for_user_stream_task.cancel()
                         self._listen_for_user_stream_task = None
                     continue
-                self.logger().info(f"Refreshed listen key {self._current_listen_key}.")
+                self.logger().debug(f"Refreshed listen key {self._current_listen_key}.")
 
                 await self.wait_til_next_tick(seconds=60.0)
             except asyncio.CancelledError:

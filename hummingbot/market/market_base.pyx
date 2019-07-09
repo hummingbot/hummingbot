@@ -18,6 +18,8 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.core.data_type.order_book import OrderBook
 
+from .deposit_info import DepositInfo
+
 NaN = float("nan")
 
 
@@ -96,6 +98,9 @@ cdef class MarketBase(NetworkIterator):
     def get_balance(self, currency: str) -> float:
         return self.c_get_balance(currency)
 
+    def get_available_balance(self, currency: str) -> float:
+        return self.c_get_available_balance(currency)
+
     def get_all_balances(self) -> Dict[str, float]:
         raise NotImplementedError
 
@@ -105,8 +110,8 @@ cdef class MarketBase(NetworkIterator):
     def withdraw(self, address: str, currency: str, amount: float) -> str:
         return self.c_withdraw(address, currency, amount)
 
-    def deposit(self, from_wallet: WalletBase, currency: str, amount: float) -> str:
-        return self.c_deposit(from_wallet, currency, amount)
+    async def get_deposit_info(self, asset: str) -> DepositInfo:
+        raise NotImplementedError
 
     def get_order_book(self, symbol: str) -> OrderBook:
         return self.c_get_order_book(symbol)
@@ -165,10 +170,10 @@ cdef class MarketBase(NetworkIterator):
     cdef double c_get_balance(self, str currency) except? -1:
         raise NotImplementedError
 
-    cdef str c_withdraw(self, str address, str currency, double amount):
+    cdef double c_get_available_balance(self, str currency) except? -1:
         raise NotImplementedError
 
-    cdef str c_deposit(self, WalletBase from_wallet, str currency, double amount):
+    cdef str c_withdraw(self, str address, str currency, double amount):
         raise NotImplementedError
 
     cdef OrderBook c_get_order_book(self, str symbol):

@@ -53,6 +53,7 @@ from hummingbot.market.utils import (
     zrx_order_to_json,
     json_to_zrx_order
 )
+from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils import fix_signature
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_exchange import ZeroExExchange
@@ -76,52 +77,6 @@ cdef class RadarRelayTransactionTracker(TransactionTracker):
     cdef c_did_timeout_tx(self, str tx_id):
         TransactionTracker.c_did_timeout_tx(self, tx_id)
         self._owner.c_did_timeout_tx(tx_id)
-
-
-cdef class TradingRule:
-    cdef:
-        public str symbol
-        public double min_order_size            # Calculated min base token size based on last trade price
-        public double max_order_size            # Calculated max base token size
-        public int price_precision              # Maximum precision allowed for the market. Example: 7 (decimal places)
-        public int price_decimals               # Max amount of decimals in base token (price)
-        public int amount_decimals              # Max amount of decimals in quote token (amount)
-
-    @classmethod
-    def parse_exchange_info(cls, markets: List[Dict[str, Any]]) -> List[TradingRule]:
-        cdef:
-            list retval = []
-        for market in markets:
-            try:
-                symbol = market["id"]
-                retval.append(TradingRule(symbol,
-                                          float(market["minOrderSize"]),
-                                          float(market["maxOrderSize"]),
-                                          market["quoteIncrement"],
-                                          market["quoteTokenDecimals"],
-                                          market["baseTokenDecimals"]))
-            except Exception:
-                RadarRelayMarket.logger().error(f"Error parsing the symbol {symbol}. Skipping.", exc_info=True)
-        return retval
-
-    def __init__(self,
-                 symbol: str,
-                 min_order_size: float,
-                 max_order_size: float,
-                 price_precision: int,
-                 price_decimals: int,
-                 amount_decimals: int):
-        self.symbol = symbol
-        self.min_order_size = min_order_size
-        self.max_order_size = max_order_size
-        self.price_precision = price_precision
-        self.price_decimals = price_decimals
-        self.amount_decimals = amount_decimals
-
-    def __repr__(self) -> str:
-        return f"TradingRule(symbol='{self.symbol}', min_order_size={self.min_order_size}, " \
-               f"max_order_size={self.max_order_size}, price_precision={self.price_precision}, "\
-               f"price_decimals={self.price_decimals}, amount_decimals={self.amount_decimals}"
 
 
 cdef class InFlightOrder:
@@ -443,11 +398,27 @@ cdef class RadarRelayMarket(MarketBase):
 
         if current_timestamp - self._last_update_trading_rules_timestamp > self.UPDATE_RULES_INTERVAL or len(self._trading_rules) < 1:
             markets = await self.list_market()
-            trading_rules_list = TradingRule.parse_exchange_info(markets)
+            trading_rules_list = self._format_trading_rules(markets)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
                 self._trading_rules[trading_rule.symbol] = trading_rule
             self._last_update_trading_rules_timestamp = current_timestamp
+
+    def _format_trading_rules(self, markets: List[Dict[str, Any]]) -> List[TradingRule]:
+        cdef:
+            list retval = []
+        for market in markets:
+            try:
+                symbol = market["id"]
+                retval.append(TradingRule(symbol,
+                                          min_order_size=Decimal(market["minOrderSize"]),
+                                          max_order_size=Decimal(market["maxOrderSize"]),
+                                          max_price_significant_digits=Decimal(market['quoteIncrement']),
+                                          min_price_increment=Decimal(f"1e-{market['quoteTokenDecimals']}"),
+                                          min_base_amount_increment=Decimal(f"1e-{market['baseTokenDecimals']}")))
+            except Exception:
+                self.logger().error(f"Error parsing the symbol {symbol}. Skipping.", exc_info=True)
+        return retval
 
     async def get_account_orders(self) -> List[Dict[str, Any]]:
         list_account_orders_url = f"{RADAR_RELAY_REST_ENDPOINT}/accounts/{self._wallet.address}/orders"
@@ -771,7 +742,8 @@ cdef class RadarRelayMarket(MarketBase):
                                                            amount=str(amount))
         signed_market_orders = response["orders"]
         average_price = float(response["averagePrice"])
-        base_asset_decimals = self.trading_rules.get(symbol).amount_decimals
+        base_asset_increment = self.trading_rules.get(symbol).min_base_amount_increment
+        base_asset_decimals = -int(math.ceil(math.log10(float(base_asset_increment))))
         amt_with_decimals = Decimal(amount) * Decimal(f"1e{base_asset_decimals}")
 
         signatures = []
@@ -857,10 +829,10 @@ cdef class RadarRelayMarket(MarketBase):
             bint is_buy = order_side is TradeType.BUY
             str order_side_desc = "buy" if is_buy else "sell"
         try:
-            if float(q_amt) < trading_rule.min_order_size:
+            if q_amt < trading_rule.min_order_size:
                 raise ValueError(f"{order_side_desc.capitalize()} order amount {q_amt} is lower than the "
                                  f"minimum order size {trading_rule.min_order_size}")
-            if float(q_amt) > trading_rule.max_order_size:
+            if q_amt > trading_rule.max_order_size:
                 raise ValueError(f"{order_side_desc.capitalize()} order amount {q_amt} is greater than the "
                                  f"maximum order size {trading_rule.max_order_size}")
 
@@ -921,7 +893,8 @@ cdef class RadarRelayMarket(MarketBase):
                                     ))
 
             return order_id
-        except Exception:
+        except Exception as e:
+            self.logger().error(str(e))
             self.c_stop_tracking_order(order_id)
             self.logger().network(
                 f"Error submitting {order_side_desc} order to Radar Relay for {str(q_amt)} {symbol}.",
@@ -1010,6 +983,9 @@ cdef class RadarRelayMarket(MarketBase):
         return self._wallet.unwrap_eth(amount)
 
     cdef double c_get_balance(self, str currency) except? -1:
+        return float(self._account_balances.get(currency, 0.0))
+
+    cdef double c_get_available_balance(self, str currency) except? -1:
         return float(self._account_balances.get(currency, 0.0))
 
     cdef OrderBook c_get_order_book(self, str symbol):
@@ -1140,9 +1116,9 @@ cdef class RadarRelayMarket(MarketBase):
     cdef object c_get_order_price_quantum(self, str symbol, double price):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
-        decimals_quantum = Decimal(f"1e-{trading_rule.price_decimals}")
+        decimals_quantum = trading_rule.min_quote_amount_increment
         if price > 0:
-            precision_quantum = Decimal(f"1e{math.ceil(math.log10(price)) - trading_rule.price_precision}")
+            precision_quantum = Decimal(f"1e{math.ceil(math.log10(price)) - trading_rule.max_price_significant_digits}")
         else:
             precision_quantum = s_decimal_0
         return max(decimals_quantum, precision_quantum)
@@ -1150,10 +1126,10 @@ cdef class RadarRelayMarket(MarketBase):
     cdef object c_get_order_size_quantum(self, str symbol, double amount):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
-        decimals_quantum = Decimal(f"1e-{trading_rule.amount_decimals}")
+        decimals_quantum = trading_rule.min_base_amount_increment
 
         if amount > 0:
-            precision_quantum = Decimal(f"1e{math.ceil(math.log10(amount)) - trading_rule.price_precision}")
+            precision_quantum = Decimal(f"1e{math.ceil(math.log10(amount)) - trading_rule.max_price_significant_digits}")
         else:
             precision_quantum = s_decimal_0
         return max(decimals_quantum, precision_quantum)
