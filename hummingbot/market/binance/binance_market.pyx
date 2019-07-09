@@ -506,6 +506,31 @@ cdef class BinanceMarket(MarketBase):
                 self._trading_rules[trading_rule.symbol] = trading_rule
 
     def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
+        """
+        Example:
+        {
+            "symbol": "ETHBTC",
+            "baseAssetPrecision": 8,
+            "quotePrecision": 8,
+            "orderTypes": ["LIMIT", "MARKET"],
+            "filters": [
+                {
+                    "filterType": "PRICE_FILTER",
+                    "minPrice": "0.00000100",
+                    "maxPrice": "100000.00000000",
+                    "tickSize": "0.00000100"
+                }, {
+                    "filterType": "LOT_SIZE",
+                    "minQty": "0.00100000",
+                    "maxQty": "100000.00000000",
+                    "stepSize": "0.00100000"
+                }, {
+                    "filterType": "MIN_NOTIONAL",
+                    "minNotional": "0.00100000"
+                }
+            ]
+        }
+        """
         cdef:
             list symbol_rules = exchange_info_dict.get("symbols", [])
             list retval = []
