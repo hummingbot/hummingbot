@@ -18,7 +18,6 @@ cdef class BinanceMarket(MarketBase):
         dict _in_flight_deposits
         dict _in_flight_orders
         TransactionTracker _tx_tracker
-        object _w3
         dict _withdraw_rules
         dict _trading_rules
         dict _trade_fees
@@ -33,10 +32,6 @@ cdef class BinanceMarket(MarketBase):
         object _set_server_time_offset_task
 
     cdef c_did_timeout_tx(self, str tracking_id)
-    cdef c_did_fail_tx(self, str tracking_id)
-    cdef c_start_tracking_deposit(self, str tracking_id, int64_t start_time_ms, str tx_hash, str from_address,
-                                  str to_address)
-    cdef c_stop_tracking_deposit(self, str tracking_id)
     cdef c_start_tracking_order(self,
                                 str order_id,
                                 int64_t exchange_order_id,
