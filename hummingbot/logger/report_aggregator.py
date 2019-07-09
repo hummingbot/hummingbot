@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import logging
 from hummingbot.logger.struct_logger import StructLogger
 from collections import defaultdict
@@ -57,7 +58,9 @@ class ReportAggregator:
             try:
                 # Handle clock is None error when the bot stops and restarts
                 if self.hummingbot_app.clock is not None:
-                    for metric_name, value_list in self.stats.items():
+                    stats = copy.deepcopy(self.stats)
+                    self.stats = defaultdict(list)
+                    for metric_name, value_list in stats.items():
                         if not value_list:
                             continue
                         namespaces = metric_name.split(".")
@@ -84,7 +87,9 @@ class ReportAggregator:
                             }
                             self.logger().metric_log(open_order_quote_volume_sum_metrics)
                             self.logger().metric_log(open_order_usd_volume_sum_metrics)
-                            self.stats[metric_name] = []
+                            self.logger().network(
+                                f"Open metrics logged: {open_order_quote_volume_sum_metrics}"
+                            )
                         if namespaces[0] == "order_filled_quote_volume":
                             sum_volume = float(sum([value[1] for value in value_list]))
                             usd_sum_volume = self.exchange_converter.exchange_rate.get(quote_token, 1) * sum_volume
@@ -107,7 +112,9 @@ class ReportAggregator:
                             }
                             self.logger().metric_log(order_filled_quote_volume_metrics)
                             self.logger().metric_log(order_filled_usd_volume_metrics)
-                            self.stats[metric_name] = []
+                            self.logger().network(
+                                f"Filled metrics logged: {order_filled_quote_volume_metrics}"
+                            )
             except asyncio.CancelledError:
                 raise
             except Exception:
