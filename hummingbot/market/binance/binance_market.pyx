@@ -633,6 +633,7 @@ cdef class BinanceMarket(MarketBase):
                 client_order_id = tracked_order.client_order_id
                 if isinstance(order_update, Exception):
                     if order_update.code == 2013 or order_update.message == "Order does not exist.":
+                        self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG, MarketOrderFailureEvent(self._current_timestamp, client_order_id, order_type))
                         self.c_stop_tracking_order(client_order_id)
                     else:
                         self.logger().network(
@@ -1028,8 +1029,13 @@ cdef class BinanceMarket(MarketBase):
                                      float(decimal_price),
                                      order_id
                                  ))
+
         except asyncio.CancelledError:
             raise
+
+        except asyncio.TimeoutError:
+            self.logger().network(f"Timeout Error encountered while submitting buy ",exc_info=True)
+
         except Exception:
             self.c_stop_tracking_order(order_id)
             order_type_str = 'MARKET' if order_type == OrderType.MARKET else 'LIMIT'
@@ -1104,6 +1110,8 @@ cdef class BinanceMarket(MarketBase):
                                      float(decimal_price),
                                      order_id
                                  ))
+        except asyncio.TimeoutError:
+            self.logger().network(f"Timeout Error encountered while submitting sell ",exc_info=True)
         except asyncio.CancelledError:
             raise
         except Exception:
