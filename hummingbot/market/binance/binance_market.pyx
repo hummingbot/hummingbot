@@ -451,7 +451,7 @@ cdef class BinanceMarket(MarketBase):
                                                     self._current_timestamp,
                                                     tracked_order.client_order_id,
                                                     tracked_order.symbol,
-                                                    TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
+                                                    tracked_order.trade_type,
                                                     order_type,
                                                     float(trade["price"]),
                                                     float(trade["qty"]),
@@ -459,7 +459,7 @@ cdef class BinanceMarket(MarketBase):
                                                         tracked_order.base_asset,
                                                         tracked_order.quote_asset,
                                                         order_type,
-                                                        TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
+                                                        tracked_order.trade_type,
                                                         float(trade["price"]),
                                                         float(trade["qty"])),
                                                     exchange_trade_id=trade["id"]
@@ -494,7 +494,7 @@ cdef class BinanceMarket(MarketBase):
                 order_type = OrderType.LIMIT if order_update["type"]=="LIMIT" else OrderType.MARKET
                 if tracked_order.is_done:
                     if not tracked_order.is_failure:
-                        if tracked_order.is_buy:
+                        if tracked_order.trade_type is TradeType.BUY:
                             self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
                                                f"according to order status API.")
                             self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
@@ -597,7 +597,7 @@ cdef class BinanceMarket(MarketBase):
 
                     if tracked_order.is_done:
                         if not tracked_order.is_failure:
-                            if tracked_order.is_buy:
+                            if tracked_order.trade_type is TradeType.BUY:
                                 self.logger().info(f"The market buy order {client_order_id} has completed "
                                                 f"according to user stream.")
                                 self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
@@ -848,14 +848,30 @@ cdef class BinanceMarket(MarketBase):
             order_decimal_amount = f"{decimal_amount:f}"
             if order_type is OrderType.LIMIT:
                 order_decimal_price = f"{decimal_price:f}"
-                self.c_start_tracking_order(order_id, "", symbol, True, decimal_price, decimal_amount, order_type)
+                self.c_start_tracking_order(
+                    order_id,
+                    "", 
+                    symbol,
+                    TradeType.BUY,
+                    decimal_price,
+                    decimal_amount,
+                    order_type
+                )
                 order_result = await self.query_api(self._binance_client.order_limit_buy,
                                                     symbol=symbol,
                                                     quantity=order_decimal_amount,
                                                     price=order_decimal_price,
                                                     newClientOrderId=order_id)
             elif order_type is OrderType.MARKET:
-                self.c_start_tracking_order(order_id, "", symbol, True, Decimal("NaN"), decimal_amount, order_type)
+                self.c_start_tracking_order(
+                    order_id,
+                    "",
+                    symbol,
+                    TradeType.BUY,
+                    Decimal("NaN"),
+                    decimal_amount,
+                    order_type
+                )
                 order_result = await self.query_api(self._binance_client.order_market_buy,
                                                     symbol=symbol,
                                                     quantity=order_decimal_amount,
@@ -923,14 +939,30 @@ cdef class BinanceMarket(MarketBase):
             order_decimal_amount = f"{decimal_amount:f}"
             if order_type is OrderType.LIMIT:
                 order_decimal_price = f"{decimal_price:f}"
-                self.c_start_tracking_order(order_id, "", symbol, False, decimal_price, decimal_amount, order_type)
+                self.c_start_tracking_order(
+                    order_id,
+                    "",
+                    symbol,
+                    TradeType.SELL,
+                    decimal_price,
+                    decimal_amount,
+                    order_type
+                )
                 order_result = await self.query_api(self._binance_client.order_limit_sell,
                                                     symbol=symbol,
                                                     quantity=order_decimal_amount,
                                                     price=order_decimal_price,
                                                     newClientOrderId=order_id)
             elif order_type is OrderType.MARKET:
-                self.c_start_tracking_order(order_id, "", symbol, False, Decimal("NaN"), decimal_amount, order_type)
+                self.c_start_tracking_order(
+                    order_id,
+                    "",
+                    symbol,
+                    TradeType.SELL,
+                    Decimal("NaN"),
+                    decimal_amount,
+                    order_type
+                )
                 order_result = await self.query_api(self._binance_client.order_market_sell,
                                                     symbol=symbol,
                                                     quantity=order_decimal_amount,
@@ -1059,7 +1091,7 @@ cdef class BinanceMarket(MarketBase):
                                 str order_id,
                                 str exchange_order_id,
                                 str symbol,
-                                bint is_buy,
+                                object trade_type,
                                 object price,
                                 object amount,
                                 object order_type):
@@ -1068,7 +1100,7 @@ cdef class BinanceMarket(MarketBase):
             exchange_order_id=exchange_order_id,
             symbol=symbol,
             order_type=order_type,
-            is_buy=is_buy,
+            trade_type=trade_type,
             price=price,
             amount=amount
         )

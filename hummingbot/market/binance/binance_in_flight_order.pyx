@@ -6,7 +6,10 @@ from typing import (
 )
 
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import OrderType
+from hummingbot.core.event.events import (
+    OrderType,
+    TradeType
+)
 from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
@@ -16,16 +19,17 @@ cdef class BinanceInFlightOrder(InFlightOrderBase):
                  exchange_order_id: str,
                  symbol: str,
                  order_type: OrderType,
-                 is_buy: bool,
+                 trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
                  initial_state: Optional[str] = "NEW"):
         super().__init__(
+            BinanceMarket,
             client_order_id,
             exchange_order_id,
             symbol,
             order_type,
-            is_buy,
+            trade_type,
             price,
             amount,
             initial_state
@@ -40,13 +44,24 @@ cdef class BinanceInFlightOrder(InFlightOrderBase):
     def is_failure(self) -> bool:
         return self.last_state in {"CANCELED", "PENDING_CANCEL", "REJECTED", "EXPIRED"}
 
-    @property
-    def base_asset(self) -> str:
-        return BinanceMarket.split_symbol(self.symbol)[0]
-
-    @property
-    def quote_asset(self) -> str:
-        return BinanceMarket.split_symbol(self.symbol)[1]
+    @classmethod
+    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
+        cdef:
+            BinanceInFlightOrder retval = BinanceInFlightOrder(
+                data["client_order_id"],
+                data["exchange_order_id"],
+                data["symbol"],
+                getattr(OrderType, data["order_type"]),
+                getattr(TradeType, data["trade_type"]),
+                Decimal(data["price"]),
+                Decimal(data["amount"]),
+                data["last_state"]
+            )
+        retval.executed_amount_base = Decimal(data["executed_amount_base"])
+        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
+        retval.fee_asset = data["fee_asset"]
+        retval.fee_paid = Decimal(data["fee_paid"])
+        return retval
 
     def update_with_execution_report(self, execution_report: Dict[str, Any]):
         trade_id = execution_report["t"]
@@ -77,22 +92,3 @@ cdef class BinanceInFlightOrder(InFlightOrderBase):
         self.fee_paid += Decimal(trade_update["commission"])
         self.executed_amount_quote += Decimal(trade_update["quoteQty"])
         return trade_update
-
-    @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        cdef:
-            BinanceInFlightOrder retval = BinanceInFlightOrder(
-                data["client_order_id"],
-                data["exchange_order_id"],
-                data["symbol"],
-                getattr(OrderType, data["order_type"]),
-                data["is_buy"],
-                Decimal(data["price"]),
-                Decimal(data["amount"]),
-                data["last_state"]
-            )
-        retval.executed_amount_base = Decimal(data["executed_amount_base"])
-        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.fee_asset = data["fee_asset"]
-        retval.fee_paid = Decimal(data["fee_paid"])
-        return retval
