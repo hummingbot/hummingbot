@@ -457,10 +457,10 @@ cdef class CoinbaseProMarket(MarketBase):
             for trading_rule in trading_rules_list:
                 self._trading_rules[trading_rule.symbol] = trading_rule
 
-    def _format_trading_rules(self, trading_rules: List[Any]) -> List[TradingRule]:
+    def _format_trading_rules(self, raw_trading_rules: List[Any]) -> List[TradingRule]:
         cdef:
             list retval = []
-        for rule in trading_rules:
+        for rule in raw_trading_rules:
             try:
                 symbol = rule.get("id")
                 retval.append(TradingRule(symbol,
