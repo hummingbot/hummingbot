@@ -64,7 +64,7 @@ class PerformanceAnalysis:
         return current_token, current_amount
 
     def compute_delta(self, price: float) -> (str, float):
-        """ Computes the current amount of token between both exchanges. """
+        """ Computes the delta between current amount in exchange and starting amount. """
         starting_token, starting_amount = self.compute_starting(price)
         _, current_amount = self.compute_current(price)
         delta = current_amount - starting_amount
