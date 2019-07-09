@@ -729,6 +729,7 @@ cdef class BinanceMarket(MarketBase):
                     client_order_id = event_message.get("c")
                     tracked_order = self._in_flight_orders.get(client_order_id)
                     if tracked_order is None:
+                        self.logger().network(event_message)
                         self.logger().network(f"Unrecognized order ID from user stream: {client_order_id}. Skipping.")
                         continue
                     tracked_order.update_with_execution_report(event_message)
