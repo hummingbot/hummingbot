@@ -87,7 +87,7 @@ class ReportAggregator:
                             }
                             self.logger().metric_log(open_order_quote_volume_sum_metrics)
                             self.logger().metric_log(open_order_usd_volume_sum_metrics)
-                            self.logger().network(
+                            self.logger().debug(
                                 f"Open metrics logged: {open_order_quote_volume_sum_metrics}"
                             )
                         if namespaces[0] == "order_filled_quote_volume":
@@ -112,7 +112,7 @@ class ReportAggregator:
                             }
                             self.logger().metric_log(order_filled_quote_volume_metrics)
                             self.logger().metric_log(order_filled_usd_volume_metrics)
-                            self.logger().network(
+                            self.logger().debug(
                                 f"Filled metrics logged: {order_filled_quote_volume_metrics}"
                             )
             except asyncio.CancelledError:
