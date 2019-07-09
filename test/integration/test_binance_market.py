@@ -85,7 +85,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
             conf.binance_api_key, conf.binance_api_secret,
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-            symbols=["ZRXETH", "LOOMETH", "IOSTETH"]
+            symbols=["ZRXETH", "IOSTETH"]
         )
         print("Initializing Binance market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -295,7 +295,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
         self.assertGreater(withdraw_asset_event.fee_amount, 0)
 
     def test_cancel_all(self):
-        symbol = "LOOMETH"
+        symbol = "ZRXETH"
         bid_price: float = self.market.get_price(symbol, True)
         ask_price: float = self.market.get_price(symbol, False)
         amount: float = 0.02 / bid_price
@@ -452,7 +452,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
                 MAINNET_RPC_URL, conf.binance_api_key, conf.binance_api_secret,
                 order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                 user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-                symbols=["ZRXETH", "LOOMETH", "IOSTETH"]
+                symbols=["ZRXETH", "IOSTETH"]
             )
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)
