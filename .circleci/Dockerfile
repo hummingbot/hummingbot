@@ -5,4 +5,4 @@ FROM continuumio/miniconda3:4.6.14
 LABEL maintainer="CoinAlpha, Inc. <dev@coinalpha.com>"
 
 # Install required packages
-RUN pip install nose
+RUN pip install nose && apt-get update && apt-get install -y python3-dev
