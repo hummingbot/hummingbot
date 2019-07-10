@@ -7,9 +7,31 @@ Docker images of Hummingbot are available on Docker Hub at [coinalpha/hummingbot
 !!! warning
     The instructions below assume you already have Docker installed.  If you do not have Docker installed, you can follow the appropriate installation guide for your system: 
     
-    - [Docker for Windows](/installation/docker_windows)
-    - [Docker for MacOS](/installation/docker_macOS)
-    - [Docker for Linux](/installation/docker_linux)
+    - [Docker for Linux](/installation/linux)
+    - [Docker for MacOS](/installation/macOS)
+    - [Docker for Windows](/installation/windows)
+
+## Automated Docker Scripts (Optional)
+
+We have created Docker command install scripts (for additional details, navigate to [Github: Hummingbot Docker scripts](https://github.com/CoinAlpha/hummingbot/tree/development/installation/docker-commands)).
+
+Copy the commands below and paste into Terminal to download and enable the automated scripts.
+
+```bash tab="Linux"
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/connect.sh
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh
+chmod a+x *.sh
+```
+
+```bash tab="MacOS"
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh -o create.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh -o start.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/connect.sh -o connect.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh -o update.sh
+chmod a+x *.sh
+```
 
 ## Installing Hummingbot
 
@@ -57,33 +79,6 @@ docker run -it \
 --mount "type=bind,source=$(pwd)/hummingbot_logs,destination=/logs/" \
 coinalpha/hummingbot:latest
 ```
-### Docker Command Parameters
-
-The instructions on this page assume the following variable names and/or parameters.  You can customize these names.
-
-Parameter | Description
----|---
-`hummingbot_files` | Name of the folder where your config and log files will be saved
-`hummingbot-instance` | Name of your instance
-`latest` | Image version, e.g. `latest`, `development`, or a specific version such as `0.9.1`
-`hummingbot_conf` | Folder in `hummingbot_files` where config files will be saved (mapped to `conf/` folder used by Hummingbot)
-`hummingbot_logs` | Folder in `hummingbot_files` where logs files will be saved (mapped to `logs/` folder used by Hummingbot)
-
-### Config and Log Files
-
-The above methodology requires you to explicitly specify the paths where you want to mount the `conf/` and `logs/` folders on your local machine.
-
-The example commands above assume that you create three folders:
-
-```
-hummingbot_files       # Top level folder for your instance
-├── hummingbot_conf    # Maps to hummingbot's conf/ folder, which stores configuration files
-└── hummingbot_logs    # Maps to hummingbot's logs/ folder, which stores log files
-```
-
-!!! info "`docker run` command from `hummingbot_files` folder"
-    - The `docker run` command (when creating a new instance or updating Hummingbot version) must be run from inside of the `hummingbot_files` folder.
-    - You must create all folders prior to using the `docker run` command.
 
 ## Connecting to a Running Hummingbot Instance
 
@@ -167,9 +162,39 @@ By default, the Docker Toolbox has copy and paste disabled within the command li
 
 Close any warnings, and you're done! Just hit enter to move onto the next line and you should be able to copy and paste text using **Ctrl+Shift+C** and **Ctrl+Shift+V**.
 
+## Hummingbot Setup
+
+#### Docker Command Parameters
+
+The instructions on this page assume the following variable names and/or parameters.  You can customize these names.
+
+Parameter | Description
+---|---
+`hummingbot_files` | Name of the folder where your config and log files will be saved
+`hummingbot-instance` | Name of your instance
+`latest` | Image version, e.g. `latest`, `development`, or a specific version such as `0.9.1`
+`hummingbot_conf` | Folder in `hummingbot_files` where config files will be saved (mapped to `conf/` folder used by Hummingbot)
+`hummingbot_logs` | Folder in `hummingbot_files` where logs files will be saved (mapped to `logs/` folder used by Hummingbot)
+
+#### Config and Log Files
+
+The above methodology requires you to explicitly specify the paths where you want to mount the `conf/` and `logs/` folders on your local machine.
+
+The example commands above assume that you create three folders:
+
+```
+hummingbot_files       # Top level folder for your instance
+├── hummingbot_conf    # Maps to hummingbot's conf/ folder, which stores configuration files
+└── hummingbot_logs    # Maps to hummingbot's logs/ folder, which stores log files
+```
+
+!!! info "`docker run` command and the `hummingbot_files` folder"
+    - The `docker run` command (when creating a new instance or updating Hummingbot version) must be run from the folder that contains the `hummingbot_files` folder. By default, this should be the root folder.
+    - You must create all folders prior to using the `docker run` command.
+
 ## FAQs / Troubleshooting for Docker
 
-### How do I find out the name of my hummingbot instance?
+#### How do I find out the name of my hummingbot instance?
 
 Run the following command to list all docker instances you have created:
 
@@ -177,13 +202,13 @@ Run the following command to list all docker instances you have created:
 docker ps -a
 ```
 
-### How do I list all the containers I have created?
+#### How do I list all the containers I have created?
 
 ```
 docker ps -a
 ```
 
-### How do I check that my Hummingbot instance is running?
+#### How do I check that my Hummingbot instance is running?
 
 The following command will list all currently running docker containers:
 
@@ -191,7 +216,7 @@ The following command will list all currently running docker containers:
 docker ps
 ```
 
-### How do I find out where the config and log files are on my local computer?
+#### How do I find out where the config and log files are on my local computer?
 
 Run the following command to view the details of your instance:
 
@@ -222,17 +247,17 @@ Look for a field `Mounts`, which will describe where the folders are on you loca
 ],
 ```
 
-### How do I connect to my Hummingbot instance?
+#### How do I connect to my Hummingbot instance?
 
 ```
 docker attach hummingbot-instance
 ```
 
-### How do I edit the conf files or access the log files used by my docker instance?
+#### How do I edit the conf files or access the log files used by my docker instance?
 
 You can access the files from your local file system, in the `hummingbot_conf` and `hummingbot_logs` folders on your machine.  The docker instance reads from/writes to these local files.
 
-### Common Errors with Windows + Docker
+#### Common Errors with Windows + Docker
 
 Windows users may encounter the following error when running the Docker Toolbox for Windows:
 

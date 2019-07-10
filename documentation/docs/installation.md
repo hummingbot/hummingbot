@@ -1,42 +1,40 @@
-# Overview of Installing Hummingbot
+# Overview of Hummingbot Installation
 
-## System Requirements
+## Recommended Setup
 
-Hummingbot is tested and supported on the following 64-bit systems:
+We recommend the following platform/setup for running Hummingbot:
 
-* Windows 10 or later
-* macOS 10.12.6 (Sierra) or later
-* Linux: Ubuntu 16.04 or later, Debian GNU/Linux 9, CentOS 7
+| | |
+|---|---|
+| **Cloud server** | Install on the cloud for ease of 24/7 operation and network stability. |
+| **Linux (Ubuntu)** | Hummingbot was designed and optimized for UNIX-based systems such as Linux and MacOS. |
+| **Docker** | Run Hummingbot through Docker for easier setup, operation, operation of multiple bots, and updating. |
+| **tmux** | Use `tmux` for persistent operation to prevent the cloud server from going to sleep. |
 
-## Installation Options
 
-Hummingbot can be installed locally in two ways: via Docker or from source.  The table below contains key differences between the two methods for you to choose your preferred option.
-
-!!! note "A Third Option: Using the Cloud"
-    It is also possible to run instances of Hummingbot on a virtual machine by using cloud providers. In fact, **we recommend setting up bots on cloud servers** as they will likely have more stable networks, and can improve performance if you select servers close to exchanges you are trading on.
-
-| | Source | Docker |
-|----|----|----|
-| **Windows compatibility** | ❌ No native support; available only by installing Linux subsystem | <font color="green">✓</font> Available with both native Docker application and Docker Toolbox|
-| **Installation process** | Requires installation of dependencies and then downloading, installing, and compiling code | <font color="green">✓</font> Easy to use as Hummingbot docker image is pre-installed, pre-compiled, and includes all dependencies |
-| **Updating versions** | Download latest code using `git`, uninstall old version, reinstall, recompile | <font color="green">✓</font> Remove and recreate container (can be done with a single command) |
-| **Code accessibility** | <font color="green">✓</font> Easy access for editing and perusing files | Difficult to access and read through files |
-| **Running multiple instances** | Requires multiple installations | <font color="green">✓</font> Easy to deploy multiple instances |
-
-## Installation Guides
+#### Installation Guides
 
 Installing via the Cloud:
 
 * [Setting up a Virtual Machine](/installation/cloud)
 
-Installing from Docker:
+Installing with Docker:
 
-* [For Windows Systems](/installation/windows)
+* [For Linux Systems](/installation/linux) *(Recommended)*
 * [For macOS Systems](/installation/macOS)
-* [For Linux Systems](/installation/linux)
+* [For Windows Systems](/installation/windows)
 
-Installing from source:
+## Installation from Source (for Developers)
 
-* [For Windows Systems](/installation/docker_windows)
-* [For macOS Systems](/installation/docker_macOS)
-* [For Linux Systems](/installation/docker_linux)
+For Users who want to access to and intend to edit the code base, you can install from source:
+
+* [For Linux Systems](/installation/from-source/linux)
+* [For macOS Systems](/installation/from-source/macOS)
+* [For Windows Systems](/installation/from-source/windows)
+
+## Windows Users
+
+Native Windows installation and operation is not supported.  We recommend Windows users to either:
+
+1. deploy Hummingbot on the cloud, or
+2. install locally using Windows Subsystems for Linux.

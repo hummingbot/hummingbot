@@ -9,8 +9,30 @@ You can install Docker and/or Hummingbot by selecting ***either*** of the follow
 
 If you already have Docker installed, use the following commands to install and start Hummingbot:
 
+#### Install tmux
+
+```bash tab="Ubuntu / Debian"
+sudo apt-get update
+sudo apt-get install tmux
+```
+
+```bash tab="CentOS"
+sudo yum -y install tmux
+```
+
+
+#### Run Hummingbot
+
+Open a new `tmux` window:
+
+```
+tmux
+```
+
+Install and run Hummingbot:
+
 ```bash tab="Option 1: Easy Install"
-# 1) Download Docker and Hummingbot install scripts
+# 1) Download Hummingbot install script
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
 
 # 2) Enable script permissions
@@ -39,10 +61,10 @@ coinalpha/hummingbot:latest
 
 *Supported versions: 16.04 LTS, 18.04 LTS, 19.04*
 
-#### Part 1: Install Docker
+#### Step 1: Install Docker
 
 ```bash tab="Option 1: Easy Install"
-# 1) Download Docker and Hummingbot install scripts
+# 1) Download Docker install script
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-docker-ubuntu.sh
 
 # 2) Enable script permissions
@@ -58,26 +80,38 @@ chmod a+x install-docker-ubuntu.sh
 # 1) Update Ubuntu's database of software
 sudo apt-get update
 
-# 2) Install Docker
+# 2) Install tmux
+sudo apt-get install -y tmux
+
+# 3) Install Docker
 sudo apt install -y docker.io
 
-# 3) Start and Automate Docker
+# 4) Start and Automate Docker
 sudo systemctl start docker && sudo systemctl enable docker 
 
-# 4) Change permissions for docker (optional)
+# 5) Change permissions for docker (optional)
 # Allow docker commands without requiring sudo prefix
 sudo usermod -a -G docker $USER 
 
-# **Note**: the script will close the terminal window
+# 6) Close terminal
+exit
 ```
 
 !!! warning "Restart terminal"
-    The above commands will close your terminal window in order to enable the correct permissions for the `docker` command.  Open a new terminal window to proceed with [Part 2](#part-2-install-hummingbot).
+    The above commands will close your terminal window in order to enable the correct permissions for the `docker` command.  Open a new terminal window to proceed with [Step 2](#step-2-install-hummingbot).
 
-#### Part 2: Install Hummingbot
+#### Step 2: Install Hummingbot
+
+Open a new `tmux` window:
+
+```
+tmux
+```
+
+Install and run Hummingbot:
 
 ```bash tab="Option 1: Easy Install"
-# 1) Download Docker and Hummingbot install scripts
+# 1) Download Hummingbot install script
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
 
 # 2) Enable script permissions
@@ -106,10 +140,10 @@ coinalpha/hummingbot:latest
 
 *Supported version: Debian GNU/Linux 9*
 
-#### Part 1: Install Docker
+#### Step 1: Install Docker
 
 ```bash tab="Option 1: Easy Install"
-# 1) Download Docker and Hummingbot install scripts
+# 1) Download Docker install script
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-docker-debian.sh
 
 # 2) Enable script permissions
@@ -126,7 +160,7 @@ chmod a+x install-docker-debian.sh
 sudo apt update
 
 # 2) Install dependencies
-sudo apt install -y apt-transport-https ca-certificates curl gnupg2 software-properties-common
+sudo apt install -y apt-transport-https ca-certificates curl gnupg2 software-properties-common tmux
 
 # 3) Register Docker repository to your system
 curl -fsSL https://download.docker.com/linux/debian/gpg | sudo apt-key add -
@@ -140,16 +174,25 @@ sudo apt install -y docker-ce
 # Allow docker commands without requiring sudo prefix
 sudo usermod -a -G docker $USER
 
-# **Note**: the script will close the terminal window
+# 6) Close terminal
+exit
 ```
 
 !!! warning "Restart terminal"
-    The above commands will close your terminal window in order to enable the correct permissions for the `docker` command.  Open a new terminal window to proceed with [Part 2](#part-2-install-hummingbot_1).
+    The above commands will close your terminal window in order to enable the correct permissions for the `docker` command.  Open a new terminal window to proceed with [Step 2](#step-2-install-hummingbot_1).
 
-#### Part 2: Install Hummingbot
+#### Step 2: Install Hummingbot
+
+Open a new `tmux` window:
+
+```
+tmux
+```
+
+Install and run Hummingbot:
 
 ```bash tab="Option 1: Easy Install"
-# 1) Download Docker and Hummingbot install scripts
+# 1) Download Hummingbot install script
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
 
 # 2) Enable script permissions
@@ -178,10 +221,10 @@ coinalpha/hummingbot:latest
 
 *Supported version: 7*
 
-#### Part 1: Install Docker
+#### Step 1: Install Docker
 
 ```bash tab="Option 1: Easy Install"
-# 1) Download Docker and Hummingbot install scripts
+# 1) Download Docker install script
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-docker-centos.sh
 
 # 2) Enable script permissions
@@ -197,26 +240,38 @@ chmod a+x install-docker-centos.sh
 # 1) Update package database
 sudo yum check-update
 
-# 2) Install Docker
+# 2) Install tmux
+sudo yum -y install tmux
+
+# 3) Install Docker
 curl -fsSL https://get.docker.com/ | sh 
 
-# 3) Start and Automate Docker
+# 4) Start and Automate Docker
 sudo systemctl start docker && sudo systemctl enable docker
 
-# 4) Change permissions for docker (optional)
+# 5) Change permissions for docker (optional)
 # Allow docker commands without requiring sudo prefix
 sudo usermod -a -G docker $USER
 
-# **Note**: the script will close the terminal window
+# 6) Close terminal
+exit
 ```
 
 !!! warning "Restart terminal"
-    The above commands will close your terminal window in order to enable the correct permissions for the `docker` command.  Open a new terminal window to proceed with [Part 2](#part-2-install-hummingbot_2).
+    The above commands will close your terminal window in order to enable the correct permissions for the `docker` command.  Open a new terminal window to proceed with [Step 2](#step-2-install-hummingbot_2).
 
-#### Part 2: Install Hummingbot
+#### Step 2: Install Hummingbot
+
+Open a new `tmux` window:
+
+```
+tmux
+```
+
+Install and run Hummingbot:
 
 ```bash tab="Option 1: Easy Install"
-# 1) Download Docker and Hummingbot install scripts
+# 1) Download Hummingbot install script
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
 
 # 2) Enable script permissions
@@ -240,6 +295,8 @@ docker run -it \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
 coinalpha/hummingbot:latest
 ```
+
+----
 
 ## Developer Notes
 

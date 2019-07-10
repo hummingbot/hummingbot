@@ -28,14 +28,14 @@ After setting a virtual machine (VM) on one of these platforms, proceed to [inst
 
 We have tested Hummingbot extensively on Mac and Linux-based machines. Below are resources that help you how to install a Hummingbot Docker image.
 
-* Read the [Mac](/installation/docker_macOS) or [Linux](/installation/docker_linux) installation guides.
+* Read the [Mac](/installation/macOS) or [Linux](/installation/linux) installation guides.
 * Watch the [Mac/Linux installation video](https://www.youtube.com/watch?v=eCfMKfS9HsM)
 
 ## Windows
 
 While there is no native Windows binary for Hummingbot available, users can install the Docker version.
 
-- Read the [Windows installation guide](/installation/docker_windows)
+- Read the [Windows installation guide](/installation/windows)
 - Watch the [Windows installation video](https://www.youtube.com/watch?v=K67qN4nmSnw&list=PLDwlNkL_4MMczSzZiomX5wFFuF40z-KLl&index=5)
 
 ---
