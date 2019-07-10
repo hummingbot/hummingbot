@@ -115,5 +115,5 @@ cdef class InFlightOrderBase:
         }
 
     @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> "InFlightOrderBase":
+    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         raise NotImplementedError
