@@ -98,7 +98,6 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
         cls.market: BambooRelayMarket = BambooRelayMarket(
             wallet=cls.wallet,
             ethereum_rpc_url=conf.test_web3_provider_list[0],
-            chain=chain,
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             symbols=[conf.test_bamboo_relay_base_token_symbol + "-" + conf.test_bamboo_relay_quote_token_symbol],
             use_coordinator=False,

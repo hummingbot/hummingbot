@@ -56,6 +56,7 @@ from hummingbot.market.utils import (
     zrx_order_to_json,
     json_to_zrx_order
 )
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils import fix_signature
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_exchange import ZeroExExchange
