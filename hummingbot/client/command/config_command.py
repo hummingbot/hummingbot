@@ -88,6 +88,7 @@ class ConfigCommand:
             if key is None:
                 in_memory_config_map.get("strategy").value = None
                 in_memory_config_map.get("strategy_file_path").value = None
+                self.clear_application_warning()
             self.config(key)
         else:
             self._notify("Aborted.")
