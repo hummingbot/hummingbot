@@ -47,8 +47,8 @@ loggers:
         propagate: false
         handlers: [report_proxy_handler]
     hummingbot.logger.report_aggregator:
-        level: METRIC_LOG
-        handlers: [report_proxy_handler, console_warning]
+        level: NETWORK
+        handlers: [report_proxy_handler, console_warning, file_handler]
         propagate: false
     hummingbot.logger.log_server_client:
         level: WARNING
