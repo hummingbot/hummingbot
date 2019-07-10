@@ -5,7 +5,6 @@ from typing import (
     Optional
 )
 
-from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import (
     OrderType,
     TradeType

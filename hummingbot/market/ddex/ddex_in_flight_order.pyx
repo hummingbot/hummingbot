@@ -39,6 +39,7 @@ cdef class DDEXInFlightOrder(InFlightOrderBase):
         )
         self.pending_amount_base = s_decimal_0
         self.gas_fee_amount = s_decimal_0
+        self.available_amount_base = amount
 
     def __repr__(self) -> str:
         return f"DDEXInFlightOrder(" \

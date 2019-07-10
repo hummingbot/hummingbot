@@ -2,7 +2,8 @@ import asyncio
 from decimal import Decimal
 from typing import (
     Any,
-    Dict
+    Dict,
+    Optional
 )
 
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -58,10 +59,6 @@ cdef class InFlightOrderBase:
                f"last_state='{self.last_state}')"
 
     @property
-    def available_amount_base(self) -> Decimal:
-        return self.amount - self.executed_amount_base
-
-    @property
     def is_done(self) -> bool:
         raise NotImplementedError
 
@@ -112,7 +109,6 @@ cdef class InFlightOrderBase:
             "amount": str(self.amount),
             "executed_amount_base": str(self.executed_amount_base),
             "executed_amount_quote": str(self.executed_amount_quote),
-            "available_amount_base": str(self.available_amount_base),
             "fee_asset": self.fee_asset,
             "fee_paid": str(self.fee_paid),
             "last_state": self.last_state

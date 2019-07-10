@@ -40,7 +40,8 @@ from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.ddex.ddex_order_book_tracker import DDEXOrderBookTracker
-from hummingbot.market.ddex.ddex_in_flight_order import DDEXInFlightOrder
+# from hummingbot.market.ddex.ddex_in_flight_order import DDEXInFlightOrder
+from hummingbot.market.ddex.ddex_in_flight_order cimport DDEXInFlightOrder
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.market.trading_rule cimport TradingRule
