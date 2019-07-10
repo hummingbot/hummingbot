@@ -7,6 +7,7 @@ from typing import (
     List
 )
 
+from hummingbot.core.clock cimport Clock
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.discovery.discovery_market_pair import DiscoveryMarketPair
@@ -415,6 +416,7 @@ cdef class DiscoveryStrategy(StrategyBase):
         lines.extend(self.format_conversion_rate())
         return "\n".join(lines)
 
-    def stop(self):
+    cdef c_stop(self, Clock clock):
+        StrategyBase.c_stop(self, clock)
         for task in self._fetch_market_info_task_list:
             task.cancel()
