@@ -311,7 +311,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                     double expiration_seconds = NaN):
         cdef:
             dict kwargs = {}
-
         kwargs["expiration_ts"] = self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
 
         if market_symbol_pair.market not in self._markets:
@@ -325,7 +324,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                      double expiration_seconds = NaN):
         cdef:
             dict kwargs = {}
-
         kwargs["expiration_ts"] = self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
 
         if market_symbol_pair.market not in self._markets:
@@ -1112,6 +1110,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             bint is_buy = active_order.is_buy
             str limit_order_type_str = "bid" if is_buy else "ask"
+            double order_price = float(active_order.price)
             double cancel_order_threshold
             double order_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.taker.quote_asset, float(active_order.price))
