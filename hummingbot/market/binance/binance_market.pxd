@@ -35,9 +35,9 @@ cdef class BinanceMarket(MarketBase):
     cdef c_did_timeout_tx(self, str tracking_id)
     cdef c_start_tracking_order(self,
                                 str order_id,
-                                int64_t exchange_order_id,
+                                str exchange_order_id,
                                 str symbol,
-                                bint is_buy,
+                                object trade_type,
                                 object price,
                                 object amount,
                                 object order_type)
