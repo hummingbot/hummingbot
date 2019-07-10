@@ -4,7 +4,7 @@ from typing import (
 
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.events import MarketEvent
-from hummingbot.core.event_listener cimport EventListener
+from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
@@ -94,7 +94,7 @@ cdef class StrategyBase(TimeIterator):
 
     @property
     def active_markets(self) -> List[MarketBase]:
-        raise NotImplementedError
+        return list(self._sb_markets)
 
     def format_status(self):
         raise NotImplementedError

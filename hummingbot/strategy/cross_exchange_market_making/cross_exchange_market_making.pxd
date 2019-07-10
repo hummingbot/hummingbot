@@ -11,7 +11,6 @@ from hummingbot.strategy.strategy_base cimport StrategyBase
 cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef:
         dict _market_pairs
-        set _markets
         set _maker_markets
         set _taker_markets
         bint _all_markets_ready
@@ -37,12 +36,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         dict _order_fill_sell_events
         dict _suggested_price_samples
         object _in_flight_cancels
-        EventListener _order_filled_listener
-        EventListener _buy_order_completed_listener
-        EventListener _sell_order_completed_listener
-        EventListener _order_failed_listener
-        EventListener _order_cancelled_listener
-        EventListener _order_expired_listener
         int64_t _logging_options
         object _exchange_rate_conversion
 
@@ -52,11 +45,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                      object order_type = *, double price = *, double expiration_seconds = *)
     cdef c_cancel_order(self, object market_pair, str order_id)
     cdef c_process_market_pair(self, object market_pair, list active_ddex_orders)
-    cdef c_did_fill_order(self, object order_filled_event)
-    cdef c_did_fail_order(self, object order_failed_event)
-    cdef c_did_cancel_order(self, object cancelled_event)
-    cdef c_did_complete_buy_order(self, object order_completed_event)
-    cdef c_did_complete_sell_order(self, object order_completed_event)
     cdef c_check_and_hedge_orders(self, object market_pair)
     cdef c_check_and_cleanup_shadow_records(self)
     cdef c_start_tracking_limit_order(self, object market_pair, str order_id, bint is_buy, object price,
