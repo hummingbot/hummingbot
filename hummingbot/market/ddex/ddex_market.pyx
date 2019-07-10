@@ -50,7 +50,7 @@ from hummingbot.market.trading_rule cimport TradingRule
 s_logger = None
 s_decimal_0 = Decimal(0)
 NaN = float("nan")
-ZERO_EX_MAINNET_PROXY = "0x74622073a4821dbfd046E9AA2ccF691341A076e1"
+HYDRO_MAINNET_PROXY = "0x74622073a4821dbfd046E9AA2ccF691341A076e1"
 
 
 cdef class DDEXMarketTransactionTracker(TransactionTracker):
@@ -96,7 +96,7 @@ cdef class DDEXMarket(MarketBase):
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                     OrderBookTrackerDataSourceType.EXCHANGE_API,
-                 wallet_spender_address: str = ZERO_EX_MAINNET_PROXY,
+                 wallet_spender_address: str = HYDRO_MAINNET_PROXY,
                  symbols: Optional[List[str]] = None,
                  trading_required: bool = True):
         super().__init__()
