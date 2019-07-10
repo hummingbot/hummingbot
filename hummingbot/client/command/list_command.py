@@ -90,27 +90,12 @@ class ListCommand:
                                      ["    " + line for line in df_lines])
                     else:
                         df_lines = str(df[:MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT]).split("\n")
-                        self._notify("")
+                        self._notify(f"Number of Trades exceeds limit of :{MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT} trades. "
+                                     f"Kindly change limit in client settings to display required amount of trades ")
                         lines.extend(["", "  Past trades:"] +
                                      ["    " + line for line in df_lines])
-                        self._notify()
                 else:
                     lines.extend(["  No past trades."])
                 self._notify("\n".join(lines))
 
-            # if self.strategy is None:
-            #     self._notify(("No strategy available, cannot show past trades"))
-            #
-            # else:
-            #     strategy1 = in_memory_config_map.get("strategy").value
-            #     self._notify(f"strategy value is {strategy1}")
-            #     if len(self.strategy.trades) > 0:
-            #         df = Trade.to_pandas(self.strategy.trades)
-            #         df_lines = str(df).split("\n")
-            #         lines.extend(["", "  Past trades:"] +
-            #                      ["    " + line for line in df_lines])
-            #     else:
-            #         lines.extend(["  No past trades."])
-            # self._notify("\n".join(lines))
-        else:
             self.help("list")
