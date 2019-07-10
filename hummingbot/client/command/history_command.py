@@ -49,7 +49,7 @@ class HistoryCommand:
                              current_balance - starting_balance])
 
         df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Delta"])
-        lines = ["", "  Performance:"] + ["    " + line for line in str(df).split("\n")]
+        lines = ["", "  Inventory:"] + ["    " + line for line in str(df).split("\n")]
         self._notify("\n".join(lines))
 
     def analyze_performance(self,  # type: HummingbotApplication
@@ -79,8 +79,23 @@ class HistoryCommand:
         buy_price = market.get_price(market_pair_info.trading_pair, True)
         sell_price = market.get_price(market_pair_info.trading_pair, False)
         price = (buy_price + sell_price)/2.0
-        percent = performance_analysis.compute_profitability(price)
 
-        self._notify("\n" + "  Profitability:\n" + "    " + str(percent) + "%")
+        starting_token, starting_amount = performance_analysis.compute_starting(price)
+        current_token, current_amount = performance_analysis.compute_current(price)
+        delta_token, delta_amount = performance_analysis.compute_delta(price)
+        return_performance = performance_analysis.compute_return(price)
+
+        starting_amount = round(starting_amount, 3)
+        current_amount = round(current_amount, 3)
+        delta_amount = round(delta_amount, 3)
+        return_performance = round(return_performance, 3)
+
+        print_performance = "\n"
+        print_performance += "  Performance:\n"
+        print_performance += "    - Starting Inventory Value: " + str(starting_amount) + " " + starting_token + "\n"
+        print_performance += "    - Current Inventory Value: " + str(current_amount) + " " + current_token + "\n"
+        print_performance += "    - Delta: " + str(delta_amount) + " " + delta_token + "\n"
+        print_performance += "    - Return: " + str(return_performance) + "%"
+        self._notify(print_performance)
 
 
