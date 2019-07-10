@@ -1,22 +1,33 @@
-# Welcome to Hummingbot!
+# Hummingbot Documentation
+Welcome to the official documentation site for Hummingbot!
 
-Located here is the documentation for Hummingbot, an open source orchestration tool that helps you create and operate high-frequency algorithmic trading bots on both centralized and decentralized cryptocurrency exchanges.
-
-Here are some helpful links to get started:
-
-* [Website](https://hummingbot.io)
-* [FAQ](/faq)
-* [Whitepaper](/whitepaper)
-* [Installation](/installation)
-* [Tutorials](https://www.youtube.com/channel/UCxzzdEnDRbylLMWmaMjywOA)
-* [Support](/support)
-
-<br />
-Information about Liquidity Bounties:
-
-* [Bounties](/bounties/intro)
-* [Harmony $ONE Makers](/bounties/active/harmony)
+!!! warning "Warning: Beta Software"
+    Hummingbot is experimental, open source software that is still in beta, and you use it at your own risk.  Please review the [Apache 2.0 license](https://github.com/CoinAlpha/hummingbot/blob/master/LICENSE).
 
 
-!!! warning "Experimental software"
-    Hummingbot is experimental software, and you use it at your own risk.  Please review the [Apache 2.0 license](https://github.com/CoinAlpha/hummingbot/blob/master/LICENSE).
+## What is Hummingbot?
+Hummingbot is open source software that helps you create, configure and manage high-freuquency market making and arbitrage bots that run on both centralized and decentralized crypto exchanges.
+
+## How the documentation is organized
+
+* [General](/): For new users. Learn about how Hummingbot works, install the software, and quickly start running your first bot.
+* [User Manual](/manual): For experienced users who want to get the most of Hummingbot, and for developers looking to contribute to or extend Hummingbot's capabilities.
+* [Release Notes](/release-notes): New features, bug fixes, and other updates from our bi-weekly releases.
+
+## First steps
+New to Hummingbot? Here are some helpful links to get you started!
+
+#### Learn how it works
+* [FAQ](/faq): Answers to frequently asked questions
+* [Whitepaper](/whitepaper): Overview about Hummingbot, its strategies, and the technical architecture.
+
+#### Follow the Quickstart tutorial
+1. Install Hummingbot
+2. Register for liquidity bounties
+3. Run your first bot
+
+## Get help
+* [Support](/support): Various ways to get support in using Hummingbot
+* [Troubleshooting](/troubleshooting): Common issues and how to resolve them
+* [Hummingbot Chinese Github repo](https://github.com/coinalpha/hummingbot_chinese)
+
