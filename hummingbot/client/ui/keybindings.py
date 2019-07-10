@@ -32,10 +32,8 @@ def load_key_bindings(hb) -> KeyBindings:
     def do_find(event):
         start_search(hb.app.log_field.control)
 
-    @bindings.add("escape", filter=is_searching)
     @bindings.add("c-f", filter=is_searching)
     def do_exit_find(event):
-        print("here")
         stop_search()
         get_app().layout.focus(hb.app.input_field.control)
         get_app().invalidate()
