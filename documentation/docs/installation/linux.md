@@ -1,89 +1,246 @@
-# Linux Source Installation
+# Linux Installation Using Docker
 
-Hummingbot has been tested on [Ubuntu](https://ubuntu.com/), [Debian](https://www.debian.org/), and [CentOS](https://www.centos.org/) distributions of Linux.
+You can install Docker and/or Hummingbot by selecting ***either*** of the following options from the tabs below:
 
-In the instructions below, we are using [Miniconda3](), a lighter version of [Anaconda]() which is sufficient to run Hummingbot.  To learn more about the differences and what works best for you, see [this post](http://deeplearning.lipingyang.org/2018/12/23/anaconda-vs-miniconda-vs-virtualenv/).
+1. **Easy Install**: download and use automated install scripts.
+2. **Manual Installation**: run install commands manually.
 
-## Install Commands for Ubuntu
+## Existing Docker Installation
 
+If you already have Docker installed, use the following commands to install and start Hummingbot:
+
+```bash tab="Option 1: Easy Install"
+# 1) Download Docker and Hummingbot install scripts
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
+
+# 2) Enable script permissions
+chmod a+x create.sh
+
+# 3) Run installation
+./create.sh
 ```
-# 1) Install dependencies
+
+```bash tab="Option 2: Manual Installation"
+# 1) Create folder for your new instance
+mkdir hummingbot_files
+
+# 2) Create folders for log and config files
+mkdir hummingbot_files/hummingbot_conf && mkdir hummingbot_files/hummingbot_logs
+
+# 3) Launch a new instance of hummingbot
+docker run -it \
+--name hummingbot-instance \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
+coinalpha/hummingbot:latest
+```
+
+## Ubuntu
+
+*Supported versions: 16.04 LTS, 18.04 LTS, 19.04*
+
+#### Part 1: Install Docker
+
+```bash tab="Option 1: Easy Install"
+# 1) Download Docker and Hummingbot install scripts
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-docker-ubuntu.sh
+
+# 2) Enable script permissions
+chmod a+x install-docker-ubuntu.sh
+
+# 3) Run installation
+./install-docker-ubuntu.sh
+
+# **Note**: the script will close the terminal window
+```
+
+```bash tab="Option 2: Manual Installation"
+# 1) Update Ubuntu's database of software
 sudo apt-get update
-sudo apt-get install -y build-essential
 
-# 2) Install Miniconda3
-wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
-sh Miniconda3-latest-Linux-x86_64.sh
+# 2) Install Docker
+sudo apt install -y docker.io
 
-# 3) Log out and log back into shell to register "conda" command
-exit
-# Log back into or open a new Linux terminal
+# 3) Start and Automate Docker
+sudo systemctl start docker && sudo systemctl enable docker 
 
-# 4) Clone Hummingbot
-git clone https://github.com/CoinAlpha/hummingbot.git
+# 4) Change permissions for docker (optional)
+# Allow docker commands without requiring sudo prefix
+sudo usermod -a -G docker $USER 
 
-# 5) Install Hummingbot
-cd hummingbot && ./install
-
-# 6) Activate environment and compile code
-conda activate hummingbot && ./compile
-
-# 7) Start Hummingbot
-bin/hummingbot.py
+# **Note**: the script will close the terminal window
 ```
 
-## Install Commands for Debian
+!!! warning "Restart terminal"
+    The above commands will close your terminal window in order to enable the correct permissions for the `docker` command.  Open a new terminal window to proceed with [Part 2](#part-2-install-hummingbot).
 
-```
-# 1) Install dependencies
-sudo apt-get update
-sudo apt-get install -y build-essential git
+#### Part 2: Install Hummingbot
 
-# 2) Install Miniconda3
-wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
-sh Miniconda3-latest-Linux-x86_64.sh
+```bash tab="Option 1: Easy Install"
+# 1) Download Docker and Hummingbot install scripts
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
 
-# 3) Log out and log back into shell to register "conda" command
-exit
-# Log back into or open a new Linux terminal
+# 2) Enable script permissions
+chmod a+x create.sh
 
-# 4) Clone Hummingbot
-git clone https://github.com/CoinAlpha/hummingbot.git
-
-# 5) Install Hummingbot
-cd hummingbot && ./install
-
-# 6) Activate environment and compile code
-conda activate hummingbot && ./compile
-
-# 7) Start Hummingbot
-bin/hummingbot.py
+# 3) Run installation
+./create.sh
 ```
 
-## Install Commands for CentOS
+```bash tab="Option 2: Manual Installation"
+# 1) Create folder for your new instance
+mkdir hummingbot_files
 
+# 2) Create folders for log and config files
+mkdir hummingbot_files/hummingbot_conf && mkdir hummingbot_files/hummingbot_logs
+
+# 3) Launch a new instance of hummingbot
+docker run -it \
+--name hummingbot-instance \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
+coinalpha/hummingbot:latest
 ```
-# 1) Install dependencies
-sudo yum install -y wget bzip2 git
-sudo yum groupinstall -y 'Development Tools'
 
-# 2) Install Miniconda3
-wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
-sh Miniconda3-latest-Linux-x86_64.sh
+## Debian
 
-# 3) Log out and log back into shell to register "conda" command
-exit
-# Log back into or open a new Linux terminal
+*Supported version: Debian GNU/Linux 9*
 
-# 4) Clone Hummingbot
-git clone https://github.com/CoinAlpha/hummingbot.git
+#### Part 1: Install Docker
 
-# 5) Install Hummingbot
-cd hummingbot && ./install
+```bash tab="Option 1: Easy Install"
+# 1) Download Docker and Hummingbot install scripts
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-docker-debian.sh
 
-# 6) Activate environment and compile code
-conda activate hummingbot && ./compile
+# 2) Enable script permissions
+chmod a+x install-docker-debian.sh
 
-# 7) Start Hummingbot
-bin/hummingbot.py
+# 3) Run installation
+./install-docker-debian.sh
+
+# **Note**: the script will close the terminal window
 ```
+
+```bash tab="Option 2: Manual Installation"
+# 1) Update package database
+sudo apt update
+
+# 2) Install dependencies
+sudo apt install -y apt-transport-https ca-certificates curl gnupg2 software-properties-common
+
+# 3) Register Docker repository to your system
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo apt-key add -
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
+sudo apt update
+
+# 4) Install Docker
+sudo apt install -y docker-ce
+
+# 5) Change permissions for docker (optional)
+# Allow docker commands without requiring sudo prefix
+sudo usermod -a -G docker $USER
+
+# **Note**: the script will close the terminal window
+```
+
+!!! warning "Restart terminal"
+    The above commands will close your terminal window in order to enable the correct permissions for the `docker` command.  Open a new terminal window to proceed with [Part 2](#part-2-install-hummingbot_1).
+
+#### Part 2: Install Hummingbot
+
+```bash tab="Option 1: Easy Install"
+# 1) Download Docker and Hummingbot install scripts
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
+
+# 2) Enable script permissions
+chmod a+x create.sh
+
+# 3) Run installation
+./create.sh
+```
+
+```bash tab="Option 2: Manual Installation"
+# 1) Create folder for your new instance
+mkdir hummingbot_files
+
+# 2) Create folders for log and config files
+mkdir hummingbot_files/hummingbot_conf && mkdir hummingbot_files/hummingbot_logs
+
+# 3) Launch a new instance of hummingbot
+docker run -it \
+--name hummingbot-instance \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
+coinalpha/hummingbot:latest
+```
+
+## CentOS
+
+*Supported version: 7*
+
+#### Part 1: Install Docker
+
+```bash tab="Option 1: Easy Install"
+# 1) Download Docker and Hummingbot install scripts
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-docker-centos.sh
+
+# 2) Enable script permissions
+chmod a+x install-docker-centos.sh
+
+# 3) Run installation
+./install-docker-centos.sh
+
+# **Note**: the script will close the terminal window
+```
+
+```bash tab="Option 2: Manual Installation"
+# 1) Update package database
+sudo yum check-update
+
+# 2) Install Docker
+curl -fsSL https://get.docker.com/ | sh 
+
+# 3) Start and Automate Docker
+sudo systemctl start docker && sudo systemctl enable docker
+
+# 4) Change permissions for docker (optional)
+# Allow docker commands without requiring sudo prefix
+sudo usermod -a -G docker $USER
+
+# **Note**: the script will close the terminal window
+```
+
+!!! warning "Restart terminal"
+    The above commands will close your terminal window in order to enable the correct permissions for the `docker` command.  Open a new terminal window to proceed with [Part 2](#part-2-install-hummingbot_2).
+
+#### Part 2: Install Hummingbot
+
+```bash tab="Option 1: Easy Install"
+# 1) Download Docker and Hummingbot install scripts
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
+
+# 2) Enable script permissions
+chmod a+x create.sh
+
+# 3) Run installation
+./create.sh
+```
+
+```bash tab="Option 2: Manual Installation"
+# 1) Create folder for your new instance
+mkdir hummingbot_files
+
+# 2) Create folders for log and config files
+mkdir hummingbot_files/hummingbot_conf && mkdir hummingbot_files/hummingbot_logs
+
+# 3) Launch a new instance of hummingbot
+docker run -it \
+--name hummingbot-instance \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
+coinalpha/hummingbot:latest
+```
+
+## Developer Notes
+
+- Additional details of the scripts can be found on [Github: Hummingbot Install with Docker](https://github.com/CoinAlpha/hummingbot/tree/development/installation/install-docker).
