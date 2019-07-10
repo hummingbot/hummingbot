@@ -5,7 +5,6 @@ from typing import (
     Optional
 )
 
-from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import (
     OrderType,
     TradeType
@@ -22,7 +21,7 @@ cdef class BinanceInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: Optional[str] = "NEW"):
+                 initial_state: str = "NEW"):
         super().__init__(
             BinanceMarket,
             client_order_id,
