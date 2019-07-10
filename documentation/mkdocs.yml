@@ -75,47 +75,51 @@ nav:
     - General:
       - Getting Started: index.md
       - Learn about Hummingbot:
-        - Hummingbot FAQs: faq.md
-        - Our Whitepaper: whitepaper.md
-        - Our Timeline: roadmap.md
+        - FAQ: faq.md
+        - Whitepaper: whitepaper.md
+        - Timeline: roadmap.md
         - Useful Terminology: glossary.md
-      - Quickstart Guide:
+      - Quickstart:
         - 0. Before you begin: quickstart/0-begin.md
         - 1. Install Hummingbot: quickstart/1-install.md
         - 2. Register for Liquidity Bounties: quickstart/2-bounties.md
         - 3. Run your First Bot: quickstart/3-bot.md
-      - Install Hummingbot:
-        - Installing Overview: installation.md
-        - Windows: installation/docker_windows.md
-        - MacOS: installation/docker_macOS.md
-        - Linux: installation/docker_linux.md
-        - Cloud: installation/cloud.md
-      - Earn Liquidity Bounties:
-        - Liquidities Bounties FAQ: bounties/faq.md
+      - Cheatsheets:
+        - Docker Commands: installation/docker.md
+      - Liquidity Bounties:
+        - FAQ: bounties/faq.md
         - Active Bounties:
           - Harmony $ONE Makers: bounties/active/harmony.md
-      - Run Your First Bot:
-        - Docker Commands: installation/docker.md
-        - Using API Keys: installation/api-keys.md
-        - Using the Client: operation/client.md
-        - Configuring Hummingbot: operation/configuration.md
-        - Running Trading Bots: operation/running-bots.md
-        - Tips for Cloud Users: operation/running-bots-in-the-cloud.md
       - Get Help:
         - Contact and Support: support.md
         - Bug Bounty Program: support/bug-bounty-program.md
         - Troubleshooting: support/troubleshooting.md
     - User Manual:
-      - Overview: manual.md
-      - Installation from Source:
-        - Windows: installation/windows.md
-        - macOS: installation/macOS.md
-        - Linux/Cloud: installation/linux.md
-      - Wallets and Nodes:
+      - Intro: manual.md
+      - Installation:
+        - Overview: installation.md
+        - Install on Windows:
+          - From Docker: installation/docker_windows.md
+          - From Source: installation/windows.md
+        - Install on MacOS:
+          - From Docker: installation/docker_macOS.md
+          - From Source: installation/macOS.md
+        - Install on Linux: installation/linux.md
+        - Install in the Cloud: installation/cloud.md
+        - Install from Source:
+          - Linux: installation/from-source/linux.md
+          - macOS: installation/from-source/macOS.md
+          - Windows: installation/from-source/windows.md
+      - Configuration:
+        - Configuring Hummingbot: operation/configuration.md
+        - API Keys: installation/api-keys.md
         - Ethereum Wallet: installation/wallet.md
-        - Ethereum Node:
-          - Using Ethereum Nodes: installation/node/node.md
-          - Set Up a Free Node: installation/node/infura.md
+        - Ethereum Node: installation/node/node.md
+        - Get a Free Ethereum Node: installation/node/infura.md
+      - Operation:
+        - Using the Client: operation/client.md
+        - Running Trading Bots: operation/running-bots.md
+        - Tips for Cloud Users: operation/running-bots-in-the-cloud.md
       - Connectors:
         - About Connectors: connectors.md
         - Binance: connectors/binance.md
