@@ -100,7 +100,7 @@ def create_output_field():
 
 def create_search_field() -> SearchToolbar:
     return SearchToolbar(text_if_not_searching=[('class:primary', "[CTRL + F] to start searching.")],
-                         forward_search_prompt=[('class:primary', "Search logs ([CTRL + F] to hide search) >>> ")],
+                         forward_search_prompt=[('class:primary', "Search logs [Press CTRL + F to hide search] >>> ")],
                          ignore_case=True)
 
 
@@ -114,6 +114,7 @@ def create_log_field(search_field: SearchToolbar):
         max_line_count=MAXIMUM_LOG_PANE_LINE_COUNT,
         initial_text="Running Logs \n",
         search_field=search_field,
+        preview_search=False,
     )
 
 
