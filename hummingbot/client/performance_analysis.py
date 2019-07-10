@@ -1,3 +1,5 @@
+from typing import Tuple
+
 from hummingbot.client.data_type.currency_amount import CurrencyAmount
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 
@@ -51,19 +53,19 @@ class PerformanceAnalysis:
                 temp_amount = erc.convert_token_value(amount, asset_name, currency_amount.token)
                 currency_amount.amount += temp_amount
 
-    def compute_starting(self, price: float) -> (str, float):
+    def compute_starting(self, price: float) -> Tuple[str, float]:
         """ Computes the starting amount of token between both exchanges. """
         starting_amount = (self._starting_base.amount * price) + self._starting_quote.amount
         starting_token = self._starting_quote.token
         return starting_token, starting_amount
 
-    def compute_current(self, price: float) -> (str, float):
+    def compute_current(self, price: float) -> Tuple[str, float]:
         """ Computes the current amount of token between both exchanges. """
         current_amount = (self._current_base.amount * price) + self._current_quote.amount
         current_token = self._current_quote.token
         return current_token, current_amount
 
-    def compute_delta(self, price: float) -> (str, float):
+    def compute_delta(self, price: float) -> Tuple[str, float]:
         """ Computes the delta between current amount in exchange and starting amount. """
         starting_token, starting_amount = self.compute_starting(price)
         _, current_amount = self.compute_current(price)
