@@ -6,7 +6,6 @@ from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 cdef class BambooRelayMarket(MarketBase):
     cdef:
         str _wallet_spender_address
-        object _chain
         object _wallet
         object _provider
         object _weth_token

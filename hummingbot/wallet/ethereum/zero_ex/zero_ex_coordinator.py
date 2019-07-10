@@ -15,7 +15,6 @@ from hummingbot.wallet.ethereum.zero_ex.zero_ex_transaction_encoder import (
     SignedZeroExTransaction,
     get_transaction_hash_hex
 )
-from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils import (
     convert_order_to_tuple,
@@ -45,8 +44,7 @@ class ZeroExCoordinator:
                  exchange_address: str,
                  coordinator_address: str,
                  coordinator_registry_address: str,
-                 wallet: Web3Wallet,
-                 chain: EthereumChain = EthereumChain.MAIN_NET):
+                 wallet: Web3Wallet):
         self._provider: Web3.HTTPProvider = provider
         self._w3: Web3 = w3
         self._exchange_contract: Contract = w3.eth.contract(address=exchange_address, abi=exchange_abi)
@@ -57,7 +55,6 @@ class ZeroExCoordinator:
         self._registry_address: str = coordinator_registry_address
         self._wallet: Web3Wallet = wallet
         self._feeRecipientToEndpoint = {}
-        self._chain = chain
 
     @property
     def contract(self) -> Contract:
@@ -353,7 +350,7 @@ class ZeroExCoordinator:
         }
 
         try:
-            response = await self._post_request(endpoint + '/v1/request_transaction?networkId=' + str(self._chain.value), requestPayload)
+            response = await self._post_request(endpoint + '/v1/request_transaction?networkId=' + str(self.wallet.chain.value), requestPayload)
 
             status = response.status
 

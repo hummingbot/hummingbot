@@ -260,7 +260,6 @@ class HummingbotApplication(*commands):
                 pre_emptive_soft_cancels = global_config_map.get("bamboo_relay_pre_emptive_soft_cancels").value
                 market = BambooRelayMarket(wallet=self.wallet,
                                            ethereum_rpc_url=ethereum_rpc_url,
-                                           chain=EthereumChain.MAIN_NET,
                                            symbols=symbols,
                                            use_coordinator=use_coordinator,
                                            pre_emptive_soft_cancels=pre_emptive_soft_cancels,
