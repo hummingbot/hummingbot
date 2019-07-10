@@ -18,10 +18,6 @@ cdef class ArbitrageStrategy(StrategyBase):
         double _last_timestamp
         dict _last_trade_timestamps
         double _next_trade_delay
-        EventListener _buy_order_completed_listener
-        EventListener _sell_order_completed_listener
-        EventListener _order_failed_listener
-        EventListener _order_canceled_listener
         set _markets
         set _sell_markets
         set _buy_markets
@@ -32,10 +28,6 @@ cdef class ArbitrageStrategy(StrategyBase):
                                     object order_type = *, double price = *)
     cdef c_sell_with_specific_market(self, object market_symbol_pair, double amount,
                                      object order_type = *, double price = *)
-    cdef c_did_complete_buy_order(self, object buy_order_completed_event)
-    cdef c_did_complete_sell_order(self, object sell_order_completed_event)
-    cdef c_did_fail_order(self, object fail_event)
-    cdef c_did_cancel_order(self, object cancel_event)
     cdef tuple c_calculate_arbitrage_top_order_profitability(self, object market_pair)
     cdef c_process_market_pair(self, object market_pair)
     cdef c_process_market_pair_inner(self, object buy_market_symbol_pair,object sell_market_symbol_pair)
