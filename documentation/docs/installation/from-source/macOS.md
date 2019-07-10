@@ -1,16 +1,19 @@
 # MacOS Source Installation
 
-## Dependencies
+!!! info "Recommended for Developers Only"
+    [Installation using Docker](/installation/macOS) is more efficient for running Hummingbot.  Installing from source is only recommended for developers who want to access and modify the software code.
+
+## Part 1. Install Dependencies
 
 Running Hummingbot on **Mac OSX** requires [Xcode](https://developer.apple.com/xcode/) and Xcode command line tools.
 
-### 1. Install Xcode command line tools
+#### Step 1. Install Xcode command line tools
 
 ```
 xcode-select --install
 ```
 
-### 2. Install Anaconda3
+#### Step 2. Install Anaconda3
 
 Hummingbot requires Python 3 and other Python libraries. To manage these dependencies, Hummingbot uses Anaconda, an open source environment and package manager for Python that is the current industry standard for data scientists and data engineers.
 
@@ -36,13 +39,17 @@ fi
 unset __conda_setup
 ```
 
-## 2. Download the Hummingbot client
+## Part 2. Install Hummingbot
 
-Clone or download the [Github repository](https://github.com/coinalpha/hummingbot).
+#### Step 1. Download the Hummingbot client
 
-## 3. Run install script
+In Terminal, clone the Hummingbot repo:
 
-In a Terminal or bash window, go to the root directory:
+```
+git clone https://github.com/CoinAlpha/hummingbot.git
+```
+
+#### Step 2. Run install script
 
 ```
 cd hummingbot
@@ -54,23 +61,18 @@ Run the install script, which creates a custom Anaconda environment and installs
 ./install
 ```
 
-## 4. Activate environment
+#### Step 3. Activate environment
 
 The installation script creates a custom Anaconda environment that manages dependencies used by Hummingbot. Activate the environment:
 
 ```
 conda activate hummingbot
 ```
-The environment has been activated when you see a `(hummingbot)` prefix before your Terminal command prompt:
+The environment has been activated when you see a `(hummingbot)` prefix before your Terminal command prompt.
 
-!!! note
-    Make sure you are on latest conda version. You can check by typing `conda --version`. In addition, you might have
-    to type `conda init bash` if you see a message saying that your shell is not configured to use `conda activate`.
+!!! info "Ensure that you have activated the Hummingbot environment before **compiling** or **running the bot**."
 
-!!! note
-    Ensure that you have activated the Hummingbot environment before **compiling** or **running the bot**.
-
-## 5. Compile
+#### Step 4. Compile
 
 Compile and Cythonize the source code into the executable binary:
 
@@ -78,7 +80,7 @@ Compile and Cythonize the source code into the executable binary:
 ./compile
 ```
 
-## 6. Run Hummingbot
+#### Step 5. Run Hummingbot
 
 Start Hummingbot by entering:
 ```
