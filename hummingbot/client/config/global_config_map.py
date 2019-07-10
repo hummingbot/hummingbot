@@ -115,7 +115,7 @@ global_config_map = {
     "ethereum_rpc_url":                 ConfigVar(key="ethereum_rpc_url",
                                                   prompt="Which Ethereum node would you like your client to connect "
                                                          "to? >>> ",
-                                                  required_if=lambda: True),
+                                                  required_if=using_wallet),
     # Whether or not to invoke cancel_all on exit if marketing making on a open order book DEX (e.g. Radar Relay)
     "on_chain_cancel_on_exit":          ConfigVar(key="on_chain_cancel_on_exit",
                                                   prompt="Would you like to cancel transactions on chain if using an "

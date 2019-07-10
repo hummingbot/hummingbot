@@ -449,7 +449,8 @@ class BinanceMarketUnitTest(unittest.TestCase):
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
             self.market: BinanceMarket = BinanceMarket(
-                MAINNET_RPC_URL, conf.binance_api_key, conf.binance_api_secret,
+                binance_api_key=conf.binance_api_key,
+                binance_api_secret=conf.binance_api_secret,
                 order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                 user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
                 symbols=["ZRXETH", "IOSTETH"]
