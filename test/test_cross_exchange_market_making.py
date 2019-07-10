@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 
 from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
+import sys;
+
+
+sys.path.insert(0, realpath(join(__file__, "../../")))
 
 from nose.plugins.attrib import attr
 
+from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from decimal import Decimal
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
@@ -87,11 +91,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         )
 
         self.market_pair: CrossExchangeMarketPair = CrossExchangeMarketPair(
-            *(
-                [self.maker_market] + self.maker_symbols +
-                [self.taker_market] + self.taker_symbols +
-                [2]
-            )
+            MarketSymbolPair(self.maker_market, *self.maker_symbols),
+            MarketSymbolPair(self.taker_market, *self.taker_symbols),
+            2
         )
 
         logging_options: int = (CrossExchangeMarketMakingStrategy.OPTION_LOG_ALL &
@@ -369,9 +371,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(0, len(self.strategy.active_bids))
         self.assertEqual(0, len(self.strategy.active_asks))
         self.assertEqual((False, False), self.strategy.has_market_making_profit_potential(
-            self.market_pair,
-            self.maker_data.order_book,
-            self.taker_data.order_book
+            self.market_pair
         ))
 
         self.clock.remove_iterator(self.strategy)
@@ -386,19 +386,15 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.strategy.active_bids))
         self.assertEqual(1, len(self.strategy.active_asks))
         self.assertEqual((True, True), self.strategy.has_market_making_profit_potential(
-            self.market_pair,
-            self.maker_data.order_book,
-            self.taker_data.order_book
+            self.market_pair
         ))
 
     def test_profitability_with_conversion(self):
         self.clock.remove_iterator(self.strategy)
         self.market_pair: CrossExchangeMarketPair = CrossExchangeMarketPair(
-            *(
-                [self.maker_market] + ["COINALPHA-QETH", "COINALPHA", "QETH"] +
-                [self.taker_market] + self.taker_symbols +
-                [2]
-            )
+            MarketSymbolPair(self.maker_market, *["COINALPHA-QETH", "COINALPHA", "QETH"]),
+            MarketSymbolPair(self.taker_market, *self.taker_symbols),
+            2
         )
         self.maker_data: MockOrderBookLoader = MockOrderBookLoader("COINALPHA-QETH", "COINALPHA", "QETH")
         self.maker_data.set_balanced_order_book(1.05263, 0.55, 1.55, 0.01, 10)
@@ -414,9 +410,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(0, len(self.strategy.active_bids))
         self.assertEqual(0, len(self.strategy.active_asks))
         self.assertEqual((False, False), self.strategy.has_market_making_profit_potential(
-            self.market_pair,
-            self.maker_data.order_book,
-            self.taker_data.order_book
+            self.market_pair
         ))
 
         self.clock.remove_iterator(self.strategy)
@@ -431,9 +425,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.strategy.active_bids))
         self.assertEqual(1, len(self.strategy.active_asks))
         self.assertEqual((True, True), self.strategy.has_market_making_profit_potential(
-            self.market_pair,
-            self.maker_data.order_book,
-            self.taker_data.order_book
+            self.market_pair
         ))
 
     def test_price_and_size_limit_calculation(self):
