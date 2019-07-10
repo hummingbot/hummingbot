@@ -483,6 +483,7 @@ cdef class BinanceMarket(MarketBase):
                 client_order_id = tracked_order.client_order_id
                 if isinstance(order_update, Exception):
                     if order_update.code == 2013 or order_update.message == "Order does not exist.":
+                        order_type = OrderType.LIMIT if order_update["type"] == "LIMIT" else OrderType.MARKET
                         self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG, MarketOrderFailureEvent(self._current_timestamp, client_order_id, order_type))
                         self.c_stop_tracking_order(client_order_id)
                     else:
@@ -492,7 +493,7 @@ cdef class BinanceMarket(MarketBase):
                         )
                     continue
                 tracked_order.last_state = order_update["status"]
-                order_type = OrderType.LIMIT if order_update["type"]=="LIMIT" else OrderType.MARKET
+                order_type = OrderType.LIMIT if order_update["type"] == "LIMIT" else OrderType.MARKET
                 if tracked_order.is_done:
                     if not tracked_order.is_failure:
                         if tracked_order.trade_type is TradeType.BUY:
@@ -575,15 +576,23 @@ cdef class BinanceMarket(MarketBase):
         async for event_message in self._iter_user_event_queue():
             try:
                 event_type = event_message.get("e")
-
+                #Refer to https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md
+                #As per the order update section in Binance the ID of the order being cancelled is under the "C" key
                 if event_type == "executionReport":
-                    client_order_id = event_message.get("c")
+                    execution_type = event_message.get("x")
+                    if execution_type != "CANCELED":
+                        client_order_id = event_message.get("c")
+                    else:
+                        client_order_id = event_message.get("C")
+
                     tracked_order = self._in_flight_orders.get(client_order_id)
+
                     if tracked_order is None:
-                        self.logger().network(f"Unrecognized order ID from user stream: {client_order_id}. Skipping.")
+                        self.logger().network(f"Unrecognized order ID from user stream: {client_order_id}.")
+                        self.logger().network(f"Event: {event_message}")
                         continue
                     tracked_order.update_with_execution_report(event_message)
-                    execution_type = event_message.get("x")
+
                     if execution_type == "TRADE":
                         order_filled_event = OrderFilledEvent.order_filled_event_from_binance_execution_report(event_message)
                         order_filled_event = order_filled_event._replace(trade_fee=self.c_get_fee(
