@@ -195,6 +195,9 @@ class HummingbotApplication(*commands):
         self._expire_old_application_warnings()
         self._app_warnings.append(app_warning)
 
+    def clear_application_warning(self):
+        self._app_warnings.clear()
+
     @staticmethod
     def _initialize_market_assets(market_name: str, symbols: List[str]) -> List[Tuple[str, str]]:
         market: MarketBase = MARKET_CLASSES.get(market_name, MarketBase)
