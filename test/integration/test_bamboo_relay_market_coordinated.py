@@ -53,7 +53,7 @@ from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.wallet.ethereum.web3_wallet_backend import EthereumChain
 
 
-class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
+class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
     market_events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
@@ -428,7 +428,6 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
             self.market: BambooRelayMarket = BambooRelayMarket(
                 wallet=self.wallet,
                 ethereum_rpc_url=conf.test_web3_provider_list[0],
-                chain=self.chain,
                 order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                 symbols=[conf.test_bamboo_relay_base_token_symbol + "-" + conf.test_bamboo_relay_quote_token_symbol],
                 use_coordinator=True,
