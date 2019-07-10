@@ -82,7 +82,7 @@ cdef class DDEXInFlightOrder(InFlightOrderBase):
         }
 
     @classmethod
-    def from_json(cls, data: Dict[str, any]) -> "InFlightOrder":
+    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         cdef:
             DDEXInFlightOrder retval = DDEXInFlightOrder(
                 data["client_order_id"],
