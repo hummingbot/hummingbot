@@ -1,7 +1,9 @@
+import asyncio
 from decimal import Decimal
 from typing import (
     Any,
-    Dict
+    Dict,
+    Optional
 )
 
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -18,7 +20,7 @@ cdef class InFlightOrderBase:
     def __init__(self,
                  market_class: MarketBase,
                  client_order_id: str,
-                 exchange_order_id: str,
+                 exchange_order_id: Optional[str],
                  symbol: str,
                  order_type: OrderType,
                  trade_type: TradeType,
@@ -39,6 +41,7 @@ cdef class InFlightOrderBase:
         self.fee_asset = None
         self.fee_paid = s_decimal_0
         self.last_state = initial_state
+        self.exchange_order_id_update_event = asyncio.Event()
 
     def __repr__(self) -> str:
         return f"InFlightOrder(" \
@@ -60,6 +63,10 @@ cdef class InFlightOrderBase:
         raise NotImplementedError
 
     @property
+    def is_cancelled(self) -> bool:
+        raise NotImplementedError
+
+    @property
     def is_failure(self) -> bool:
         raise NotImplementedError
 
@@ -70,6 +77,15 @@ cdef class InFlightOrderBase:
     @property
     def quote_asset(self) -> str:
         return self.market_class.split_symbol(self.symbol)[1]
+
+    def update_exchange_order_id(self, exchange_id: str):
+        self.exchange_order_id = exchange_id
+        self.exchange_order_id_update_event.set()
+
+    async def get_exchange_order_id(self):
+        if self.exchange_order_id is None:
+            await self.exchange_order_id_update_event.wait()
+        return self.exchange_order_id
 
     def to_limit_order(self) -> LimitOrder:
         return LimitOrder(

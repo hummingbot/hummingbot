@@ -40,6 +40,7 @@ from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.ddex.ddex_order_book_tracker import DDEXOrderBookTracker
+from hummingbot.market.ddex.ddex_in_flight_order cimport DDEXInFlightOrder
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.market.trading_rule cimport TradingRule
@@ -48,6 +49,7 @@ from hummingbot.market.trading_rule cimport TradingRule
 s_logger = None
 s_decimal_0 = Decimal(0)
 NaN = float("nan")
+HYDRO_MAINNET_PROXY = "0x74622073a4821dbfd046E9AA2ccF691341A076e1"
 
 
 cdef class DDEXMarketTransactionTracker(TransactionTracker):
@@ -61,135 +63,6 @@ cdef class DDEXMarketTransactionTracker(TransactionTracker):
     cdef c_did_timeout_tx(self, str tx_id):
         TransactionTracker.c_did_timeout_tx(self, tx_id)
         self._owner.c_did_timeout_tx(tx_id)
-
-
-cdef class InFlightOrder:
-    cdef:
-        public str client_order_id
-        public str exchange_order_id
-        public str symbol
-        public bint is_buy
-        public object order_type
-        public object amount
-        public object price
-        public object executed_amount
-        public object available_amount
-        public object pending_amount
-        public object quote_asset_amount
-        public object gas_fee_amount
-        public str last_state
-        public object exchange_order_id_update_event
-
-    def __init__(self,
-                 client_order_id: str,
-                 exchange_order_id: str,
-                 symbol: str,
-                 is_buy: bool,
-                 order_type: OrderType,
-                 amount: Decimal,
-                 price: Decimal):
-        self.client_order_id = client_order_id
-        self.exchange_order_id = exchange_order_id
-        self.symbol = symbol
-        self.is_buy = is_buy
-        self.order_type = order_type
-        self.amount = amount
-        self.available_amount = amount
-        self.price = price
-        self.executed_amount = s_decimal_0
-        self.pending_amount = s_decimal_0
-        self.quote_asset_amount = s_decimal_0
-        self.gas_fee_amount = s_decimal_0
-        self.last_state = "NEW"
-        self.exchange_order_id_update_event = asyncio.Event()
-
-    def __repr__(self) -> str:
-        return f"InFlightOrder(client_order_id='{self.client_order_id}', exchange_order_id='{self.exchange_order_id}', " \
-               f"symbol='{self.symbol}', is_buy={self.is_buy}, order_type={self.order_type}, amount={self.amount}, " \
-               f"price={self.price}, executed_amount={self.executed_amount}, available_amount={self.available_amount}, " \
-               f"quote_asset_amount={self.quote_asset_amount}, gas_fee_amount={self.gas_fee_amount}, " \
-               f"last_state='{self.last_state}')"
-
-    @property
-    def is_done(self) -> bool:
-        return self.available_amount == s_decimal_0 and self.pending_amount == s_decimal_0
-
-    @property
-    def is_cancelled(self) -> bool:
-        return self.last_state in {"canceled"}
-
-    @property
-    def base_asset(self) -> str:
-        return self.symbol.split('-')[0]
-
-    @property
-    def quote_asset(self) -> str:
-        return self.symbol.split('-')[1]
-
-    def update_exchange_order_id(self, exchange_id: str):
-        self.exchange_order_id = exchange_id
-        self.exchange_order_id_update_event.set()
-
-    async def get_exchange_order_id(self):
-        if self.exchange_order_id is None:
-            await self.exchange_order_id_update_event.wait()
-        return self.exchange_order_id
-
-    def to_limit_order(self) -> LimitOrder:
-        cdef:
-            str base_currency
-            str quote_currency
-
-        base_currency, quote_currency = self.symbol.split("-")
-        return LimitOrder(
-            self.client_order_id,
-            self.symbol,
-            self.is_buy,
-            base_currency,
-            quote_currency,
-            Decimal(self.price),
-            Decimal(self.amount)
-        )
-
-    def to_json(self) -> Dict[str, any]:
-        return {
-            "client_order_id": self.client_order_id,
-            "exchange_order_id": self.exchange_order_id,
-            "symbol": self.symbol,
-            "is_buy": self.is_buy,
-            "order_type": self.order_type.name,
-            "amount": str(self.amount),
-            "available_amount": str(self.available_amount),
-            "price": str(self.price),
-            "executed_amount": str(self.executed_amount),
-            "pending_amount": str(self.pending_amount),
-            "quote_asset_amount": str(self.quote_asset_amount),
-            "gas_fee_amount": str(self.gas_fee_amount),
-            "last_state": self.last_state,
-        }
-
-    @classmethod
-    def from_json(cls, data: Dict[str, any]) -> "InFlightOrder":
-        cdef:
-            InFlightOrder retval = InFlightOrder(
-                data["client_order_id"],
-                data["exchange_order_id"],
-                data["symbol"],
-                data["is_buy"],
-                getattr(OrderType, data["order_type"]),
-                Decimal(data["amount"]),
-                Decimal(data["price"]),
-            )
-        retval.available_amount = Decimal(data["available_amount"])
-        retval.executed_amount = Decimal(data["executed_amount"])
-        retval.pending_amount = Decimal(data["pending_amount"])
-        retval.quote_asset_amount = Decimal(data["quote_asset_amount"])
-        retval.gas_fee_amount = Decimal(data["gas_fee_amount"])
-        retval.last_state = data["last_state"]
-        return retval
-
-
-ZERO_EX_MAINNET_PROXY = "0x74622073a4821dbfd046E9AA2ccF691341A076e1"
 
 
 cdef class DDEXMarket(MarketBase):
@@ -222,7 +95,7 @@ cdef class DDEXMarket(MarketBase):
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                     OrderBookTrackerDataSourceType.EXCHANGE_API,
-                 wallet_spender_address: str = ZERO_EX_MAINNET_PROXY,
+                 wallet_spender_address: str = HYDRO_MAINNET_PROXY,
                  symbols: Optional[List[str]] = None,
                  trading_required: bool = True):
         super().__init__()
@@ -298,14 +171,14 @@ cdef class DDEXMarket(MarketBase):
         return self._trading_rules
 
     @property
-    def in_flight_orders(self) -> Dict[str, InFlightOrder]:
+    def in_flight_orders(self) -> Dict[str, DDEXInFlightOrder]:
         return self._in_flight_orders
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
         cdef:
             list retval = []
-            InFlightOrder typed_in_flight_order
+            DDEXInFlightOrder typed_in_flight_order
 
         for in_flight_order in self._in_flight_orders.values():
             typed_in_flight_order = in_flight_order
@@ -331,7 +204,7 @@ cdef class DDEXMarket(MarketBase):
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self._in_flight_orders.update({
-            key: InFlightOrder.from_json(value)
+            key: DDEXInFlightOrder.from_json(value)
             for key, value in saved_states.items()
         })
 
@@ -455,7 +328,7 @@ cdef class DDEXMarket(MarketBase):
             # Calculate the newly executed amount for this update.
             previous_is_done = tracked_order.is_done
             new_confirmed_amount = float(order_update["confirmedAmount"])
-            execute_amount_diff = new_confirmed_amount - float(tracked_order.executed_amount)
+            execute_amount_diff = new_confirmed_amount - float(tracked_order.executed_amount_base)
             is_market_buy = order_update["side"] == "buy" and order_update["type"] == "market"
 
             # DDEX return price data in "price" rather than "averagePrice" for market orders sometimes
@@ -467,7 +340,7 @@ cdef class DDEXMarket(MarketBase):
             client_order_id = tracked_order.client_order_id
             order_type_description = (("market" if tracked_order.order_type == OrderType.MARKET else "limit") +
                                       " " +
-                                      ("buy" if tracked_order.is_buy else "sell"))
+                                      ("buy" if tracked_order.trade_type is TradeType.BUY else "sell"))
             order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
             # Emit event if executed amount is greater than 0.
             if execute_amount_diff > 0:
@@ -480,7 +353,7 @@ cdef class DDEXMarket(MarketBase):
                     self._current_timestamp,
                     tracked_order.client_order_id,
                     tracked_order.symbol,
-                    TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
+                    tracked_order.trade_type,
                     order_type,
                     execute_price,
                     fill_size,
@@ -488,7 +361,7 @@ cdef class DDEXMarket(MarketBase):
                         tracked_order.base_asset,
                         tracked_order.quote_asset,
                         order_type,
-                        TradeType.BUY if tracked_order.is_buy else TradeType.SELL,
+                        tracked_order.trade_type,
                         fill_size,
                         execute_price)
                 )
@@ -498,22 +371,22 @@ cdef class DDEXMarket(MarketBase):
 
             # Update the tracked order
             tracked_order.last_state = order_update["status"]
-            tracked_order.executed_amount = Decimal(order_update["confirmedAmount"])
-            tracked_order.available_amount = Decimal(order_update["availableAmount"])
-            tracked_order.pending_amount = Decimal(order_update["pendingAmount"])
-            tracked_order.quote_asset_amount = tracked_order.executed_amount * Decimal(order_update["price"])
+            tracked_order.executed_amount_base = Decimal(order_update["confirmedAmount"])
+            tracked_order.available_amount_base = Decimal(order_update["availableAmount"])
+            tracked_order.pending_amount_base = Decimal(order_update["pendingAmount"])
+            tracked_order.executed_amount_quote = tracked_order.executed_amount_base * Decimal(order_update["price"])
             tracked_order.gas_fee_amount = Decimal(order_update["gasFeeAmount"])
             if not previous_is_done and tracked_order.is_done:
-                executed_amount = float(tracked_order.executed_amount)
-                quote_asset_amount = float(tracked_order.quote_asset_amount)
+                executed_amount_base = float(tracked_order.executed_amount_base)
+                executed_amount_quote = float(tracked_order.executed_amount_quote)
                 if not tracked_order.is_cancelled:
-                    if tracked_order.is_buy:
+                    if tracked_order.trade_type is TradeType.BUY:
                         self.logger().info(f"The {order_type_description} order {client_order_id} has "
                                            f"completed according to order status API.")
                         if is_market_buy:
                             # Special rules for market buy orders, in which all reported amounts are in quote asset.
-                            executed_amount = float(tracked_order.executed_amount) / execute_price
-                            quote_asset_amount = float(tracked_order.executed_amount)
+                            executed_amount_base = float(tracked_order.executed_amount_base) / execute_price
+                            executed_amount_quote = float(tracked_order.executed_amount_base)
 
                         self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
                                              BuyOrderCompletedEvent(self._current_timestamp,
@@ -521,8 +394,8 @@ cdef class DDEXMarket(MarketBase):
                                                                     tracked_order.base_asset,
                                                                     tracked_order.quote_asset,
                                                                     tracked_order.quote_asset,
-                                                                    executed_amount,
-                                                                    quote_asset_amount,
+                                                                    executed_amount_base,
+                                                                    executed_amount_quote,
                                                                     float(tracked_order.gas_fee_amount),
                                                                     order_type))
                     else:
@@ -534,8 +407,8 @@ cdef class DDEXMarket(MarketBase):
                                                                      tracked_order.base_asset,
                                                                      tracked_order.quote_asset,
                                                                      tracked_order.quote_asset,
-                                                                     executed_amount,
-                                                                     quote_asset_amount,
+                                                                     executed_amount_base,
+                                                                     executed_amount_quote,
                                                                      float(tracked_order.gas_fee_amount),
                                                                      order_type))
                 else:
@@ -685,7 +558,7 @@ cdef class DDEXMarket(MarketBase):
 
     async def cancel_order(self, client_order_id: str) -> Dict[str, Any]:
         cdef:
-            InFlightOrder order = self.in_flight_orders.get(client_order_id)
+            DDEXInFlightOrder order = self.in_flight_orders.get(client_order_id)
 
         if not order:
             self.logger().info(f"Failed to cancel order {client_order_id}. Order not found in tracked orders.")
@@ -700,8 +573,8 @@ cdef class DDEXMarket(MarketBase):
             self.logger().info(f"Successfully cancelled order {exchange_order_id}.")
 
             # Simulate cancelled state earlier.
-            order.available_amount = s_decimal_0
-            order.pending_amount = s_decimal_0
+            order.available_amount_base = s_decimal_0
+            order.pending_amount_base = s_decimal_0
 
             # Notify listeners.
             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
@@ -781,7 +654,7 @@ cdef class DDEXMarket(MarketBase):
             if order_type is OrderType.MARKET and trading_rule.supports_market_orders is False:
                 raise ValueError(f"Market order is not supported for trading pair {symbol}")
 
-            self.c_start_tracking_order(order_id, symbol, True, order_type, Decimal(q_amt), Decimal(q_price))
+            self.c_start_tracking_order(order_id, symbol, TradeType.BUY, order_type, Decimal(q_amt), Decimal(q_price))
             order_result = await self.place_order(amount=q_amt, price=q_price, side="buy", symbol=symbol,
                                                   order_type=order_type)
             exchange_order_id = order_result["id"]
@@ -837,7 +710,7 @@ cdef class DDEXMarket(MarketBase):
             if order_type is OrderType.MARKET and trading_rule.supports_market_orders is False:
                 raise ValueError(f"Market order is not supported for trading pair {symbol}")
 
-            self.c_start_tracking_order(order_id, symbol, False, order_type, Decimal(q_amt), Decimal(q_price))
+            self.c_start_tracking_order(order_id, symbol, TradeType.SELL, order_type, Decimal(q_amt), Decimal(q_price))
             order_result = await self.place_order(amount=q_amt, price=q_price, side="sell", symbol=symbol,
                                                   order_type=order_type)
             exchange_order_id = order_result["id"]
@@ -1004,12 +877,19 @@ cdef class DDEXMarket(MarketBase):
     cdef c_start_tracking_order(self,
                                 str client_order_id,
                                 str symbol,
-                                bint is_buy,
+                                object trade_type,
                                 object order_type,
                                 object amount,
                                 object price):
-        self._in_flight_orders[client_order_id] = InFlightOrder(client_order_id, None, symbol, is_buy,
-                                                                order_type, amount, price)
+        self._in_flight_orders[client_order_id] = DDEXInFlightOrder(
+            client_order_id,
+            None,
+            symbol,
+            trade_type,
+            order_type,
+            amount,
+            price
+        )
 
     cdef c_expire_order(self, str order_id):
         self._order_expiry_queue.append((self._current_timestamp + self.ORDER_EXPIRY_TIME, order_id))
