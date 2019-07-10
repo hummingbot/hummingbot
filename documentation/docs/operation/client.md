@@ -52,5 +52,5 @@ The CLI is divided into three panes:
 |`exit -f`| Force quit without cancelling orders.
 | `stop` | Cancels all outstanding orders and stops the bot.
 |`export_private_key`| Print your ethereum wallet private key.
-|`history`| Print bot's past trades and performance analytics.
+|`history`| Print bot's past trades and performance analytics. For an explanation of how Hummingbot calculates profitability, see our blog [here](https://hummingbot.io/blog/2019-07-measure-performance-crypto-trading/#tldr).
 |`export_trades`| Export your trades to a csv file.

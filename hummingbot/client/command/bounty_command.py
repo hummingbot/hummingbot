@@ -83,6 +83,7 @@ class BountyCommand:
             self._notify("Hooray! You are now collecting bounties. ")
         except Exception as e:
             self._notify(str(e))
+            self.liquidity_bounty = None
 
     async def bounty_list(self,  # type: HummingbotApplication
                           ):
