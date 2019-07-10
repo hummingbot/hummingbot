@@ -56,7 +56,6 @@ from hummingbot.market.utils import (
     zrx_order_to_json,
     json_to_zrx_order
 )
-from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils import fix_signature
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_exchange import ZeroExExchange
@@ -300,7 +299,6 @@ cdef class BambooRelayMarket(MarketBase):
     def __init__(self,
                  wallet: Web3Wallet,
                  ethereum_rpc_url: str,
-                 chain: EthereumChain = EthereumChain.MAIN_NET,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                     OrderBookTrackerDataSourceType.EXCHANGE_API,
@@ -315,7 +313,7 @@ cdef class BambooRelayMarket(MarketBase):
         self._trading_required = trading_required
         self._order_book_tracker = BambooRelayOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
                                                                symbols=symbols,
-                                                               chain=chain)
+                                                               chain=wallet.chain)
         self._account_balances = {}
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
@@ -340,30 +338,29 @@ cdef class BambooRelayMarket(MarketBase):
         self._status_polling_task = None
         self._order_tracker_task = None
         self._approval_tx_polling_task = None
-        self._chain = chain
         self._wallet = wallet
         self._use_coordinator = use_coordinator
         self._pre_emptive_soft_cancels = pre_emptive_soft_cancels
         self._latest_salt = -1
-        if chain is EthereumChain.MAIN_NET:
+        if wallet.chain is EthereumChain.MAIN_NET:
             self._api_prefix = "main/0x"
             self._exchange_address = Web3.toChecksumAddress(ZERO_EX_MAINNET_EXCHANGE_ADDRESS)
             coordinator_address = Web3.toChecksumAddress(ZERO_EX_MAINNET_COORDINATOR_ADDRESS)
             coordinator_registry_address = Web3.toChecksumAddress(ZERO_EX_MAINNET_COORDINATOR_REGISTRY_ADDRESS)
             self._wallet_spender_address = Web3.toChecksumAddress(ZERO_EX_MAINNET_ERC20_PROXY)
-        elif chain is EthereumChain.ROPSTEN:
+        elif wallet.chain is EthereumChain.ROPSTEN:
             self._api_prefix = "ropsten/0x"
             self._exchange_address = Web3.toChecksumAddress(ZERO_EX_ROPSTEN_EXCHANGE_ADDRESS)
             coordinator_address = Web3.toChecksumAddress(ZERO_EX_ROPSTEN_COORDINATOR_ADDRESS)
             coordinator_registry_address = Web3.toChecksumAddress(ZERO_EX_ROPSTEN_COORDINATOR_REGISTRY_ADDRESS)
             self._wallet_spender_address = Web3.toChecksumAddress(ZERO_EX_ROPSTEN_ERC20_PROXY)
-        elif chain is EthereumChain.RINKEBY:
+        elif wallet.chain is EthereumChain.RINKEBY:
             self._api_prefix = "rinkeby/0x"
             self._exchange_address = Web3.toChecksumAddress(ZERO_EX_RINKEBY_EXCHANGE_ADDRESS)
             coordinator_address = Web3.toChecksumAddress(ZERO_EX_RINKEBY_COORDINATOR_ADDRESS)
             coordinator_registry_address = Web3.toChecksumAddress(ZERO_EX_RINKEBY_COORDINATOR_REGISTRY_ADDRESS)
             self._wallet_spender_address = Web3.toChecksumAddress(ZERO_EX_RINKEBY_ERC20_PROXY)
-        elif chain is EthereumChain.KOVAN:
+        elif wallet.chain is EthereumChain.KOVAN:
             self._api_prefix = "kovan/0x"
             self._exchange_address = Web3.toChecksumAddress(ZERO_EX_KOVAN_EXCHANGE_ADDRESS)
             coordinator_address = Web3.toChecksumAddress(ZERO_EX_KOVAN_COORDINATOR_ADDRESS)
@@ -375,8 +372,7 @@ cdef class BambooRelayMarket(MarketBase):
                                               self._exchange_address, 
                                               coordinator_address,
                                               coordinator_registry_address,
-                                              wallet,
-                                              chain)
+                                              wallet)
 
     @property
     def name(self) -> str:

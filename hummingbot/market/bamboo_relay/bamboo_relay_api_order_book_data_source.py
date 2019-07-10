@@ -40,10 +40,10 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _client: Optional[aiohttp.ClientSession] = None
 
     @classmethod
-    def logger(self) -> HummingbotLogger:
-        if self._braobds_logger is None:
-            self._braobds_logger = logging.getLogger(__name__)
-        return self._braobds_logger
+    def logger(cls) -> HummingbotLogger:
+        if cls._braobds_logger is None:
+            cls._braobds_logger = logging.getLogger(__name__)
+        return cls._braobds_logger
 
     def __init__(self, symbols: Optional[List[str]] = None, chain: EthereumChain = EthereumChain.MAIN_NET):
         super().__init__()
@@ -62,20 +62,20 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self._network_id = 1
 
     @classmethod
-    def http_client(self) -> aiohttp.ClientSession:
-        if self._client is None:
+    def http_client(cls) -> aiohttp.ClientSession:
+        if cls._client is None:
             if not asyncio.get_event_loop().is_running():
                 raise EnvironmentError("Event loop must be running to start HTTP client session.")
-            self._client = aiohttp.ClientSession()
-        return self._client
+            cls._client = aiohttp.ClientSession()
+        return cls._client
 
     @classmethod
-    async def get_all_token_info(self) -> Dict[str, any]:
+    async def get_all_token_info(cls) -> Dict[str, any]:
         """
         Returns all token information
         """
-        client: aiohttp.ClientSession = self.http_client()
-        async with client.get(f"{REST_BASE_URL}{self._api_prefix}/tokens?perPage=1000") as response:
+        client: aiohttp.ClientSession = cls.http_client()
+        async with client.get(f"{REST_BASE_URL}{cls._api_prefix}/tokens?perPage=1000") as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching token info. HTTP status is {response.status}.")
@@ -83,15 +83,11 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return {d["address"]: d for d in data}
 
     @classmethod
-    async def get_active_exchange_markets(self, api_prefix: str = "main/0x") -> pd.DataFrame:
+    async def get_active_exchange_markets(api_prefix: str = "main/0x") -> pd.DataFrame:
         """
         Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
         """
-        try:
-            api_prefix = self._api_prefix
-        except:
-           pass
-        client: aiohttp.ClientSession = self.http_client()
+        client: aiohttp.ClientSession = cls.http_client()
         async with client.get(f"{REST_BASE_URL}{api_prefix}/markets?include=ticker,stats") as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
@@ -127,11 +123,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, 
                            trading_pair: str, 
-                           self = None) -> Dict[str, any]:
-        if self:
-            api_prefix = self._api_prefix
-        else:
-            api_prefix = "main/0x"
+                           api_prefix: str = "main/0x") -> Dict[str, any]:
         async with client.get(f"{REST_BASE_URL}{api_prefix}/markets/{trading_pair}/book") as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
@@ -141,7 +133,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_trading_pairs(self) -> List[str]:
         if self._symbols is None:
-            active_markets: pd.DataFrame = await self.get_active_exchange_markets()
+            active_markets: pd.DataFrame = await self.get_active_exchange_markets(self._api_prefix)
             trading_pairs: List[str] = active_markets.index.tolist()
         else:
             trading_pairs: List[str] = self._symbols
@@ -155,7 +147,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             for trading_pair in trading_pairs:
                 try:
-                    snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, self)
+                    snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, self._api_prefix)
                     snapshot_timestamp: float = time.time()
                     snapshot_msg: BambooRelayOrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
                         snapshot,
@@ -238,7 +230,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 client: aiohttp.ClientSession = self.http_client()
                 for trading_pair in trading_pairs:
                     try:
-                        snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, self)
+                        snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, self._api_prefix)
                         snapshot_timestamp: float = time.time()
                         snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
                             snapshot,
