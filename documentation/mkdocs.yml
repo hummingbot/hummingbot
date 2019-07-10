@@ -79,34 +79,34 @@ nav:
         - Our Whitepaper: whitepaper.md
         - Our Timeline: roadmap.md
         - Useful Terminology: glossary.md
+      - Quickstart Guide:
+        - 0. Before you begin: quickstart/0-begin.md
+        - 1. Install Hummingbot: quickstart/1-install.md
+        - 2. Register for Liquidity Bounties: quickstart/2-bounties.md
+        - 3. Run your First Bot: quickstart/3-bot.md
       - Install Hummingbot:
         - Installing Overview: installation.md
         - Windows: installation/docker_windows.md
         - MacOS: installation/docker_macOS.md
         - Linux: installation/docker_linux.md
         - Cloud: installation/cloud.md
-      - Run a Bot:
+      - Earn Liquidity Bounties:
+        - Liquidities Bounties FAQ: bounties/faq.md
+        - Active Bounties:
+          - Harmony $ONE Makers: bounties/active/harmony.md
+      - Run Your First Bot:
         - Docker Commands: installation/docker.md
         - Using API Keys: installation/api-keys.md
         - Using the Client: operation/client.md
         - Configuring Hummingbot: operation/configuration.md
         - Running Trading Bots: operation/running-bots.md
         - Tips for Cloud Users: operation/running-bots-in-the-cloud.md
-      - Earn Bounties:
-        - Introduction: bounties/intro.md
-        - Bounty FAQ: bounties/faq.md
-        - Tutorial:
-          - Important Info: bounties/tutorial.md
-          - 1. Install: bounties/tutorial/install.md
-          - 2. Register: bounties/tutorial/register.md
-          - 3. Run a bot: bounties/tutorial/bot.md
-        - Active Bounties:
-          - Harmony $ONE Makers: bounties/active/harmony.md
       - Get Help:
         - Contact and Support: support.md
         - Bug Bounty Program: support/bug-bounty-program.md
-    - User Guide:
-      - Overview: guide.md
+        - Troubleshooting: support/troubleshooting.md
+    - User Manual:
+      - Overview: manual.md
       - Installation from Source:
         - Windows: installation/windows.md
         - macOS: installation/macOS.md
@@ -141,6 +141,8 @@ nav:
         - Debug Console: operation/debug.md
     - Release Notes:
       - About Releases: release-notes.md
+      - 0.9.1: release-notes/0.9.1.md
+      - 0.9.0: release-notes/0.9.0.md
       - 0.8.1: release-notes/0.8.1.md
       - 0.8.0: release-notes/0.8.0.md
       - 0.7.0: release-notes/0.7.0.md

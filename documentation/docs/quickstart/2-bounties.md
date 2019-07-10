@@ -10,7 +10,7 @@ Now that you have [installed](https://docs.hummingbot.io/bounties/tutorial/insta
 ## The Hummingbot Client Interface
 
 You should see the command line-based Hummingbot interface below:
-![](assets/img/hummingbot-cli.png)
+![](/assets/img/hummingbot-cli.png)
 
 The left bottom pane is where you enter [commands](https://docs.hummingbot.io/operation/client/#client-commands) to run the bot. The upper left pane prints the output of your commands and the right pane logs messages in real time.
 
