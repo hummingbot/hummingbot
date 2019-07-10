@@ -83,7 +83,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return {d["address"]: d for d in data}
 
     @classmethod
-    async def get_active_exchange_markets(api_prefix: str = "main/0x") -> pd.DataFrame:
+    async def get_active_exchange_markets(cls, api_prefix: str = "main/0x") -> pd.DataFrame:
         """
         Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
         """
