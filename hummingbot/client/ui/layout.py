@@ -4,7 +4,6 @@ from os.path import join, realpath, dirname
 import sys;sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 from prompt_toolkit.layout.containers import (
-    ConditionalContainer,
     VSplit,
     HSplit,
     Window,
@@ -17,7 +16,6 @@ from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer
 from prompt_toolkit.utils import is_windows
-from prompt_toolkit.filters import Condition
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.widgets import SearchToolbar, TextArea
 
@@ -101,8 +99,9 @@ def create_output_field():
 
 
 def create_search_field() -> SearchToolbar:
-    return SearchToolbar(text_if_not_searching=[
-        ('class:not-searching', "Press '/' to start searching.")])
+    return SearchToolbar(text_if_not_searching=[('class:primary', "[CTRL + F] to start searching.")],
+                         forward_search_prompt=[('class:primary', "Search logs ([CTRL + F] to hide search) >>> ")],
+                         ignore_case=True)
 
 
 def create_log_field(search_field: SearchToolbar):
@@ -145,14 +144,11 @@ def generate_layout(input_field: TextArea,
                     log_field: TextArea,
                     search_field: SearchToolbar):
     root_container = HSplit([
-        ConditionalContainer(
-            content=VSplit([
-                Window(FormattedTextControl(get_version), style="class:title"),
-                Window(FormattedTextControl(get_bounty_status), style="class:title"),
-                Window(FormattedTextControl(get_title_bar_right_text), align=WindowAlign.RIGHT, style="class:title"),
-            ], height=1),
-            filter=Condition(lambda: True),
-        ),
+        VSplit([
+            Window(FormattedTextControl(get_version), style="class:title"),
+            Window(FormattedTextControl(get_bounty_status), style="class:title"),
+            Window(FormattedTextControl(get_title_bar_right_text), align=WindowAlign.RIGHT, style="class:title"),
+        ], height=1),
         VSplit([
             FloatContainer(
                 HSplit([

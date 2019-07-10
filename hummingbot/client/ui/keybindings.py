@@ -10,6 +10,8 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.search import (
     start_search,
     stop_search,
+    do_incremental_search,
+    SearchDirection,
 )
 
 
@@ -32,7 +34,7 @@ def load_key_bindings(hb) -> KeyBindings:
 
     @bindings.add("c-f", filter=is_searching)
     def do_exit_find(event):
-        stop_search(hb.app.log_field.control)
+        stop_search()
         get_app().layout.focus(hb.app.input_field.control)
 
     @bindings.add("c-z")
@@ -41,11 +43,7 @@ def load_key_bindings(hb) -> KeyBindings:
 
     @bindings.add("c-d")
     def do_find_next(event):
-        search_state = get_app().current_search_state
-
-        cursor_position = get_app().layout.current_buffer.get_search_position(
-            search_state, include_current_position=False)
-        get_app().layout.current_buffer.cursor_position = cursor_position
+        do_incremental_search(direction=SearchDirection.FORWARD)
 
     @bindings.add("c-c")
     def do_copy(event):
