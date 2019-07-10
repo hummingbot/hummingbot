@@ -1,5 +1,8 @@
 # Linux Source Installation
 
+!!! info "Recommended for Developers Only"
+    [Installation using Docker](/installation/linux) is more efficient for running Hummingbot.  Installing from source is only recommended for developers who want to access and modify the software code.
+
 You can install Hummingbot with ***either*** of the following options:
 
 1. **Easy Install**: download and use automated install scripts.

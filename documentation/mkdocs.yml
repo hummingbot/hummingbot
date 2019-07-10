@@ -98,14 +98,10 @@ nav:
       - Intro: manual.md
       - Installation:
         - Overview: installation.md
-        - Install on Windows:
-          - From Docker: installation/docker_windows.md
-          - From Source: installation/windows.md
-        - Install on MacOS:
-          - From Docker: installation/docker_macOS.md
-          - From Source: installation/macOS.md
-        - Install on Linux: installation/linux.md
         - Install in the Cloud: installation/cloud.md
+        - Install on Linux: installation/linux.md
+        - Install on MacOS: installation/macOS.md
+        - Install on Windows: installation/windows.md
         - Install from Source:
           - Linux: installation/from-source/linux.md
           - macOS: installation/from-source/macOS.md
