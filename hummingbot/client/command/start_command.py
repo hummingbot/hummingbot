@@ -21,7 +21,6 @@ from hummingbot.client.settings import (
     STRATEGIES,
 )
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
-from hummingbot.core.utils.stop_loss_tracker import StopLossTracker
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
 
@@ -99,10 +98,6 @@ class StartCommand:
                          f"  You can use the `status` command to query the progress.")
 
             self.starting_balances = await self.wait_till_ready(self.balance_snapshot)
-            if self._trading_required:
-                self.stop_loss_tracker = StopLossTracker(self.data_feed,
-                                                         self.market_symbol_pairs,
-                                                         self.stop)
-                await self.wait_till_ready(self.stop_loss_tracker.start)
+
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
