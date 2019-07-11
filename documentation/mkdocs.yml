@@ -85,7 +85,7 @@ nav:
         - 2. Register for Liquidity Bounties: quickstart/2-bounties.md
         - 3. Run your First Bot: quickstart/3-bot.md
       - Cheatsheets:
-        - Docker Commands: installation/docker.md
+        - Docker Commands: docker.md
       - Liquidity Bounties:
         - FAQ: bounties/faq.md
         - Active Bounties:
@@ -93,12 +93,11 @@ nav:
       - Get Help:
         - Contact and Support: support.md
         - Bug Bounty Program: support/bug-bounty-program.md
-        - Troubleshooting: support/troubleshooting.md
     - User Manual:
       - Intro: manual.md
       - Installation:
         - Overview: installation.md
-        - Install in the Cloud: installation/cloud.md
+        - Setup a Cloud Server: installation/cloud.md
         - Install on Linux: installation/linux.md
         - Install on MacOS: installation/macOS.md
         - Install on Windows: installation/windows.md
@@ -139,6 +138,8 @@ nav:
         - Integrating Telegram: operation/telegram.md
       - Advanced:
         - Debug Console: operation/debug.md
+      - Troubleshooting:
+        - Docker: troubleshooting/docker.md
     - Release Notes:
       - About Releases: release-notes.md
       - 0.9.1: release-notes/0.9.1.md

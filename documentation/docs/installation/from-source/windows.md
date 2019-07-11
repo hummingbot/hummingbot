@@ -28,39 +28,45 @@ You can install Hummingbot by selecting ***either*** of the following options fr
 2. **Manual Installation**: run install commands manually.
 
 ```bash tab="Option 1: Easy Install"
-# 1) Download install script
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-source-ubuntu.sh
+# 1) Navigate to root folder
+cd ~
 
-# 2) Enable script permissions
+# 2) Download install script
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-source-ubuntu.sh -o install-source-ubuntu.sh
+
+# 3) Enable script permissions
 chmod a+x install-source-ubuntu.sh
 
-# 3) Run installation
+# 4) Run installation
 ./install-source-ubuntu.sh
 ```
 
 ```bash tab="Option 2: Manual Installation"
-# 1) Install dependencies
+# 1) Navigate to root folder
+cd ~
+
+# 2) Install dependencies
 sudo apt-get update
 sudo apt-get install -y build-essential
 
-# 2) Install Miniconda3
-wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+# 3) Install Miniconda3
+curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o Miniconda3-latest-Linux-x86_64.sh
 sh Miniconda3-latest-Linux-x86_64.sh
 
-# 3) Log out and log back into shell to register "conda" command
+# 4) Log out and log back into shell to register "conda" command
 exit
 
-# 4) Log back into or open a new Linux terminal
+# 5) Log back into or open a new Linux terminal
 
-# 5) Clone Hummingbot
+# 6) Clone Hummingbot
 git clone https://github.com/CoinAlpha/hummingbot.git
 
-# 6) Install Hummingbot
+# 7) Install Hummingbot
 cd hummingbot && ./install
 
-# 7) Activate environment and compile code
+# 8) Activate environment and compile code
 conda activate hummingbot && ./compile
 
-# 8) Start Hummingbot
+# 9) Start Hummingbot
 bin/hummingbot.py
 ```

@@ -41,48 +41,38 @@ unset __conda_setup
 
 ## Part 2. Install Hummingbot
 
-#### Step 1. Download the Hummingbot client
+You can install Hummingbot by selecting ***either*** of the following options from the tabs below:
 
-In Terminal, clone the Hummingbot repo:
+1. **Easy Install**: download and use automated install scripts.
+2. **Manual Installation**: run install commands manually.
 
+```bash tab="Option 1: Easy Install"
+# 1) Download Hummingbot install script
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/from-source/install-source-macOS.sh -o install-source-macOS.sh
+
+# 2) Enable script permissions
+chmod a+x install-source-macOS.sh
+
+# 3) Run installation
+./install-source-macOS.sh
 ```
+
+```bash tab="Option 2: Manual Installation"
+# 1) Clone Hummingbot repo
 git clone https://github.com/CoinAlpha/hummingbot.git
-```
 
-#### Step 2. Run install script
-
-```
+# 2) Navigate into the hummingbot folder
 cd hummingbot
-```
 
-Run the install script, which creates a custom Anaconda environment and installs the Python libraries and other dependencies needed by the bot:
-
-```
+# 3) Run install script
 ./install
-```
 
-#### Step 3. Activate environment
-
-The installation script creates a custom Anaconda environment that manages dependencies used by Hummingbot. Activate the environment:
-
-```
+# 4) Activate environment
 conda activate hummingbot
-```
-The environment has been activated when you see a `(hummingbot)` prefix before your Terminal command prompt.
 
-!!! info "Ensure that you have activated the Hummingbot environment before **compiling** or **running the bot**."
-
-#### Step 4. Compile
-
-Compile and Cythonize the source code into the executable binary:
-
-```
+# 5) Compile
 ./compile
-```
 
-#### Step 5. Run Hummingbot
-
-Start Hummingbot by entering:
-```
+# 6) Run Hummingbot
 bin/hummingbot.py
 ```
