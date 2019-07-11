@@ -401,6 +401,10 @@ cdef class BambooRelayMarket(MarketBase):
         return self._wallet
 
     @property
+    def use_coordinator(self) -> bool:
+        return self._use_coordinator
+
+    @property
     def trading_rules(self) -> Dict[str, TradingRule]:
         return self._trading_rules
 

@@ -57,6 +57,8 @@ def main():
         "hummingbot": [
             "core/cpp/*",
             "client/liquidity_bounty/*.txt",
+            "wallet/ethereum/zero_ex/zero_ex_coordinator_abi.json",
+            "wallet/ethereum/zero_ex/zero_ex_coordinator_registry_abi.json"
             "wallet/ethereum/zero_ex/zero_ex_exchange_abi.json"
             "wallet/ethereum/token_abi/*.json"
             "wallet/ethereum/erc20_tokens.json"
