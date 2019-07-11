@@ -2,6 +2,7 @@ from decimal import Decimal
 from typing import (
     Any,
     Dict,
+    Optional,
 )
 
 from hummingbot.core.event.events import (
@@ -15,13 +16,13 @@ from hummingbot.market.in_flight_order_base import InFlightOrderBase
 cdef class CoinbaseProInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
-                 exchange_order_id: str,
+                 exchange_order_id: Optional[str],
                  symbol: str,
                  order_type: OrderType,
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "NEW"):
+                 initial_state: str = "open"):
         super().__init__(
             CoinbaseProMarket,
             client_order_id,
