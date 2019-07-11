@@ -5,17 +5,18 @@ from typing import (
     Optional
 )
 
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.binance.binance_market import BinanceMarket
+from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
 s_decimal_0 = Decimal(0)
 
 
-cdef class BinanceInFlightOrder(InFlightOrderBase):
+cdef class DDEXInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: str,
@@ -26,7 +27,7 @@ cdef class BinanceInFlightOrder(InFlightOrderBase):
                  amount: Decimal,
                  initial_state: str = "NEW"):
         super().__init__(
-            BinanceMarket,
+            DDEXMarket,
             client_order_id,
             exchange_order_id,
             symbol,
@@ -36,32 +37,32 @@ cdef class BinanceInFlightOrder(InFlightOrderBase):
             amount,
             initial_state
         )
-        self.fee_asset = None
-        self.fee_paid = s_decimal_0
-        self.trade_id_set = set()
+        self.pending_amount_base = s_decimal_0
+        self.gas_fee_amount = s_decimal_0
+        self.available_amount_base = amount
 
     def __repr__(self) -> str:
-        return f"InFlightOrder(" \
+        return f"DDEXInFlightOrder(" \
                f"client_order_id='{self.client_order_id}', " \
                f"exchange_order_id='{self.exchange_order_id}', " \
                f"symbol='{self.symbol}', " \
-               f"order_type='{self.order_type}', " \
+               f"order_type={self.order_type}, " \
                f"trade_type={self.trade_type}, " \
                f"price={self.price}, " \
                f"amount={self.amount}, " \
                f"executed_amount_base={self.executed_amount_base}, " \
                f"executed_amount_quote={self.executed_amount_quote}, " \
-               f"fee_asset='{self.fee_asset}', " \
-               f"fee_paid={self.fee_paid}, " \
-               f"last_state='{self.last_state}')"
+               f"last_state='{self.last_state}', " \
+               f"available_amount_base={self.available_amount_base}, " \
+               f"gas_fee_amount={self.gas_fee_amount})"
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"FILLED", "CANCELED", "PENDING_CANCEL", "REJECTED", "EXPIRED"}
+        return self.available_amount_base == self.pending_amount_base == s_decimal_0
 
     @property
-    def is_failure(self) -> bool:
-        return self.last_state in {"CANCELED", "PENDING_CANCEL", "REJECTED", "EXPIRED"}
+    def is_cancelled(self) -> bool:
+        return self.last_state in {"canceled"}
 
     def to_json(self) -> Dict[str, Any]:
         return {
@@ -74,15 +75,16 @@ cdef class BinanceInFlightOrder(InFlightOrderBase):
             "amount": str(self.amount),
             "executed_amount_base": str(self.executed_amount_base),
             "executed_amount_quote": str(self.executed_amount_quote),
-            "fee_asset": self.fee_asset,
-            "fee_paid": str(self.fee_paid),
-            "last_state": self.last_state
+            "available_amount_base": str(self.available_amount_base),
+            "last_state": self.last_state,
+            "pending_amount_base": str(self.pending_amount_base),
+            "gas_fee_amount": str(self.gas_fee_amount)
         }
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         cdef:
-            BinanceInFlightOrder retval = BinanceInFlightOrder(
+            DDEXInFlightOrder retval = DDEXInFlightOrder(
                 client_order_id=data["client_order_id"],
                 exchange_order_id=data["exchange_order_id"],
                 symbol=data["symbol"],
@@ -94,36 +96,8 @@ cdef class BinanceInFlightOrder(InFlightOrderBase):
             )
         retval.executed_amount_base = Decimal(data["executed_amount_base"])
         retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.fee_asset = data["fee_asset"]
-        retval.fee_paid = Decimal(data["fee_paid"])
+        retval.available_amount_base = Decimal(data["available_amount_base"])
+        retval.last_state = data["last_state"]
+        retval.pending_amount_base = Decimal(data["pending_amount_base"])
+        retval.gas_fee_amount = Decimal(data["gas_fee_amount"])
         return retval
-
-    def update_with_execution_report(self, execution_report: Dict[str, Any]):
-        trade_id = execution_report["t"]
-        if trade_id in self.trade_id_set:
-            # trade already recorded
-            return
-        self.trade_id_set.add(trade_id)
-        last_executed_quantity = Decimal(execution_report["l"])
-        last_commission_amount = Decimal(execution_report["n"])
-        last_commission_asset = execution_report["N"]
-        last_order_state = execution_report["X"]
-        last_executed_price = Decimal(execution_report["L"])
-        executed_amount_quote = last_executed_price * last_executed_quantity
-        self.executed_amount_base += last_executed_quantity
-        self.executed_amount_quote += executed_amount_quote
-        if last_commission_asset is not None:
-            self.fee_asset = last_commission_asset
-        self.fee_paid += last_commission_amount
-        self.last_state = last_order_state
-
-    def update_with_trade_update(self, trade_update: Dict[str, Any]):
-        trade_id = trade_update["id"]
-        if trade_update["orderId"] != self.exchange_order_id or trade_id in self.trade_id_set:
-            # trade already recorded
-            return
-        self.trade_id_set.add(trade_id)
-        self.executed_amount_quote += Decimal(trade_update["qty"])
-        self.fee_paid += Decimal(trade_update["commission"])
-        self.executed_amount_quote += Decimal(trade_update["quoteQty"])
-        return trade_update
