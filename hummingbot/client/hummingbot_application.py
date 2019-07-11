@@ -48,7 +48,7 @@ from hummingbot.logger.report_aggregator import ReportAggregator
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
 from hummingbot.strategy.pure_market_making import MarketInfo
-from hummingbot.core.utils.stop_loss_tracker import StopLossTracker
+from hummingbot.core.utils.kill_switch import KillSwitch
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
@@ -115,8 +115,8 @@ class HummingbotApplication(*commands):
         self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
         self.reporting_module: Optional[ReportAggregator] = None
         self.data_feed: Optional[DataFeedBase] = None
-        self.stop_loss_tracker: Optional[StopLossTracker] = None
         self.notifiers: List[NotifierBase] = []
+        self.kill_switch: Optional[KillSwitch] = None
         self.liquidity_bounty: Optional[LiquidityBounty] = None
         self._initialize_liquidity_bounty()
         self._app_warnings: Deque[ApplicationWarning] = deque()
