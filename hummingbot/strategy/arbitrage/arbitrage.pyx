@@ -66,7 +66,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             set all_markets = {
                 market
                 for market_pair in self._market_pairs
-                for market in [market_pair.market_1, market_pair.market_2]
+                for market in [market_pair.first.market, market_pair.second.market]
             }
 
         self.c_add_markets(list(all_markets))
@@ -89,33 +89,22 @@ cdef class ArbitrageStrategy(StrategyBase):
         cdef:
             list lines = []
             list warning_lines = []
-            object market_symbol_pair_1 # MarketSymbolPair
-            object market_symbol_pair_2 # MarketSymbolPair
         for market_pair in self._market_pairs:
-            market_symbol_pair_1 = MarketSymbolPair(market_pair.market_1,
-                                                    market_pair.market_1_trading_pair,
-                                                    market_pair.market_1_base_asset,
-                                                    market_pair.market_1_quote_asset)
-            market_symbol_pair_2 = MarketSymbolPair(market_pair.market_2,
-                                                    market_pair.market_2_trading_pair,
-                                                    market_pair.market_2_base_asset,
-                                                    market_pair.market_2_quote_asset)
-
-            if not (market_symbol_pair_1.market.network_status is NetworkStatus.CONNECTED and
-                    market_symbol_pair_2.market.network_status is NetworkStatus.CONNECTED):
+            if not (market_pair.first.market.network_status is NetworkStatus.CONNECTED and
+                    market_pair.second.market.network_status is NetworkStatus.CONNECTED):
                 warning_lines.extend([
-                    f"  Markets are offline for the {market_symbol_pair_1.trading_pair} // "
-                    f"{market_symbol_pair_1.trading_pair} pair. "
+                    f"  Markets are offline for the {market_pair.first.trading_pair} // "
+                    f"{market_pair.second.trading_pair} pair. "
                     f"No arbitrage is possible.",
                     ""
                 ])
                 continue
 
-            markets_df = self.market_status_data_frame([market_symbol_pair_1, market_symbol_pair_2])
+            markets_df = self.market_status_data_frame([market_pair.first, market_pair.second])
             lines.extend(["", "  Markets:"] +
                          ["    " + line for line in str(markets_df).split("\n")])
 
-            assets_df = self.wallet_balance_data_frame([market_symbol_pair_1, market_symbol_pair_2])
+            assets_df = self.wallet_balance_data_frame([market_pair.first, market_pair.second])
             lines.extend(["", "  Assets:"] +
                          ["    " + line for line in str(assets_df).split("\n")])
 
@@ -124,10 +113,10 @@ cdef class ArbitrageStrategy(StrategyBase):
 
             lines.extend(
                 ["", "  Profitability:"] +
-                [f"    take bid on {market_symbol_pair_1.market.name}, "
-                 f"take ask on {market_symbol_pair_2.market.name}: {round(profitability_buy_2_sell_1 * 100, 4)} %"] +
-                [f"    take ask on {market_symbol_pair_1.market.name}, "
-                 f"take bid on {market_symbol_pair_2.market.name}: {round(profitability_buy_1_sell_2 * 100, 4)} %"])
+                [f"    take bid on {market_pair.first.market.name}, "
+                 f"take ask on {market_pair.second.market.name}: {round(profitability_buy_2_sell_1 * 100, 4)} %"] +
+                [f"    take ask on {market_pair.first.market.name}, "
+                 f"take bid on {market_pair.second.market.name}: {round(profitability_buy_1_sell_2 * 100, 4)} %"])
 
             # See if there're any pending market orders.
             if self._tracked_taker_orders:
@@ -137,7 +126,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             else:
                 lines.extend(["", "  No pending market orders."])
 
-            warning_lines.extend(self.balance_warning([market_symbol_pair_1, market_symbol_pair_2]))
+            warning_lines.extend(self.balance_warning([market_pair.first, market_pair.second]))
 
         if len(warning_lines) > 0:
             lines.extend(["", "  *** WARNINGS ***"] + warning_lines)
@@ -245,16 +234,14 @@ cdef class ArbitrageStrategy(StrategyBase):
         :return: (double, double) that indicates profitability of arbitraging on each side
         """
         cdef:
-            OrderBook order_book_1 = market_pair.market_1.get_order_book(market_pair.market_1_trading_pair)
-            OrderBook order_book_2 = market_pair.market_2.get_order_book(market_pair.market_2_trading_pair)
             double market_1_bid_price = ExchangeRateConversion.get_instance().adjust_token_rate(
-                market_pair.market_1_quote_asset, order_book_1.get_price(False))
+                market_pair.first.quote_asset, market_pair.first.order_book.get_price(False))
             double market_1_ask_price = ExchangeRateConversion.get_instance().adjust_token_rate(
-                market_pair.market_1_quote_asset, order_book_1.get_price(True))
+                market_pair.first.quote_asset, market_pair.first.order_book.get_price(True))
             double market_2_bid_price = ExchangeRateConversion.get_instance().adjust_token_rate(
-                market_pair.market_2_quote_asset, order_book_2.get_price(False))
+                market_pair.second.quote_asset, market_pair.second.order_book.get_price(False))
             double market_2_ask_price = ExchangeRateConversion.get_instance().adjust_token_rate(
-                market_pair.market_2_quote_asset, order_book_2.get_price(True))
+                market_pair.second.quote_asset, market_pair.second.order_book.get_price(True))
         profitability_buy_2_sell_1 = market_1_bid_price / market_2_ask_price - 1
         profitability_buy_1_sell_2 = market_2_bid_price / market_1_ask_price - 1
         return profitability_buy_2_sell_1, profitability_buy_1_sell_2
@@ -286,17 +273,7 @@ cdef class ArbitrageStrategy(StrategyBase):
         Check which direction is more profitable (buy/sell on exchange 2/1 or 1/2) and send the more
         profitable direction for execution.
         """
-        market_symbol_pair_1 = MarketSymbolPair(market_pair.market_1,
-                                                market_pair.market_1_trading_pair,
-                                                market_pair.market_1_base_asset,
-                                                market_pair.market_1_quote_asset,
-                                                )
-        market_symbol_pair_2 = MarketSymbolPair(market_pair.market_2,
-                                                market_pair.market_2_trading_pair,
-                                                market_pair.market_2_base_asset,
-                                                market_pair.market_2_quote_asset,
-                                                )
-        if not self.c_ready_for_new_orders([market_symbol_pair_1, market_symbol_pair_2]):
+        if not self.c_ready_for_new_orders([market_pair.first, market_pair.second]):
             return
 
         profitability_buy_2_sell_1, profitability_buy_1_sell_2 = \
@@ -307,9 +284,9 @@ cdef class ArbitrageStrategy(StrategyBase):
 
         if profitability_buy_1_sell_2 > profitability_buy_2_sell_1:
             # it is more profitable to buy on market_1 and sell on market_2
-            self.c_process_market_pair_inner(market_symbol_pair_1, market_symbol_pair_2)
+            self.c_process_market_pair_inner(market_pair.first, market_pair.second)
         else:
-            self.c_process_market_pair_inner(market_symbol_pair_2, market_symbol_pair_1)
+            self.c_process_market_pair_inner(market_pair.second, market_pair.first)
 
 
     cdef c_process_market_pair_inner(self, object buy_market_symbol_pair, object sell_market_symbol_pair):
@@ -405,8 +382,8 @@ cdef class ArbitrageStrategy(StrategyBase):
             double net_buy_costs
             MarketBase buy_market = buy_market_symbol_pair.market
             MarketBase sell_market = sell_market_symbol_pair.market
-            OrderBook buy_order_book = buy_market.c_get_order_book(buy_market_symbol_pair.trading_pair)
-            OrderBook sell_order_book = sell_market.c_get_order_book(sell_market_symbol_pair.trading_pair)
+            OrderBook buy_order_book = buy_market_symbol_pair.order_book
+            OrderBook sell_order_book = sell_market_symbol_pair.order_book
 
         profitable_orders = c_find_profitable_arbitrage_orders(self._min_profitability,
                                                                buy_order_book,
@@ -466,9 +443,6 @@ cdef class ArbitrageStrategy(StrategyBase):
             net_buy_costs = total_ask_value_adjusted * (1 + buy_fee.percent) + total_buy_flat_fees
             profitability = net_sell_proceeds / net_buy_costs
 
-            buy_market_quote_balance = buy_market.c_get_balance(buy_market_symbol_pair.quote_asset)
-            sell_market_base_balance = sell_market.c_get_balance(sell_market_symbol_pair.base_asset)
-
             # if current step is within minimum profitability, set to best profitable order
             # because the total amount is greater than the previous step
             if profitability > (1 + self._min_profitability):
@@ -481,8 +455,8 @@ cdef class ArbitrageStrategy(StrategyBase):
                                                    f"bid, ask price, amount: {bid_price, ask_price, amount}")
 
             # stop current step if buy/sell market does not have enough asset
-            if buy_market_quote_balance < net_buy_costs or \
-                    sell_market_base_balance < (total_previous_step_base_amount + amount):
+            if buy_market_symbol_pair.quote_balance < net_buy_costs or \
+                    sell_market_symbol_pair.base_balance < (total_previous_step_base_amount + amount):
                 # use previous step as best profitable order if below min profitability
                 if profitability < (1 + self._min_profitability):
                     break
@@ -490,15 +464,15 @@ cdef class ArbitrageStrategy(StrategyBase):
                     self.log_with_clock(logging.DEBUG,
                                     f"Not enough asset to complete this step. "
                                     f"Quote asset needed: {total_ask_value + ask_price * amount}. "
-                                    f"Quote asset balance: {buy_market_quote_balance}. "
+                                    f"Quote asset balance: {buy_market_symbol_pair.quote_balance}. "
                                     f"Base asset needed: {total_bid_value + bid_price * amount}. "
-                                    f"Base asset balance: {sell_market_base_balance}. ")
+                                    f"Base asset balance: {sell_market_symbol_pair.base_balance}. ")
 
                 # market buys need to be adjusted to account for additional fees
-                buy_market_adjusted_order_size = (buy_market_quote_balance / ask_price - total_buy_flat_fees)\
+                buy_market_adjusted_order_size = (buy_market_symbol_pair.quote_balance / ask_price - total_buy_flat_fees)\
                                                  / (1 + buy_fee.percent)
                 # buy and sell with the amount of available base or quote asset, whichever is smaller
-                best_profitable_order_amount = min(sell_market_base_balance, buy_market_adjusted_order_size)
+                best_profitable_order_amount = min(sell_market_symbol_pair.base_balance, buy_market_adjusted_order_size)
                 best_profitable_order_profitability = profitability
                 break
 
