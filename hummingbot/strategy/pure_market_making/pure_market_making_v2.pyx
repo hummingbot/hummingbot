@@ -10,11 +10,7 @@ from typing import (
 )
 
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.event.events import (
-    MarketEvent,
-    TradeType
-)
-from hummingbot.core.event.event_listener cimport EventListener
+from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
@@ -48,53 +44,7 @@ s_decimal_zero = Decimal(0)
 s_logger = None
 
 
-cdef class BasePureMakingStrategyEventListener(EventListener):
-    cdef:
-        PureMarketMakingStrategyV2 _owner
-
-    def __init__(self, PureMarketMakingStrategyV2 owner):
-        super().__init__()
-        self._owner = owner
-
-
-cdef class BuyOrderCompletedListener(BasePureMakingStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_complete_buy_order(arg)
-
-
-cdef class SellOrderCompletedListener(BasePureMakingStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_complete_sell_order(arg)
-
-
-cdef class OrderFilledListener(BasePureMakingStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_fill_order(arg)
-
-
-cdef class OrderFailedListener(BasePureMakingStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_fail_order(arg)
-
-
-cdef class OrderCancelledListener(BasePureMakingStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_cancel_order(arg)
-
-
-cdef class OrderExpiredListener(BasePureMakingStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_cancel_order(arg)
-
-
 cdef class PureMarketMakingStrategyV2(StrategyBase):
-    BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
-    SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
-    ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
-    ORDER_EXPIRED_EVENT_TAG = MarketEvent.OrderExpired.value
-    TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
-
     OPTION_LOG_NULL_ORDER_SIZE = 1 << 0
     OPTION_LOG_REMOVING_ORDER = 1 << 1
     OPTION_LOG_ADJUST_ORDER = 1 << 2
@@ -142,7 +92,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             (market_info.market, market_info.symbol): market_info
             for market_info in market_infos
         }
-        self._markets = set([market_info.market for market_info in market_infos])
         self._all_markets_ready = False
         self._cancel_order_wait_time = cancel_order_wait_time
         # For tracking limit orders
@@ -175,28 +124,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._sizing_delegate = sizing_delegate
         self._delegate_lock = False
 
-        self._buy_order_completed_listener = BuyOrderCompletedListener(self)
-        self._sell_order_completed_listener = SellOrderCompletedListener(self)
-        self._order_filled_listener = OrderFilledListener(self)
-        self._order_failed_listener = OrderFailedListener(self)
-        self._order_cancelled_listener = OrderCancelledListener(self)
-        self._order_expired_listener = OrderExpiredListener(self)
-
         cdef:
-            MarketBase typed_market
+            set all_markets = set([market_info.market for market_info in market_infos])
 
-        for market in self._markets:
-            typed_market = market
-            typed_market.c_add_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._buy_order_completed_listener)
-            typed_market.c_add_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sell_order_completed_listener)
-            typed_market.c_add_listener(self.ORDER_FILLED_EVENT_TAG, self._order_filled_listener)
-            typed_market.c_add_listener(self.ORDER_CANCELLED_EVENT_TAG, self._order_cancelled_listener)
-            typed_market.c_add_listener(self.ORDER_EXPIRED_EVENT_TAG, self._order_expired_listener)
-            typed_market.c_add_listener(self.TRANSACTION_FAILURE_EVENT_TAG, self._order_failed_listener)
-
-    @property
-    def active_markets(self) -> List[MarketBase]:
-        return list(self._markets)
+        self.c_add_markets(list(all_markets))
 
     @property
     def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
@@ -374,7 +305,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 "expiration_ts": self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
             }
 
-        if market not in self._markets:
+        if market not in self._sb_markets:
             raise ValueError(f"market object for buy order is not in the whitelisted markets set.")
         return market.c_buy(symbol, amount, order_type=order_type, price=price, kwargs=kwargs)
 
@@ -390,7 +321,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 "expiration_ts": self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
             }
 
-        if market not in self._markets:
+        if market not in self._sb_markets:
             raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
         return market.c_sell(symbol, amount, order_type=order_type, price=price, kwargs=kwargs)
 
@@ -426,7 +357,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         try:
             if not self._all_markets_ready:
-                self._all_markets_ready = all([market.ready for market in self._markets])
+                self._all_markets_ready = all([market.ready for market in self._sb_markets])
                 if not self._all_markets_ready:
                     # Markets not ready yet. Don't do anything.
                     if should_report_warnings:
@@ -434,7 +365,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     return
 
             if should_report_warnings:
-                if not all([market.network_status is NetworkStatus.CONNECTED for market in self._markets]):
+                if not all([market.network_status is NetworkStatus.CONNECTED for market in self._sb_markets]):
                     self.logger().warning(f"WARNING: Some markets are not connected or are down at the moment. Market "
                                           f"making may be dangerous when markets or networks are unstable.")
 
@@ -543,6 +474,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             object market_info = self._order_id_to_market_info.get(order_id)
 
         self.c_stop_tracking_order(market_info, order_id)
+
+    cdef c_did_expire_order(self, object expired_event):
+        self.c_did_cancel_order(expired_event)
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
         cdef:
