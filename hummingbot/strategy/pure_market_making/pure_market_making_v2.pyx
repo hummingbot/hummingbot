@@ -23,12 +23,12 @@ from hummingbot.market.market_base import (
     OrderType
 )
 from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.strategy.strategy_base import StrategyBase
 
 from .constant_spread_pricing_delegate import ConstantSpreadPricingDelegate
 from .constant_size_sizing_delegate import ConstantSizeSizingDelegate
 from .data_types import (
-    MarketInfo,
     OrdersProposal,
     ORDER_PROPOSAL_ACTION_CANCEL_ORDERS,
     ORDER_PROPOSAL_ACTION_CREATE_ORDERS,
@@ -122,7 +122,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             s_logger = logging.getLogger(__name__)
         return s_logger
 
-    def __init__(self, market_infos: List[MarketInfo],
+    def __init__(self, market_infos: List[MarketSymbolPair],
                  filter_delegate: Optional[OrderFilterDelegate] = None,
                  pricing_delegate: Optional[OrderPricingDelegate] = None,
                  sizing_delegate: Optional[OrderSizingDelegate] = None,
@@ -139,7 +139,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         super().__init__()
         self._market_infos = {
-            (market_info.market, market_info.symbol): market_info
+            (market_info.market, market_info.trading_pair): market_info
             for market_info in market_infos
         }
         self._markets = set([market_info.market for market_info in market_infos])
@@ -209,7 +209,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         ]
 
     @property
-    def market_info_to_active_orders(self) -> Dict[MarketInfo, List[LimitOrder]]:
+    def market_info_to_active_orders(self) -> Dict[MarketSymbolPair, List[LimitOrder]]:
         return {
             market_info: [
                 limit_order
@@ -270,10 +270,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         for market_info in self._market_infos.values():
             # Get some basic info about the market pair.
             maker_market = market_info.market
-            maker_symbol = market_info.symbol
+            maker_symbol = market_info.trading_pair
             maker_name = maker_market.name
-            maker_base = market_info.base_currency
-            maker_quote = market_info.quote_currency
+            maker_base = market_info.base_asset
+            maker_quote = market_info.quote_asset
             maker_order_book = maker_market.c_get_order_book(maker_symbol)
             maker_base_balance = maker_market.c_get_balance(maker_base)
             maker_quote_balance = maker_market.c_get_balance(maker_quote)
@@ -325,13 +325,13 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
     # The following exposed Python functions are meant for unit tests
     # ---------------------------------------------------------------
-    def execute_orders_proposal(self, market_info: MarketInfo, orders_proposal: OrdersProposal):
+    def execute_orders_proposal(self, market_info: MarketSymbolPair, orders_proposal: OrdersProposal):
         return self.c_execute_orders_proposal(market_info, orders_proposal)
 
-    def cancel_order(self, market_info: MarketInfo, order_id:str):
+    def cancel_order(self, market_info: MarketSymbolPair, order_id:str):
         return self.c_cancel_order(market_info, order_id)
 
-    def get_order_price_proposal(self, market_info: MarketInfo) -> PricingProposal:
+    def get_order_price_proposal(self, market_info: MarketSymbolPair) -> PricingProposal:
         cdef:
             list active_orders = [
                 limit_order
@@ -343,7 +343,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             self, market_info, active_orders
         )
 
-    def get_order_size_proposal(self, market_info: MarketInfo, pricing_proposal: PricingProposal) -> SizingProposal:
+    def get_order_size_proposal(self, market_info: MarketSymbolPair, pricing_proposal: PricingProposal) -> SizingProposal:
         cdef:
             list active_orders = [
                 limit_order
@@ -357,42 +357,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
 
     def get_orders_proposal_for_market_info(self,
-                                            market_info: MarketInfo,
+                                            market_info: MarketSymbolPair,
                                             active_orders: List[LimitOrder]) -> OrdersProposal:
         return self.c_get_orders_proposal_for_market_info(market_info, active_orders)
     # ---------------------------------------------------------------
-
-    cdef c_buy_with_specific_market(self, MarketBase market, str symbol, double amount,
-                                    double price,
-                                    object order_type = OrderType.LIMIT,
-                                    double expiration_seconds = NaN):
-        if self._delegate_lock:
-            raise RuntimeError("Delegates are not allowed to execute orders directly.")
-
-        cdef:
-            dict kwargs = {
-                "expiration_ts": self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
-            }
-
-        if market not in self._markets:
-            raise ValueError(f"market object for buy order is not in the whitelisted markets set.")
-        return market.c_buy(symbol, amount, order_type=order_type, price=price, kwargs=kwargs)
-
-    cdef c_sell_with_specific_market(self, MarketBase market, str symbol, double amount,
-                                     double price,
-                                     object order_type = OrderType.LIMIT,
-                                     double expiration_seconds = NaN):
-        if self._delegate_lock:
-            raise RuntimeError("Delegates are not allowed to execute orders directly.")
-
-        cdef:
-            dict kwargs = {
-                "expiration_ts": self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
-            }
-
-        if market not in self._markets:
-            raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
-        return market.c_sell(symbol, amount, order_type=order_type, price=price, kwargs=kwargs)
 
     cdef c_cancel_order(self, object market_info, str order_id):
         cdef:
@@ -408,7 +376,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         # Track the cancel and tell maker market to cancel the order.
         self._in_flight_cancels[order_id] = self._current_timestamp
-        market.c_cancel(market_info.symbol, order_id)
+        market.c_cancel(market_info.trading_pair, order_id)
 
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
@@ -461,7 +429,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef object c_get_orders_proposal_for_market_info(self, object market_info, list active_orders):
         cdef:
             double last_trade_price
-            MarketBase maker_market = market_info.market
             int actions = 0
             list cancel_order_ids = []
 
@@ -481,7 +448,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         if sizing_proposal.buy_order_sizes[0] > 0 or sizing_proposal.sell_order_sizes[0] > 0:
             actions |= ORDER_PROPOSAL_ACTION_CREATE_ORDERS
 
-        if maker_market.name not in self.RADAR_RELAY_TYPE_EXCHANGES:
+        if market_info.market.name not in self.RADAR_RELAY_TYPE_EXCHANGES:
             for active_order in active_orders:
                 # If there are active orders, and active order cancellation is needed, then do the following:
                 #  1. Check the time to cancel for each order, and see if cancellation should be proposed.
@@ -517,15 +484,15 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 if self._logging_options & self.OPTION_LOG_MAKER_ORDER_FILLED:
                     self.log_with_clock(
                         logging.INFO,
-                        f"({market_info.symbol}) Maker buy order of "
-                        f"{order_filled_event.amount} {market_info.base_currency} filled."
+                        f"({market_info.trading_pair}) Maker buy order of "
+                        f"{order_filled_event.amount} {market_info.base_asset} filled."
                     )
             else:
                 if self._logging_options & self.OPTION_LOG_MAKER_ORDER_FILLED:
                     self.log_with_clock(
                         logging.INFO,
-                        f"({market_info.symbol}) Maker sell order of "
-                        f"{order_filled_event.amount} {market_info.base_currency} filled."
+                        f"({market_info.trading_pair}) Maker sell order of "
+                        f"{order_filled_event.amount} {market_info.base_asset} filled."
                     )
 
     cdef c_did_fail_order(self, object order_failed_event):
@@ -554,7 +521,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             limit_order_record = self._tracked_maker_orders[market_info][order_id]
             self.log_with_clock(
                 logging.INFO,
-                f"({market_info.symbol}) Maker buy order {order_id} "
+                f"({market_info.trading_pair}) Maker buy order {order_id} "
                 f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                 f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
             )
@@ -570,7 +537,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             limit_order_record = self._tracked_maker_orders[market_info][order_id]
             self.log_with_clock(
                 logging.INFO,
-                f"({market_info.symbol}) Maker sell order {order_id} "
+                f"({market_info.trading_pair}) Maker sell order {order_id} "
                 f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                 f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
             )
@@ -584,10 +551,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         cdef:
             LimitOrder limit_order = LimitOrder(order_id,
-                                                market_info.symbol,
+                                                market_info.trading_pair,
                                                 is_buy,
-                                                market_info.base_currency,
-                                                market_info.quote_currency,
+                                                market_info.base_asset,
+                                                market_info.quote_asset,
                                                 float(price),
                                                 float(quantity))
         self._tracked_maker_orders[market_info][order_id] = limit_order
@@ -625,10 +592,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef c_execute_orders_proposal(self, object market_info, object orders_proposal):
         cdef:
             int64_t actions = orders_proposal.actions
-            MarketBase market = market_info.market
-            str symbol = market_info.symbol
             double expiration_seconds = (self._cancel_order_wait_time
-                                         if market.name in self.RADAR_RELAY_TYPE_EXCHANGES
+                                         if market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES
                                          else NaN)
             str bid_order_id
 
@@ -637,7 +602,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             for order_id in orders_proposal.cancel_order_ids:
                 self.log_with_clock(
                     logging.INFO,
-                    f"({market_info.symbol}) Cancelling the limit order {order_id}."
+                    f"({market_info.trading_pair}) Cancelling the limit order {order_id}."
                 )
                 self.c_cancel_order(market_info, order_id)
 
@@ -648,17 +613,16 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                         self.log_with_clock(
                             logging.INFO,
-                            f"({market_info.symbol}) Creating limit bid orders for "
-                            f"  Bids (Size,Price) to be placed at: {[str(size) + ' ' + market_info.base_currency + ' @ ' + ' ' + str(price) + ' ' + market_info.quote_currency for size,price in zip(orders_proposal.buy_order_sizes, orders_proposal.buy_order_prices)]}"
+                            f"({market_info.trading_pair}) Creating limit bid orders for "
+                            f"  Bids (Size,Price) to be placed at: {[str(size) + ' ' + market_info.base_asset + ' @ ' + ' ' + str(price) + ' ' + market_info.quote_asset for size,price in zip(orders_proposal.buy_order_sizes, orders_proposal.buy_order_prices)]}"
                         )
 
                     for idx in range(len(orders_proposal.buy_order_sizes)):
                         bid_order_id = self.c_buy_with_specific_market(
-                            market,
-                            symbol,
+                            market_info,
                             orders_proposal.buy_order_sizes[idx],
-                            orders_proposal.buy_order_prices[idx],
                             order_type=OrderType.LIMIT,
+                            price=orders_proposal.buy_order_prices[idx],
                             expiration_seconds=expiration_seconds
                         )
                         self.c_start_tracking_order(
@@ -677,17 +641,16 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                         self.log_with_clock(
                             logging.INFO,
-                            f"({market_info.symbol}) Creating limit ask order for "
-                            f"  Asks (Size,Price) to be placed at: {[str(size) + ' ' + market_info.base_currency + ' @ ' + ' ' + str(price) + ' ' + market_info.quote_currency for size,price in zip(orders_proposal.sell_order_sizes, orders_proposal.sell_order_prices)]}"
+                            f"({market_info.trading_pair}) Creating limit ask order for "
+                            f"  Asks (Size,Price) to be placed at: {[str(size) + ' ' + market_info.base_asset + ' @ ' + ' ' + str(price) + ' ' + market_info.quote_asset for size,price in zip(orders_proposal.sell_order_sizes, orders_proposal.sell_order_prices)]}"
                         )
 
                     for idx in range(len(orders_proposal.sell_order_sizes)):
                         ask_order_id = self.c_sell_with_specific_market(
-                            market,
-                            symbol,
+                            market_info,
                             orders_proposal.sell_order_sizes[idx],
-                            orders_proposal.sell_order_prices[idx],
                             order_type=OrderType.LIMIT,
+                            price=orders_proposal.sell_order_prices[idx],
                             expiration_seconds=expiration_seconds
                         )
                         self.c_start_tracking_order(
