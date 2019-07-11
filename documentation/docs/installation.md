@@ -14,13 +14,13 @@ We recommend the following platform/setup for running Hummingbot:
 
 #### Installation Guides
 
-Installing via the Cloud:
+Recommended setup:
 
-* [Setting up a Virtual Machine](/installation/cloud)
+1. [Setting up a Cloud server](/installation/cloud)
+2. [Install Docker + Hummingbot on Linux](/installation/linux)
 
-Installing with Docker:
+Alternative installations with Docker:
 
-* [For Linux Systems](/installation/linux) *(Recommended)*
 * [For macOS Systems](/installation/macOS)
 * [For Windows Systems](/installation/windows)
 
