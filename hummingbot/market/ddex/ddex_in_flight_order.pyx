@@ -80,17 +80,17 @@ cdef class DDEXInFlightOrder(InFlightOrderBase):
         }
 
     @classmethod
-    def from_json(cls, data: Dict[str, any]) -> "InFlightOrder":
+    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         cdef:
             DDEXInFlightOrder retval = DDEXInFlightOrder(
-                data["client_order_id"],
-                data["exchange_order_id"],
-                data["symbol"],
-                getattr(OrderType, data["order_type"]),
-                getattr(TradeType, data["trade_type"]),
-                Decimal(data["price"]),
-                Decimal(data["amount"]),
-                data["last_state"]
+                client_order_id=data["client_order_id"],
+                exchange_order_id=data["exchange_order_id"],
+                symbol=data["symbol"],
+                order_type=getattr(OrderType, data["order_type"]),
+                trade_type=getattr(TradeType, data["trade_type"]),
+                price=Decimal(data["price"]),
+                amount=Decimal(data["amount"]),
+                initial_state=data["last_state"]
             )
         retval.executed_amount_base = Decimal(data["executed_amount_base"])
         retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
