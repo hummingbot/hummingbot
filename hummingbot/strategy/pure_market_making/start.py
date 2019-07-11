@@ -52,11 +52,10 @@ def start(self):
 
         maker_data = [self.markets[maker_market], raw_maker_symbol] + list(maker_assets)
         self.market_symbol_pairs = [MarketSymbolPair(*maker_data)]
-        self.market_info = MarketInfo(*([self.markets[maker_market], raw_maker_symbol] +
-                                        list(maker_assets)))
+
         strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
 
-        self.strategy = PureMarketMakingStrategyV2(market_infos=[self.market_info],
+        self.strategy = PureMarketMakingStrategyV2(market_infos=[MarketSymbolPair(*maker_data)],
                                                    pricing_delegate=pricing_delegate,
                                                    sizing_delegate=sizing_delegate,
                                                    legacy_order_size=order_size,
