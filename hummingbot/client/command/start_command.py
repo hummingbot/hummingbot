@@ -23,6 +23,7 @@ from hummingbot.client.settings import (
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
+from hummingbot.core.utils.kill_switch import KillSwitch
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -99,5 +100,8 @@ class StartCommand:
 
             self.starting_balances = await self.wait_till_ready(self.balance_snapshot)
 
+            if self._trading_required:
+                self.kill_switch = KillSwitch(self)
+                await self.wait_till_ready(self.kill_switch.start)
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
