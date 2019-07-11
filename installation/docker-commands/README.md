@@ -36,6 +36,16 @@ curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installa
 chmod a+x *.sh
 ```
 
+#### Windows (Docker Toolbox)
+```
+cd ~
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh -o create.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/connect.sh -o connect.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh -o start.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh -o update.sh
+chmod a+x *.sh
+```
+
 ## Create an instance of Hummingbot
 
 The `create.sh` script will create the folders needed to run Hummingbot and then install Hummingbot.
