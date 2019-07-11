@@ -893,7 +893,7 @@ cdef class CoinbaseProMarket(MarketBase):
                                 object amount):
         self._in_flight_orders[client_order_id] = CoinbaseProInFlightOrder(
             client_order_id,
-            "",
+            None,
             symbol,
             order_type,
             trade_type,
