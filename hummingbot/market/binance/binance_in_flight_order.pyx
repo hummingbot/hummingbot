@@ -36,24 +36,7 @@ cdef class BinanceInFlightOrder(InFlightOrderBase):
             amount,
             initial_state
         )
-        self.fee_asset = None
-        self.fee_paid = s_decimal_0
         self.trade_id_set = set()
-
-    def __repr__(self) -> str:
-        return f"InFlightOrder(" \
-               f"client_order_id='{self.client_order_id}', " \
-               f"exchange_order_id='{self.exchange_order_id}', " \
-               f"symbol='{self.symbol}', " \
-               f"order_type='{self.order_type}', " \
-               f"trade_type={self.trade_type}, " \
-               f"price={self.price}, " \
-               f"amount={self.amount}, " \
-               f"executed_amount_base={self.executed_amount_base}, " \
-               f"executed_amount_quote={self.executed_amount_quote}, " \
-               f"fee_asset='{self.fee_asset}', " \
-               f"fee_paid={self.fee_paid}, " \
-               f"last_state='{self.last_state}')"
 
     @property
     def is_done(self) -> bool:
@@ -62,22 +45,6 @@ cdef class BinanceInFlightOrder(InFlightOrderBase):
     @property
     def is_failure(self) -> bool:
         return self.last_state in {"CANCELED", "PENDING_CANCEL", "REJECTED", "EXPIRED"}
-
-    def to_json(self) -> Dict[str, Any]:
-        return {
-            "client_order_id": self.client_order_id,
-            "exchange_order_id": self.exchange_order_id,
-            "symbol": self.symbol,
-            "order_type": self.order_type.name,
-            "trade_type": self.trade_type.name,
-            "price": str(self.price),
-            "amount": str(self.amount),
-            "executed_amount_base": str(self.executed_amount_base),
-            "executed_amount_quote": str(self.executed_amount_quote),
-            "fee_asset": self.fee_asset,
-            "fee_paid": str(self.fee_paid),
-            "last_state": self.last_state
-        }
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
