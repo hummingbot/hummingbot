@@ -6,6 +6,7 @@ from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.strategy.strategy_base cimport StrategyBase
 
 cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
@@ -46,9 +47,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         int64_t _logging_options
         object _exchange_rate_conversion
 
-    cdef c_buy_with_specific_market(self, MarketBase market, str symbol, double amount,
+    cdef c_buy_with_specific_market(self, object market_symbol_pair, double amount,
                                     object order_type = *, double price = *, double expiration_seconds = *)
-    cdef c_sell_with_specific_market(self, MarketBase market, str symbol, double amount,
+    cdef c_sell_with_specific_market(self, object market_symbol_pair, double amount,
                                      object order_type = *, double price = *, double expiration_seconds = *)
     cdef c_cancel_order(self, object market_pair, str order_id)
     cdef c_process_market_pair(self, object market_pair, list active_ddex_orders)
@@ -70,22 +71,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
     cdef double c_calculate_bid_profitability(self,
                                               object market_pair,
-                                              OrderBook maker_order_book,
-                                              OrderBook taker_order_book,
                                               double bid_order_size = *)
     cdef double c_calculate_ask_profitability(self,
                                               object market_pair,
-                                              OrderBook maker_order_book,
-                                              OrderBook taker_order_book,
                                               double ask_order_size = *)
-    cdef tuple c_calculate_market_making_profitability(self,
-                                                       object market_pair,
-                                                       OrderBook maker_order_book,
-                                                       OrderBook taker_order_book)
-    cdef tuple c_has_market_making_profit_potential(self,
-                                                    object market_pair,
-                                                    OrderBook maker_order_book,
-                                                    OrderBook taker_order_book)
+    cdef tuple c_calculate_market_making_profitability(self, object market_pair)
+    cdef tuple c_has_market_making_profit_potential(self, object market_pair)
     cdef tuple c_get_market_making_price_and_size_limit(self,
                                                         object market_pair,
                                                         bint is_bid,
