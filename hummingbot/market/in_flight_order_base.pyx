@@ -1,7 +1,9 @@
+import asyncio
 from decimal import Decimal
 from typing import (
     Any,
-    Dict
+    Dict,
+    Optional
 )
 
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -18,7 +20,7 @@ cdef class InFlightOrderBase:
     def __init__(self,
                  market_class: MarketBase,
                  client_order_id: str,
-                 exchange_order_id: str,
+                 exchange_order_id: Optional[str],
                  symbol: str,
                  order_type: OrderType,
                  trade_type: TradeType,
@@ -36,9 +38,8 @@ cdef class InFlightOrderBase:
         self.amount = amount
         self.executed_amount_base = s_decimal_0
         self.executed_amount_quote = s_decimal_0
-        self.fee_asset = None
-        self.fee_paid = s_decimal_0
         self.last_state = initial_state
+        self.exchange_order_id_update_event = asyncio.Event()
 
     def __repr__(self) -> str:
         return f"InFlightOrder(" \
@@ -51,12 +52,14 @@ cdef class InFlightOrderBase:
                f"amount={self.amount}, " \
                f"executed_amount_base={self.executed_amount_base}, " \
                f"executed_amount_quote={self.executed_amount_quote}, " \
-               f"fee_asset='{self.fee_asset}', " \
-               f"fee_paid={self.fee_paid}, " \
                f"last_state='{self.last_state}')"
 
     @property
     def is_done(self) -> bool:
+        raise NotImplementedError
+
+    @property
+    def is_cancelled(self) -> bool:
         raise NotImplementedError
 
     @property
@@ -71,6 +74,15 @@ cdef class InFlightOrderBase:
     def quote_asset(self) -> str:
         return self.market_class.split_symbol(self.symbol)[1]
 
+    def update_exchange_order_id(self, exchange_id: str):
+        self.exchange_order_id = exchange_id
+        self.exchange_order_id_update_event.set()
+
+    async def get_exchange_order_id(self):
+        if self.exchange_order_id is None:
+            await self.exchange_order_id_update_event.wait()
+        return self.exchange_order_id
+
     def to_limit_order(self) -> LimitOrder:
         return LimitOrder(
             self.client_order_id,
@@ -83,21 +95,8 @@ cdef class InFlightOrderBase:
         )
 
     def to_json(self) -> Dict[str, Any]:
-        return {
-            "client_order_id": self.client_order_id,
-            "exchange_order_id": self.exchange_order_id,
-            "symbol": self.symbol,
-            "order_type": self.order_type.name,
-            "trade_type": self.trade_type.name,
-            "price": str(self.price),
-            "amount": str(self.amount),
-            "executed_amount_base": str(self.executed_amount_base),
-            "executed_amount_quote": str(self.executed_amount_quote),
-            "fee_asset": self.fee_asset,
-            "fee_paid": str(self.fee_paid),
-            "last_state": self.last_state
-        }
+        raise NotImplementedError
 
     @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> "InFlightOrderBase":
+    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         raise NotImplementedError
