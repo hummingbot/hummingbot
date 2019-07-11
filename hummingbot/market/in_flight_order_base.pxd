@@ -10,7 +10,5 @@ cdef class InFlightOrderBase:
         public object amount
         public object executed_amount_base
         public object executed_amount_quote
-        public str fee_asset
-        public object fee_paid
         public str last_state
         public object exchange_order_id_update_event
