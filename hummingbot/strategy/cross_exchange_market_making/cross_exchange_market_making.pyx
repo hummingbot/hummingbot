@@ -305,32 +305,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         return self.c_check_if_price_correct(market_pair, active_order, current_hedging_price)
     # ---------------------------------------------------------------
 
-    cdef c_buy_with_specific_market(self, object market_symbol_pair, double amount,
-                                    object order_type = OrderType.MARKET,
-                                    double price = NaN,
-                                    double expiration_seconds = NaN):
-        cdef:
-            dict kwargs = {}
-        kwargs["expiration_ts"] = self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
-
-        if market_symbol_pair.market not in self._markets:
-            raise ValueError(f"market object for buy order is not in the whitelisted markets set.")
-        return (<MarketBase> market_symbol_pair.market).c_buy(market_symbol_pair.trading_pair, amount,
-                                                              order_type=order_type, price=price, kwargs=kwargs)
-
-    cdef c_sell_with_specific_market(self, object market_symbol_pair, double amount,
-                                     object order_type = OrderType.MARKET,
-                                     double price = NaN,
-                                     double expiration_seconds = NaN):
-        cdef:
-            dict kwargs = {}
-        kwargs["expiration_ts"] = self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
-
-        if market_symbol_pair.market not in self._markets:
-            raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
-        return (<MarketBase> market_symbol_pair.market).c_sell(market_symbol_pair.trading_pair, amount,
-                                                               order_type=order_type, price=price, kwargs=kwargs)
-
     cdef c_cancel_order(self, object market_pair, str order_id):
         cdef:
             list keys_to_delete = []

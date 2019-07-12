@@ -13,13 +13,13 @@ from .order_sizing_delegate cimport OrderSizingDelegate
 
 cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef:
-        set _markets
+
         dict _market_infos
         bint _all_markets_ready
         double _cancel_order_wait_time
         double _status_report_interval
         double _last_timestamp
-        double _limit_order_min_expiration
+
         dict _tracked_maker_orders
         dict _order_id_to_market_info
         dict _shadow_tracked_maker_orders
@@ -39,12 +39,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         OrderFilterDelegate _filter_delegate
         OrderPricingDelegate _pricing_delegate
         OrderSizingDelegate _sizing_delegate
-        bint _delegate_lock
 
-    cdef c_buy_with_specific_market(self, MarketBase market, str symbol, double amount,
-                                    double price, object order_type = *, double expiration_seconds = *)
-    cdef c_sell_with_specific_market(self, MarketBase market, str symbol, double amount,
-                                    double price, object order_type = *, double expiration_seconds = *)
     cdef c_cancel_order(self, object market_info, str order_id)
     cdef object c_get_orders_proposal_for_market_info(self, object market_info, list active_maker_orders)
     cdef c_did_fill_order(self, object order_filled_event)
