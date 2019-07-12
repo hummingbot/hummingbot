@@ -2,11 +2,8 @@
 
 from libc.stdint cimport int64_t
 
-from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.data_type.limit_order cimport LimitOrder
-from hummingbot.market.market_base cimport MarketBase
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.strategy.strategy_base cimport StrategyBase
 
 cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
@@ -24,7 +21,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         double _status_report_interval
         double _last_timestamp
         double _trade_size_override
-        double _limit_order_min_expiration
         double _cancel_order_threshold
         bint _active_order_canceling
         dict _tracked_maker_orders
@@ -40,10 +36,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         int64_t _logging_options
         object _exchange_rate_conversion
 
-    cdef c_buy_with_specific_market(self, object market_symbol_pair, double amount,
-                                    object order_type = *, double price = *, double expiration_seconds = *)
-    cdef c_sell_with_specific_market(self, object market_symbol_pair, double amount,
-                                     object order_type = *, double price = *, double expiration_seconds = *)
     cdef c_cancel_order(self, object market_pair, str order_id)
     cdef c_process_market_pair(self, object market_pair, list active_ddex_orders)
     cdef c_check_and_hedge_orders(self, object market_pair)

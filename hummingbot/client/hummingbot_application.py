@@ -47,7 +47,7 @@ from hummingbot.client.config.config_helpers import get_erc20_token_addresses
 from hummingbot.logger.report_aggregator import ReportAggregator
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
-from hummingbot.strategy.pure_market_making import MarketInfo
+
 from hummingbot.core.utils.kill_switch import KillSwitch
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.notifier.notifier_base import NotifierBase
@@ -104,7 +104,6 @@ class HummingbotApplication(*commands):
         self.strategy_task: Optional[asyncio.Task] = None
         self.strategy: Optional[StrategyBase] = None
         self.market_pair: Optional[CrossExchangeMarketPair] = None
-        self.market_info: Optional[MarketInfo] = None
         self.market_symbol_pairs: List[MarketSymbolPair] = []
         self.clock: Optional[Clock] = None
 

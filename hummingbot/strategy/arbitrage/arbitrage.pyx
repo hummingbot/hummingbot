@@ -332,22 +332,6 @@ cdef class ArbitrageStrategy(StrategyBase):
             self.c_start_tracking_market_order(sell_market_symbol_pair, sell_order_id, True, quantized_order_amount)
             self.logger().info(self.format_status())
 
-    cdef c_buy_with_specific_market(self, object market_symbol_pair, double amount,
-                                    object order_type = OrderType.MARKET, double price = 0.0):
-        cdef:
-            MarketBase market = market_symbol_pair.market
-        if market not in self._sb_markets:
-            raise ValueError(f"market object for buy order is not in the whitelisted markets set.")
-        return market.c_buy(market_symbol_pair.trading_pair, amount, order_type=order_type, price=price)
-
-    cdef c_sell_with_specific_market(self, object market_symbol_pair, double amount,
-                                     object order_type = OrderType.MARKET, double price = 0.0):
-        cdef:
-            MarketBase market = market_symbol_pair.market
-        if market not in self._sb_markets:
-            raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
-        return market.c_sell(market_symbol_pair.trading_pair, amount, order_type=order_type, price=price)
-
     @classmethod
     def find_profitable_arbitrage_orders(cls,
                                          min_profitability,

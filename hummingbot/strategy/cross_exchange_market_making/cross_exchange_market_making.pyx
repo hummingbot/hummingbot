@@ -20,13 +20,13 @@ from hummingbot.core.event.events import (
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import (
     MarketBase,
     OrderType
 )
 from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from .cross_exchange_market_pair import CrossExchangeMarketPair
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
@@ -105,10 +105,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._logging_options = <int64_t>logging_options
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
-        self._limit_order_min_expiration = limit_order_min_expiration
         self._cancel_order_threshold = cancel_order_threshold
         self._active_order_canceling = active_order_canceling
         self._exchange_rate_conversion = ExchangeRateConversion.get_instance()
+
+        self.limit_order_min_expiration = limit_order_min_expiration
 
         cdef:
             list all_markets = list(self._maker_markets | self._taker_markets)
@@ -238,32 +239,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                double current_hedging_price) -> bool:
         return self.c_check_if_price_correct(market_pair, active_order, current_hedging_price)
     # ---------------------------------------------------------------
-
-    cdef c_buy_with_specific_market(self, object market_symbol_pair, double amount,
-                                    object order_type = OrderType.MARKET,
-                                    double price = NaN,
-                                    double expiration_seconds = NaN):
-        cdef:
-            dict kwargs = {}
-        kwargs["expiration_ts"] = self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
-
-        if market_symbol_pair.market not in self._sb_markets:
-            raise ValueError(f"market object for buy order is not in the whitelisted markets set.")
-        return (<MarketBase> market_symbol_pair.market).c_buy(market_symbol_pair.trading_pair, amount,
-                                                              order_type=order_type, price=price, kwargs=kwargs)
-
-    cdef c_sell_with_specific_market(self, object market_symbol_pair, double amount,
-                                     object order_type = OrderType.MARKET,
-                                     double price = NaN,
-                                     double expiration_seconds = NaN):
-        cdef:
-            dict kwargs = {}
-        kwargs["expiration_ts"] = self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
-
-        if market_symbol_pair.market not in self._sb_markets:
-            raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
-        return (<MarketBase> market_symbol_pair.market).c_sell(market_symbol_pair.trading_pair, amount,
-                                                               order_type=order_type, price=price, kwargs=kwargs)
 
     cdef c_cancel_order(self, object market_pair, str order_id):
         cdef:
