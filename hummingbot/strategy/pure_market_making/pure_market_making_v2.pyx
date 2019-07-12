@@ -337,7 +337,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         active_orders = []
         for limit_order in self._tracked_maker_orders.get(market_info, {}).values():
             if limit_order.client_order_id in self._in_flight_cancels:
-                if self._in_flight_cancels.get(limit_order.client_order_id) + self.CANCEL_EXPIRY_DURATION < self._current_timestamp:
+                if self._in_flight_cancels[limit_order.client_order_id] + self.CANCEL_EXPIRY_DURATION < self._current_timestamp:
                         continue
             active_orders.append(limit_order)
 
@@ -349,7 +349,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         active_orders = []
         for limit_order in self._tracked_maker_orders.get(market_info, {}).values():
             if limit_order.client_order_id in self._in_flight_cancels:
-                if self._in_flight_cancels.get(limit_order.client_order_id) + self.CANCEL_EXPIRY_DURATION < self._current_timestamp:
+                if self._in_flight_cancels[limit_order.client_order_id] + self.CANCEL_EXPIRY_DURATION < self._current_timestamp:
                         continue
             active_orders.append(limit_order)
 
