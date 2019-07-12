@@ -17,17 +17,12 @@ Hummingbot is open source software that helps you create, configure and manage h
 ## First steps
 New to Hummingbot? Here are some helpful links to get you started!
 
-#### Learn how it works
 * [FAQ](/faq): Answers to frequently asked questions
 * [Whitepaper](/whitepaper): Overview about Hummingbot, its strategies, and the technical architecture.
-
-#### Follow the Quickstart tutorial
-1. Install Hummingbot
-2. Register for liquidity bounties
-3. Run your first bot
+* [Quickstart](/quickstart): Guide that walks you through how to install and run Hummingbot
 
 ## Get help
-* [Support](/support): Various ways to get support in using Hummingbot
+* [Cheatsheets](/cheatsheets): Quick reference for common Hummingbot commands
 * [Troubleshooting](/troubleshooting): Common issues and how to resolve them
-* [Hummingbot Chinese Github repo](https://github.com/coinalpha/hummingbot_chinese)
-
+* [Support](/support): Various ways to get support in using Hummingbot
+* [Hummingbot Chinese Github repo](https://github.com/coinalpha/hummingbot_chinese): Hummingbot info, translated into Mandarin
