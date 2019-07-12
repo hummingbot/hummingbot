@@ -47,8 +47,8 @@ from hummingbot.client.config.config_helpers import get_erc20_token_addresses
 from hummingbot.logger.report_aggregator import ReportAggregator
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
-from hummingbot.strategy.pure_market_making import MarketInfo
-from hummingbot.core.utils.stop_loss_tracker import StopLossTracker
+
+from hummingbot.core.utils.kill_switch import KillSwitch
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
@@ -104,7 +104,6 @@ class HummingbotApplication(*commands):
         self.strategy_task: Optional[asyncio.Task] = None
         self.strategy: Optional[StrategyBase] = None
         self.market_pair: Optional[CrossExchangeMarketPair] = None
-        self.market_info: Optional[MarketInfo] = None
         self.market_symbol_pairs: List[MarketSymbolPair] = []
         self.clock: Optional[Clock] = None
 
@@ -115,8 +114,8 @@ class HummingbotApplication(*commands):
         self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
         self.reporting_module: Optional[ReportAggregator] = None
         self.data_feed: Optional[DataFeedBase] = None
-        self.stop_loss_tracker: Optional[StopLossTracker] = None
         self.notifiers: List[NotifierBase] = []
+        self.kill_switch: Optional[KillSwitch] = None
         self.liquidity_bounty: Optional[LiquidityBounty] = None
         self._initialize_liquidity_bounty()
         self._app_warnings: Deque[ApplicationWarning] = deque()
@@ -194,6 +193,9 @@ class HummingbotApplication(*commands):
     def add_application_warning(self, app_warning: ApplicationWarning):
         self._expire_old_application_warnings()
         self._app_warnings.append(app_warning)
+
+    def clear_application_warning(self):
+        self._app_warnings.clear()
 
     @staticmethod
     def _initialize_market_assets(market_name: str, symbols: List[str]) -> List[Tuple[str, str]]:
