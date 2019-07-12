@@ -186,52 +186,19 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
     def format_status(self) -> str:
         cdef:
-            MarketBase maker_market
-            OrderBook maker_order_book
-            str maker_symbol
-            str maker_base
-            str maker_quote
-            double maker_base_balance
-            double maker_quote_balance
             list lines = []
             list warning_lines = []
-            dict market_info_to_active_orders = self.market_info_to_active_orders
             list active_orders = []
 
         for market_info in self._market_infos.values():
-            # Get some basic info about the market pair.
-            maker_market = market_info.market
-            maker_symbol = market_info.trading_pair
-            maker_name = maker_market.name
-            maker_base = market_info.base_asset
-            maker_quote = market_info.quote_asset
-            maker_order_book = maker_market.c_get_order_book(maker_symbol)
-            maker_base_balance = maker_market.c_get_balance(maker_base)
-            maker_quote_balance = maker_market.c_get_balance(maker_quote)
-            bid_price = maker_order_book.c_get_price(False)
-            ask_price = maker_order_book.c_get_price(True)
-            active_orders = market_info_to_active_orders.get(market_info, [])
+            active_orders = self.market_info_to_active_orders.get(market_info, [])
 
-            if not maker_market.network_status is NetworkStatus.CONNECTED:
-                warning_lines.extend([
-                    f"  Markets are offline for the {maker_symbol} pair. Continued market making "
-                    f"with these markets may be dangerous.",
-                    ""
-                ])
+            warning_lines.extend(self.network_warning([market_info]))
 
-            markets_columns = ["Market", "Symbol", "Bid Price", "Ask Price"]
-            markets_data = [
-                [maker_name, maker_symbol, bid_price, ask_price],
-            ]
-            markets_df = pd.DataFrame(data=markets_data, columns=markets_columns)
+            markets_df = self.market_status_data_frame([market_info])
             lines.extend(["", "  Markets:"] + ["    " + line for line in str(markets_df).split("\n")])
 
-            assets_columns = ["Market", "Asset", "Balance"]
-            assets_data = [
-                [maker_name, maker_base, maker_base_balance],
-                [maker_name, maker_quote, maker_quote_balance],
-            ]
-            assets_df = pd.DataFrame(data=assets_data, columns=assets_columns)
+            assets_df = self.wallet_balance_data_frame([market_info])
             lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
 
             # See if there're any open orders.
@@ -243,11 +210,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             else:
                 lines.extend(["", "  No active maker orders."])
 
-            # Add warning lines on null balances.
-            if maker_base_balance <= 0:
-                warning_lines.append(f"  Maker market {maker_base} balance is 0. No ask order is possible.")
-            if maker_quote_balance <= 0:
-                warning_lines.append(f"  Maker market {maker_quote} balance is 0. No bid order is possible.")
+            warning_lines.extend(self.balance_warning([market_info]))
 
         if len(warning_lines) > 0:
             lines.extend(["", "*** WARNINGS ***"] + warning_lines)
