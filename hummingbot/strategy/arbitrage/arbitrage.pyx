@@ -90,15 +90,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             list lines = []
             list warning_lines = []
         for market_pair in self._market_pairs:
-            if not (market_pair.first.market.network_status is NetworkStatus.CONNECTED and
-                    market_pair.second.market.network_status is NetworkStatus.CONNECTED):
-                warning_lines.extend([
-                    f"  Markets are offline for the {market_pair.first.trading_pair} // "
-                    f"{market_pair.second.trading_pair} pair. "
-                    f"No arbitrage is possible.",
-                    ""
-                ])
-                continue
+            warning_lines.extend(self.network_warning([market_pair.first, market_pair.second]))
 
             markets_df = self.market_status_data_frame([market_pair.first, market_pair.second])
             lines.extend(["", "  Markets:"] +
