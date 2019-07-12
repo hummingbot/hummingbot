@@ -6,8 +6,6 @@ from typing import (
     Tuple,
 )
 
-from hummingbot.core.event.events import MarketEvent
-from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.core.event.events import (
     TradeType,
@@ -26,41 +24,7 @@ NaN = float("nan")
 as_logger = None
 
 
-cdef class BaseArbitrageStrategyEventListener(EventListener):
-    cdef:
-        ArbitrageStrategy _owner
-
-    def __init__(self, ArbitrageStrategy owner):
-        super().__init__()
-        self._owner = owner
-
-
-cdef class BuyOrderCompletedListener(BaseArbitrageStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_complete_buy_order(arg)
-
-
-cdef class SellOrderCompletedListener(BaseArbitrageStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_complete_sell_order(arg)
-
-
-cdef class OrderFailedListener(BaseArbitrageStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_fail_order(arg)
-
-
-cdef class OrderCancelledListener(BaseArbitrageStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_cancel_order(arg)
-
-
 cdef class ArbitrageStrategy(StrategyBase):
-    BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
-    SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
-    ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
-
     OPTION_LOG_STATUS_REPORT = 1 << 0
     OPTION_LOG_CREATE_ORDER = 1 << 1
     OPTION_LOG_ORDER_COMPLETED = 1 << 2
@@ -90,12 +54,7 @@ cdef class ArbitrageStrategy(StrategyBase):
         self._logging_options = logging_options
         self._market_pairs = market_pairs
         self._min_profitability = min_profitability
-        self._buy_order_completed_listener = BuyOrderCompletedListener(self)
-        self._sell_order_completed_listener = SellOrderCompletedListener(self)
-        self._order_failed_listener = OrderFailedListener(self)
-        self._order_canceled_listener = OrderCancelledListener(self)
         self._all_markets_ready = False
-        self._markets = set()
         self._order_id_to_market = {}
         self._tracked_taker_orders = {}
         self._status_report_interval = status_report_interval
@@ -104,17 +63,13 @@ cdef class ArbitrageStrategy(StrategyBase):
         self._last_trade_timestamps = {}
 
         cdef:
-            MarketBase typed_market
+            set all_markets = {
+                market
+                for market_pair in self._market_pairs
+                for market in [market_pair.first.market, market_pair.second.market]
+            }
 
-        for market_pair in self._market_pairs:
-            for market in [market_pair.first.market, market_pair.second.market]:
-                self._markets.add(market)
-                typed_market = market
-                typed_market.c_add_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sell_order_completed_listener)
-                typed_market.c_add_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._buy_order_completed_listener)
-                typed_market.c_add_listener(self.ORDER_FAILURE_EVENT_TAG, self._order_failed_listener)
-                typed_market.c_add_listener(self.ORDER_CANCELLED_EVENT_TAG, self._order_canceled_listener)
-
+        self.c_add_markets(list(all_markets))
 
     @property
     def tracked_taker_orders(self) -> List[Tuple[MarketBase, MarketOrder]]:
@@ -130,24 +85,12 @@ cdef class ArbitrageStrategy(StrategyBase):
 
         return pd.DataFrame(data=market_orders, columns=["market", "symbol", "order_id", "quantity", "timestamp"])
 
-    @property
-    def active_markets(self) -> List[MarketBase]:
-        return list(self._markets)
-
     def format_status(self) -> str:
         cdef:
             list lines = []
             list warning_lines = []
         for market_pair in self._market_pairs:
-            if not (market_pair.first.market.network_status is NetworkStatus.CONNECTED and
-                    market_pair.second.market.network_status is NetworkStatus.CONNECTED):
-                warning_lines.extend([
-                    f"  Markets are offline for the {market_pair.first.trading_pair} // "
-                    f"{market_pair.second.trading_pair} pair. "
-                    f"No arbitrage is possible.",
-                    ""
-                ])
-                continue
+            warning_lines.extend(self.network_warning([market_pair.first, market_pair.second]))
 
             markets_df = self.market_status_data_frame([market_pair.first, market_pair.second])
             lines.extend(["", "  Markets:"] +
@@ -217,7 +160,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                                            (self._logging_options & self.OPTION_LOG_STATUS_REPORT))
         try:
             if not self._all_markets_ready:
-                self._all_markets_ready = all([market.ready for market in self._markets])
+                self._all_markets_ready = all([market.ready for market in self._sb_markets])
                 if not self._all_markets_ready:
                     # Markets not ready yet. Don't do anything.
                     if should_report_warnings:
@@ -227,7 +170,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                     if self.OPTION_LOG_STATUS_REPORT:
                         self.logger().info(f"Markets are ready. Trading started.")
 
-            if not all([market.network_status is NetworkStatus.CONNECTED for market in self._markets]):
+            if not all([market.network_status is NetworkStatus.CONNECTED for market in self._sb_markets]):
                 if should_report_warnings:
                     self.logger().warning(f"Markets are not all online. No arbitrage trading is permitted.")
                 return
