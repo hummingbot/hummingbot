@@ -1,4 +1,5 @@
 import logging
+from collections import deque
 from typing import (
     List)
 
@@ -9,17 +10,26 @@ from hummingbot.core.time_iterator cimport TimeIterator
 from hummingbot.market.market_base cimport MarketBase
 import pandas as pd
 from hummingbot.core.data_type.trade import Trade
-from hummingbot.core.event.events import OrderFilledEvent
+from hummingbot.core.event.events import (
+    OrderFilledEvent,
+    OrderType
+)
+
 NaN = float("nan")
 
 
 cdef class StrategyBase(TimeIterator):
+    SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION = 60.0 * 15
+
     @classmethod
     def logger(cls) -> logging.Logger:
         raise NotImplementedError
 
     def __init__(self):
         super().__init__()
+        self._markets = set()
+        self._limit_order_min_expiration = 130.0
+        self._delegate_lock = False
 
     @property
     def active_markets(self) -> List[MarketBase]:
@@ -148,3 +158,37 @@ cdef class StrategyBase(TimeIterator):
                 ""
             ])
         return warning_lines
+
+    cdef c_buy_with_specific_market(self, object market_symbol_pair, double amount,
+                                    object order_type = OrderType.MARKET,
+                                    double price = NaN,
+                                    double expiration_seconds = NaN):
+        if self._delegate_lock:
+            raise RuntimeError("Delegates are not allowed to execute orders directly.")
+
+        cdef:
+            dict kwargs = {
+                "expiration_ts": self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
+            }
+            MarketBase market = market_symbol_pair.market
+
+        if market not in self._markets:
+            raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
+        return market.c_buy(market_symbol_pair.trading_pair, amount, order_type=order_type, price=price)
+
+
+    cdef c_sell_with_specific_market(self, object market_symbol_pair, double amount,
+                                     object order_type = OrderType.MARKET,
+                                     double price = NaN,
+                                     double expiration_seconds = NaN):
+        if self._delegate_lock:
+            raise RuntimeError("Delegates are not allowed to execute orders directly.")
+
+        cdef:
+            dict kwargs = {
+                "expiration_ts": self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
+            }
+            MarketBase market = market_symbol_pair.market
+        if market not in self._markets:
+            raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
+        return market.c_sell(market_symbol_pair.trading_pair, amount, order_type=order_type, price=price)
