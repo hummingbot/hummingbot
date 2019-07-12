@@ -42,25 +42,25 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
         cdef:
             MarketBase market = market_info.market
             object buy_fees
-            double base_asset_balance = market.c_get_balance(market_info.base_currency)
-            double quote_asset_balance = market.c_get_balance(market_info.quote_currency)
+            double base_asset_balance = market.c_get_balance(market_info.base_asset)
+            double quote_asset_balance = market.c_get_balance(market_info.quote_asset)
             double bid_order_size = self._order_size
             double ask_order_size = self._order_size
             bint has_active_bid = False
             bint has_active_ask = False
 
-        buy_fees = market.c_get_fee(market_info.base_currency, market_info.quote_currency,
+        buy_fees = market.c_get_fee(market_info.base_asset, market_info.quote_asset,
                                     OrderType.MARKET, TradeType.BUY,
                                     bid_order_size, pricing_proposal.buy_order_prices[0])
 
         if market.name == "binance":
-            bid_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size, pricing_proposal.buy_order_prices[0])
-            ask_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size, pricing_proposal.sell_order_prices[0])
+            bid_order_size = market.c_quantize_order_amount(market_info.trading_pair, self.order_size, pricing_proposal.buy_order_prices[0])
+            ask_order_size = market.c_quantize_order_amount(market_info.trading_pair, self.order_size, pricing_proposal.sell_order_prices[0])
             required_quote_asset_balance = pricing_proposal.buy_order_prices[0] * bid_order_size
 
         else:
-            bid_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size)
-            ask_order_size = market.c_quantize_order_amount(market_info.symbol, self.order_size)
+            bid_order_size = market.c_quantize_order_amount(market_info.trading_pair, self.order_size)
+            ask_order_size = market.c_quantize_order_amount(market_info.trading_pair, self.order_size)
             required_quote_asset_balance = pricing_proposal.buy_order_prices[0] * (1+float(buy_fees.percent)) * bid_order_size
 
         if self._log_warning_order_size:

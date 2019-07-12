@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import json
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../../")))
 
@@ -34,7 +35,7 @@ from hummingbot.model.order_status import OrderStatus
 class LiquidityBounty(NetworkBase):
     lb_logger: Optional[HummingbotLogger] = None
     _lb_shared_instance: Optional["LiquidityBounty"] = None
-    LIQUIDITY_BOUNTY_REST_API = "https://api-staging.hummingbot.io/bounty"
+    LIQUIDITY_BOUNTY_REST_API = "https://api.hummingbot.io/bounty"
     ACCEPTED_ORDER_STATUS_UPDATES = ["BuyOrderCreated", "SellOrderCreated", "OrderFilled", "OrderCancelled",
                                      "OrderFailure"]
 
@@ -250,7 +251,8 @@ class LiquidityBounty(NetworkBase):
             headers = {"Client-ID": client_id}
 
             async with client.request(request_method, url, headers=headers, **kwargs) as resp:
-                results = await resp.json()
+                data = await resp.text()
+                results = json.loads(data)
                 if "error" in results:
                     raise Exception(results.get("error"))
                 if resp.status == 500:
@@ -259,7 +261,7 @@ class LiquidityBounty(NetworkBase):
                     raise Exception("User not registered")
                 return results
         except Exception as e:
-            self.logger().network(f"Error in authenticated request: {str(e)}", exc_info=True)
+            self.logger().network(f"Error in authenticated request: {str(e)}, data: {data}", exc_info=True)
             raise
 
     async def fetch_client_status(self):

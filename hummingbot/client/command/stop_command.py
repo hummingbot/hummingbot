@@ -37,11 +37,10 @@ class StopCommand:
             self.reporting_module.stop()
         if self.strategy_task is not None and not self.strategy_task.cancelled():
             self.strategy_task.cancel()
-        if self.strategy:
-            self.strategy.stop()
         ExchangeRateConversion.get_instance().stop()
-        self.stop_loss_tracker.stop()
         self.markets_recorder.stop()
+        if self.kill_switch is not None:
+            self.kill_switch.stop()
         self.wallet = None
         self.strategy_task = None
         self.strategy = None

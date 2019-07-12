@@ -17,8 +17,6 @@ class ExitCommand:
                         force: bool = False):
         if self.strategy_task is not None and not self.strategy_task.cancelled():
             self.strategy_task.cancel()
-        if self.strategy:
-            self.strategy.stop()
         if force is False and self._trading_required:
             success = await self._cancel_outstanding_orders()
             if not success:

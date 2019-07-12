@@ -1,7 +1,11 @@
 import logging
+from collections import deque
 from typing import (
     List)
 
+from hummingbot.core.clock cimport Clock
+from hummingbot.core.event.events import MarketEvent
+from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
@@ -9,27 +13,106 @@ from hummingbot.core.time_iterator cimport TimeIterator
 from hummingbot.market.market_base cimport MarketBase
 import pandas as pd
 from hummingbot.core.data_type.trade import Trade
-from hummingbot.core.event.events import OrderFilledEvent
+from hummingbot.core.event.events import (
+    OrderFilledEvent,
+    OrderType
+)
+
 NaN = float("nan")
 
 
+cdef class BaseStrategyEventListener(EventListener):
+    cdef:
+        StrategyBase _owner
+
+    def __init__(self, StrategyBase owner):
+        super().__init__()
+        self._owner = owner
+
+
+cdef class BuyOrderCompletedListener(BaseStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_complete_buy_order(arg)
+
+
+cdef class SellOrderCompletedListener(BaseStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_complete_sell_order(arg)
+
+
+cdef class OrderFilledListener(BaseStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_fill_order(arg)
+
+
+cdef class OrderFailedListener(BaseStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_fail_order(arg)
+
+
+cdef class OrderCancelledListener(BaseStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_cancel_order(arg)
+
+
+cdef class OrderExpiredListener(BaseStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_expire_order(arg)
+
+
+cdef class BuyOrderCreatedListener(BaseStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_create_buy_order(arg)
+
+
+cdef class SellOrderCreatedListener(BaseStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_create_sell_order(arg)
+
+
 cdef class StrategyBase(TimeIterator):
+    BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
+    SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
+    ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
+    ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    ORDER_EXPIRED_EVENT_TAG = MarketEvent.OrderExpired.value
+    ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
+    BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
+    SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
+
     @classmethod
     def logger(cls) -> logging.Logger:
         raise NotImplementedError
 
     def __init__(self):
         super().__init__()
+        self._sb_markets = set()
+        self._sb_create_buy_order_listener = BuyOrderCreatedListener(self)
+        self._sb_create_sell_order_listener = SellOrderCreatedListener(self)
+        self._sb_fill_order_listener = OrderFilledListener(self)
+        self._sb_fail_order_listener = OrderFailedListener(self)
+        self._sb_cancel_order_listener = OrderCancelledListener(self)
+        self._sb_expire_order_listener = OrderExpiredListener(self)
+        self._sb_complete_buy_order_listener = BuyOrderCompletedListener(self)
+        self._sb_complete_sell_order_listener = SellOrderCompletedListener(self)
+
+        self._sb_limit_order_min_expiration = 130.0
+        self._sb_delegate_lock = False
 
     @property
     def active_markets(self) -> List[MarketBase]:
-        raise NotImplementedError
+        return list(self._sb_markets)
+
+    @property
+    def limit_order_min_expiration(self) -> float:
+        return self._sb_limit_order_min_expiration
+
+    @limit_order_min_expiration.setter
+    def limit_order_min_expiration(self, double value):
+        self._sb_limit_order_min_expiration = value
 
     def format_status(self):
         raise NotImplementedError
-
-    def stop(self):
-        pass
 
     def log_with_clock(self, log_level: int, msg: str, **kwargs):
         clock_timestamp = pd.Timestamp(self._current_timestamp, unit="s", tz="UTC")
@@ -148,3 +231,99 @@ cdef class StrategyBase(TimeIterator):
                 ""
             ])
         return warning_lines
+
+    cdef c_stop(self, Clock clock):
+        TimeIterator.c_stop(self, clock)
+        self.c_remove_markets(list(self._sb_markets))
+
+    cdef c_add_markets(self, list markets):
+        cdef:
+            MarketBase typed_market
+
+        for market in markets:
+            typed_market = market
+            typed_market.c_add_listener(self.BUY_ORDER_CREATED_EVENT_TAG, self._sb_create_buy_order_listener)
+            typed_market.c_add_listener(self.SELL_ORDER_CREATED_EVENT_TAG, self._sb_create_sell_order_listener)
+            typed_market.c_add_listener(self.ORDER_FILLED_EVENT_TAG, self._sb_fill_order_listener)
+            typed_market.c_add_listener(self.ORDER_FAILURE_EVENT_TAG, self._sb_fail_order_listener)
+            typed_market.c_add_listener(self.ORDER_CANCELLED_EVENT_TAG, self._sb_cancel_order_listener)
+            typed_market.c_add_listener(self.ORDER_EXPIRED_EVENT_TAG, self._sb_expire_order_listener)
+            typed_market.c_add_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_buy_order_listener)
+            typed_market.c_add_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
+            self._sb_markets.add(typed_market)
+
+    cdef c_remove_markets(self, list markets):
+        cdef:
+            MarketBase typed_market
+
+        for market in markets:
+            typed_market = market
+            if typed_market not in self._sb_markets:
+                continue
+            typed_market.c_remove_listener(self.BUY_ORDER_CREATED_EVENT_TAG, self._sb_create_buy_order_listener)
+            typed_market.c_remove_listener(self.SELL_ORDER_CREATED_EVENT_TAG, self._sb_create_sell_order_listener)
+            typed_market.c_remove_listener(self.ORDER_FILLED_EVENT_TAG, self._sb_fill_order_listener)
+            typed_market.c_remove_listener(self.ORDER_FAILURE_EVENT_TAG, self._sb_fail_order_listener)
+            typed_market.c_remove_listener(self.ORDER_CANCELLED_EVENT_TAG, self._sb_cancel_order_listener)
+            typed_market.c_remove_listener(self.ORDER_EXPIRED_EVENT_TAG, self._sb_expire_order_listener)
+            typed_market.c_remove_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_buy_order_listener)
+            typed_market.c_remove_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
+            self._sb_markets.remove(typed_market)
+
+    cdef c_did_create_buy_order(self, object order_created_event):
+        pass
+
+    cdef c_did_create_sell_order(self, object order_created_event):
+        pass
+
+    cdef c_did_fill_order(self, object order_filled_event):
+        pass
+
+    cdef c_did_fail_order(self, object order_failed_event):
+        pass
+
+    cdef c_did_cancel_order(self, object cancelled_event):
+        pass
+
+    cdef c_did_expire_order(self, object cancelled_event):
+        pass
+
+    cdef c_did_complete_buy_order(self, object order_completed_event):
+        pass
+
+    cdef c_did_complete_sell_order(self, object order_completed_event):
+        pass
+
+    cdef c_buy_with_specific_market(self, object market_symbol_pair, double amount,
+                                    object order_type = OrderType.MARKET,
+                                    double price = NaN,
+                                    double expiration_seconds = NaN):
+        if self._sb_delegate_lock:
+            raise RuntimeError("Delegates are not allowed to execute orders directly.")
+
+        cdef:
+            dict kwargs = {
+                "expiration_ts": self._current_timestamp + max(self._sb_limit_order_min_expiration, expiration_seconds)
+            }
+            MarketBase market = market_symbol_pair.market
+
+        if market not in self._sb_markets:
+            raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
+        return market.c_buy(market_symbol_pair.trading_pair, amount, order_type=order_type, price=price)
+
+
+    cdef c_sell_with_specific_market(self, object market_symbol_pair, double amount,
+                                     object order_type = OrderType.MARKET,
+                                     double price = NaN,
+                                     double expiration_seconds = NaN):
+        if self._sb_delegate_lock:
+            raise RuntimeError("Delegates are not allowed to execute orders directly.")
+
+        cdef:
+            dict kwargs = {
+                "expiration_ts": self._current_timestamp + max(self._sb_limit_order_min_expiration, expiration_seconds)
+            }
+            MarketBase market = market_symbol_pair.market
+        if market not in self._sb_markets:
+            raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
+        return market.c_sell(market_symbol_pair.trading_pair, amount, order_type=order_type, price=price)
