@@ -141,7 +141,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         return maker_orders
 
     @property
-    def market_info_to_active_orders(self) -> Dict[MarketInfo, List[LimitOrder]]:
+    def market_info_to_active_orders(self) -> Dict[MarketSymbolPair, List[LimitOrder]]:
         market_info_to_orders = {}
         for market_info in self._market_infos.values():
             maker_orders = []
@@ -227,7 +227,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     def cancel_order(self, market_info: MarketSymbolPair, order_id:str):
         return self.c_cancel_order(market_info, order_id)
 
-    def get_order_price_proposal(self, market_info: MarketInfo) -> PricingProposal:
+    def get_order_price_proposal(self, market_info: MarketSymbolPair) -> PricingProposal:
         active_orders = []
         for limit_order in self._tracked_maker_orders.get(market_info, {}).values():
             if limit_order.client_order_id in self._in_flight_cancels:
@@ -239,7 +239,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             self, market_info, active_orders
         )
 
-    def get_order_size_proposal(self, market_info: MarketInfo, pricing_proposal: PricingProposal) -> SizingProposal:
+    def get_order_size_proposal(self, market_info: MarketSymbolPair, pricing_proposal: PricingProposal) -> SizingProposal:
         active_orders = []
         for limit_order in self._tracked_maker_orders.get(market_info, {}).values():
             if limit_order.client_order_id in self._in_flight_cancels:
