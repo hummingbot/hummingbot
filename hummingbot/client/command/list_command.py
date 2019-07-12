@@ -18,7 +18,7 @@ from hummingbot.client.settings import (
     EXCHANGES,
     MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT
 )
-from hummingbot.core.data_type.trade_fills import TradeFills
+from hummingbot.model.trade_fill import TradeFill
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -67,10 +67,10 @@ class ListCommand:
 
         elif obj == "trades":
             lines = []
-            #To access the trades from Markets Recorder you need the file path and strategy name
+            # To access the trades from Markets Recorder you need the file path and strategy name
             if in_memory_config_map.get("strategy_file_path").value is None or \
                     in_memory_config_map.get("strategy").value is None:
-                self._notify("Kindly Configure the bot first")
+                self._notify("Please Configure the bot first")
             else:
                 markets_recorder = MarketsRecorder(
                     self.trade_fill_db,
@@ -80,9 +80,7 @@ class ListCommand:
                 )
                 config_file = in_memory_config_map.get("strategy_file_path").value
                 queried_trades = markets_recorder.get_trades_for_config(config_file)
-
-                self.logger().info(queried_trades)
-                df = TradeFills.to_pandas(queried_trades)
+                df = TradeFill.to_pandas(queried_trades)
                 if len(df) > 0:
                     if len(df) <MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT:
                         df_lines = str(df).split("\n")
