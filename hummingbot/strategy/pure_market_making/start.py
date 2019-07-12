@@ -8,7 +8,6 @@ from hummingbot.strategy.pure_market_making import (
     PureMarketMakingStrategyV2,
     ConstantMultipleSpreadPricingDelegate,
     StaggeredMultipleSizeSizingDelegate,
-    MarketInfo
 )
 from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map
 
