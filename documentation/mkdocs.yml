@@ -80,12 +80,13 @@ nav:
         - Timeline: roadmap.md
         - Useful Terminology: glossary.md
       - Quickstart:
-        - 0. Before you begin: quickstart/0-begin.md
+        - 0. Before you begin: quickstart/index.md
         - 1. Install Hummingbot: quickstart/1-install.md
         - 2. Register for Liquidity Bounties: quickstart/2-bounties.md
         - 3. Run your First Bot: quickstart/3-bot.md
       - Cheatsheets:
-        - Docker Commands: docker.md
+        - Overview: cheatsheets/index.md
+        - Docker Commands: cheatsheets/docker.md
       - Liquidity Bounties:
         - FAQ: bounties/faq.md
         - Active Bounties:
