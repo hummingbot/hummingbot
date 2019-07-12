@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-import numpy, pandas as pd
+import numpy
+import pandas as pd
 from typing import (
     Any,
     Dict,
