@@ -206,7 +206,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 if limit_order.client_order_id in self._in_flight_cancels:
                     if self._in_flight_cancels.get(limit_order.client_order_id) + self.CANCEL_EXPIRY_DURATION < self._current_timestamp:
                         continue
-                maker_orders.append(market_info.market, limit_order)
+                maker_orders.append((market_info.market, limit_order))
         return maker_orders
 
     @property
@@ -543,7 +543,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         cdef:
             str order_id = cancelled_event.order_id
             object market_info = self._order_id_to_market_info.get(order_id)
-
         self.c_stop_tracking_order(market_info, order_id)
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
