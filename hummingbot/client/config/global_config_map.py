@@ -130,25 +130,17 @@ global_config_map = {
                                                   type_str="list",
                                                   default=[["ETH", "coincap_api"],
                                                            ["DAI", "coincap_api"]]),
-    "stop_loss_pct":                    ConfigVar(key="stop_loss_pct",
-                                                  prompt="At what percentage of loss would you like the bot to stop "
-                                                         "trading? (Enter 0.03 to indicate 3%. "
-                                                         "Enter -1.0 to disable) >>> ",
-                                                  default=-1.0,
-                                                  type_str="float"),
-    "stop_loss_price_type":             ConfigVar(key="stop_loss_price_type",
-                                                  prompt="What type of price data would you like to use for stop "
-                                                         "loss (fixed/dynamic) ? >>> ",
-                                                  required_if=lambda:
-                                                      type(global_config_map.get("stop_loss_pct").value) is float and
-                                                      global_config_map.get("stop_loss_pct").value >= 0,
-                                                  validator=lambda v: v in {"fixed", "dynamic"}),
-    "stop_loss_base_token":             ConfigVar(key="stop_loss_base_token",
-                                                  prompt="What base token would you like to use to calculate your "
-                                                         "inventory value? (Default \"USD\") >>> ",
-                                                  default="USD",
-                                                  required_if=lambda:
-                                                      global_config_map.get("stop_loss_price_type").value == "dynamic"),
+
+    "kill_switch_enabled":              ConfigVar(key="kill_switch_enabled",
+                                                  prompt="Would you like to enable kill switch? (y/n) >>> ",
+                                                  type_str="bool",
+                                                  default=False),
+    "kill_switch_rate":                 ConfigVar(key="kill_switch_rate",
+                                                  prompt="At would rate of profitability would you like the bot to "
+                                                         "stop trading? (e.g. -0.2) >>> ",
+                                                  type_str="float",
+                                                  default=-1,
+                                                  required_if=lambda: global_config_map["kill_switch_enabled"].value),
 
     "telegram_enabled":                 ConfigVar(key="telegram_enabled",
                                                   prompt="Would you like to enable telegram? >>> ",
@@ -162,4 +154,5 @@ global_config_map = {
                                                   prompt="What is your telegram chat id? >>> ",
                                                   required_if=lambda: False),
 }
+
 
