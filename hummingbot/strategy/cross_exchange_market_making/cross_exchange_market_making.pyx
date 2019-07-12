@@ -5,7 +5,6 @@ from collections import (
 )
 from decimal import Decimal
 import logging
-import pandas as pd
 from typing import (
     List,
     Tuple,
@@ -16,20 +15,18 @@ from typing import (
 
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.events import (
-    MarketEvent,
     TradeType
 )
-from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import (
     MarketBase,
     OrderType
 )
 from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from .cross_exchange_market_pair import CrossExchangeMarketPair
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
@@ -39,52 +36,7 @@ s_decimal_zero = Decimal(0)
 s_logger = None
 
 
-cdef class BaseCrossExchangeMarketMakingStrategyEventListener(EventListener):
-    cdef:
-        CrossExchangeMarketMakingStrategy _owner
-
-    def __init__(self, CrossExchangeMarketMakingStrategy owner):
-        super().__init__()
-        self._owner = owner
-
-
-cdef class BuyOrderCompletedListener(BaseCrossExchangeMarketMakingStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_complete_buy_order(arg)
-
-
-cdef class SellOrderCompletedListener(BaseCrossExchangeMarketMakingStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_complete_sell_order(arg)
-
-
-cdef class OrderFilledListener(BaseCrossExchangeMarketMakingStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_fill_order(arg)
-
-
-cdef class OrderFailedListener(BaseCrossExchangeMarketMakingStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_fail_order(arg)
-
-
-cdef class OrderCancelledListener(BaseCrossExchangeMarketMakingStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_cancel_order(arg)
-
-cdef class OrderExpiredListener(BaseCrossExchangeMarketMakingStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_cancel_order(arg)
-
-
 cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
-    BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
-    SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
-    ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
-    ORDER_EXPIRED_EVENT_TAG = MarketEvent.OrderExpired.value
-    ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
-
     OPTION_LOG_NULL_ORDER_SIZE = 1 << 0
     OPTION_LOG_REMOVING_ORDER = 1 << 1
     OPTION_LOG_ADJUST_ORDER = 1 << 2
@@ -133,7 +85,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._maker_markets = set([market_pair.maker.market for market_pair in market_pairs])
         self._taker_markets = set([market_pair.taker.market for market_pair in market_pairs])
         self._all_markets_ready = False
-        self._markets = self._maker_markets | self._taker_markets
         self._min_profitability = min_profitability
         self._order_size_taker_volume_factor = order_size_taker_volume_factor
         self._order_size_taker_balance_factor = order_size_taker_balance_factor
@@ -151,35 +102,19 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._suggested_price_samples = {}
         self._in_flight_cancels = OrderedDict()
         self._anti_hysteresis_duration = anti_hysteresis_duration
-        self._buy_order_completed_listener = BuyOrderCompletedListener(self)
-        self._sell_order_completed_listener = SellOrderCompletedListener(self)
-        self._order_filled_listener = OrderFilledListener(self)
-        self._order_failed_listener = OrderFailedListener(self)
-        self._order_cancelled_listener = OrderCancelledListener(self)
-        self._order_expired_listener = OrderExpiredListener(self)
         self._logging_options = <int64_t>logging_options
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
-        self._limit_order_min_expiration = limit_order_min_expiration
         self._cancel_order_threshold = cancel_order_threshold
         self._active_order_canceling = active_order_canceling
         self._exchange_rate_conversion = ExchangeRateConversion.get_instance()
 
+        self.limit_order_min_expiration = limit_order_min_expiration
+
         cdef:
-            MarketBase typed_market
+            list all_markets = list(self._maker_markets | self._taker_markets)
 
-        for market in self._maker_markets:
-            typed_market = market
-            typed_market.c_add_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._buy_order_completed_listener)
-            typed_market.c_add_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sell_order_completed_listener)
-            typed_market.c_add_listener(self.ORDER_FILLED_EVENT_TAG, self._order_filled_listener)
-            typed_market.c_add_listener(self.ORDER_CANCELLED_EVENT_TAG, self._order_cancelled_listener)
-            typed_market.c_add_listener(self.ORDER_EXPIRED_EVENT_TAG, self._order_expired_listener)
-            typed_market.c_add_listener(self.ORDER_FAILURE_EVENT_TAG, self._order_failed_listener)
-
-    @property
-    def active_markets(self) -> List[MarketBase]:
-        return list(self._markets)
+        self.c_add_markets(all_markets)
 
     @property
     def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
@@ -305,32 +240,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         return self.c_check_if_price_correct(market_pair, active_order, current_hedging_price)
     # ---------------------------------------------------------------
 
-    cdef c_buy_with_specific_market(self, object market_symbol_pair, double amount,
-                                    object order_type = OrderType.MARKET,
-                                    double price = NaN,
-                                    double expiration_seconds = NaN):
-        cdef:
-            dict kwargs = {}
-        kwargs["expiration_ts"] = self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
-
-        if market_symbol_pair.market not in self._markets:
-            raise ValueError(f"market object for buy order is not in the whitelisted markets set.")
-        return (<MarketBase> market_symbol_pair.market).c_buy(market_symbol_pair.trading_pair, amount,
-                                                              order_type=order_type, price=price, kwargs=kwargs)
-
-    cdef c_sell_with_specific_market(self, object market_symbol_pair, double amount,
-                                     object order_type = OrderType.MARKET,
-                                     double price = NaN,
-                                     double expiration_seconds = NaN):
-        cdef:
-            dict kwargs = {}
-        kwargs["expiration_ts"] = self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
-
-        if market_symbol_pair.market not in self._markets:
-            raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
-        return (<MarketBase> market_symbol_pair.market).c_sell(market_symbol_pair.trading_pair, amount,
-                                                               order_type=order_type, price=price, kwargs=kwargs)
-
     cdef c_cancel_order(self, object market_pair, str order_id):
         cdef:
             list keys_to_delete = []
@@ -361,7 +270,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
         try:
             if not self._all_markets_ready:
-                self._all_markets_ready = all([market.ready for market in self._markets])
+                self._all_markets_ready = all([market.ready for market in self._sb_markets])
                 if not self._all_markets_ready:
                     # Markets not ready yet. Don't do anything.
                     if should_report_warnings:
@@ -372,7 +281,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         self.logger().info(f"Markets are ready. Trading started.")
 
             if should_report_warnings:
-                if not all([market.network_status is NetworkStatus.CONNECTED for market in self._markets]):
+                if not all([market.network_status is NetworkStatus.CONNECTED for market in self._sb_markets]):
                     self.logger().warning(f"WARNING: Some markets are not connected or are down at the moment. Market "
                                           f"making may be dangerous when markets or networks are unstable.")
 
@@ -519,6 +428,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             object market_pair = self._order_id_to_market_pair.get(order_id)
 
         self.c_stop_tracking_limit_order(market_pair, order_id)
+
+    cdef c_did_expire_order(self, object expired_event):
+        self.c_did_cancel_order(expired_event)
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
         cdef:
