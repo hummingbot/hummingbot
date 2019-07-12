@@ -80,24 +80,26 @@ nav:
         - Timeline: roadmap.md
         - Useful Terminology: glossary.md
       - Quickstart:
-        - 0. Before you begin: quickstart/index.md
+        - 0. Setup: quickstart/index.md
         - 1. Install Hummingbot: quickstart/1-install.md
-        - 2. Register for Liquidity Bounties: quickstart/2-bounties.md
-        - 3. Run your First Bot: quickstart/3-bot.md
+        - 2. Configure a Bot: quickstart/2-configure-bot.md
+        - 3. Run a Bot: quickstart/3-run-bot.md
       - Cheatsheets:
-        - Overview: cheatsheets/index.md
+        - Cheatsheets Overview: cheatsheets/index.md
         - Docker Commands: cheatsheets/docker.md
-      - Liquidity Bounties:
+      - Bounties:
         - FAQ: bounties/faq.md
         - Active Bounties:
           - Harmony $ONE Makers: bounties/active/harmony.md
       - Get Help:
-        - Contact and Support: support.md
+        - Contact and Support: support/index.md
+        - Troubleshooting: support/troubleshooting.md
         - Bug Bounty Program: support/bug-bounty-program.md
+        - 中文 Github repo: https://github.com/coinalpha/hummingbot_chinese
     - User Manual:
       - Intro: manual.md
       - Installation:
-        - Overview: installation.md
+        - Installation Overview: installation/index.md
         - Setup a Cloud Server: installation/cloud.md
         - Install on Linux: installation/linux.md
         - Install on MacOS: installation/macOS.md
@@ -117,7 +119,7 @@ nav:
         - Running Trading Bots: operation/running-bots.md
         - Tips for Cloud Users: operation/running-bots-in-the-cloud.md
       - Connectors:
-        - About Connectors: connectors.md
+        - Connectors Overview: connectors/index.md
         - Binance: connectors/binance.md
         - Coinbase Pro: connectors/coinbase.md
         - DDEX: connectors/ddex.md
@@ -125,24 +127,21 @@ nav:
         - Radar Relay: connectors/radar-relay.md
         - 0x Relayers: connectors/0x.md
       - Strategies:
-        - Strategy Overview: strategies.md
+        - Strategies Overview: strategies/index.md
         - Cross-exchange market making: strategies/cross-exchange-market-making.md
         - Arbitrage: strategies/arbitrage.md
         - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
         - Pure Market Making: strategies/pure-market-making.md
         - Discovery: strategies/discovery.md
       - Data Feeds:
-        - Overview: feeds.md
+        - Data Feeds Overview: feeds.md
       - Utilities:
         - Logs and Logging: operation/logging.md
         - Using Exchange Rates: operation/exchange-rates.md
         - Integrating Telegram: operation/telegram.md
-      - Advanced:
         - Debug Console: operation/debug.md
-      - Troubleshooting:
-        - Docker: troubleshooting/docker.md
     - Release Notes:
-      - About Releases: release-notes.md
+      - About Releases: release-notes/index.md
       - 0.9.1: release-notes/0.9.1.md
       - 0.9.0: release-notes/0.9.0.md
       - 0.8.1: release-notes/0.8.1.md

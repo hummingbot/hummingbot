@@ -1,4 +1,6 @@
-# Troubleshooting Docker
+# Troubleshooting
+
+## Installed with Docker
 
 Frequently asked questions and problems that may arise when using Hummingbot with Docker:
 
@@ -98,3 +100,11 @@ By default, the Docker Toolbox has copy and paste disabled within the command li
 ![](/assets/img/docker_toolbox_enable.png)
 
 Close any warnings, and you're done! Just hit enter to move onto the next line and you should be able to copy and paste text using **Ctrl+Shift+C** and **Ctrl+Shift+V**.
+
+## Installed from source
+
+Coming soon.
+
+## Running Hummingbot
+
+Coming soon.

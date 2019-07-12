@@ -1,16 +1,12 @@
-# Register for Liquidity Bounties
+# Configure Your First Trading Bot
 
-!!! note
-    These registration commands won't be available until Liquidity Bounties commence in **early July 2019**.
+!!! note "Paper trading mode [in progress]"
+    We are currently working on a paper trading mode that will allow you to test out Hummingbot without risking real crypto. For now, you still need to run a live trading bot.
 
-
-
-Now that you have [installed](https://docs.hummingbot.io/bounties/tutorial/install) Hummingbot, you can now register to earn rewards from Liquidity Bounties!
+If you have successfully installed Hummingbot using our install scripts, you should see the command line-based Hummingbot interface below:
+![](/assets/img/hummingbot-cli.png)
 
 ## The Hummingbot Client Interface
-
-You should see the command line-based Hummingbot interface below:
-![](/assets/img/hummingbot-cli.png)
 
 The left bottom pane is where you enter [commands](https://docs.hummingbot.io/operation/client/#client-commands) to run the bot. The upper left pane prints the output of your commands and the right pane logs messages in real time.
 
