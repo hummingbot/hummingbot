@@ -2,8 +2,6 @@
 
 from libc.stdint cimport int64_t
 
-from hummingbot.core.event.event_listener cimport EventListener
-from hummingbot.market.market_base cimport MarketBase
 from hummingbot.strategy.strategy_base cimport StrategyBase
 
 from .order_filter_delegate cimport OrderFilterDelegate
@@ -13,7 +11,6 @@ from .order_sizing_delegate cimport OrderSizingDelegate
 
 cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef:
-
         dict _market_infos
         bint _all_markets_ready
         double _cancel_order_wait_time
@@ -28,12 +25,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         object _in_flight_cancels
         object _shadow_gc_requests
 
-        EventListener _order_filled_listener
-        EventListener _buy_order_completed_listener
-        EventListener _sell_order_completed_listener
-        EventListener _order_failed_listener
-        EventListener _order_cancelled_listener
-        EventListener _order_expired_listener
         int64_t _logging_options
 
         OrderFilterDelegate _filter_delegate
@@ -42,11 +33,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
     cdef c_cancel_order(self, object market_info, str order_id)
     cdef object c_get_orders_proposal_for_market_info(self, object market_info, list active_maker_orders)
-    cdef c_did_fill_order(self, object order_filled_event)
-    cdef c_did_fail_order(self, object order_failed_event)
-    cdef c_did_cancel_order(self, object cancelled_event)
-    cdef c_did_complete_buy_order(self, object order_completed_event)
-    cdef c_did_complete_sell_order(self, object order_completed_event)
     cdef c_check_and_cleanup_shadow_records(self)
     cdef c_start_tracking_order(self, object market_info, str order_id, bint is_buy, object price, object quantity)
     cdef c_stop_tracking_order(self, object market_info, str order_id)
