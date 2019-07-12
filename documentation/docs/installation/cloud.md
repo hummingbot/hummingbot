@@ -2,9 +2,9 @@
 
 Using Hummingbot as a long running service can be achieved with the help of cloud platforms such as Google Cloud Platform, Amazon Web Services, and Microsoft Azure.
 
-## Step 1. Setting up a New Virtual Machine Instance
+Below, we show you how to set up a new Virtual Machine Instance on each major cloud platform.
 
-#### Google Cloud Platform
+## Google Cloud Platform
 
    * Navigate to the Google Cloud Platform console
    * Create an instance of Compute Instance
@@ -16,7 +16,7 @@ Using Hummingbot as a long running service can be achieved with the help of clou
 
 ![Connect SSH](/assets/img/gcp-ssh.png)
 
-#### Amazon Web Services
+## Amazon Web Services
 
    * Navigate to the AWS Management Console
    * Click on "Launch a Virtual Machine"
@@ -41,7 +41,7 @@ Using Hummingbot as a long running service can be achieved with the help of clou
 
    ![Connect to AWS Instance](/assets/img/aws5.png)
 
-#### Microsoft Azure
+## Microsoft Azure
 
    * Navigate to the Virtual Machines console.
    * Click on the "Add" button in the top-left corner.
@@ -76,6 +76,5 @@ Using Hummingbot as a long running service can be achieved with the help of clou
 
    ![Connect to Azure Instance](/assets/img/azure7.png)
 
-## Step 2. Install Hummingbot
-
-Once you can access your server's command line, you can proceed to [Install on Linux](/installation/linux).
+---
+# Next: [Install Hummingbot for Linux](/installation/linux)
