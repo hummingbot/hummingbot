@@ -2,6 +2,7 @@
 
 import asyncio
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.notifier.telegram_notifier import TelegramNotifier
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -34,6 +35,7 @@ class ExitCommand:
 
         self._notify("Winding down notifiers...")
         for notifier in self.notifiers:
+            assert isinstance(notifier, TelegramNotifier)
             notifier.stop()
 
         self.app.exit()

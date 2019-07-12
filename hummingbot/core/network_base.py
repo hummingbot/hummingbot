@@ -23,6 +23,7 @@ class NetworkBase:
         return nb_logger
 
     def __init__(self):
+        self._ev_loop = asyncio.get_event_loop()
         self._network_status = NetworkStatus.STOPPED
         self._last_connected_timestamp = NaN
         self._check_network_interval = 10.0
@@ -119,7 +120,7 @@ class NetworkBase:
                 self.logger().error("Unexpected error starting or stopping network.", exc_info=True)
 
     def start(self):
-        self._check_network_task = asyncio.ensure_future(self._check_network_loop())
+        self._check_network_task = asyncio.ensure_future(self._check_network_loop(), loop=self._ev_loop)
         self._network_status = NetworkStatus.NOT_CONNECTED
         self._started = True
 
@@ -128,5 +129,5 @@ class NetworkBase:
             self._check_network_task.cancel()
             self._check_network_task = None
         self._network_status = NetworkStatus.STOPPED
-        asyncio.ensure_future(self.stop_network())
+        asyncio.ensure_future(self.stop_network(), loop=self._ev_loop)
         self._started = False

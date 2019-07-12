@@ -87,7 +87,7 @@ class CoinCapDataFeed(DataFeedBase):
 
     async def start_network(self):
         await self.stop_network()
-        self._fetch_price_task = asyncio.ensure_future(self.fetch_price_loop())
+        self._fetch_price_task = asyncio.ensure_future(self.fetch_price_loop(), loop=self._ev_loop)
 
     async def stop_network(self):
         if self._fetch_price_task is not None:

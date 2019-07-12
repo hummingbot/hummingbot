@@ -104,7 +104,7 @@ class CoinMetricsDataFeed(DataFeedBase):
 
     async def start_network(self):
         await self.stop_network()
-        self.fetch_data_loop_task = asyncio.ensure_future(self.fetch_data_loop())
+        self.fetch_data_loop_task = asyncio.ensure_future(self.fetch_data_loop(), loop=self._ev_loop)
 
     async def stop_network(self):
         if self.fetch_data_loop_task is not None:
