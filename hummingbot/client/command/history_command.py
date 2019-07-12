@@ -52,13 +52,8 @@ class HistoryCommand:
         lines = ["", "  Inventory:"] + ["    " + line for line in str(df).split("\n")]
         self._notify("\n".join(lines))
 
-    def analyze_performance(self,  # type: HummingbotApplication
-                            ):
-        """ Determine the profitability of the trading bot. """
-        if len(self.starting_balances) == 0:
-            self._notify("  Performance analysis is not available before bot starts")
-            return
-
+    def get_performance_analysis_with_updated_balance(self,  # type: HummingbotApplication
+                                                      ) -> PerformanceAnalysis:
         performance_analysis = PerformanceAnalysis()
 
         for market_symbol_pair in self.market_symbol_pairs:
@@ -71,6 +66,10 @@ class HistoryCommand:
                     amount = float(amount)
                     performance_analysis.add_balances(asset_name, amount, is_base, is_starting)
 
+        return performance_analysis
+
+    def get_market_mid_price(self,  # type: HummingbotApplication
+                            ) -> float:
         # Compute the current exchange rate. We use the first market_symbol_pair because
         # if the trading pairs are different, such as WETH-DAI and ETH-USD, the currency
         # pairs above will contain the information in terms of the first trading pair.
@@ -78,7 +77,18 @@ class HistoryCommand:
         market = market_pair_info.market
         buy_price = market.get_price(market_pair_info.trading_pair, True)
         sell_price = market.get_price(market_pair_info.trading_pair, False)
-        price = (buy_price + sell_price)/2.0
+        price = (buy_price + sell_price) / 2.0
+        return price
+
+    def analyze_performance(self,  # type: HummingbotApplication
+                            ):
+        """ Calculate bot profitability and print to output pane """
+        if len(self.starting_balances) == 0:
+            self._notify("  Performance analysis is not available before bot starts")
+            return
+
+        performance_analysis: PerformanceAnalysis = self.get_performance_analysis_with_updated_balance()
+        price: float = self.get_market_mid_price()
 
         starting_token, starting_amount = performance_analysis.compute_starting(price)
         current_token, current_amount = performance_analysis.compute_current(price)
@@ -98,4 +108,10 @@ class HistoryCommand:
         print_performance += "    - Return: " + str(return_performance) + "%"
         self._notify(print_performance)
 
+    def calculate_profitability(self) -> float:
+        """ Determine the profitability of the trading bot. """
+        performance_analysis: PerformanceAnalysis = self.get_performance_analysis_with_updated_balance()
+        price: float = self.get_market_mid_price()
+        return_performance = performance_analysis.compute_return(price)
+        return return_performance
 
