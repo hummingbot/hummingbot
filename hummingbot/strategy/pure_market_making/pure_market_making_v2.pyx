@@ -408,6 +408,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         for k in keys_to_delete:
             del self._in_flight_cancels[k]
 
+        if order_id in self.in_flight_cancels:
+            return
+
         # Track the cancel and tell maker market to cancel the order.
         self._in_flight_cancels[order_id] = self._current_timestamp
         market.c_cancel(market_info.symbol, order_id)
