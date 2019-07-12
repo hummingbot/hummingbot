@@ -1,14 +1,19 @@
-# Configure Your First Trading Bot
+# [Quickstart] Configure Your First Trading Bot
 
 !!! note "Paper trading mode [in progress]"
     We are currently working on a paper trading mode that will allow you to test out Hummingbot without risking real crypto. For now, you still need to run a live trading bot.
 
-If you have successfully installed Hummingbot using our install scripts, you should see the command line-based Hummingbot interface below:
+If you have successfully installed Hummingbot using our install scripts, you should see the command line-based Hummingbot interface below.
+
+## Navigating the Client Interface
+
 ![](/assets/img/hummingbot-cli.png)
 
-## The Hummingbot Client Interface
+* Left bottom pane: input [commands](https://docs.hummingbot.io/operation/client/#client-commands)
+* Left top pane: output of your commands go
+* Right pane: logs of live trading bot activity
 
-The left bottom pane is where you enter [commands](https://docs.hummingbot.io/operation/client/#client-commands) to run the bot. The upper left pane prints the output of your commands and the right pane logs messages in real time.
+The left bottom pane is  The upper left pane  and the right pane logs messages in real time.
 
 ## Register for Bounties
 
