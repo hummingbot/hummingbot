@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 
 from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
+import sys;
 
+
+sys.path.insert(0, realpath(join(__file__, "../../")))
+
+from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from decimal import Decimal
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
@@ -37,7 +41,6 @@ from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.pure_market_making.pure_market_making_v2 import PureMarketMakingStrategyV2
 from hummingbot.strategy.pure_market_making import ConstantMultipleSpreadPricingDelegate, StaggeredMultipleSizeSizingDelegate
-from hummingbot.strategy.pure_market_making.data_types import MarketInfo
 
 
 class PureMarketMakingV2UnitTest(unittest.TestCase):
@@ -78,7 +81,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             )
         )
 
-        self.market_info: MarketInfo = MarketInfo(
+        self.market_info: MarketSymbolPair = MarketSymbolPair(
             *(
                 [self.maker_market] + self.maker_symbols
             )
