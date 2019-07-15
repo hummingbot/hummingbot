@@ -261,7 +261,7 @@ class LiquidityBounty(NetworkBase):
                     raise Exception("User not registered")
                 return results
         except Exception as e:
-            self.logger().network(f"Error in authenticated request: {str(e)}, data: {data}", exc_info=True)
+            self.logger().network(f"Error in authenticated request: {str(e)}, data: {data or None}", exc_info=True)
             raise
 
     async def fetch_client_status(self):
