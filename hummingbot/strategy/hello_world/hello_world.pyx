@@ -98,11 +98,12 @@ cdef class HelloWorldStrategy(StrategyBase):
     def __init__(self,
                  market_infos: List[MarketInfo],
                  order_type: str = "limit",
+                 order_price: Optional[float] = 1.0,
                  order_side: str = "buy",
                  time_delay: float = 10.0,
+                 order_amount: float = 1.0,
                  cancel_order_wait_time: float = 60,
                  logging_options: int = OPTION_LOG_ALL,
-                 limit_order_min_expiration = 130.0,
                  status_report_interval: float = 900):
 
         if len(market_infos) < 1:
@@ -117,9 +118,9 @@ cdef class HelloWorldStrategy(StrategyBase):
         self._markets = set([market_info.market for market_info in market_infos])
         self._tracked_orders = {}
         self._all_markets_ready = False
+        self.place_orders = True
         self._logging_options = logging_options
         self._status_report_interval = status_report_interval
-        self._limit_order_min_expiration = limit_order_min_expiration
 
         self._buy_order_completed_listener = BuyOrderCompletedListener(self)
         self._sell_order_completed_listener = SellOrderCompletedListener(self)
@@ -127,6 +128,9 @@ cdef class HelloWorldStrategy(StrategyBase):
         self._order_failed_listener = OrderFailedListener(self)
         self._order_cancelled_listener = OrderCancelledListener(self)
         self._order_expired_listener = OrderExpiredListener(self)
+        self._order_type = order_type
+        self._order_side = order_side
+        self._order_amount = order_amount
 
         cdef:
             MarketBase typed_market
@@ -242,33 +246,27 @@ cdef class HelloWorldStrategy(StrategyBase):
 
         return "\n".join(lines)
 
-    cdef c_buy_with_specific_market(self, MarketBase market, str symbol, double amount,
-                                    double price,
-                                    object order_type,
-                                    double expiration_seconds = NaN):
+     cdef c_buy_with_specific_market(self,
+                                     MarketBase market,
+                                     str symbol,
+                                     double amount,
+                                     object order_type = OrderType.MARKET,
+                                     double price = 0.0):
 
-        cdef:
-            dict kwargs = {
-                "expiration_ts": self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
-            }
 
         if market not in self._markets:
             raise ValueError(f"market object for buy order is not in the whitelisted markets set.")
-        return market.c_buy(symbol, amount, order_type=order_type, price=price, kwargs=kwargs)
+        return market.c_buy(symbol, amount, order_type=order_type, price=price)
 
-    cdef c_sell_with_specific_market(self, MarketBase market, str symbol, double amount,
-                                     double price,
-                                     object order_type,
-                                     double expiration_seconds = NaN):
-
-        cdef:
-            dict kwargs = {
-                "expiration_ts": self._current_timestamp + max(self._limit_order_min_expiration, expiration_seconds)
-            }
+    cdef c_sell_with_specific_market(self, MarketBase market,
+                                     str symbol,
+                                     double amount,
+                                     object order_type = OrderType.MARKET,
+                                     double price = 0.0):
 
         if market not in self._markets:
             raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
-        return market.c_sell(symbol, amount, order_type=order_type, price=price, kwargs=kwargs)
+        return market.c_sell(symbol, amount, order_type=order_type, price=price)
 
     cdef c_cancel_order(self, object market_info, str order_id):
         cdef:
@@ -313,6 +311,17 @@ cdef class HelloWorldStrategy(StrategyBase):
     cdef c_check_available_balance(self, object market_info):
         pass
 
+    cdef c_place_orders(self, object market_info):
+        cdef:
+            MarketBase market = market_info.market
+            str symbol = market_info.symbol
+
+        if self.c_check_available_balance():
+            if self._order_side == "buy":
+                if self._order_type == "market":
+                    self.c_buy_with_specific_market(market, symbol, self._order_amount, OrderType.MARKET, )
+        pass
+
     cdef c_process_market(self, object market_info):
         cdef:
             MarketBase maker_market = market_info.market
@@ -320,7 +329,7 @@ cdef class HelloWorldStrategy(StrategyBase):
 
         if self.place_orders:
             self.place_orders = False
-
+            self.c_place_orders(market_info)
 
         active_orders = self.market_info_to_active_orders[market_info]
         if len(active_orders) >0 :
