@@ -68,7 +68,13 @@ Afterwards, proceed to [Step 3](#step-3-install-hummingbot).
 
 ## Step 3: Install Hummingbot
 
-We have created installation scripts for each platform that simplify the installation process.
+### Using Helper Scripts
+We have created helper scripts that simplify the process of installing and running Hummingbot:
+
+* `create.sh`: Creates Hummingbot instance
+* `start.sh`: Restarts Hummingbot after shutdown
+* `connect.sh`: Connects to a running Hummingbot instance
+* `update.sh`: Updates Hummingbot
 
 Each install script installs a Docker image of the last stable release and creates the following folders in your root directory to house your logs and configuration files.
 ```
@@ -78,7 +84,7 @@ hummingbot_files       # Top level folder for your instance
 ```
 
 !!! warning
-    When you update Hummingbot, you do not delete these folders
+    When you update Hummingbot, use the `update.sh` helper script. Do not delete these folders; otherwise, your configuration info may be lost.
 
 
 ### Linux/Cloud
@@ -90,11 +96,14 @@ tmux
 
 Aftewards, run the following commands:
 ```bash
-# 1) Download Hummingbot install script
+# 1) Download Hummingbot helper scripts
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/connect.sh
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh
 
 # 2) Enable script permissions
-chmod a+x create.sh
+chmod a+x *.sh
 
 # 3) Run install script
 ./create.sh
@@ -106,11 +115,14 @@ Afterwards, you should see the Hummingbot client interface. Proceed to [Configur
 
 Open a Terminal window and run the following commands:
 ```bash
-# 1) Download Hummingbot install script
+# 1) Download Hummingbot helper scripts
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh -o create.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh -o start.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/connect.sh -o connect.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh -o update.sh
 
 # 2) Enable script permissions
-chmod a+x create.sh
+chmod a+x *.sh
 
 # 3) Run install script
 ./create.sh
@@ -131,11 +143,14 @@ From inside the Docker Toolbox window, run the following commands:
 # 1) Navigate to root folder
 cd ~
 
-# 2) Download Hummingbot install script
+# 2) Download Hummingbot helper scripts
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh -o create.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh -o start.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/connect.sh -o connect.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh -o update.sh
 
 # 3) Enable script permissions
-chmod a+x create.sh
+chmod a+x *.sh
 
 # 4) Run install script
 ./create.sh
