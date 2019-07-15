@@ -61,8 +61,8 @@ class DiscoveryUnitTest(unittest.TestCase):
                                  ['ETH', 'WETH'],
                                  ['BTC', 'WBTC']]
 
-        self.binance_market = create_autospec(BacktestMarket)
-        self.ddex_market = create_autospec(BacktestMarket)
+        self.binance_market = BacktestMarket()
+        self.ddex_market = BacktestMarket()
 
         self.market_pair = DiscoveryMarketPair(
             *([self.binance_market, mock_binance_active_markets_func] +

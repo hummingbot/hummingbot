@@ -7,6 +7,7 @@ from typing import (
     List
 )
 
+from hummingbot.core.clock cimport Clock
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.discovery.discovery_market_pair import DiscoveryMarketPair
@@ -44,6 +45,8 @@ cdef class DiscoveryStrategy(StrategyBase):
                  equivalent_token: list = []):
         if len(market_pairs) < 0:
             raise ValueError(f"market_pairs must not be empty.")
+
+        super().__init__()
         self._market_pairs = market_pairs
         self._target_amount = target_amount
         self._target_profitability = target_profitability
@@ -51,7 +54,6 @@ cdef class DiscoveryStrategy(StrategyBase):
         self._status_report_interval = status_report_interval
         self._refetch_market_info_interval = 60.0 * 60
         self._all_markets_ready = False
-        self._markets = set()
         self._last_timestamp = 0
         self._discovery_stats = {}
         self._discovery_method = discovery_method
@@ -63,15 +65,10 @@ cdef class DiscoveryStrategy(StrategyBase):
         self._fetch_market_info_task_list = None
 
         cdef:
-            MarketBase typed_market
-
-        for market_pair in self._market_pairs:
-            for market in [market_pair.market_1, market_pair.market_2]:
-                self._markets.add(market)
-
-    def log_with_clock(self, log_level: int, msg: str):
-        clock_timestamp = pd.Timestamp(self._current_timestamp, unit="s", tz="UTC")
-        self.logger().log(log_level, f"{msg} [clock={str(clock_timestamp)}]")
+            set all_markets = set([market
+                                   for market_pair in self._market_pairs
+                                   for market in [market_pair.market_1, market_pair.market_2]])
+        self.c_add_markets(list(all_markets))
 
     @classmethod
     def parse_equivalent_token(cls, equivalent_token: List[list] = []):
@@ -154,13 +151,13 @@ cdef class DiscoveryStrategy(StrategyBase):
             self._fetch_market_info_task_list = [asyncio.ensure_future(self.fetch_market_info(market_pair))
                                                 for market_pair in self._market_pairs]
 
-        for market in self._markets:
+        for market in self._sb_markets:
             if not market in self._market_info:
                 self.log_with_clock(logging.INFO, f"Waiting to finish fetching trading pair from {market.name}.")
                 return
 
         if not self._all_markets_ready:
-            self._all_markets_ready = all([market.ready for market in self._markets])
+            self._all_markets_ready = all([market.ready for market in self._sb_markets])
             if not self._all_markets_ready:
                 # Markets not ready yet. Don't do anything.
                 return
@@ -419,6 +416,7 @@ cdef class DiscoveryStrategy(StrategyBase):
         lines.extend(self.format_conversion_rate())
         return "\n".join(lines)
 
-    def stop(self):
+    cdef c_stop(self, Clock clock):
+        StrategyBase.c_stop(self, clock)
         for task in self._fetch_market_info_task_list:
             task.cancel()

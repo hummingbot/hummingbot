@@ -7,7 +7,7 @@ jobs:
     working_directory: ~/hummingbot-circleci
     docker:
       # Specify base image: using Anaconda
-      - image: coinalpha/condatest:0.1.0
+      - image: coinalpha/condatest:0.2.0
     steps:
       - checkout
 
@@ -59,7 +59,7 @@ jobs:
             nosetests -d -v test/test_cross_exchange_market_making.py
             nosetests -d -v test/test_arbitrage.py
             nosetests -d -v test/test_discovery_strategy.py
-            nosetests -d -v test/test_pure_market_making.py
+            nosetests -d -v test/test_pure_market_making_v2.py
             
       - run:
           name: Run Exchange Rate Converter Tests

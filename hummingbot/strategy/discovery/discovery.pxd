@@ -13,7 +13,6 @@ cdef class DiscoveryStrategy(StrategyBase):
         double _refetch_market_info_interval
         bint _all_markets_ready
         double _last_timestamp
-        set _markets
         object strategy
         dict _discovery_stats
         dict _market_info

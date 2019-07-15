@@ -73,58 +73,79 @@ markdown_extensions:
 # Navigation
 nav:
     - General:
-      - Intro:
-        - Getting started: index.md
+      - Getting Started: index.md
+      - Learn about Hummingbot:
         - FAQ: faq.md
         - Whitepaper: whitepaper.md
-        - Roadmap: roadmap.md
-        - Terminology: glossary.md
+        - Timeline: roadmap.md
+        - Useful Terminology: glossary.md
+      - Quickstart:
+        - 0. Setup: quickstart/index.md
+        - 1. Install Hummingbot: quickstart/1-install.md
+        - 2. Configure a Bot: quickstart/2-configure-bot.md
+        - 3. Run a Bot: quickstart/3-run-bot.md
+      - Cheatsheets:
+        - Cheatsheets Overview: cheatsheets/index.md
+        - Docker Commands: cheatsheets/docker.md
+        - Source Commands: cheatsheets/source.md
+        - Client Commands: cheatsheets/client.md
+      - Bounties:
+        - FAQ: bounties/faq.md
+        - Active Bounties:
+          - Harmony $ONE Makers: bounties/active/harmony.md
+      - Get Help:
+        - Contact and Support: support/index.md
+        - Troubleshooting: support/troubleshooting.md
+        - Bug Bounty Program: support/bug-bounty-program.md
+        - 中文 Github repo: https://github.com/coinalpha/hummingbot_chinese
+    - User Manual:
+      - Intro: manual.md
       - Installation:
-        - Installation: installation.md
-        - Install on Windows:
-          - From Docker: installation/docker_windows.md
-          - From Source: installation/windows.md
-        - Install on MacOS:
-          - From Docker: installation/docker_macOS.md
-          - From Source: installation/macOS.md
-        - Install on Linux:
-          - From Docker: installation/docker_linux.md
-          - From Source: installation/linux.md
-        - Install in cloud: installation/cloud.md
-        - Run on Docker: installation/docker.md
-        - API keys: installation/api-keys.md
-        - Ethereum wallet: installation/wallet.md
-        - Ethereum node:
-          - Ethereum node: installation/node/node.md
-          - Get a free Ethererum node: installation/node/infura.md
+        - Installation Overview: installation/index.md
+        - Setup a Cloud Server: installation/cloud.md
+        - Install on Linux: installation/linux.md
+        - Install on MacOS: installation/macOS.md
+        - Install on Windows: installation/windows.md
+        - Install from Source:
+          - Linux: installation/from-source/linux.md
+          - macOS: installation/from-source/macOS.md
+          - Windows: installation/from-source/windows.md
+      - Configuration:
+        - Configuring Hummingbot: operation/configuration.md
+        - API Keys: installation/api-keys.md
+        - Ethereum Wallet: installation/wallet.md
+        - Ethereum Node: installation/node/node.md
+        - Get a Free Ethereum Node: installation/node/infura.md
       - Operation:
-        - Client: operation/client.md
-        - Configuration: operation/configuration.md
-        - Running bots: operation/running-bots.md
-        - Running bots in the cloud: operation/running-bots-in-the-cloud.md
-        - Logging: operation/logging.md
-        - Exchange rates: operation/exchange-rates.md
-        - Telegram integration: operation/telegram.md
-        - Debug console: operation/debug.md
+        - Using the Client: operation/client.md
+        - Running Trading Bots: operation/running-bots.md
+        - Tips for Cloud Users: operation/running-bots-in-the-cloud.md
       - Connectors:
-        - Connectors: connectors.md
+        - Connectors Overview: connectors/index.md
         - Binance: connectors/binance.md
         - Coinbase Pro: connectors/coinbase.md
         - DDEX: connectors/ddex.md
-        - Radar Relay: connectors/radar-relay.md
         - IDEX: connectors/idex.md
-        - 0x open order book relayers: connectors/0x.md
+        - Radar Relay: connectors/radar-relay.md
+        - 0x Relayers: connectors/0x.md
       - Strategies:
-        - Strategies: strategies.md
+        - Strategies Overview: strategies/index.md
         - Cross-exchange market making: strategies/cross-exchange-market-making.md
         - Arbitrage: strategies/arbitrage.md
+        - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
+        - Pure Market Making: strategies/pure-market-making.md
         - Discovery: strategies/discovery.md
-        - Pure market making: strategies/pure-market-making.md
-      - Support:
-        - Support: support.md
-        - Bug bounty program: support/bug-bounty-program.md
-    - Release notes:
-      - Release notes: release-notes.md
+      - Data Feeds:
+        - Data Feeds Overview: feeds.md
+      - Utilities:
+        - Logs and Logging: operation/logging.md
+        - Using Exchange Rates: operation/exchange-rates.md
+        - Integrating Telegram: operation/telegram.md
+        - Debug Console: operation/debug.md
+    - Release Notes:
+      - About Releases: release-notes/index.md
+      - 0.10.0: release-notes/0.10.0.md
+      - 0.9.1: release-notes/0.9.1.md
       - 0.9.0: release-notes/0.9.0.md
       - 0.8.1: release-notes/0.8.1.md
       - 0.8.0: release-notes/0.8.0.md
@@ -136,13 +157,3 @@ nav:
       - 0.3.1 (beta): release-notes/0.3.1.md
       - 0.3.0: release-notes/0.3.0.md
       - 0.2.0: release-notes/0.2.0.md
-    - Bounties:
-      - Intro: bounties/intro.md
-      - FAQ: bounties/faq.md
-      - Tutorial:
-        - Tutorial: bounties/tutorial.md
-        - 1. Install: bounties/tutorial/install.md
-        - 2. Register: bounties/tutorial/register.md
-        - 3. Run a bot: bounties/tutorial/bot.md
-      - Active bounties:
-        - Harmony $ONE Makers: bounties/active/harmony.md

@@ -1,86 +1,38 @@
-# MacOS Source Installation
+# MacOS Installation Using Docker
 
-## Dependencies
+## Step 1. Install Docker
 
-Running `hummingbot` on **Mac OSX** requires [Xcode](https://developer.apple.com/xcode/) and Xcode command line tools.
+You can install Docker by [downloading an installer](https://docs.docker.com/v17.12/docker-for-mac/install/) from the official page. After you have downloaded and installed Docker, restart your system if necessary.
 
-### 1. Install Xcode command line tools
+## Step 2. Install Hummingbot
 
-```
-xcode-select --install
-```
+You can install Hummingbot by selecting ***either*** of the following options from the tabs below:
 
-### 2. Install Anaconda3
+1. **Easy Install**: download and use automated install scripts.
+2. **Manual Installation**: run install commands manually.
 
-Hummingbot requires Python 3 and other Python libraries. To manage these dependencies, Hummingbot uses Anaconda, an open source environment and package manager for Python that is the current industry standard for data scientists and data engineers.
+```bash tab="Option 1: Easy Install"
+# 1) Download Hummingbot install script
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh -o create.sh
 
-To install Anaconda, go to [the Anaconda site](https://www.anaconda.com/distribution/) and download the **Python 3.7 installer** for your operating system. Both the graphical installer and the command line installer will work. Run the installer, and it will guide you through the installation process.
+# 2) Enable script permissions
+chmod a+x create.sh
 
-Afterwards, open a Terminal window and try the `conda` command. If the command is valid, then Anaconda has been successfully installed, even if the graphical installer says that it failed.
-
-!!! warning
-    If you use ZSH or another Unix shell, copy the code snippet below to your `.zshrc` or similar file. By default, Anaconda only adds it to your `.bash_profile` file. This makes the `conda` command available in your root path.
-
-```bash
-__conda_setup="$(CONDA_REPORT_ERRORS=false '/anaconda3/bin/conda' shell.bash hook 2> /dev/null)"
-if [ $? -eq 0 ]; then
-    \eval "$__conda_setup"
-else
-    if [ -f "/anaconda3/etc/profile.d/conda.sh" ]; then
-        . "/anaconda3/etc/profile.d/conda.sh"
-        CONDA_CHANGEPS1=false conda activate base
-    else
-        \export PATH="/anaconda3/bin:$PATH"
-    fi
-fi
-unset __conda_setup
+# 3) Run installation
+./create.sh
 ```
 
-## 2. Download the Hummingbot client
+```bash tab="Option 2: Manual Installation"
+# 1) Create folder for your new instance
+mkdir hummingbot_files
 
-Clone or download the [Github repository](https://github.com/coinalpha/hummingbot).
+# 2) Create folders for log and config files
+mkdir hummingbot_files/hummingbot_conf && mkdir hummingbot_files/hummingbot_logs
 
-## 3. Run install script
-
-In a Terminal or bash window, go to the root directory:
-
-```
-cd hummingbot
-```
-
-Run the install script, which creates a custom Anaconda environment and installs the Python libraries and other dependencies needed by the bot:
-
-```
-./install
-```
-
-## 4. Activate environment
-
-The installation script creates a custom Anaconda environment that manages dependencies used by Hummingbot. Activate the environment:
-
-```
-conda activate hummingbot
-```
-The environment has been activated when you see a `(hummingbot)` prefix before your Terminal command prompt:
-
-!!! note
-    Make sure you are on latest conda version. You can check by typing `conda --version`. In addition, you might have
-    to type `conda init bash` if you see a message saying that your shell is not configured to use `conda activate`.
-
-!!! note
-    Ensure that you have activated the `hummingbot` environment before **compiling** or **running the bot**.
-
-## 5. Compile
-
-Compile and Cythonize the source code into the executable binary:
-
-```
-./compile
-```
-
-## 6. Run Hummingbot
-
-Start Hummingbot by entering:
-```
-bin/hummingbot.py
+# 3) Launch a new instance of hummingbot
+docker run -it \
+--name hummingbot-instance \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
+coinalpha/hummingbot:latest
 ```
