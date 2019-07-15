@@ -14,7 +14,7 @@ class CoinMetricsDataFeed(DataFeedBase):
     cmdf_logger: Optional[HummingbotLogger] = None
     _cmdf_shared_instance: "CoinCapDataFeed" = None
 
-    BASE_URL = "https://community-api.coinmetrics.io/v2"
+    BASE_URL = "https://coinmetrics.io/api/v1"
 
     @classmethod
     def get_instance(cls) -> "CoinMetricsDataFeed":
