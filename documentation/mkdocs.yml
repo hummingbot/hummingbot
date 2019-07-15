@@ -87,6 +87,7 @@ nav:
       - Cheatsheets:
         - Cheatsheets Overview: cheatsheets/index.md
         - Docker Commands: cheatsheets/docker.md
+        - Source Commands: cheatsheets/source.md
         - Client Commands: cheatsheets/client.md
       - Bounties:
         - FAQ: bounties/faq.md
