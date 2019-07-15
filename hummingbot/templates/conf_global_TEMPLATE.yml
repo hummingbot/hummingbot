@@ -29,19 +29,10 @@ key_file_path: conf/
 log_file_path: logs/
 on_chain_cancel_on_exit: false
 
-# The percentage of loss at which you would want the bot to stop trading
-# e.g. stop_loss_pct = 0.03 means you would stop trading if you lost 10% of your asset
-# Set this number to -1 if you do not want stop loss enabled
-stop_loss_pct: null
-
-# "fixed" or "dynamic"
-# fixed pricing option will make the bot to evaluate your portfolio with token prices when the bot starts
-#   (so that market condition does not impact the gain/loss calculation)
-# dynamic pricing option makes the bot evaluate portfolio value with real-time token prices
-stop_loss_price_type: null
-
-# if using dynamic pricing, set a base token that denominates your entire portfolio value
-stop_loss_base_token: null
+# kill switch
+kill_switch_enabled: null
+# The rate of performance at which you would want the bot to stop trading (-0.2 = 20%)
+kill_switch_rate: null
 
 # telegram integration
 telegram_enabled: false

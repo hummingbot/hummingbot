@@ -87,7 +87,7 @@ class AsyncCallScheduler:
                 # The future is already cancelled from outside. Ignore.
                 pass
             except Exception as e:
-                self.logger().network("API call error.",
+                self.logger().network(f"API call error: {str(e)}",
                                       exc_info=True,
                                       app_warning_msg=app_warning_msg)
                 try:

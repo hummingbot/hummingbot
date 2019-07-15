@@ -58,7 +58,6 @@ class LiquidityBounty(NetworkBase):
         self._shared_client: Optional[aiohttp.ClientSession] = None
         self._status: Dict[str, Any] = {}
         self._active_bounties: List[Dict[str, Any]] = []
-
         # timestamp = -1 when when no data has been fetched / timestamp = 0 when no trades have ever been submitted
         self._last_submitted_trade_timestamp: int = -1
         self._last_submitted_order_timestamp: int = -1
@@ -245,6 +244,8 @@ class LiquidityBounty(NetworkBase):
 
     async def authenticated_request(self, request_method: str, url: str, **kwargs) -> Dict[str, Any]:
         try:
+            # Set default data value here in case an assertion error occurs
+            data = None
             client = await self._http_client()
             client_id = liquidity_bounty_config_map.get("liquidity_bounty_client_id").value
             assert client_id is not None
