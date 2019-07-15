@@ -245,6 +245,8 @@ class LiquidityBounty(NetworkBase):
 
     async def authenticated_request(self, request_method: str, url: str, **kwargs) -> Dict[str, Any]:
         try:
+            # Set default data value here in case an assertion error occurs
+            data = None
             client = await self._http_client()
             client_id = liquidity_bounty_config_map.get("liquidity_bounty_client_id").value
             assert client_id is not None
@@ -261,7 +263,7 @@ class LiquidityBounty(NetworkBase):
                     raise Exception("User not registered")
                 return results
         except Exception as e:
-            self.logger().network(f"Error in authenticated request: {str(e)}, data: {data or None}", exc_info=True)
+            self.logger().network(f"Error in authenticated request: {str(e)}, data: {data}", exc_info=True)
             raise
 
     async def fetch_client_status(self):
