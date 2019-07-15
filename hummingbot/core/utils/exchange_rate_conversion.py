@@ -7,7 +7,6 @@ from typing import (
     Dict)
 
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.data_feed.coin_metrics_data_feed import CoinMetricsDataFeed
 from hummingbot.logger import HummingbotLogger
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
 from hummingbot.data_feed.data_feed_base import DataFeedBase
@@ -72,8 +71,7 @@ class ExchangeRateConversion:
     def init_config(cls):
         try:
             if cls._data_feeds_override is None:
-                cls._data_feeds = [CoinCapDataFeed.get_instance(),
-                                   CoinMetricsDataFeed.get_instance()]
+                cls._data_feeds = [CoinCapDataFeed.get_instance()]
             else:
                 cls._data_feeds = cls._data_feeds_override
             # Set default rate and source for token rates globally

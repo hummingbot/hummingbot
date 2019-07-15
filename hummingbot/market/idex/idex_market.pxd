@@ -8,6 +8,7 @@ cdef class IDEXMarket(MarketBase):
         object _wallet
         object _order_book_tracker
         dict _account_balances
+        dict _account_available_balances
         object _ev_loop
         object _poll_notifier
         double _last_timestamp
@@ -35,7 +36,7 @@ cdef class IDEXMarket(MarketBase):
     cdef c_start_tracking_order(self,
                                 str order_id,
                                 str symbol,
-                                bint is_buy,
+                                object trade_type,
                                 object order_type,
                                 object amount,
                                 object price)

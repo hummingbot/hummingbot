@@ -60,8 +60,8 @@ from hummingbot.wallet.ethereum.zero_ex.zero_ex_exchange import ZeroExExchange
 rrm_logger = None
 s_decimal_0 = Decimal(0)
 
-ZERO_EX_MAINNET_ERC20_PROXY = "0x2240Dab907db71e64d3E0dbA4800c83B5C502d4E"
-ZERO_EX_MAINNET_EXCHANGE_ADDRESS = "0x4F833a24e1f95D70F028921e27040Ca56E09AB0b"
+ZERO_EX_MAINNET_ERC20_PROXY = "0x95E6F48254609A6ee006F7D493c8e5fB97094ceF"
+ZERO_EX_MAINNET_EXCHANGE_ADDRESS = "0x080bf510FCbF18b91105470639e9561022937712"
 BAMBOO_RELAY_REST_ENDPOINT = "https://rest.bamboorelay.com/main/0x"
 
 
@@ -1001,6 +1001,9 @@ cdef class BambooRelayMarket(MarketBase):
         return self._wallet.unwrap_eth(amount)
 
     cdef double c_get_balance(self, str currency) except? -1:
+        return float(self._account_balances.get(currency, 0.0))
+
+    cdef double c_get_available_balance(self, str currency) except? -1:
         return float(self._account_balances.get(currency, 0.0))
 
     cdef OrderBook c_get_order_book(self, str symbol):

@@ -24,7 +24,6 @@ from hummingbot.core.clock import (
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
-    MarketReceivedAssetEvent,
     MarketWithdrawAssetEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
@@ -36,6 +35,7 @@ from hummingbot.core.event.events import (
     TradeType,
 )
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
+from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import OrderType
 from hummingbot.market.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
@@ -45,8 +45,6 @@ from hummingbot.model.sql_connection_manager import (
     SQLConnectionType
 )
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
-from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
@@ -74,21 +72,14 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: CoinbaseProMarket = CoinbaseProMarket(
-            ethereum_rpc_url=conf.test_web3_provider_list[0],
-            coinbase_pro_api_key=conf.coinbase_pro_api_key,
-            coinbase_pro_secret_key=conf.coinbase_pro_secret_key,
-            coinbase_pro_passphrase=conf.coinbase_pro_passphrase,
+            conf.coinbase_pro_api_key,
+            conf.coinbase_pro_secret_key,
+            conf.coinbase_pro_passphrase,
             symbols=["ETH-USDC", "ETH-USD"]
         )
-        cls.wallet: Web3Wallet = Web3Wallet(private_key=conf.web3_private_key_coinbase_pro,
-                                            backend_urls=conf.test_web3_provider_list,
-                                            erc20_token_addresses=[conf.mn_weth_token_address,
-                                                                   conf.mn_zerox_token_address],
-                                            chain=EthereumChain.MAIN_NET)
         print("Initializing Coinbase Pro market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.market)
-        cls.clock.add_iterator(cls.wallet)
         cls.stack = contextlib.ExitStack()
         cls._clock = cls.stack.enter_context(cls.clock)
         cls.ev_loop.run_until_complete(cls.wait_til_ready())
@@ -306,37 +297,13 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
 
         self.market_logger.clear()
 
-    @unittest.skipUnless(any("test_deposit_eth" in arg for arg in sys.argv), "Deposit test requires manual action.")
-    def test_deposit_eth(self):
-        # Ensure the local wallet has enough balance for deposit testing.
-        self.assertGreaterEqual(self.wallet.get_balance("ETH"), 0.02)
-
-        # Deposit ETH to Binance, and wait.
-        tracking_id: str = self.market.deposit(self.wallet, "ETH", 0.01)
-        [received_asset_event] = self.run_parallel(
-            self.market_logger.wait_for(MarketReceivedAssetEvent, timeout_seconds=1800)
+    def test_deposit_info(self):
+        [deposit_info] = self.run_parallel(
+            self.market.get_deposit_info("ETH")
         )
-        received_asset_event: MarketReceivedAssetEvent = received_asset_event
-        self.assertEqual("ETH", received_asset_event.asset_name)
-        self.assertEqual(tracking_id, received_asset_event.tx_hash)
-        self.assertEqual(self.wallet.address, received_asset_event.from_address)
-        self.assertAlmostEqual(0.01, received_asset_event.amount_received)
-
-    @unittest.skipUnless(any("test_deposit_zrx" in arg for arg in sys.argv), "Deposit test requires manual action.")
-    def test_deposit_zrx(self):
-        # Ensure the local wallet has enough balance for deposit testing.
-        self.assertGreaterEqual(self.wallet.get_balance("ZRX"), 1)
-
-        # Deposit ZRX to Coinbase Pro, and wait.
-        tracking_id: str = self.market.deposit(self.wallet, "ZRX", 1)
-        [received_asset_event] = self.run_parallel(
-            self.market_logger.wait_for(MarketReceivedAssetEvent, timeout_seconds=1800)
-        )
-        received_asset_event: MarketReceivedAssetEvent = received_asset_event
-        self.assertEqual("ZRX", received_asset_event.asset_name)
-        self.assertEqual(tracking_id, received_asset_event.tx_hash)
-        self.assertEqual(self.wallet.address, received_asset_event.from_address)
-        self.assertEqual(1, received_asset_event.amount_received)
+        deposit_info: DepositInfo = deposit_info
+        self.assertIsInstance(deposit_info, DepositInfo)
+        self.assertGreater(len(deposit_info.address), 0)
 
     @unittest.skipUnless(any("test_withdraw" in arg for arg in sys.argv), "Withdraw test requires manual action.")
     def test_withdraw(self):
@@ -399,7 +366,6 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
             self.market: CoinbaseProMarket = CoinbaseProMarket(
-                ethereum_rpc_url=conf.test_web3_provider_list[0],
                 coinbase_pro_api_key=conf.coinbase_pro_api_key,
                 coinbase_pro_secret_key=conf.coinbase_pro_secret_key,
                 coinbase_pro_passphrase=conf.coinbase_pro_passphrase,
