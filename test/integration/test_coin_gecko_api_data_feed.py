@@ -13,7 +13,7 @@ def async_run(func):
     loop.run_until_complete(func)
 
 
-class CoinMetricsUnitTest(unittest.TestCase):
+class CoinGeckoUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         async_run(CoinGeckoDataFeed.get_instance().fetch_data())
