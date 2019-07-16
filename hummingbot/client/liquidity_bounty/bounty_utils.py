@@ -253,7 +253,7 @@ class LiquidityBounty(NetworkBase):
 
             async with client.request(request_method, url, headers=headers, **kwargs) as resp:
                 data = await resp.text()
-                self.logger().info(f"{resp.status} {data}")
+                self.logger().debug(f"{resp.status} {data}")
                 results = json.loads(data)
                 if "error" in results:
                     raise Exception(results.get("error"))
