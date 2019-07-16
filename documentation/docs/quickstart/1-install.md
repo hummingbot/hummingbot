@@ -24,13 +24,13 @@ If you don't already have Docker, we show you how to install Docker for each pla
 Install `tmux` to allow you to easily run Hummingbot remotely:
 ```
 sudo apt-get update
-sudo apt-get install tmux
+sudo apt-get install -y tmux
 ```
 
 Install Docker:
 ```bash
 # 1) Download Docker install script
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-docker-ubuntu.sh
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-docker/install-docker-ubuntu.sh
 
 # 2) Enable script permissions
 chmod a+x install-docker-ubuntu.sh
@@ -159,4 +159,4 @@ chmod a+x *.sh
 Afterwards, you should see the Hummingbot client interface. Proceed to [Configure a Bot](/quickstart/2-configure-bot).
 
 ---
-# Next: [Configure your first bot](/quickstart/2-configure-bot)
+# Next: [Configure Your First Trading Bot](/quickstart/2-configure-bot)
