@@ -189,7 +189,7 @@ class LiquidityBounty(NetworkBase):
             new_order_statuses: List[OrderStatus] = query.all()
             return new_order_statuses
         except Exception as e:
-            self.logger().network(f"Failed to query for unsubmitted order statuses: {str(e)}", exc_info=True)
+            self.logger().error(f"Failed to query for unsubmitted order statuses: {str(e)}", exc_info=True)
 
     async def _http_client(self) -> aiohttp.ClientSession:
         if self._shared_client is None:
@@ -263,7 +263,7 @@ class LiquidityBounty(NetworkBase):
                     raise Exception("User not registered")
                 return results
         except Exception as e:
-            self.logger().error(f"Error in authenticated request: {str(e)}, data: {data}", exc_info=True)
+            self.logger().network(f"Error in authenticated request: {str(e)}, data: {data}", exc_info=True)
             raise
 
     async def fetch_client_status(self):
