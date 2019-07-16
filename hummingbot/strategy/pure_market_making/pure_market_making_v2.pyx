@@ -131,26 +131,28 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
     @property
     def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
-        return [
-            (market_info.market, limit_order)
-            for market_info, orders_map in self._tracked_maker_orders.items()
-            for limit_order in orders_map.values()
-            if (self._in_flight_cancels.get(limit_order.client_order_id, 0) <
-                self._current_timestamp - self.CANCEL_EXPIRY_DURATION)
-        ]
+        maker_orders = []
+        for market_info, orders_map in self._tracked_maker_orders.items():
+            for limit_order in orders_map.values():
+                if limit_order.client_order_id in self._in_flight_cancels:
+                    if self._in_flight_cancels.get(limit_order.client_order_id) + self.CANCEL_EXPIRY_DURATION < self._current_timestamp:
+                        continue
+                maker_orders.append((market_info.market, limit_order))
+        return maker_orders
 
     @property
     def market_info_to_active_orders(self) -> Dict[MarketSymbolPair, List[LimitOrder]]:
-        return {
-            market_info: [
-                limit_order
-                for limit_order in self._tracked_maker_orders.get(market_info, {}).values()
-                if (self._in_flight_cancels.get(limit_order.client_order_id, 0) <
-                    self._current_timestamp - self.CANCEL_EXPIRY_DURATION)
-            ]
-            for market_info
-            in self._market_infos.values()
-        }
+        market_info_to_orders = {}
+        for market_info in self._market_infos.values():
+            maker_orders = []
+            for limit_order in self._tracked_maker_orders.get(market_info, {}).values():
+                if limit_order.client_order_id in self._in_flight_cancels:
+                    if self._in_flight_cancels.get(limit_order.client_order_id) + self.CANCEL_EXPIRY_DURATION < self._current_timestamp:
+                        continue
+                maker_orders.append(limit_order)
+
+            market_info_to_orders[market_info] = maker_orders
+        return market_info_to_orders
 
     @property
     def active_bids(self) -> List[Tuple[MarketBase, LimitOrder]]:
@@ -226,25 +228,25 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         return self.c_cancel_order(market_info, order_id)
 
     def get_order_price_proposal(self, market_info: MarketSymbolPair) -> PricingProposal:
-        cdef:
-            list active_orders = [
-                limit_order
-                for limit_order in self._tracked_maker_orders.get(market_info, {}).values()
-                if (self._in_flight_cancels.get(limit_order.client_order_id, 0) <
-                    self._current_timestamp - self.CANCEL_EXPIRY_DURATION)
-            ]
+        active_orders = []
+        for limit_order in self._tracked_maker_orders.get(market_info, {}).values():
+            if limit_order.client_order_id in self._in_flight_cancels:
+                if self._in_flight_cancels[limit_order.client_order_id] + self.CANCEL_EXPIRY_DURATION < self._current_timestamp:
+                        continue
+            active_orders.append(limit_order)
+
         return self._pricing_delegate.c_get_order_price_proposal(
             self, market_info, active_orders
         )
 
     def get_order_size_proposal(self, market_info: MarketSymbolPair, pricing_proposal: PricingProposal) -> SizingProposal:
-        cdef:
-            list active_orders = [
-                limit_order
-                for limit_order in self._tracked_maker_orders.get(market_info, {}).values()
-                if (self._in_flight_cancels.get(limit_order.client_order_id, 0) <
-                    self._current_timestamp - self.CANCEL_EXPIRY_DURATION)
-            ]
+        active_orders = []
+        for limit_order in self._tracked_maker_orders.get(market_info, {}).values():
+            if limit_order.client_order_id in self._in_flight_cancels:
+                if self._in_flight_cancels[limit_order.client_order_id] + self.CANCEL_EXPIRY_DURATION < self._current_timestamp:
+                        continue
+            active_orders.append(limit_order)
+
         return self._sizing_delegate.c_get_order_size_proposal(
             self, market_info, active_orders, pricing_proposal
         )
@@ -267,6 +269,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 keys_to_delete.append(k)
         for k in keys_to_delete:
             del self._in_flight_cancels[k]
+
+        if order_id in self.in_flight_cancels:
+            return
 
         # Track the cancel and tell maker market to cancel the order.
         self._in_flight_cancels[order_id] = self._current_timestamp
@@ -402,7 +407,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         cdef:
             str order_id = cancelled_event.order_id
             object market_info = self._order_id_to_market_info.get(order_id)
-
         self.c_stop_tracking_order(market_info, order_id)
 
     cdef c_did_expire_order(self, object expired_event):
