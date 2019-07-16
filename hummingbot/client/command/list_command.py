@@ -79,17 +79,21 @@ class ListCommand:
                     in_memory_config_map.get("strategy").value
                 )
                 config_file = in_memory_config_map.get("strategy_file_path").value
-                queried_trades = markets_recorder.get_trades_for_config(config_file)
+
+                # Query for maximum number of trades to display + 1
+                queried_trades = markets_recorder.get_trades_for_config(config_file,
+                                                                        MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT + 1)
                 df = TradeFill.to_pandas(queried_trades)
                 if len(df) > 0:
-                    if len(df) <MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT:
-                        df_lines = str(df).split("\n")
+                    #Check if number of trades exceed maximum number of trades to display
+                    if len(df) > MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT:
+                        df_lines = str(df[:MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT]).split("\n")
+                        self._notify(f"Number of Trades exceeds the maximum display limit of :{MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT} trades. "
+                                     f"Please change limit in client settings to display the required number of trades ")
                         lines.extend(["", "  Past trades:"] +
                                      ["    " + line for line in df_lines])
                     else:
-                        df_lines = str(df[:MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT]).split("\n")
-                        self._notify(f"Number of Trades exceeds limit of :{MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT} trades. "
-                                     f"Kindly change limit in client settings to display required amount of trades ")
+                        df_lines = str(df).split("\n")
                         lines.extend(["", "  Past trades:"] +
                                      ["    " + line for line in df_lines])
                 else:
