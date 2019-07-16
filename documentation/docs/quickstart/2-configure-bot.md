@@ -114,7 +114,7 @@ Now that you have set up how your market making bot will behave, it's time to pr
 !!! note "Copying and pasting in Windows"
     If you are using a Windows machine, you may need to activate copying and pasting on Docker Toolbox. Please see [this page](/support/troubleshooting/#how-do-i-copy-and-paste-in-docker-toolbox-windows) for instructions on how to activate this.
 
-Alternatively, if you selected a centralized exchange like Binance in Step 3(b):
+If you selected a centralized exchange like Binance in Step 3(b), you will need to :
 ```
 Enter your Binance API key >>>
 ******************************
@@ -124,8 +124,9 @@ Enter your Binance API secret >>>
 ```
 For more information on how to find your API keys, please see [API Keys](/installation/api-keys).
 
+---
 
-If you selected a decentralized exchange like IDEX, DDEX, Bamboo Relay, or Radar Relay in Step 3(b):
+Alternatively, if you selected a decentralized exchange like IDEX, DDEX, Bamboo Relay, or Radar Relay in Step 3(b):
 ```
 Would you like to import an existing wallet or create a new wallet? (import/create) >>>
 import
@@ -176,4 +177,4 @@ Config process complete. Enter "start" to start market making.
 
 
 ---
-# Next: [Run a market making bot](/bounties/tutorial/bot)
+# Next: [Run Your First Trading Bot](/quickstart/3-run-bot)
