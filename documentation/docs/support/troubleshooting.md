@@ -167,7 +167,7 @@ bin/hummingbot.py
 Alternatively, use our automated script:
 
 ```
-# From the hummingbot folder:
+# From the *root* folder:
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/update.sh
 chmod a+x update.sh
 ./update.sh
