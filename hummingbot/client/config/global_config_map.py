@@ -120,16 +120,16 @@ global_config_map = {
                                                   required_if=lambda: False,
                                                   type_str="list",
                                                   default=[["USD", 1.0, "manual"],
-                                                           ["DAI", 1.0, "coincap_api"],
-                                                           ["USDT", 1.0, "coincap_api"],
-                                                           ["USDC", 1.0, "coincap_api"],
-                                                           ["TUSD", 1.0, "coincap_api"]]),
+                                                           ["DAI", 1.0, "coin_gecko_api"],
+                                                           ["USDT", 1.0, "coin_gecko_api"],
+                                                           ["USDC", 1.0, "coin_gecko_api"],
+                                                           ["TUSD", 1.0, "coin_gecko_api"]]),
     "exchange_rate_fetcher":            ConfigVar(key="exchange_rate_fetcher",
                                                   prompt="Enter your custom exchange rate fetcher settings >>> ",
                                                   required_if=lambda: False,
                                                   type_str="list",
-                                                  default=[["ETH", "coincap_api"],
-                                                           ["DAI", "coincap_api"]]),
+                                                  default=[["ETH", "coin_gecko_api"],
+                                                           ["DAI", "coin_gecko_api"]]),
 
     "kill_switch_enabled":              ConfigVar(key="kill_switch_enabled",
                                                   prompt="Would you like to enable kill switch? (y/n) >>> ",
@@ -154,5 +154,3 @@ global_config_map = {
                                                   prompt="What is your telegram chat id? >>> ",
                                                   required_if=lambda: False),
 }
-
-
