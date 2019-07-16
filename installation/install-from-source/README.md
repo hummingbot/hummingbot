@@ -36,6 +36,23 @@ chmod a+x install-source-centos.sh
 ./install-source-centos.sh
 ```
 
+## MacOS Installation
+
+```
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-source-macOS.sh -o install-source-macOS.sh
+chmod a+x install-source-macOS.sh
+./install-source-macOS.sh
+```
+
+## Windows (Docker Toolbox: Ubuntu) Installation
+
+```
+cd ~
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-source-macOS.sh -o install-source-ubuntu.sh
+chmod a+x install-source-ubuntu.sh
+./install-source-ubuntu.sh
+```
+
 ---
 
 ## Updating Hummingbot
