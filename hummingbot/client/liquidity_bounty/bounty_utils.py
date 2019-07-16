@@ -315,8 +315,8 @@ class LiquidityBounty(NetworkBase):
     async def submit_trades(self):
         try:
             trades: List[TradeFill] = await self.get_unsubmitted_trades()
-            # only submit 50 at a time
-            formatted_trades: List[Dict[str, Any]] = [TradeFill.to_bounty_api_json(trade) for trade in trades[:70]]
+            # only submit 5000 at a time
+            formatted_trades: List[Dict[str, Any]] = [TradeFill.to_bounty_api_json(trade) for trade in trades[:5000]]
 
             if self._last_submitted_trade_timestamp >= 0 and len(formatted_trades) > 0:
                 url = f"{self.LIQUIDITY_BOUNTY_REST_API}/trade"
@@ -333,8 +333,8 @@ class LiquidityBounty(NetworkBase):
     async def submit_orders(self):
         try:
             orders: List[Order] = await self.get_unsubmitted_orders()
-            # only submit 50 at a time
-            formatted_orders: List[Dict[str, Any]] = [Order.to_bounty_api_json(order) for order in orders[:70]]
+            # only submit 5000 at a time
+            formatted_orders: List[Dict[str, Any]] = [Order.to_bounty_api_json(order) for order in orders[:5000]]
 
             if self._last_submitted_order_timestamp >= 0 and len(formatted_orders) > 0:
                 url = f"{self.LIQUIDITY_BOUNTY_REST_API}/order"
@@ -351,9 +351,9 @@ class LiquidityBounty(NetworkBase):
     async def submit_order_statuses(self):
         try:
             order_statuses: List[OrderStatus] = await self.get_unsubmitted_order_statuses()
-            # only submit 50 at a time
+            # only submit 5000 at a time
             formatted_order_statuses: List[Dict[str, Any]] = [OrderStatus.to_bounty_api_json(order_status)
-                                                              for order_status in order_statuses[:70]]
+                                                              for order_status in order_statuses[:5000]]
             if self._last_submitted_order_status_timestamp >= 0 and len(formatted_order_statuses) > 0:
                 url = f"{self.LIQUIDITY_BOUNTY_REST_API}/order_status"
                 results = await self.authenticated_request("POST", url,
