@@ -1,4 +1,4 @@
-# `Hummingbot` Whitepaper
+# Hummingbot Whitepaper
 
 ### You can access our full whitepaper [here](https://www.hummingbot.io/whitepaper.pdf).
 

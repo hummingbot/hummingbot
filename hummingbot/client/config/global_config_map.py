@@ -132,12 +132,12 @@ global_config_map = {
                                                            ["DAI", "coin_gecko_api"]]),
 
     "kill_switch_enabled":              ConfigVar(key="kill_switch_enabled",
-                                                  prompt="Would you like to enable kill switch? (y/n) >>> ",
+                                                  prompt="Would you like to enable the kill switch? (y/n) >>> ",
                                                   type_str="bool",
                                                   default=False),
     "kill_switch_rate":                 ConfigVar(key="kill_switch_rate",
-                                                  prompt="At would rate of profitability would you like the bot to "
-                                                         "stop trading? (e.g. -0.2) >>> ",
+                                                  prompt="At what profit/loss rate would you like the bot to "
+                                                         "stop? (e.g. -0.05 equals 5 percent loss) >>> ",
                                                   type_str="float",
                                                   default=-1,
                                                   required_if=lambda: global_config_map["kill_switch_enabled"].value),
