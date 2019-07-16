@@ -121,6 +121,7 @@ cdef class HelloWorldStrategy(StrategyBase):
         self.place_orders = True
         self._logging_options = logging_options
         self._status_report_interval = status_report_interval
+        self._order_id_to_market_info = {}
 
         self._buy_order_completed_listener = BuyOrderCompletedListener(self)
         self._sell_order_completed_listener = SellOrderCompletedListener(self)
@@ -246,7 +247,43 @@ cdef class HelloWorldStrategy(StrategyBase):
 
         return "\n".join(lines)
 
-     cdef c_buy_with_specific_market(self,
+    cdef c_did_fail_order(self, object order_failed_event):
+        cdef:
+            str order_id = order_failed_event.order_id
+            object market_info= self._order_id_to_market_info.get(order_id)
+
+        self.logger().info("Order has failed. Trying to place it again.")
+        self.place_orders = True
+
+    cdef c_did_cancel_order(self, object cancelled_event):
+        cdef:
+            str order_id = cancelled_event.order_id
+            object market_info = self._order_id_to_market_info.get(order_id)
+
+        self.logger().info(f"Order: {order_id} for {market_info.symbol} has been succesfully cancelled")
+
+    cdef c_did_fill_order(self, object order_filled_event):
+        cdef:
+            str order_id = order_filled_event.order_id
+            object market_info = self._order_id_to_market_info.get(order_id)
+
+        self.logger().info(f"Order: {order_id} for {market_info.symbol} has been filled")
+
+    cdef c_did_complete_buy_order(self, object order_completed_event):
+        cdef:
+            str order_id = order_completed_event.order_id
+            object market_info = self._order_id_to_market_info.get(order_id)
+
+        self.logger().info(f"Buy Order: {order_id} for {market_info.symbol} has been completely filled")
+
+    cdef c_did_complete_sell_order(self, object order_completed_event):
+        cdef:
+            str order_id = order_completed_event.order_id
+            object market_info = self._order_id_to_market_info.get(order_id)
+
+        self.logger().info(f"Sell Order: {order_id} for {market_info.symbol} has been completely filled")
+
+    cdef c_buy_with_specific_market(self,
                                      MarketBase market,
                                      str symbol,
                                      double amount,
@@ -258,7 +295,8 @@ cdef class HelloWorldStrategy(StrategyBase):
             raise ValueError(f"market object for buy order is not in the whitelisted markets set.")
         return market.c_buy(symbol, amount, order_type=order_type, price=price)
 
-    cdef c_sell_with_specific_market(self, MarketBase market,
+    cdef c_sell_with_specific_market(self,
+                                     MarketBase market,
                                      str symbol,
                                      double amount,
                                      object order_type = OrderType.MARKET,
@@ -309,6 +347,14 @@ cdef class HelloWorldStrategy(StrategyBase):
             self._last_timestamp = timestamp
 
     cdef c_check_available_balance(self, object market_info):
+        cdef:
+            MarketBase market = market_info.market
+            double base_asset_balance = market.c_get_balance(market_info.base_currency)
+            double quote_asset_balance = market.c_get_balance(market_info.quote_currency)
+
+        if self._order_type == "buy":
+            #Need to handle for market order and limit orders
+            required_quote_asset_balance = self._order_amount
         pass
 
     cdef c_place_orders(self, object market_info):
@@ -319,8 +365,13 @@ cdef class HelloWorldStrategy(StrategyBase):
         if self.c_check_available_balance():
             if self._order_side == "buy":
                 if self._order_type == "market":
-                    self.c_buy_with_specific_market(market, symbol, self._order_amount, OrderType.MARKET, )
-        pass
+                    order_id = self.c_buy_with_specific_market(market,
+                                                               symbol,
+                                                               self._order_amount,
+                                                               OrderType.MARKET, )
+
+        self._order_id_to_market_info[order_id] = market_info
+
 
     cdef c_process_market(self, object market_info):
         cdef:
