@@ -13,7 +13,7 @@ If you already have Docker installed, use the following commands to install and 
 
 ```bash tab="Ubuntu / Debian"
 sudo apt-get update
-sudo apt-get install tmux
+sudo apt-get install -y tmux
 ```
 
 ```bash tab="CentOS"
@@ -65,7 +65,7 @@ coinalpha/hummingbot:latest
 
 ```bash tab="Option 1: Easy Install"
 # 1) Download Docker install script
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-docker-ubuntu.sh
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-docker/install-docker-ubuntu.sh
 
 # 2) Enable script permissions
 chmod a+x install-docker-ubuntu.sh
@@ -144,7 +144,7 @@ coinalpha/hummingbot:latest
 
 ```bash tab="Option 1: Easy Install"
 # 1) Download Docker install script
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-docker-debian.sh
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-docker/install-docker-debian.sh
 
 # 2) Enable script permissions
 chmod a+x install-docker-debian.sh
@@ -225,7 +225,7 @@ coinalpha/hummingbot:latest
 
 ```bash tab="Option 1: Easy Install"
 # 1) Download Docker install script
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-docker-centos.sh
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-docker/install-docker-centos.sh
 
 # 2) Enable script permissions
 chmod a+x install-docker-centos.sh
