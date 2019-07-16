@@ -29,11 +29,11 @@ class KillSwitch:
     async def check_profitability_loop(self):
         while True:
             try:
-                # calculate_profitability gives profitability in percent terms i.e. 0.015 to indicate 0.015%
-                # self._kill_switch_rate is in numerical term 1.e. 0.015 to indicate 1.5%
-                self._profitability = self._hummingbot_application.calculate_profitability() / 1e2
-
                 if self._kill_switch_enabled:
+                    # calculate_profitability gives profitability in percent terms i.e. 0.015 to indicate 0.015%
+                    # self._kill_switch_rate is in numerical term 1.e. 0.015 to indicate 1.5%
+                    self._profitability = self._hummingbot_application.calculate_profitability() / 1e2
+                    
                     # Stop the bot if losing too much money, or if gained a certain amount of profit
                     if (self._profitability <= self._kill_switch_rate < 0.0) or \
                             (self._profitability >= self._kill_switch_rate > 0.0):
