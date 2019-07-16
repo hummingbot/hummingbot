@@ -159,4 +159,4 @@ chmod a+x *.sh
 Afterwards, you should see the Hummingbot client interface. Proceed to [Configure a Bot](/quickstart/2-configure-bot).
 
 ---
-# Next: [Configure your first bot](/quickstart/2-configure-bot)
+# Next: [Configure Your First Trading Bot](/quickstart/2-configure-bot)
