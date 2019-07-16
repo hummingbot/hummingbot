@@ -1,7 +1,6 @@
 from collections import deque
 from decimal import Decimal
 import logging
-import pandas as pd
 from typing import (
     List,
     Tuple,
@@ -19,7 +18,6 @@ from hummingbot.market.market_base import (
     MarketBase,
     OrderType
 )
-from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.strategy.strategy_base import StrategyBase
 
