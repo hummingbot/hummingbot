@@ -99,10 +99,10 @@ cdef class HelloWorldStrategy(StrategyBase):
                  market_infos: List[MarketInfo],
                  order_type: str = "limit",
                  order_price: Optional[float] = 1.0,
-                 order_side: str = "buy",
+                 cancel_order_wait_time: float = 60.0,
+                 is_buy: bool = True,
                  time_delay: float = 10.0,
                  order_amount: float = 1.0,
-                 cancel_order_wait_time: float = 60,
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900):
 
@@ -122,6 +122,10 @@ cdef class HelloWorldStrategy(StrategyBase):
         self._logging_options = logging_options
         self._status_report_interval = status_report_interval
         self._order_id_to_market_info = {}
+        self._start_timestamp = self._current_timestamp
+        self._time_delay = time_delay
+        self._time_to_cancel = {}
+        self._cancel_order_wait_time = cancel_order_wait_time
 
         self._buy_order_completed_listener = BuyOrderCompletedListener(self)
         self._sell_order_completed_listener = SellOrderCompletedListener(self)
@@ -130,7 +134,8 @@ cdef class HelloWorldStrategy(StrategyBase):
         self._order_cancelled_listener = OrderCancelledListener(self)
         self._order_expired_listener = OrderExpiredListener(self)
         self._order_type = order_type
-        self._order_side = order_side
+        self._order_price = order_price
+        self._is_buy = is_buy
         self._order_amount = order_amount
 
         cdef:
@@ -346,31 +351,50 @@ cdef class HelloWorldStrategy(StrategyBase):
         finally:
             self._last_timestamp = timestamp
 
-    cdef c_check_available_balance(self, object market_info):
-        cdef:
-            MarketBase market = market_info.market
-            double base_asset_balance = market.c_get_balance(market_info.base_currency)
-            double quote_asset_balance = market.c_get_balance(market_info.quote_currency)
-
-        if self._order_type == "buy":
-            #Need to handle for market order and limit orders
-            required_quote_asset_balance = self._order_amount
-        pass
-
     cdef c_place_orders(self, object market_info):
         cdef:
             MarketBase market = market_info.market
             str symbol = market_info.symbol
 
-        if self.c_check_available_balance():
-            if self._order_side == "buy":
+        if self.c_has_enough_balance(market_info):
+            if self._is_buy:
                 if self._order_type == "market":
                     order_id = self.c_buy_with_specific_market(market,
                                                                symbol,
                                                                self._order_amount,
-                                                               OrderType.MARKET, )
-
+                                                               OrderType.MARKET)
+                else:
+                    order_id = self.c_buy_with_specific_market(market,
+                                                               symbol,
+                                                               self._order_amount,
+                                                               OrderType.MARKET,
+                                                               self._order_price)
+            else:
+                if self._order_type == "market":
+                    order_id = self.c_sell_with_specific_market(market,
+                                                               symbol,
+                                                               self._order_amount,
+                                                               OrderType.MARKET)
+                else:
+                    order_id = self.c_sell_with_specific_market(market,
+                                                               symbol,
+                                                               self._order_amount,
+                                                               OrderType.MARKET,
+                                                               self._order_price)
         self._order_id_to_market_info[order_id] = market_info
+        self._time_to_cancel[order_id] = self._current_timestamp + self._cancel_order_wait_time
+
+
+    cdef c_has_enough_balance(self, object market_info):
+        cdef:
+            MarketBase market = market_info.market
+            str symbol = market_info.symbol
+            double base_asset_balance = market.c_get_balance(market_info.base_currency)
+            double quote_asset_balance = market.c_get_balance(market_info.quote_currency)
+            OrderBook order_book = market.c_get_order_book(symbol)
+            double price = order_book.c_get_price_for_volume(True, self._order_amount).result_price
+
+        return quote_asset_balance >= self._order_amount * price if self._is_buy else base_asset_balance >= self._order_amount
 
 
     cdef c_process_market(self, object market_info):
@@ -379,8 +403,12 @@ cdef class HelloWorldStrategy(StrategyBase):
             list cancel_order_ids = []
 
         if self.place_orders:
-            self.place_orders = False
-            self.c_place_orders(market_info)
+            #self._start_time_delay_timestamp = min(self._current_timestamp, self._start_time_delay_timestamp)
+            #Time is now greater than delay + start_timestamp
+            #if self._current_timestamp > self._start_time_delay_timestamp + self._time_delay:
+            if self._current_timestamp > self._start_timestamp + self._time_delay:
+                self.place_orders = False
+                self.c_place_orders(market_info)
 
         active_orders = self.market_info_to_active_orders[market_info]
         if len(active_orders) >0 :
