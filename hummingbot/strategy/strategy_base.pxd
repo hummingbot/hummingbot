@@ -40,3 +40,9 @@ cdef class StrategyBase(TimeIterator):
     cdef str c_sell_with_specific_market(self, object market_symbol_pair, object amount,
                                          object order_type = *, object price = *, double expiration_seconds = *)
     cdef c_cancel_order(self, object market_pair, str order_id)
+
+    cdef c_start_tracking_limit_order(self, object market_pair, str order_id, bint is_buy, object price,
+                                      object quantity)
+    cdef c_stop_tracking_limit_order(self, object market_pair, str order_id)
+    cdef c_start_tracking_market_order(self, object market_pair, str order_id, bint is_buy, object quantity)
+    cdef c_stop_tracking_market_order(self, object market_pair, str order_id)

@@ -23,28 +23,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         double _trade_size_override
         double _cancel_order_threshold
         bint _active_order_canceling
-        dict _tracked_maker_orders
-        dict _tracked_taker_orders
-        dict _order_id_to_market_pair
-        dict _shadow_tracked_maker_orders
-        dict _shadow_order_id_to_market_pair
-        object _shadow_gc_requests
         dict _order_fill_buy_events
         dict _order_fill_sell_events
         dict _suggested_price_samples
-        object _in_flight_cancels
         int64_t _logging_options
         object _exchange_rate_conversion
 
-    cdef c_cancel_order(self, object market_pair, str order_id)
     cdef c_process_market_pair(self, object market_pair, list active_ddex_orders)
     cdef c_check_and_hedge_orders(self, object market_pair)
-    cdef c_check_and_cleanup_shadow_records(self)
-    cdef c_start_tracking_limit_order(self, object market_pair, str order_id, bint is_buy, object price,
-                                      object quantity)
-    cdef c_stop_tracking_limit_order(self, object market_pair, str order_id)
-    cdef c_start_tracking_market_order(self, object market_pair, str order_id, bint is_buy, object quantity)
-    cdef c_stop_tracking_market_order(self, object market_pair, str order_id)
     cdef object c_get_order_size_after_portfolio_ratio_limit(self, object market_pair, double original_order_size)
     cdef object c_get_adjusted_limit_order_size(self, object market_pair, double price, double original_order_size)
     cdef double c_sum_flat_fees(self, str quote_currency, list flat_fees)

@@ -20,6 +20,7 @@ cdef class OrderTracker(TimeIterator):
     cdef bint c_has_in_flight_cancel(self, str order_id)
     cdef bint c_check_and_track_cancel(self, str order_id)
     cdef object c_get_market_pair_from_order_id(self, str order_id)
+    cdef object c_get_shadow_market_pair_from_order_id(self, str order_id)
     cdef LimitOrder c_get_limit_order(self, object market_pair, str order_id)
     cdef object c_get_market_order(self, object market_pair, str order_id)
     cdef LimitOrder c_get_shadow_limit_order(self, str order_id)
