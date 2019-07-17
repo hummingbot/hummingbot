@@ -725,8 +725,9 @@ cdef class BambooRelayMarket(MarketBase):
         signed_market_orders = response["orders"]
         average_price = float(response["averagePrice"])
         is_coordinated = bool(response["isCoordinated"])
-        trading_rules = self.trading_rules.get(symbol)
-        max_base_amount_with_decimals = Decimal(amount) * Decimal(f"1e{trading_rules.amount_decimals}")
+        base_asset_increment = self.trading_rules.get(symbol).min_base_amount_increment
+        base_asset_decimals = -int(math.ceil(math.log10(float(base_asset_increment))))
+        max_base_amount_with_decimals = Decimal(amount) * Decimal(f"1e{base_asset_decimals}")
 
         tx_hash = ""
         total_base_quantity = Decimal(response["totalBaseQuantity"])
@@ -1032,16 +1033,14 @@ cdef class BambooRelayMarket(MarketBase):
                    double amount,
                    object order_type = OrderType.MARKET,
                    double price = NaN,
-                   dict kargs = {}):
+                   dict kwargs = {}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"buy-{symbol}-{tracking_nonce}")
             double current_timestamp = self._current_timestamp
-        expires = kargs.get("expiration_ts", None)
+        expires = kwargs.get("expiration_ts", None)
         if expires is not None:
             expires = int(expires)
-        else:
-            expires = int(current_timestamp + 1200)
         if order_type is OrderType.LIMIT:
             # Don't spam the server endpoint if a order placement failed recently
             if current_timestamp - self._last_failed_limit_order_timestamp <= self.ORDER_CREATION_BACKOFF_TIME:
@@ -1062,16 +1061,14 @@ cdef class BambooRelayMarket(MarketBase):
                     double amount,
                     object order_type = OrderType.MARKET,
                     double price = NaN,
-                    dict kargs = {}):
+                    dict kwargs = {}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"sell-{symbol}-{tracking_nonce}")
             double current_timestamp = self._current_timestamp
-        expires = kargs.get("expiration_ts", None)
+        expires = kwargs.get("expiration_ts", None)
         if expires is not None:
             expires = int(expires)
-        else:
-            expires = int(current_timestamp + 1200)
         if order_type is OrderType.LIMIT:
             # Don't spam the server endpoint if a order placement failed recently
             if current_timestamp - self._last_failed_limit_order_timestamp <= self.ORDER_CREATION_BACKOFF_TIME:
@@ -1250,6 +1247,7 @@ cdef class BambooRelayMarket(MarketBase):
             trade_type=trade_type,
             price=price,
             amount=amount,
+            expires=0,
             tx_hash=tx_hash
         )
 
