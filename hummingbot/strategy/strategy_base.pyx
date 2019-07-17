@@ -320,9 +320,9 @@ cdef class StrategyBase(TimeIterator):
             object market_pair = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
 
         if order_type == OrderType.LIMIT:
-            self._sb_order_tracker.c_stop_tracking_limit_order(market_pair, order_id)
+            self.c_stop_tracking_limit_order(market_pair, order_id)
         elif order_type == OrderType.MARKET:
-            self._sb_order_tracker.c_stop_tracking_market_order(market_pair, order_id)
+            self.c_stop_tracking_market_order(market_pair, order_id)
 
 
     cdef c_did_cancel_order_tracker(self, object order_cancelled_event):
@@ -330,7 +330,7 @@ cdef class StrategyBase(TimeIterator):
             str order_id = order_cancelled_event.order_id
             object market_pair = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
 
-        self._sb_order_tracker.c_stop_tracking_limit_order(market_pair, order_id)
+        self.c_stop_tracking_limit_order(market_pair, order_id)
 
     cdef c_did_expire_order_tracker(self, object order_expired_event):
         self.c_did_cancel_order_tracker(order_expired_event)
@@ -343,9 +343,9 @@ cdef class StrategyBase(TimeIterator):
 
         if market_pair is not None:
             if order_type == OrderType.LIMIT:
-                self._sb_order_tracker.c_stop_tracking_limit_order(market_pair, order_id)
+                self.c_stop_tracking_limit_order(market_pair, order_id)
             elif order_type == OrderType.MARKET:
-                self._sb_order_tracker.c_stop_tracking_market_order(market_pair, order_id)
+                self.c_stop_tracking_market_order(market_pair, order_id)
 
     cdef c_did_complete_sell_order_tracker(self, object order_completed_event):
         self.c_did_complete_buy_order_tracker(order_completed_event)
@@ -377,9 +377,9 @@ cdef class StrategyBase(TimeIterator):
 
         # Start order tracking
         if order_type == OrderType.LIMIT:
-            self._sb_order_tracker.c_start_tracking_limit_order(market_symbol_pair, order_id, True, price, amount)
+            self.c_start_tracking_limit_order(market_symbol_pair, order_id, True, price, amount)
         elif order_type == OrderType.MARKET:
-            self._sb_order_tracker.c_start_tracking_market_order(market_symbol_pair, order_id, True, amount)
+            self.c_start_tracking_market_order(market_symbol_pair, order_id, True, amount)
 
         return order_id
 
@@ -410,9 +410,9 @@ cdef class StrategyBase(TimeIterator):
 
         # Start order tracking
         if order_type == OrderType.LIMIT:
-            self._sb_order_tracker.c_start_tracking_limit_order(market_symbol_pair, order_id, False, price, amount)
+            self.c_start_tracking_limit_order(market_symbol_pair, order_id, False, price, amount)
         elif order_type == OrderType.MARKET:
-            self._sb_order_tracker.c_start_tracking_market_order(market_symbol_pair, order_id, False, amount)
+            self.c_start_tracking_market_order(market_symbol_pair, order_id, False, amount)
 
         return order_id
 
@@ -422,3 +422,20 @@ cdef class StrategyBase(TimeIterator):
 
         if self._sb_order_tracker.c_check_and_track_cancel(order_id):
             market.c_cancel(market_pair.trading_pair, order_id)
+
+    # The following exposed tracking functions are meant to allow optional overriding of order tracking behavior
+    # in strategy classes.
+    # ----------------------------------------------------------------------------------------------------------
+    cdef c_start_tracking_limit_order(self, object market_pair, str order_id, bint is_buy, object price,
+                                      object quantity):
+        self._sb_order_tracker.c_start_tracking_limit_order(market_pair, order_id, is_buy, price, quantity)
+
+    cdef c_stop_tracking_limit_order(self, object market_pair, str order_id):
+        self._sb_order_tracker.c_stop_tracking_limit_order(market_pair, order_id)
+
+    cdef c_start_tracking_market_order(self, object market_pair, str order_id, bint is_buy, object quantity):
+        self._sb_order_tracker.c_start_tracking_market_order(market_pair, order_id, is_buy, quantity)
+
+    cdef c_stop_tracking_market_order(self, object market_pair, str order_id):
+        self._sb_order_tracker.c_stop_tracking_market_order(market_pair, order_id)
+    # ----------------------------------------------------------------------------------------------------------

@@ -47,6 +47,16 @@ cdef class OrderTracker(TimeIterator):
         return maker_orders
 
     @property
+    def shadow_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
+        maker_orders = []
+        for market_pair, orders_map in self._shadow_tracked_maker_orders.items():
+            for limit_order in orders_map.values():
+                if self.c_has_in_flight_cancel(limit_order.client_order_id):
+                    continue
+                maker_orders.append((market_pair.market, limit_order))
+        return maker_orders
+
+    @property
     def market_pair_to_active_orders(self) -> Dict[MarketSymbolPair, List[LimitOrder]]:
         market_pair_to_orders = {}
         market_pairs = self._tracked_maker_orders.keys()
@@ -125,6 +135,9 @@ cdef class OrderTracker(TimeIterator):
 
     cdef object c_get_market_pair_from_order_id(self, str order_id):
         return self._order_id_to_market_pair.get(order_id)
+
+    cdef object c_get_shadow_market_pair_from_order_id(self, str order_id):
+        return self._shadow_order_id_to_market_pair.get(order_id)
 
     cdef LimitOrder c_get_limit_order(self, object market_pair, str order_id):
         return self._tracked_maker_orders.get(market_pair, {}).get(order_id)
