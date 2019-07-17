@@ -28,6 +28,7 @@ from hummingbot.client.settings import (
     CONF_POSTFIX,
     CONF_PREFIX,
     LIQUIDITY_BOUNTY_CONFIG_PATH,
+    DEPRECATED_CONFIG_VALUES,
 )
 
 # Use ruamel.yaml to preserve order and comments in .yml file
@@ -152,6 +153,8 @@ def read_configs_from_yml(strategy_file_path: str = None):
                 data = yaml.load(stream) or {}
                 for key in data:
                     if key == "wallet":
+                        continue
+                    if key in DEPRECATED_CONFIG_VALUES:
                         continue
                     cvar = cm.get(key)
                     val_in_file = data.get(key)
