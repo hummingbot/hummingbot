@@ -10,7 +10,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.radar_relay.bamboo_relay_market import BambooRelayMarket
+from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 from hummingbot.market.utils import (
     zrx_order_to_json,
