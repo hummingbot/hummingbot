@@ -18,6 +18,7 @@ from websockets.exceptions import ConnectionClosed
 
 from hummingbot.market.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
 from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
+from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry, BambooRelayOrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, BambooRelayOrderBookMessage
@@ -135,7 +136,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_trading_pairs(self) -> List[str]:
         if not self._symbols:
             try:
-                active_markets: pd.DataFrame = await self.get_active_exchange_markets()
+                active_markets: pd.DataFrame = await self.get_active_exchange_markets(self._api_prefix)
                 self._symbols = active_markets.index.tolist()
             except Exception:
                 self._symbols = []
@@ -155,7 +156,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             number_of_pairs: int = len(trading_pairs)
             for index, trading_pair in enumerate(trading_pairs):
                 try:
-                    snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
+                    snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, self._api_prefix)
                     snapshot_timestamp: float = time.time()
                     snapshot_msg: BambooRelayOrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
                         snapshot,
