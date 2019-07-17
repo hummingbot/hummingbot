@@ -51,6 +51,7 @@ cdef class BambooRelayMarket(MarketBase):
                                       object trade_type,
                                       object price,
                                       object amount,
+                                      int expires,
                                       object zero_ex_order)
     cdef c_start_tracking_market_order(self,
                                        str order_id,
