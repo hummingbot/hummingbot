@@ -83,6 +83,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return {d["address"]: d for d in data}
 
     @classmethod
+    @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls, api_prefix: str = "main/0x") -> pd.DataFrame:
         """
         Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
@@ -132,12 +133,18 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return await response.json()
 
     async def get_trading_pairs(self) -> List[str]:
-        if self._symbols is None:
-            active_markets: pd.DataFrame = await self.get_active_exchange_markets(self._api_prefix)
-            trading_pairs: List[str] = active_markets.index.tolist()
-        else:
-            trading_pairs: List[str] = self._symbols
-        return trading_pairs
+        if not self._symbols:
+            try:
+                active_markets: pd.DataFrame = await self.get_active_exchange_markets()
+                self._symbols = active_markets.index.tolist()
+            except Exception:
+                self._symbols = []
+                self.logger().network(
+                    f"Error getting active exchange information.",
+                    exc_info=True,
+                    app_warning_msg=f"Error getting active exchange information. Check network connection."
+                )
+        return self._symbols
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         # Get the currently active markets
@@ -145,9 +152,10 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             trading_pairs: List[str] = await self.get_trading_pairs()
             retval: Dict[str, OrderBookTrackerEntry] = {}
 
-            for trading_pair in trading_pairs:
+            number_of_pairs: int = len(trading_pairs)
+            for index, trading_pair in enumerate(trading_pairs):
                 try:
-                    snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, self._api_prefix)
+                    snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
                     snapshot_timestamp: float = time.time()
                     snapshot_msg: BambooRelayOrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
                         snapshot,
@@ -166,11 +174,14 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         bamboo_relay_order_book,
                         bamboo_relay_active_order_tracker
                     )
+                    self.logger().info(f"Initialized order book for {trading_pair}. "
+                                       f"{index+1}/{number_of_pairs} completed.")
 
-                    await asyncio.sleep(0.7)
+                    await asyncio.sleep(0.9)
 
                 except Exception:
                     self.logger().error(f"Error getting snapshot for {trading_pair}. ", exc_info=True)
+                    await asyncio.sleep(5.0)
             return retval
 
     async def _inner_messages(self,
@@ -238,7 +249,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             metadata={"symbol": trading_pair}
                         )
                         output.put_nowait(snapshot_msg)
-                        self.logger().info(f"Saved order book snapshot for {trading_pair}")
+                        self.logger().debug(f"Saved order book snapshot for {trading_pair}")
 
                         await asyncio.sleep(5.0)
 

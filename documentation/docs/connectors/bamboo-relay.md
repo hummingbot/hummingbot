@@ -2,8 +2,8 @@
 
 ## About Bamboo Relay
 
-[Bamboo Relay](https://bamboorelay.com/) is an exchange application
- specializing in ERC-20 tokens that uses the [0x Protocol](https://0x.org/). Founded in 2017, it is a newer exchange that has rapidly gained users and features continuous trading with its off-chain order book.
+[Bamboo Relay](https://bamboorelay.com/) is an exchange application specializing in ERC-20 tokens that uses the [0x Protocol](https://0x.org/). 
+ Currently, Bamboo Relay allows any user to connect their wallet and trade between any coin pair combination. 
 
 ## Using the Connector
 

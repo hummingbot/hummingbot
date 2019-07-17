@@ -30,6 +30,7 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
+                 expires: int = None,
                  initial_state: str = "OPEN",
                  tx_hash: Optional[str] = None,
                  zero_ex_order: Optional[ZeroExOrder] = None):
@@ -45,6 +46,7 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
             initial_state
         )
         self.is_coordinated = is_coordinated
+        self.expires = expires
         self.available_amount_base = amount
         self.gas_fee_amount = s_decimal_0
         self.tx_hash = tx_hash # used for tracking market orders
@@ -60,6 +62,7 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
                f"trade_type={self.trade_type}, " \
                f"price={self.price}, " \
                f"amount={self.amount}, " \
+               f"expires={self.expires}, " \
                f"executed_amount_base={self.executed_amount_base}, " \
                f"executed_amount_quote={self.executed_amount_quote}, " \
                f"last_state='{self.last_state}', " \
@@ -95,6 +98,7 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
             "trade_type": self.trade_type.name,
             "price": str(self.price),
             "amount": str(self.amount),
+            "expires": self.expires,
             "executed_amount_base": str(self.executed_amount_base),
             "executed_amount_quote": str(self.executed_amount_quote),
             "last_state": self.last_state,
@@ -116,6 +120,7 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
                 trade_type=getattr(TradeType, data["trade_type"]),
                 price=Decimal(data["price"]),
                 amount=Decimal(data["amount"]),
+                expires=data["expires"],
                 initial_state=data["last_state"],
                 tx_hash=data["tx_hash"],
                 zero_ex_order=json_to_zrx_order(data["zero_ex_order"])
