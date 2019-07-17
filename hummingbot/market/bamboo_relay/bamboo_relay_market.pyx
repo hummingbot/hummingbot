@@ -1240,7 +1240,7 @@ cdef class BambooRelayMarket(MarketBase):
                                       object price,
                                       object amount,
                                       object zero_ex_order):
-        self._in_flight_limit_orders[order_id] = RadarRelayInFlightOrder(
+        self._in_flight_limit_orders[order_id] = BambooRelayInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
             symbol=symbol,
