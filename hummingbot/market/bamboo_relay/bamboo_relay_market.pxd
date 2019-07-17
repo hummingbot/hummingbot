@@ -48,14 +48,20 @@ cdef class BambooRelayMarket(MarketBase):
                                       str symbol,
                                       object order_type,
                                       bint is_coordinated,
+                                      object trade_type,
                                       object price,
+                                      object amount,
                                       object zero_ex_order)
     cdef c_start_tracking_market_order(self,
                                        str order_id,
                                        str symbol,
                                        object order_type,
                                        bint is_coordinated,
-                                       object price)
+                                       object trade_type,
+                                       object price,
+                                       object amount,
+                                       str tx_hash)
     cdef c_expire_order(self, str order_id)
     cdef c_check_and_remove_expired_orders(self)
     cdef c_stop_tracking_order(self, str order_id)
+
