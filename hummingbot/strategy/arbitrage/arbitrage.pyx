@@ -283,6 +283,8 @@ cdef class ArbitrageStrategy(StrategyBase):
                                             order_type=OrderType.MARKET)
             self.c_sell_with_specific_market(sell_market_symbol_pair, quantized_order_amount,
                                              order_type=OrderType.MARKET)
+            self._last_trade_timestamps[buy_market_symbol_pair] = self._current_timestamp
+            self._last_trade_timestamps[sell_market_symbol_pair] = self._current_timestamp
             self.logger().info(self.format_status())
 
     @classmethod

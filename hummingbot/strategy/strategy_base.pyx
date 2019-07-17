@@ -348,7 +348,7 @@ cdef class StrategyBase(TimeIterator):
                 self._sb_order_tracker.c_stop_tracking_market_order(market_pair, order_id)
 
     cdef c_did_complete_sell_order_tracker(self, object order_completed_event):
-        self.c_did_complete_buy_order(order_completed_event)
+        self.c_did_complete_buy_order_tracker(order_completed_event)
 
     cdef str c_buy_with_specific_market(self, object market_symbol_pair, object amount,
                                         object order_type = OrderType.MARKET,
