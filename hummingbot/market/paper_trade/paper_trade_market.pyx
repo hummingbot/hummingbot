@@ -1,3 +1,12 @@
+
+from collections import deque
+from cpython cimport PyObject
+from cython.operator cimport (
+    postincrement as inc,
+    dereference as deref,
+    address
+)
+from libcpp cimport bool as cppbool
 import logging
 import random
 from typing import (
@@ -6,11 +15,18 @@ from typing import (
 )
 
 from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.limit_order cimport c_create_limit_order_from_cpp_limit_order
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.event.events import MarketEvent, OrderType
+from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import MarketBase
+
+from .market_config import (
+    MarketConfig,
+    AssetType
+)
 
 s_logger = None
 
@@ -92,23 +108,11 @@ cdef class PaperTradeMarket(MarketBase):
     def __init__(self, order_book_tracker):
         super().__init__()
 
+        self._symbol_pairs = {}
         self._account_balance = {}
-        self._in_flight_orders = {}
-        self._data = {}
         self._order_book_tracker = order_book_tracker
-
-        # What does config do?
         self._config = MarketConfig.default_config()
-
-        # What do these do?
-        self._asset_received_listener = AssetReceivedListener(self)
-        self._order_book_trade_listener = OrderBookTradeListener(self)
-
-        # Are these needed?
         self._queued_orders = deque()
-        self._queued_withdraw_events = []
-
-        # This is needed
         self._quantization_params = {}
 
     @property
@@ -118,6 +122,10 @@ cdef class PaperTradeMarket(MarketBase):
     @property
     def ready(self):
         return len(self._order_book_tracker.order_books) > 0
+
+    def add_symbol_pair(self, *symbol_pairs):
+        for symbol_pair in symbol_pairs:
+            self._symbol_pairs[symbol_pair.symbol]= symbol_pair
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
@@ -151,18 +159,6 @@ cdef class PaperTradeMarket(MarketBase):
 
         return retval
 
-    async def get_active_exchange_markets(self):
-        pass
-
-    async def get_deposit_info(self, asset: str) -> DepositInfo:
-        pass
-
-    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
-        incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
-        tasks = [self.execute_cancel(o.symbol, o.client_order_id) for o in incomplete_orders]
-        order_id_set = set([o.client_order_id for o in incomplete_orders])
-        successful_cancellations = []
-
     cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0,
                    dict kwargs = {}):
         if symbol not in self._data:
@@ -170,20 +166,37 @@ cdef class PaperTradeMarket(MarketBase):
 
         cdef:
             str order_id = self.random_buy_order_id(symbol)
-            OrderBookLoaderBase data_loader = self._data[symbol]
             string cpp_order_id = order_id.encode("utf8")
             string cpp_symbol = symbol.encode("utf8")
-            string cpp_base_currency = data_loader.base_currency.encode("utf8")
-            string cpp_quote_currency = data_loader.quote_currency.encode("utf8")
+            string cpp_base_currency = self._symbol_pairs[symbol].base_currency.encode("utf8")
+            string cpp_quote_currency = self._symbol_pairs[symbol].quote_currency.encode("utf8")
             LimitOrdersIterator map_it
             SingleSymbolLimitOrders *limit_orders_collection_ptr = NULL
             pair[LimitOrders.iterator, cppbool] insert_result
-            # Should current time stamp be changed?
-            double time_now = self.current_timestamp
+            double time_now = self._current_timestamp
             double order_expiration_ts = kwargs.get("expiration_ts", 0)
 
-            if order_type is OrderType.MARKET:
-                self._queued_orders.append(QueuedOrder(self._current_timestamp, order_id, True, symbol, amount))
+        if order_type is OrderType.MARKET:
+            self._queued_orders.append(QueuedOrder(self._current_timestamp, order_id, True, symbol, amount))
+        elif order_type is OrderType.LIMIT:
+            quantized_price = self.c_quantize_order_price(symbol, price)
+            quantized_amount = self.c_quantize_order_amount(symbol, amount)
+            map_it = self._bid_limit_orders.find(cpp_symbol)
+
+            if map_it == self._bid_limit_orders.end():
+                insert_result = self._bid_limit_orders.insert(LimitOrdersPair(cpp_symbol, SingleSymbolLimitOrders()))
+                map_it = insert_result.first
+            limit_orders_collection_ptr = address(deref(map_it).second)
+            limit_orders_collection_ptr.insert(CPPLimitOrder(
+                cpp_order_id,
+                cpp_symbol,
+                True,
+                cpp_base_currency,
+                cpp_quote_currency,
+                <PyObject *> quantized_price,
+                <PyObject *> quantized_amount
+            ))
+
 """
 @property
     def status_dict(self) -> Dict[str, bool]:
@@ -221,6 +234,7 @@ cdef class PaperTradeMarket(MarketBase):
         '''
         pass
 
+    # Not implemented above
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         '''
         :return: data frame with symbol as index, and at least the following columns --
@@ -243,6 +257,7 @@ cdef class PaperTradeMarket(MarketBase):
     def withdraw(self, address: str, currency: str, amount: float) -> str:
         return self.c_withdraw(address, currency, amount)
 
+    # Not implemented above
     async def get_deposit_info(self, asset: str) -> DepositInfo:
         raise NotImplementedError
 
