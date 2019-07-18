@@ -15,7 +15,7 @@ class ExportTradesCommand:
                       path: str = ""):
         if not path:
             fname = f"trades_{pd.Timestamp.now().strftime('%Y-%m-%d-%H-%M-%S')}.csv"
-            path = join(dirname(__file__), f"../../logs/{fname}")
+            path = join(dirname(__file__), f"../../../logs/{fname}")
         if self.strategy is None:
             self._notify("No strategy available, cannot export past trades.")
 
