@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import json
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../../")))
 
@@ -244,13 +245,16 @@ class LiquidityBounty(NetworkBase):
 
     async def authenticated_request(self, request_method: str, url: str, **kwargs) -> Dict[str, Any]:
         try:
+            # Set default data value here in case an assertion error occurs
+            data = None
             client = await self._http_client()
             client_id = liquidity_bounty_config_map.get("liquidity_bounty_client_id").value
             assert client_id is not None
             headers = {"Client-ID": client_id}
 
             async with client.request(request_method, url, headers=headers, **kwargs) as resp:
-                results = await resp.json()
+                data = await resp.text()
+                results = json.loads(data)
                 if "error" in results:
                     raise Exception(results.get("error"))
                 if resp.status == 500:
@@ -259,7 +263,7 @@ class LiquidityBounty(NetworkBase):
                     raise Exception("User not registered")
                 return results
         except Exception as e:
-            self.logger().network(f"Error in authenticated request: {str(e)}", exc_info=True)
+            self.logger().network(f"Error in authenticated request: {str(e)}, data: {data}", exc_info=True)
             raise
 
     async def fetch_client_status(self):

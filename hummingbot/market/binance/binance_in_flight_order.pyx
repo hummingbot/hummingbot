@@ -12,6 +12,9 @@ from hummingbot.core.event.events import (
 from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
+s_decimal_0 = Decimal(0)
+
+
 cdef class BinanceInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
@@ -47,14 +50,14 @@ cdef class BinanceInFlightOrder(InFlightOrderBase):
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         cdef:
             BinanceInFlightOrder retval = BinanceInFlightOrder(
-                data["client_order_id"],
-                data["exchange_order_id"],
-                data["symbol"],
-                getattr(OrderType, data["order_type"]),
-                getattr(TradeType, data["trade_type"]),
-                Decimal(data["price"]),
-                Decimal(data["amount"]),
-                data["last_state"]
+                client_order_id=data["client_order_id"],
+                exchange_order_id=data["exchange_order_id"],
+                symbol=data["symbol"],
+                order_type=getattr(OrderType, data["order_type"]),
+                trade_type=getattr(TradeType, data["trade_type"]),
+                price=Decimal(data["price"]),
+                amount=Decimal(data["amount"]),
+                initial_state=data["last_state"]
             )
         retval.executed_amount_base = Decimal(data["executed_amount_base"])
         retval.executed_amount_quote = Decimal(data["executed_amount_quote"])

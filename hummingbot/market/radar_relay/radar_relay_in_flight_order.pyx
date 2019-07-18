@@ -2,30 +2,38 @@ from decimal import Decimal
 from typing import (
     Any,
     Dict,
+    Optional
 )
+from zero_ex.order_utils import Order as ZeroExOrder
 
 from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.ddex.ddex_market import DDEXMarket
+from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
+from hummingbot.market.utils import (
+    zrx_order_to_json,
+    json_to_zrx_order
+)
 
 s_decimal_0 = Decimal(0)
 
 
-cdef class DDEXInFlightOrder(InFlightOrderBase):
+cdef class RadarRelayInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
-                 exchange_order_id: str,
+                 exchange_order_id: Optional[str],
                  symbol: str,
                  order_type: OrderType,
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "NEW"):
+                 initial_state: str = "OPEN",
+                 tx_hash: Optional[str] = None,
+                 zero_ex_order: Optional[ZeroExOrder] = None):
         super().__init__(
-            DDEXMarket,
+            RadarRelayMarket,
             client_order_id,
             exchange_order_id,
             symbol,
@@ -35,16 +43,17 @@ cdef class DDEXInFlightOrder(InFlightOrderBase):
             amount,
             initial_state
         )
-        self.pending_amount_base = s_decimal_0
-        self.gas_fee_amount = s_decimal_0
         self.available_amount_base = amount
+        self.gas_fee_amount = s_decimal_0
+        self.tx_hash = tx_hash # used for tracking market orders
+        self.zero_ex_order = zero_ex_order
 
     def __repr__(self) -> str:
-        return f"DDEXInFlightOrder(" \
+        return f"RadarRelayInFlightOrder(" \
                f"client_order_id='{self.client_order_id}', " \
                f"exchange_order_id='{self.exchange_order_id}', " \
                f"symbol='{self.symbol}', " \
-               f"order_type={self.order_type}, " \
+               f"order_type='{self.order_type}', " \
                f"trade_type={self.trade_type}, " \
                f"price={self.price}, " \
                f"amount={self.amount}, " \
@@ -52,15 +61,26 @@ cdef class DDEXInFlightOrder(InFlightOrderBase):
                f"executed_amount_quote={self.executed_amount_quote}, " \
                f"last_state='{self.last_state}', " \
                f"available_amount_base={self.available_amount_base}, " \
-               f"gas_fee_amount={self.gas_fee_amount})"
+               f"gas_fee_amount={self.gas_fee_amount}, " \
+               f"tx_hash='{self.tx_hash}', " \
+               f"zero_ex_order='{self.zero_ex_order}')"
 
     @property
     def is_done(self) -> bool:
-        return self.available_amount_base == self.pending_amount_base == s_decimal_0
+        return self.available_amount_base == s_decimal_0
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"canceled"}
+        return self.last_state in {"CANCELED", "CANCELLED"}
+
+    @property
+    def is_failure(self) -> bool:
+        return self.last_state in {"UNFUNDED"}
+
+    @property
+    def is_expired(self) -> bool:
+        return self.last_state in {"EXPIRED"}
+
 
     def to_json(self) -> Dict[str, Any]:
         return {
@@ -73,16 +93,17 @@ cdef class DDEXInFlightOrder(InFlightOrderBase):
             "amount": str(self.amount),
             "executed_amount_base": str(self.executed_amount_base),
             "executed_amount_quote": str(self.executed_amount_quote),
-            "available_amount_base": str(self.available_amount_base),
             "last_state": self.last_state,
-            "pending_amount_base": str(self.pending_amount_base),
-            "gas_fee_amount": str(self.gas_fee_amount)
+            "available_amount_base": str(self.available_amount_base),
+            "gas_fee_amount": str(self.gas_fee_amount),
+            "tx_hash": self.tx_hash,
+            "zero_ex_order": zrx_order_to_json(self.zero_ex_order)
         }
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         cdef:
-            DDEXInFlightOrder retval = DDEXInFlightOrder(
+            RadarRelayInFlightOrder retval = RadarRelayInFlightOrder(
                 client_order_id=data["client_order_id"],
                 exchange_order_id=data["exchange_order_id"],
                 symbol=data["symbol"],
@@ -90,12 +111,12 @@ cdef class DDEXInFlightOrder(InFlightOrderBase):
                 trade_type=getattr(TradeType, data["trade_type"]),
                 price=Decimal(data["price"]),
                 amount=Decimal(data["amount"]),
-                initial_state=data["last_state"]
+                initial_state=data["last_state"],
+                tx_hash=data["tx_hash"],
+                zero_ex_order=json_to_zrx_order(data["zero_ex_order"])
             )
+        retval.available_amount_base = Decimal(data["available_amount_base"])
         retval.executed_amount_base = Decimal(data["executed_amount_base"])
         retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.available_amount_base = Decimal(data["available_amount_base"])
-        retval.last_state = data["last_state"]
-        retval.pending_amount_base = Decimal(data["pending_amount_base"])
         retval.gas_fee_amount = Decimal(data["gas_fee_amount"])
         return retval
