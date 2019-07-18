@@ -37,7 +37,7 @@ def start(self):
         self._initialize_markets(market_names)
         self.assets = set(assets)
 
-        maker_data = [self.markets[market], raw_market_symbol] + list(maker_assets)
+        maker_data = [self.markets[market], raw_market_symbol] + list(assets)
         self.market_symbol_pairs = [MarketSymbolPair(*maker_data)]
         self.market_info = MarketInfo(*([self.markets[market], raw_market_symbol] +
                                         list(assets)))

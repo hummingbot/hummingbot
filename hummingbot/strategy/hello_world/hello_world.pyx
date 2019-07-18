@@ -288,29 +288,6 @@ cdef class HelloWorldStrategy(StrategyBase):
 
         self.logger().info(f"Sell Order: {order_id} for {market_info.symbol} has been completely filled")
 
-    cdef c_buy_with_specific_market(self,
-                                     MarketBase market,
-                                     str symbol,
-                                     double amount,
-                                     object order_type = OrderType.MARKET,
-                                     double price = 0.0):
-
-
-        if market not in self._markets:
-            raise ValueError(f"market object for buy order is not in the whitelisted markets set.")
-        return market.c_buy(symbol, amount, order_type=order_type, price=price)
-
-    cdef c_sell_with_specific_market(self,
-                                     MarketBase market,
-                                     str symbol,
-                                     double amount,
-                                     object order_type = OrderType.MARKET,
-                                     double price = 0.0):
-
-        if market not in self._markets:
-            raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
-        return market.c_sell(symbol, amount, order_type=order_type, price=price)
-
     cdef c_cancel_order(self, object market_info, str order_id):
         cdef:
             MarketBase market = market_info.market
@@ -360,27 +337,21 @@ cdef class HelloWorldStrategy(StrategyBase):
             if self._is_buy:
                 if self._order_type == "market":
                     order_id = self.c_buy_with_specific_market(market,
-                                                               symbol,
-                                                               self._order_amount,
-                                                               OrderType.MARKET)
+                                                               amount = self._order_amount)
                 else:
                     order_id = self.c_buy_with_specific_market(market,
-                                                               symbol,
-                                                               self._order_amount,
-                                                               OrderType.MARKET,
-                                                               self._order_price)
+                                                               amount = self._order_amount,
+                                                               order_type = OrderType.LIMIT,
+                                                               price = self._order_price)
             else:
                 if self._order_type == "market":
                     order_id = self.c_sell_with_specific_market(market,
-                                                               symbol,
-                                                               self._order_amount,
-                                                               OrderType.MARKET)
+                                                               amount = self._order_amount)
                 else:
                     order_id = self.c_sell_with_specific_market(market,
-                                                               symbol,
-                                                               self._order_amount,
-                                                               OrderType.MARKET,
-                                                               self._order_price)
+                                                                amount = self._order_amount,
+                                                                order_type = OrderType.LIMIT,
+                                                                price = self._order_price)
         self._order_id_to_market_info[order_id] = market_info
         self._time_to_cancel[order_id] = self._current_timestamp + self._cancel_order_wait_time
 
