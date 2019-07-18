@@ -98,7 +98,7 @@ cdef class HelloWorldStrategy(StrategyBase):
     def __init__(self,
                  market_infos: List[MarketInfo],
                  order_type: str = "limit",
-                 order_price: Optional[float] = 1.0,
+                 order_price: Optional[float] = None,
                  cancel_order_wait_time: float = 60.0,
                  is_buy: bool = True,
                  time_delay: float = 10.0,
