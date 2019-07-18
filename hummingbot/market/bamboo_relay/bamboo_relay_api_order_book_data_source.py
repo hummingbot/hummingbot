@@ -90,7 +90,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
         """
         client: aiohttp.ClientSession = cls.http_client()
-        async with client.get(f"{REST_BASE_URL}{api_prefix}/markets?include=ticker,stats") as response:
+        async with client.get(f"{REST_BASE_URL}{api_prefix}/markets?perPage=1000&include=ticker,stats") as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching active Bamboo Relay markets. HTTP status is {response.status}.")
