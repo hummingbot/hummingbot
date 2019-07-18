@@ -1,20 +1,21 @@
+import asyncio
 from decimal import Decimal
 from typing import (
     Any,
     Dict,
+    Optional
 )
 
 from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.ddex.ddex_market import DDEXMarket
+from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
-
 s_decimal_0 = Decimal(0)
 
 
-cdef class DDEXInFlightOrder(InFlightOrderBase):
+cdef class IDEXInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: str,
@@ -23,9 +24,9 @@ cdef class DDEXInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "NEW"):
+                 initial_state: Optional[str] = "open"):
         super().__init__(
-            DDEXMarket,
+            IDEXMarket,
             client_order_id,
             exchange_order_id,
             symbol,
@@ -35,16 +36,17 @@ cdef class DDEXInFlightOrder(InFlightOrderBase):
             amount,
             initial_state
         )
-        self.pending_amount_base = s_decimal_0
-        self.gas_fee_amount = s_decimal_0
         self.available_amount_base = amount
+        self.gas_fee_amount = s_decimal_0
+        self.created_timestamp = 0.0
+        self.created_timestamp_update_event = asyncio.Event()
 
     def __repr__(self) -> str:
-        return f"DDEXInFlightOrder(" \
+        return f"InFlightOrder(" \
                f"client_order_id='{self.client_order_id}', " \
                f"exchange_order_id='{self.exchange_order_id}', " \
                f"symbol='{self.symbol}', " \
-               f"order_type={self.order_type}, " \
+               f"order_type='{self.order_type}', " \
                f"trade_type={self.trade_type}, " \
                f"price={self.price}, " \
                f"amount={self.amount}, " \
@@ -52,15 +54,16 @@ cdef class DDEXInFlightOrder(InFlightOrderBase):
                f"executed_amount_quote={self.executed_amount_quote}, " \
                f"last_state='{self.last_state}', " \
                f"available_amount_base={self.available_amount_base}, " \
-               f"gas_fee_amount={self.gas_fee_amount})"
+               f"gas_fee_amount={self.gas_fee_amount}, " \
+               f"created_timestamp={self.created_timestamp})"
 
     @property
     def is_done(self) -> bool:
-        return self.available_amount_base == self.pending_amount_base == s_decimal_0
+        return self.available_amount_base == s_decimal_0 or self.last_state == "complete"
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"canceled"}
+        return self.last_state == "cancelled"
 
     def to_json(self) -> Dict[str, Any]:
         return {
@@ -73,16 +76,16 @@ cdef class DDEXInFlightOrder(InFlightOrderBase):
             "amount": str(self.amount),
             "executed_amount_base": str(self.executed_amount_base),
             "executed_amount_quote": str(self.executed_amount_quote),
-            "available_amount_base": str(self.available_amount_base),
             "last_state": self.last_state,
-            "pending_amount_base": str(self.pending_amount_base),
-            "gas_fee_amount": str(self.gas_fee_amount)
+            "available_amount_base": str(self.available_amount_base),
+            "gas_fee_amount": str(self.gas_fee_amount),
+            "created_timestamp": self.created_timestamp,
         }
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         cdef:
-            DDEXInFlightOrder retval = DDEXInFlightOrder(
+            IDEXInFlightOrder retval = IDEXInFlightOrder(
                 client_order_id=data["client_order_id"],
                 exchange_order_id=data["exchange_order_id"],
                 symbol=data["symbol"],
@@ -95,7 +98,15 @@ cdef class DDEXInFlightOrder(InFlightOrderBase):
         retval.executed_amount_base = Decimal(data["executed_amount_base"])
         retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
         retval.available_amount_base = Decimal(data["available_amount_base"])
-        retval.last_state = data["last_state"]
-        retval.pending_amount_base = Decimal(data["pending_amount_base"])
         retval.gas_fee_amount = Decimal(data["gas_fee_amount"])
+        retval.created_timestamp = data["created_timestamp"]
         return retval
+
+    def update_created_timestamp(self, created_timestamp: float):
+        self.created_timestamp = created_timestamp
+        self.created_timestamp_update_event.set()
+
+    async def get_created_timestamp(self) -> float:
+        if self.created_timestamp is None:
+            await self.created_timestamp_update_event.wait()
+        return self.created_timestamp

@@ -882,13 +882,13 @@ cdef class DDEXMarket(MarketBase):
                                 object amount,
                                 object price):
         self._in_flight_orders[client_order_id] = DDEXInFlightOrder(
-            client_order_id,
-            None,
-            symbol,
-            trade_type,
-            order_type,
-            amount,
-            price
+            client_order_id=client_order_id,
+            exchange_order_id=None,
+            symbol=symbol,
+            order_type=order_type,
+            trade_type=trade_type,
+            price=price,
+            amount=amount
         )
 
     cdef c_expire_order(self, str order_id):

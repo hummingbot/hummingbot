@@ -91,7 +91,7 @@ cdef class InFlightOrderBase:
         return LimitOrder(
             self.client_order_id,
             self.symbol,
-            self.trade_type,
+            self.trade_type is TradeType.BUY,
             self.base_asset,
             self.quote_asset,
             self.price,
@@ -115,5 +115,5 @@ cdef class InFlightOrderBase:
         }
 
     @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> "InFlightOrderBase":
+    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         raise NotImplementedError
