@@ -26,10 +26,6 @@ cdef class HelloWorldStrategy(StrategyBase):
 
     cdef c_process_market(self, object market_info)
     cdef c_tick(self, double timestamp)
-    cdef c_buy_with_specific_market(self, MarketBase market, str symbol, double amount,
-                                    object order_type = *, double price = *)
-    cdef c_sell_with_specific_market(self, MarketBase market, str symbol, double amount,
-                                    object order_type = *, double price = *)
     cdef c_cancel_order(self, object market_info, str order_id)
     cdef c_did_fill_order(self, object order_filled_event)
     cdef c_did_fail_order(self, object order_failed_event)
