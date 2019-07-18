@@ -132,6 +132,7 @@ cdef class OrderTracker(TimeIterator):
 
         # Track the cancel.
         self._in_flight_cancels[order_id] = self._current_timestamp
+        return True
 
     cdef object c_get_market_pair_from_order_id(self, str order_id):
         return self._order_id_to_market_pair.get(order_id)

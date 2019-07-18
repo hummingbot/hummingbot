@@ -24,6 +24,7 @@ NaN = float("nan")
 decimal_nan = Decimal("NaN")
 
 
+# <editor-fold desc="+ Event listeners">
 cdef class BaseStrategyEventListener(EventListener):
     cdef:
         StrategyBase _owner
@@ -35,14 +36,14 @@ cdef class BaseStrategyEventListener(EventListener):
 
 cdef class BuyOrderCompletedListener(BaseStrategyEventListener):
     cdef c_call(self, object arg):
-        self._owner.c_did_complete_buy_order_tracker(arg)
         self._owner.c_did_complete_buy_order(arg)
+        self._owner.c_did_complete_buy_order_tracker(arg)
 
 
 cdef class SellOrderCompletedListener(BaseStrategyEventListener):
     cdef c_call(self, object arg):
-        self._owner.c_did_complete_sell_order_tracker(arg)
         self._owner.c_did_complete_sell_order(arg)
+        self._owner.c_did_complete_sell_order_tracker(arg)
 
 
 cdef class OrderFilledListener(BaseStrategyEventListener):
@@ -52,20 +53,20 @@ cdef class OrderFilledListener(BaseStrategyEventListener):
 
 cdef class OrderFailedListener(BaseStrategyEventListener):
     cdef c_call(self, object arg):
-        self._owner.c_did_fail_order_tracker(arg)
         self._owner.c_did_fail_order(arg)
+        self._owner.c_did_fail_order_tracker(arg)
 
 
 cdef class OrderCancelledListener(BaseStrategyEventListener):
     cdef c_call(self, object arg):
-        self._owner.c_did_cancel_order_tracker(arg)
         self._owner.c_did_cancel_order(arg)
+        self._owner.c_did_cancel_order_tracker(arg)
 
 
 cdef class OrderExpiredListener(BaseStrategyEventListener):
     cdef c_call(self, object arg):
-        self._owner.c_did_expire_order_tracker(arg)
         self._owner.c_did_expire_order(arg)
+        self._owner.c_did_expire_order_tracker(arg)
 
 
 cdef class BuyOrderCreatedListener(BaseStrategyEventListener):
@@ -76,6 +77,7 @@ cdef class BuyOrderCreatedListener(BaseStrategyEventListener):
 cdef class SellOrderCreatedListener(BaseStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_create_sell_order(arg)
+# </editor-fold>
 
 
 cdef class StrategyBase(TimeIterator):
@@ -289,6 +291,8 @@ cdef class StrategyBase(TimeIterator):
             typed_market.c_remove_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
             self._sb_markets.remove(typed_market)
 
+    # <editor-fold desc="+ Event handling functions">
+    # ----------------------------------------------------------------------------------------------------------
     cdef c_did_create_buy_order(self, object order_created_event):
         pass
 
@@ -312,7 +316,11 @@ cdef class StrategyBase(TimeIterator):
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
         pass
+    # ----------------------------------------------------------------------------------------------------------
+    # </editor-fold>
 
+    # <editor-fold desc="+ Event handling for order tracking">
+    # ----------------------------------------------------------------------------------------------------------
     cdef c_did_fail_order_tracker(self, object order_failed_event):
         cdef:
             str order_id = order_failed_event.order_id
@@ -349,7 +357,11 @@ cdef class StrategyBase(TimeIterator):
 
     cdef c_did_complete_sell_order_tracker(self, object order_completed_event):
         self.c_did_complete_buy_order_tracker(order_completed_event)
+    # ----------------------------------------------------------------------------------------------------------
+    # </editor-fold>
 
+    # <editor-fold desc="+ Creating and cancelling orders">
+    # ----------------------------------------------------------------------------------------------------------
     cdef str c_buy_with_specific_market(self, object market_symbol_pair, object amount,
                                         object order_type = OrderType.MARKET,
                                         object price = decimal_nan,
@@ -416,15 +428,18 @@ cdef class StrategyBase(TimeIterator):
 
         return order_id
 
-    cdef c_cancel_order(self, object market_pair, str order_id):
+    cdef c_cancel_order(self, object market_symbol_pair, str order_id):
         cdef:
-            MarketBase market = market_pair.market
+            MarketBase market = market_symbol_pair.market
 
         if self._sb_order_tracker.c_check_and_track_cancel(order_id):
-            market.c_cancel(market_pair.trading_pair, order_id)
+            market.c_cancel(market_symbol_pair.trading_pair, order_id)
+    # ----------------------------------------------------------------------------------------------------------
+    # </editor-fold>
 
-    # The following exposed tracking functions are meant to allow optional overriding of order tracking behavior
-    # in strategy classes.
+    # <editor-fold desc="+ Order tracking entry points">
+    # The following exposed tracking functions are meant to allow extending order tracking behavior in strategy
+    # classes.
     # ----------------------------------------------------------------------------------------------------------
     cdef c_start_tracking_limit_order(self, object market_pair, str order_id, bint is_buy, object price,
                                       object quantity):
@@ -439,3 +454,4 @@ cdef class StrategyBase(TimeIterator):
     cdef c_stop_tracking_market_order(self, object market_pair, str order_id):
         self._sb_order_tracker.c_stop_tracking_market_order(market_pair, order_id)
     # ----------------------------------------------------------------------------------------------------------
+    # </editor-fold>
