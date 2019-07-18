@@ -342,7 +342,7 @@ cdef class BambooRelayMarket(MarketBase):
         self._account_balances = self.wallet.get_all_balances()
 
     async def list_market(self) -> Dict[str, Any]:
-        url = f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/markets?include=base"
+        url = f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/markets?perPage=1000&include=base"
         return await self._api_request(http_method="get", url=url, headers={"User-Agent":"hummingbot"})
 
     async def _update_trading_rules(self):
