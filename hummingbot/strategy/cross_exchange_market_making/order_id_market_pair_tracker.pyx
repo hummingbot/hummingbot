@@ -7,12 +7,12 @@ cdef class OrderIDMarketPairTrackingItem:
     cdef:
         public str order_id
         public object market_pair
-        public float expiry_timestamp
+        public double expiry_timestamp
 
-    def __init__(self, str order_id, object market_pair, double expiry_timestamp):
+    def __init__(self, str order_id, object market_pair):
         self.order_id = order_id
         self.market_pair = market_pair
-        self.expiry_timestamp = expiry_timestamp
+        self.expiry_timestamp = NaN
 
 
 cdef class OrderIDMarketPairTracker(TimeIterator):
@@ -35,11 +35,7 @@ cdef class OrderIDMarketPairTracker(TimeIterator):
         return None
 
     cdef c_start_tracking_order_id(self, str order_id, object market_pair):
-        self._order_id_to_tracking_item[order_id] = OrderIDMarketPairTrackingItem(
-            order_id,
-            market_pair,
-            NaN
-        )
+        self._order_id_to_tracking_item[order_id] = OrderIDMarketPairTrackingItem(order_id, market_pair)
 
     cdef c_stop_tracking_order_id(self, str order_id):
         cdef:
@@ -56,7 +52,7 @@ cdef class OrderIDMarketPairTracker(TimeIterator):
 
         for order_id, tracking_item in self._order_id_to_tracking_item.items():
             typed_tracking_item = tracking_item
-            if self._expiry_timeout < typed_tracking_item.expiry_timestamp:
+            if self._current_timestamp > typed_tracking_item.expiry_timestamp:
                 order_ids_to_delete.append(order_id)
             else:
                 break
