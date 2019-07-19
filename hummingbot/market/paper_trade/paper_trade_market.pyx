@@ -8,6 +8,7 @@ from cython.operator cimport (
 )
 from libcpp cimport bool as cppbool
 import logging
+import pandas as pd
 import random
 from typing import (
     Dict,
@@ -18,10 +19,13 @@ from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.limit_order cimport c_create_limit_order_from_cpp_limit_order
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.event.events import MarketEvent, OrderType
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import MarketBase
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.market.paper_trade.symbol_pair import SymbolPair
 
 from .market_config import (
     MarketConfig,
@@ -106,7 +110,7 @@ cdef class PaperTradeMarket(MarketBase):
         return s_logger
 
     def __init__(self, order_book_tracker):
-        super().__init__()
+        super(MarketBase, self).__init__()
 
         self._symbol_pairs = {}
         self._account_balance = {}
@@ -161,7 +165,7 @@ cdef class PaperTradeMarket(MarketBase):
 
     cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0,
                    dict kwargs = {}):
-        if symbol not in self._data:
+        if symbol not in self._symbol_pairs:
             raise ValueError(f"Trading symbol '{symbol}' does not existing in current data set.")
 
         cdef:
@@ -197,35 +201,89 @@ cdef class PaperTradeMarket(MarketBase):
                 <PyObject *> quantized_amount
             ))
 
+    async def get_active_exchange_markets(self) -> pd.DataFrame:
+        pass
+
+    def get_all_balances(self) -> Dict[str, float]:
+        pass
+
+    async def get_deposit_info(self, asset: str) -> DepositInfo:
+        pass
+
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+        pass
+
+    cdef str c_sell(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0,
+                    dict kwargs = {}):
+        pass
+
+    cdef c_cancel(self, str symbol, str client_order_id):
+        pass
+
+    cdef object c_get_fee(self, str base_currency, str quote_currency, object order_type, object order_side,
+                          double amount, double price):
+        pass
+
+    cdef double c_get_balance(self, str currency) except? -1:
+        pass
+
+    cdef double c_get_available_balance(self, str currency) except? -1:
+        pass
+
+    cdef str c_withdraw(self, str address, str currency, double amount):
+        pass
+
+    cdef OrderBook c_get_order_book(self, str symbol):
+        pass
+
+    cdef double c_get_price(self, str symbol, bint is_buy) except? -1:
+        pass
+
+    cdef object c_get_order_price_quantum(self, str symbol, double price):
+        pass
+
+    cdef object c_get_order_size_quantum(self, str symbol, double order_size):
+        pass
+
+
 """
 @property
+    
+    # Default implementation
     def status_dict(self) -> Dict[str, bool]:
         return {}
 
+    # Default implementation
     @property
     def name(self) -> str:
         return self.__class__.__name__
 
+    # Default implementation
     @property
     def event_logs(self) -> List[any]:
         return self.event_logger.event_log
 
+    # Implemented
     @property
     def order_books(self) -> Dict[str, OrderBook]:
         raise NotImplementedError
 
+    # Implemented
     @property
     def ready(self) -> bool:
         raise NotImplementedError
 
+    # Implemented
     @property
     def limit_orders(self) -> List[LimitOrder]:
         raise NotImplementedError
 
+    # Default implementation
     @property
     def tracking_states(self) -> Dict[str, any]:
         return {}
 
+    # Default implementation
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         '''        
         Restores the tracking states from a previously saved state.
@@ -242,18 +300,23 @@ cdef class PaperTradeMarket(MarketBase):
         '''
         raise NotImplementedError
 
+    # Default implementation
     def get_balance(self, currency: str) -> float:
         return self.c_get_balance(currency)
 
+    # Default implementation
     def get_available_balance(self, currency: str) -> float:
         return self.c_get_available_balance(currency)
 
+    # Temporarily implemented
     def get_all_balances(self) -> Dict[str, float]:
         raise NotImplementedError
 
+    # Default implementation
     def get_price(self, symbol: str, is_buy: bool) -> float:
         return self.c_get_price(symbol, is_buy)
 
+    # Default implementation
     def withdraw(self, address: str, currency: str, amount: float) -> str:
         return self.c_withdraw(address, currency, amount)
 
@@ -261,21 +324,27 @@ cdef class PaperTradeMarket(MarketBase):
     async def get_deposit_info(self, asset: str) -> DepositInfo:
         raise NotImplementedError
 
+    # Default implementation
     def get_order_book(self, symbol: str) -> OrderBook:
         return self.c_get_order_book(symbol)
 
+    # Default implementation
     def buy(self, symbol: str, amount: float, order_type = OrderType.MARKET, price: float = 0.0, **kwargs) -> str:
         return self.c_buy(symbol, amount, order_type, price, kwargs)
 
+    # Default implementation
     def sell(self, symbol: str, amount: float, order_type = OrderType.MARKET, price: float = 0.0, **kwargs) -> str:
         return self.c_sell(symbol, amount, order_type, price, kwargs)
 
+    # Default implementation
     def cancel(self, symbol: str, client_order_id: str):
         return self.c_cancel(symbol, client_order_id)
 
+    # Temporary implementation
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         raise NotImplementedError
 
+    # Default implementation
     def get_fee(self,
                 base_currency: str,
                 quote_currency: str,
@@ -285,27 +354,35 @@ cdef class PaperTradeMarket(MarketBase):
                 price: float = NaN) -> TradeFee:
         return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
 
+    # Default implementation
     def get_order_price_quantum(self, symbol: str, price: float) -> Decimal:
         return self.c_get_order_price_quantum(symbol, price)
 
+    # Default implementation
     def get_order_size_quantum(self, symbol: str, order_size: float) -> Decimal:
         return self.c_get_order_size_quantum(symbol, order_size)
 
+    # Default implementation
     def quantize_order_price(self, symbol: str, price: float) -> Decimal:
         return self.c_quantize_order_price(symbol, price)
 
+    # Default implementation
     def quantize_order_amount(self, symbol: str, amount: float) -> Decimal:
         return self.c_quantize_order_amount(symbol, amount)
 
+    # Temporary implementation
     cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0, dict kwargs = {}):
         raise NotImplementedError
 
+    # Temporary implementation
     cdef str c_sell(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0, dict kwargs = {}):
         raise NotImplementedError
 
+    # Temporary implementation
     cdef c_cancel(self, str symbol, str client_order_id):
         raise NotImplementedError
 
+    # Temporary implementation
     cdef object c_get_fee(self,
                           str base_currency,
                           str quote_currency,
@@ -315,31 +392,40 @@ cdef class PaperTradeMarket(MarketBase):
                           double price):
         raise NotImplementedError
 
+    # Temporary implementation
     cdef double c_get_balance(self, str currency) except? -1:
         raise NotImplementedError
 
+    # Temporary implementation
     cdef double c_get_available_balance(self, str currency) except? -1:
         raise NotImplementedError
 
+    # Temporary implementation
     cdef str c_withdraw(self, str address, str currency, double amount):
         raise NotImplementedError
 
+    # Temporary implementation
     cdef OrderBook c_get_order_book(self, str symbol):
         raise NotImplementedError
 
+    # Temporary implementation
     cdef double c_get_price(self, str symbol, bint is_buy) except? -1:
         raise NotImplementedError
 
+    # Temporary implementation
     cdef object c_get_order_price_quantum(self, str symbol, double price):
         raise NotImplementedError
 
+    # Temporary implementation
     cdef object c_get_order_size_quantum(self, str symbol, double order_size):
         raise NotImplementedError
 
+    # Default implementation
     cdef object c_quantize_order_price(self, str symbol, double price):
         price_quantum = self.c_get_order_price_quantum(symbol, price)
         return round(Decimal(price) / price_quantum) * price_quantum
 
+    # Default implementation
     cdef object c_quantize_order_amount(self, str symbol, double amount, double price = 0.0):
         order_size_quantum = self.c_get_order_size_quantum(symbol, amount)
         return (Decimal(amount) // order_size_quantum) * order_size_quantum
