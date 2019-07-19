@@ -263,7 +263,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 try:
                     orders_proposal = self.c_get_orders_proposal_for_market_info(
                         market_info,
-                        market_info_to_active_orders[market_info]
+                        market_info_to_active_orders.get(market_info, [])
                     )
                 except Exception:
                     self.logger().error("Unknown error while generating order proposals.", exc_info=True)
