@@ -6,23 +6,28 @@ from libc.stdint cimport int64_t
 
 cdef class HelloWorldStrategy(StrategyBase):
     cdef:
-        list _market_pairs
-        double _target_amount
-        double _target_profitability
-        int64_t _logging_options
-        double _status_report_interval
-        double _refetch_market_info_interval
+        dict _market_infos
         bint _all_markets_ready
+        bint _place_orders
+        bint _is_buy
+        str _order_type
+
+
+        double _cancel_order_wait_time
+        double _status_report_interval
         double _last_timestamp
-        set _markets
-        object strategy
-        dict _market_info
-        set _matching_pairs
-        list _target_symbols
-        list _equivalent_token
-        dict _equivalent_token_dict
-        str _discovery_method
-        list _fetch_market_info_task_list
+        double _start_timestamp
+        double _time_delay
+        double _order_price
+        double _order_amount
+
+        dict _tracked_orders
+        dict _time_to_cancel
+        dict _order_id_to_market_info
+        dict _in_flight_cancels
+
+        int64_t _logging_options
+
 
     cdef c_process_market(self, object market_info)
     cdef c_tick(self, double timestamp)
@@ -32,6 +37,8 @@ cdef class HelloWorldStrategy(StrategyBase):
     cdef c_did_cancel_order(self, object cancelled_event)
     cdef c_did_complete_buy_order(self, object order_completed_event)
     cdef c_did_complete_sell_order(self, object order_completed_event)
+    cdef c_start_tracking_order(self, object market_info, str order_id, bint is_buy, object price, object quantity)
+    cdef c_stop_tracking_order(self, object market_info, str order_id)
     cdef c_place_orders(self, object market_info)
     cdef c_has_enough_balance(self, object market_info)
     cdef c_process_market(self, object market_info)

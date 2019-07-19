@@ -5,8 +5,7 @@ from typing import (
 
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.strategy.hello_world import (
-    HelloWorldStrategy,
-    MarketInfo
+    HelloWorldStrategy
 )
 from hummingbot.strategy.hello_world.hello_world_config_map import hello_world_config_map
 
@@ -39,12 +38,11 @@ def start(self):
 
         maker_data = [self.markets[market], raw_market_symbol] + list(assets)
         self.market_symbol_pairs = [MarketSymbolPair(*maker_data)]
-        self.market_info = MarketInfo(*([self.markets[market], raw_market_symbol] +
-                                        list(assets)))
+
         strategy_logging_options = HelloWorldStrategy.OPTION_LOG_ALL
 
-        self.strategy = HelloWorldStrategy(market_info = [self.market_info],
-                                           order_type= order_type,
+        self.strategy = HelloWorldStrategy(market_infos = [MarketSymbolPair(*maker_data)],
+                                           order_type = order_type,
                                            order_price = order_price,
                                            cancel_order_wait_time=cancel_order_wait_time,
                                            is_buy = is_buy,
