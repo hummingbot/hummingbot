@@ -385,7 +385,7 @@ cdef class StrategyBase(TimeIterator):
 
         cdef:
             str order_id = market.c_buy(market_symbol_pair.trading_pair, native_amount,
-                                        order_type=order_type, price=native_price)
+                                        order_type=order_type, price=native_price, kwargs=kwargs)
 
         # Start order tracking
         if order_type == OrderType.LIMIT:
@@ -418,7 +418,7 @@ cdef class StrategyBase(TimeIterator):
 
         cdef:
             str order_id = market.c_sell(market_symbol_pair.trading_pair, native_amount,
-                                         order_type=order_type, price=native_price)
+                                         order_type=order_type, price=native_price, kwargs=kwargs)
 
         # Start order tracking
         if order_type == OrderType.LIMIT:
