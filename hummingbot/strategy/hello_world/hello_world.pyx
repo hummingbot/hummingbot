@@ -112,8 +112,6 @@ cdef class HelloWorldStrategy(StrategyBase):
             (market_info.market, market_info.trading_pair): market_info
             for market_info in market_infos
         }
-        self.logger().info(f"Iniitaliized market infos {self._market_infos}")
-
         self._tracked_orders = {}
         self._all_markets_ready = False
         self._place_orders = True
@@ -294,17 +292,14 @@ cdef class HelloWorldStrategy(StrategyBase):
             market_info_to_active_orders = self.market_info_to_active_orders
 
             for market_info in self._market_infos.values():
-                self.logger().info("Processing market in c_tick")
                 self.c_process_market(market_info)
         finally:
             self._last_timestamp = timestamp
 
     cdef c_start_tracking_order(self, object market_info, str order_id, bint is_buy, object price, object quantity):
-        self.logger().info("Starting to track orders")
         if market_info not in self._tracked_orders:
             self._tracked_orders[market_info] = {}
 
-        self.logger().info(f"problem creating limit order object: {self._tracked_orders} ")
         cdef:
             LimitOrder limit_order = LimitOrder(order_id,
                                                 market_info.trading_pair,
@@ -314,7 +309,6 @@ cdef class HelloWorldStrategy(StrategyBase):
                                                 float(price),
                                                 float(quantity))
         self._tracked_orders[market_info][order_id] = limit_order
-        self.logger().info(f"Adding tracked orders: {self._tracked_orders} ")
         self._order_id_to_market_info[order_id] = market_info
 
     cdef c_stop_tracking_order(self, object market_info, str order_id):
@@ -369,26 +363,21 @@ cdef class HelloWorldStrategy(StrategyBase):
             set cancel_order_ids = set()
 
         if self._place_orders:
-            self.logger().info("Checking to place orders corectly")
-            #self._start_time_delay_timestamp = min(self._current_timestamp, self._start_time_delay_timestamp)
-            #Time is now greater than delay + start_timestamp
-            #if self._current_timestamp > self._start_time_delay_timestamp + self._time_delay:
-            self.logger().info(f"current ts: {self._current_timestamp}, start ts: {self._start_timestamp}")
+
             if self._current_timestamp > self._start_timestamp + self._time_delay:
 
                 self._place_orders = False
                 self.c_place_orders(market_info)
 
         active_orders = self.market_info_to_active_orders[market_info]
-        self.logger().info(f"Active orders are {active_orders}")
-        self.logger().info(f"order id to market info {self._order_id_to_market_info}")
+
         if len(active_orders) >0 :
             for active_order in active_orders:
                 if self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
                     cancel_order_ids.add(active_order.client_order_id)
 
         if len(cancel_order_ids) > 0:
-            self.logger().info("Cancelling order")
+
             for order in cancel_order_ids:
                 self.c_cancel_order(market_info, order)
 
