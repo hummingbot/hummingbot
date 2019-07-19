@@ -79,7 +79,7 @@ cdef class DDEXMarket(MarketBase):
     API_CALL_TIMEOUT = 10.0
     DDEX_REST_ENDPOINT = "https://api.ddex.io/v3"
     UPDATE_TRADE_FEES_INTERVAL = 60 * 60
-    ORDER_EXPIRY_TIME = 3 * 60.0
+    ORDER_EXPIRY_TIME = 15 * 60.0
     CANCEL_EXPIRY_TIME = 60.0
 
     @classmethod
