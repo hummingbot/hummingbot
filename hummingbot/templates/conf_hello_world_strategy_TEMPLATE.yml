@@ -1,0 +1,31 @@
+########################################################
+###       Pure market making strategy config         ###
+########################################################
+
+# The following configuations are only required for the
+# pure market making strategy
+
+# Exchange and token parameters
+market: null
+
+# Type of Order (Limit/Market)
+order_type: null
+
+# Size of the Order
+order_amount: null
+
+# Price of Order (in case of Limit Order)
+order_price: null
+
+# Time in seconds before cancelling and rerunning strategy
+# If tick size is 60, the bot cancels active orders and reruns after a minute
+cancel_order_wait_time: null
+
+# How long to wait before placing the order (in seconds)
+time_delay: null
+
+# Specify buy/sell. Set to True for Buy and False for Sell
+is_buy: null
+
+# For more detailed information, see:
+# https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parameters
