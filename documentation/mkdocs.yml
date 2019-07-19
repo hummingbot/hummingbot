@@ -144,6 +144,7 @@ nav:
         - Debug Console: operation/debug.md
     - Release Notes:
       - About Releases: release-notes/index.md
+      - 0.10.1: release-notes/0.10.1.md
       - 0.10.0: release-notes/0.10.0.md
       - 0.9.1: release-notes/0.9.1.md
       - 0.9.0: release-notes/0.9.0.md

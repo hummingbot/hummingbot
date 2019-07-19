@@ -2,7 +2,11 @@
 ![](https://cdn-images-1.medium.com/max/800/1*ZlrtjaSC6xqJGWfeh_kDmg.png)
 [Harmony](https://harmony.one/) is a new base layer blockchain for decentralized economies. Partnering with Harmony, we have launched **$ONE Makers**, a liquidity bounty program rewarding community members for providing liquidity to $ONE tokens. Users who use Hummingbot to build and run market making bots for $ONE can earn additional rewards.
 
-This program will be officially kicking off in **early July**. Anyone who has [signed up](https://www.hummingbot.io/liquidity-bounties/harmony/) for this program will receive a notification email when it starts.
+## Timeline
+
+The first $ONE Makers competition will end on **July 31, 2019**.
+
+Join the mailing list by entering your email on [this page](https://www.hummingbot.io/liquidity-bounties/harmony/).
 
 ## Rewards¹
 
@@ -25,10 +29,9 @@ Tier | Requirements | Bonus Rewards
 
 ## How to Participate
 
-- Step 1: [Install Hummingbot](/bounties/tutorial/install)
-- Step 3: [Register for liquidity bounties](/bounties/tutorial/register)
-- Step 3: [Run a market making bot for $ONE](/bounties/tutorial/bot)
-- Step 4: Compete with other participants to earn monthly rewards! 😎
+1. Follow the [Quickstart guide](/quickstart/) to install Hummingbot and register
+2. Run a market making bot for $ONE
+3. Compete with other participants to earn monthly rewards! 😎
 
 ## Evaluation
 

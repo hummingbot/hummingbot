@@ -32,7 +32,7 @@ def start(self):
     primary_data = [self.markets[primary_market], raw_primary_symbol] + list(primary_assets)
     secondary_data = [self.markets[secondary_market], raw_secondary_symbol] + list(secondary_assets)
     self.market_symbol_pairs = [MarketSymbolPair(*primary_data), MarketSymbolPair(*secondary_data)]
-    self.market_pair = ArbitrageMarketPair(*(primary_data + secondary_data))
+    self.market_pair = ArbitrageMarketPair(*self.market_symbol_pairs)
     self.strategy = ArbitrageStrategy(market_pairs=[self.market_pair],
                                       min_profitability=min_profitability,
                                       logging_options=ArbitrageStrategy.OPTION_LOG_ALL)
