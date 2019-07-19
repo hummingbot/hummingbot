@@ -1,4 +1,3 @@
-from collections import deque
 from decimal import Decimal
 import logging
 from typing import (
@@ -59,7 +58,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION = 60.0
     CANCEL_EXPIRY_DURATION = 60.0
 
-    NO_OP_ORDERS_PROPOSAL = OrdersProposal(0, OrderType.LIMIT, [0], [0], OrderType.LIMIT, [0], [0], [])
+    NO_OP_ORDERS_PROPOSAL = OrdersProposal(0,
+                                           OrderType.LIMIT, [s_decimal_zero], [s_decimal_zero],
+                                           OrderType.LIMIT, [s_decimal_zero], [s_decimal_zero],
+                                           [])
 
     # These are exchanges where you're expected to expire orders instead of actively cancelling them.
     RADAR_RELAY_TYPE_EXCHANGES = {"radar_relay", "bamboo_relay"}
