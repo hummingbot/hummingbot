@@ -14,6 +14,8 @@ from typing import (
     Dict,
     List
 )
+from decimal import Decimal
+import math
 
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.limit_order cimport c_create_limit_order_from_cpp_limit_order
@@ -75,6 +77,26 @@ cdef class QueuedOrder:
         self.symbol = symbol
         self.amount = amount
 
+    @property
+    def timestamp(self) -> double:
+        return self.create_timestamp
+
+    @property
+    def order_id(self) -> str:
+        return self.order_id
+
+    @property
+    def is_buy(self) -> bint:
+        return self.is_buy
+
+    @property
+    def symbol(self) -> str:
+        return self.symbol
+
+    @property
+    def amount(self) -> double:
+        return self.amount
+
     def __repr__(self) -> str:
         return (f"QueuedOrder({self.create_timestamp}, '{self.order_id}', {self.is_buy}, '{self.symbol}', "
                 f"{self.amount})")
@@ -126,6 +148,10 @@ cdef class PaperTradeMarket(MarketBase):
     @property
     def ready(self):
         return len(self._order_book_tracker.order_books) > 0
+
+    @property
+    def queued_orders(self) -> List[QueuedOrder]:
+        return self._queued_orders
 
     def add_symbol_pair(self, *symbol_pairs):
         for symbol_pair in symbol_pairs:
@@ -201,6 +227,42 @@ cdef class PaperTradeMarket(MarketBase):
                 <PyObject *> quantized_amount
             ))
 
+    cdef str c_sell(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0,
+                    dict kwargs = {}):
+        if symbol not in self._symbol_pairs:
+                raise ValueError(f"Trading symbol '{symbol}' does not existing in current data set.")
+        cdef:
+            str order_id = self.random_buy_order_id(symbol)
+            string cpp_order_id = order_id.encode("utf8")
+            string cpp_symbol = symbol.encode("utf8")
+            string cpp_base_currency = self._symbol_pairs[symbol].base_currency.encode("utf8")
+            string cpp_quote_currency = self._symbol_pairs[symbol].quote_currency.encode("utf8")
+            LimitOrdersIterator map_it
+            SingleSymbolLimitOrders *limit_orders_collection_ptr = NULL
+            pair[LimitOrders.iterator, cppbool] insert_result
+            double time_now = self._current_timestamp
+            double order_expiration_ts = kwargs.get("expiration_ts", 0)
+        if order_type is OrderType.MARKET:
+            self._queued_orders.append(QueuedOrder(self._current_timestamp, order_id, False, symbol, amount))
+        elif order_type is OrderType.LIMIT:
+            quantized_price = self.c_quantize_order_price(symbol, price)
+            quantized_amount = self.c_quantize_order_amount(symbol, amount)
+            map_it = self._ask_limit_orders.find(cpp_symbol)
+
+            if map_it == self._ask_limit_orders.end():
+                insert_result = self._ask_limit_orders.insert(LimitOrdersPair(cpp_symbol, SingleSymbolLimitOrders()))
+                map_it = insert_result.first
+            limit_orders_collection_ptr = address(deref(map_it).second)
+            limit_orders_collection_ptr.insert(CPPLimitOrder(
+                cpp_order_id,
+                cpp_symbol,
+                False,
+                cpp_base_currency,
+                cpp_quote_currency,
+                <PyObject *> quantized_price,
+                <PyObject *> quantized_amount
+            ))
+
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         pass
 
@@ -211,10 +273,6 @@ cdef class PaperTradeMarket(MarketBase):
         pass
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
-        pass
-
-    cdef str c_sell(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0,
-                    dict kwargs = {}):
         pass
 
     cdef c_cancel(self, str symbol, str client_order_id):
@@ -240,10 +298,32 @@ cdef class PaperTradeMarket(MarketBase):
         pass
 
     cdef object c_get_order_price_quantum(self, str symbol, double price):
-        pass
+        cdef:
+            QuantizationParams q_params
+        if symbol in self._quantization_params:
+            q_params = self._quantization_params[symbol]
+            decimals_quantum = Decimal(f"1e-{q_params.price_decimals}")
+            if price > 0:
+                precision_quantum = Decimal(f"1e{math.ceil(math.log10(price)) - q_params.price_precision}")
+            else:
+                precision_quantum = Decimal(0)
+            return max(precision_quantum, decimals_quantum)
+        else:
+            return Decimal(f"1e-15")
 
     cdef object c_get_order_size_quantum(self, str symbol, double order_size):
-        pass
+        cdef:
+            QuantizationParams q_params
+        if symbol in self._quantization_params:
+            q_params = self._quantization_params[symbol]
+            decimals_quantum = Decimal(f"1e-{q_params.order_size_decimals}")
+            if order_size > 0:
+                precision_quantum = Decimal(f"1e{math.ceil(math.log10(order_size)) - q_params.order_size_precision}")
+            else:
+                precision_quantum = Decimal(0)
+            return max(precision_quantum, decimals_quantum)
+        else:
+            return Decimal(f"1e-15")
 
 
 """
