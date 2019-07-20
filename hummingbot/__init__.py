@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import logging
 from typing import Optional
 import logging
 import subprocess
