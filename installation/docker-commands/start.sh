@@ -3,15 +3,12 @@
 # =============================================
 # SCRIPT COMMANDS
 echo
-echo "** Starting Hummingbot instance **"
+echo "** Load Hummingbot instance **"
 echo
-echo "=> List of stopped docker instances:"
-docker ps --filter "status=exited"
+echo "=> List of docker instances:"
+docker ps -a
 echo
-echo "Note: if there are no instances listed, your instance may already be running."
-echo "      If your instance is running, use the ./connect.sh script."
-echo
-echo "=> Enter the name for the Hummingbot instance to start:"
+echo "=> Enter the name for the Hummingbot instance to connect to:"
 echo "   (Press enter for default value: hummingbot-instance)"
 read INSTANCE_NAME
 if [ "$INSTANCE_NAME" == "" ];

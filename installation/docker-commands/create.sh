@@ -5,19 +5,30 @@ function pause() {
 }
 # =============================================
 # SCRIPT COMMANDS
-# Ask the user for the name or their instance
 echo
 echo "** Creating a new Hummingbot instance **"
 echo
+# Ask the user for the name of the new instance
 echo "Enter a name for your new Hummingbot instance:"
-echo "(Press enter for default value: hummingbot-instance)"
+echo "(Press [enter] for default value: hummingbot-instance)"
 read INSTANCE_NAME
 if [ "$INSTANCE_NAME" == "" ];
 then
   INSTANCE_NAME="hummingbot-instance"
-  FOLDER="hummingbot_files"
+  DEFAULT_FOLDER="hummingbot_files"
 else
-  FOLDER="$INSTANCE_NAME"
+  DEFAULT_FOLDER="${INSTANCE_NAME}_files"
+fi
+echo
+echo "=> Instance name: $INSTANCE_NAME"
+echo
+# Ask the user for the folder location to save files
+echo "Enter a folder name for your config and log files:"
+echo "(Press [enter] for default value: $DEFAULT_FOLDER)"
+read FOLDER
+if [ "$FOLDER" == "" ]
+then
+  FOLDER=$DEFAULT_FOLDER
 fi
 echo
 echo "Creating your hummingbot instance: \"$INSTANCE_NAME\""
@@ -28,6 +39,9 @@ echo "=> config files:       ├── $PWD/$FOLDER/hummingbot_conf"
 echo "=> log files:          └── $PWD/$FOLDER/hummingbot_logs"
 echo
 pause Press [Enter] to continue
+#
+#
+#
 # =============================================
 # EXECUTE SCRIPT
 # 1) Create folder for your new instance
