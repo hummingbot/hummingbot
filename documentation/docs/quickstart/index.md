@@ -40,4 +40,4 @@ For more information on creating or importing an Ethereum wallet, see [Ethereum 
 For more information, see [Ethereum node](/installation/node). To get a free node, see [Get a Free Ethereum Node](/installation/node/infura/).
 
 ---
-# Next: [Install Hummingbot](/bounties/tutorial/install)
+# Next: [Install Hummingbot](/quickstart/1-install)
