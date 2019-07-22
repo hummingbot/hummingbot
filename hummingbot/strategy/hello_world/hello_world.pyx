@@ -1,8 +1,6 @@
 # distutils: language=c++
-from collections import deque
 from decimal import Decimal
 import logging
-import pandas as pd
 from typing import (
     List,
     Tuple,
@@ -11,12 +9,6 @@ from typing import (
 )
 
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.event.events import (
-    MarketEvent,
-    TradeType
-)
-
-
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.data_type.limit_order cimport LimitOrder
@@ -26,13 +18,12 @@ from hummingbot.market.market_base import (
     MarketBase,
     OrderType
 )
-from hummingbot.core.data_type.order_book cimport OrderBook
+
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.strategy.strategy_base import StrategyBase
 
 from libc.stdint cimport int64_t
 from hummingbot.core.data_type.order_book cimport OrderBook
-import itertools
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -76,14 +67,14 @@ cdef class OrderExpiredListener(HelloWorldStrategyEventListener):
         self._owner.c_did_cancel_order(arg)
 
 cdef class HelloWorldStrategy(StrategyBase):
-    BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
-    SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
-    ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
-    ORDER_EXPIRED_EVENT_TAG = MarketEvent.OrderExpired.value
-    ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
-    OPTION_LOG_STATUS_REPORT = 1 << 0
-    OPTION_LOG_ALL = 0xfffffffffffffff
+    OPTION_LOG_NULL_ORDER_SIZE = 1 << 0
+    OPTION_LOG_REMOVING_ORDER = 1 << 1
+    OPTION_LOG_ADJUST_ORDER = 1 << 2
+    OPTION_LOG_CREATE_ORDER = 1 << 3
+    OPTION_LOG_MAKER_ORDER_FILLED = 1 << 4
+    OPTION_LOG_STATUS_REPORT = 1 << 5
+    OPTION_LOG_MAKER_ORDER_HEDGED = 1 << 6
+    OPTION_LOG_ALL = 0x7fffffffffffffff
     CANCEL_EXPIRY_DURATION = 60.0
 
     @classmethod
@@ -93,6 +84,7 @@ cdef class HelloWorldStrategy(StrategyBase):
             ds_logger = logging.getLogger(__name__)
         return ds_logger
 
+    #TODO: Add more logging, remove all warnings for PEP and use Decimal everywhere
     def __init__(self,
                  market_infos: List[MarketSymbolPair],
                  order_type: str = "limit",
@@ -132,6 +124,13 @@ cdef class HelloWorldStrategy(StrategyBase):
 
         self.c_add_markets(list(all_markets))
 
+    @property
+    def active_bids(self) -> List[Tuple[MarketBase, LimitOrder]]:
+        return [(market, limit_order) for market, limit_order in self.active_maker_orders if limit_order.is_buy]
+
+    @property
+    def active_asks(self) -> List[Tuple[MarketBase, LimitOrder]]:
+        return [(market, limit_order) for market, limit_order in self.active_maker_orders if not limit_order.is_buy]
 
     @property
     def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
@@ -263,6 +262,7 @@ cdef class HelloWorldStrategy(StrategyBase):
 
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
+        self.logger().info(f"Waiting for {self._time_delay} to place orders")
         self._start_timestamp = timestamp
         self._last_timestamp = timestamp
 
@@ -297,6 +297,7 @@ cdef class HelloWorldStrategy(StrategyBase):
             self._last_timestamp = timestamp
 
     cdef c_start_tracking_order(self, object market_info, str order_id, bint is_buy, object price, object quantity):
+        self.logger().info(f"The bot is tracking the order {order_id}")
         if market_info not in self._tracked_orders:
             self._tracked_orders[market_info] = {}
 
@@ -313,6 +314,7 @@ cdef class HelloWorldStrategy(StrategyBase):
 
     cdef c_stop_tracking_order(self, object market_info, str order_id):
         if market_info in self._tracked_orders and order_id in self._tracked_orders[market_info]:
+            self.logger().info(f"The bot has stopped tracking the order {order_id}")
             del self._tracked_orders[market_info][order_id]
             if len(self._tracked_orders[market_info]) < 1:
                 del self._tracked_orders[market_info]
@@ -322,6 +324,7 @@ cdef class HelloWorldStrategy(StrategyBase):
     cdef c_place_orders(self, object market_info):
 
         if self.c_has_enough_balance(market_info):
+            self.logger().info(f"Checking to see if the user has enough balance to place orders")
             if self._order_type == "market":
                 if self._is_buy:
                     order_id = self.c_buy_with_specific_market(market_info,
@@ -345,7 +348,6 @@ cdef class HelloWorldStrategy(StrategyBase):
                 self._time_to_cancel[order_id] = self._current_timestamp + self._cancel_order_wait_time
 
 
-
     cdef c_has_enough_balance(self, object market_info):
         cdef:
             MarketBase market = market_info.market
@@ -364,9 +366,11 @@ cdef class HelloWorldStrategy(StrategyBase):
 
         if self._place_orders:
 
+            #If current timestamp is greater than the start timestamp + time delay place orders
             if self._current_timestamp > self._start_timestamp + self._time_delay:
 
                 self._place_orders = False
+                self.logger().info("Current timestamp is ")
                 self.c_place_orders(market_info)
 
         active_orders = self.market_info_to_active_orders[market_info]
