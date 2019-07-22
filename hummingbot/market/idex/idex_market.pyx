@@ -410,12 +410,14 @@ cdef class IDEXMarket(MarketBase):
                            headers: Optional[Dict[str, str]] = None,
                            json: Any = None) -> Dict[str, Any]:
         client = await self._http_client()
+        default_headers = {"User-Agent": "hummingbot"}
+        headers_with_ua = {**headers, **default_headers} if headers else default_headers
         async with client.request(http_method,
                                   url=url,
                                   timeout=self.API_CALL_TIMEOUT,
                                   data=data,
                                   params=params,
-                                  headers=headers,
+                                  headers=headers_with_ua,
                                   json=json) as response:
             data = await response.json()
             if response.status != 200:
