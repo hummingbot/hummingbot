@@ -381,7 +381,7 @@ cdef class StrategyBase(TimeIterator):
             double native_price = float(price)
 
         if market not in self._sb_markets:
-            raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
+            raise ValueError(f"Market object for buy order is not in the whitelisted markets set.")
 
         cdef:
             str order_id = market.c_buy(market_symbol_pair.trading_pair, native_amount,
@@ -414,7 +414,7 @@ cdef class StrategyBase(TimeIterator):
             double native_price = float(price)
 
         if market not in self._sb_markets:
-            raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
+            raise ValueError(f"Market object for sell order is not in the whitelisted markets set.")
 
         cdef:
             str order_id = market.c_sell(market_symbol_pair.trading_pair, native_amount,
