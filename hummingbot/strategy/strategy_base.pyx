@@ -1,5 +1,6 @@
+from decimal import Decimal
 import logging
-from collections import deque
+import pandas as pd
 from typing import (
     List)
 
@@ -11,16 +12,19 @@ from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversio
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.core.time_iterator cimport TimeIterator
 from hummingbot.market.market_base cimport MarketBase
-import pandas as pd
 from hummingbot.core.data_type.trade import Trade
 from hummingbot.core.event.events import (
     OrderFilledEvent,
     OrderType
 )
 
+from .order_tracker import OrderTracker
+
 NaN = float("nan")
+decimal_nan = Decimal("NaN")
 
 
+# <editor-fold desc="+ Event listeners">
 cdef class BaseStrategyEventListener(EventListener):
     cdef:
         StrategyBase _owner
@@ -33,11 +37,13 @@ cdef class BaseStrategyEventListener(EventListener):
 cdef class BuyOrderCompletedListener(BaseStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_complete_buy_order(arg)
+        self._owner.c_did_complete_buy_order_tracker(arg)
 
 
 cdef class SellOrderCompletedListener(BaseStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_complete_sell_order(arg)
+        self._owner.c_did_complete_sell_order_tracker(arg)
 
 
 cdef class OrderFilledListener(BaseStrategyEventListener):
@@ -48,16 +54,19 @@ cdef class OrderFilledListener(BaseStrategyEventListener):
 cdef class OrderFailedListener(BaseStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_fail_order(arg)
+        self._owner.c_did_fail_order_tracker(arg)
 
 
 cdef class OrderCancelledListener(BaseStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_cancel_order(arg)
+        self._owner.c_did_cancel_order_tracker(arg)
 
 
 cdef class OrderExpiredListener(BaseStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_expire_order(arg)
+        self._owner.c_did_expire_order_tracker(arg)
 
 
 cdef class BuyOrderCreatedListener(BaseStrategyEventListener):
@@ -68,6 +77,7 @@ cdef class BuyOrderCreatedListener(BaseStrategyEventListener):
 cdef class SellOrderCreatedListener(BaseStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_create_sell_order(arg)
+# </editor-fold>
 
 
 cdef class StrategyBase(TimeIterator):
@@ -98,6 +108,8 @@ cdef class StrategyBase(TimeIterator):
 
         self._sb_limit_order_min_expiration = 130.0
         self._sb_delegate_lock = False
+
+        self._sb_order_tracker = OrderTracker()
 
     @property
     def active_markets(self) -> List[MarketBase]:
@@ -232,8 +244,17 @@ cdef class StrategyBase(TimeIterator):
             ])
         return warning_lines
 
+    cdef c_start(self, Clock clock, double timestamp):
+        TimeIterator.c_start(self, clock, timestamp)
+        self._sb_order_tracker.c_start(clock, timestamp)
+
+    cdef c_tick(self, double timestamp):
+        TimeIterator.c_tick(self, timestamp)
+        self._sb_order_tracker.c_tick(timestamp)
+
     cdef c_stop(self, Clock clock):
         TimeIterator.c_stop(self, clock)
+        self._sb_order_tracker.c_stop(clock)
         self.c_remove_markets(list(self._sb_markets))
 
     cdef c_add_markets(self, list markets):
@@ -270,6 +291,8 @@ cdef class StrategyBase(TimeIterator):
             typed_market.c_remove_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
             self._sb_markets.remove(typed_market)
 
+    # <editor-fold desc="+ Event handling functions">
+    # ----------------------------------------------------------------------------------------------------------
     cdef c_did_create_buy_order(self, object order_created_event):
         pass
 
@@ -285,7 +308,7 @@ cdef class StrategyBase(TimeIterator):
     cdef c_did_cancel_order(self, object cancelled_event):
         pass
 
-    cdef c_did_expire_order(self, object cancelled_event):
+    cdef c_did_expire_order(self, object expired_event):
         pass
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
@@ -293,37 +316,142 @@ cdef class StrategyBase(TimeIterator):
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
         pass
+    # ----------------------------------------------------------------------------------------------------------
+    # </editor-fold>
 
-    cdef c_buy_with_specific_market(self, object market_symbol_pair, double amount,
-                                    object order_type = OrderType.MARKET,
-                                    double price = NaN,
-                                    double expiration_seconds = NaN):
+    # <editor-fold desc="+ Event handling for order tracking">
+    # ----------------------------------------------------------------------------------------------------------
+    cdef c_did_fail_order_tracker(self, object order_failed_event):
+        cdef:
+            str order_id = order_failed_event.order_id
+            object order_type = order_failed_event.order_type
+            object market_pair = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
+
+        if order_type == OrderType.LIMIT:
+            self.c_stop_tracking_limit_order(market_pair, order_id)
+        elif order_type == OrderType.MARKET:
+            self.c_stop_tracking_market_order(market_pair, order_id)
+
+
+    cdef c_did_cancel_order_tracker(self, object order_cancelled_event):
+        cdef:
+            str order_id = order_cancelled_event.order_id
+            object market_pair = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
+
+        self.c_stop_tracking_limit_order(market_pair, order_id)
+
+    cdef c_did_expire_order_tracker(self, object order_expired_event):
+        self.c_did_cancel_order_tracker(order_expired_event)
+
+    cdef c_did_complete_buy_order_tracker(self, object order_completed_event):
+        cdef:
+            str order_id = order_completed_event.order_id
+            object market_pair = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
+            object order_type = order_completed_event.order_type
+
+        if market_pair is not None:
+            if order_type == OrderType.LIMIT:
+                self.c_stop_tracking_limit_order(market_pair, order_id)
+            elif order_type == OrderType.MARKET:
+                self.c_stop_tracking_market_order(market_pair, order_id)
+
+    cdef c_did_complete_sell_order_tracker(self, object order_completed_event):
+        self.c_did_complete_buy_order_tracker(order_completed_event)
+    # ----------------------------------------------------------------------------------------------------------
+    # </editor-fold>
+
+    # <editor-fold desc="+ Creating and cancelling orders">
+    # ----------------------------------------------------------------------------------------------------------
+    cdef str c_buy_with_specific_market(self, object market_symbol_pair, object amount,
+                                        object order_type = OrderType.MARKET,
+                                        object price = decimal_nan,
+                                        double expiration_seconds = NaN):
         if self._sb_delegate_lock:
             raise RuntimeError("Delegates are not allowed to execute orders directly.")
+
+        if not (isinstance(amount, Decimal) and isinstance(price, Decimal)):
+            raise TypeError("price and amount must be Decimal objects.")
 
         cdef:
             dict kwargs = {
                 "expiration_ts": self._current_timestamp + max(self._sb_limit_order_min_expiration, expiration_seconds)
             }
             MarketBase market = market_symbol_pair.market
+            double native_amount = float(amount)
+            double native_price = float(price)
 
         if market not in self._sb_markets:
-            raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
-        return market.c_buy(market_symbol_pair.trading_pair, amount, order_type=order_type, price=price)
+            raise ValueError(f"Market object for buy order is not in the whitelisted markets set.")
 
+        cdef:
+            str order_id = market.c_buy(market_symbol_pair.trading_pair, native_amount,
+                                        order_type=order_type, price=native_price, kwargs=kwargs)
 
-    cdef c_sell_with_specific_market(self, object market_symbol_pair, double amount,
-                                     object order_type = OrderType.MARKET,
-                                     double price = NaN,
-                                     double expiration_seconds = NaN):
+        # Start order tracking
+        if order_type == OrderType.LIMIT:
+            self.c_start_tracking_limit_order(market_symbol_pair, order_id, True, price, amount)
+        elif order_type == OrderType.MARKET:
+            self.c_start_tracking_market_order(market_symbol_pair, order_id, True, amount)
+
+        return order_id
+
+    cdef str c_sell_with_specific_market(self, object market_symbol_pair, object amount,
+                                         object order_type = OrderType.MARKET,
+                                         object price = decimal_nan,
+                                         double expiration_seconds = NaN):
         if self._sb_delegate_lock:
             raise RuntimeError("Delegates are not allowed to execute orders directly.")
+
+        if not (isinstance(amount, Decimal) and isinstance(price, Decimal)):
+            raise TypeError("price and amount must be Decimal objects.")
 
         cdef:
             dict kwargs = {
                 "expiration_ts": self._current_timestamp + max(self._sb_limit_order_min_expiration, expiration_seconds)
             }
             MarketBase market = market_symbol_pair.market
+            double native_amount = float(amount)
+            double native_price = float(price)
+
         if market not in self._sb_markets:
-            raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
-        return market.c_sell(market_symbol_pair.trading_pair, amount, order_type=order_type, price=price)
+            raise ValueError(f"Market object for sell order is not in the whitelisted markets set.")
+
+        cdef:
+            str order_id = market.c_sell(market_symbol_pair.trading_pair, native_amount,
+                                         order_type=order_type, price=native_price, kwargs=kwargs)
+
+        # Start order tracking
+        if order_type == OrderType.LIMIT:
+            self.c_start_tracking_limit_order(market_symbol_pair, order_id, False, price, amount)
+        elif order_type == OrderType.MARKET:
+            self.c_start_tracking_market_order(market_symbol_pair, order_id, False, amount)
+
+        return order_id
+
+    cdef c_cancel_order(self, object market_symbol_pair, str order_id):
+        cdef:
+            MarketBase market = market_symbol_pair.market
+
+        if self._sb_order_tracker.c_check_and_track_cancel(order_id):
+            market.c_cancel(market_symbol_pair.trading_pair, order_id)
+    # ----------------------------------------------------------------------------------------------------------
+    # </editor-fold>
+
+    # <editor-fold desc="+ Order tracking entry points">
+    # The following exposed tracking functions are meant to allow extending order tracking behavior in strategy
+    # classes.
+    # ----------------------------------------------------------------------------------------------------------
+    cdef c_start_tracking_limit_order(self, object market_pair, str order_id, bint is_buy, object price,
+                                      object quantity):
+        self._sb_order_tracker.c_start_tracking_limit_order(market_pair, order_id, is_buy, price, quantity)
+
+    cdef c_stop_tracking_limit_order(self, object market_pair, str order_id):
+        self._sb_order_tracker.c_stop_tracking_limit_order(market_pair, order_id)
+
+    cdef c_start_tracking_market_order(self, object market_pair, str order_id, bint is_buy, object quantity):
+        self._sb_order_tracker.c_start_tracking_market_order(market_pair, order_id, is_buy, quantity)
+
+    cdef c_stop_tracking_market_order(self, object market_pair, str order_id):
+        self._sb_order_tracker.c_stop_tracking_market_order(market_pair, order_id)
+    # ----------------------------------------------------------------------------------------------------------
+    # </editor-fold>
