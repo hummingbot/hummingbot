@@ -57,7 +57,7 @@ chmod a+x install-source-ubuntu.sh
 
 ## Updating Hummingbot
 
-The `update.sh` script updates Hummingbot to the latest version:
+The `update.sh` script updates Hummingbot to the latest version. Run the following commands from the root folder:
 
 ```
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/update.sh
