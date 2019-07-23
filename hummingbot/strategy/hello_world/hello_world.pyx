@@ -24,6 +24,7 @@ from hummingbot.strategy.strategy_base import StrategyBase
 
 from libc.stdint cimport int64_t
 from hummingbot.core.data_type.order_book cimport OrderBook
+from datetime import datetime
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -326,31 +327,37 @@ cdef class HelloWorldStrategy(StrategyBase):
             del self._order_id_to_market_info[order_id]
 
     cdef c_place_orders(self, object market_info):
+        cdef:
+            MarketBase market = market_info.market
+
         self.logger().info(f"Checking to see if the user has enough balance to place orders")
+        quantized_amount = market.c_quantize_order_amount(market_info.trading_pair, self._order_amount)
+        quantized_price = market.c_quantize_order_price(market_info.trading_pair, self._order_price)
+
         if self.c_has_enough_balance(market_info):
 
             if self._order_type == "market":
                 if self._is_buy:
                     order_id = self.c_buy_with_specific_market(market_info,
-                                                               amount = self._order_amount)
+                                                               amount =  quantized_amount)
                     self.logger().info("Market buy order has been executed")
                 else:
                     order_id = self.c_sell_with_specific_market(market_info,
-                                                                amount = self._order_amount)
+                                                                amount = quantized_amount)
                     self.logger().info("Market sell order has been executed")
             else:
                 if self._is_buy:
                     order_id = self.c_buy_with_specific_market(market_info,
-                                                               amount = self._order_amount,
+                                                               amount = quantized_amount,
                                                                order_type = OrderType.LIMIT,
-                                                               price = self._order_price)
+                                                               price = quantized_price)
                     self.logger().info("Limit buy order has been placed")
 
                 else:
                     order_id = self.c_sell_with_specific_market(market_info,
-                                                                amount = self._order_amount,
+                                                                amount = quantized_amount,
                                                                 order_type = OrderType.LIMIT,
-                                                                price = self._order_price)
+                                                                price = quantized_price)
                     self.logger().info("Limit sell order has been placed")
 
                 self.c_start_tracking_order(market_info, order_id, self._is_buy, self._order_price, self._order_amount)
@@ -381,8 +388,12 @@ cdef class HelloWorldStrategy(StrategyBase):
             if self._current_timestamp > self._start_timestamp + self._time_delay:
 
                 self._place_orders = False
-                self.logger().info(f"Current timestamp: {self._current_timestamp} is greater than "
-                                   f"Start timestamp:{self._start_timestamp} with time delay: {self._time_delay} ")
+                self.logger().info(f"Current time: "
+                                   f"{datetime.fromtimestamp(self._current_timestamp).strftime('%Y-%m-%d %H:%M:%S')} "
+                                   f"is now greater than "
+                                   f"Starting time: "
+                                   f"{datetime.fromtimestamp(self._start_timestamp).strftime('%Y-%m-%d %H:%M:%S')} "
+                                   f" with time delay: {self._time_delay}. Trying to place orders now. ")
                 self.c_place_orders(market_info)
 
         active_orders = self.market_info_to_active_orders[market_info]

@@ -41,13 +41,13 @@ def start(self):
 
         strategy_logging_options = HelloWorldStrategy.OPTION_LOG_ALL
 
-        self.strategy = HelloWorldStrategy(market_infos = [MarketSymbolPair(*maker_data)],
-                                           order_type = order_type,
-                                           order_price = order_price,
+        self.strategy = HelloWorldStrategy(market_infos=[MarketSymbolPair(*maker_data)],
+                                           order_type=order_type,
+                                           order_price=order_price,
                                            cancel_order_wait_time=cancel_order_wait_time,
-                                           is_buy = is_buy,
-                                           time_delay = time_delay,
-                                           order_amount = order_amount,
+                                           is_buy=is_buy,
+                                           time_delay=time_delay,
+                                           order_amount=order_amount,
                                            logging_options=strategy_logging_options)
     except Exception as e:
         self._notify(str(e))

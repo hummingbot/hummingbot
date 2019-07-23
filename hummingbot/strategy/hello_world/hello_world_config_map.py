@@ -15,8 +15,10 @@ def symbol_prompt():
     return "Enter the token symbol you would like to trade on %s%s >>> " \
            % (market, f" (e.g. {example})" if example else "")
 
+
 def str2bool(value: str):
     return str(value).lower() in ("yes", "true", "t", "1")
+
 
 # checks if the symbol pair is valid
 def is_valid_market_symbol_pair(value: str) -> bool:
@@ -41,8 +43,8 @@ hello_world_config_map = {
     "order_price":                      ConfigVar(key="order_price",
                                                   prompt="What is the price of the limit order"
                                                   " >>> ",
-                                                  required_if=
-                                                  lambda: hello_world_config_map.get("order_type").value == "limit",
+                                                  required_if=lambda: hello_world_config_map.get(
+                                                                      "order_type").value == "limit",
                                                   type_str="float"),
     "cancel_order_wait_time":           ConfigVar(key="cancel_order_wait_time",
                                                   prompt="How often do you want to cancel and replace bids and asks "
@@ -60,8 +62,8 @@ hello_world_config_map = {
                                                   type_str="bool",
                                                   default=True),
     "time_delay":                       ConfigVar(key="time_delay",
-                                                prompt="How much do you want to wait to place the "
-                                                       "order (Enter 10 to indicate 10 seconds. Default is 0)? >>> ",
-                                                type_str="float",
-                                                default=0),
+                                                  prompt="How much do you want to wait to place the "
+                                                         "order (Enter 10 to indicate 10 seconds. Default is 0)? >>> ",
+                                                  type_str="float",
+                                                  default=0)
 }
