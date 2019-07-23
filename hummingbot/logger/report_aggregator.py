@@ -152,9 +152,6 @@ class ReportAggregator:
         while True:
             try:
                 event = await REPORT_EVENT_QUEUE.get()
-                self.logger().error(
-                    f"Received event: {event}"
-                )
                 self.receive_event(event)
             except asyncio.CancelledError:
                 raise
