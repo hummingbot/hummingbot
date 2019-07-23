@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
 from os.path import join, realpath
-import sys
-sys.path.insert(0, realpath(join(__file__, "../../")))
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from decimal import Decimal
 import logging; logging.basicConfig(level=logging.ERROR)
@@ -24,7 +22,6 @@ from hummingbot.core.clock import (
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
-    OrderBookTradeEvent,
     OrderCancelledEvent,
     TradeType,
     OrderType,
@@ -33,10 +30,10 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     TradeFee
 )
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.hello_world.hello_world import HelloWorldStrategy
+import sys
+sys.path.insert(0, realpath(join(__file__, "../../")))
 
 
 class HelloWorldUnitTest(unittest.TestCase):
@@ -54,8 +51,6 @@ class HelloWorldUnitTest(unittest.TestCase):
         self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_symbols)
         self.mid_price = 100
         self.time_delay = 15
-        self.bid_threshold = 0.01
-        self.ask_threshold = 0.01
         self.cancel_order_wait_time = 45
         self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
                                                 max_price=200, price_step_size=1, volume_step_size=10)
@@ -77,6 +72,8 @@ class HelloWorldUnitTest(unittest.TestCase):
 
         logging_options: int = (HelloWorldStrategy.OPTION_LOG_ALL &
                                 (~HelloWorldStrategy.OPTION_LOG_NULL_ORDER_SIZE))
+
+        # Define strategies to test
         self.limit_buy_strategy: HelloWorldStrategy = HelloWorldStrategy(
             [self.market_info],
             order_type="limit",
@@ -119,32 +116,15 @@ class HelloWorldUnitTest(unittest.TestCase):
         )
         self.logging_options = logging_options
         self.clock.add_iterator(self.market)
-        # self.clock.add_iterator(self.limit_buy_strategy)
-        # self.clock.add_iterator(self.limit_sell_strategy)
-        # self.clock.add_iterator(self.market_buy_strategy)
-        # self.clock.add_iterator(self.market_sell_strategy)
         self.maker_order_fill_logger: EventLogger = EventLogger()
         self.cancel_order_logger: EventLogger = EventLogger()
         self.buy_order_completed_logger: EventLogger = EventLogger()
         self.sell_order_completed_logger: EventLogger = EventLogger()
+
         self.market.add_listener(MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger)
         self.market.add_listener(MarketEvent.SellOrderCompleted, self.sell_order_completed_logger)
         self.market.add_listener(MarketEvent.OrderFilled, self.maker_order_fill_logger)
         self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
-
-    def simulate_market_trade(self, is_buy: bool, quantity: float):
-        maker_symbol: str = self.maker_symbols[0]
-        order_book: OrderBook = self.market.get_order_book(maker_symbol)
-        trade_event: OrderBookTradeEvent = OrderBookTradeEvent(
-            maker_symbol,
-            self.clock.current_timestamp,
-            TradeType.BUY if is_buy else TradeType.SELL,
-            (self.mid_price * (1 - self.bid_threshold - 0.01)
-             if not is_buy
-             else self.mid_price * (1 + self.ask_threshold + 0.01)),
-            quantity
-        )
-        order_book.apply_trade(trade_event)
 
     @staticmethod
     def simulate_limit_order_fill(market: Market, limit_order: LimitOrder):
@@ -205,7 +185,7 @@ class HelloWorldUnitTest(unittest.TestCase):
 
     def test_limit_buy_order(self):
         self.clock.add_iterator(self.limit_buy_strategy)
-        #check no orders are placed before time delay
+        # check no orders are placed before time delay
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
         self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
 
@@ -219,14 +199,14 @@ class HelloWorldUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("99"), bid_order.price)
         self.assertEqual(1, bid_order.quantity)
 
-        #Check whether order is cancelled after cancel_order_wait_time
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size + self.time_delay + self.cancel_order_wait_time)
+        # Check whether order is cancelled after cancel_order_wait_time
+        self.clock.backtest_til(self.start_timestamp
+                                + self.clock_tick_size + self.time_delay + self.cancel_order_wait_time)
         self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
         order_cancelled_events: List[OrderCancelledEvent] = [t for t in self.cancel_order_logger.event_log
                                                              if isinstance(t, OrderCancelledEvent)]
         self.assertEqual(1, len(order_cancelled_events))
         self.cancel_order_logger.clear()
-
 
     def test_limit_sell_order(self):
         self.clock.add_iterator(self.limit_sell_strategy)
@@ -266,7 +246,7 @@ class HelloWorldUnitTest(unittest.TestCase):
         # check whether the size is correct
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size + self.time_delay)
         market_buy_events: List[BuyOrderCompletedEvent] = [t for t in self.buy_order_completed_logger.event_log
-                                                if isinstance(t, BuyOrderCompletedEvent)]
+                                                           if isinstance(t, BuyOrderCompletedEvent)]
         self.assertEqual(1, len(market_buy_events))
         amount: float = sum(t.base_asset_amount for t in market_buy_events)
         self.assertEqual(1, amount)
@@ -285,7 +265,7 @@ class HelloWorldUnitTest(unittest.TestCase):
         # check whether the size is correct
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size + self.time_delay)
         market_sell_events: List[SellOrderCompletedEvent] = [t for t in self.sell_order_completed_logger.event_log
-                                                           if isinstance(t, SellOrderCompletedEvent)]
+                                                             if isinstance(t, SellOrderCompletedEvent)]
         self.assertEqual(1, len(market_sell_events))
         amount: float = sum(t.base_asset_amount for t in market_sell_events)
         self.assertEqual(1, amount)
@@ -313,7 +293,7 @@ class HelloWorldUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("99"), bid_order.price)
         self.assertEqual(1, bid_order.quantity)
 
-        #Simulate market fill for limit buy and limit sell
+        # Simulate market fill for limit buy and limit sell
         self.simulate_limit_order_fill(self.market, bid_order)
         self.simulate_limit_order_fill(self.market, ask_order)
 
@@ -324,9 +304,8 @@ class HelloWorldUnitTest(unittest.TestCase):
         self.assertEqual(1, len(bid_fills))
         self.assertEqual(1, len(ask_fills))
 
-
     def test_with_insufficient_balance(self):
-        #Set base balance to zero and check if sell strategies don't place orders
+        # Set base balance to zero and check if sell strategies don't place orders
         self.clock.add_iterator(self.limit_buy_strategy)
         self.clock.add_iterator(self.market_buy_strategy)
         self.market.set_balance("WETH", 0)
@@ -339,7 +318,6 @@ class HelloWorldUnitTest(unittest.TestCase):
         self.assertEqual(False, self.limit_buy_strategy.place_orders)
         self.assertEqual(False, self.market_buy_strategy.place_orders)
 
-
         self.clock.add_iterator(self.limit_sell_strategy)
         self.clock.add_iterator(self.market_sell_strategy)
         self.market.set_balance("COINALPHA", 0)
@@ -351,11 +329,3 @@ class HelloWorldUnitTest(unittest.TestCase):
         self.assertEqual(0, len(market_sell_events))
         self.assertEqual(False, self.limit_sell_strategy.place_orders)
         self.assertEqual(False, self.market_sell_strategy.place_orders)
-
-
-
-
-
-
-
-
