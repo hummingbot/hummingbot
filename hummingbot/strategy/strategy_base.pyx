@@ -308,7 +308,7 @@ cdef class StrategyBase(TimeIterator):
             MarketBase market = market_symbol_pair.market
 
         if market not in self._sb_markets:
-            raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
+            raise ValueError(f"Market object for buy order is not in the whitelisted markets set.")
         return market.c_buy(market_symbol_pair.trading_pair, amount, order_type=order_type, price=price, kwargs=kwargs)
 
 
@@ -325,5 +325,5 @@ cdef class StrategyBase(TimeIterator):
             }
             MarketBase market = market_symbol_pair.market
         if market not in self._sb_markets:
-            raise ValueError(f"market object for sell order is not in the whitelisted markets set.")
+            raise ValueError(f"Market object for sell order is not in the whitelisted markets set.")
         return market.c_sell(market_symbol_pair.trading_pair, amount, order_type=order_type, price=price, kwargs=kwargs)
