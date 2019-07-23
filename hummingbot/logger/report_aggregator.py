@@ -1,6 +1,8 @@
 import asyncio
 import copy
 import logging
+
+from hummingbot.logger import REPORT_EVENT_QUEUE
 from hummingbot.logger.struct_logger import StructLogger
 from collections import defaultdict
 from typing import Optional
@@ -12,7 +14,6 @@ from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 
-REPORT_EVENT_QUEUE = asyncio.Queue()
 MARKETS = {
     "ddex": DDEXMarket,
     "coinbase_pro": CoinbaseProMarket,
@@ -21,6 +22,7 @@ MARKETS = {
     "radar_relay": RadarRelayMarket,
     "idex": IDEXMarket
 }
+
 
 class ReportAggregator:
     ra_logger: Optional[StructLogger] = None
@@ -150,6 +152,9 @@ class ReportAggregator:
         while True:
             try:
                 event = await REPORT_EVENT_QUEUE.get()
+                self.logger().error(
+                    f"Received event: {event}"
+                )
                 self.receive_event(event)
             except asyncio.CancelledError:
                 raise
