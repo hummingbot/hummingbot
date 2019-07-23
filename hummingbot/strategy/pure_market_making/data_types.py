@@ -33,4 +33,3 @@ class PricingProposal(NamedTuple):
 class SizingProposal(NamedTuple):
     buy_order_sizes: List[Decimal]
     sell_order_sizes: List[Decimal]
-

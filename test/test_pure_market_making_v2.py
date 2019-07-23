@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 
 from os.path import join, realpath
-import sys;
-
-
-sys.path.insert(0, realpath(join(__file__, "../../")))
+import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from decimal import Decimal
@@ -40,7 +37,10 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.pure_market_making.pure_market_making_v2 import PureMarketMakingStrategyV2
-from hummingbot.strategy.pure_market_making import ConstantMultipleSpreadPricingDelegate, StaggeredMultipleSizeSizingDelegate
+from hummingbot.strategy.pure_market_making import (
+    ConstantMultipleSpreadPricingDelegate,
+    StaggeredMultipleSizeSizingDelegate
+)
 
 
 class PureMarketMakingV2UnitTest(unittest.TestCase):
@@ -61,16 +61,22 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.cancel_order_wait_time = 45
         self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
                                                 max_price=200, price_step_size=1, volume_step_size=10)
-        self.equal_strategy_sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size = 1.0,
-                                                                                  order_step_size= 0,
-                                                                                  number_of_orders= 5)
-        self.staggered_strategy_sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size=1.0,
-                                                                                  order_step_size=0.5,
-                                                                                  number_of_orders=5)
-        self.multiple_order_strategy_pricing_delegate = ConstantMultipleSpreadPricingDelegate(bid_spread=self.bid_threshold,
-                                                                                              ask_spread=self.ask_threshold,
-                                                                                              order_interval_size=0.01,
-                                                                                              number_of_orders=5)
+        self.equal_strategy_sizing_delegate = StaggeredMultipleSizeSizingDelegate(
+            order_start_size=1.0,
+            order_step_size=0,
+            number_of_orders=5
+        )
+        self.staggered_strategy_sizing_delegate = StaggeredMultipleSizeSizingDelegate(
+            order_start_size=1.0,
+            order_step_size=0.5,
+            number_of_orders=5
+        )
+        self.multiple_order_strategy_pricing_delegate = ConstantMultipleSpreadPricingDelegate(
+            bid_spread=self.bid_threshold,
+            ask_spread=self.ask_threshold,
+            order_interval_size=0.01,
+            number_of_orders=5
+        )
         self.maker_market.add_data(self.maker_data)
         self.maker_market.set_balance("COINALPHA", 500)
         self.maker_market.set_balance("WETH", 5000)
@@ -381,7 +387,6 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.assertEqual(0, len(self.strategy.active_bids))
         self.assertEqual(0, len(self.strategy.active_asks))
 
-
     def test_multiple_orders_equal_sizes(self):
         self.clock.remove_iterator(self.strategy)
         self.clock.add_iterator(self.multi_order_equal_strategy)
@@ -398,10 +403,10 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
         last_bid_order: LimitOrder = self.multi_order_equal_strategy.active_bids[-1][1]
         last_ask_order: LimitOrder = self.multi_order_equal_strategy.active_asks[-1][1]
-        last_bid_price = round(99 * (1 - 0.01)**4, 3)
-        last_ask_price = round(101 * (1 + 0.01) ** 4, 3)
-        self.assertAlmostEqual(last_bid_price, round(last_bid_order.price, 3))
-        self.assertAlmostEqual(last_ask_price, round(last_ask_order.price, 3))
+        last_bid_price = Decimal(99 * (1 - 0.01) ** 4).quantize(Decimal("0.001"))
+        last_ask_price = Decimal(101 * (1 + 0.01) ** 4).quantize(Decimal("0.001"))
+        self.assertAlmostEqual(last_bid_price, last_bid_order.price, 3)
+        self.assertAlmostEqual(last_ask_price, last_ask_order.price, 3)
         self.assertEqual(Decimal("1.0"), last_bid_order.quantity)
         self.assertEqual(Decimal("1.0"), last_ask_order.quantity)
 
@@ -438,13 +443,13 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
         last_bid_order: LimitOrder = self.multi_order_staggered_strategy.active_bids[-1][1]
         last_ask_order: LimitOrder = self.multi_order_staggered_strategy.active_asks[-1][1]
-        last_bid_price = round(99 * (1 - 0.01) ** 4, 3)
-        last_ask_price = round(101 * (1 + 0.01) ** 4, 3)
+        last_bid_price = Decimal(99 * (1 - 0.01) ** 4).quantize(Decimal("0.001"))
+        last_ask_price = Decimal(101 * (1 + 0.01) ** 4).quantize(Decimal("0.001"))
 
-        last_bid_order_size = 1 + (0.5 * 4)
-        last_ask_order_size = 1 + (0.5 * 4)
-        self.assertAlmostEqual(last_bid_price, round(last_bid_order.price, 3))
-        self.assertAlmostEqual(last_ask_price, round(last_ask_order.price, 3))
+        last_bid_order_size = Decimal(1 + (0.5 * 4)).quantize(Decimal("0.001"))
+        last_ask_order_size = Decimal(1 + (0.5 * 4)).quantize(Decimal("0.001"))
+        self.assertAlmostEqual(last_bid_price, last_bid_order.price, 3)
+        self.assertAlmostEqual(last_ask_price, last_ask_order.price, 3)
         self.assertAlmostEqual(last_bid_order_size, last_bid_order.quantity)
         self.assertAlmostEqual(last_ask_order_size, last_ask_order.quantity)
 
@@ -489,7 +494,6 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.assertEqual(5, len(self.multi_order_equal_strategy.active_bids))
         self.assertEqual(5, len(self.multi_order_equal_strategy.active_asks))
 
-
     def test_balance_for_multiple_staggered_orders(self):
         self.clock.remove_iterator(self.strategy)
         self.clock.add_iterator(self.multi_order_staggered_strategy)
@@ -512,8 +516,3 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.clock.backtest_til(end_ts)
         self.assertEqual(5, len(self.multi_order_staggered_strategy.active_bids))
         self.assertEqual(5, len(self.multi_order_staggered_strategy.active_asks))
-
-
-
-
-
