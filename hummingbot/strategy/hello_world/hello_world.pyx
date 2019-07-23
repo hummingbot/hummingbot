@@ -160,6 +160,9 @@ cdef class HelloWorldStrategy(StrategyBase):
     def logging_options(self, int64_t logging_options):
         self._logging_options = logging_options
 
+    @property
+    def place_orders(self):
+        return self._place_orders
 
     def format_status(self) -> str:
         cdef:
