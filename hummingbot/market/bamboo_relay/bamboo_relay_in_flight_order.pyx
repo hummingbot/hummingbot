@@ -110,6 +110,15 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
+        # Gracefully handle missing fields from existing orders
+        if not 'is_coordinated' in data:
+            data["is_coordinated"] = False
+        if not 'expires' in data:
+            data["expires"] = 0
+        if not 'trade_type' in data:
+            data["trade_type"] = TradeType.BUY.name if bool(data["is_buy"]) else TradeType.SELL.name
+        if not 'available_amount_base' in data:
+            data["available_amount_base"] = data["executed_amount_base"] = data["executed_amount_quote"] = 0
         cdef:
             BambooRelayInFlightOrder retval = BambooRelayInFlightOrder(
                 client_order_id=data["client_order_id"],
