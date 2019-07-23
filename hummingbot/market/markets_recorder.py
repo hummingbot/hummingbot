@@ -107,13 +107,16 @@ class MarketsRecorder:
                         .order_by(Order.creation_timestamp))
         return query.all()
 
-    def get_trades_for_config(self, config_file_path: str) -> List[TradeFill]:
+    def get_trades_for_config(self, config_file_path: str, number_of_rows: Optional[int] = None) -> List[TradeFill]:
         session: Session = self.session
         query: Query = (session
                         .query(TradeFill)
                         .filter(TradeFill.config_file_path == config_file_path)
-                        .order_by(TradeFill.timestamp))
-        return query.all()
+                        .order_by(TradeFill.timestamp.desc()))
+        if number_of_rows is None:
+            return query.all()
+        else:
+            return query.limit(number_of_rows).all()
 
     def save_market_states(self, config_file_path: str, market: MarketBase, no_commit: bool = False):
         session: Session = self.session
