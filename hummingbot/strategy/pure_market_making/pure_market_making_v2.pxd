@@ -17,13 +17,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         double _status_report_interval
         double _last_timestamp
 
-        dict _tracked_maker_orders
-        dict _order_id_to_market_info
-        dict _shadow_tracked_maker_orders
-        dict _shadow_order_id_to_market_info
         dict _time_to_cancel
-        object _in_flight_cancels
-        object _shadow_gc_requests
 
         int64_t _logging_options
 
@@ -31,9 +25,5 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         OrderPricingDelegate _pricing_delegate
         OrderSizingDelegate _sizing_delegate
 
-    cdef c_cancel_order(self, object market_info, str order_id)
     cdef object c_get_orders_proposal_for_market_info(self, object market_info, list active_maker_orders)
-    cdef c_check_and_cleanup_shadow_records(self)
-    cdef c_start_tracking_order(self, object market_info, str order_id, bint is_buy, object price, object quantity)
-    cdef c_stop_tracking_order(self, object market_info, str order_id)
     cdef c_execute_orders_proposal(self, object market_info, object orders_proposal)

@@ -4,12 +4,12 @@ from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.strategy.strategy_base cimport StrategyBase
 from libc.stdint cimport int64_t
 
+
 cdef class ArbitrageStrategy(StrategyBase):
     cdef:
         list _market_pairs
         bint _all_markets_ready
         dict _order_id_to_market
-        dict _tracked_taker_orders
         double _min_profitability
         double _max_order_size
         double _min_order_size
@@ -27,8 +27,6 @@ cdef class ArbitrageStrategy(StrategyBase):
     cdef c_process_market_pair_inner(self, object buy_market_symbol_pair,object sell_market_symbol_pair)
     cdef tuple c_find_best_profitable_amount(self, object buy_market_symbol_pair, object sell_market_symbol_pair)
     cdef c_ready_for_new_orders(self, list market_symbol_pairs)
-    cdef c_start_tracking_market_order(self, object market_symbol_pair, str order_id, bint is_buy, object quantity)
-    cdef c_stop_tracking_market_order(self, str order_id)
 
 
 cdef list c_find_profitable_arbitrage_orders(double min_profitability,

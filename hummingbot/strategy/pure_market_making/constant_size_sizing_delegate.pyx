@@ -1,19 +1,19 @@
-from hummingbot.core.data_type.limit_order import LimitOrder
+from decimal import Decimal
+import logging
+
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import MarketBase
 from hummingbot.core.event.events import (
-OrderType,
-TradeType,
-TradeFee
+    TradeType,
+    OrderType
 )
-from typing import Optional
-import logging
+from hummingbot.logger import HummingbotLogger
 
 from .data_types import SizingProposal
 from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
-from hummingbot.logger import HummingbotLogger
 
-s_logger:Optional[HummingbotLogger] = None
+s_logger = None
+s_decimal_0 = Decimal(0)
 
 cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
 
@@ -44,34 +44,43 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
             object buy_fees
             double base_asset_balance = market.c_get_balance(market_info.base_asset)
             double quote_asset_balance = market.c_get_balance(market_info.quote_asset)
-            double bid_order_size = self._order_size
-            double ask_order_size = self._order_size
+            object bid_order_size = self._order_size
+            object ask_order_size = self._order_size
             bint has_active_bid = False
             bint has_active_ask = False
+            double required_quote_asset_balance
 
         buy_fees = market.c_get_fee(market_info.base_asset, market_info.quote_asset,
                                     OrderType.MARKET, TradeType.BUY,
                                     bid_order_size, pricing_proposal.buy_order_prices[0])
 
         if market.name == "binance":
-            bid_order_size = market.c_quantize_order_amount(market_info.trading_pair, self.order_size, pricing_proposal.buy_order_prices[0])
-            ask_order_size = market.c_quantize_order_amount(market_info.trading_pair, self.order_size, pricing_proposal.sell_order_prices[0])
-            required_quote_asset_balance = pricing_proposal.buy_order_prices[0] * bid_order_size
+            bid_order_size = market.c_quantize_order_amount(market_info.trading_pair,
+                                                            self.order_size,
+                                                            pricing_proposal.buy_order_prices[0])
+            ask_order_size = market.c_quantize_order_amount(market_info.trading_pair,
+                                                            self.order_size,
+                                                            pricing_proposal.sell_order_prices[0])
+            required_quote_asset_balance = float(pricing_proposal.buy_order_prices[0]) * float(bid_order_size)
 
         else:
-            bid_order_size = market.c_quantize_order_amount(market_info.trading_pair, self.order_size)
-            ask_order_size = market.c_quantize_order_amount(market_info.trading_pair, self.order_size)
-            required_quote_asset_balance = pricing_proposal.buy_order_prices[0] * (1+float(buy_fees.percent)) * bid_order_size
+            bid_order_size = market.c_quantize_order_amount(market_info.trading_pair,
+                                                            self.order_size)
+            ask_order_size = market.c_quantize_order_amount(market_info.trading_pair,
+                                                            self.order_size)
+            required_quote_asset_balance = (float(pricing_proposal.buy_order_prices[0]) *
+                                            (1.0 + float(buy_fees.percent)) *
+                                            self.order_size)
 
         if self._log_warning_order_size:
 
-            if (bid_order_size ==0):
+            if bid_order_size == s_decimal_0:
                 self.logger().network(f"Buy(bid) order size is less than minimum order size. Buy order will not be placed",
                                       f"The order size is too small for the market for buy order. Check order size in configuration.")
                 #After warning once, set warning flag to False
                 self._log_warning_order_size = False
 
-            if (ask_order_size ==0):
+            if ask_order_size == s_decimal_0:
                  self.logger().network(f"Sell(ask) order size is less than minimum order size. Sell order will not be placed",
                                        f"The order size is too small for the market for sell order. Check order size in configuration.")
                  #After warning once, set warning flag to False
@@ -85,7 +94,6 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
                 has_active_ask = True
 
         if self._log_warning_balance:
-
             if quote_asset_balance < required_quote_asset_balance:
                 self.logger().network(f"Buy(bid) order is not placed because there is not enough Quote asset. "
                                       f"Quote Asset: {quote_asset_balance}, Price: {pricing_proposal.buy_order_prices[0]},"
@@ -94,7 +102,7 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
                 #After warning once, set warning flag to False
                 self._log_warning_balance = False
 
-            if (base_asset_balance < ask_order_size):
+            if base_asset_balance < ask_order_size:
                 self.logger().network(f"Sell(ask) order is not placed because there is not enough Base asset. "
                                       f"Base Asset: {base_asset_balance}, Size: {ask_order_size}",
                                       f"Not enough asset to place the required sell(ask) order. Check balances.")
@@ -114,8 +122,8 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
         return SizingProposal(
             ([bid_order_size]
              if quote_asset_balance >= required_quote_asset_balance and not has_active_bid
-             else [0.0]),
+             else [s_decimal_0]),
             ([ask_order_size]
              if base_asset_balance >= ask_order_size and not has_active_ask else
-             [0.0])
+             [s_decimal_0])
         )
