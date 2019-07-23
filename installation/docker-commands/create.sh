@@ -6,11 +6,20 @@ function pause() {
 # =============================================
 # SCRIPT COMMANDS
 echo
-echo "** Creating a new Hummingbot instance **"
+echo "** ✏️  Creating a new Hummingbot instance **"
+echo
+# Specify hummingbot version
+echo "ℹ️  Press [enter] for default values."
+echo
+echo "➡️  Enter Hummingbot version: [latest|development] (default = \"latest\")"
+read TAG
+if [ "$TAG" == "" ]
+then
+  TAG="latest"
+fi
 echo
 # Ask the user for the name of the new instance
-echo "Enter a name for your new Hummingbot instance:"
-echo "(Press [enter] for default value: hummingbot-instance)"
+echo "➡️  Enter a name for your new Hummingbot instance: (default = \"hummingbot-instance\")"
 read INSTANCE_NAME
 if [ "$INSTANCE_NAME" == "" ];
 then
@@ -23,15 +32,14 @@ echo
 echo "=> Instance name: $INSTANCE_NAME"
 echo
 # Ask the user for the folder location to save files
-echo "Enter a folder name for your config and log files:"
-echo "(Press [enter] for default value: $DEFAULT_FOLDER)"
+echo "➡️  Enter a folder name for your config and log files: (default = \"$DEFAULT_FOLDER\")"
 read FOLDER
 if [ "$FOLDER" == "" ]
 then
   FOLDER=$DEFAULT_FOLDER
 fi
 echo
-echo "Creating your hummingbot instance: \"$INSTANCE_NAME\""
+echo "Creating your hummingbot instance: \"$INSTANCE_NAME\" (coinalpha/hummingbot:$TAG)"
 echo
 echo "Your files will be saved to:"
 echo "=> instance folder:    $PWD/$FOLDER"
@@ -53,4 +61,4 @@ docker run -it \
 --name $INSTANCE_NAME \
 --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_logs,destination=/logs/" \
-coinalpha/hummingbot:latest
+coinalpha/hummingbot:$TAG

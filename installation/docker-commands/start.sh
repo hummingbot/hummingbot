@@ -8,7 +8,7 @@ echo
 echo "=> List of docker instances:"
 docker ps -a
 echo
-echo "=> Enter the name for the Hummingbot instance to connect to:"
+echo "➡️  Enter the name for the Hummingbot instance to connect to:"
 echo "   (Press enter for default value: hummingbot-instance)"
 read INSTANCE_NAME
 if [ "$INSTANCE_NAME" == "" ];
