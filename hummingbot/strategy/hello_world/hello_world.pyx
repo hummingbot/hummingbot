@@ -85,7 +85,6 @@ cdef class HelloWorldStrategy(StrategyBase):
             ds_logger = logging.getLogger(__name__)
         return ds_logger
 
-    #TODO: Add more logging, remove all warnings for PEP and use Decimal everywhere
     def __init__(self,
                  market_infos: List[MarketSymbolPair],
                  order_type: str = "limit",
@@ -128,30 +127,23 @@ cdef class HelloWorldStrategy(StrategyBase):
 
     @property
     def active_bids(self) -> List[Tuple[MarketBase, LimitOrder]]:
-        return [(market, limit_order) for market, limit_order in self.active_maker_orders if limit_order.is_buy]
+        return self._sb_order_tracker.active_bids
 
     @property
     def active_asks(self) -> List[Tuple[MarketBase, LimitOrder]]:
-        return [(market, limit_order) for market, limit_order in self.active_maker_orders if not limit_order.is_buy]
+        return self._sb_order_tracker.active_asks
 
     @property
     def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
-        return [
-            (market_info.market, order)
-            for market_info, orders_map in self._tracked_orders.items()
-            for order in orders_map.values()
-        ]
+        return self._sb_order_tracker.active_maker_orders
+
+    @property
+    def in_flight_cancels(self) -> Dict[str, float]:
+        return self._sb_order_tracker.in_flight_cancels
 
     @property
     def market_info_to_active_orders(self) -> Dict[MarketSymbolPair, List[LimitOrder]]:
-        return {
-            market_info: [
-                order
-                for order in self._tracked_orders.get(market_info, {}).values()
-            ]
-            for market_info
-            in self._market_infos.values()
-        }
+        return self._sb_order_tracker.market_pair_to_active_orders
 
     @property
     def logging_options(self) -> int:
@@ -206,46 +198,6 @@ cdef class HelloWorldStrategy(StrategyBase):
 
         return "\n".join(lines)
 
-    cdef c_did_fail_order(self, object order_failed_event):
-        cdef:
-            str order_id = order_failed_event.order_id
-            object market_info= self._order_id_to_market_info.get(order_id)
-
-        self.logger().info(f"Order: {order_id} for {market_info.trading_pair} has been failed")
-        self.c_stop_tracking_order(market_info, order_id)
-
-    cdef c_did_cancel_order(self, object cancelled_event):
-        cdef:
-            str order_id = cancelled_event.order_id
-            object market_info = self._order_id_to_market_info.get(order_id)
-
-        self.logger().info(f"Order: {order_id} for {market_info.trading_pair} has been succesfully cancelled")
-        self.c_stop_tracking_order(market_info, order_id)
-
-    cdef c_did_fill_order(self, object order_filled_event):
-        cdef:
-            str order_id = order_filled_event.order_id
-            object market_info = self._order_id_to_market_info.get(order_id)
-
-        self.logger().info(f"Order: {order_id} for {market_info.trading_pair} has been filled")
-        self.c_stop_tracking_order(market_info, order_id)
-
-    cdef c_did_complete_buy_order(self, object order_completed_event):
-        cdef:
-            str order_id = order_completed_event.order_id
-            object market_info = self._order_id_to_market_info.get(order_id)
-
-        self.logger().info(f"Buy Order: {order_id} for {market_info.trading_pair} has been completely filled")
-        self.c_stop_tracking_order(market_info, order_id)
-
-    cdef c_did_complete_sell_order(self, object order_completed_event):
-        cdef:
-            str order_id = order_completed_event.order_id
-            object market_info = self._order_id_to_market_info.get(order_id)
-
-        self.logger().info(f"Sell Order: {order_id} for {market_info.trading_pair} has been completely filled")
-        self.c_stop_tracking_order(market_info, order_id)
-
     cdef c_cancel_order(self, object market_info, str order_id):
         cdef:
             MarketBase market = market_info.market
@@ -294,45 +246,19 @@ cdef class HelloWorldStrategy(StrategyBase):
                     self.logger().warning(f"WARNING: Some markets are not connected or are down at the moment. Market "
                                           f"making may be dangerous when markets or networks are unstable.")
 
-            market_info_to_active_orders = self.market_info_to_active_orders
-
             for market_info in self._market_infos.values():
                 self.c_process_market(market_info)
         finally:
             self._last_timestamp = timestamp
 
-    cdef c_start_tracking_order(self, object market_info, str order_id, bint is_buy, object price, object quantity):
-        self.logger().info(f"The bot is tracking the order {order_id}")
-        if market_info not in self._tracked_orders:
-            self._tracked_orders[market_info] = {}
-
-        cdef:
-            LimitOrder limit_order = LimitOrder(order_id,
-                                                market_info.trading_pair,
-                                                is_buy,
-                                                market_info.base_asset,
-                                                market_info.quote_asset,
-                                                float(price),
-                                                float(quantity))
-        self._tracked_orders[market_info][order_id] = limit_order
-        self._order_id_to_market_info[order_id] = market_info
-
-    cdef c_stop_tracking_order(self, object market_info, str order_id):
-        if market_info in self._tracked_orders and order_id in self._tracked_orders[market_info]:
-            self.logger().info(f"The bot has stopped tracking the order {order_id}")
-            del self._tracked_orders[market_info][order_id]
-            if len(self._tracked_orders[market_info]) < 1:
-                del self._tracked_orders[market_info]
-        if order_id in self._order_id_to_market_info:
-            del self._order_id_to_market_info[order_id]
-
     cdef c_place_orders(self, object market_info):
         cdef:
             MarketBase market = market_info.market
+            object quantized_amount = market.c_quantize_order_amount(market_info.trading_pair, self._order_amount)
+            object quantized_price = market.c_quantize_order_price(market_info.trading_pair, self._order_price)
 
         self.logger().info(f"Checking to see if the user has enough balance to place orders")
-        quantized_amount = market.c_quantize_order_amount(market_info.trading_pair, self._order_amount)
-        quantized_price = market.c_quantize_order_price(market_info.trading_pair, self._order_price)
+
 
         if self.c_has_enough_balance(market_info):
 
@@ -360,7 +286,6 @@ cdef class HelloWorldStrategy(StrategyBase):
                                                                 price = quantized_price)
                     self.logger().info("Limit sell order has been placed")
 
-                self.c_start_tracking_order(market_info, order_id, self._is_buy, self._order_price, self._order_amount)
                 self._time_to_cancel[order_id] = self._current_timestamp + self._cancel_order_wait_time
         else:
             self.logger().info(f"Not enough balance to run the strategy. Please check balances and try again.")
@@ -396,7 +321,7 @@ cdef class HelloWorldStrategy(StrategyBase):
                                    f" with time delay: {self._time_delay}. Trying to place orders now. ")
                 self.c_place_orders(market_info)
 
-        active_orders = self.market_info_to_active_orders[market_info]
+        active_orders = self.market_info_to_active_orders.get(market_info, [])
 
         if len(active_orders) >0 :
             for active_order in active_orders:
