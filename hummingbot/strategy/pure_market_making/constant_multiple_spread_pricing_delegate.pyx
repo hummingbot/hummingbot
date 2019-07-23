@@ -62,5 +62,4 @@ cdef class ConstantMultipleSpreadPricingDelegate(OrderPricingDelegate):
             ask_prices.append(current_ask_price)
 
 
-        return PricingProposal(bid_prices,
-                               ask_prices)
+        return PricingProposal(bid_prices, ask_prices)
