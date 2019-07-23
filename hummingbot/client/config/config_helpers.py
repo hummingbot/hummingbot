@@ -1,4 +1,3 @@
-import json
 from typing import List
 
 from hummingbot.client.settings import TOKEN_ADDRESSES_FILE_PATH
@@ -10,6 +9,7 @@ from os.path import (
     isfile,
 )
 from collections import OrderedDict
+import json
 from typing import (
     Callable,
     Dict,
@@ -32,7 +32,7 @@ from hummingbot.client.settings import (
 )
 
 # Use ruamel.yaml to preserve order and comments in .yml file
-yaml = ruamel.yaml.YAML()
+yaml_parser = ruamel.yaml.YAML()
 
 
 def parse_cvar_value(cvar: ConfigVar, value: any):
@@ -42,7 +42,7 @@ def parse_cvar_value(cvar: ConfigVar, value: any):
         return str(value)
     elif cvar.type in {"list", "dict"}:
         if isinstance(value, str):
-            return eval(value)
+            return json.loads(value)
         else:
             return value
     elif cvar.type == 'float':
@@ -150,7 +150,7 @@ def read_configs_from_yml(strategy_file_path: str = None):
     def load_yml_into_cm(yml_path: str, cm: Dict[str, ConfigVar]):
         try:
             with open(yml_path) as stream:
-                data = yaml.load(stream) or {}
+                data = yaml_parser.load(stream) or {}
                 for key in data:
                     if key == "wallet":
                         continue
@@ -176,12 +176,12 @@ def read_configs_from_yml(strategy_file_path: str = None):
 async def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
     try:
         with open(yml_path) as stream:
-            data = yaml.load(stream) or {}
+            data = yaml_parser.load(stream) or {}
             for key in cm:
                 cvar = cm.get(key)
                 data[key] = cvar.value
             with open(yml_path, "w+") as outfile:
-                yaml.dump(data, outfile)
+                yaml_parser.dump(data, outfile)
     except Exception as e:
         logging.getLogger().error("Error writing configs: %s" % (str(e),), exc_info=True)
 
@@ -209,12 +209,12 @@ async def create_yml_files():
             if not isfile(conf_path):
                 shutil.copy(template_path, conf_path)
             with open(template_path, "r") as template_fd:
-                template_data = yaml.load(template_fd)
+                template_data = yaml_parser.load(template_fd)
                 template_version = template_data.get("template_version", 0)
             with open(conf_path, "r") as conf_fd:
                 conf_version = 0
                 try:
-                    conf_data = yaml.load(conf_fd)
+                    conf_data = yaml_parser.load(conf_fd)
                     conf_version = conf_data.get("template_version", 0)
                 except Exception:
                     pass
