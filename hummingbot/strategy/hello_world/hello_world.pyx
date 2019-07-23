@@ -115,7 +115,8 @@ cdef class HelloWorldStrategy(StrategyBase):
         self._time_to_cancel = {}
         self._cancel_order_wait_time = cancel_order_wait_time
         self._order_type = order_type
-        self._order_price = order_price
+        if order_price is not None:
+            self._order_price = order_price
         self._is_buy = is_buy
         self._order_amount = order_amount
 
@@ -322,30 +323,37 @@ cdef class HelloWorldStrategy(StrategyBase):
             del self._order_id_to_market_info[order_id]
 
     cdef c_place_orders(self, object market_info):
-
+        self.logger().info(f"Checking to see if the user has enough balance to place orders")
         if self.c_has_enough_balance(market_info):
-            self.logger().info(f"Checking to see if the user has enough balance to place orders")
+
             if self._order_type == "market":
                 if self._is_buy:
                     order_id = self.c_buy_with_specific_market(market_info,
                                                                amount = self._order_amount)
+                    self.logger().info("Market buy order has been executed")
                 else:
                     order_id = self.c_sell_with_specific_market(market_info,
                                                                 amount = self._order_amount)
+                    self.logger().info("Market sell order has been executed")
             else:
                 if self._is_buy:
                     order_id = self.c_buy_with_specific_market(market_info,
                                                                amount = self._order_amount,
                                                                order_type = OrderType.LIMIT,
                                                                price = self._order_price)
+                    self.logger().info("Limit buy order has been placed")
+
                 else:
                     order_id = self.c_sell_with_specific_market(market_info,
                                                                 amount = self._order_amount,
                                                                 order_type = OrderType.LIMIT,
                                                                 price = self._order_price)
+                    self.logger().info("Limit sell order has been placed")
 
                 self.c_start_tracking_order(market_info, order_id, self._is_buy, self._order_price, self._order_amount)
                 self._time_to_cancel[order_id] = self._current_timestamp + self._cancel_order_wait_time
+        else:
+            self.logger().info(f"Not enough balance to run the strategy. Please check balances and try again.")
 
 
     cdef c_has_enough_balance(self, object market_info):
@@ -370,7 +378,8 @@ cdef class HelloWorldStrategy(StrategyBase):
             if self._current_timestamp > self._start_timestamp + self._time_delay:
 
                 self._place_orders = False
-                self.logger().info("Current timestamp is ")
+                self.logger().info(f"Current timestamp: {self._current_timestamp} is greater than "
+                                   f"Start timestamp:{self._start_timestamp} with time delay: {self._time_delay} ")
                 self.c_place_orders(market_info)
 
         active_orders = self.market_info_to_active_orders[market_info]
