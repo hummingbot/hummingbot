@@ -13,7 +13,6 @@ Copy the commands below and paste into Terminal to download and enable the autom
 ```bash tab="Linux"
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/connect.sh
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh
 chmod a+x *.sh
 ```
@@ -21,7 +20,6 @@ chmod a+x *.sh
 ```bash tab="MacOS"
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh -o create.sh
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh -o start.sh
-curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/connect.sh -o connect.sh
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh -o update.sh
 chmod a+x *.sh
 ```
@@ -30,7 +28,6 @@ chmod a+x *.sh
 cd ~
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh -o create.sh
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh -o start.sh
-curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/connect.sh -o connect.sh
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh -o update.sh
 chmod a+x *.sh
 ```
@@ -66,21 +63,9 @@ docker run -it \
 coinalpha/hummingbot:latest
 ```
 
-#### Connecting to a Running Hummingbot Instance
+#### Restarting Hummingbot after Shutdown or Closing the Window
 
-If you exited terminal (e.g. closed window) and left Hummingbot running, the following command will reconnect to your Hummingbot instance:
-
-```bash tab="Script"
-./connect.sh
-```
-
-```bash tab="Detailed Command"
-docker attach hummingbot-instance
-```
-
-#### Restarting Hummingbot after Shutdown
-
-If you have previously created an instance of Hummingbot which you shut down (e.g. by command `exit`), the following command restarts the intance and connects to it:
+If you have previously created an instance of Hummingbot, the following command connects to the instance:
 
 ```bash tab="Script"
 ./start.sh
@@ -124,7 +109,7 @@ coinalpha/hummingbot:latest
 
 #### Docker Command Parameters
 
-The instructions on this page assume the following variable names and/or parameters.  You can customize these names.
+The instructions on this page assume the following default variable names and/or parameters.  You can customize these names.
 
 Parameter | Description
 ---|---
