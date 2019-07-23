@@ -30,43 +30,6 @@ NaN = float("nan")
 s_decimal_zero = Decimal(0)
 ds_logger = None
 
-cdef class HelloWorldStrategyEventListener(EventListener):
-    cdef:
-        HelloWorldStrategy _owner
-
-    def __init__(self, HelloWorldStrategy owner):
-        super().__init__()
-        self._owner = owner
-
-
-cdef class BuyOrderCompletedListener(HelloWorldStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_complete_buy_order(arg)
-
-
-cdef class SellOrderCompletedListener(HelloWorldStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_complete_sell_order(arg)
-
-
-cdef class OrderFilledListener(HelloWorldStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_fill_order(arg)
-
-
-cdef class OrderFailedListener(HelloWorldStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_fail_order(arg)
-
-
-cdef class OrderCancelledListener(HelloWorldStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_cancel_order(arg)
-
-cdef class OrderExpiredListener(HelloWorldStrategyEventListener):
-    cdef c_call(self, object arg):
-        self._owner.c_did_cancel_order(arg)
-
 cdef class HelloWorldStrategy(StrategyBase):
     OPTION_LOG_NULL_ORDER_SIZE = 1 << 0
     OPTION_LOG_REMOVING_ORDER = 1 << 1
