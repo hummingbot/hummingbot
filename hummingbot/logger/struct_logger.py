@@ -5,20 +5,16 @@ from decimal import Decimal
 # Custom log level
 from enum import Enum
 
-from hummingbot.logger import HummingbotLogger
+from hummingbot.logger import (
+    HummingbotLogger,
+    log_encoder,
+    REPORT_EVENT_QUEUE
+)
 
 EVENT_LOG_LEVEL = 15
 METRICS_LOG_LEVEL = 14
 logging.addLevelName(EVENT_LOG_LEVEL, "EVENT_LOG")
 logging.addLevelName(METRICS_LOG_LEVEL, "METRIC_LOG")
-
-
-def log_encoder(obj):
-    if isinstance(obj, Decimal):
-        return str(obj)
-    elif isinstance(obj, Enum):
-        return str(obj)
-    raise TypeError("Object of type '%s' is not JSON serializable" % type(obj).__name__)
 
 
 class StructLogRecord(logging.LogRecord):
@@ -46,6 +42,12 @@ class StructLogger(HummingbotLogger):
                 kwargs["extra"].update(extra)
             else:
                 kwargs["extra"] = extra
+
+            if "timestamp" in dict_msg:
+                dict_msg["ts"] = dict_msg["timestamp"]
+                del dict_msg["timestamp"]
+
+            REPORT_EVENT_QUEUE.put_nowait(dict_msg)
             self._log(EVENT_LOG_LEVEL, "", args, **kwargs)
 
     def metric_log(self, dict_msg, *args, **kwargs):
