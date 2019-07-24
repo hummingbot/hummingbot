@@ -28,4 +28,4 @@ time_delay: null
 is_buy: null
 
 # For more detailed information, see:
-# https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parameters
+# https://docs.hummingbot.io/strategies/simple-trade/#configuration-parameters

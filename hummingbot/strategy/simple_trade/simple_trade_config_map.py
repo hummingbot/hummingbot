@@ -40,19 +40,6 @@ simple_trade_config_map = {
                                                   type_str="str",
                                                   validator=lambda v: v in {"limit", "market", ""},
                                                   default="market"),
-    "order_price":                      ConfigVar(key="order_price",
-                                                  prompt="What is the price of the limit order"
-                                                  " >>> ",
-                                                  required_if=lambda: simple_trade_config_map.get(
-                                                                      "order_type").value == "limit",
-                                                  type_str="float"),
-    "cancel_order_time":                ConfigVar(key="cancel_order_wait_time",
-                                                  prompt="How long do you want to wait before cancelling your limit "
-                                                         "orders (in seconds). (Default is 60 seconds) ? >>> ",
-                                                  required_if=lambda: simple_trade_config_map.get(
-                                                                      "order_type").value == "limit",
-                                                  type_str="float",
-                                                  default=60),
     "order_amount":                     ConfigVar(key="order_amount",
                                                   prompt="What is your preferred quantity per order (denominated in "
                                                          "the base asset, default is 1) ? >>> ",
@@ -67,5 +54,18 @@ simple_trade_config_map = {
                                                   prompt="How much do you want to wait to place the "
                                                          "order (Enter 10 to indicate 10 seconds. Default is 0)? >>> ",
                                                   type_str="float",
-                                                  default=0)
+                                                  default=0),
+    "order_price":                      ConfigVar(key="order_price",
+                                                  prompt="What is the price of the limit order ? >>> ",
+                                                  required_if=lambda: simple_trade_config_map.get(
+                                                                      "order_type").value == "limit",
+                                                  type_str="float"),
+    "cancel_order_wait_time":                ConfigVar(key="cancel_order_wait_time",
+                                                  prompt="How long do you want to wait before cancelling your limit "
+                                                         "order (in seconds). (Default is 60 seconds) ? >>> ",
+                                                  required_if=lambda: simple_trade_config_map.get(
+                                                                      "order_type").value == "limit",
+                                                  type_str="float",
+                                                  default=60),
+
 }
