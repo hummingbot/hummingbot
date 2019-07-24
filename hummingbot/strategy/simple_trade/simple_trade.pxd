@@ -30,8 +30,6 @@ cdef class SimpleTradeStrategy(StrategyBase):
 
 
     cdef c_process_market(self, object market_info)
-    cdef c_tick(self, double timestamp)
-    cdef c_cancel_order(self, object market_info, str order_id)
     cdef c_place_orders(self, object market_info)
     cdef c_has_enough_balance(self, object market_info)
     cdef c_process_market(self, object market_info)
