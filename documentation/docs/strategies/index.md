@@ -1,6 +1,6 @@
 # Strategies
 
-The current release of Hummingbot comes with four strategies. Click on the strategy name for more information about it.
+The current release of Hummingbot comes with five strategies. Click on the strategy name for more information about it.
 
 | Strategy | Description |
 |----|----|

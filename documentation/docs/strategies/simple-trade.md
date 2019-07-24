@@ -5,7 +5,7 @@
 In the Simple strategy, Hummingbot executes orders after a certain time delay, as specified by the user. For limit orders, the strategy also provides the user with the additional option to cancel them after a certain time period.
 
 !!! warning
-    The strategy is only supposed to provide the user with a basic template for developing custom strategis. Please set variables responsibly. 
+    The strategy is only supposed to provide the user with a basic template for developing custom strategies. Please set variables responsibly. 
 
 ## Prerequisites: Inventory
 
