@@ -16,7 +16,8 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.market.market_base import (
     MarketBase,
-    OrderType
+    OrderType,
+    TradeType
 )
 
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
@@ -67,13 +68,10 @@ cdef class SimpleTradeStrategy(StrategyBase):
             (market_info.market, market_info.trading_pair): market_info
             for market_info in market_infos
         }
-        self._tracked_orders = {}
         self._all_markets_ready = False
         self._place_orders = True
         self._logging_options = logging_options
         self._status_report_interval = status_report_interval
-        self._order_id_to_market_info = {}
-        self._in_flight_cancels = {}
         self._time_delay = time_delay
         self._time_to_cancel = {}
         self._cancel_order_wait_time = cancel_order_wait_time
@@ -161,24 +159,60 @@ cdef class SimpleTradeStrategy(StrategyBase):
 
         return "\n".join(lines)
 
-    cdef c_cancel_order(self, object market_info, str order_id):
+    cdef c_did_fill_order(self, object order_filled_event):
         cdef:
-            MarketBase market = market_info.market
-            list keys_to_delete = []
+            str order_id = order_filled_event.order_id
+            object market_info = self._sb_order_tracker.c_get_shadow_market_pair_from_order_id(order_id)
+            tuple order_fill_record
 
-        # Maintain the cancel expiry time invariant.
-        for k, cancel_timestamp in self._in_flight_cancels.items():
-            if cancel_timestamp < self._current_timestamp - self.CANCEL_EXPIRY_DURATION:
-                keys_to_delete.append(k)
-        for k in keys_to_delete:
-            del self._in_flight_cancels[k]
+        if market_info is not None:
+            limit_order_record = self._sb_order_tracker.c_get_shadow_limit_order(order_id)
+            order_fill_record = (limit_order_record, order_filled_event)
 
-        if order_id in self._in_flight_cancels:
-            return
+            if order_filled_event.trade_type is TradeType.BUY:
+                if self._logging_options & self.OPTION_LOG_MAKER_ORDER_FILLED:
+                    self.log_with_clock(
+                        logging.INFO,
+                        f"({market_info.trading_pair}) Maker buy order of "
+                        f"{order_filled_event.amount} {market_info.base_asset} filled."
+                    )
+            else:
+                if self._logging_options & self.OPTION_LOG_MAKER_ORDER_FILLED:
+                    self.log_with_clock(
+                        logging.INFO,
+                        f"({market_info.trading_pair}) Maker sell order of "
+                        f"{order_filled_event.amount} {market_info.base_asset} filled."
+                    )
 
-        # Track the cancel and tell maker market to cancel the order.
-        self._in_flight_cancels[order_id] = self._current_timestamp
-        market.c_cancel(market_info.trading_pair, order_id)
+    cdef c_did_complete_buy_order(self, object order_completed_event):
+        cdef:
+            str order_id = order_completed_event.order_id
+            object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
+            LimitOrder limit_order_record
+
+        if market_info is not None:
+            limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
+            self.log_with_clock(
+                logging.INFO,
+                f"({market_info.trading_pair}) Maker buy order {order_id} "
+                f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+            )
+
+    cdef c_did_complete_sell_order(self, object order_completed_event):
+        cdef:
+            str order_id = order_completed_event.order_id
+            object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
+            LimitOrder limit_order_record
+
+        if market_info is not None:
+            limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
+            self.log_with_clock(
+                logging.INFO,
+                f"({market_info.trading_pair}) Maker sell order {order_id} "
+                f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+            )
 
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
