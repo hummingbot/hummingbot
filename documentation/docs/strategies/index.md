@@ -119,3 +119,49 @@ It is highly encouraged to use these functions to create and remove orders, rath
 
     - `market_pair`: a `MarketSymbolPair` object specifying the `MarketBase` object and market symbol to cancel order from.
     - `order_id`: Order ID string returned from a previous call to order creation functions above.
+
+### Order Tracking
+
+Each `StrategyBase` object comes with an internal attribute `_sb_order_tracker`, which is an [`OrderTracker`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/order_tracker.pyx) object. The `OrderTracker` object is responsible for tracking all active and in-flight orders created by the `StrategyBase` object, and also all in-flight order cancels.
+
+![StrategyBase and order tracker](/assets/img/strategy-order-tracker.svg)
+
+When writing or modifying a strategy module, you can use the built-in `OrderTracker` object to query the active or in-flight orders / cancels you currently have. It's useful for preventing issuing duplicate orders or order cancels.
+
+Below are some of the user functions or properties under `OrderTracker` that you can use:
+
+- `active_maker_orders` property
+
+    Returns a list of still active limit orders, with their market object.
+
+    Return type: `List[Tuple[MarketBase, LimitOrder]]`
+
+- `market_pair_to_active_orders` property
+
+    Returns a dictionary mapping from market symbol pairs to lists of active limit orders.
+
+    Return type: `Dict[MarketSymbolPair, List[LimitOrder]]`
+
+- `active_bids` property
+
+    Returns a list of active limit bid orders, with their market object.
+
+    Return type: `List[Tuple[MarketBase, LimitOrder]]`
+
+- `active_asks` property
+
+    Returns a list of active limit ask orders, with their market object.
+
+    Return type: `List[Tuple[MarketBase, LimitOrder]]`
+
+- `tracked_taker_orders` property
+
+    Returns a list of in-flight or active market orders, with their market object. This is useful for decentralized exchanges where market orders may take a minute to settle due to block delay.
+
+    Return type: `List[Tuple[MarketBase, MarketOrder]]`
+
+- `in_flight_cancels` property
+
+    Returns a dictionary of order IDs that are being cancelled.
+
+    Return type: `Dict[str, float]`
