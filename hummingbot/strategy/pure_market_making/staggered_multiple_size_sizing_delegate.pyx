@@ -1,21 +1,22 @@
-from hummingbot.core.data_type.limit_order import LimitOrder
+from decimal import Decimal
+import logging
+
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import MarketBase
-import logging
 from hummingbot.core.event.events import (
-OrderType,
-TradeType,
-TradeFee
+    OrderType,
+    TradeType,
 )
-from .data_types import SizingProposal
-from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
 from hummingbot.logger import HummingbotLogger
 
+from .data_types import SizingProposal
+from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
 
-s_logger: Optional[HummingbotLogger] = None
+s_logger = None
+s_decimal_0 = Decimal(0)
+
 
 cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
-
     def __init__(self, order_start_size: float,
                  order_step_size:float,
                  number_of_orders:int):
@@ -133,8 +134,8 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
         return SizingProposal(
             (buy_orders
              if quote_asset_balance >= required_quote_asset_balance and not has_active_bid
-             else [0.0]),
+             else [s_decimal_0]),
             (sell_orders
              if base_asset_balance >= required_base_asset_balance and not has_active_ask else
-             [0.0])
+             [s_decimal_0])
         )
