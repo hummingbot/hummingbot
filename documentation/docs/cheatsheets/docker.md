@@ -6,7 +6,28 @@ Docker images of Hummingbot are available on Docker Hub at [coinalpha/hummingbot
 
 ## Automated Docker Scripts (Optional)
 
-We have created Docker command install scripts (for additional details, navigate to [Github: Hummingbot Docker scripts](https://github.com/CoinAlpha/hummingbot/tree/development/installation/docker-commands)).
+We have created helper scripts that simplify the process of installing and running Hummingbot with Docker:
+
+* `create.sh`: Creates a new instance of Hummingbot
+* `start.sh`: Starts Hummingbot
+* `update.sh`: Updates Hummingbot
+
+### What do the scripts do?
+
+The scripts help you install an instance of Hummingbot and set up folders to house your logs and configuration files.
+
+For more details, navigate to [Github: Hummingbot Docker scripts](https://github.com/CoinAlpha/hummingbot/tree/development/installation/docker-commands).
+
+```
+hummingbot_files       # Top level folder for hummingbot-related files
+├── hummingbot_conf    # Maps to hummingbot's conf/ folder, which stores configuration files
+└── hummingbot_logs    # Maps to hummingbot's logs/ folder, which stores log files
+```
+
+!!! warning
+    When you update Hummingbot, use the `update.sh` helper script. Do not delete these folders; otherwise, your configuration info may be lost.
+
+### How do I use the scripts?
 
 Copy the commands below and paste into Terminal to download and enable the automated scripts.
 
@@ -126,7 +147,7 @@ The above methodology requires you to explicitly specify the paths where you wan
 The example commands above assume that you create three folders:
 
 ```
-hummingbot_files       # Top level folder for your instance
+hummingbot_files       # Top level folder for hummingbot-related files
 ├── hummingbot_conf    # Maps to hummingbot's conf/ folder, which stores configuration files
 └── hummingbot_logs    # Maps to hummingbot's logs/ folder, which stores log files
 ```
