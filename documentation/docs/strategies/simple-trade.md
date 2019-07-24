@@ -2,7 +2,7 @@
 
 ## How it Works
 
-In the Simple strategy, Hummingbot executes orders after a certain time delay, as specified by the user. For limit orders, the strategy also provides the user with the additional option to cancel them after a certain time period.
+In the Simple Trade strategy, Hummingbot executes orders after a certain time delay, as specified by the user. For limit orders, the strategy also provides the user with the additional option to cancel them after a certain time period.
 
 !!! warning
     The strategy is only supposed to provide the user with a basic template for developing custom strategies. Please set variables responsibly. 
@@ -54,8 +54,8 @@ The following parameters are fields in Hummingbot configuration files (located i
 | **order_type**<br /> | Specify whether its a limit or Market order. <br/> Limit orders allow you to specify price in addition to the order amount & are placed on the orderbook. Market orders are executed immediately against existing limit orders in the orderbook. <br/>
 | **order_amount**<br /> | The amount for the limit or market order. <br/> Ensure you have enough quote (or) base tokens to place the orders. The strategy will not place orders if you do not have sufficient balance for the order. <br/>
 | **order_price**<br /> | The price for the limit order. <br/> Specify the price at which are you are willing to buy/sell the tokens <br/>
-| **cancel_order_wait_time** | An amount in seconds, which is the duration for the placed limit orders. _Default value: 60 seconds_. <br/><br/>. For limit orders, the orders (if still open) are cancelled after this time.
-| **time_delay** | An amount in seconds, after which orders are executed from the start of the strategy. _Default value: 0 seconds_. <br/><br/>. Orders are placed immediately after strategy is initialized by default.
+| **cancel_order_wait_time** | An amount in seconds, which is the duration for the placed limit orders. _Default value: 60 seconds_. For limit orders, the orders (if still open) are cancelled after this time.
+| **time_delay** | An amount in seconds, after which orders are executed from the start of the strategy. _Default value: 0 seconds_. Orders are placed immediately after strategy is initialized by default.
 | **is_buy** | Specify as a buy or sell order (True: Buy order. False: Sell Order) <br/> 
 | **stop_loss_pct** | The threshold amount upon which `hummingbot` will cease placing orders if the value of inventory has fallen.
 | **stop_loss_price_type** | The pricing methdology used by `hummingbot` uses when calculating inventory value when evaluating the stop loss feature.<ul><li>`fixed`: uses the assets prices from when the strategy was first started.<li>`dynamic`: uses current prevailing prices for assets.</ul>
