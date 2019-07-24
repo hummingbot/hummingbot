@@ -10,7 +10,7 @@ from hummingbot.client.settings import (
 
 
 def symbol_prompt():
-    market = hello_world_config_map.get("market").value
+    market = simple_trade_config_map.get("market").value
     example = EXAMPLE_PAIRS.get(market)
     return "Enter the token symbol you would like to trade on %s%s >>> " \
            % (market, f" (e.g. {example})" if example else "")
@@ -22,11 +22,11 @@ def str2bool(value: str):
 
 # checks if the symbol pair is valid
 def is_valid_market_symbol_pair(value: str) -> bool:
-    market = hello_world_config_map.get("market").value
+    market = simple_trade_config_map.get("market").value
     return is_valid_market_symbol(market, value)
 
 
-hello_world_config_map = {
+simple_trade_config_map = {
     "market":                           ConfigVar(key="market",
                                                   prompt="Enter the name of the exchange >>> ",
                                                   validator=is_exchange,
@@ -43,12 +43,14 @@ hello_world_config_map = {
     "order_price":                      ConfigVar(key="order_price",
                                                   prompt="What is the price of the limit order"
                                                   " >>> ",
-                                                  required_if=lambda: hello_world_config_map.get(
+                                                  required_if=lambda: simple_trade_config_map.get(
                                                                       "order_type").value == "limit",
                                                   type_str="float"),
-    "cancel_order_wait_time":           ConfigVar(key="cancel_order_wait_time",
-                                                  prompt="How often do you want to cancel and replace bids and asks "
-                                                         "(in seconds). (Default is 60 seconds) ? >>> ",
+    "cancel_order_time":                ConfigVar(key="cancel_order_wait_time",
+                                                  prompt="How long do you want to wait before cancelling your limit "
+                                                         "orders (in seconds). (Default is 60 seconds) ? >>> ",
+                                                  required_if=lambda: simple_trade_config_map.get(
+                                                                      "order_type").value == "limit",
                                                   type_str="float",
                                                   default=60),
     "order_amount":                     ConfigVar(key="order_amount",

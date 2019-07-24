@@ -30,7 +30,7 @@ NaN = float("nan")
 s_decimal_zero = Decimal(0)
 ds_logger = None
 
-cdef class HelloWorldStrategy(StrategyBase):
+cdef class SimpleTradeStrategy(StrategyBase):
     OPTION_LOG_NULL_ORDER_SIZE = 1 << 0
     OPTION_LOG_REMOVING_ORDER = 1 << 1
     OPTION_LOG_ADJUST_ORDER = 1 << 2
@@ -140,7 +140,7 @@ cdef class HelloWorldStrategy(StrategyBase):
             warning_lines.extend(self.network_warning([market_info]))
 
             markets_df = self.market_status_data_frame([market_info])
-            lines.extend(["", "  Markets:"] + ["    " + line for line in str(markets_df).split("\n")])
+            lines.extend(["", "  Markets:"]  + ["    " + line for line in str(markets_df).split("\n")])
 
             assets_df = self.wallet_balance_data_frame([market_info])
             lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])

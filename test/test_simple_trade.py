@@ -31,12 +31,12 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.strategy.hello_world.hello_world import HelloWorldStrategy
+from hummingbot.strategy.simple_trade.simple_trade import SimpleTradeStrategy
 import sys
 sys.path.insert(0, realpath(join(__file__, "../../")))
 
 
-class HelloWorldUnitTest(unittest.TestCase):
+class SimpleTradeUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
@@ -70,11 +70,11 @@ class HelloWorldUnitTest(unittest.TestCase):
             )
         )
 
-        logging_options: int = (HelloWorldStrategy.OPTION_LOG_ALL &
-                                (~HelloWorldStrategy.OPTION_LOG_NULL_ORDER_SIZE))
+        logging_options: int = (SimpleTradeStrategy.OPTION_LOG_ALL &
+                                (~SimpleTradeStrategy.OPTION_LOG_NULL_ORDER_SIZE))
 
         # Define strategies to test
-        self.limit_buy_strategy: HelloWorldStrategy = HelloWorldStrategy(
+        self.limit_buy_strategy: SimpleTradeStrategy = SimpleTradeStrategy(
             [self.market_info],
             order_type="limit",
             order_price=99,
@@ -84,7 +84,7 @@ class HelloWorldUnitTest(unittest.TestCase):
             order_amount=1.0,
             logging_options=logging_options
         )
-        self.limit_sell_strategy: HelloWorldStrategy = HelloWorldStrategy(
+        self.limit_sell_strategy: SimpleTradeStrategy = SimpleTradeStrategy(
             [self.market_info],
             order_type="limit",
             order_price=101,
@@ -94,7 +94,7 @@ class HelloWorldUnitTest(unittest.TestCase):
             order_amount=1.0,
             logging_options=logging_options
         )
-        self.market_buy_strategy: HelloWorldStrategy = HelloWorldStrategy(
+        self.market_buy_strategy: SimpleTradeStrategy = SimpleTradeStrategy(
             [self.market_info],
             order_type="market",
             order_price=None,
@@ -104,7 +104,7 @@ class HelloWorldUnitTest(unittest.TestCase):
             order_amount=1.0,
             logging_options=logging_options
         )
-        self.market_sell_strategy: HelloWorldStrategy = HelloWorldStrategy(
+        self.market_sell_strategy: SimpleTradeStrategy = SimpleTradeStrategy(
             [self.market_info],
             order_type="market",
             order_price=None,

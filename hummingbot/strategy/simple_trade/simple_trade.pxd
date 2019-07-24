@@ -4,7 +4,7 @@ from hummingbot.strategy.strategy_base cimport StrategyBase
 from hummingbot.market.market_base cimport MarketBase
 from libc.stdint cimport int64_t
 
-cdef class HelloWorldStrategy(StrategyBase):
+cdef class SimpleTradeStrategy(StrategyBase):
     cdef:
         dict _market_infos
         bint _all_markets_ready
