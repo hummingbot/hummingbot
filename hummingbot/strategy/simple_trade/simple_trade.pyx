@@ -53,7 +53,7 @@ cdef class SimpleTradeStrategy(StrategyBase):
                  market_infos: List[MarketSymbolPair],
                  order_type: str = "limit",
                  order_price: Optional[float] = None,
-                 cancel_order_wait_time: float = 60.0,
+                 cancel_order_wait_time: Optional[float] = 60.0,
                  is_buy: bool = True,
                  time_delay: float = 10.0,
                  order_amount: float = 1.0,
@@ -74,12 +74,13 @@ cdef class SimpleTradeStrategy(StrategyBase):
         self._status_report_interval = status_report_interval
         self._time_delay = time_delay
         self._time_to_cancel = {}
-        self._cancel_order_wait_time = cancel_order_wait_time
         self._order_type = order_type
-        if order_price is not None:
-            self._order_price = order_price
         self._is_buy = is_buy
         self._order_amount = order_amount
+        if order_price is not None:
+            self._order_price = order_price
+        if cancel_order_wait_time is not None:
+            self._cancel_order_wait_time = cancel_order_wait_time
 
         cdef:
             set all_markets = set([market_info.market for market_info in market_infos])
@@ -173,14 +174,14 @@ cdef class SimpleTradeStrategy(StrategyBase):
                 if self._logging_options & self.OPTION_LOG_MAKER_ORDER_FILLED:
                     self.log_with_clock(
                         logging.INFO,
-                        f"({market_info.trading_pair}) Maker buy order of "
+                        f"({market_info.trading_pair}) Limit buy order of "
                         f"{order_filled_event.amount} {market_info.base_asset} filled."
                     )
             else:
                 if self._logging_options & self.OPTION_LOG_MAKER_ORDER_FILLED:
                     self.log_with_clock(
                         logging.INFO,
-                        f"({market_info.trading_pair}) Maker sell order of "
+                        f"({market_info.trading_pair}) Limit sell order of "
                         f"{order_filled_event.amount} {market_info.base_asset} filled."
                     )
 
@@ -192,12 +193,21 @@ cdef class SimpleTradeStrategy(StrategyBase):
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
-            self.log_with_clock(
-                logging.INFO,
-                f"({market_info.trading_pair}) Maker buy order {order_id} "
-                f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
-                f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
-            )
+            #If its not market order
+            if limit_order_record is not None:
+                self.log_with_clock(
+                    logging.INFO,
+                    f"({market_info.trading_pair}) Limit buy order {order_id} "
+                    f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                    f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+                )
+            else:
+                market_order_record = self._sb_order_tracker.c_get_market_order(market_info, order_id)
+                self.log_with_clock(
+                    logging.INFO,
+                    f"({market_info.trading_pair}) Market buy order {order_id} "
+                    f"({market_order_record.amount} {market_order_record.base_asset}) has been completely filled."
+                )
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
         cdef:
@@ -207,12 +217,21 @@ cdef class SimpleTradeStrategy(StrategyBase):
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
-            self.log_with_clock(
-                logging.INFO,
-                f"({market_info.trading_pair}) Maker sell order {order_id} "
-                f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
-                f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
-            )
+            #If its not market order
+            if limit_order_record is not None:
+                self.log_with_clock(
+                    logging.INFO,
+                    f"({market_info.trading_pair}) Limit sell order {order_id} "
+                    f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                    f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+                )
+            else:
+                market_order_record = self._sb_order_tracker.c_get_market_order(market_info, order_id)
+                self.log_with_clock(
+                    logging.INFO,
+                    f"({market_info.trading_pair}) Market sell order {order_id} "
+                    f"({market_order_record.amount} {market_order_record.base_asset}) has been completely filled."
+                )
 
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)

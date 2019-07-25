@@ -19,6 +19,7 @@ def start(self):
         market = simple_trade_config_map.get("market").value.lower()
         raw_market_symbol = simple_trade_config_map.get("market_symbol_pair").value.upper()
         order_price = None
+        cancel_order_wait_time = None
 
         if order_type == "limit":
             order_price = simple_trade_config_map.get("order_price").value
