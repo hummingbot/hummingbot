@@ -17,6 +17,40 @@ The diagram below illustrates how market making works.  Hummingbot makes a marke
 
 ![Figure 1: Hummingbot makes a market on an exchange](/assets/img/pure-mm.png)
 
+### Risks and Trading Mechanics
+
+#### Ideal case
+
+Pure market making strategies works best when you have a market that's relatively calm, but with sufficient trading activity. What that means for a pure market makers is, he would be able to get both of his bid and ask offers hit regularly; the price of his inventory doesn't change by a lot so there's no risk of him ending up on the wrong side of a trend. So he would just keep making small profits via the bid/ask spread over and over.
+
+![Figure 2: A clam market with regular trading activity](/assets/img/pure-mm-calm.png)
+
+In the figure above, the period between 25 Feb and 12 Mar would be an example of the ideal case. The price of the asset stayed within a relatively small range, and there was sufficient trading activity for a market maker's offers to be taken regularly.
+
+The only thing a market maker needs to worry about in this scenario is he must make sure the trading spread he sets is larger than the trading fees given to the exchange.
+
+#### Low trading activity
+
+Markets with low trading activity not suitable for pure market making strategies. Here's an example:
+
+![Figure 3: A market with low trading activity](/assets/img/pure-mm-low-volume.png)
+
+In any market with low trading activity, there's a risk where the market maker may need to hold onto inventory for a long time without a chance to trade it back. During that time, the prices of the traded assets may rise or drop dramatically despite seeing no or little trading activity on the exchange. This puts the market maker exposed to wrong side risks to whatever inventory he happens to be holding.
+
+It's best to avoid using the pure market making strategies on this kind of market, and use other strategies that are more suitable. e.g. [cross-exchange market making](/strategies/cross-exchange-market-making).
+
+#### Volatile or trending markets
+
+Another common risk that market makers need to be aware of is trending markets. Here's one example:
+
+![Figure 4: A trending market](/assets/img/pure-mm-trending.png)
+
+If a pure market maker set his spreads naively in the market above, say, +-1%, then he'll most likely lose money by consistently buying the asset up while it's dropping, and having difficulty to sell soon enough. He'll very likely end up on the wrong side of the market consistently.
+
+It is still possible for a market maker to make money in this kind of market, usually by setting his spreads in the same direction of the trend. e.g. instead of +-1%, a market maker may set his bids at -4% and his asks at +0.2%. In this way, the market maker is trying to catch price spikes in the direction of the trend, and then try to do the opposite trade as soon as possible to exploit the brief price recovery that usually follows.
+
+Market making in volatile or trending markets is more advanced and more risky for new traders, and it's recommended that a trader looking to market make in this kind of environment should get mentally familiar with it (e.g. via paper trading) before committing capital to the strategy.
+
 ## Prerequisites: Inventory
 
 1. You will need to hold inventory of quote and base currencies on the exchange.
@@ -75,3 +109,16 @@ The following parameters are fields in Hummingbot configuration files (located i
 | **stop_loss_pct** | The threshold amount upon which `hummingbot` will cease placing orders if the value of inventory has fallen.
 | **stop_loss_price_type** | The pricing methdology used by `hummingbot` uses when calculating inventory value when evaluating the stop loss feature.<ul><li>`fixed`: uses the assets prices from when the strategy was first started.<li>`dynamic`: uses current prevailing prices for assets.</ul>
 | **stop_loss_base_token** | The base currency into which inventory is valued for purposes of evaluating stop loss.
+
+## Architecture
+
+(Outline... delete before finalizing)
+
+* flow chart
+* plugin architecture
+* getting price proposals
+    * example
+* getting size proposals
+    * example
+* executing order proposals
+* refreshing orders periodically
