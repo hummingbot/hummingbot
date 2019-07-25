@@ -6,9 +6,9 @@ class MarketOrder(NamedTuple):
     client_order_id: str
     symbol: str
     is_buy: bool
-    base_currency: str
-    quote_currency: str
-    quantity: float
+    base_asset: str
+    quote_asset: str
+    amount: float
     timestamp: float
 
     @classmethod
@@ -18,9 +18,9 @@ class MarketOrder(NamedTuple):
             market_order.client_order_id,
             market_order.symbol,
             market_order.is_buy,
-            market_order.base_currency,
-            market_order.quote_currency,
-            market_order.quantity,
+            market_order.base_asset,
+            market_order.quote_asset,
+            market_order.amount,
             pd.Timestamp(market_order.timestamp, unit='s', tz='UTC').strftime('%Y-%m-%d %H:%M:%S')
         ] for market_order in market_orders]
         return pd.DataFrame(data=data, columns=columns)
