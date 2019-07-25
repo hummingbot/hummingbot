@@ -3,12 +3,12 @@ import pandas as pd
 
 
 class MarketOrder(NamedTuple):
-    order_id: str
+    client_order_id: str
     symbol: str
     is_buy: bool
-    base_asset: str
-    quote_asset: str
-    amount: float
+    base_currency: str
+    quote_currency: str
+    quantity: float
     timestamp: float
 
     @classmethod
