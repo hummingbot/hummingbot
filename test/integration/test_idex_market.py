@@ -149,6 +149,12 @@ class IDEXMarketUnitTest(unittest.TestCase):
         balances = self.market.get_all_balances()
         self.assertGreaterEqual((balances["ETH"]), 0)
 
+    def test_quantize_order_amount(self):
+        amount = self.market.quantize_order_amount("ETH_FXC", 100)
+        self.assertEqual(amount, 0)
+        amount = self.market.quantize_order_amount("ETH_FXC", 100000)
+        self.assertEqual(amount, 100000)
+
     def test_place_limit_buy_and_cancel(self):
         symbol = ETH_FXC
         buy_amount: float = 16000000
