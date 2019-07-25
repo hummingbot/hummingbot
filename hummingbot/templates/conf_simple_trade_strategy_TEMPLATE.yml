@@ -1,9 +1,9 @@
 ########################################################
-###       Pure market making strategy config         ###
+###       Simple Trade strategy config               ###
 ########################################################
 
 # The following configuations are only required for the
-# pure market making strategy
+# simple trade strategy
 
 # Exchange and token parameters
 market: null
@@ -17,8 +17,9 @@ order_amount: null
 # Price of Order (in case of Limit Order)
 order_price: null
 
-# Time in seconds before cancelling and rerunning strategy
-# If tick size is 60, the bot cancels active orders and reruns after a minute
+# Time in seconds before cancelling the limit order
+# If cancel_order wait time is 60 and the order is still open after 60 seconds since placing the order,
+# it will cancel the limit order.
 cancel_order_wait_time: null
 
 # How long to wait before placing the order (in seconds)
