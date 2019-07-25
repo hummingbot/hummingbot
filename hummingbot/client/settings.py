@@ -44,6 +44,7 @@ STRATEGIES = {
     "arbitrage",
     "discovery",
     "pure_market_making",
+    "simple_trade"
 }
 
 EXAMPLE_PAIRS = {
