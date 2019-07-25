@@ -206,7 +206,7 @@ cdef class SimpleTradeStrategy(StrategyBase):
                 self.log_with_clock(
                     logging.INFO,
                     f"({market_info.trading_pair}) Market buy order {order_id} "
-                    f"({market_order_record.amount} {market_order_record.base_asset}) has been completely filled."
+                    f"({market_order_record.quantity} {market_order_record.base_currency}) has been completely filled."
                 )
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
@@ -230,7 +230,7 @@ cdef class SimpleTradeStrategy(StrategyBase):
                 self.log_with_clock(
                     logging.INFO,
                     f"({market_info.trading_pair}) Market sell order {order_id} "
-                    f"({market_order_record.amount} {market_order_record.base_asset}) has been completely filled."
+                    f"({market_order_record.quantity} {market_order_record.base_currency}) has been completely filled."
                 )
 
     cdef c_start(self, Clock clock, double timestamp):
