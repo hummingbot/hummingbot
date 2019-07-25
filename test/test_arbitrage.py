@@ -124,9 +124,9 @@ class ArbitrageUnitTest(unittest.TestCase):
                                  if market == self.market_2][0]
 
         self.assertTrue(len(market_orders) == 2)
-        self.assertEqual(5, market_1_market_order.amount)
+        self.assertEqual(5, market_1_market_order.quantity)
         self.assertEqual(self.start_timestamp + 1, market_1_market_order.timestamp)
-        self.assertEqual(5, market_2_market_order.amount)
+        self.assertEqual(5, market_2_market_order.quantity)
         self.assertEqual(self.start_timestamp + 1, market_2_market_order.timestamp)
 
     def test_arbitrage_not_profitable(self):
