@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 class HistoryCommand:
     def history(self,  # type: HummingbotApplication
                 ):
-        self.list("trades")
+        self.list_trades()
         self.compare_balance_snapshots()
         self.analyze_performance()
 
