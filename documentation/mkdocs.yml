@@ -131,11 +131,11 @@ nav:
         - 0x Relayers: connectors/0x.md
       - Strategies:
         - Strategies Overview: strategies/index.md
-        - Cross-exchange market making: strategies/cross-exchange-market-making.md
         - Arbitrage: strategies/arbitrage.md
         - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
         - Pure Market Making: strategies/pure-market-making.md
         - Discovery: strategies/discovery.md
+        - Simple Trade: strategies/simple-trade.md
       - Data Feeds:
         - Data Feeds Overview: feeds.md
       - Utilities:
