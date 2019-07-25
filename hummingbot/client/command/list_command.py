@@ -47,7 +47,7 @@ class ListCommand:
         columns: List[str] = ["Key", "Current Value"]
 
         global_cvs: List[ConfigVar] = list(in_memory_config_map.values()) + list(global_config_map.values())
-        global_data: List[List[str, Any]] = [
+        global_data: List[List[Any]] = [
             [cv.key, len(str(cv.value)) * "*" if cv.is_secure else str(cv.value)]
             for cv in global_cvs]
         global_df: pd.DataFrame = pd.DataFrame(data=global_data, columns=columns)
@@ -57,7 +57,7 @@ class ListCommand:
         strategy = in_memory_config_map.get("strategy").value
         if strategy:
             strategy_cvs: List[ConfigVar] = get_strategy_config_map(strategy).values()
-            strategy_data: List[List[str, Any]] = [
+            strategy_data: List[List[Any]] = [
                 [cv.key, len(str(cv.value)) * "*" if cv.is_secure else str(cv.value)]
                 for cv in strategy_cvs]
             strategy_df: pd.DataFrame = pd.DataFrame(data=strategy_data, columns=columns)
