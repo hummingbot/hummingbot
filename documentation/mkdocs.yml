@@ -141,11 +141,13 @@ nav:
         - Logs and Logging: operation/logging.md
         - Using Exchange Rates: operation/exchange-rates.md
         - Integrating Telegram: operation/telegram.md
-      - Developers:
-        - Overview: developers/index.md
+    - Developer Manual:
+        - Intro: developers/index.md
+        - Strategies: 
+          - Architecture: developers/strategies/index.md
+          - Pure Market Making: developers/strategies/pure-market-making.md
+        - Connectors: developers/connectors/index.md
         - Debug Console: developers/debug.md
-        - Strategies: developers/strategies.md
-        - Exchange Connectors: developers/exchange-connectors.md
     - Release Notes:
       - About Releases: release-notes/index.md
       - 0.10.1: release-notes/0.10.1.md
