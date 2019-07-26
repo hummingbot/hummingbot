@@ -17,50 +17,6 @@ The diagram below illustrates how market making works.  Hummingbot makes a marke
 
 ![Figure 1: Hummingbot makes a market on an exchange](/assets/img/pure-mm.png)
 
-### Risks and Trading Mechanics
-
-#### Ideal case
-
-Pure market making strategies works best when you have a market that's relatively calm, but with sufficient trading activity. What that means for a pure market makers is, he would be able to get both of his bid and ask offers traded regularly; the price of his inventory doesn't change by a lot so there's no risk of him ending up on the wrong side of a trend. Thus he would just keep making small profits via the bid/ask spread over and over.
-
-![Figure 2: A clam market with regular trading activity](/assets/img/pure-mm-calm.png)
-
-In the figure above, the period between 25 Feb and 12 Mar would be an example of the ideal case. The price of the asset stayed within a relatively small range, and there was sufficient trading activity for a market maker's offers to be taken regularly.
-
-The only thing a market maker needs to worry about in this scenario is he must make sure the trading spread he sets is larger than the trading fees given to the exchange.
-
-#### Low trading activity
-
-Markets with low trading activity are not suitable for pure market making strategies. Here's an example:
-
-![Figure 3: A market with low trading activity](/assets/img/pure-mm-low-volume.png)
-
-In any market with low trading activity, there's a risk where the market maker may need to hold onto inventory for a long time without a chance to trade it back. During that time, the prices of the traded assets may rise or drop dramatically despite seeing no or little trading activity on the exchange. This puts the market maker exposed to wrong side risks to whatever inventory he happens to be holding.
-
-It's best to avoid using the pure market making strategies on this kind of market, and use other strategies that are more suitable. e.g. [cross-exchange market making](/strategies/cross-exchange-market-making).
-
-#### Volatile or trending markets
-
-Another common risk that market makers need to be aware of is trending markets. Here's one example:
-
-![Figure 4: A trending market](/assets/img/pure-mm-trending.png)
-
-If a pure market maker set his spreads naively in the market above, say, +-1%, then he'll most likely lose money by consistently buying the asset up while it's dropping, and having difficulty to sell soon enough. He'll very likely end up on the wrong side of the market consistently.
-
-It is still possible for a market maker to make money in this kind of market, usually by setting his spreads in the same direction of the trend. e.g. instead of +-1%, a market maker may set his bids at -4% and his asks at +0.2%. In this way, the market maker is trying to catch price spikes in the direction of the trend, and then try to do the opposite trade as soon as possible to exploit the brief price recovery that usually follows.
-
-Market making in volatile or trending markets is more advanced and risky for new traders. It's recommended that a trader looking to market make in this kind of environment to get mentally familiar with it (e.g. via paper trading) before committing capital to the strategy.
-
-#### Unreliable network connection
-
-One more risk that anybody running a market making bot must be aware of is technical risk - how reliable his infrastructure, especially his network connection is.
-
-It is essential for any market making bot to be able to regularly refresh its bid and ask offers on the market, s.t. it can keep its offers at profitable prices.
-
-If a market making bot is disconnected from the exchange for an extended period of time, then the bid/ask offers it previously made would be left on the market and subject to price fluctuations of the market. They may be traded at a loss as market prices move, while the market maker himself is offline.
-
-It is very important for any market maker to make sure his technical infrastructure is secure and reliable.
-
 ## Prerequisites: Inventory
 
 1. You will need to hold inventory of quote and base currencies on the exchange.
@@ -102,7 +58,7 @@ Multiple orders allow you to create multiple orders for each bid and ask side, e
 | `How much do you want to increase the order size for each additional order (default is 0) ? >>>` | This sets `order_step_size` (see [definition](#configuration-parameters)) |
 | `Enter the price increments (as percentage) for subsequent orders (Enter 0.01 to indicate 1%)? >>>` | This sets `order_interval_percent` (see [definition](#configuration-parameters)) |
 
-## Configuration parameters
+## Configuration Parameters
 
 The following parameters are fields in Hummingbot configuration files (located in the `/conf` folder, e.g. `conf/conf_pure_market_making_strategy_[#].yml`).
 
@@ -120,72 +76,53 @@ The following parameters are fields in Hummingbot configuration files (located i
 | **stop_loss_price_type** | The pricing methdology used by `hummingbot` uses when calculating inventory value when evaluating the stop loss feature.<ul><li>`fixed`: uses the assets prices from when the strategy was first started.<li>`dynamic`: uses current prevailing prices for assets.</ul>
 | **stop_loss_base_token** | The base currency into which inventory is valued for purposes of evaluating stop loss.
 
-## Architecture
+## Risks and Trading Mechanics
 
-The built-in pure market making strategy in Hummingbot periodically requests limit order proposals from configurable order pricing and sizing plugins, and also periodically refreshes the orders by cancelling existing limit orders.
+!!! warning
+    Not financial or investment advice.  Below are descriptions of some risks associated with the pure market making strategy.  There may be additional risks not described below.
 
-Here's a high level view of the logic flow inside the built-in pure market making strategy.
+### Ideal case
 
-![Figure 5: Pure market making strategy logical flowchart](/assets/img/pure-mm-flowchart.svg)
+Pure market making strategies works best when you have a market that's relatively calm, but with sufficient trading activity. What that means for a pure market makers is, he would be able to get both of his bid and ask offers traded regularly; the price of his inventory doesn't change by a lot so there's no risk of him ending up on the wrong side of a trend. Thus he would be able to repeatedly capture small profits via the bid/ask spread over time.
 
-The pure market making strategy operates in a tick-by-tick manner, as described in the [Strategies Overview](/strategies) document. Each tick is typically 1 second, although it can be programmatically modified to longer or shorter durations.
+![Figure 2: A clam market with regular trading activity](/assets/img/pure-mm-calm.png)
 
-At each tick, the pure market making strategy would first query the order filter plugin whether to proceed or not. Assuming the answer is yes, then it'll query the order pricing and sizing plugins and calculate whether and what market making orders it should emit. At the same time, it'll also look at any existing limit orders it previously placed on the market and decide whether it should cancel those.
+In the figure above, the period between 25 Feb and 12 Mar would be an example of the ideal case. The price of the asset stayed within a relatively small range, and there was sufficient trading activity for a market maker's offers to be taken regularly.
 
-The process repeats over and over at each tick, causing limit orders to be periodically placed and cancelled according to the proposals made by the order pricing and sizing plugins.
+The only thing a market maker needs to worry about in this scenario is he must make sure the trading spread he sets is larger than the trading fees given to the exchange.
 
-### Plugins
+### Low trading activity
 
-There are a few plugin interfaces that the pure market making strategy depends on arriving at its order proposals.
+Markets with low trading activity higher risk for pure market making strategies. Here's an example:
 
-![Figure 6: Pure market making strategy plugins](/assets/img/pure-mm-uml.svg)
+![Figure 3: A market with low trading activity](/assets/img/pure-mm-low-volume.png)
 
-* [`OrderFilterDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/order_filter_delegate.pxd)
+In any market with low trading activity, there's a risk where the market maker may need to hold onto inventory for a long time without a chance to trade it back. During that time, the prices of the traded assets may rise or drop dramatically despite seeing no or little trading activity on the exchange. This exposes the market maker to inventory risk, even after mitigating some of this risk by using wider bid spreads.
 
-    Makes the Yes / No decision to proceed with processing the current clock tick or not.
+Other strategies may be more suitable from a risk perspective in this type of market, e.g. [cross-exchange market making](/strategies/cross-exchange-market-making).
 
-* [`OrderPricingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/order_pricing_delegate.pxd)
+### Volatile or trending markets
 
-    Returns a [`PriceProposal`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/data_types.py) with lists of prices for creating bid and ask orders. If no order should be created at the current clock tick (e.g. because there're already existing orders), it may choose to return empty lists instead.
+Another common risk that market makers need to be aware of is trending markets. Here's one example:
 
-* [`OrderSizingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/order_sizing_delegate.pxd)
+![Figure 4: A trending market](/assets/img/pure-mm-trending.png)
 
-    Returns a [`SizingProposal`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/data_types.py) with lists of order sizes for creating bid and ask orders, given the pricing proposal. If a proposed order at a certain price should not be created (e.g. there's not enough balance on the exchange), it may choose to return zero size for that order instead.
+If a pure market maker set his spreads naively in such a market, e.g. equidistant bid/ask spread, there's a risk of the market maker's bid consistently being filled as prices trend down, while at the same time the market continues to move away from the market maker's ask, decreasing the probability of sells.  This would result in an accumulation of inventory at exactly the time where this would reduce inventory inventory value, which is "wrong-way" risk.
 
-### Built-in Plugins
+However, it is still possible to improve the probability of generating profits in this kind of market by skewing bid asks, i.e. setting a wider bid spread (e.g. -4%) than ask spread (e.g. +0.5%).  In this way, the market maker is trying to catch price spikes in the direction of the trend and buy additional inventory only in the event of a larger moves, but sell more quickly when there is an opportunity so as to minimize the duration the inventory is held.  This approach also has a mean reversion bias, i.e. buy only when there is a larger move downwards, in the hopes of stabilization or recovery after such a large move.
 
-If you configure the pure market making strategy with multiple orders **disabled**, then Hummingbot will be using [`ConstantSpreadPricingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/constant_spread_pricing_delegate.pyx) and [`ConstantSizeSizingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/constant_size_sizing_delegate.pyx) for the pricing and sizing plugins.
+Market making in volatile or trending markets is more advanced and risky for new traders. It's recommended that a trader looking to market make in this kind of environment to get mentally familiar with it (e.g. via paper trading) before committing meaningful capital to the strategy.
 
-#### ConstantSpreadPricingDelegate
+### Technology / infrastructure risk
 
-If you look into the logic of the [`ConstantSpreadPricingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/constant_spread_pricing_delegate.pyx), it's extremely simple - it'll always propose a bid and an ask order at a pre-configured spread from the current mid-price. It doesn't do any checks about whether you have existing orders, or have enough balance to create the orders - but that's fine.
+There are many moving parts when operating a market making bot that **all** have to work together in order to properly function:
 
-#### ConstantSizeSizingDelegate
+- Hummingbot code
+- Exchange APIs
+- Ethereum blockchain and node
+- Network connectivity
+- Hummingbot host computer
 
-The logic inside [`ConstantSizeSizingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/constant_size_sizing_delegate.pyx) looks a bit more involved, because it's checking whether there're existing limit orders that are still active, and also whether there's enough balance in the exchange to create new orders. But beyond the checks, it's really just proposing constant order size proposals.
+A fault in any component may result in bot errors, which can range from minor and inconsequential to major.
 
-If all the checks are green (i.e. no active limit orders, and enough balance to make new orders), then it will make an order size proposal with the pre-configured size on both the bid and ask sides. Otherwise, it'll propose 0 order sizes.
-
-If you configure the pure market making strategy with multiple orders **enabled**, then Hummingbot will be using [`ConstantMultipleSpreadPricingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/constant_multiple_spread_pricing_delegate.pyx) and [`StaggeredMultipleSizeSizingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/staggered_multiple_size_sizing_delegate.pyx) for the pricing and sizing plugins instead.
-
-### Refreshing orders periodically
-
-For each limit order that was emitted by the pure market making strategy, an expiry timestamp would be generated for that order and the order will be tracked by the strategy. The time until expiry for new orders is configured via the **cancel_order_wait_time** option in [Configuration Parameters](#configuration-parameters).
-
-Once an order's expiration time has passed, the pure market making strategy will create a cancel order proposal for that order.
-
-### Executing order proposals
-
-After collecting all the order pricing, sizing and cancel order proposals from plugins and the internal refresh order logic - the pure market making strategy logic will merge all of the proposals and execute them.
-
-### Example Order Flow
-
-Below is a hypothetical example of how the pure market making strategy works for a few clock ticks.
-
-At clock tick *n*, there may be existing limit orders on both the bid and ask sides, and both have not yet expired. Assuming we're using the `ConstantSizeSizingDelegate` and `ConstantSpreadPricingDelegate` in this case, the proposed sizes for new orders will be 0. There'll be no cancel order proposals. So the strategy will do nothing for this clock tick.
-
-At clock tick *n+1*, the limit bid order has expired. The strategy will then generate a cancel order proposal for the expired bid order. The cancellation will then be send to the exchange and executed.
-
-At clock tick *n+2*, the `ConstantSizSizingDelegate` notices there's no longer an order at the bid side. So it'll propose a non-zero order size for a new bid order. Let's assume the existing ask order hasn't expired yet, so no cancellation proposals will be generated at this clock tick. At the execution phase, the strategy will simply create a bid order calculated from the current market mid-price. Thus the bid order is refreshed.
-
-This cycle of order creation and order cancellation will repeat again and again for as long as the strategy is running. If a limit order is completely filled by a market order, the strategy will simply refresh it at the next clock tick.
+It is essential for any market making bot to be able to regularly refresh its bid and ask offers on the market in order to adjust to changing market conditions.  If a market making bot is disconnected from the exchange for an extended period of time, then the bid/ask offers it previously made would be left on the market and subject to price fluctuations of the market. Those orders may be filled at a loss as market prices move, while the market maker is offline.  It is very important for any market maker to make sure technical infrastructure is secure and reliable.
