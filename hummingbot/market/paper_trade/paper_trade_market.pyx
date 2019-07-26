@@ -213,6 +213,7 @@ cdef class PaperTradeMarket(MarketBase):
         return retval
 
     cdef c_start(self, Clock clock, double timestamp):
+        """Starts MarketBase clock and order book tracking"""
         MarketBase.c_start(self, clock, timestamp)
         self._network_status = NetworkStatus.CONNECTED
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
