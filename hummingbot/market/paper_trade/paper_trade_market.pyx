@@ -41,7 +41,7 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.event.events import MarketEvent, OrderType, OrderExpiredEvent, TradeType, TradeFee, \
-    BuyOrderCompletedEvent, OrderFilledEvent, SellOrderCompletedEvent
+    BuyOrderCompletedEvent, OrderFilledEvent, SellOrderCompletedEvent, MarketOrderFailureEvent
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
@@ -55,6 +55,14 @@ from .market_config import (
 )
 
 s_logger = None
+
+
+# NOT IMPLEMENTED IN PAPER_TRADE_MARKET:
+#
+# Support for multiple exchanges (for cross exchange market making strategy)
+# Order cancellations (see c_cancel and cancel_all): implementation and test cases
+# Fees (c_get_fee): implementation and test cases
+# Quantization parameters: test cases, also look into setting fixed Quantization Parameters
 
 
 cdef class QuantizationParams:
@@ -129,6 +137,7 @@ cdef class PaperTradeMarket(MarketBase):
     SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
 
     @classmethod
     def random_buy_order_id(cls, symbol: str) -> str:
@@ -242,8 +251,8 @@ cdef class PaperTradeMarket(MarketBase):
     cdef c_tick(self, double timestamp):
         MarketBase.c_tick(self, timestamp)
         self.c_process_market_orders()
-        # self.c_process_limit_order_expiration()
-        # self.c_process_crossed_limit_orders()
+        self.c_process_limit_order_expiration()
+        self.c_process_crossed_limit_orders()
 
     cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0,
                    dict kwargs = {}):
@@ -446,284 +455,283 @@ cdef class PaperTradeMarket(MarketBase):
             else:
                 return
 
-    # cdef bint c_delete_expired_limit_orders(self, LimitOrders *orders_map, str symbol, str client_order_id):
-    #     cdef:
-    #         string cpp_symbol = symbol.encode("utf8")
-    #         string cpp_client_order_id = client_order_id.encode("utf8")
-    #         LimitOrdersIterator map_it = orders_map.find(cpp_symbol)
-    #         SingleSymbolLimitOrders *limit_orders_collection_ptr = NULL
-    #         SingleSymbolLimitOrdersIterator orders_it
-    #         const CPPLimitOrder *limit_order_ptr = NULL
-    #
-    #     if map_it == orders_map.end():
-    #         return False
-    #
-    #     limit_orders_collection_ptr = address(deref(map_it).second)
-    #
-    #     orders_it = limit_orders_collection_ptr.begin()
-    #     while orders_it != limit_orders_collection_ptr.end():
-    #         limit_order_ptr = address(deref(orders_it))
-    #         if limit_order_ptr.getClientOrderID() == cpp_client_order_id:
-    #             self.c_delete_limit_order(orders_map, address(map_it), orders_it)
-    #             self.c_trigger_event(self.ORDER_EXPIRED_EVENT_TAG,
-    #                                  OrderExpiredEvent(self.current_timestamp, client_order_id))
-    #             return True
-    #         inc(orders_it)
-    #     return False
-    #
-    # cdef c_process_limit_order_expiration(self):
-    #     cdef:
-    #         LimitOrderExpirationSetIterator order_expiration_it
-    #         const CPPOrderExpirationEntry *order_expiration_entry_ptr = NULL
-    #         double time_now = self.current_timestamp
-    #         double expiration_time
-    #         str symbol
-    #         str client_order_id
-    #
-    #     order_expiration_it = self._limit_order_expiration_set.begin()
-    #     while order_expiration_it != self._limit_order_expiration_set.end():
-    #         order_expiration_entry_ptr = address(deref(order_expiration_it))
-    #         expiration_time = order_expiration_entry_ptr.getExpirationTimestamp()
-    #         if expiration_time <= time_now:
-    #             symbol = order_expiration_entry_ptr.getSymbol().decode("utf8")
-    #             client_order_id = order_expiration_entry_ptr.getClientOrderID().decode("utf8")
-    #             if not self.c_delete_expired_limit_orders(address(self._bid_limit_orders), symbol, client_order_id):
-    #                 self.c_delete_expired_limit_orders(address(self._ask_limit_orders), symbol, client_order_id)
-    #             self._limit_order_expiration_set.erase(inc(order_expiration_it))
-    #         else:
-    #             break
-    #
-    # cdef c_delete_limit_order(self,
-    #                           LimitOrders *limit_orders_map_ptr,
-    #                           LimitOrdersIterator *map_it_ptr,
-    #                           const SingleSymbolLimitOrdersIterator orders_it):
-    #     cdef:
-    #         SingleSymbolLimitOrders *orders_collection_ptr = address(deref(deref(map_it_ptr)).second)
-    #     orders_collection_ptr.erase(orders_it)
-    #     if orders_collection_ptr.empty():
-    #         map_it_ptr[0] = limit_orders_map_ptr.erase(deref(map_it_ptr))
-    #
-    # cdef c_process_limit_bid_order(self,
-    #                                LimitOrders *limit_orders_map_ptr,
-    #                                LimitOrdersIterator *map_it_ptr,
-    #                                SingleSymbolLimitOrdersIterator orders_it):
-    #     cdef:
-    #         const CPPLimitOrder *cpp_limit_order_ptr = address(deref(orders_it))
-    #         str symbol = cpp_limit_order_ptr.getSymbol().decode("utf8")
-    #         str quote_currency = cpp_limit_order_ptr.getQuoteCurrency().decode("utf8")
-    #         str base_currency = cpp_limit_order_ptr.getBaseCurrency().decode("utf8")
-    #         str order_id = cpp_limit_order_ptr.getClientOrderID().decode("utf8")
-    #         double quote_currency_balance = self.c_get_balance(quote_currency)
-    #         double quote_currency_traded = (float(<object> cpp_limit_order_ptr.getPrice()) *
-    #                                         float(<object> cpp_limit_order_ptr.getQuantity()))
-    #         double base_currency_traded = float(<object> cpp_limit_order_ptr.getQuantity())
-    #
-    #     # Check if there's enough balance to satisfy the order. If not, remove the limit order without doing anything.
-    #     if quote_currency_balance < quote_currency_traded:
-    #         self.logger().warning(f"Not enough {quote_currency} balance to fill limit buy order on {symbol}. "
-    #                               f"{quote_currency_traded:.8g} {quote_currency} needed vs. "
-    #                               f"{quote_currency_balance:.8g} {quote_currency} available.")
-    #         self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
-    #         return
-    #
-    #     # Adjust the market balances according to the trade done.
-    #     self.c_set_balance(quote_currency, self.c_get_balance(quote_currency) - quote_currency_traded)
-    #     self.c_set_balance(base_currency, self.c_get_balance(base_currency) + base_currency_traded)
-    #
-    #     # Emit the trade and order completed events.
-    #     config = self._config
-    #     self.c_trigger_event(self.ORDER_FILLED_EVENT_TAG,
-    #                          OrderFilledEvent(self._current_timestamp,
-    #                                           order_id,
-    #                                           symbol,
-    #                                           TradeType.BUY,
-    #                                           OrderType.LIMIT,
-    #                                           float(<object> cpp_limit_order_ptr.getPrice()),
-    #                                           float(<object> cpp_limit_order_ptr.getQuantity()),
-    #                                           TradeFee(0.0)
-    #                                           ))
-    #     self.c_trigger_event(self.BUY_ORDER_COMPLETED_EVENT_TAG,
-    #                          BuyOrderCompletedEvent(self._current_timestamp,
-    #                                                 order_id,
-    #                                                 base_currency,
-    #                                                 quote_currency,
-    #                                                 base_currency if \
-    #                                                     config.buy_fees_asset is AssetType.BASE_CURRENCY else \
-    #                                                     quote_currency,
-    #                                                 base_currency_traded,
-    #                                                 quote_currency_traded,
-    #                                                 0.0,
-    #                                                 OrderType.LIMIT))
-    #     self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
-    #
-    # cdef c_process_limit_ask_order(self,
-    #                                LimitOrders *limit_orders_map_ptr,
-    #                                LimitOrdersIterator *map_it_ptr,
-    #                                SingleSymbolLimitOrdersIterator orders_it):
-    #     cdef:
-    #         const CPPLimitOrder *cpp_limit_order_ptr = address(deref(orders_it))
-    #         str symbol = cpp_limit_order_ptr.getSymbol().decode("utf8")
-    #         str quote_currency = cpp_limit_order_ptr.getQuoteCurrency().decode("utf8")
-    #         str base_currency = cpp_limit_order_ptr.getBaseCurrency().decode("utf8")
-    #         str order_id = cpp_limit_order_ptr.getClientOrderID().decode("utf8")
-    #         double base_currency_balance = self.c_get_balance(base_currency)
-    #         double quote_currency_traded = (float(<object> cpp_limit_order_ptr.getPrice()) *
-    #                                         float(<object> cpp_limit_order_ptr.getQuantity()))
-    #         double base_currency_traded = float(<object> cpp_limit_order_ptr.getQuantity())
-    #
-    #     # Check if there's enough balance to satisfy the order. If not, remove the limit order without doing anything.
-    #     if base_currency_balance < base_currency_traded:
-    #         self.logger().warning(f"Not enough {base_currency} balance to fill limit sell order on {symbol}. "
-    #                               f"{base_currency_traded:.8g} {base_currency} needed vs. "
-    #                               f"{base_currency_balance:.8g} {base_currency} available.")
-    #         self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
-    #         return
-    #
-    #     # Adjust the market balances according to the trade done.
-    #     self.c_set_balance(quote_currency, self.c_get_balance(quote_currency) + quote_currency_traded)
-    #     self.c_set_balance(base_currency, self.c_get_balance(base_currency) - base_currency_traded)
-    #
-    #     # Emit the trade and order completed events.
-    #     config = self._config
-    #     self.c_trigger_event(self.ORDER_FILLED_EVENT_TAG,
-    #                          OrderFilledEvent(self._current_timestamp,
-    #                                           order_id,
-    #                                           symbol,
-    #                                           TradeType.SELL,
-    #                                           OrderType.LIMIT,
-    #                                           float(<object> cpp_limit_order_ptr.getPrice()),
-    #                                           float(<object> cpp_limit_order_ptr.getQuantity()),
-    #                                           TradeFee(0.0)
-    #                                           ))
-    #     self.c_trigger_event(self.SELL_ORDER_COMPLETED_EVENT_TAG,
-    #                          SellOrderCompletedEvent(self._current_timestamp,
-    #                                                  order_id,
-    #                                                  base_currency,
-    #                                                  quote_currency,
-    #                                                  base_currency if \
-    #                                                      config.sell_fees_asset is AssetType.BASE_CURRENCY else \
-    #                                                      quote_currency,
-    #                                                  base_currency_traded,
-    #                                                  quote_currency_traded,
-    #                                                  0.0,
-    #                                                  OrderType.LIMIT))
-    #     self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
-    #
-    # cdef c_process_limit_order(self,
-    #                            bint is_buy,
-    #                            LimitOrders *limit_orders_map_ptr,
-    #                            LimitOrdersIterator *map_it_ptr,
-    #                            SingleSymbolLimitOrdersIterator orders_it):
-    #     if is_buy:
-    #         self.c_process_limit_bid_order(limit_orders_map_ptr, map_it_ptr, orders_it)
-    #     else:
-    #         self.c_process_limit_ask_order(limit_orders_map_ptr, map_it_ptr, orders_it)
-    #
-    # cdef c_process_crossed_limit_orders_for_symbol(self,
-    #                                                bint is_buy,
-    #                                                LimitOrders *limit_orders_map_ptr,
-    #                                                LimitOrdersIterator *map_it_ptr):
-    #     """
-    #     Trigger limit orders when the opposite side of the order book has crossed the limit order's price.
-    #     This implies someone was ready to fill the limit order, if that limit order was on the market.
-    #
-    #     :param is_buy: are the limit orders on the bid side?
-    #     :param limit_orders_map_ptr: pointer to the limit orders map
-    #     :param map_it_ptr: limit orders map iterator, which implies the symbol being processed
-    #     """
-    #
-    #     cdef:
-    #         str symbol = deref(deref(map_it_ptr)).first.decode("utf8")
-    #         double opposite_order_book_price = self.c_get_price(symbol, is_buy)
-    #         SingleSymbolLimitOrders *orders_collection_ptr = address(deref(deref(map_it_ptr)).second)
-    #         SingleSymbolLimitOrdersIterator orders_it = orders_collection_ptr.begin()
-    #         SingleSymbolLimitOrdersRIterator orders_rit = orders_collection_ptr.rbegin()
-    #         vector[SingleSymbolLimitOrdersIterator] process_order_its
-    #         const CPPLimitOrder *cpp_limit_order_ptr = NULL
-    #
-    #     if is_buy:
-    #         while orders_rit != orders_collection_ptr.rend():
-    #             cpp_limit_order_ptr = address(deref(orders_rit))
-    #             if opposite_order_book_price > float(<object>cpp_limit_order_ptr.getPrice()):
-    #                 break
-    #             process_order_its.push_back(getIteratorFromReverseIterator(
-    #                 <reverse_iterator[SingleSymbolLimitOrdersIterator]>orders_rit))
-    #             inc(orders_rit)
-    #     else:
-    #         while orders_it != orders_collection_ptr.end():
-    #             cpp_limit_order_ptr = address(deref(orders_it))
-    #             if opposite_order_book_price < float(<object>cpp_limit_order_ptr.getPrice()):
-    #                 break
-    #             process_order_its.push_back(orders_it)
-    #             inc(orders_it)
-    #
-    #     for orders_it in process_order_its:
-    #         self.c_process_limit_order(is_buy, limit_orders_map_ptr, map_it_ptr, orders_it)
-    #
-    # cdef c_process_crossed_limit_orders(self):
-    #     cdef:
-    #         LimitOrders *limit_orders_ptr = address(self._bid_limit_orders)
-    #         LimitOrdersIterator map_it = limit_orders_ptr.begin()
-    #
-    #     while map_it != limit_orders_ptr.end():
-    #         self.c_process_crossed_limit_orders_for_symbol(True, limit_orders_ptr, address(map_it))
-    #         if map_it != limit_orders_ptr.end():
-    #             inc(map_it)
-    #
-    #     limit_orders_ptr = address(self._ask_limit_orders)
-    #     map_it = limit_orders_ptr.begin()
-    #
-    #     while map_it != limit_orders_ptr.end():
-    #         self.c_process_crossed_limit_orders_for_symbol(False, limit_orders_ptr, address(map_it))
-    #         if map_it != limit_orders_ptr.end():
-    #             inc(map_it)
-    #
-    # cdef c_match_trade_to_limit_orders(self, object order_book_trade_event):
-    #     """
-    #     Trigger limit orders when incoming market orders have crossed the limit order's price.
-    #
-    #     :param order_book_trade_event: trade event from order book
-    #     """
-    #     cdef:
-    #         string cpp_symbol = order_book_trade_event.symbol.encode("utf8")
-    #         bint is_maker_buy = order_book_trade_event.type is TradeType.SELL
-    #         double trade_price = order_book_trade_event.price
-    #         double trade_quantity = order_book_trade_event.amount
-    #         LimitOrders *limit_orders_map_ptr = (address(self._bid_limit_orders)
-    #                                              if is_maker_buy
-    #                                              else address(self._ask_limit_orders))
-    #         LimitOrdersIterator map_it = limit_orders_map_ptr.find(cpp_symbol)
-    #         SingleSymbolLimitOrders *orders_collection_ptr = NULL
-    #         SingleSymbolLimitOrdersIterator orders_it
-    #         SingleSymbolLimitOrdersRIterator orders_rit
-    #         vector[SingleSymbolLimitOrdersIterator] process_order_its
-    #         const CPPLimitOrder *cpp_limit_order_ptr = NULL
-    #
-    #     if map_it == limit_orders_map_ptr.end():
-    #         return
-    #
-    #     orders_collection_ptr = address(deref(map_it).second)
-    #
-    #     if is_maker_buy:
-    #         orders_rit = orders_collection_ptr.rbegin()
-    #         while orders_rit != orders_collection_ptr.rend():
-    #             cpp_limit_order_ptr = address(deref(orders_rit))
-    #             if float(<object>cpp_limit_order_ptr.getPrice()) <= trade_price:
-    #                 break
-    #             process_order_its.push_back(getIteratorFromReverseIterator(
-    #                 <reverse_iterator[SingleSymbolLimitOrdersIterator]>orders_rit))
-    #             inc(orders_rit)
-    #     else:
-    #         orders_it = orders_collection_ptr.begin()
-    #         while orders_it != orders_collection_ptr.end():
-    #             cpp_limit_order_ptr = address(deref(orders_it))
-    #             if float(<object>cpp_limit_order_ptr.getPrice()) >= trade_price:
-    #                 break
-    #             process_order_its.push_back(orders_it)
-    #             inc(orders_it)
-    #
-    #     for orders_it in process_order_its:
-    #         self.c_process_limit_order(is_maker_buy, limit_orders_map_ptr, address(map_it), orders_it)
+    cdef bint c_delete_expired_limit_orders(self, LimitOrders *orders_map, str symbol, str client_order_id):
+        cdef:
+            string cpp_symbol = symbol.encode("utf8")
+            string cpp_client_order_id = client_order_id.encode("utf8")
+            LimitOrdersIterator map_it = orders_map.find(cpp_symbol)
+            SingleSymbolLimitOrders *limit_orders_collection_ptr = NULL
+            SingleSymbolLimitOrdersIterator orders_it
+            const CPPLimitOrder *limit_order_ptr = NULL
+
+        if map_it == orders_map.end():
+            return False
+
+        limit_orders_collection_ptr = address(deref(map_it).second)
+
+        orders_it = limit_orders_collection_ptr.begin()
+        while orders_it != limit_orders_collection_ptr.end():
+            limit_order_ptr = address(deref(orders_it))
+            if limit_order_ptr.getClientOrderID() == cpp_client_order_id:
+                self.c_delete_limit_order(orders_map, address(map_it), orders_it)
+                self.c_trigger_event(self.ORDER_EXPIRED_EVENT_TAG,
+                                     OrderExpiredEvent(self.current_timestamp, client_order_id))
+                return True
+            inc(orders_it)
+        return False
+
+    cdef c_process_limit_order_expiration(self):
+        cdef:
+            LimitOrderExpirationSetIterator order_expiration_it
+            const CPPOrderExpirationEntry *order_expiration_entry_ptr = NULL
+            double time_now = self.current_timestamp
+            double expiration_time
+            str symbol
+            str client_order_id
+
+        order_expiration_it = self._limit_order_expiration_set.begin()
+        while order_expiration_it != self._limit_order_expiration_set.end():
+            order_expiration_entry_ptr = address(deref(order_expiration_it))
+            expiration_time = order_expiration_entry_ptr.getExpirationTimestamp()
+            if expiration_time <= time_now:
+                symbol = order_expiration_entry_ptr.getSymbol().decode("utf8")
+                client_order_id = order_expiration_entry_ptr.getClientOrderID().decode("utf8")
+                if not self.c_delete_expired_limit_orders(address(self._bid_limit_orders), symbol, client_order_id):
+                    self.c_delete_expired_limit_orders(address(self._ask_limit_orders), symbol, client_order_id)
+                self._limit_order_expiration_set.erase(inc(order_expiration_it))
+            else:
+                break
+
+    cdef c_delete_limit_order(self,
+                              LimitOrders *limit_orders_map_ptr,
+                              LimitOrdersIterator *map_it_ptr,
+                              const SingleSymbolLimitOrdersIterator orders_it):
+        cdef:
+            SingleSymbolLimitOrders *orders_collection_ptr = address(deref(deref(map_it_ptr)).second)
+        orders_collection_ptr.erase(orders_it)
+        if orders_collection_ptr.empty():
+            map_it_ptr[0] = limit_orders_map_ptr.erase(deref(map_it_ptr))
+
+    cdef c_process_limit_bid_order(self,
+                                   LimitOrders *limit_orders_map_ptr,
+                                   LimitOrdersIterator *map_it_ptr,
+                                   SingleSymbolLimitOrdersIterator orders_it):
+        cdef:
+            const CPPLimitOrder *cpp_limit_order_ptr = address(deref(orders_it))
+            str symbol = cpp_limit_order_ptr.getSymbol().decode("utf8")
+            str quote_currency = cpp_limit_order_ptr.getQuoteCurrency().decode("utf8")
+            str base_currency = cpp_limit_order_ptr.getBaseCurrency().decode("utf8")
+            str order_id = cpp_limit_order_ptr.getClientOrderID().decode("utf8")
+            double quote_currency_balance = self.c_get_balance(quote_currency)
+            double quote_currency_traded = (float(<object> cpp_limit_order_ptr.getPrice()) *
+                                            float(<object> cpp_limit_order_ptr.getQuantity()))
+            double base_currency_traded = float(<object> cpp_limit_order_ptr.getQuantity())
+
+        # Check if there's enough balance to satisfy the order. If not, remove the limit order without doing anything.
+        if quote_currency_balance < quote_currency_traded:
+            self.logger().warning(f"Not enough {quote_currency} balance to fill limit buy order on {symbol}. "
+                                  f"{quote_currency_traded:.8g} {quote_currency} needed vs. "
+                                  f"{quote_currency_balance:.8g} {quote_currency} available.")
+            self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
+            return
+
+        # Adjust the market balances according to the trade done.
+        self.c_set_balance(quote_currency, self.c_get_balance(quote_currency) - quote_currency_traded)
+        self.c_set_balance(base_currency, self.c_get_balance(base_currency) + base_currency_traded)
+
+        # Emit the trade and order completed events.
+        config = self._config
+        self.c_trigger_event(self.ORDER_FILLED_EVENT_TAG,
+                             OrderFilledEvent(self._current_timestamp,
+                                              order_id,
+                                              symbol,
+                                              TradeType.BUY,
+                                              OrderType.LIMIT,
+                                              float(<object> cpp_limit_order_ptr.getPrice()),
+                                              float(<object> cpp_limit_order_ptr.getQuantity()),
+                                              TradeFee(0.0)
+                                              ))
+        self.c_trigger_event(self.BUY_ORDER_COMPLETED_EVENT_TAG,
+                             BuyOrderCompletedEvent(self._current_timestamp,
+                                                    order_id,
+                                                    base_currency,
+                                                    quote_currency,
+                                                    base_currency if \
+                                                        config.buy_fees_asset is AssetType.BASE_CURRENCY else \
+                                                        quote_currency,
+                                                    base_currency_traded,
+                                                    quote_currency_traded,
+                                                    0.0,
+                                                    OrderType.LIMIT))
+        self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
+
+    cdef c_process_limit_ask_order(self,
+                                   LimitOrders *limit_orders_map_ptr,
+                                   LimitOrdersIterator *map_it_ptr,
+                                   SingleSymbolLimitOrdersIterator orders_it):
+        cdef:
+            const CPPLimitOrder *cpp_limit_order_ptr = address(deref(orders_it))
+            str symbol = cpp_limit_order_ptr.getSymbol().decode("utf8")
+            str quote_currency = cpp_limit_order_ptr.getQuoteCurrency().decode("utf8")
+            str base_currency = cpp_limit_order_ptr.getBaseCurrency().decode("utf8")
+            str order_id = cpp_limit_order_ptr.getClientOrderID().decode("utf8")
+            double base_currency_balance = self.c_get_balance(base_currency)
+            double quote_currency_traded = (float(<object> cpp_limit_order_ptr.getPrice()) *
+                                            float(<object> cpp_limit_order_ptr.getQuantity()))
+            double base_currency_traded = float(<object> cpp_limit_order_ptr.getQuantity())
+
+        # Check if there's enough balance to satisfy the order. If not, remove the limit order without doing anything.
+        if base_currency_balance < base_currency_traded:
+            self.logger().warning(f"Not enough {base_currency} balance to fill limit sell order on {symbol}. "
+                                  f"{base_currency_traded:.8g} {base_currency} needed vs. "
+                                  f"{base_currency_balance:.8g} {base_currency} available.")
+            self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
+            return
+
+        # Adjust the market balances according to the trade done.
+        self.c_set_balance(quote_currency, self.c_get_balance(quote_currency) + quote_currency_traded)
+        self.c_set_balance(base_currency, self.c_get_balance(base_currency) - base_currency_traded)
+
+        # Emit the trade and order completed events.
+        config = self._config
+        self.c_trigger_event(self.ORDER_FILLED_EVENT_TAG,
+                             OrderFilledEvent(self._current_timestamp,
+                                              order_id,
+                                              symbol,
+                                              TradeType.SELL,
+                                              OrderType.LIMIT,
+                                              float(<object> cpp_limit_order_ptr.getPrice()),
+                                              float(<object> cpp_limit_order_ptr.getQuantity()),
+                                              TradeFee(0.0)
+                                              ))
+        self.c_trigger_event(self.SELL_ORDER_COMPLETED_EVENT_TAG,
+                             SellOrderCompletedEvent(self._current_timestamp,
+                                                     order_id,
+                                                     base_currency,
+                                                     quote_currency,
+                                                     base_currency if \
+                                                         config.sell_fees_asset is AssetType.BASE_CURRENCY else \
+                                                         quote_currency,
+                                                     base_currency_traded,
+                                                     quote_currency_traded,
+                                                     0.0,
+                                                     OrderType.LIMIT))
+        self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
+
+    cdef c_process_limit_order(self,
+                               bint is_buy,
+                               LimitOrders *limit_orders_map_ptr,
+                               LimitOrdersIterator *map_it_ptr,
+                               SingleSymbolLimitOrdersIterator orders_it):
+        if is_buy:
+            self.c_process_limit_bid_order(limit_orders_map_ptr, map_it_ptr, orders_it)
+        else:
+            self.c_process_limit_ask_order(limit_orders_map_ptr, map_it_ptr, orders_it)
+
+    cdef c_process_crossed_limit_orders_for_symbol(self,
+                                                   bint is_buy,
+                                                   LimitOrders *limit_orders_map_ptr,
+                                                   LimitOrdersIterator *map_it_ptr):
+        """
+        Trigger limit orders when the opposite side of the order book has crossed the limit order's price.
+        This implies someone was ready to fill the limit order, if that limit order was on the market.
+
+        :param is_buy: are the limit orders on the bid side?
+        :param limit_orders_map_ptr: pointer to the limit orders map
+        :param map_it_ptr: limit orders map iterator, which implies the symbol being processed
+        """
+        cdef:
+            str symbol = deref(deref(map_it_ptr)).first.decode("utf8")
+            double opposite_order_book_price = self.c_get_price(symbol, is_buy)
+            SingleSymbolLimitOrders *orders_collection_ptr = address(deref(deref(map_it_ptr)).second)
+            SingleSymbolLimitOrdersIterator orders_it = orders_collection_ptr.begin()
+            SingleSymbolLimitOrdersRIterator orders_rit = orders_collection_ptr.rbegin()
+            vector[SingleSymbolLimitOrdersIterator] process_order_its
+            const CPPLimitOrder *cpp_limit_order_ptr = NULL
+
+        if is_buy:
+            while orders_rit != orders_collection_ptr.rend():
+                cpp_limit_order_ptr = address(deref(orders_rit))
+                if opposite_order_book_price > float(<object>cpp_limit_order_ptr.getPrice()):
+                    break
+                process_order_its.push_back(getIteratorFromReverseIterator(
+                    <reverse_iterator[SingleSymbolLimitOrdersIterator]>orders_rit))
+                inc(orders_rit)
+        else:
+            while orders_it != orders_collection_ptr.end():
+                cpp_limit_order_ptr = address(deref(orders_it))
+                if opposite_order_book_price < float(<object>cpp_limit_order_ptr.getPrice()):
+                    break
+                process_order_its.push_back(orders_it)
+                inc(orders_it)
+
+        for orders_it in process_order_its:
+            self.c_process_limit_order(is_buy, limit_orders_map_ptr, map_it_ptr, orders_it)
+
+    cdef c_process_crossed_limit_orders(self):
+        cdef:
+            LimitOrders *limit_orders_ptr = address(self._bid_limit_orders)
+            LimitOrdersIterator map_it = limit_orders_ptr.begin()
+
+        while map_it != limit_orders_ptr.end():
+            self.c_process_crossed_limit_orders_for_symbol(True, limit_orders_ptr, address(map_it))
+            if map_it != limit_orders_ptr.end():
+                inc(map_it)
+
+        limit_orders_ptr = address(self._ask_limit_orders)
+        map_it = limit_orders_ptr.begin()
+
+        while map_it != limit_orders_ptr.end():
+            self.c_process_crossed_limit_orders_for_symbol(False, limit_orders_ptr, address(map_it))
+            if map_it != limit_orders_ptr.end():
+                inc(map_it)
+
+    cdef c_match_trade_to_limit_orders(self, object order_book_trade_event):
+        """
+        Trigger limit orders when incoming market orders have crossed the limit order's price.
+
+        :param order_book_trade_event: trade event from order book
+        """
+        cdef:
+            string cpp_symbol = order_book_trade_event.symbol.encode("utf8")
+            bint is_maker_buy = order_book_trade_event.type is TradeType.SELL
+            double trade_price = order_book_trade_event.price
+            double trade_quantity = order_book_trade_event.amount
+            LimitOrders *limit_orders_map_ptr = (address(self._bid_limit_orders)
+                                                 if is_maker_buy
+                                                 else address(self._ask_limit_orders))
+            LimitOrdersIterator map_it = limit_orders_map_ptr.find(cpp_symbol)
+            SingleSymbolLimitOrders *orders_collection_ptr = NULL
+            SingleSymbolLimitOrdersIterator orders_it
+            SingleSymbolLimitOrdersRIterator orders_rit
+            vector[SingleSymbolLimitOrdersIterator] process_order_its
+            const CPPLimitOrder *cpp_limit_order_ptr = NULL
+
+        if map_it == limit_orders_map_ptr.end():
+            return
+
+        orders_collection_ptr = address(deref(map_it).second)
+
+        if is_maker_buy:
+            orders_rit = orders_collection_ptr.rbegin()
+            while orders_rit != orders_collection_ptr.rend():
+                cpp_limit_order_ptr = address(deref(orders_rit))
+                if float(<object>cpp_limit_order_ptr.getPrice()) <= trade_price:
+                    break
+                process_order_its.push_back(getIteratorFromReverseIterator(
+                    <reverse_iterator[SingleSymbolLimitOrdersIterator]>orders_rit))
+                inc(orders_rit)
+        else:
+            orders_it = orders_collection_ptr.begin()
+            while orders_it != orders_collection_ptr.end():
+                cpp_limit_order_ptr = address(deref(orders_it))
+                if float(<object>cpp_limit_order_ptr.getPrice()) >= trade_price:
+                    break
+                process_order_its.push_back(orders_it)
+                inc(orders_it)
+
+        for orders_it in process_order_its:
+            self.c_process_limit_order(is_maker_buy, limit_orders_map_ptr, address(map_it), orders_it)
 
     cdef double c_get_available_balance(self, str currency) except? -1:
         pass
@@ -753,7 +761,7 @@ cdef class PaperTradeMarket(MarketBase):
     cdef OrderBook c_get_order_book(self, str symbol):
         if symbol not in self._symbol_pairs:
             raise ValueError(f"No order book exists for '{symbol}'.")
-        return self._order_book_tracker[symbol]
+        return self._order_book_tracker.order_books[symbol]
 
     cdef double c_get_price(self, str symbol, bint is_buy) except? -1:
         cdef:
@@ -788,189 +796,3 @@ cdef class PaperTradeMarket(MarketBase):
             return max(precision_quantum, decimals_quantum)
         else:
             return Decimal(f"1e-15")
-
-
-"""
-@property
-    
-    # Default implementation
-    def status_dict(self) -> Dict[str, bool]:
-        return {}
-
-    # Default implementation
-    @property
-    def name(self) -> str:
-        return self.__class__.__name__
-
-    # Default implementation
-    @property
-    def event_logs(self) -> List[any]:
-        return self.event_logger.event_log
-
-    # Implemented
-    @property
-    def order_books(self) -> Dict[str, OrderBook]:
-        raise NotImplementedError
-
-    # Implemented
-    @property
-    def ready(self) -> bool:
-        raise NotImplementedError
-
-    # Implemented
-    @property
-    def limit_orders(self) -> List[LimitOrder]:
-        raise NotImplementedError
-
-    # Default implementation
-    @property
-    def tracking_states(self) -> Dict[str, any]:
-        return {}
-
-    # Default implementation
-    def restore_tracking_states(self, saved_states: Dict[str, any]):
-        '''        
-        Restores the tracking states from a previously saved state.
-        
-        :param saved_states: Previously saved tracking states from `tracking_states` property.
-        '''
-        pass
-
-    # Not implemented above
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        '''
-        :return: data frame with symbol as index, and at least the following columns --
-                 ["baseAsset", "quoteAsset", "volume", "USDVolume"]
-        '''
-        raise NotImplementedError
-
-    # Default implementation
-    def get_balance(self, currency: str) -> float:
-        return self.c_get_balance(currency)
-
-    # Default implementation
-    def get_available_balance(self, currency: str) -> float:
-        return self.c_get_available_balance(currency)
-
-    # Temporarily implemented
-    def get_all_balances(self) -> Dict[str, float]:
-        raise NotImplementedError
-
-    # Default implementation
-    def get_price(self, symbol: str, is_buy: bool) -> float:
-        return self.c_get_price(symbol, is_buy)
-
-    # Default implementation
-    def withdraw(self, address: str, currency: str, amount: float) -> str:
-        return self.c_withdraw(address, currency, amount)
-
-    # Not implemented above
-    async def get_deposit_info(self, asset: str) -> DepositInfo:
-        raise NotImplementedError
-
-    # Default implementation
-    def get_order_book(self, symbol: str) -> OrderBook:
-        return self.c_get_order_book(symbol)
-
-    # Default implementation
-    def buy(self, symbol: str, amount: float, order_type = OrderType.MARKET, price: float = 0.0, **kwargs) -> str:
-        return self.c_buy(symbol, amount, order_type, price, kwargs)
-
-    # Default implementation
-    def sell(self, symbol: str, amount: float, order_type = OrderType.MARKET, price: float = 0.0, **kwargs) -> str:
-        return self.c_sell(symbol, amount, order_type, price, kwargs)
-
-    # Default implementation
-    def cancel(self, symbol: str, client_order_id: str):
-        return self.c_cancel(symbol, client_order_id)
-
-    # Temporary implementation
-    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
-        raise NotImplementedError
-
-    # Default implementation
-    def get_fee(self,
-                base_currency: str,
-                quote_currency: str,
-                order_type: OrderType,
-                order_side: TradeType,
-                amount: float,
-                price: float = NaN) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
-
-    # Default implementation
-    def get_order_price_quantum(self, symbol: str, price: float) -> Decimal:
-        return self.c_get_order_price_quantum(symbol, price)
-
-    # Default implementation
-    def get_order_size_quantum(self, symbol: str, order_size: float) -> Decimal:
-        return self.c_get_order_size_quantum(symbol, order_size)
-
-    # Default implementation
-    def quantize_order_price(self, symbol: str, price: float) -> Decimal:
-        return self.c_quantize_order_price(symbol, price)
-
-    # Default implementation
-    def quantize_order_amount(self, symbol: str, amount: float) -> Decimal:
-        return self.c_quantize_order_amount(symbol, amount)
-
-    # Temporary implementation
-    cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0, dict kwargs = {}):
-        raise NotImplementedError
-
-    # Temporary implementation
-    cdef str c_sell(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0, dict kwargs = {}):
-        raise NotImplementedError
-
-    # Temporary implementation
-    cdef c_cancel(self, str symbol, str client_order_id):
-        raise NotImplementedError
-
-    # Temporary implementation
-    cdef object c_get_fee(self,
-                          str base_currency,
-                          str quote_currency,
-                          object order_type,
-                          object order_side,
-                          double amount,
-                          double price):
-        raise NotImplementedError
-
-    # Temporary implementation
-    cdef double c_get_balance(self, str currency) except? -1:
-        raise NotImplementedError
-
-    # Temporary implementation
-    cdef double c_get_available_balance(self, str currency) except? -1:
-        raise NotImplementedError
-
-    # Temporary implementation
-    cdef str c_withdraw(self, str address, str currency, double amount):
-        raise NotImplementedError
-
-    # Temporary implementation
-    cdef OrderBook c_get_order_book(self, str symbol):
-        raise NotImplementedError
-
-    # Temporary implementation
-    cdef double c_get_price(self, str symbol, bint is_buy) except? -1:
-        raise NotImplementedError
-
-    # Temporary implementation
-    cdef object c_get_order_price_quantum(self, str symbol, double price):
-        raise NotImplementedError
-
-    # Temporary implementation
-    cdef object c_get_order_size_quantum(self, str symbol, double order_size):
-        raise NotImplementedError
-
-    # Default implementation
-    cdef object c_quantize_order_price(self, str symbol, double price):
-        price_quantum = self.c_get_order_price_quantum(symbol, price)
-        return round(Decimal(price) / price_quantum) * price_quantum
-
-    # Default implementation
-    cdef object c_quantize_order_amount(self, str symbol, double amount, double price = 0.0):
-        order_size_quantum = self.c_get_order_size_quantum(symbol, amount)
-        return (Decimal(amount) // order_size_quantum) * order_size_quantum
-"""

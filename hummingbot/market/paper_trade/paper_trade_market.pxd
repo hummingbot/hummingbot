@@ -51,3 +51,29 @@ cdef class PaperTradeMarket(MarketBase):
                           object order_side,
                           double amount,
                           double price)
+
+    cdef c_process_limit_order_expiration(self)
+    cdef bint c_delete_expired_limit_orders(self, LimitOrders *orders_map, str symbol, str client_order_id)
+    cdef c_delete_limit_order(self,
+                              LimitOrders *limit_orders_map_ptr,
+                              LimitOrdersIterator *map_it_ptr,
+                              const SingleSymbolLimitOrdersIterator orders_it)
+    cdef c_process_limit_order(self,
+                               bint is_buy,
+                               LimitOrders *limit_orders_map_ptr,
+                               LimitOrdersIterator *map_it_ptr,
+                               SingleSymbolLimitOrdersIterator orders_it)
+    cdef c_process_limit_bid_order(self,
+                                   LimitOrders *limit_orders_map_ptr,
+                                   LimitOrdersIterator *map_it_ptr,
+                                   SingleSymbolLimitOrdersIterator orders_it)
+    cdef c_process_limit_ask_order(self,
+                                   LimitOrders *limit_orders_map_ptr,
+                                   LimitOrdersIterator *map_it_ptr,
+                                   SingleSymbolLimitOrdersIterator orders_it)
+    cdef c_process_crossed_limit_orders_for_symbol(self,
+                                                   bint is_buy,
+                                                   LimitOrders *limit_orders_map_ptr,
+                                                   LimitOrdersIterator *map_it_ptr)
+    cdef c_process_crossed_limit_orders(self)
+    cdef c_match_trade_to_limit_orders(self, object order_book_trade_event)
