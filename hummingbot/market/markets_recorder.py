@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
+import asyncio
 from sqlalchemy.orm import (
     Session,
     Query
 )
 import time
+import threading
 from typing import (
     Dict,
     List,
@@ -45,6 +47,10 @@ class MarketsRecorder:
                  markets: List[MarketBase],
                  config_file_path: str,
                  strategy_name: str):
+        if threading.current_thread() != threading.main_thread():
+            raise EnvironmentError("MarketsRecorded can only be initialized from the main thread.")
+
+        self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         self._sql: SQLConnectionManager = sql
         self._markets: List[MarketBase] = markets
         self._config_file_path: str = config_file_path
@@ -155,6 +161,10 @@ class MarketsRecorder:
                           event_tag: int,
                           market: MarketBase,
                           evt: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
+        if threading.current_thread() != threading.main_thread():
+            self._ev_loop.call_soon_threadsafe(self._did_create_order, event_tag, market, evt)
+            return
+
         session: Session = self.session
         base_asset, quote_asset = market.split_symbol(evt.symbol)
         timestamp: int = self.db_timestamp
@@ -185,6 +195,10 @@ class MarketsRecorder:
                         event_tag: int,
                         market: MarketBase,
                         evt: OrderFilledEvent):
+        if threading.current_thread() != threading.main_thread():
+            self._ev_loop.call_soon_threadsafe(self._did_fill_order, event_tag, market, evt)
+            return
+
         session: Session = self.session
         base_asset, quote_asset = market.split_symbol(evt.symbol)
         timestamp: int = self.db_timestamp
@@ -229,6 +243,10 @@ class MarketsRecorder:
                                         BuyOrderCompletedEvent,
                                         SellOrderCompletedEvent,
                                         OrderExpiredEvent]):
+        if threading.current_thread() != threading.main_thread():
+            self._ev_loop.call_soon_threadsafe(self._update_order_status, event_tag, market, evt)
+            return
+
         session: Session = self.session
         timestamp: int = self.db_timestamp
         event_type: MarketEvent = self.market_event_tag_map[event_tag]
