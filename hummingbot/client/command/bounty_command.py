@@ -28,6 +28,7 @@ class BountyCommand:
                register: bool = False,
                status: bool = False,
                terms: bool = False,
+               restore_id: bool = False,
                list: bool = False):
         """ Router function for `bounty` command """
         if terms:
@@ -36,6 +37,8 @@ class BountyCommand:
             asyncio.ensure_future(self.bounty_registration(), loop=self.ev_loop)
         elif list:
             asyncio.ensure_future(self.bounty_list(), loop=self.ev_loop)
+        elif restore_id:
+            asyncio.ensure_future(self.bounty_restore_id(), loop=self.ev_loop)
         else:
             asyncio.ensure_future(self.bounty_show_status(), loop=self.ev_loop)
 
@@ -67,7 +70,8 @@ class BountyCommand:
     async def bounty_registration(self,  # type: HummingbotApplication
                                   ):
         """ Register for the bounty program """
-        if self.liquidity_bounty:
+        if liquidity_bounty_config_map.get("liquidity_bounty_enabled").value and \
+            liquidity_bounty_config_map.get("liquidity_bounty_client_id").value:
             self._notify("You are already registered to collect bounties.")
             return
         await self.bounty_config_loop()
@@ -121,6 +125,38 @@ class BountyCommand:
             self._notify(f"Registration aborted: {str(e)}")
         except Exception as e:
             self.logger().error(f"Error configuring liquidity bounty: {str(e)}")
+
+        self.app.change_prompt(prompt=">>> ")
+        self.app.toggle_hide_input()
+        self.placeholder_mode = False
+
+    async def bounty_restore_id(self,  # type: HummingbotApplication
+                               ):
+        """ Retrieve bounty client id with email when the id is lost"""
+        if self.liquidity_bounty is None:
+            self.liquidity_bounty: LiquidityBounty = LiquidityBounty.get_instance()
+
+        self.placeholder_mode = True
+        self.app.toggle_hide_input()
+        self._notify("Starting registration process for liquidity bounties:")
+
+        try:
+            email: str = await self.app.prompt("What is the email address you used to register for the bounty? >>> ")
+            msg: str = await self.liquidity_bounty.restore_id(email)
+            self._notify(msg)
+
+            verification_code: str = await self.app.prompt("Please enter the verification code you received in the "
+                                                           "email >>> ")
+            client_id = await self.liquidity_bounty.send_verification_code(email, verification_code)
+
+            liquidity_bounty_config_map.get("liquidity_bounty_enabled").value = True
+            liquidity_bounty_config_map.get("liquidity_bounty_client_id").value = client_id
+            await save_to_yml(LIQUIDITY_BOUNTY_CONFIG_PATH, liquidity_bounty_config_map)
+
+            self._notify("\nYour bounty ID has been reset successfully. You may now start collecting bounties!\n")
+            self.liquidity_bounty.start()
+        except Exception as e:
+            self._notify(f"Bounty reset aborted: {str(e)}")
 
         self.app.change_prompt(prompt=">>> ")
         self.app.toggle_hide_input()
