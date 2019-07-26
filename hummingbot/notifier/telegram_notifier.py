@@ -25,6 +25,7 @@ from telegram.ext import (
     Updater,
 )
 
+import hummingbot
 from hummingbot.logger import HummingbotLogger
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.client.config.global_config_map import global_config_map
@@ -118,7 +119,11 @@ class TelegramNotifier(NotifierBase):
             if any([input_text.startswith(dc) for dc in DISABLED_COMMANDS]):
                 self.add_msg_to_queue(f"Command {input_text} is disabled from telegram")
             else:
-                await self._async_call_scheduler.call_async(lambda: self._hb._handle_command(input_text))
+                await self._ev_loop.run_in_executor(
+                    hummingbot.get_executor(),
+                    self._hb._handle_command,
+                    input_text
+                )
         except Exception as e:
             self.add_msg_to_queue(str(e))
 

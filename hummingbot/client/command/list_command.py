@@ -1,4 +1,5 @@
 import pandas as pd
+import threading
 from sqlalchemy.orm import (
     Session,
     Query
@@ -83,6 +84,10 @@ class ListCommand:
 
     def list_trades(self,  # type: HummingbotApplication
                     ):
+        if threading.current_thread() != threading.main_thread():
+            self.ev_loop.call_soon_threadsafe(self.list_trades)
+            return
+
         lines = []
         # To access the trades from Markets Recorder you need the file path and strategy name
         if in_memory_config_map.get("strategy_file_path").value is None or \
