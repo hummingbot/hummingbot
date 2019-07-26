@@ -148,7 +148,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             list lines = []
             list warning_lines = []
-            dict tracked_maker_orders = self._sb_order_tracker.c_get_maker_orders()
+            dict tracked_maker_orders = {}
+            LimitOrder typed_limit_order
+
+        # Go through the currently open limit orders, and group them by market pair.
+        for _, limit_order in self.active_maker_orders:
+            typed_limit_order = limit_order
+            market_pair = self._market_pair_tracker.c_get_market_pair_from_order_id(typed_limit_order.client_order_id)
+            if market_pair not in tracked_maker_orders:
+                tracked_maker_orders[market_pair] = {typed_limit_order.client_order_id: typed_limit_order}
+            else:
+                tracked_maker_orders[market_pair][typed_limit_order.client_order_id] = typed_limit_order
 
         for market_pair in self._market_pairs.values():
             warning_lines.extend(self.network_warning([market_pair.maker, market_pair.taker]))
