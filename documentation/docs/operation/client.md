@@ -37,6 +37,7 @@ The CLI is divided into three panes:
 * **Output pane (upper left)**: prints the output of the user's commands
 * **Log pane (right)**: log messages
 
+
 | Command | Function |
 |---------|----------|
 | `help` | Prints a list of available commands.
@@ -59,22 +60,22 @@ The CLI is divided into three panes:
 | `bounty --register` | Register to participate in for liquidity bounties
 | `bounty --list` | See a list of active bounties.
 | `bounty --restore-id` | If you lost your configuration file, this is the command to restore it.
-| `bounty --status` | See your accumulated rewards
-| `bounty --terms` | See the terms & conditions
+| `bounty --status` | See your accumulated rewards.
+| `bounty --terms` | See the terms & conditions.
 
 ## Keyboard shortcuts
 | Keyboard Combo | Command | Description |
 |-------- | ----------- | ----------- |
-| `Double CTRL + C` | Exit | Press `CTRL + C` twice to exit the bot
-| `CTRL + S` | Status | Show bot status
-| `CTRL + F` | *Search / Hide Search | Toggle search in log pane
-| `CTRL + A` | Select All | Select all text in input pane [Used for text edit in Input pane only] 
-| `CTRL + Z` | Undo | Undo action in input pane [Used for text edit in Input pane only] 
-| `Single CTRL + C` | Copy | Copy text [Used for text edit in Input pane only] 
-| `CTRL + V` | Paste | Paste text [Used for text edit in Input pane only] 
+| `Double CTRL + C` | Exit | Press `CTRL + C` twice to exit the bot.
+| `CTRL + S` | Status | Show bot status.
+| `CTRL + F` | *Search / Hide Search | Toggle search in log pane.
+| `CTRL + A` | Select All | Select all text in input pane [used for text edit in Input pane only].
+| `CTRL + Z` | Undo | Undo action in input pane [used for text edit in Input pane only].
+| `Single CTRL + C` | Copy | Copy text [used for text edit in Input pane only].
+| `CTRL + V` | Paste | Paste text [used for text edit in Input pane only].
 
 ***Note about search:*** 
 1. Press `CTRL + F` to trigger display the search field
-2. Enter your search keyword (Not case sensitive)
-3. Hit `Enter` to jump to the next matching keyword (Incremental search)
+2. Enter your search keyword (not case sensitive)
+3. Hit `Enter` to jump to the next matching keyword (incremental search)
 4. When you are done. Press `CTRL + F` again to go back to reset.
