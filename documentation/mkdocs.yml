@@ -130,18 +130,22 @@ nav:
         - 0x Relayers: connectors/0x.md
       - Strategies:
         - Strategies Overview: strategies/index.md
-        - Cross-exchange market making: strategies/cross-exchange-market-making.md
         - Arbitrage: strategies/arbitrage.md
         - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
         - Pure Market Making: strategies/pure-market-making.md
         - Discovery: strategies/discovery.md
+        - Simple Trade: strategies/simple-trade.md
       - Data Feeds:
         - Data Feeds Overview: feeds.md
       - Utilities:
         - Logs and Logging: operation/logging.md
         - Using Exchange Rates: operation/exchange-rates.md
         - Integrating Telegram: operation/telegram.md
-        - Debug Console: operation/debug.md
+      - Developers:
+        - Overview: developers/index.md
+        - Debug Console: developers/debug.md
+        - Strategies: developers/strategies.md
+        - Exchange Connectors: developers/exchange-connectors.md
     - Release Notes:
       - About Releases: release-notes/index.md
       - 0.10.1: release-notes/0.10.1.md

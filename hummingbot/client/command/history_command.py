@@ -2,6 +2,7 @@ import pandas as pd
 from typing import (
     Any,
     Dict,
+    Optional,
     TYPE_CHECKING,
 )
 from hummingbot.client.performance_analysis import PerformanceAnalysis
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
 class HistoryCommand:
     def history(self,  # type: HummingbotApplication
                 ):
-        self.list("trades")
+        self.list_trades()
         self.compare_balance_snapshots()
         self.analyze_performance()
 
@@ -22,13 +23,13 @@ class HistoryCommand:
         snapshot: Dict[str, Any] = {}
         for market_name in self.markets:
             balance_dict = self.markets[market_name].get_all_balances()
-            for c in self.assets:
-                if c not in snapshot:
-                    snapshot[c] = {}
-                if c in balance_dict:
-                    snapshot[c][market_name] = balance_dict[c]
+            for asset in self.assets:
+                if asset not in snapshot:
+                    snapshot[asset] = {}
+                if asset in balance_dict:
+                    snapshot[asset][market_name] = balance_dict[asset]
                 else:
-                    snapshot[c][market_name] = 0.0
+                    snapshot[asset][market_name] = 0.0
         return snapshot
 
     def compare_balance_snapshots(self,  # type: HummingbotApplication
@@ -49,7 +50,10 @@ class HistoryCommand:
                              current_balance - starting_balance])
 
         df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Delta"])
-        lines = ["", "  Inventory:"] + ["    " + line for line in str(df).split("\n")]
+        if len(df) > 0:
+            lines = ["", "  Inventory:"] + ["    " + line for line in str(df).split("\n")]
+        else:
+            lines = []
         self._notify("\n".join(lines))
 
     def get_performance_analysis_with_updated_balance(self,  # type: HummingbotApplication
@@ -61,8 +65,13 @@ class HistoryCommand:
                 for is_starting in [True, False]:
                     market_name = market_symbol_pair.market.name
                     asset_name = market_symbol_pair.base_asset if is_base else market_symbol_pair.quote_asset
-                    amount = self.starting_balances[asset_name][market_name] if is_starting \
-                        else self.balance_snapshot()[asset_name][market_name]
+
+                    if len(self.assets) == 0 or len(self.markets) == 0:
+                        # Prevent KeyError '***SYMBOL***'
+                        amount = self.starting_balances[asset_name][market_name]
+                    else:
+                        amount = self.starting_balances[asset_name][market_name] if is_starting \
+                            else self.balance_snapshot()[asset_name][market_name]
                     amount = float(amount)
                     performance_analysis.add_balances(asset_name, amount, is_base, is_starting)
 
