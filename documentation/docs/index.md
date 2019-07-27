@@ -11,7 +11,8 @@ Hummingbot is open source software that helps you create, configure and manage h
 ## How the documentation is organized
 
 * [General](/): For new users. Learn about how Hummingbot works, install the software, and quickly start running your first bot.
-* [User Manual](/manual): For experienced users who want to get the most of Hummingbot, and for developers looking to contribute to or extend Hummingbot's capabilities.
+* [User Manual](/manual): For experienced users who want to get the most of Hummingbot
+* [Developer Manual](/developers): For developers looking to contribute to Hummingbot or extend its capabilities
 * [Release Notes](/release-notes): New features, bug fixes, and other updates from our bi-weekly releases.
 
 ## First steps
