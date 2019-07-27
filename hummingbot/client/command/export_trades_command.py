@@ -1,4 +1,5 @@
 import pandas as pd
+import threading
 from os.path import (
     join,
     dirname
@@ -15,6 +16,10 @@ if TYPE_CHECKING:
 class ExportTradesCommand:
     def export_trades(self,  # type: HummingbotApplication
                       path: str = ""):
+        if threading.current_thread() != threading.main_thread():
+            self.ev_loop.call_soon_threadsafe(self.export_trades, path)
+            return
+
         if not path:
             fname = f"trades_{pd.Timestamp.now().strftime('%Y-%m-%d-%H-%M-%S')}.csv"
             path = join(dirname(__file__), f"../../../logs/{fname}")
