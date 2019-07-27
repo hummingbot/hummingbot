@@ -137,7 +137,7 @@ class HummingbotApplication(*commands):
     def _notify(self, msg: str):
         self.app.log(msg)
         for notifier in self.notifiers:
-            notifier.send_msg(msg)
+            notifier.add_msg_to_queue(msg)
 
     def _handle_command(self, raw_command: str):
         raw_command = raw_command.lower().strip()

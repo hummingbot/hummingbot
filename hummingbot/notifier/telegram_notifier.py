@@ -25,6 +25,7 @@ from telegram.ext import (
     Updater,
 )
 
+import hummingbot
 from hummingbot.logger import HummingbotLogger
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.client.config.global_config_map import global_config_map
@@ -32,9 +33,13 @@ from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 
 
 DISABLED_COMMANDS = {
+    "bounty",               # disabled because it requires additional logic in the ui
     "config",               # disabled because it requires additional logic in the ui
     "export_private_key",   # disabled for security
 }
+
+# Telegram does not allow sending messages longer than 4096 characters
+TELEGRAM_MSG_LENGTH_LIMIT = 3000
 
 
 def authorized_only(handler: Callable[[Any, Bot, Update], None]) -> Callable[..., Any]:
@@ -74,6 +79,8 @@ class TelegramNotifier(NotifierBase):
         self._hb = hb
         self._ev_loop = asyncio.get_event_loop()
         self._async_call_scheduler = AsyncCallScheduler.shared_instance()
+        self._msg_queue: asyncio.Queue = asyncio.Queue()
+        self._send_msg_task: Optional[asyncio.Task] = None
 
         # Register command handler and start telegram message polling
         handles = [MessageHandler(Filters.text, self.handler)]
@@ -89,11 +96,14 @@ class TelegramNotifier(NotifierBase):
                 timeout=30,
                 read_latency=60,
             )
+            self._send_msg_task = asyncio.ensure_future(self.send_msg_from_queue(), loop=self._ev_loop)
             self.logger().info("Telegram is listening...")
 
     def stop(self) -> None:
         if self._started or self._updater.running:
             self._updater.stop()
+        if self._send_msg_task:
+            self._send_msg_task.cancel()
 
     @authorized_only
     def handler(self, bot: Bot, update: Update) -> None:
@@ -107,11 +117,15 @@ class TelegramNotifier(NotifierBase):
 
             # if the command does starts with any disabled commands
             if any([input_text.startswith(dc) for dc in DISABLED_COMMANDS]):
-                self.send_msg(f"Command {input_text} is disabled from telegram", bot=bot)
+                self.add_msg_to_queue(f"Command {input_text} is disabled from telegram")
             else:
-                await self._async_call_scheduler.call_async(lambda: self._hb._handle_command(input_text))
+                await self._ev_loop.run_in_executor(
+                    hummingbot.get_executor(),
+                    self._hb._handle_command,
+                    input_text
+                )
         except Exception as e:
-            self.send_msg(str(e), bot=bot)
+            self.add_msg_to_queue(str(e))
 
     @staticmethod
     def _divide_chunks(arr: List[Any], n: int = 5):
@@ -119,8 +133,20 @@ class TelegramNotifier(NotifierBase):
         for i in range(0, len(arr), n):
             yield arr[i:i + n]
 
-    def send_msg(self, msg: str, bot: Bot = None) -> None:
-        asyncio.ensure_future(self.send_msg_async(msg, bot), loop=self._ev_loop)
+    def add_msg_to_queue(self, msg: str):
+        lines: List[str] = msg.split("\n")
+        msg_chunks: List[List[str]] = self._divide_chunks(lines, 30)
+        for chunk in msg_chunks:
+            self._msg_queue.put_nowait("\n".join(chunk))
+
+    async def send_msg_from_queue(self):
+        while True:
+            try:
+                new_msg: str = await self._msg_queue.get()
+                await self.send_msg_async(new_msg)
+            except Exception as e:
+                self.logger().error(str(e))
+            await asyncio.sleep(1)
 
     async def send_msg_async(self, msg: str, bot: Bot = None) -> None:
         """
