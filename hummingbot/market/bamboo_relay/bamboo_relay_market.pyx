@@ -286,14 +286,18 @@ cdef class BambooRelayMarket(MarketBase):
         self._order_expiry_queue = deque()
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
-        self._in_flight_market_orders.update({
-            key: BambooRelayInFlightOrder.from_json(value)
-            for key, value in saved_states["market_orders"].items()
-        })
-        self._in_flight_limit_orders.update({
-            key: BambooRelayInFlightOrder.from_json(value)
-            for key, value in saved_states["limit_orders"].items()
-        })
+        # ignore saved orders that may not reflect current version schema
+        try:
+            self._in_flight_market_orders.update({
+                key: BambooRelayInFlightOrder.from_json(value)
+                for key, value in saved_states["market_orders"].items()
+            })
+            self._in_flight_limit_orders.update({
+                key: BambooRelayInFlightOrder.from_json(value)
+                for key, value in saved_states["limit_orders"].items()
+            })
+        except:
+            pass
 
     async def get_active_exchange_markets(self):
         return await BambooRelayAPIOrderBookDataSource.get_active_exchange_markets(self._api_prefix)
