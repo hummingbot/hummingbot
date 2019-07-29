@@ -3,6 +3,7 @@
 import asyncio
 from collections import deque
 import logging
+import time
 from eth_account.local import LocalAccount
 from typing import (
     List,
@@ -107,6 +108,7 @@ class HummingbotApplication(*commands):
         self.market_symbol_pairs: List[MarketSymbolPair] = []
         self.clock: Optional[Clock] = None
 
+        self.init_time: int = int(time.time() * 1e3)
         self.start_time: Optional[int] = None
         self.assets: Optional[Set[str]] = set()
         self.starting_balances = {}
@@ -135,7 +137,7 @@ class HummingbotApplication(*commands):
     def _notify(self, msg: str):
         self.app.log(msg)
         for notifier in self.notifiers:
-            notifier.send_msg(msg)
+            notifier.add_msg_to_queue(msg)
 
     def _handle_command(self, raw_command: str):
         raw_command = raw_command.lower().strip()
