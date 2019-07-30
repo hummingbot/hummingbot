@@ -297,7 +297,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         if sizing_proposal.buy_order_sizes[0] > 0 or sizing_proposal.sell_order_sizes[0] > 0:
             actions |= ORDER_PROPOSAL_ACTION_CREATE_ORDERS
 
-        if market_info.market.name not in self.RADAR_RELAY_TYPE_EXCHANGES:
+        if ((market_info.market.name not in self.RADAR_RELAY_TYPE_EXCHANGES) or 
+            (market_info.market.name == "bamboo_relay" and market_info.market.use_coordinator)):
             for active_order in active_orders:
                 # If there are active orders, and active order cancellation is needed, then do the following:
                 #  1. Check the time to cancel for each order, and see if cancellation should be proposed.
@@ -378,7 +379,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         cdef:
             int64_t actions = orders_proposal.actions
             double expiration_seconds = (self._cancel_order_wait_time
-                                         if market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES
+                                         if ((market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
+                                             (market_info.market.name == "bamboo_relay" and not market_info.market.use_coordinator))
                                          else NaN)
             str bid_order_id
 
