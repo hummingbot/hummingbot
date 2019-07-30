@@ -164,6 +164,7 @@ class HummingbotApplication(*commands):
 
     async def _cancel_outstanding_orders(self) -> bool:
         on_chain_cancel_on_exit = global_config_map.get("on_chain_cancel_on_exit").value
+        bamboo_relay_use_coordinator = global_config_map.get("bamboo_relay_use_coordinator").value
         success = True
         kill_timeout: float = self.KILL_TIMEOUT
         self._notify("Cancelling outstanding orders...")
@@ -174,7 +175,7 @@ class HummingbotApplication(*commands):
                 kill_timeout = self.IDEX_KILL_TIMEOUT
             # By default, the bot does not cancel orders on exit on Radar Relay or Bamboo Relay,
             # since all open orders will expire in a short window
-            if not on_chain_cancel_on_exit and (market_name == "radar_relay" or market_name == "bamboo_relay"):
+            if not on_chain_cancel_on_exit and (market_name == "radar_relay" or (market_name == "bamboo_relay" and not bamboo_relay_use_coordinator)):
                 continue
             cancellation_results = await market.cancel_all(kill_timeout)
             uncancelled = list(filter(lambda cr: cr.success is False, cancellation_results))
@@ -259,9 +260,14 @@ class HummingbotApplication(*commands):
                                           trading_required=self._trading_required)
 
             elif market_name == "bamboo_relay" and self.wallet:
+                use_coordinator = global_config_map.get("bamboo_relay_use_coordinator").value
+                pre_emptive_soft_cancels = global_config_map.get("bamboo_relay_pre_emptive_soft_cancels").value
                 market = BambooRelayMarket(wallet=self.wallet,
                                            ethereum_rpc_url=ethereum_rpc_url,
-                                           symbols=symbols)
+                                           symbols=symbols,
+                                           use_coordinator=use_coordinator,
+                                           pre_emptive_soft_cancels=pre_emptive_soft_cancels,
+                                           trading_required=self._trading_required)
 
             elif market_name == "coinbase_pro":
                 coinbase_pro_api_key = global_config_map.get("coinbase_pro_api_key").value
