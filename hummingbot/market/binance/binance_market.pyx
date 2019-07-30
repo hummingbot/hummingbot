@@ -137,6 +137,8 @@ cdef class BinanceMarket(MarketBase):
     BINANCE_TRADE_TOPIC_NAME = "binance-trade.serialized"
     BINANCE_USER_STREAM_TOPIC_NAME = "binance-user-stream.serialized"
 
+    ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
+
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global s_logger
@@ -170,6 +172,7 @@ cdef class BinanceMarket(MarketBase):
         self._last_timestamp = 0
         self._poll_interval = poll_interval
         self._in_flight_orders = {}
+        self._order_not_found_records = {}
         self._tx_tracker = BinanceMarketTransactionTracker(self)
         self._withdraw_rules = {}
         self._trading_rules = {}
@@ -483,6 +486,12 @@ cdef class BinanceMarket(MarketBase):
                 client_order_id = tracked_order.client_order_id
                 if isinstance(order_update, Exception):
                     if order_update.code == 2013 or order_update.message == "Order does not exist.":
+                        self._order_not_found_records[client_order_id] = \
+                            self._order_not_found_records.get(client_order_id, 0) + 1
+                        if self._order_not_found_records[client_order_id] < self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
+                            # Wait until the order not found error have repeated a few times before actually treating
+                            # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
+                            continue
                         self.c_trigger_event(
                             self.MARKET_ORDER_FAILURE_EVENT_TAG,
                             MarketOrderFailureEvent(self._current_timestamp, client_order_id, tracked_order.order_type)
@@ -1127,6 +1136,8 @@ cdef class BinanceMarket(MarketBase):
     cdef c_stop_tracking_order(self, str order_id):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
+        if order_id in self._order_not_found_records:
+            del self._order_not_found_records[order_id]
 
     cdef object c_get_order_price_quantum(self, str symbol, double price):
         cdef:
