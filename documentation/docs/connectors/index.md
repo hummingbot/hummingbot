@@ -21,7 +21,7 @@ Connectors are packages of code that link Hummingbot's internal trading algorith
 
 ## Community Contributed Connectors
 
-* [Bamboo Relay](https://bamboorelay.com)
+* [Bamboo Relay](/connectors/bamboo-relay)
 
 ## Coming Soon to Hummingbot
 
