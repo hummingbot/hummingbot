@@ -785,11 +785,11 @@ cdef class RadarRelayMarket(MarketBase):
                    double amount,
                    object order_type = OrderType.MARKET,
                    double price = NaN,
-                   dict kargs = {}):
+                   dict kwargs = {}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"buy-{symbol}-{tracking_nonce}")
-        expires = kargs.get("expiration_ts", None)
+        expires = kwargs.get("expiration_ts", None)
         if expires is not None:
             expires = int(expires)
         asyncio.ensure_future(self.execute_trade(order_id=order_id,
@@ -806,11 +806,11 @@ cdef class RadarRelayMarket(MarketBase):
                     double amount,
                     object order_type = OrderType.MARKET,
                     double price = NaN,
-                    dict kargs = {}):
+                    dict kwargs = {}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"sell-{symbol}-{tracking_nonce}")
-        expires = kargs.get("expiration_ts", None)
+        expires = kwargs.get("expiration_ts", None)
         if expires is not None:
             expires = int(expires)
         asyncio.ensure_future(self.execute_trade(order_id=order_id,

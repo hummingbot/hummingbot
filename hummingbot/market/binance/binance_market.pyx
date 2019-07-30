@@ -536,13 +536,25 @@ cdef class BinanceMarket(MarketBase):
                                                                          float(tracked_order.fee_paid),
                                                                          order_type))
                     else:
-                        self.logger().info(f"The market order {client_order_id} has failed according to "
-                                           f"order status API.")
-                        self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                                             MarketOrderFailureEvent(
-                                                 self._current_timestamp,
-                                                 client_order_id,
-                                                 order_type
+                        # check if its a cancelled order
+                        # if its a cancelled order, check in flight orders
+                        # if present in in flight orders issue cancel and stop tracking order
+                        if tracked_order.last_state == "CANCELED":
+                            if client_order_id in self._in_flight_orders:
+                                self.logger().info(f"Successfully cancelled order {client_order_id}.")
+                                self.c_stop_tracking_order(client_order_id)
+                                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                                     OrderCancelledEvent(
+                                                         self._current_timestamp,
+                                                         client_order_id))
+                        else:
+                            self.logger().info(f"The market order {client_order_id} has failed according to "
+                                               f"order status API.")
+                            self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                                                 MarketOrderFailureEvent(
+                                                     self._current_timestamp,
+                                                     client_order_id,
+                                                     order_type
                                              ))
                     self.c_stop_tracking_order(client_order_id)
 
