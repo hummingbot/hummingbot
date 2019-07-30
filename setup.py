@@ -17,7 +17,7 @@ if os.name == "posix":
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20190729"
+    version = "20190730"
     packages = [
         "hummingbot",
         "hummingbot.client",
@@ -57,9 +57,11 @@ def main():
         "hummingbot": [
             "core/cpp/*",
             "client/liquidity_bounty/*.txt",
-            "wallet/ethereum/zero_ex/zero_ex_exchange_abi.json"
-            "wallet/ethereum/token_abi/*.json"
-            "wallet/ethereum/erc20_tokens.json"
+            "wallet/ethereum/zero_ex/zero_ex_coordinator_abi.json",
+            "wallet/ethereum/zero_ex/zero_ex_coordinator_registry_abi.json",
+            "wallet/ethereum/zero_ex/zero_ex_exchange_abi.json",
+            "wallet/ethereum/token_abi/*.json",
+            "wallet/ethereum/erc20_tokens.json",
             "VERSION",
             "templates/*TEMPLATE.yml"
         ],
