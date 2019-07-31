@@ -33,21 +33,19 @@ sudo apt-get install -y build-essential
 wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
 sh Miniconda3-latest-Linux-x86_64.sh
 
-# 3) Log out and log back into shell to register "conda" command
-exit
+# 3) Reload .bashrc to register "conda" command
+exec bash
 
-# 4) Log back into or open a new Linux terminal
-
-# 5) Clone Hummingbot
+# 4) Clone Hummingbot
 git clone https://github.com/CoinAlpha/hummingbot.git
 
-# 6) Install Hummingbot
+# 5) Install Hummingbot
 cd hummingbot && ./install
 
-# 7) Activate environment and compile code
+# 6) Activate environment and compile code
 conda activate hummingbot && ./compile
 
-# 8) Start Hummingbot
+# 7) Start Hummingbot
 bin/hummingbot.py
 ```
 
@@ -75,21 +73,19 @@ sudo apt-get install -y build-essential git
 wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
 sh Miniconda3-latest-Linux-x86_64.sh
 
-# 3) Log out and log back into shell to register "conda" command
-exit
+# 3) Reload .bashrc to register "conda" command
+exec bash
 
-# 4) Log back into or open a new Linux terminal
-
-# 5) Clone Hummingbot
+# 4) Clone Hummingbot
 git clone https://github.com/CoinAlpha/hummingbot.git
 
-# 6) Install Hummingbot
+# 5) Install Hummingbot
 cd hummingbot && ./install
 
-# 7) Activate environment and compile code
+# 6) Activate environment and compile code
 conda activate hummingbot && ./compile
 
-# 8) Start Hummingbot
+# 7) Start Hummingbot
 bin/hummingbot.py
 ```
 
@@ -117,21 +113,19 @@ sudo yum groupinstall -y 'Development Tools'
 wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
 sh Miniconda3-latest-Linux-x86_64.sh
 
-# 3) Log out and log back into shell to register "conda" command
-exit
+# 3) Reload .bashrc to register "conda" command
+exec bash
 
-# 4) Log back into or open a new Linux terminal
-
-# 5) Clone Hummingbot
+# 4) Clone Hummingbot
 git clone https://github.com/CoinAlpha/hummingbot.git
 
-# 6) Install Hummingbot
+# 5) Install Hummingbot
 cd hummingbot && ./install
 
-# 7) Activate environment and compile code
+# 6) Activate environment and compile code
 conda activate hummingbot && ./compile
 
-# 8) Start Hummingbot
+# 7) Start Hummingbot
 bin/hummingbot.py
 ```
 
