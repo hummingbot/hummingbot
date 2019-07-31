@@ -83,6 +83,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  legacy_order_size: float = 1.0,
                  legacy_bid_spread: float = 0.01,
                  legacy_ask_spread: float = 0.01,
+                 inventory_skew_enabled: bool = False,
+                 inventory_target_base_percent: Optional[float] = None,
                  status_report_interval: float = 900):
 
         if len(market_infos) < 1:
@@ -107,7 +109,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         if pricing_delegate is None:
             pricing_delegate = ConstantSpreadPricingDelegate(legacy_bid_spread, legacy_ask_spread)
         if sizing_delegate is None:
-            sizing_delegate = ConstantSizeSizingDelegate(legacy_order_size)
+            sizing_delegate = ConstantSizeSizingDelegate(
+                legacy_order_size,
+                inventory_target_base_percent if inventory_skew_enabled else None
+            )
 
         self._filter_delegate = filter_delegate
         self._pricing_delegate = pricing_delegate

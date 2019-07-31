@@ -25,6 +25,8 @@ def start(self):
         order_interval_percent = pure_market_making_config_map.get("order_interval_percent").value
         maker_market = pure_market_making_config_map.get("maker_market").value.lower()
         raw_maker_symbol = pure_market_making_config_map.get("maker_market_symbol").value.upper()
+        inventory_skew_enabled = pure_market_making_config_map.get("inventory_skew_enabled").value
+        inventory_target_base_percent = pure_market_making_config_map.get("inventory_target_base_percent").value
         pricing_delegate = None
         sizing_delegate = None
 
@@ -61,6 +63,8 @@ def start(self):
                                                    legacy_bid_spread=bid_place_threshold,
                                                    legacy_ask_spread=ask_place_threshold,
                                                    cancel_order_wait_time=cancel_order_wait_time,
+                                                   inventory_skew_enabled=inventory_skew_enabled,
+                                                   inventory_target_base_percent=inventory_target_base_percent,
                                                    logging_options=strategy_logging_options)
     except Exception as e:
         self._notify(str(e))

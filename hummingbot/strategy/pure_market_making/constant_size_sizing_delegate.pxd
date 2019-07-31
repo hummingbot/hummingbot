@@ -6,3 +6,4 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
         double _order_size
         bint _log_warning_order_size
         bint _log_warning_balance
+        double _inventory_target_base_percent
