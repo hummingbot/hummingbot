@@ -46,8 +46,8 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
         cdef:
             MarketBase market = market_info.market
             object buy_fees
-            double base_asset_balance = market.c_get_balance(market_info.base_asset)
-            double quote_asset_balance = market.c_get_balance(market_info.quote_asset)
+            double base_asset_balance = market.c_get_available_balance(market_info.base_asset)
+            double quote_asset_balance = market.c_get_available_balance(market_info.quote_asset)
             double base_asset_usd_value
             double quote_asset_usd_value
             object total_base_asset_usd_value
@@ -135,8 +135,10 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
         for active_order in active_orders:
             if active_order.is_buy:
                 has_active_bid = True
+                quote_asset_balance += float(active_order.quantity) * float(active_order.price)
             else:
                 has_active_ask = True
+                base_asset_balance += float(active_order.quantity)
 
         if self._log_warning_balance:
             if quote_asset_balance < required_quote_asset_balance:
