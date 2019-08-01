@@ -35,7 +35,6 @@ from .order_pricing_delegate cimport OrderPricingDelegate
 from .order_pricing_delegate import OrderPricingDelegate
 from .order_sizing_delegate cimport OrderSizingDelegate
 from .order_sizing_delegate import OrderSizingDelegate
-from .pass_through_filter_delegate import PassThroughFilterDelegate
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -73,18 +72,14 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             s_logger = logging.getLogger(__name__)
         return s_logger
 
-    def __init__(self, market_infos: List[MarketSymbolPair],
-                 filter_delegate: Optional[OrderFilterDelegate] = None,
-                 pricing_delegate: Optional[OrderPricingDelegate] = None,
-                 sizing_delegate: Optional[OrderSizingDelegate] = None,
+    def __init__(self,
+                 market_infos: List[MarketSymbolPair],
+                 filter_delegate: OrderFilterDelegate,
+                 pricing_delegate: OrderPricingDelegate,
+                 sizing_delegate: OrderSizingDelegate,
                  cancel_order_wait_time: float = 60,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
-                 legacy_order_size: float = 1.0,
-                 legacy_bid_spread: float = 0.01,
-                 legacy_ask_spread: float = 0.01,
-                 inventory_skew_enabled: bool = False,
-                 inventory_target_base_percent: Optional[float] = None,
                  status_report_interval: float = 900):
 
         if len(market_infos) < 1:
@@ -104,15 +99,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
 
-        if filter_delegate is None:
-            filter_delegate = PassThroughFilterDelegate()
-        if pricing_delegate is None:
-            pricing_delegate = ConstantSpreadPricingDelegate(legacy_bid_spread, legacy_ask_spread)
-        if sizing_delegate is None:
-            sizing_delegate = ConstantSizeSizingDelegate(
-                legacy_order_size,
-                inventory_target_base_percent if inventory_skew_enabled else None
-            )
 
         self._filter_delegate = filter_delegate
         self._pricing_delegate = pricing_delegate

@@ -6,11 +6,14 @@ from typing import (
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.strategy.pure_market_making import (
     PureMarketMakingStrategyV2,
+    PassThroughFilterDelegate,
+    ConstantSpreadPricingDelegate,
     ConstantMultipleSpreadPricingDelegate,
+    ConstantSizeSizingDelegate,
     StaggeredMultipleSizeSizingDelegate,
+    InventorySkewSingleSizeSizingDelegate
 )
 from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map
-
 
 def start(self):
     try:
@@ -27,9 +30,10 @@ def start(self):
         raw_maker_symbol = pure_market_making_config_map.get("maker_market_symbol").value.upper()
         inventory_skew_enabled = pure_market_making_config_map.get("inventory_skew_enabled").value
         inventory_target_base_percent = pure_market_making_config_map.get("inventory_target_base_percent").value
+
+        filter_delegate = PassThroughFilterDelegate()
         pricing_delegate = None
         sizing_delegate = None
-
         if mode == "multiple":
             pricing_delegate = ConstantMultipleSpreadPricingDelegate(bid_place_threshold,
                                                                      ask_place_threshold,
@@ -38,6 +42,12 @@ def start(self):
             sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size,
                                                                   order_step_size,
                                                                   number_of_orders)
+        elif mode == "single" and inventory_skew_enabled:
+            pricing_delegate = ConstantSpreadPricingDelegate(bid_place_threshold, ask_place_threshold)
+            sizing_delegate = InventorySkewSingleSizeSizingDelegate(order_size, inventory_target_base_percent)
+        else:
+            pricing_delegate = ConstantSpreadPricingDelegate(bid_place_threshold, ask_place_threshold)
+            sizing_delegate = ConstantSizeSizingDelegate(order_size)
 
         try:
             maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_symbol])[0]
@@ -57,14 +67,10 @@ def start(self):
         strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
 
         self.strategy = PureMarketMakingStrategyV2(market_infos=[MarketSymbolPair(*maker_data)],
+                                                   filter_delegate=filter_delegate,
                                                    pricing_delegate=pricing_delegate,
                                                    sizing_delegate=sizing_delegate,
-                                                   legacy_order_size=order_size,
-                                                   legacy_bid_spread=bid_place_threshold,
-                                                   legacy_ask_spread=ask_place_threshold,
                                                    cancel_order_wait_time=cancel_order_wait_time,
-                                                   inventory_skew_enabled=inventory_skew_enabled,
-                                                   inventory_target_base_percent=inventory_target_base_percent,
                                                    logging_options=strategy_logging_options)
     except Exception as e:
         self._notify(str(e))

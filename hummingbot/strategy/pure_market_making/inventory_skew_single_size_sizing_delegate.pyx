@@ -18,11 +18,12 @@ from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
 s_logger = None
 s_decimal_0 = Decimal(0)
 
-cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
+cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
 
-    def __init__(self, order_size: float):
+    def __init__(self, order_size: float, inventory_target_base_percent: Optional[float] = None):
         super().__init__()
         self._order_size = order_size
+        self._inventory_target_base_percent = inventory_target_base_percent
         self._log_warning_order_size = True
         self._log_warning_balance = True
 
@@ -47,8 +48,18 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
             object buy_fees
             double base_asset_balance = market.c_get_available_balance(market_info.base_asset)
             double quote_asset_balance = market.c_get_available_balance(market_info.quote_asset)
-            object bid_order_size = self._order_size
-            object ask_order_size = self._order_size
+            double base_asset_usd_value
+            double quote_asset_usd_value
+            object total_base_asset_usd_value
+            object total_quote_asset_usd_value
+            object current_base_percent
+            object current_quote_percent
+            object target_base_percent
+            object target_quote_percent
+            object current_target_base_ratio
+            object current_target_quote_ratio
+            object bid_order_size = Decimal(self._order_size)
+            object ask_order_size = Decimal(self._order_size)
             object quantized_bid_order_size
             object quantized_ask_order_size
             bint has_active_bid = False
@@ -62,6 +73,27 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
             else:
                 has_active_ask = True
                 base_asset_balance += float(active_order.quantity)
+
+        if self._inventory_target_base_percent is not None:
+            base_asset_usd_value = ExchangeRateConversion.get_instance().exchange_rate.get(market_info.base_asset, float("nan"))
+            quote_asset_usd_value = ExchangeRateConversion.get_instance().exchange_rate.get(market_info.quote_asset, float("nan"))    
+            if not math.isnan(base_asset_usd_value) and not math.isnan(quote_asset_usd_value):
+                total_base_asset_usd_value = Decimal(base_asset_balance) * Decimal(base_asset_usd_value)
+                total_quote_asset_usd_value = Decimal(quote_asset_balance) * Decimal(quote_asset_usd_value)
+                current_base_percent = total_base_asset_usd_value / (total_base_asset_usd_value + total_quote_asset_usd_value)
+                current_quote_percent = total_quote_asset_usd_value / (total_base_asset_usd_value + total_quote_asset_usd_value)
+                target_base_percent = Decimal(str(self._inventory_target_base_percent))
+                target_quote_percent = 1 - target_base_percent
+                current_target_base_ratio = current_base_percent / target_base_percent
+                current_target_quote_ratio = current_quote_percent / target_quote_percent
+                if current_target_base_ratio > 1:
+                    current_target_base_ratio = 2 - current_target_quote_ratio
+                else:
+                    current_target_quote_ratio = 2 - current_target_base_ratio
+                bid_order_size *= current_target_quote_ratio
+                ask_order_size *= current_target_base_ratio
+            else:
+                self.logger().error(f"Unable to use inventory target base percent. Failed to get exchange rate conversions for currencies.")
 
         if market.name == "binance":
             quantized_bid_order_size = market.c_quantize_order_amount(market_info.trading_pair,
@@ -124,6 +156,16 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
         # Reset warning flag for order size if both order sizes are greater than zero
         if quantized_bid_order_size > 0 and quantized_ask_order_size > 0:
             self._log_warning_order_size = True
+        if quote_asset_balance >= required_quote_asset_balance and not has_active_bid:
+            print('*** current_quote_percent', current_quote_percent)
+            print('*** current_target_quote_ratio', current_target_quote_ratio)
+            print('*** adjustment_quote_ratio', current_target_quote_ratio)
+            print('*** adjusted bid_order_size', bid_order_size, quantized_bid_order_size)
+        if base_asset_balance >= quantized_ask_order_size and not has_active_ask:
+            print('*** current_base_percent', current_base_percent)
+            print('*** current_target_base_ratio', current_target_base_ratio)
+            print('*** adjustment_base_ratio', current_target_base_ratio)
+            print('*** adjusted ask_order_size', ask_order_size, quantized_ask_order_size)
 
         return SizingProposal(
             ([quantized_bid_order_size]
