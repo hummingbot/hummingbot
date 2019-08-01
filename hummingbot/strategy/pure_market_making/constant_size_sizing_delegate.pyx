@@ -84,7 +84,7 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
 
             required_quote_asset_balance = (float(pricing_proposal.buy_order_prices[0]) *
                                             (1.0 + float(buy_fees.percent)) *
-                                            quantized_bid_order_size)
+                                            float(quantized_bid_order_size))
 
         if self._log_warning_order_size:
             if quantized_bid_order_size == s_decimal_0:

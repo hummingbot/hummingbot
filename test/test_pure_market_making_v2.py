@@ -113,18 +113,18 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.multi_order_equal_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
             filter_delegate=self.filter_delegate,
-            cancel_order_wait_time=45,
-            sizing_delegate=self.equal_strategy_sizing_delegate,
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
+            sizing_delegate=self.equal_strategy_sizing_delegate,
+            cancel_order_wait_time=45,
             logging_options=logging_options
         )
 
         self.multi_order_staggered_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
             filter_delegate=self.filter_delegate,
-            cancel_order_wait_time=45,
-            sizing_delegate=self.staggered_strategy_sizing_delegate,
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
+            sizing_delegate=self.staggered_strategy_sizing_delegate,
+            cancel_order_wait_time=45,
             logging_options=logging_options
         )
 
@@ -233,9 +233,9 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
     def test_correct_price_correct_size(self):
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
-        self.assertEqual(self.mid_price*(1 + self.ask_threshold),
+        self.assertEqual(self.mid_price * (1 + self.ask_threshold),
                          self.strategy.active_asks[0][1].price)
-        self.assertEqual(self.mid_price*(1 - self.bid_threshold),
+        self.assertEqual(self.mid_price * (1 - self.bid_threshold),
                          self.strategy.active_bids[0][1].price)
         self.assertEqual(1, self.strategy.active_bids[0][1].quantity)
         self.assertEqual(1, self.strategy.active_asks[0][1].quantity)
