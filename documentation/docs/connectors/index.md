@@ -10,16 +10,21 @@ This section contains information about official connectors for individual excha
 
 Connectors are packages of code that link Hummingbot's internal trading algorithms with live information from different cryptocurrency exchanges. They interact with a given exchange's API, such as by gathering order book data and sending and cancelling trades. See below for the list of exchanges which Hummingbot currently has connectors to.
 
-## Currently Supported Exchanges
+## Hummingbot-Supported Connectors
+
+### Centralized Exchanges
 
 * [Binance](/connectors/binance)
 * [Coinbase Pro](/connectors/coinbase)
+
+### Decentralized Exchanges
+
 * [DDEX](/connectors/ddex)
 * [IDEX](/connectors/IDEX)
 * [Radar Relay](/connectors/radar-relay)
 * [0x Relayers](/connectors/0x)
 
-## Community Contributed Connectors
+## Community-Contributed Connectors
 
 * [Bamboo Relay](/connectors/bamboo-relay)
 
