@@ -461,7 +461,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         if buy_fill_quantity > 0:
             hedged_order_quantity = min(
                 buy_fill_quantity,
-                taker_market.c_get_balance(market_pair.taker.base_asset) * self._order_size_taker_balance_factor
+                (taker_market.c_get_available_balance(market_pair.taker.base_asset) *
+                 self._order_size_taker_balance_factor)
             )
             quantized_hedge_amount = taker_market.c_quantize_order_amount(taker_symbol, hedged_order_quantity)
             taker_top = taker_market.c_get_price(taker_symbol, False)
@@ -490,7 +491,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         if sell_fill_quantity > 0:
             hedged_order_quantity = min(
                 sell_fill_quantity,
-                (taker_market.c_get_balance(market_pair.taker.quote_asset) /
+                (taker_market.c_get_available_balance(market_pair.taker.quote_asset) /
                  taker_order_book.c_get_price_for_volume(True, sell_fill_quantity).result_price *
                  self._order_size_taker_balance_factor)
             )
@@ -773,8 +774,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             next_price = (round(Decimal(top_bid_price) / price_quantum) + 1) * price_quantum
 
             # Calculate the order size limit from maker and taker market balances.
-            maker_balance_size_limit = maker_market.c_get_balance(market_pair.maker.quote_asset) / float(next_price)
-            taker_balance_size_limit = (taker_market.c_get_balance(market_pair.taker.base_asset) *
+            maker_balance_size_limit = (maker_market.c_get_available_balance(market_pair.maker.quote_asset) /
+                                        float(next_price))
+            taker_balance_size_limit = (taker_market.c_get_available_balance(market_pair.taker.base_asset) *
                                         self._order_size_taker_balance_factor)
 
             # Convert the proposed maker order price to the equivalent price on the taker market.
@@ -808,8 +810,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             next_price = (round(Decimal(top_ask_price) / price_quantum) - 1) * price_quantum
 
             # Calculate the order size limit from maker and taker market balances.
-            maker_balance_size_limit = maker_market.c_get_balance(market_pair.maker.base_asset)
-            taker_balance_size_limit = (taker_market.c_get_balance(market_pair.taker.quote_asset) /
+            maker_balance_size_limit = maker_market.c_get_available_balance(market_pair.maker.base_asset)
+            taker_balance_size_limit = (taker_market.c_get_available_balance(market_pair.taker.quote_asset) /
                                         float(next_price) *
                                         self._order_size_taker_balance_factor)
 
