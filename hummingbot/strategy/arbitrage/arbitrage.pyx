@@ -302,6 +302,25 @@ cdef class ArbitrageStrategy(StrategyBase):
                                                   sell_market_quote_asset)
 
 
+    cdef double c_sum_flat_fees(self, str quote_asset, list flat_fees):
+        """
+        Converts flat fees to quote token and sums up all flat fees 
+        """
+        cdef:
+            double total_flat_fees = 0.0
+
+        for flat_fee_currency, flat_fee_amount in flat_fees:
+            if flat_fee_currency == quote_asset:
+                total_flat_fees += flat_fee_amount
+            else:
+                # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
+                total_flat_fees += ExchangeRateConversion.get_instance().convert_token_value(
+                    amount=flat_fee_amount,
+                    from_currency=flat_fee_currency,
+                    to_currency=quote_asset
+                )
+        return total_flat_fees
+
     cdef tuple c_find_best_profitable_amount(self, object buy_market_symbol_pair, object sell_market_symbol_pair):
         cdef:
             double total_bid_value = 0 # total revenue
@@ -319,6 +338,8 @@ cdef class ArbitrageStrategy(StrategyBase):
             double quantized_profitable_base_amount
             double net_sell_proceeds
             double net_buy_costs
+            double buy_market_quote_balance
+            double sell_market_base_balance
             MarketBase buy_market = buy_market_symbol_pair.market
             MarketBase sell_market = sell_market_symbol_pair.market
             OrderBook buy_order_book = buy_market_symbol_pair.order_book
@@ -354,27 +375,9 @@ cdef class ArbitrageStrategy(StrategyBase):
                 bid_price
             )
             # accumulated flat fees of exchange
-            total_buy_flat_fees = 0.0
-            total_sell_flat_fees = 0.0
-            for buy_flat_fee_asset, buy_flat_fee_amount in buy_fee.flat_fees:
-                if buy_flat_fee_asset == buy_market_symbol_pair.quote_asset:
-                    total_buy_flat_fees += buy_flat_fee_amount
-                else:
-                    # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
-                    total_buy_flat_fees += ExchangeRateConversion.get_instance().convert_token_value(
-                        amount=buy_flat_fee_amount,
-                        from_currency=buy_flat_fee_asset,
-                        to_currency=buy_market_symbol_pair.quote_asset
-                    )
-            for sell_flat_fee_asset, sell_flat_fee_amount in sell_fee.flat_fees:
-                if sell_flat_fee_asset == sell_market_symbol_pair.quote_asset:
-                    total_sell_flat_fees += sell_flat_fee_amount
-                else:
-                    total_sell_flat_fees += ExchangeRateConversion.get_instance().convert_token_value(
-                        amount=sell_flat_fee_amount,
-                        from_currency=sell_flat_fee_asset,
-                        to_currency=sell_market_symbol_pair.quote_asset
-                    )
+            total_buy_flat_fees = self.c_sum_flat_fees(buy_market_symbol_pair.quote_asset, buy_fee.flat_fees)
+            total_sell_flat_fees = self.c_sum_flat_fees(sell_market_symbol_pair.quote_asset, sell_fee.flat_fees)
+
             # accumulated profitability with fees
             total_bid_value_adjusted += bid_price_adjusted * amount
             total_ask_value_adjusted += ask_price_adjusted * amount
@@ -392,10 +395,11 @@ cdef class ArbitrageStrategy(StrategyBase):
                 self.log_with_clock(logging.DEBUG, f"Total profitability with fees: {profitability}, "
                                                    f"Current step profitability: {bid_price/ask_price},"
                                                    f"bid, ask price, amount: {bid_price, ask_price, amount}")
-
+            buy_market_quote_balance = buy_market.c_get_available_balance(buy_market_symbol_pair.quote_asset)
+            sell_market_base_balance = sell_market.c_get_available_balance(sell_market_symbol_pair.base_asset)
             # stop current step if buy/sell market does not have enough asset
-            if buy_market_symbol_pair.quote_balance < net_buy_costs or \
-                    sell_market_symbol_pair.base_balance < (total_previous_step_base_amount + amount):
+            if buy_market_quote_balance < net_buy_costs or \
+                    sell_market_base_balance < (total_previous_step_base_amount + amount):
                 # use previous step as best profitable order if below min profitability
                 if profitability < (1 + self._min_profitability):
                     break
@@ -403,15 +407,15 @@ cdef class ArbitrageStrategy(StrategyBase):
                     self.log_with_clock(logging.DEBUG,
                                     f"Not enough asset to complete this step. "
                                     f"Quote asset needed: {total_ask_value + ask_price * amount}. "
-                                    f"Quote asset balance: {buy_market_symbol_pair.quote_balance}. "
+                                    f"Quote asset available balance: {buy_market_quote_balance}. "
                                     f"Base asset needed: {total_bid_value + bid_price * amount}. "
-                                    f"Base asset balance: {sell_market_symbol_pair.base_balance}. ")
+                                    f"Base asset available balance: {sell_market_base_balance}. ")
 
                 # market buys need to be adjusted to account for additional fees
-                buy_market_adjusted_order_size = (buy_market_symbol_pair.quote_balance / ask_price - total_buy_flat_fees)\
+                buy_market_adjusted_order_size = (buy_market_quote_balance / ask_price - total_buy_flat_fees)\
                                                  / (1 + buy_fee.percent)
                 # buy and sell with the amount of available base or quote asset, whichever is smaller
-                best_profitable_order_amount = min(sell_market_symbol_pair.base_balance, buy_market_adjusted_order_size)
+                best_profitable_order_amount = min(sell_market_base_balance, buy_market_adjusted_order_size)
                 best_profitable_order_profitability = profitability
                 break
 
