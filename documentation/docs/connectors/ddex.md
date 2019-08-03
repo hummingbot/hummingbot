@@ -13,9 +13,52 @@ Because DDEX is a decentralized exchange, you will need an independent cryptocur
 
 ## Miscellaneous Info
 
-### Minimum Order Sizes
+### Minimum Order Size
 
-Although it is difficult to find a compilation of minimum order sizes on DDEX, they tend to range between $15 to $20. You can verify minimum order sizes for individual coin pairs by going to DDEX and attempting to place a very small order (e.g. <$0.10).
+Minimum order sizes on DDEX typically range between $15 to $20.
+
+Each trading pair has a unique minimum order size denominated in the *base currency*.  You can access the minimum order size for a specific token pair using the following URL:
+
+```
+https://api.ddex.io/v3/markets/:marketId
+```
+
+For example, for `WETH-DAI`, navigate to: [https://api.ddex.io/v3/markets/**`WETH-DAI`**](https://api.ddex.io/v3/markets/WETH-DAI).
+
+Sample output:
+
+```
+{
+  "status": 0,
+  "desc": "success",
+  "data": {
+    "market": {
+      "id": "WETH-DAI",
+      "baseToken": "WETH",
+      "baseTokenProjectUrl": "https://weth.io/",
+      "baseTokenName": "Wrapped Ether",
+      "baseTokenDecimals": 18,
+      "baseTokenAddress": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "baseTokenDisplaySymbol": null,
+      "quoteToken": "DAI",
+      "quoteTokenDecimals": 18,
+      "quoteTokenAddress": "0x89d24a6b4ccb1b6faa2625fe562bdd9a23260359",
+      "quoteTokenDisplaySymbol": null,
+      "minOrderSize": "0.050000000000000000", <== ** MINIMUM ORDER SIZE **
+      "pricePrecision": 5,
+      "priceDecimals": 2,
+      "amountDecimals": 2,
+      "asMakerFeeRate": "0.00100",
+      "asTakerFeeRate": "0.00300",
+      "gasFeeAmount": "0.3295179490594733939",
+      "supportedOrderTypes": ["limit", "market"],
+      "marketOrderMaxSlippage": "0.10000"
+    }
+  }
+}
+```
+
+In this example, the minimum order size is 0.5 WETH.
 
 ### Transaction Fees
 
