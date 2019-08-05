@@ -63,7 +63,8 @@ Payouts occur approximately one week after the end of each period. All rewards w
 
 - [The Vision and Mission](https://medium.com/harmony-one/one-maker-initiative-stronger-one-by-every-one-429ab7bfcacd)
 - [Quick Start Video Guide](https://www.youtube.com/watch?v=wySYAPbHRwQ&list=PLDwlNkL_4MMczSzZiomX5wFFuF40z-KLl&index=5&t=19s)
-- [Bounty Tutorial](/bounties/tutorial/tutorial)
+- [Register for Bounties](/quickstart/2-configure-bot/#step-2-register-for-liquidity-bounties-optional)
+- [Bounties FAQs](/bounties/faq/)
 
 ---
 ## Important Disclaimer
