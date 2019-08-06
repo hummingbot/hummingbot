@@ -11,9 +11,11 @@ from hummingbot.strategy.pure_market_making import (
     ConstantMultipleSpreadPricingDelegate,
     ConstantSizeSizingDelegate,
     StaggeredMultipleSizeSizingDelegate,
-    InventorySkewSingleSizeSizingDelegate
+    InventorySkewSingleSizeSizingDelegate,
+    InventorySkewMultipleSizeSizingDelegate
 )
 from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map
+
 
 def start(self):
     try:
@@ -35,13 +37,20 @@ def start(self):
         pricing_delegate = None
         sizing_delegate = None
         if mode == "multiple":
+            if inventory_skew_enabled:
+                sizing_delegate = InventorySkewMultipleSizeSizingDelegate(order_start_size,
+                                                                          order_step_size,
+                                                                          number_of_orders,
+                                                                          inventory_target_base_percent)
+            else:
+                sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size,
+                                                                      order_step_size,
+                                                                      number_of_orders)
+
             pricing_delegate = ConstantMultipleSpreadPricingDelegate(bid_place_threshold,
                                                                      ask_place_threshold,
                                                                      order_interval_percent,
                                                                      number_of_orders)
-            sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size,
-                                                                  order_step_size,
-                                                                  number_of_orders)
         elif mode == "single" and inventory_skew_enabled:
             pricing_delegate = ConstantSpreadPricingDelegate(bid_place_threshold, ask_place_threshold)
             sizing_delegate = InventorySkewSingleSizeSizingDelegate(order_size, inventory_target_base_percent)
