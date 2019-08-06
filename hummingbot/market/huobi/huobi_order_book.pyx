@@ -27,6 +27,35 @@ cdef class HuobiOrderBook(OrderBook):
         return _hob_logger
 
     @classmethod
+    def snapshot_message_from_exchange(cls,
+                                       msg: Dict[str, any],
+                                       timestamp: float,
+                                       metadata: Optional[Dict] = None) -> OrderBookMessage:
+        if metadata:
+            msg.update(metadata)
+        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
+            "symbol": msg["symbol"],
+            "update_id": int(timestamp),
+            "bids": msg["tick"]["bids"],
+            "asks": msg["tick"]["asks"]
+        }, timestamp=timestamp)
+
+    @classmethod
+    def diff_message_from_exchange(cls,
+                                   msg: Dict[str, any],
+                                   timestamp: Optional[float] = None,
+                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+        if metadata:
+            msg.update(metadata)
+        msg_time = int(msg["ts"])
+        return OrderBookMessage(OrderBookMessageType.DIFF, {
+            "symbol": msg["ch"].split(".")[1],
+            "update_id": msg_time,
+            "bids": msg["tick"]["bids"],
+            "asks": msg["tick"]["asks"]
+        }, timestamp=timestamp or msg_time)
+
+    @classmethod
     def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
         ts = record["timestamp"]
         msg = record["json"] if type(record["json"])==dict else ujson.loads(record["json"])

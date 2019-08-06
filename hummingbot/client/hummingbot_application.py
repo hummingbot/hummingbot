@@ -26,6 +26,7 @@ from hummingbot.market.market_base import MarketBase
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
+from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
@@ -67,6 +68,7 @@ MARKET_CLASSES = {
     "idex": IDEXMarket,
     "ddex": DDEXMarket,
     "radar_relay": RadarRelayMarket,
+    "huobi": HuobiMarket,
 }
 
 
@@ -252,6 +254,15 @@ class HummingbotApplication(*commands):
                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                        symbols=symbols,
                                        trading_required=self._trading_required)
+
+            elif market_name == "huobi":
+                huobi_api_key = global_config_map.get("huobi_api_key").value
+                huobi_api_secret = global_config_map.get("huobi_api_secret").value
+                market = HuobiMarket(huobi_api_key,
+                                     huobi_api_secret,
+                                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                     symbols=symbols,
+                                     trading_required=self._trading_required)
 
             elif market_name == "radar_relay" and self.wallet:
                 market = RadarRelayMarket(wallet=self.wallet,
