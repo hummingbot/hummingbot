@@ -53,8 +53,8 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
                                           object pricing_proposal):
         cdef:
             MarketBase market = market_info.market
-            double base_asset_balance = market.c_get_balance(market_info.base_asset)
-            double quote_asset_balance = market.c_get_balance(market_info.quote_asset)
+            double base_asset_balance = market.c_get_available_balance(market_info.base_asset)
+            double quote_asset_balance = market.c_get_available_balance(market_info.quote_asset)
             double required_quote_asset_balance = 0
             double required_base_asset_balance = 0
             list buy_orders = []
@@ -65,8 +65,10 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
         for active_order in active_orders:
             if active_order.is_buy:
                 has_active_bid = True
+                quote_asset_balance += float(active_order.quantity) * float(active_order.price)
             else:
                 has_active_ask = True
+                base_asset_balance += float(active_order.quantity)
 
 
         for idx in range(self.number_of_orders):
