@@ -127,6 +127,7 @@ nav:
         - DDEX: connectors/ddex.md
         - IDEX: connectors/idex.md
         - Radar Relay: connectors/radar-relay.md
+        - Bamboo Relay: connectors/bamboo-relay.md
         - 0x Relayers: connectors/0x.md
       - Strategies:
         - Strategies Overview: strategies/index.md
