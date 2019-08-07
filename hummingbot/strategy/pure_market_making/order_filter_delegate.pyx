@@ -21,10 +21,9 @@ cdef class OrderFilterDelegate:
     def filter_orders_proposal(self,
                                strategy: PureMarketMakingStrategyV2,
                                market_info: MarketSymbolPair,
-                               active_orders: List[LimitOrder],
                                orders_proposal: OrdersProposal
                                ):
-        return self.c_filter_orders_proposal(strategy, market_info, active_orders, orders_proposal)
+        return self.c_filter_orders_proposal(strategy, market_info, orders_proposal)
     # ---------------------------------------------------------------
 
     cdef bint c_should_proceed_with_processing(self,

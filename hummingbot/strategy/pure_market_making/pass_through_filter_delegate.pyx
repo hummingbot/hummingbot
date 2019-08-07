@@ -1,7 +1,17 @@
 from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
+from .data_types import ORDER_PROPOSAL_ACTION_CREATE_ORDERS
 
 
 cdef class PassThroughFilterDelegate(OrderFilterDelegate):
+
+    def __init__(self, order_placing_timestamp: float):
+        super().__init__()
+        self._order_placing_timestamp = order_placing_timestamp
+
+    @property
+    def order_placing_timestamp(self) -> float:
+        return self._order_placing_timestamp
+
     cdef bint c_should_proceed_with_processing(self,
                                                PureMarketMakingStrategyV2 strategy,
                                                object market_info,
@@ -12,4 +22,20 @@ cdef class PassThroughFilterDelegate(OrderFilterDelegate):
                                          PureMarketMakingStrategyV2 strategy,
                                          object market_info,
                                          object orders_proposal):
-        return orders_proposal
+        cdef:
+            int64_t actions = orders_proposal.actions
+
+        current_timestamp = strategy._current_timestamp
+        if current_timestamp > self._order_placing_timestamp:
+            return orders_proposal
+        else:
+            if actions & ORDER_PROPOSAL_ACTION_CREATE_ORDERS:
+                # set actions to not create orders
+                orders_proposal.actions = actions & 1 << 1
+                # if orders_proposal.buy_order_sizes[0] > 0:
+                #     orders_proposal.buy_order_sizes[0] = 0
+                #
+                # if orders_proposal.sell_order_sizes[0] > 0:
+                #     orders_proposal.sell_order_sizes[0] = 0
+
+            return orders_proposal
