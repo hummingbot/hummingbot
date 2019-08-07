@@ -79,6 +79,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  pricing_delegate: Optional[OrderPricingDelegate] = None,
                  sizing_delegate: Optional[OrderSizingDelegate] = None,
                  cancel_order_wait_time: float = 60,
+                 filled_order_replenish_wait_time: float = 10,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
                  legacy_order_size: float = 1.0,
@@ -97,6 +98,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         }
         self._all_markets_ready = False
         self._cancel_order_wait_time = cancel_order_wait_time
+        self._filled_order_replenish_wait_time = filled_order_replenish_wait_time
 
         self._time_to_cancel = {}
 
@@ -105,7 +107,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._status_report_interval = status_report_interval
 
         if filter_delegate is None:
-            filter_delegate = PassThroughFilterDelegate()
+            filter_delegate = PassThroughFilterDelegate(self._current_timestamp)
         if pricing_delegate is None:
             pricing_delegate = ConstantSpreadPricingDelegate(legacy_bid_spread, legacy_ask_spread)
         if sizing_delegate is None:
@@ -277,7 +279,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     self.logger().error("Unknown error while generating order proposals.", exc_info=True)
                 finally:
                     self._sb_delegate_lock = False
-                self.c_execute_orders_proposal(market_info, orders_proposal)
+                filtered_proposal = self._filter_delegate.c_filter_orders_proposal(self,
+                                                                                      market_info,
+                                                                                      orders_proposal)
+                self.c_execute_orders_proposal(market_info, filtered_proposal)
         finally:
             self._last_timestamp = timestamp
 
@@ -357,6 +362,19 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
             LimitOrder limit_order_record
 
+        if self.sizing_delegate.name == "constant_size":
+            #Set the replenish time as current_timestamp + order replenish time
+            replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
+
+            # if filled order is buy, adjust the cancel time for sell order
+            for _, ask_order in self.active_asks:
+                order_id = ask_order.client_order_id
+                if order_id in self._time_to_cancel:
+                    #cancel time is minimum of current cancel time and replenish time to sync up both
+                    self._time_to_cancel[order_id] = min(self._time_to_cancel[order_id], replenish_time_stamp)
+
+            self.filter_delegate.order_placing_timestamp = replenish_time_stamp
+
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
             self.log_with_clock(
@@ -371,6 +389,19 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             str order_id = order_completed_event.order_id
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
             LimitOrder limit_order_record
+
+        if self.sizing_delegate.name == "constant_size":
+            #Set the replenish time as current_timestamp + order replenish time
+            replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
+
+            # if filled order is sell, adjust the cancel time for sell order
+            for _, bid_order in self.active_bids:
+                order_id = bid_order.client_order_id
+                if order_id in self._time_to_cancel:
+                    #cancel time is minimum of current cancel time and replenish time to sync up both
+                    self._time_to_cancel[order_id] = min(self._time_to_cancel[order_id], replenish_time_stamp)
+
+            self.filter_delegate.order_placing_timestamp = replenish_time_stamp
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
