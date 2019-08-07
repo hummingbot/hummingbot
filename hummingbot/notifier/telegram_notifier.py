@@ -33,7 +33,8 @@ from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 
 
 DISABLED_COMMANDS = {
-    "bounty",               # disabled because it requires additional logic in the ui
+    "bounty --restore-id",  # disabled because it requires additional logic in the ui
+    "bounty --register",    # disabled because it requires additional logic in the ui
     "config",               # disabled because it requires additional logic in the ui
     "export_private_key",   # disabled for security
 }
@@ -116,7 +117,7 @@ class TelegramNotifier(NotifierBase):
             self._hb.app.log(output)
 
             # if the command does starts with any disabled commands
-            if any([input_text.startswith(dc) for dc in DISABLED_COMMANDS]):
+            if any([input_text.lower().startswith(dc) for dc in DISABLED_COMMANDS]):
                 self.add_msg_to_queue(f"Command {input_text} is disabled from telegram")
             else:
                 await self._ev_loop.run_in_executor(
