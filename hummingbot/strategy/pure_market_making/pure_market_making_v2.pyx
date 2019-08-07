@@ -163,7 +163,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         return self._sizing_delegate
 
     @property
-    def sb_order_tracker(self):
+    def order_tracker(self):
         return self._sb_order_tracker
 
     def format_status(self) -> str:
@@ -206,9 +206,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
     def cancel_order(self, market_info: MarketSymbolPair, order_id:str):
         return self.c_cancel_order(market_info, order_id)
-
-    def stop_order_tracking(self, market_info:MarketSymbolPair, order_id:str):
-        return self._sb_order_tracker.c_stop_tracking_limit_order(market_info, order_id)
 
     def get_order_price_proposal(self, market_info: MarketSymbolPair) -> PricingProposal:
         active_orders = []
