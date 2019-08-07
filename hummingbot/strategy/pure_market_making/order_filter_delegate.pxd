@@ -9,5 +9,4 @@ cdef class OrderFilterDelegate:
     cdef object c_filter_orders_proposal(self,
                                          PureMarketMakingStrategyV2 strategy,
                                          object market_info,
-                                         list active_orders,
                                          object orders_proposal)
