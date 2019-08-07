@@ -29,6 +29,7 @@ from .data_types import (
     PricingProposal,
     SizingProposal
 )
+from .pure_market_making_order_tracker import PureMarketMakingOrderTracker
 from .order_filter_delegate cimport OrderFilterDelegate
 from .order_filter_delegate import OrderFilterDelegate
 from .order_pricing_delegate cimport OrderPricingDelegate
@@ -89,6 +90,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             raise ValueError(f"market_infos must not be empty.")
 
         super().__init__()
+        self._sb_order_tracker = PureMarketMakingOrderTracker()
         self._market_infos = {
             (market_info.market, market_info.trading_pair): market_info
             for market_info in market_infos
@@ -159,6 +161,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     @property
     def sizing_delegate(self) -> OrderSizingDelegate:
         return self._sizing_delegate
+
+    @property
+    def order_tracker(self):
+        return self._sb_order_tracker
 
     def format_status(self) -> str:
         cdef:
