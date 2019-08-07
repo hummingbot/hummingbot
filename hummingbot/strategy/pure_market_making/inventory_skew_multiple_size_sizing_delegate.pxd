@@ -6,5 +6,3 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
         double _order_start_size
         int _number_of_orders
         double _inventory_target_base_percent
-        bint _log_warning_order_size
-        bint _log_warning_balance

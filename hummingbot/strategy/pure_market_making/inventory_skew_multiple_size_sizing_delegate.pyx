@@ -6,10 +6,9 @@ from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import MarketBase
 from hummingbot.core.event.events import (
     OrderType,
-    TradeType,
+    TradeType
 )
 from hummingbot.logger import HummingbotLogger
-
 from .data_types import SizingProposal
 from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
 
@@ -20,16 +19,14 @@ s_decimal_0 = Decimal(0)
 cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
     def __init__(self,
                  order_start_size: float,
-                 order_step_size:float,
-                 number_of_orders:int,
+                 order_step_size: float,
+                 number_of_orders: int,
                  inventory_target_base_percent: Optional[float] = None):
         super().__init__()
         self._order_start_size = order_start_size
         self._order_step_size = order_step_size
         self._number_of_orders = number_of_orders
         self._inventory_target_base_percent = inventory_target_base_percent
-        self._log_warning_order_size = True
-        self._log_warning_balance = True
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -58,10 +55,11 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
         cdef:
             MarketBase market = market_info.market
             str trading_pair = market_info.trading_pair
-            double base_asset_balance = market.c_get_available_balance(market_info.base_asset)
-            double quote_asset_balance = market.c_get_available_balance(market_info.quote_asset)
-            double required_quote_asset_balance = 0
-            double required_base_asset_balance = 0
+            object base_asset_balance = Decimal(market.c_get_available_balance(market_info.base_asset))
+            object quote_asset_balance = Decimal(market.c_get_available_balance(market_info.quote_asset))
+            object current_quote_asset_order_size_total = 0
+            object quote_asset_order_size
+            object current_base_asset_order_size_total = 0
             object top_bid_price
             object top_ask_price
             object mid_price
@@ -83,10 +81,13 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
         for active_order in active_orders:
             if active_order.is_buy:
                 has_active_bid = True
-                quote_asset_balance += float(active_order.quantity) * float(active_order.price)
+                quote_asset_balance += active_order.quantity * active_order.price
             else:
                 has_active_ask = True
-                base_asset_balance += float(active_order.quantity)
+                base_asset_balance += active_order.quantity
+
+        if has_active_bid and has_active_ask:
+            return SizingProposal([s_decimal_0], [s_decimal_0])
 
         if self._inventory_target_base_percent is not None:
             top_bid_price = Decimal(market.c_get_price(trading_pair, False))
@@ -105,57 +106,71 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
             else:
                 current_target_quote_ratio = 2 - current_target_base_ratio
 
-
-        for idx in range(self.number_of_orders):
-            current_bid_order_size = Decimal(self.order_start_size + self.order_step_size * idx)
-            current_ask_order_size = Decimal(self.order_start_size + self.order_step_size * idx)
-
-            current_bid_order_size *= current_target_quote_ratio
-            current_ask_order_size *= current_target_base_ratio
-
+        for i in range(self.number_of_orders):
+            current_bid_order_size = Decimal(self.order_start_size + self.order_step_size * i) * current_target_quote_ratio
+            current_ask_order_size = Decimal(self.order_start_size + self.order_step_size * i) * current_target_base_ratio
             if market.name == "binance":
                 # For binance fees is calculated in base token, so need to adjust for that
-                quantized_buy_order_size = market.c_quantize_order_amount(market_info.trading_pair, current_bid_order_size, pricing_proposal.buy_order_prices[idx])
+                quantized_bid_order_size = market.c_quantize_order_amount(
+                    market_info.trading_pair,
+                    current_bid_order_size,
+                    pricing_proposal.buy_order_prices[i]
+                )
                 # Check whether you have enough quote tokens
-                required_quote_asset_balance += (float(quantized_buy_order_size) * float(pricing_proposal.buy_order_prices[idx]))
+                quote_asset_order_size = quantized_bid_order_size * pricing_proposal.buy_order_prices[i]
+                if quote_asset_balance < current_quote_asset_order_size_total + quote_asset_order_size:
+                    quote_asset_order_size = quote_asset_balance - current_quote_asset_order_size_total
+                    bid_order_size = quote_asset_order_size / pricing_proposal.buy_order_prices[i]
+                    quantized_bid_order_size = market.c_quantize_order_amount(
+                        market_info.trading_pair,
+                        bid_order_size,
+                        pricing_proposal.buy_order_prices[i]
+                    )
 
             else:
-                quantized_buy_order_size = market.c_quantize_order_amount(market_info.trading_pair, current_bid_order_size)
-                buy_fees = market.c_get_fee(market_info.base_asset, market_info.quote_asset,
-                        OrderType.MARKET, TradeType.BUY,
-                        current_bid_order_size, pricing_proposal.buy_order_prices[idx])
+                quantized_bid_order_size = market.c_quantize_order_amount(
+                    market_info.trading_pair,
+                    current_bid_order_size
+                )
+                buy_fees = market.c_get_fee( 
+                    market_info.base_asset,
+                    market_info.quote_asset,
+                    OrderType.MARKET,
+                    TradeType.BUY,
+                    quantized_bid_order_size,
+                    pricing_proposal.buy_order_prices[i]
+                )
                 # For other exchanges, fees is calculated in quote tokens, so need to ensure you have enough for order + fees
-                required_quote_asset_balance += (float(quantized_buy_order_size) * float(pricing_proposal.buy_order_prices[idx]) * (1 + float(buy_fees.percent)))
+                quote_asset_order_size = quantized_bid_order_size * pricing_proposal.buy_order_prices[i] * (1 + Decimal(buy_fees.percent))
+                if quote_asset_balance < current_quote_asset_order_size_total + quote_asset_order_size:
+                    quote_asset_order_size = quote_asset_balance - current_quote_asset_order_size_total
+                    bid_order_size = quote_asset_order_size / pricing_proposal.buy_order_prices[i] * (1 - Decimal(buy_fees.percent))
+                    quantized_bid_order_size = market.c_quantize_order_amount(
+                        market_info.trading_pair,
+                        bid_order_size,
+                        pricing_proposal.buy_order_prices[i]
+                    )
+            current_quote_asset_order_size_total += quote_asset_order_size
 
-            quantized_sell_order_size = market.c_quantize_order_amount(market_info.trading_pair, current_ask_order_size, pricing_proposal.sell_order_prices[idx])
-            required_base_asset_balance += float(quantized_sell_order_size)
-            if self._log_warning_order_size:
-                if quantized_buy_order_size == 0 :
-                    self.logger().network(f"Buy Order size is less than minimum order size for Price: {pricing_proposal.buy_order_prices[idx]} ",
-                                          f"The orders for price of {pricing_proposal.buy_order_prices[idx]} are too small for the market. Check configuration")
+            quantized_ask_order_size = market.c_quantize_order_amount(
+                market_info.trading_pair,
+                current_ask_order_size,
+                pricing_proposal.sell_order_prices[i]
+            )
+            if base_asset_balance < current_base_asset_order_size_total + quantized_ask_order_size:
+                quantized_ask_order_size = market.c_quantize_order_amount(
+                    market_info.trading_pair,
+                    float(base_asset_balance - current_base_asset_order_size_total),
+                    pricing_proposal.sell_order_prices[i]
+                )
 
-                    #After warning once, set warning flag to False
-                    self._log_warning_order_size = False
-
-                if quantized_sell_order_size == 0 :
-                    self.logger().network(f"Sell Order size is less than minimum order size for Price: {pricing_proposal.sell_order_prices[idx]} ",
-                                          f"The orders for price of {pricing_proposal.sell_order_prices[idx]} are too small for the market. Check configuration")
-
-                    #After warning once, set warning flag to False
-                    self._log_warning_order_size = False
-
-            buy_orders.append(quantized_buy_order_size)
-            sell_orders.append(quantized_sell_order_size)
-
-        #Reset warnings for order size if there are no zero sized orders in buy and sell
-        if 0 not in buy_orders and 0 not in sell_orders:
-            self._log_warning_order_size = True
+            current_base_asset_order_size_total += quantized_ask_order_size
+            if quantized_bid_order_size > s_decimal_0:
+                buy_orders.append(quantized_bid_order_size)
+            if quantized_ask_order_size > s_decimal_0:
+                sell_orders.append(quantized_ask_order_size)
 
         return SizingProposal(
-            (buy_orders
-             if quote_asset_balance >= required_quote_asset_balance and not has_active_bid
-             else [s_decimal_0]),
-            (sell_orders
-             if base_asset_balance >= required_base_asset_balance and not has_active_ask else
-             [s_decimal_0])
+            buy_orders if not has_active_bid else [s_decimal_0],
+            sell_orders if not has_active_ask else [s_decimal_0]
         )

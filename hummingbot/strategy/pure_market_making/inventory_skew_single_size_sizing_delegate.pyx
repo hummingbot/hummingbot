@@ -6,8 +6,8 @@ from typing import Optional
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import MarketBase
 from hummingbot.core.event.events import (
-    TradeType,
-    OrderType
+    OrderType,
+    TradeType
 )
 from hummingbot.logger import HummingbotLogger
 from .data_types import SizingProposal
@@ -44,8 +44,8 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
             MarketBase market = market_info.market
             str trading_pair = market_info.trading_pair
             object buy_fees
-            double base_asset_balance = market.c_get_available_balance(market_info.base_asset)
-            double quote_asset_balance = market.c_get_available_balance(market_info.quote_asset)
+            object base_asset_balance = Decimal(market.c_get_available_balance(market_info.base_asset))
+            object quote_asset_balance = Decimal(market.c_get_available_balance(market_info.quote_asset))
             object top_bid_price
             object top_ask_price
             object mid_price
@@ -63,15 +63,18 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
             object quantized_ask_order_size
             bint has_active_bid = False
             bint has_active_ask = False
-            double required_quote_asset_balance
+            object required_quote_asset_balance
 
         for active_order in active_orders:
             if active_order.is_buy:
                 has_active_bid = True
-                quote_asset_balance += float(active_order.quantity) * float(active_order.price)
+                quote_asset_balance += active_order.quantity * active_order.price
             else:
                 has_active_ask = True
-                base_asset_balance += float(active_order.quantity)
+                base_asset_balance += active_order.quantity
+
+        if has_active_bid and has_active_ask:
+            return SizingProposal([s_decimal_0], [s_decimal_0])
 
         if self._inventory_target_base_percent is not None:
             top_bid_price = Decimal(market.c_get_price(trading_pair, False))
@@ -99,16 +102,7 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
             quantized_ask_order_size = market.c_quantize_order_amount(market_info.trading_pair,
                                                                       float(ask_order_size),
                                                                       pricing_proposal.sell_order_prices[0])
-            required_quote_asset_balance = float(pricing_proposal.buy_order_prices[0]) * float(quantized_bid_order_size)
-            if quote_asset_balance < required_quote_asset_balance:
-                bid_order_size = Decimal(quote_asset_balance / float(pricing_proposal.buy_order_prices[0]))
-                quantized_bid_order_size = market.c_quantize_order_amount(market_info.trading_pair,
-                                                                          float(bid_order_size),
-                                                                          pricing_proposal.buy_order_prices[0])
-            if base_asset_balance < quantized_ask_order_size:
-                quantized_ask_order_size = market.c_quantize_order_amount(market_info.trading_pair,
-                                                                          float(base_asset_balance),
-                                                                          pricing_proposal.sell_order_prices[0])
+            required_quote_asset_balance = pricing_proposal.buy_order_prices[0] * quantized_bid_order_size
 
         else:
             quantized_bid_order_size = market.c_quantize_order_amount(market_info.trading_pair,
@@ -120,12 +114,12 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
                                         OrderType.MARKET, TradeType.BUY,
                                         quantized_bid_order_size, pricing_proposal.buy_order_prices[0])
 
-            required_quote_asset_balance = (float(pricing_proposal.buy_order_prices[0]) *
-                                            (1.0 + float(buy_fees.percent)) *
+            required_quote_asset_balance = (pricing_proposal.buy_order_prices[0] *
+                                            (1.0 + buy_fees.percent) *
                                             quantized_bid_order_size)
 
         if quote_asset_balance < required_quote_asset_balance:
-            bid_order_size = Decimal(quote_asset_balance / float(pricing_proposal.buy_order_prices[0]))
+            bid_order_size = quote_asset_balance / pricing_proposal.buy_order_prices[0]
             quantized_bid_order_size = market.c_quantize_order_amount(market_info.trading_pair,
                                                                         float(bid_order_size),
                                                                         pricing_proposal.buy_order_prices[0])
@@ -135,22 +129,7 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
                                                                         float(base_asset_balance),
                                                                         pricing_proposal.sell_order_prices[0])
 
-        if quote_asset_balance >= required_quote_asset_balance and not has_active_bid:
-            print('*** current_quote_percent', current_quote_percent)
-            print('*** current_target_quote_ratio', current_target_quote_ratio)
-            print('*** adjustment_quote_ratio', current_target_quote_ratio)
-            print('*** adjusted bid_order_size', quantized_bid_order_size)
-        if base_asset_balance >= quantized_ask_order_size and not has_active_ask:
-            print('*** current_base_percent', current_base_percent)
-            print('*** current_target_base_ratio', current_target_base_ratio)
-            print('*** adjustment_base_ratio', current_target_base_ratio)
-            print('*** adjusted ask_order_size', quantized_ask_order_size)
-
         return SizingProposal(
-            ([quantized_bid_order_size]
-             if not has_active_bid
-             else [s_decimal_0]),
-            ([quantized_ask_order_size]
-             if not has_active_ask else
-             [s_decimal_0])
+            ([quantized_bid_order_size] if not has_active_bid else [s_decimal_0]),
+            ([quantized_ask_order_size] if not has_active_ask else [s_decimal_0])
         )
