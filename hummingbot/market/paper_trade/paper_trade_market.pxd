@@ -31,12 +31,13 @@ cdef class PaperTradeMarket(MarketBase):
     cdef:
         LimitOrders _bid_limit_orders
         LimitOrders _ask_limit_orders
-        dict _symbol_pairs
+        dict _tracker_symbol_pairs
         dict _account_balance
         object _order_book_tracker
         object _config
         object _queued_orders
         dict _quantization_params
+        object _order_book_trade_listener
         LimitOrderExpirationSet _limit_order_expiration_set
         object _order_tracker_task
 

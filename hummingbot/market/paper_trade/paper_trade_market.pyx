@@ -41,13 +41,13 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.event.events import MarketEvent, OrderType, OrderExpiredEvent, TradeType, TradeFee, \
-    BuyOrderCompletedEvent, OrderFilledEvent, SellOrderCompletedEvent, MarketOrderFailureEvent
+    BuyOrderCompletedEvent, OrderFilledEvent, SellOrderCompletedEvent, MarketOrderFailureEvent, OrderBookEvent
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import MarketBase
-from hummingbot.market.paper_trade.symbol_pair import SymbolPair
+from hummingbot.market.paper_trade.symbol_pair import SymbolPair, TrackerSymbolPair
 
 from .market_config import (
     MarketConfig,
@@ -64,6 +64,15 @@ s_logger = None
 # Fees (c_get_fee): implementation and test cases
 # Quantization parameters: test cases, also look into setting fixed Quantization Parameters
 
+
+
+# Order book tracker, markets
+# quantize order
+#
+#
+#
+#
+#
 
 cdef class QuantizationParams:
     cdef:
@@ -93,17 +102,17 @@ cdef class QuantizationParams:
 cdef class QueuedOrder:
     cdef:
         double create_timestamp
-        str order_id
-        bint is_buy
-        str symbol
-        double amount
+        str _order_id
+        bint _is_buy
+        str _symbol
+        double _amount
 
     def __init__(self, create_timestamp: float, order_id: str, is_buy: bool, symbol: str, amount: float):
         self.create_timestamp = create_timestamp
-        self.order_id = order_id
-        self.is_buy = is_buy
-        self.symbol = symbol
-        self.amount = amount
+        self._order_id = order_id
+        self._is_buy = is_buy
+        self._symbol = symbol
+        self._amount = amount
 
     @property
     def timestamp(self) -> double:
@@ -111,43 +120,50 @@ cdef class QueuedOrder:
 
     @property
     def order_id(self) -> str:
-        return self.order_id
+        return self._order_id
 
     @property
     def is_buy(self) -> bint:
-        return self.is_buy
+        return self._is_buy
 
     @property
     def symbol(self) -> str:
-        return self.symbol
+        return self._symbol
 
     @property
     def amount(self) -> double:
-        return self.amount
+        return self._amount
 
     def __repr__(self) -> str:
         return (f"QueuedOrder({self.create_timestamp}, '{self.order_id}', {self.is_buy}, '{self.symbol}', "
                 f"{self.amount})")
 
 
+cdef class OrderBookTradeListener(EventListener):
+    cdef:
+        MarketBase _market
+
+    def __init__(self, market: MarketBase):
+        super().__init__()
+        self._market = market
+
+    cdef c_call(self, object arg):
+        self._market.c_match_trade_to_limit_orders(arg)
+
+
 cdef class PaperTradeMarket(MarketBase):
     TRADE_EXECUTION_DELAY = 5.0
-    API_CALL_TIMEOUT = 10.0
     ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
     SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
+    ORDER_BOOK_TRADE_EVENT_TAG = OrderBookEvent.TradeEvent.value
 
     @classmethod
-    def random_buy_order_id(cls, symbol: str) -> str:
+    def random_order_id(cls, prefix: str, symbol: str) -> str:
         vals = [random.choice(range(0, 256)) for i in range(0, 32)]
-        return "buy://" + symbol + "/" + "".join([f"{val:02x}" for val in vals])
-
-    @classmethod
-    def random_sell_order_id(cls, symbol: str) -> str:
-        vals = [random.choice(range(0, 256)) for i in range(0, 32)]
-        return "sell://" + symbol + "/" + "".join([f"{val:02x}" for val in vals])
+        return f"{prefix}://" + symbol + "/" + "".join([f"{val:02x}" for val in vals])
 
     @classmethod
     def logger(cls) -> logging.Logger:
@@ -156,17 +172,26 @@ cdef class PaperTradeMarket(MarketBase):
             s_logger = logging.getLogger(__name__)
         return s_logger
 
-    def __init__(self, order_book_tracker: OrderBookTracker, config: MarketConfig):
+    def __init__(self, order_book_tracker: OrderBookTracker, symbol_pairs: List[SymbolPair], config: MarketConfig):
         super(MarketBase, self).__init__()
-
-        self._symbol_pairs = {}
+        self._tracker_symbol_pairs = {}
         self._account_balance = {}
-        self._order_book_tracker = order_book_tracker
         self._config = config
         self._queued_orders = deque()
         self._quantization_params = {}
         self._order_tracker_task = None
-        self._network_status = NetworkStatus.STOPPED
+        self._order_book_tracker = order_book_tracker
+        self._order_book_trade_listener = OrderBookTradeListener(self)
+        self.init_paper_market()
+
+    def init_paper_market(self, symbol_pairs: List[SymbolPair]):
+        for symbol_pair in symbol_pairs:
+            self._symbol_pairs[symbol_pairs.trading_pair] = symbol_pair
+        for order_book in self._order_book_tracker.order_books.values():
+                (<OrderBook>order_book).c_add_listener(
+                    self.ORDER_BOOK_TRADE_EVENT_TAG,
+                    self._order_book_trade_listener
+                )
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -174,7 +199,7 @@ cdef class PaperTradeMarket(MarketBase):
 
     @property
     def ready(self):
-        return len(self._order_book_tracker.order_books) > 0
+        return self._order_book_tracker and len(self._order_book_tracker.order_books) > 0
 
     @property
     def queued_orders(self) -> List[QueuedOrder]:
@@ -213,29 +238,21 @@ cdef class PaperTradeMarket(MarketBase):
         return retval
 
     cdef c_start(self, Clock clock, double timestamp):
-        """Starts MarketBase clock and order book tracking"""
         MarketBase.c_start(self, clock, timestamp)
-        self._network_status = NetworkStatus.CONNECTED
-        self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
 
     async def start_network(self):
         if self._order_tracker_task is not None:
-            self._stop_network()
+            self.stop_network()
+        self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
 
-    def _stop_network(self):
+    def stop_network(self):
         if self._order_tracker_task is not None:
             self._order_tracker_task.cancel()
 
     async def check_network(self) -> NetworkStatus:
-        return self._network_status
-
-    async def _check_network_loop(self):
-        # Override the check network loop to exit immediately.
-        self._network_status = await self.check_network()
-
-    def add_symbol_pair(self, *symbol_pairs):
-        for symbol_pair in symbol_pairs:
-            self._symbol_pairs[symbol_pair.symbol]= symbol_pair
+        # Currently order book tracker is not a network iterator and there are not API calls in paper trade market
+        # We will make network status always connected for now
+        return NetworkStatus.CONNECTED
 
     def set_balance(self, currency: str, balance: double):
         self.c_set_balance(currency, balance)
@@ -255,17 +272,17 @@ cdef class PaperTradeMarket(MarketBase):
         self.c_process_limit_order_expiration()
         self.c_process_crossed_limit_orders()
 
-    cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0,
+    cdef str c_buy(self, str trading_pair, double amount, object order_type = OrderType.MARKET, double price = 0.0,
                    dict kwargs = {}):
-        if symbol not in self._symbol_pairs:
-            raise ValueError(f"Trading symbol '{symbol}' does not existing in current data set.")
+        if trading_pair not in self._symbol_pairs:
+            raise ValueError(f"Trading symbol '{trading_pair}' does not existing in current data set.")
 
         cdef:
-            str order_id = self.random_buy_order_id(symbol)
+            str order_id = self.random_order_id("buy", trading_pair)
             string cpp_order_id = order_id.encode("utf8")
-            string cpp_symbol = symbol.encode("utf8")
-            string cpp_base_currency = self._symbol_pairs[symbol].base_currency.encode("utf8")
-            string cpp_quote_currency = self._symbol_pairs[symbol].quote_currency.encode("utf8")
+            string cpp_symbol = trading_pair.encode("utf8")
+            string cpp_base_currency = self._symbol_pairs[trading_pair].base_asset.encode("utf8")
+            string cpp_quote_currency = self._symbol_pairs[trading_pair].quote_asset.encode("utf8")
             LimitOrdersIterator map_it
             SingleSymbolLimitOrders *limit_orders_collection_ptr = NULL
             pair[LimitOrders.iterator, cppbool] insert_result
@@ -273,10 +290,10 @@ cdef class PaperTradeMarket(MarketBase):
             double order_expiration_ts = kwargs.get("expiration_ts", 0)
 
         if order_type is OrderType.MARKET:
-            self._queued_orders.append(QueuedOrder(self._current_timestamp, order_id, True, symbol, amount))
+            self._queued_orders.append(QueuedOrder(self._current_timestamp, order_id, True, trading_pair, amount))
         elif order_type is OrderType.LIMIT:
-            quantized_price = self.c_quantize_order_price(symbol, price)
-            quantized_amount = self.c_quantize_order_amount(symbol, amount)
+            quantized_price = self.c_quantize_order_price(trading_pair, price)
+            quantized_amount = self.c_quantize_order_amount(trading_pair, amount)
             map_it = self._bid_limit_orders.find(cpp_symbol)
 
             if map_it == self._bid_limit_orders.end():
@@ -298,7 +315,7 @@ cdef class PaperTradeMarket(MarketBase):
         if symbol not in self._symbol_pairs:
                 raise ValueError(f"Trading symbol '{symbol}' does not existing in current data set.")
         cdef:
-            str order_id = self.random_buy_order_id(symbol)
+            str order_id = self.random_order_id("sell", symbol)
             string cpp_order_id = order_id.encode("utf8")
             string cpp_symbol = symbol.encode("utf8")
             string cpp_base_currency = self._symbol_pairs[symbol].base_currency.encode("utf8")
