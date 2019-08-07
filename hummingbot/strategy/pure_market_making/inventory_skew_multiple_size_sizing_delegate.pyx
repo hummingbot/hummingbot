@@ -99,9 +99,9 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
             current_quote_percent = total_quote_asset_quote_value / (total_base_asset_quote_value + total_quote_asset_quote_value)
             target_base_percent = Decimal(str(self._inventory_target_base_percent))
             target_quote_percent = 1 - target_base_percent
-            current_target_base_ratio = current_base_percent / target_base_percent
-            current_target_quote_ratio = current_quote_percent / target_quote_percent
-            if current_target_base_ratio > 1:
+            current_target_base_ratio = current_base_percent / target_base_percent if target_base_percent > 0 else 0
+            current_target_quote_ratio = current_quote_percent / target_quote_percent if target_quote_percent > 0 else 0
+            if current_target_base_ratio > 1 or current_target_quote_ratio == 0:
                 current_target_base_ratio = 2 - current_target_quote_ratio
             else:
                 current_target_quote_ratio = 2 - current_target_base_ratio
@@ -171,6 +171,6 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
                 sell_orders.append(quantized_ask_order_size)
 
         return SizingProposal(
-            buy_orders if not has_active_bid else [s_decimal_0],
-            sell_orders if not has_active_ask else [s_decimal_0]
+            buy_orders if not has_active_bid and len(buy_orders) > 0 else [s_decimal_0],
+            sell_orders if not has_active_ask and len(sell_orders) > 0 else [s_decimal_0]
         )

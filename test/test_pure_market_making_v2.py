@@ -42,7 +42,9 @@ from hummingbot.strategy.pure_market_making import (
     ConstantSpreadPricingDelegate,
     ConstantMultipleSpreadPricingDelegate,
     ConstantSizeSizingDelegate,
-    StaggeredMultipleSizeSizingDelegate
+    StaggeredMultipleSizeSizingDelegate,
+    InventorySkewSingleSizeSizingDelegate,
+    InventorySkewMultipleSizeSizingDelegate
 )
 
 
@@ -83,6 +85,17 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             order_interval_size=0.01,
             number_of_orders=5
         )
+        self.inventory_skew_single_size_sizing_delegate = InventorySkewSingleSizeSizingDelegate(
+            order_size=1,
+            inventory_target_base_percent=0.5
+        )
+        self.inventory_skew_multiple_size_sizing_delegate = InventorySkewMultipleSizeSizingDelegate(
+            order_start_size=1.0,
+            order_step_size=0.5,
+            number_of_orders=5,
+            inventory_target_base_percent=0.5
+        )
+
         self.maker_market.add_data(self.maker_data)
         self.maker_market.set_balance("COINALPHA", 500)
         self.maker_market.set_balance("WETH", 5000)
@@ -124,6 +137,24 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             filter_delegate=self.filter_delegate,
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
             sizing_delegate=self.staggered_strategy_sizing_delegate,
+            cancel_order_wait_time=45,
+            logging_options=logging_options
+        )
+
+        self.inventory_skew_single_order_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+            [self.market_info],
+            filter_delegate=self.filter_delegate,
+            sizing_delegate=self.inventory_skew_single_size_sizing_delegate,
+            pricing_delegate=self.constant_pricing_delegate,
+            cancel_order_wait_time=45,
+            logging_options=logging_options
+        )
+
+        self.inventory_skew_multiple_order_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+            [self.market_info],
+            filter_delegate=self.filter_delegate,
+            sizing_delegate=self.inventory_skew_multiple_size_sizing_delegate,
+            pricing_delegate=self.multiple_order_strategy_pricing_delegate,
             cancel_order_wait_time=45,
             logging_options=logging_options
         )
@@ -518,3 +549,73 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.clock.backtest_til(end_ts)
         self.assertEqual(5, len(self.multi_order_staggered_strategy.active_bids))
         self.assertEqual(5, len(self.multi_order_staggered_strategy.active_asks))
+
+    def test_inventory_skew_single_order_strategy(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(self.inventory_skew_single_order_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy.active_bids))
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy.active_asks))
+        first_bid_order: LimitOrder = self.inventory_skew_single_order_strategy.active_bids[0][1]
+        first_ask_order: LimitOrder = self.inventory_skew_single_order_strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("101"), first_ask_order.price)
+        self.assertEqual(Decimal("0.181818"), first_bid_order.quantity)
+        self.assertEqual(Decimal("1.81818"), first_ask_order.quantity)
+
+        self.simulate_maker_market_trade(True, 5.0)
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy.active_bids))
+        self.assertEqual(0, len(self.inventory_skew_single_order_strategy.active_asks))
+
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+
+        maker_fill: OrderFilledEvent = self.maker_order_fill_logger.event_log[0]
+        self.assertEqual(TradeType.SELL, maker_fill.trade_type)
+        self.assertAlmostEqual(101, maker_fill.price)
+        self.assertAlmostEqual(Decimal("1.81818"), Decimal(str(maker_fill.amount)), places=4)
+
+        self.strategy.cancel_order(self.market_info, first_bid_order.client_order_id)
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        self.assertEqual(0, len(self.strategy.active_bids))
+        self.assertEqual(0, len(self.strategy.active_asks))
+
+    def test_inventory_skew_multiple_order_strategy(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(self.inventory_skew_multiple_order_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(5, len(self.inventory_skew_multiple_order_strategy.active_bids))
+        self.assertEqual(5, len(self.inventory_skew_multiple_order_strategy.active_asks))
+
+        first_bid_order: LimitOrder = self.inventory_skew_multiple_order_strategy.active_bids[0][1]
+        first_ask_order: LimitOrder = self.inventory_skew_multiple_order_strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("101"), first_ask_order.price)
+        self.assertEqual(Decimal("0.181818"), first_bid_order.quantity)
+        self.assertEqual(Decimal("1.81818"), first_ask_order.quantity)
+
+        last_bid_order: LimitOrder = self.inventory_skew_multiple_order_strategy.active_bids[-1][1]
+        last_ask_order: LimitOrder = self.inventory_skew_multiple_order_strategy.active_asks[-1][1]
+        last_bid_price = Decimal(99 * (1 - 0.01) ** 4).quantize(Decimal("0.001"))
+        last_ask_price = Decimal(101 * (1 + 0.01) ** 4).quantize(Decimal("0.001"))
+        self.assertAlmostEqual(last_bid_price, last_bid_order.price, 3)
+        self.assertAlmostEqual(last_ask_price, last_ask_order.price, 3)
+        self.assertEqual(Decimal("0.545454"), last_bid_order.quantity)
+        self.assertEqual(Decimal("5.45454"), last_ask_order.quantity)
+
+        self.simulate_maker_market_trade(True, 5.0)
+        self.assertEqual(5, len(self.inventory_skew_multiple_order_strategy.active_bids))
+        self.assertEqual(4, len(self.inventory_skew_multiple_order_strategy.active_asks))
+
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+
+        maker_fill: OrderFilledEvent = self.maker_order_fill_logger.event_log[0]
+        self.assertEqual(TradeType.SELL, maker_fill.trade_type)
+        self.assertAlmostEqual(101, maker_fill.price)
+        self.assertAlmostEqual(Decimal("1.81818"), Decimal(str(maker_fill.amount)), places=4)
+
+        self.strategy.cancel_order(self.market_info, first_bid_order.client_order_id)
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        self.assertEqual(0, len(self.strategy.active_bids))
+        self.assertEqual(0, len(self.strategy.active_asks))
