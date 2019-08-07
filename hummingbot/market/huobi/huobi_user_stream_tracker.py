@@ -3,7 +3,8 @@
 import asyncio
 import logging
 from typing import (
-    Optional
+    Optional,
+    List
 )
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
@@ -12,10 +13,11 @@ from hummingbot.core.data_type.user_stream_tracker import (
     UserStreamTracker
 )
 from hummingbot.market.huobi.huobi_api_user_stream_data_source import HuobiAPIUserStreamDataSource
+from hummingbot.market.huobi.huobi_auth import HuobiAuth
 
 
 class HuobiUserStreamTracker(UserStreamTracker):
-    _bust_logger: Optional[HummingbotLogger] = None
+    _hust_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -24,8 +26,12 @@ class HuobiUserStreamTracker(UserStreamTracker):
         return cls._hust_logger
 
     def __init__(self,
-                 data_source_type: UserStreamTrackerDataSourceType = UserStreamTrackerDataSourceType.EXCHANGE_API):
+                 data_source_type: UserStreamTrackerDataSourceType = UserStreamTrackerDataSourceType.EXCHANGE_API,
+                 huobi_auth: Optional[HuobiAuth] = None,
+                 symbols: Optional[List[str]] = []):
         super().__init__(data_source_type=data_source_type)
+        self._huobi_auth: HuobiAuth = huobi_auth
+        self._symbols: List[str] = symbols
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
         self._user_stream_tracking_task: Optional[asyncio.Task] = None
@@ -34,7 +40,8 @@ class HuobiUserStreamTracker(UserStreamTracker):
     def data_source(self) -> UserStreamTrackerDataSource:
         if not self._data_source:
             if self._data_source_type is UserStreamTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = HuobiAPIUserStreamDataSource()
+                self._data_source = HuobiAPIUserStreamDataSource(huobi_auth=self._huobi_auth,
+                                                                 symbols=self._symbols)
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source

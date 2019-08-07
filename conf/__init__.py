@@ -43,6 +43,10 @@ coinbase_pro_api_key = os.getenv("COINBASE_PRO_API_KEY")
 coinbase_pro_secret_key = os.getenv("COINBASE_PRO_SECRET_KEY")
 coinbase_pro_passphrase = os.getenv("COINBASE_PRO_PASSPHRASE")
 
+# Huobi Tests
+huobi_api_key = os.getenv("HUOBI_API_KEY")
+huobi_secret_key = os.getenv("HUOBI_SECRET_KEY")
+
 test_web3_provider_list = [os.getenv("WEB3_PROVIDER")]
 
 # Wallet Tests
@@ -77,5 +81,10 @@ except ModuleNotFoundError:
 
 try:
     from .coinbase_pro_secrets import *
+except ModuleNotFoundError:
+    pass
+
+try:
+    from .huobi_secret import *
 except ModuleNotFoundError:
     pass

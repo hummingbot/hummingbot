@@ -40,7 +40,7 @@ cdef class HuobiInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"filled", "canceled", "partial-filled", "cancelling"}
+        return self.last_state in {"filled", "canceled", "partial-filled", "cancelling", "partial-canceled"}
 
     @property
     def is_failure(self) -> bool:
@@ -48,7 +48,7 @@ cdef class HuobiInFlightOrder(InFlightOrderBase):
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state == "canceled"
+        return self.last_state in {"canceled", "cancelling", "partial-cancelled"}
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
@@ -70,32 +70,9 @@ cdef class HuobiInFlightOrder(InFlightOrderBase):
         retval.last_state = data["last_state"]
         return retval
 
-    def update_with_execution_report(self, execution_report: Dict[str, Any]):
-        trade_id = execution_report["t"]
-        if trade_id in self.trade_id_set:
+    def update_with_trade_id(self, sequence_id: int, order_id: str):
+        if order_id != self.exchange_order_id or sequence_id in self.trade_id_set:
             # trade already recorded
             return
-        self.trade_id_set.add(trade_id)
-        last_executed_quantity = Decimal(execution_report["l"])
-        last_commission_amount = Decimal(execution_report["n"])
-        last_commission_asset = execution_report["N"]
-        last_order_state = execution_report["X"]
-        last_executed_price = Decimal(execution_report["L"])
-        executed_amount_quote = last_executed_price * last_executed_quantity
-        self.executed_amount_base += last_executed_quantity
-        self.executed_amount_quote += executed_amount_quote
-        if last_commission_asset is not None:
-            self.fee_asset = last_commission_asset
-        self.fee_paid += last_commission_amount
-        self.last_state = last_order_state
-
-    def update_with_trade_update(self, trade_update: Dict[str, Any]):
-        trade_id = trade_update["id"]
-        if trade_update["orderId"] != self.exchange_order_id or trade_id in self.trade_id_set:
-            # trade already recorded
-            return
-        self.trade_id_set.add(trade_id)
-        self.executed_amount_quote += Decimal(trade_update["qty"])
-        self.fee_paid += Decimal(trade_update["commission"])
-        self.executed_amount_quote += Decimal(trade_update["quoteQty"])
-        return trade_update
+        self.trade_id_set.add(sequence_id)
+        return sequence_id

@@ -257,9 +257,9 @@ class HummingbotApplication(*commands):
 
             elif market_name == "huobi":
                 huobi_api_key = global_config_map.get("huobi_api_key").value
-                huobi_api_secret = global_config_map.get("huobi_api_secret").value
+                huobi_secret_key = global_config_map.get("huobi_secret_key").value
                 market = HuobiMarket(huobi_api_key,
-                                     huobi_api_secret,
+                                     huobi_secret_key,
                                      order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                      symbols=symbols,
                                      trading_required=self._trading_required)
