@@ -100,7 +100,8 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             legacy_order_size=1.0,
             legacy_bid_spread=self.bid_threshold,
             legacy_ask_spread=self.ask_threshold,
-            cancel_order_wait_time=45,
+            cancel_order_wait_time=self.cancel_order_wait_time,
+            filled_order_replenish_wait_time=self.cancel_order_wait_time,
             logging_options=logging_options
         )
 
@@ -109,7 +110,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             legacy_order_size=1.0,
             legacy_bid_spread=self.bid_threshold,
             legacy_ask_spread=self.ask_threshold,
-            cancel_order_wait_time=45,
+            cancel_order_wait_time=self.cancel_order_wait_time,
             sizing_delegate=self.equal_strategy_sizing_delegate,
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
             logging_options=logging_options
@@ -120,9 +121,19 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             legacy_order_size=1.0,
             legacy_bid_spread=self.bid_threshold,
             legacy_ask_spread=self.ask_threshold,
-            cancel_order_wait_time=45,
+            cancel_order_wait_time=self.cancel_order_wait_time,
             sizing_delegate=self.staggered_strategy_sizing_delegate,
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
+            logging_options=logging_options
+        )
+
+        self.delayed_placement_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+            [self.market_info],
+            legacy_order_size=1.0,
+            legacy_bid_spread=self.bid_threshold,
+            legacy_ask_spread=self.ask_threshold,
+            cancel_order_wait_time=self.cancel_order_wait_time,
+            filled_order_replenish_wait_time=self.cancel_order_wait_time,
             logging_options=logging_options
         )
 
