@@ -86,6 +86,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  legacy_order_size: float = 1.0,
                  legacy_bid_spread: float = 0.01,
                  legacy_ask_spread: float = 0.01,
+                 filled_order_adjust_other_side_enabled: bool = True,
                  status_report_interval: float = 900):
 
         if len(market_infos) < 1:
@@ -105,7 +106,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         self._logging_options = logging_options
         self._last_timestamp = 0
+        self._filled_price = 0
         self._status_report_interval = status_report_interval
+        self._adjust_order_price_after_fill = False
+        self._filled_order_adjust_other_side_enabled = filled_order_adjust_other_side_enabled
 
         if filter_delegate is None:
             filter_delegate = PassThroughFilterDelegate(self._current_timestamp)
@@ -302,7 +306,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         #  1. Ask the pricing delegate on what are the order prices.
         #  2. Ask the sizing delegate on what are the order sizes.
         #  3. Set the actions to carry out in the orders proposal to include create orders.
-        pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self, market_info, active_orders)
+        if self._filled_order_adjust_other_side_enabled and self._adjust_order_price_after_fill:
+            pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self, market_info, active_orders, self._filled_price)
+        else:
+            pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self, market_info, active_orders)
+
         sizing_proposal = self._sizing_delegate.c_get_order_size_proposal(self,
                                                                           market_info,
                                                                           active_orders,
@@ -364,7 +372,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
             LimitOrder limit_order_record
 
-        if self.sizing_delegate.name == "constant_size":
+        if self.sizing_delegate.name == "constant_size" and not math.isnan(self._current_timestamp):
             #Set the replenish time as current_timestamp + order replenish time
             replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
 
@@ -376,6 +384,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     self._time_to_cancel[order_id] = min(self._time_to_cancel[order_id], replenish_time_stamp)
 
             self.filter_delegate.order_placing_timestamp = replenish_time_stamp
+
+            if self._filled_order_adjust_other_side_enabled:
+                self._adjust_order_price_after_fill = True
+                limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
+                self._filled_price = limit_order_record.price
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
@@ -392,7 +405,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
             LimitOrder limit_order_record
 
-        if self.sizing_delegate.name == "constant_size":
+        if self.sizing_delegate.name == "constant_size" and not math.isnan(self._current_timestamp):
             #Set the replenish time as current_timestamp + order replenish time
             replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
 
@@ -404,6 +417,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     self._time_to_cancel[order_id] = min(self._time_to_cancel[order_id], replenish_time_stamp)
 
             self.filter_delegate.order_placing_timestamp = replenish_time_stamp
+
+            if self._filled_order_adjust_other_side_enabled:
+                self._adjust_order_price_after_fill = True
+                limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
+                self._filled_price = limit_order_record.price
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
@@ -475,3 +493,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         self._time_to_cancel[ask_order_id] = self._current_timestamp + self._cancel_order_wait_time
                 elif orders_proposal.sell_order_type is OrderType.MARKET:
                     raise RuntimeError("Market sell order in orders proposal is not supported yet.")
+
+
+            self._adjust_order_price_after_fill = False
+            self._filled_price = 0
