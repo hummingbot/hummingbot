@@ -612,8 +612,8 @@ cdef class BinanceMarket(MarketBase):
 
                     if tracked_order is None:
                         # Hiding the messages for now. Root cause to be investigated in later sprints.
-                        # self.logger().network(f"Unrecognized order ID from user stream: {client_order_id}.")
-                        # self.logger().network(f"Event: {event_message}")
+                        self.logger().debug(f"Unrecognized order ID from user stream: {client_order_id}.")
+                        self.logger().debug(f"Event: {event_message}")
                         continue
                     tracked_order.update_with_execution_report(event_message)
 
