@@ -542,6 +542,6 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
         self.assertEqual(0, len(self.delayed_placement_strategy.active_asks))
 
-        self.clock.backtest_til(self.start_timestamp +  4* self.clock_tick_size )
+        self.clock.backtest_til(self.start_timestamp + 4 * self.clock_tick_size )
         self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
         self.assertEqual(1, len(self.delayed_placement_strategy.active_asks))
