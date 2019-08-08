@@ -93,14 +93,24 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
             top_bid_price = Decimal(market.c_get_price(trading_pair, False))
             top_ask_price = Decimal(market.c_get_price(trading_pair, True))
             mid_price = (top_bid_price + top_ask_price) / 2
+
             total_base_asset_quote_value = Decimal(base_asset_balance) * mid_price
             total_quote_asset_quote_value = Decimal(quote_asset_balance)
+
+            # Calculate percent value of base and quote
             current_base_percent = total_base_asset_quote_value / (total_base_asset_quote_value + total_quote_asset_quote_value)
             current_quote_percent = total_quote_asset_quote_value / (total_base_asset_quote_value + total_quote_asset_quote_value)
+
             target_base_percent = Decimal(str(self._inventory_target_base_percent))
             target_quote_percent = 1 - target_base_percent
+
+            # Calculate target ratio based on current percent vs. target percent
             current_target_base_ratio = current_base_percent / target_base_percent if target_base_percent > 0 else 0
             current_target_quote_ratio = current_quote_percent / target_quote_percent if target_quote_percent > 0 else 0
+
+            # By default 100% of order size is on both sides, therefore adjusted ratios should be 2 (100% + 100%).
+            # If target base percent is 0 (0%) target quote ratio is 200%.
+            # If target base percent is 1 (100%) target base ratio is 200%.
             if current_target_base_ratio > 1 or current_target_quote_ratio == 0:
                 current_target_base_ratio = 2 - current_target_quote_ratio
             else:
