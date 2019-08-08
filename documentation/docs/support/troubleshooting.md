@@ -174,8 +174,7 @@ chmod a+x update.sh
 ./update.sh
 ```
 
-#### conda: not found
-
+#### Error when activating conda environment
 
 ```
 $ conda
@@ -186,9 +185,20 @@ If you have just installed conda, close Terminal and reopen a new Terminal to up
 
 If you use `zshrc` or another shell other than `bash`, see the note at the bottom of this section: [install dependencies](/installation/from-source/macos/#part-1-install-dependencies).
 
-#### I can not start Hummingbot
+#### Errors when starting Hummingbot
 
 ***Error message 1***:
+```
+Traceback (most recent call last):
+  File "bin/hummingbot.py", line 26, in <module>
+    from hummingbot.client.hummingbot_application import HummingbotApplication
+  File "/Users/feng/Code/hummingbot/hummingbot/client/hummingbot_application.py", line 7, in <module>
+    from eth_account.local import LocalAccount
+ModuleNotFoundError: No module named 'eth_account'
+```
+Make sure you have activated the conda environment: `conda activate hummingbot` before running `bin/hummingbot.py`.
+
+***Error message 2***:
 
 ```
 File "bin/hummingbot.py", line 40
@@ -197,9 +207,9 @@ File "bin/hummingbot.py", line 40
 SyntaxError: invalid syntax
 ```
 
-Make sure you have activated the conda environment: `conda activate hummingbot`.
+Make sure you have activated the conda environment: `conda activate hummingbot` before running `bin/hummingbot.py`.
 
-***Error message 2***:
+***Error message 3***:
 
 ```
 ModuleNotFoundError: No module named 'hummingbot.market.market_base'
