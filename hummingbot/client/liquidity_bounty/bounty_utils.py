@@ -320,10 +320,10 @@ class LiquidityBounty(NetworkBase):
     async def status_polling_loop(self):
         while True:
             try:
-                await asyncio.gather([
-                    await self.fetch_client_status(),
-                    await self.fetch_last_timestamp(),
-                ], loop=self._ev_loop)
+                await asyncio.gather(*[
+                    self.fetch_client_status(),
+                    self.fetch_last_timestamp(),
+                ], loop=self._ev_loop, return_exceptions=True)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
