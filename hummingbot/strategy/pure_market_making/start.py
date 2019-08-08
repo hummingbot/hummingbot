@@ -37,6 +37,10 @@ def start(self):
         pricing_delegate = None
         sizing_delegate = None
         if mode == "multiple":
+            pricing_delegate = ConstantMultipleSpreadPricingDelegate(bid_place_threshold,
+                                                                     ask_place_threshold,
+                                                                     order_interval_percent,
+                                                                     number_of_orders)
             if inventory_skew_enabled:
                 sizing_delegate = InventorySkewMultipleSizeSizingDelegate(order_start_size,
                                                                           order_step_size,
@@ -46,17 +50,12 @@ def start(self):
                 sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size,
                                                                       order_step_size,
                                                                       number_of_orders)
-
-            pricing_delegate = ConstantMultipleSpreadPricingDelegate(bid_place_threshold,
-                                                                     ask_place_threshold,
-                                                                     order_interval_percent,
-                                                                     number_of_orders)
-        elif mode == "single" and inventory_skew_enabled:
+        else:  # mode == "single"
             pricing_delegate = ConstantSpreadPricingDelegate(bid_place_threshold, ask_place_threshold)
-            sizing_delegate = InventorySkewSingleSizeSizingDelegate(order_size, inventory_target_base_percent)
-        else:
-            pricing_delegate = ConstantSpreadPricingDelegate(bid_place_threshold, ask_place_threshold)
-            sizing_delegate = ConstantSizeSizingDelegate(order_size)
+            if inventory_skew_enabled:
+                sizing_delegate = InventorySkewSingleSizeSizingDelegate(order_size, inventory_target_base_percent)
+            else:
+                sizing_delegate = ConstantSizeSizingDelegate(order_size)
 
         try:
             maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_symbol])[0]

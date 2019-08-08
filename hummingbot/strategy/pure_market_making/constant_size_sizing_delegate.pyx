@@ -1,7 +1,5 @@
 from decimal import Decimal
 import logging
-import math
-from typing import Optional
 
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import MarketBase
@@ -9,7 +7,6 @@ from hummingbot.core.event.events import (
     TradeType,
     OrderType
 )
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.logger import HummingbotLogger
 
 from .data_types import SizingProposal

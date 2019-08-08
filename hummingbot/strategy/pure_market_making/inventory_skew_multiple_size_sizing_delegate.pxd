@@ -1,5 +1,6 @@
 from .order_sizing_delegate cimport OrderSizingDelegate
 
+
 cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
     cdef:
         double _order_step_size
