@@ -76,18 +76,19 @@ class TradeFill(HummingbotBase):
                               "flat_fee / gas"]
         data = []
         for trade in trades:
-            if len(trade.trade_fee['flat_fees']) == 0:
+            flat_fees: List[Dict[str, Any]] = trade.trade_fee["flat_fees"]
+            if len(flat_fees) == 0:
                 flat_fee_str = "None"
             else:
-                fee_strs = [f"{fee_tuple[0]} {fee_tuple[1]}" for fee_tuple in trade.trade_fee.flat_fees]
+                fee_strs = [f"{fee_dict['amount']} {fee_dict['symbol']}" for fee_dict in flat_fees]
                 flat_fee_str = ",".join(fee_strs)
 
             data.append([
                 trade.symbol,
                 trade.price,
                 trade.amount,
-                "market" if trade.order_type is OrderType.MARKET else "limit",
-                "buy" if trade.trade_type is TradeType.BUY else "sell",
+                trade.order_type.lower(),
+                trade.trade_type.lower(),
                 trade.market,
                 datetime.fromtimestamp(int(trade.timestamp / 1e3)).strftime("%Y-%m-%d %H:%M:%S"),
                 trade.trade_fee['percent'],
