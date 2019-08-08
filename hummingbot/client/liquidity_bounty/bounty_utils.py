@@ -330,6 +330,7 @@ class LiquidityBounty(NetworkBase):
                 if "User not registered" in str(e):
                     self.logger().warning("User not registered. Aborting fetch_client_status_loop.")
                     break
+                self.logger().error(f"Error getting bounty status: {e}")
             await asyncio.sleep(self._update_interval)
 
     async def fetch_filled_volume_metrics(self, start_time: int) -> List[Dict[str, Any]]:
