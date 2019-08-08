@@ -7,6 +7,7 @@ from typing import (
     Dict
 )
 
+import math
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
@@ -240,6 +241,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
         self._last_timestamp = timestamp
+        self.filter_delegate.order_placing_timestamp = timestamp
 
     cdef c_tick(self, double timestamp):
         StrategyBase.c_tick(self, timestamp)
