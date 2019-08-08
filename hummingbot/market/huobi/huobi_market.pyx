@@ -273,7 +273,7 @@ cdef class HuobiMarket(MarketBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            await self.query_url(HUOBI_ROOT_API + "/v1/common/timestamp", new Dict[str, any])
+            await self.query_url("get", HUOBI_ROOT_API + "/v1/common/timestamp")
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -296,7 +296,7 @@ cdef class HuobiMarket(MarketBase):
             self._shared_client = aiohttp.ClientSession()
         return self._shared_client
 
-    async def query_auth_url(self, method, root_url, path_url, body: Dict[str, any]) -> Dict[str, any]:
+    async def query_auth_url(self, method, root_url, path_url, body: Optional[Dict[str, any]] = None) -> Dict[str, any]:
         params = self._huobi_auth(method, root_url, path_url, body)
         client = await self._http_client()
         async with client.request(method,
@@ -306,16 +306,22 @@ cdef class HuobiMarket(MarketBase):
                 data = await response.json()
                 return data
 
-    async def query_url(self, method, url, params: Dict[str, any]) -> Dict[str, any]:
+    async def query_url(self, method, url, params: Optional[Dict[str, any]] = None) -> Dict[str, any]:
         client = await self._http_client()
-        async with client.get(url=url, params=params, timeout=self.API_CALL_TIMEOUT) as response:
+        if params is None:
+            async with client.get(url=url, timeout=self.API_CALL_TIMEOUT) as response:
                 if response.status != 200:
                     raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
                 data = await response.json()
                 return data
+        async with client.get(url=url, params=params, timeout=self.API_CALL_TIMEOUT) as response:
+            if response.status != 200:
+                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
+            data = await response.json()
+            return data
 
     async def get_account_id(self) -> int:
-        account_info = await self.query_auth_url("get", HUOBI_ROOT_API, HUOBI_ACCOUNT_ID, new Dict[str, any])
+        account_info = await self.query_auth_url("get", HUOBI_ROOT_API, HUOBI_ACCOUNT_ID)
         return account_info["id"]
 
     async def _update_balances(self):
@@ -329,7 +335,7 @@ cdef class HuobiMarket(MarketBase):
 
         account_id = self._get_account_id()
         path_url = HUOBI_ACCOUNT_ID + f"/{account_id}/balance",
-        account_info = await self.query_auth_url("get", HUOBI_ROOT_API, path_url, new Dict[str, any])
+        account_info = await self.query_auth_url("get", HUOBI_ROOT_API, path_url)
 
         balances = account_info["list"]
         for balance_entry in balances:
@@ -354,7 +360,7 @@ cdef class HuobiMarket(MarketBase):
                           object order_side,
                           double amount,
                           double price):
-        # Should update to connect to Huobi fees API
+        # Need to update to connect to Huobi fees API
         # Fee info from https://www.hbg.com/en-us/about/fee/
         cdef:
             double trade_fee = 0.002
@@ -367,7 +373,7 @@ cdef class HuobiMarket(MarketBase):
             int64_t last_tick = <int64_t>(self._last_timestamp / 60.0)
             int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) < 1:
-            exchange_info = await self.query_url("get", HUOBI_ROOT_API + HUOBI_SYMBOLS_INFO, new Dict[str, any])
+            exchange_info = await self.query_url("get", HUOBI_ROOT_API + HUOBI_SYMBOLS_INFO)
             trading_rules_list = self._format_trading_rules(exchange_info["data"])
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
@@ -402,71 +408,16 @@ cdef class HuobiMarket(MarketBase):
                 self.logger().error(f"Error parsing the symbol rule {rule}. Skipping.", exc_info=True)
         return retval
 
-    async def _update_order_fills_from_trades(self):
-        cdef:
-            # This is intended to be a backup measure to get filled events with trade ID for orders,
-            # in case Huobi's user stream events are not working.
-            # This is separated from _update_order_status which only updates the order status without producing filled
-            # events, since Huobi's get order endpoint does not return trade IDs.
-            # The poll interval for order status is 10 seconds.
-            int64_t last_tick = <int64_t>(self._last_pull_timestamp / 10.0)
-            int64_t current_tick = <int64_t>(self._current_timestamp / 10.0)
-
-        if current_tick > last_tick and len(self._in_flight_orders) > 0:
-            trading_pairs_to_order_map = defaultdict(lambda: {})
-            for o in self._in_flight_orders.values():
-                trading_pairs_to_order_map[o.symbol][o.exchange_order_id] = o
-
-            trading_pairs = list(trading_pairs_to_order_map.keys())
-            tasks = [self.query_api(self._huobi_client.get_my_trades, symbol=trading_pair)
-                     for trading_pair in trading_pairs]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            for trades, trading_pair in zip(results, trading_pairs):
-                order_map = trading_pairs_to_order_map[trading_pair]
-                if isinstance(trades, Exception):
-                    self.logger().network(
-                        f"Error fetching trades update for the order {trading_pair}: {trades}.",
-                        app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
-                    )
-                    continue
-                for trade in trades:
-                    order_id = str(trade["orderId"])
-                    if order_id in order_map:
-                        tracked_order = order_map[order_id]
-                        order_type = OrderType.LIMIT if trade["isMaker"] else OrderType.MARKET
-                        applied_trade = order_map[order_id].update_with_trade_update(trade)
-                        if applied_trade:
-                            self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                                 OrderFilledEvent(
-                                                    self._current_timestamp,
-                                                    tracked_order.client_order_id,
-                                                    tracked_order.symbol,
-                                                    tracked_order.trade_type,
-                                                    order_type,
-                                                    float(trade["price"]),
-                                                    float(trade["qty"]),
-                                                    self.c_get_fee(
-                                                        tracked_order.base_asset,
-                                                        tracked_order.quote_asset,
-                                                        order_type,
-                                                        tracked_order.trade_type,
-                                                        float(trade["price"]),
-                                                        float(trade["qty"])),
-                                                    exchange_trade_id=trade["id"]
-                                                 ))
-
     async def list_orders(self, symbol_set) -> List[Any]:
-        cdef:
-            list result
-
         path_url = "/v1/order/openOrders"
+        result = []
         account_id = self._get_account_id()
         for symbol in symbol_set:
             params = {
                 "account-id": account_id,
                 "symbol": symbol
             }
-            order_info = await self._query_auth_url("get", HUOBI_ROOT_API, path_url=path_url, params)
+            order_info = await self._query_auth_url("get", HUOBI_ROOT_API, path_url, params)
             for item in order_info["data"]:
                 result.add(item)
         return result
@@ -476,18 +427,19 @@ cdef class HuobiMarket(MarketBase):
             # The poll interval for order status is 10 seconds.
             int64_t last_tick = <int64_t>(self._last_pull_timestamp / 10.0)
             int64_t current_tick = <int64_t>(self._current_timestamp / 10.0)
-            set symbol_set
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
+            symbol_set = set("")
             for order in tracked_orders:
                 symbol_set.add(order.symbol)
             results = self._list_orders(symbol_set)
             order_dict = dict((result["id"], result) for result in results)
 
+            orders_to_check = []
             for tracked_order in tracked_orders:
                 exchange_order_id = await tracked_order.get_exchange_order_id()
-                order_update = order_dict.get(exchange_order_id)
+                order_update = order_dict.get(int(exchange_order_id))
                 if order_update is None:
                     self.logger().network(
                         f"Error fetching status update for the order {tracked_order.client_order_id}: "
@@ -495,6 +447,7 @@ cdef class HuobiMarket(MarketBase):
                         app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id}. "
                                         f"Check API key and network connection."
                     )
+                    orders_to_check.add(exchange_order_id)
                     continue
 
             done_reason = order_update.get("done_reason")
@@ -587,6 +540,12 @@ cdef class HuobiMarket(MarketBase):
                                                  order_type
                                              ))
                     self.c_stop_tracking_order(client_order_id)
+
+    async def get_order_info(self, exchange_order_id: str) -> Dict[str, any]:
+        path_url = "/v1/order/orders/" + exchange_order_id
+        order_info = await self._query_auth_url("get", HUOBI_ROOT_API, path_url)
+        order_dict = order_info["data"]
+        return order_dict
 
     async def _iter_kafka_messages(self, topic: str) -> AsyncIterable[ConsumerRecord]:
         while True:
@@ -778,7 +737,7 @@ cdef class HuobiMarket(MarketBase):
         """
         :return: The current server time in milliseconds since UNIX epoch.
         """
-        result = await self.query_url("get", "/v1/common/timestamp", new Dict[str, any] )
+        result = await self.query_url("get", "/v1/common/timestamp")
         return result
 
     def get_all_balances(self) -> Dict[str, float]:
@@ -791,7 +750,7 @@ cdef class HuobiMarket(MarketBase):
             str deposit_address
 
         # Huobi API currently does not support deposits - no documentation
-        return DepositInfo("", new Dict[str, any])
+        return DepositInfo("", {"", ""})
 
     async def execute_withdraw(self, tracking_id: str, to_address: str, currency: str, amount: float):
         withdraw_url = "/v1/dw/withdraw/api/create"

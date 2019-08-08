@@ -8,7 +8,7 @@ from typing import (
     Optional,
     List
 )
-import gzip
+import zlib
 import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
@@ -19,7 +19,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.market.huobi.huobi_order_book import HuobiOrderBook
 
 HUOBI_REST_API = "https://api.huobi.pro"
-HUOBI_WS_FEED = "wss://api.huobi.pro"
+HUOBI_WS_FEED = "wss://api.huobi.pro/ws/v1"
 
 
 class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -53,8 +53,8 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     ws: websockets.WebSocketClientProtocol = ws
                     for item in self._symbols:
                         subscribe_params: Dict[str, any] = {
-                            "op": "sub",
-                            "topic": f"orders.{item}",
+                            "op": "auth",
+                            #"topic": f"orders.{item}",
                         }
                         subscribe_request: Dict[str, any] = self._huobi_auth.generate_auth_dict("get",
                                                                                                 "wss://api.huobi.pro",
@@ -62,7 +62,8 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
                                                                                                 subscribe_params)
                         await ws.send(ujson.dumps(subscribe_request))
                     async for raw_msg in self._inner_messages(ws):
-                        msg: Dict[str, any] = ujson.loads(gzip.open(raw_msg))
+                        ws_result = str(zlib.decompressobj(31).decompress(raw_msg), encoding="utf-8")
+                        msg: Dict[str, any] = ujson.loads(ws_result)
                         if "err-code" in msg:
                             raise ValueError(f"Huobi Websocket received error message - code {msg['err-code']}")
                         msg_type: str = msg.get("op", None)

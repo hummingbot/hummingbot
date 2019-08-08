@@ -10,7 +10,7 @@ from typing import (
     List,
     Optional,
 )
-import gzip
+import zlib
 import time
 import ujson
 import websockets
@@ -112,7 +112,9 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 if response.status != 200:
                     raise IOError(f"Error fetching Huobi market snapshot for {trading_pair}. "
                                   f"HTTP status is {response.status}.")
-                data: Dict[str, any] = await response.json()
+                print(response)
+                api_data = await response.read()
+                data = ujson.loads(api_data)
 
                 # Need to add the symbol into the snapshot message for the Kafka message queue.
                 # Because otherwise, there'd be no way for the receiver to know which market the
@@ -183,10 +185,15 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         await ws.send(ujson.dumps(subscribe_request))
 
                     async for raw_msg in self._inner_messages(ws):
-                        msg = ujson.loads(gzip.open(raw_msg))
-                        order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(
-                            msg, time.time())
-                        output.put_nowait(order_book_message)
+                        ws_result = str(zlib.decompressobj(31).decompress(raw_msg), encoding="utf-8")
+                        msg = ujson.loads(ws_result)
+                        if "ping" in msg:
+                            pong_data = {"pong", msg["ping"]}
+                            await ws.send(ujson.dumps(pong_data))
+                        elif "subbed" not in msg:
+                            order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(
+                                msg, time.time())
+                            output.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
             except Exception:
