@@ -71,7 +71,7 @@ MARKET_CLASSES = {
 
 
 class HummingbotApplication(*commands):
-    KILL_TIMEOUT = 5.0
+    KILL_TIMEOUT = 10.0
     IDEX_KILL_TIMEOUT = 30.0
     APP_WARNING_EXPIRY_DURATION = 3600.0
     APP_WARNING_STATUS_LIMIT = 6
