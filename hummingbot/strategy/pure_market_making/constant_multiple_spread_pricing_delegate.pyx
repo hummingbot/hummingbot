@@ -37,7 +37,8 @@ cdef class ConstantMultipleSpreadPricingDelegate(OrderPricingDelegate):
     cdef object c_get_order_price_proposal(self,
                                            PureMarketMakingStrategyV2 strategy,
                                            object market_info,
-                                           list active_orders):
+                                           list active_orders,
+                                           double filled_price=0):
         cdef:
             MarketBase maker_market = market_info.market
             OrderBook maker_order_book = maker_market.c_get_order_book(market_info.trading_pair)

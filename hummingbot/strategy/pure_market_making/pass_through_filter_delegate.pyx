@@ -43,18 +43,14 @@ cdef class PassThroughFilterDelegate(OrderFilterDelegate):
         current_timestamp = strategy._current_timestamp
 
         if current_timestamp > self._order_placing_timestamp:
-
+            #Proposal not modified
             return orders_proposal
         else:
             self.logger().info(f"Current timestamp is less than {current_timestamp} <  order placing{self._order_placing_timestamp}")
             if actions & ORDER_PROPOSAL_ACTION_CREATE_ORDERS:
                 # set actions to not create orders
+                # Refer datatypes.py
                 actions = actions & 1 << 1
-                # if orders_proposal.buy_order_sizes[0] > 0:
-                #     orders_proposal.buy_order_sizes[0] = 0
-                #
-                # if orders_proposal.sell_order_sizes[0] > 0:
-                #     orders_proposal.sell_order_sizes[0] = 0
 
             return OrdersProposal(actions,
                                   orders_proposal.buy_order_type,
