@@ -42,6 +42,7 @@ class HuobiOrderBookTracker(OrderBookTracker):
         self._data_source: Optional[OrderBookTrackerDataSource] = None
         self._saved_message_queues: Dict[str, Deque[OrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
         self._symbols: Optional[List[str]] = symbols
+        print("Initialized Order Book Tracker")
 
     @property
     def data_source(self) -> OrderBookTrackerDataSource:

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import asyncio
+import aiohttp
 import logging
 from typing import (
     AsyncIterable,
@@ -18,7 +19,6 @@ from hummingbot.market.huobi.huobi_auth import HuobiAuth
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.market.huobi.huobi_order_book import HuobiOrderBook
 
-HUOBI_REST_API = "https://api.huobi.pro"
 HUOBI_WS_FEED = "wss://api.huobi.pro/ws/v1"
 
 
@@ -52,25 +52,31 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 async with websockets.connect(HUOBI_WS_FEED) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     for item in self._symbols:
-                        subscribe_params: Dict[str, any] = {
-                            "op": "auth",
-                            #"topic": f"orders.{item}",
+                        auth_request = {"op": "auth"}
+                        auth_params: Dict[str, any] = self._huobi_auth.generate_auth_dict("get",
+                                                                                           "wss://api.huobi.pro",
+                                                                                           "/ws/v1",
+                                                                                           None)
+                        auth_request.update(auth_params)
+                        await ws.send(ujson.dumps(auth_request))
+                        subscribe_request: Dict[str, any] = {
+                            "op": "sub",
+                            "topic": f"orders.{item}",
                         }
-                        subscribe_request: Dict[str, any] = self._huobi_auth.generate_auth_dict("get",
-                                                                                                "wss://api.huobi.pro",
-                                                                                                f"orders.{item}",
-                                                                                                subscribe_params)
                         await ws.send(ujson.dumps(subscribe_request))
+
                     async for raw_msg in self._inner_messages(ws):
                         ws_result = str(zlib.decompressobj(31).decompress(raw_msg), encoding="utf-8")
                         msg: Dict[str, any] = ujson.loads(ws_result)
-                        if "err-code" in msg:
-                            raise ValueError(f"Huobi Websocket received error message - code {msg['err-code']}")
-                        msg_type: str = msg.get("op", None)
-                        if msg_type is None:
-                            raise ValueError(f"Huobi Websocket message does not contain a type - {msg}")
-                        elif msg_type == "notify":
+                        if "err-code" in msg and msg["err-code"] != 0:
+                            raise ValueError(f"Huobi Websocket received error message - {msg['err-msg']}")
+                        if msg["op"] == "ping":
+                            pong_data = {"op": "pong", "ts": msg["ts"]}
+                            await ws.send(ujson.dumps(pong_data))
+                        elif msg["op"] in ["notify", "req"]:
                             output.put_nowait(msg["data"])
+                        elif msg["op"] in ["sub", "unsub", "auth"]:
+                            pass
                         else:
                             raise ValueError(f"Unrecognized Huobi Websocket message received - {msg}")
             except asyncio.CancelledError:

@@ -70,6 +70,7 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             market_data = await market_response.json()
             exchange_data = await exchange_response.json()
+            print(market_data)
 
             trading_pairs: Dict[str, any] = {item["symbol"]: {k: item[k] for k in ["base-currency", "quote-currency"]}
                                              for item in exchange_data["data"]
@@ -85,6 +86,7 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             all_markets.loc[:, "volume"] = all_markets.vol
 
             return all_markets.sort_values("USDVolume", ascending=False)
+        print("Recieved active exchange markets")
 
     @property
     def order_book_class(self) -> HuobiOrderBook:
@@ -102,6 +104,7 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     exc_info=True,
                     app_warning_msg=f"Error getting active exchange information. Check network connection."
                 )
+        print("Got tracker pairs")
         return self._symbols
 
     @staticmethod
@@ -112,7 +115,6 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 if response.status != 200:
                     raise IOError(f"Error fetching Huobi market snapshot for {trading_pair}. "
                                   f"HTTP status is {response.status}.")
-                print(response)
                 api_data = await response.read()
                 data = ujson.loads(api_data)
 

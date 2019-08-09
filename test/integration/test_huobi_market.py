@@ -77,11 +77,15 @@ class HuobiMarketUnitTest(unittest.TestCase):
         )
         print("Initializing Huobi market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        print("Ready1.")
         cls.clock.add_iterator(cls.market)
+        print("Ready2.")
         cls.stack = contextlib.ExitStack()
+        print("Ready3.")
         cls._clock = cls.stack.enter_context(cls.clock)
+        print("Ready4.")
         cls.ev_loop.run_until_complete(cls.wait_til_ready())
-        print("Ready.")
+        print("Ready5.")
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -93,8 +97,10 @@ class HuobiMarketUnitTest(unittest.TestCase):
             now = time.time()
             next_iteration = now // 1.0 + 1
             if cls.market.ready:
+                print("Market is ready")
                 break
             else:
+                print("Market is not ready")
                 await cls._clock.run_til(next_iteration)
             await asyncio.sleep(1.0)
 

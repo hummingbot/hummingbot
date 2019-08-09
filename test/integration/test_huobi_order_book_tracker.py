@@ -14,7 +14,7 @@ from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTrackerDataSourceType
 )
 
-test_symbol = "btcusdt"
+test_symbol = "ethusdt"
 
 
 class HuobiOrderBookTrackerUnitTest(unittest.TestCase):
