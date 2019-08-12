@@ -28,13 +28,13 @@ Below, we show how to create a Telegram bot that integrates with your Hummingbot
 
 ![](/assets/img/botfather-3.png)
 
-* Click the name of the bot to launch it: `t.me/<YOUR BOT NAME>` in the message above.
+* Take note of the Telegram token in the response above. You'll need it for [Step 3](/operation/telegram/#3-configure-the-telegram-settings-in-hummingbot).
 
-* Take note of the Telegram token in the response above. You'll need it in a minute for the configuration step.
+* Click the link to your new bot in the message above launch it: `t.me/<YOUR BOT NAME>`. Click `Start` or type `/start` to start the bot.
 
 ### 2. Get your Telegram ID
 
-* Click this link to launch **userinfobot**, a Telegram bot that helps you retrieve your Telegram ID: [https://telegram.me/userinfobot](https://telegram.me/userinfobot).
+* Click this following to launch **userinfobot**, a Telegram bot that helps you retrieve your Telegram ID: [https://telegram.me/userinfobot](https://telegram.me/userinfobot).
 
 * In Telegram, go to the newly-created **userinfobot** chat pane, and click `Start` or type `/start`.
 
@@ -51,6 +51,12 @@ telegram_enabled: true
 telegram_token: <TELEGRAM TOKEN FROM STEP 1>
 telegram_chat_id: <TELEGRAM ID FROM STEP 2>
 ```
+
+### 4. Startup Hummingbot
+
+You can now startup Hummingbot and confirm that the integration is properly configured.
+
+If Hummingbot was running when you configured telegram, make sure to `exit` and restart Hummingbot to reload the telegram configurations.
 
 ## Use your Telegram Bot
 
