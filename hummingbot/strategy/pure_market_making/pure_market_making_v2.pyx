@@ -79,7 +79,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  sizing_delegate: OrderSizingDelegate,
                  cancel_order_wait_time: float = 60,
                  filled_order_replenish_wait_time: float = 10,
-                 filled_order_adjust_other_side_enabled:bool = True,
+                 filled_order_adjust_other_side_enabled:bool = False,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
                  status_report_interval: float = 900):
