@@ -33,7 +33,6 @@ def start(self):
         inventory_skew_enabled = pure_market_making_config_map.get("inventory_skew_enabled").value
         inventory_target_base_percent = pure_market_making_config_map.get("inventory_target_base_percent").value
 
-        filter_delegate = PassThroughFilterDelegate()
         pricing_delegate = None
         sizing_delegate = None
         if mode == "multiple":

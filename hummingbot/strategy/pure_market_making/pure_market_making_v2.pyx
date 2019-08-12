@@ -21,8 +21,7 @@ from hummingbot.market.market_base import (
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.strategy.strategy_base import StrategyBase
 
-from .constant_spread_pricing_delegate import ConstantSpreadPricingDelegate
-from .constant_size_sizing_delegate import ConstantSizeSizingDelegate
+from .pass_through_filter_delegate import PassThroughFilterDelegate
 from .data_types import (
     OrdersProposal,
     ORDER_PROPOSAL_ACTION_CANCEL_ORDERS,
@@ -76,11 +75,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
     def __init__(self,
                  market_infos: List[MarketSymbolPair],
-                 filter_delegate: OrderFilterDelegate,
                  pricing_delegate: OrderPricingDelegate,
                  sizing_delegate: OrderSizingDelegate,
                  cancel_order_wait_time: float = 60,
                  filled_order_replenish_wait_time: float = 10,
+                 filled_order_adjust_other_side_enabled:bool = True,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
                  status_report_interval: float = 900):
@@ -108,7 +107,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._filled_order_adjust_other_side_enabled = filled_order_adjust_other_side_enabled
 
 
-        self._filter_delegate = filter_delegate
+        self._filter_delegate = PassThroughFilterDelegate(self._current_timestamp)
         self._pricing_delegate = pricing_delegate
         self._sizing_delegate = sizing_delegate
 
@@ -367,7 +366,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
             LimitOrder limit_order_record
 
-        if self.sizing_delegate.name == "constant_size" and not math.isnan(self._current_timestamp):
+        if self.sizing_delegate.name == "constant_size" or self.sizing_delegate.name == "inventory_skew_single_size" \
+                and not math.isnan(self._current_timestamp):
             #Set the replenish time as current_timestamp + order replenish time
             replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
 
@@ -377,6 +377,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 if other_order_id in self._time_to_cancel:
                     #cancel time is minimum of current cancel time and replenish time to sync up both
                     self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
+
 
             self.filter_delegate.order_placing_timestamp = replenish_time_stamp
 
@@ -401,7 +402,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
             LimitOrder limit_order_record
 
-        if self.sizing_delegate.name == "constant_size" and not math.isnan(self._current_timestamp):
+        if self.sizing_delegate.name == "constant_size" or self.sizing_delegate.name == "inventory_skew_single_size"\
+                and not math.isnan(self._current_timestamp):
             #Set the replenish time as current_timestamp + order replenish time
             replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
 

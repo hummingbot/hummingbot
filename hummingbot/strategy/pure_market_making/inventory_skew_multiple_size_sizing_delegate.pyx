@@ -47,6 +47,10 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
     def number_of_orders(self) -> int:
         return self._number_of_orders
 
+    @property
+    def name(self) -> str:
+        return "inventory_skew_multiple_size"
+
     cdef object c_get_order_size_proposal(self,
                                           PureMarketMakingStrategyV2 strategy,
                                           object market_info,
