@@ -46,6 +46,8 @@ The following walks through all the steps when running `config` for the first ti
 | `At what percentage of loss would you like the bot to stop trading? (Enter 0.03 to indicate 3%. Enter -1.0 to disable) >>>` | This sets `stop_loss_pct` (see [definition](#configuration-parameters)) |
 | `What type of price data would you like to use for stop loss (fixed/dynamic) ? >>>` | This sets `stop_loss_price_type` (see [definition](#configuration-parameters)) |
 | `What base token would you like to use to calculate your inventory value? (Default "USD") >>>` | This sets `stop_loss_base_token` (see [definition](#configuration-parameters)) |
+| `Would you like to enable inventory skew? (Default is False) >>>` | This sets `inventory_skew_enabled` (see [definition](#configuration-parameters)) |
+| `What is your target base asset inventory percentage (Enter 0.01 to indicate 1%)? >>> ` | This sets `inventory_target_base_percent` (see [definition](#configuration-parameters)) |
 
 ### Multiple Order Configuration
 
@@ -57,6 +59,23 @@ Multiple orders allow you to create multiple orders for each bid and ask side, e
 | `What is the size of the first bid and ask order, (default is 1) >>>`: | This sets `order_start_size` (see [definition](#configuration-parameters)) |
 | `How much do you want to increase the order size for each additional order (default is 0) ? >>>` | This sets `order_step_size` (see [definition](#configuration-parameters)) |
 | `Enter the price increments (as percentage) for subsequent orders (Enter 0.01 to indicate 1%)? >>>` | This sets `order_interval_percent` (see [definition](#configuration-parameters)) |
+
+### Inventory-Based Dynamic Order Sizing
+
+The inventory skew function is ***currentlyavailable in single order trading mode only***.  This function allows you to specify a target base to quote asset inventory ratio and adjust order sizes whenever the current portfolio ratio deviates from this target.
+
+For example, if you are targeting a 50/50 base to quote asset ratio but the current value of your base asset accounts for more than 50% of the value of your inventory, then bid sizes (buy base asset) are decreased, while ask sizes (sell base asset) are increased.
+
+ | Prompt | Description |
+|-----|-----|
+| `Would you like to enable inventory skew? (true/false) default is false >>>`: | This sets `inventory_skew_enabled` (see [definition](#configuration-parameters)) |
+| `What is your target base asset inventory percentage (Enter 0.01 to indicate 1%) >>>`: | This sets `inventory_target_base_percent` (see [definition](#configuration-parameters)) |
+
+#### Determining order size
+
+The input `order_amount` is adjusted by the ratio of current base (or quote) percentage versus target percentage:
+
+![Inventory skew calculations](/assets/img/inventory-skew-calculation.png)
 
 ## Configuration Parameters
 
@@ -75,6 +94,8 @@ The following parameters are fields in Hummingbot configuration files (located i
 | **stop_loss_pct** | The threshold amount upon which `hummingbot` will cease placing orders if the value of inventory has fallen.
 | **stop_loss_price_type** | The pricing methdology used by `hummingbot` uses when calculating inventory value when evaluating the stop loss feature.<ul><li>`fixed`: uses the assets prices from when the strategy was first started.<li>`dynamic`: uses current prevailing prices for assets.</ul>
 | **stop_loss_base_token** | The base currency into which inventory is valued for purposes of evaluating stop loss.
+| **inventory_skew_enabled** | When this is `true`, the bid and ask order sizes are adjusted based on the `inventory_target_base_percent`.
+| **inventory_target_base_percent** | An amount expressed in decimals (i.e. input of `0.01` corresponds to 1%) <br/> The strategy will place bid and ask orders with adjusted sizes (based on `order_amount`, `order_start_size`) and try to maintain this base asset vs. total (base + quote) asset value.<br/><br/>*Example: You are market making ETH / USD with `order_amount: 1` and balances of 10 ETH and 1000 USD. Your current base asset value is ~67% and quote asset value is ~33%. If `inventory_target_base_percent: 0.5`, the order amount will be adjusted from 1 ETH bid, 1 ETH ask to 0.67 ETH bid, 1.33 ETH ask.*
 
 ## Risks and Trading Mechanics
 

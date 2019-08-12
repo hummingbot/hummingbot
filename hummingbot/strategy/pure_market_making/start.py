@@ -6,8 +6,13 @@ from typing import (
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.strategy.pure_market_making import (
     PureMarketMakingStrategyV2,
+    PassThroughFilterDelegate,
+    ConstantSpreadPricingDelegate,
     ConstantMultipleSpreadPricingDelegate,
+    ConstantSizeSizingDelegate,
     StaggeredMultipleSizeSizingDelegate,
+    InventorySkewSingleSizeSizingDelegate,
+    InventorySkewMultipleSizeSizingDelegate
 )
 from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map
 
@@ -25,17 +30,32 @@ def start(self):
         order_interval_percent = pure_market_making_config_map.get("order_interval_percent").value
         maker_market = pure_market_making_config_map.get("maker_market").value.lower()
         raw_maker_symbol = pure_market_making_config_map.get("maker_market_symbol").value.upper()
+        inventory_skew_enabled = pure_market_making_config_map.get("inventory_skew_enabled").value
+        inventory_target_base_percent = pure_market_making_config_map.get("inventory_target_base_percent").value
+
+        filter_delegate = PassThroughFilterDelegate()
         pricing_delegate = None
         sizing_delegate = None
-
         if mode == "multiple":
             pricing_delegate = ConstantMultipleSpreadPricingDelegate(bid_place_threshold,
                                                                      ask_place_threshold,
                                                                      order_interval_percent,
                                                                      number_of_orders)
-            sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size,
-                                                                  order_step_size,
-                                                                  number_of_orders)
+            if inventory_skew_enabled:
+                sizing_delegate = InventorySkewMultipleSizeSizingDelegate(order_start_size,
+                                                                          order_step_size,
+                                                                          number_of_orders,
+                                                                          inventory_target_base_percent)
+            else:
+                sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size,
+                                                                      order_step_size,
+                                                                      number_of_orders)
+        else:  # mode == "single"
+            pricing_delegate = ConstantSpreadPricingDelegate(bid_place_threshold, ask_place_threshold)
+            if inventory_skew_enabled:
+                sizing_delegate = InventorySkewSingleSizeSizingDelegate(order_size, inventory_target_base_percent)
+            else:
+                sizing_delegate = ConstantSizeSizingDelegate(order_size)
 
         try:
             maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_symbol])[0]
@@ -55,11 +75,9 @@ def start(self):
         strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
 
         self.strategy = PureMarketMakingStrategyV2(market_infos=[MarketSymbolPair(*maker_data)],
+                                                   filter_delegate=filter_delegate,
                                                    pricing_delegate=pricing_delegate,
                                                    sizing_delegate=sizing_delegate,
-                                                   legacy_order_size=order_size,
-                                                   legacy_bid_spread=bid_place_threshold,
-                                                   legacy_ask_spread=ask_place_threshold,
                                                    cancel_order_wait_time=cancel_order_wait_time,
                                                    logging_options=strategy_logging_options)
     except Exception as e:

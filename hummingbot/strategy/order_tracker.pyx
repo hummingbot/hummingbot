@@ -185,6 +185,8 @@ cdef class OrderTracker(TimeIterator):
 
         if order_id in self._order_id_to_market_pair:
             del self._order_id_to_market_pair[order_id]
+        if order_id in self._in_flight_cancels:
+            del self._in_flight_cancels[order_id]
 
     cdef c_start_tracking_market_order(self, object market_pair, str order_id, bint is_buy, object quantity):
         if market_pair not in self._tracked_taker_orders:
