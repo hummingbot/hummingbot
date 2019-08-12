@@ -320,16 +320,17 @@ class LiquidityBounty(NetworkBase):
     async def status_polling_loop(self):
         while True:
             try:
-                await asyncio.gather([
-                    await self.fetch_client_status(),
-                    await self.fetch_last_timestamp(),
-                ], loop=self._ev_loop)
+                await asyncio.gather(*[
+                    self.fetch_client_status(),
+                    self.fetch_last_timestamp(),
+                ], loop=self._ev_loop, return_exceptions=True)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 if "User not registered" in str(e):
                     self.logger().warning("User not registered. Aborting fetch_client_status_loop.")
                     break
+                self.logger().error(f"Error getting bounty status: {e}", exc_info=True)
             await asyncio.sleep(self._update_interval)
 
     async def fetch_filled_volume_metrics(self, start_time: int) -> List[Dict[str, Any]]:

@@ -37,7 +37,6 @@ from .order_pricing_delegate cimport OrderPricingDelegate
 from .order_pricing_delegate import OrderPricingDelegate
 from .order_sizing_delegate cimport OrderSizingDelegate
 from .order_sizing_delegate import OrderSizingDelegate
-from .pass_through_filter_delegate import PassThroughFilterDelegate
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -75,18 +74,15 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             s_logger = logging.getLogger(__name__)
         return s_logger
 
-    def __init__(self, market_infos: List[MarketSymbolPair],
-                 filter_delegate: Optional[OrderFilterDelegate] = None,
-                 pricing_delegate: Optional[OrderPricingDelegate] = None,
-                 sizing_delegate: Optional[OrderSizingDelegate] = None,
+    def __init__(self,
+                 market_infos: List[MarketSymbolPair],
+                 filter_delegate: OrderFilterDelegate,
+                 pricing_delegate: OrderPricingDelegate,
+                 sizing_delegate: OrderSizingDelegate,
                  cancel_order_wait_time: float = 60,
                  filled_order_replenish_wait_time: float = 10,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
-                 legacy_order_size: float = 1.0,
-                 legacy_bid_spread: float = 0.01,
-                 legacy_ask_spread: float = 0.01,
-                 filled_order_adjust_other_side_enabled: bool = True,
                  status_report_interval: float = 900):
 
         if len(market_infos) < 1:
@@ -111,12 +107,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._adjust_order_price_after_fill = [False, False]
         self._filled_order_adjust_other_side_enabled = filled_order_adjust_other_side_enabled
 
-        if filter_delegate is None:
-            filter_delegate = PassThroughFilterDelegate(self._current_timestamp)
-        if pricing_delegate is None:
-            pricing_delegate = ConstantSpreadPricingDelegate(legacy_bid_spread, legacy_ask_spread)
-        if sizing_delegate is None:
-            sizing_delegate = ConstantSizeSizingDelegate(legacy_order_size)
 
         self._filter_delegate = filter_delegate
         self._pricing_delegate = pricing_delegate

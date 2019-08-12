@@ -194,17 +194,19 @@ cdef class StrategyBase(TimeIterator):
             double base_asset_conversion_rate
             double quote_asset_conversion_rate
             list assets_data = []
-            list assets_columns = ["Market", "Asset", "Balance", "Conversion Rate"]
+            list assets_columns = ["Market", "Asset", "Total Balance", "Available Balance", "Conversion Rate"]
         try:
             for market_symbol_pair in market_symbol_pairs:
                 market, trading_pair, base_asset, quote_asset = market_symbol_pair
                 base_balance = market.get_balance(base_asset)
                 quote_balance = market.get_balance(quote_asset)
+                available_base_balance = market.get_available_balance(base_asset)
+                available_quote_balance = market.get_available_balance(quote_asset)
                 base_asset_conversion_rate = ExchangeRateConversion.get_instance().adjust_token_rate(base_asset, 1.0)
                 quote_asset_conversion_rate = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, 1.0)
                 assets_data.extend([
-                    [market.name, base_asset, base_balance, base_asset_conversion_rate],
-                    [market.name, quote_asset, quote_balance, quote_asset_conversion_rate]
+                    [market.name, base_asset, base_balance, available_base_balance, base_asset_conversion_rate],
+                    [market.name, quote_asset, quote_balance, available_quote_balance, quote_asset_conversion_rate]
                 ])
 
             return pd.DataFrame(data=assets_data, columns=assets_columns)
