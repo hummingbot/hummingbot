@@ -60,9 +60,11 @@ Multiple orders allow you to create multiple orders for each bid and ask side, e
 | `How much do you want to increase the order size for each additional order (default is 0) ? >>>` | This sets `order_step_size` (see [definition](#configuration-parameters)) |
 | `Enter the price increments (as percentage) for subsequent orders (Enter 0.01 to indicate 1%)? >>>` | This sets `order_interval_percent` (see [definition](#configuration-parameters)) |
 
-### Inventory Skew Configuration
+### Inventory-Based Dynamic Order Sizing
 
-The inventory skew function is ***currentlyavailable in single order trading mode only***.  This function allows you to specify a target base to quote asset inventory ratio and adjust order sizes in response to imbalances in inventory.  For example, if you are targeting a 50/50 base to quote asset ratio but the current value of your base asset is more than 50% of the value of your inventory, then bid sizes (buy base asset) are decreased, while ask sizes (sell base asset) are increased.
+The inventory skew function is ***currentlyavailable in single order trading mode only***.  This function allows you to specify a target base to quote asset inventory ratio and adjust order sizes whenever the current portfolio ratio deviates from this target.
+
+For example, if you are targeting a 50/50 base to quote asset ratio but the current value of your base asset accounts for more than 50% of the value of your inventory, then bid sizes (buy base asset) are decreased, while ask sizes (sell base asset) are increased.
 
  | Prompt | Description |
 |-----|-----|
@@ -71,7 +73,7 @@ The inventory skew function is ***currentlyavailable in single order trading mod
 
 #### Determining order size
 
-The input order size is adjusted by the ratio of current base (or quote) percentage versus target percentage:
+The input `order_amount` is adjusted by the ratio of current base (or quote) percentage versus target percentage:
 
 ![Inventory skew calculations](/assets/img/inventory-skew-calculation.png)
 
