@@ -32,9 +32,12 @@ def start(self):
         raw_maker_symbol = pure_market_making_config_map.get("maker_market_symbol").value.upper()
         inventory_skew_enabled = pure_market_making_config_map.get("inventory_skew_enabled").value
         inventory_target_base_percent = pure_market_making_config_map.get("inventory_target_base_percent").value
+        filled_order_replenish_wait_time = pure_market_making_config_map.get("filled_order_replenish_wait_time").value
+        filled_order_adjust_other_side_enabled = pure_market_making_config_map.get("filled_order_adjust_other_side_enabled").value
 
         pricing_delegate = None
         sizing_delegate = None
+
         if mode == "multiple":
             pricing_delegate = ConstantMultipleSpreadPricingDelegate(bid_place_threshold,
                                                                      ask_place_threshold,
@@ -74,9 +77,10 @@ def start(self):
         strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
 
         self.strategy = PureMarketMakingStrategyV2(market_infos=[MarketSymbolPair(*maker_data)],
-                                                   filter_delegate=filter_delegate,
                                                    pricing_delegate=pricing_delegate,
                                                    sizing_delegate=sizing_delegate,
+                                                   filled_order_replenish_wait_time=filled_order_replenish_wait_time,
+                                                   filled_order_adjust_other_side_enabled=filled_order_adjust_other_side_enabled,
                                                    cancel_order_wait_time=cancel_order_wait_time,
                                                    logging_options=strategy_logging_options)
     except Exception as e:
