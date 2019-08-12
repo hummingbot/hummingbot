@@ -97,4 +97,15 @@ pure_market_making_config_map = {
                                                   lambda: pure_market_making_config_map.get("inventory_skew_enabled").value,
                                                   type_str="float",
                                                   default=0.01),
+    "filled_order_adjust_other_side_enabled": ConfigVar(key="filled_order_adjust_other_side_enabled",
+                                                  prompt="Would you like to adjust the next order price based on "
+                                                         "current filled price? (default is False) >>> ",
+                                                  type_str="bool",
+                                                  default=False),
+    "filled_order_replenish_wait_time":    ConfigVar(key="filled_order_replenish_wait_time",
+                                                  prompt="How long do you want to wait before placing the next order "
+                                                         "in case your order gets filled (in seconds). "
+                                                         "(Default is 10 seconds)? >>> ",
+                                                  type_str="float",
+                                                  default=10),
 }
