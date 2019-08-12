@@ -66,7 +66,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.cancel_order_wait_time = 45
         self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
                                                 max_price=200, price_step_size=1, volume_step_size=10)
-        self.filter_delegate = PassThroughFilterDelegate()
+
         self.constant_pricing_delegate = ConstantSpreadPricingDelegate(self.bid_threshold, self.ask_threshold)
         self.constant_sizing_delegate = ConstantSizeSizingDelegate(1.0)
         self.equal_strategy_sizing_delegate = StaggeredMultipleSizeSizingDelegate(
@@ -108,7 +108,6 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             [self.market_info],
             filled_order_replenish_wait_time=self.cancel_order_wait_time,
             filled_order_adjust_other_side_enabled=False,
-            filter_delegate=self.filter_delegate,
             sizing_delegate=self.constant_sizing_delegate,
             pricing_delegate=self.constant_pricing_delegate,
             cancel_order_wait_time=45,
@@ -117,7 +116,6 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
         self.multi_order_equal_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
-            filter_delegate=self.filter_delegate,
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
             sizing_delegate=self.equal_strategy_sizing_delegate,
             cancel_order_wait_time=45,
@@ -126,7 +124,6 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
         self.multi_order_staggered_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
-            filter_delegate=self.filter_delegate,
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
             sizing_delegate=self.staggered_strategy_sizing_delegate,
             cancel_order_wait_time=45,
@@ -135,9 +132,8 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
         self.delayed_placement_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
-            legacy_order_size=1.0,
-            legacy_bid_spread=self.bid_threshold,
-            legacy_ask_spread=self.ask_threshold,
+            pricing_delegate=self.constant_pricing_delegate,
+            sizing_delegate=self.constant_sizing_delegate,
             cancel_order_wait_time=900,
             filled_order_replenish_wait_time=80,
             filled_order_adjust_other_side_enabled=False,
@@ -146,9 +142,8 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
         self.delayed_placement_strategy_adjust_price: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
-            legacy_order_size=1.0,
-            legacy_bid_spread=self.bid_threshold,
-            legacy_ask_spread=self.ask_threshold,
+            pricing_delegate=self.constant_pricing_delegate,
+            sizing_delegate=self.constant_sizing_delegate,
             cancel_order_wait_time=900,
             filled_order_replenish_wait_time=80,
             filled_order_adjust_other_side_enabled=True,
@@ -622,7 +617,7 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
         self.cancel_order_wait_time = 30
         self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
                                                 max_price=200, price_step_size=1, volume_step_size=10)
-        self.filter_delegate = PassThroughFilterDelegate()
+
         self.constant_pricing_delegate = ConstantSpreadPricingDelegate(self.bid_threshold, self.ask_threshold)
         self.multiple_order_strategy_pricing_delegate = ConstantMultipleSpreadPricingDelegate(
             bid_spread=self.bid_threshold,
@@ -662,19 +657,21 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
 
         self.inventory_skew_single_order_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
-            filter_delegate=self.filter_delegate,
             sizing_delegate=self.inventory_skew_single_size_sizing_delegate,
             pricing_delegate=self.constant_pricing_delegate,
             cancel_order_wait_time=45,
+            filled_order_adjust_other_side_enabled=False,
+            filled_order_replenish_wait_time=0,
             logging_options=logging_options
         )
 
         self.inventory_skew_multiple_order_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
-            filter_delegate=self.filter_delegate,
             sizing_delegate=self.inventory_skew_multiple_size_sizing_delegate,
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
             cancel_order_wait_time=45,
+            filled_order_adjust_other_side_enabled=False,
+            filled_order_replenish_wait_time=0,
             logging_options=logging_options
         )
 
@@ -724,16 +721,6 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal("1.81818"), Decimal(str(maker_fill.amount)), places=4)
 
         self.clock.backtest_til(self.start_timestamp + 3 * self.clock_tick_size + 1)
-        self.assertEqual(1, len(self.inventory_skew_single_order_strategy.active_bids))
-        self.assertEqual(1, len(self.inventory_skew_single_order_strategy.active_asks))
-        first_bid_order: LimitOrder = self.inventory_skew_single_order_strategy.active_bids[0][1]
-        first_ask_order: LimitOrder = self.inventory_skew_single_order_strategy.active_asks[0][1]
-        self.assertEqual(Decimal("99"), first_bid_order.price)
-        self.assertEqual(Decimal("101"), first_ask_order.price)
-        self.assertEqual(Decimal("0.181818"), first_bid_order.quantity)
-        self.assertEqual(Decimal("1.81151"), first_ask_order.quantity)
-
-        self.clock.backtest_til(self.start_timestamp + 60 * self.clock_tick_size + 1)
         self.assertEqual(1, len(self.inventory_skew_single_order_strategy.active_bids))
         self.assertEqual(1, len(self.inventory_skew_single_order_strategy.active_asks))
         first_bid_order: LimitOrder = self.inventory_skew_single_order_strategy.active_bids[0][1]

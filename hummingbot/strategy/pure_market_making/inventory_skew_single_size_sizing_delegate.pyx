@@ -35,6 +35,10 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
     def order_size(self) -> float:
         return self._order_size
 
+    @property
+    def name(self) -> str:
+        return "inventory_skew_single_size"
+
     cdef object c_get_order_size_proposal(self,
                                           PureMarketMakingStrategyV2 strategy,
                                           object market_info,
