@@ -106,10 +106,6 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
                                 (~PureMarketMakingStrategyV2.OPTION_LOG_NULL_ORDER_SIZE))
         self.strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
-            legacy_order_size=1.0,
-            legacy_bid_spread=self.bid_threshold,
-            legacy_ask_spread=self.ask_threshold,
-            cancel_order_wait_time=self.cancel_order_wait_time,
             filled_order_replenish_wait_time=self.cancel_order_wait_time,
             filled_order_adjust_other_side_enabled=False,
             filter_delegate=self.filter_delegate,
