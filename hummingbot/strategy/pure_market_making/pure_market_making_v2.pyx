@@ -29,13 +29,13 @@ from .data_types import (
     PricingProposal,
     SizingProposal
 )
+from .pure_market_making_order_tracker import PureMarketMakingOrderTracker
 from .order_filter_delegate cimport OrderFilterDelegate
 from .order_filter_delegate import OrderFilterDelegate
 from .order_pricing_delegate cimport OrderPricingDelegate
 from .order_pricing_delegate import OrderPricingDelegate
 from .order_sizing_delegate cimport OrderSizingDelegate
 from .order_sizing_delegate import OrderSizingDelegate
-from .pass_through_filter_delegate import PassThroughFilterDelegate
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -73,22 +73,21 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             s_logger = logging.getLogger(__name__)
         return s_logger
 
-    def __init__(self, market_infos: List[MarketSymbolPair],
-                 filter_delegate: Optional[OrderFilterDelegate] = None,
-                 pricing_delegate: Optional[OrderPricingDelegate] = None,
-                 sizing_delegate: Optional[OrderSizingDelegate] = None,
+    def __init__(self,
+                 market_infos: List[MarketSymbolPair],
+                 filter_delegate: OrderFilterDelegate,
+                 pricing_delegate: OrderPricingDelegate,
+                 sizing_delegate: OrderSizingDelegate,
                  cancel_order_wait_time: float = 60,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
-                 legacy_order_size: float = 1.0,
-                 legacy_bid_spread: float = 0.01,
-                 legacy_ask_spread: float = 0.01,
                  status_report_interval: float = 900):
 
         if len(market_infos) < 1:
             raise ValueError(f"market_infos must not be empty.")
 
         super().__init__()
+        self._sb_order_tracker = PureMarketMakingOrderTracker()
         self._market_infos = {
             (market_info.market, market_info.trading_pair): market_info
             for market_info in market_infos
@@ -102,12 +101,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
 
-        if filter_delegate is None:
-            filter_delegate = PassThroughFilterDelegate()
-        if pricing_delegate is None:
-            pricing_delegate = ConstantSpreadPricingDelegate(legacy_bid_spread, legacy_ask_spread)
-        if sizing_delegate is None:
-            sizing_delegate = ConstantSizeSizingDelegate(legacy_order_size)
 
         self._filter_delegate = filter_delegate
         self._pricing_delegate = pricing_delegate
@@ -159,6 +152,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     @property
     def sizing_delegate(self) -> OrderSizingDelegate:
         return self._sizing_delegate
+
+    @property
+    def order_tracker(self):
+        return self._sb_order_tracker
 
     def format_status(self) -> str:
         cdef:
