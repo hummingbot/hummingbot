@@ -17,6 +17,7 @@ NaN = float("nan")
 
 
 class ExchangeRateConversion:
+    DEFAULT_DATA_FEED_NAME = "coin_gecko_api"
     erc_logger: Optional[HummingbotLogger] = None
     _erc_shared_instance: "ExchangeRateConversion" = None
     _exchange_rate_config_override: Optional[Dict[str, Dict]] = None
@@ -101,7 +102,7 @@ class ExchangeRateConversion:
             cls.logger().error("Error initiating config for exchange rate conversion.", exc_info=True)
 
     @property
-    def exchange_rate(self):
+    def exchange_rate(self) -> Dict[str, float]:
         return self._exchange_rate.copy()
 
     def __init__(self):
@@ -144,6 +145,9 @@ class ExchangeRateConversion:
     async def update_exchange_rates_from_data_feeds(self):
         has_errors: bool = False
         try:
+            for data_feed in self._data_feeds:
+                if data_feed.name == self.DEFAULT_DATA_FEED_NAME:
+                    self._exchange_rate = data_feed.price_dict
             for data_feed in self._data_feeds:
                 source_name = data_feed.name
                 for symbol, config in self._exchange_rate_config["global_config"].items():

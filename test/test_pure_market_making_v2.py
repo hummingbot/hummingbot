@@ -38,8 +38,13 @@ from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.pure_market_making.pure_market_making_v2 import PureMarketMakingStrategyV2
 from hummingbot.strategy.pure_market_making import (
+    PassThroughFilterDelegate,
+    ConstantSpreadPricingDelegate,
     ConstantMultipleSpreadPricingDelegate,
-    StaggeredMultipleSizeSizingDelegate
+    ConstantSizeSizingDelegate,
+    StaggeredMultipleSizeSizingDelegate,
+    InventorySkewSingleSizeSizingDelegate,
+    InventorySkewMultipleSizeSizingDelegate
 )
 
 
@@ -61,6 +66,9 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.cancel_order_wait_time = 45
         self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
                                                 max_price=200, price_step_size=1, volume_step_size=10)
+        self.filter_delegate = PassThroughFilterDelegate()
+        self.constant_pricing_delegate = ConstantSpreadPricingDelegate(self.bid_threshold, self.ask_threshold)
+        self.constant_sizing_delegate = ConstantSizeSizingDelegate(1.0)
         self.equal_strategy_sizing_delegate = StaggeredMultipleSizeSizingDelegate(
             order_start_size=1.0,
             order_step_size=0,
@@ -77,6 +85,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             order_interval_size=0.01,
             number_of_orders=5
         )
+
         self.maker_market.add_data(self.maker_data)
         self.maker_market.set_balance("COINALPHA", 500)
         self.maker_market.set_balance("WETH", 5000)
@@ -97,32 +106,28 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
                                 (~PureMarketMakingStrategyV2.OPTION_LOG_NULL_ORDER_SIZE))
         self.strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
-            legacy_order_size=1.0,
-            legacy_bid_spread=self.bid_threshold,
-            legacy_ask_spread=self.ask_threshold,
+            filter_delegate=self.filter_delegate,
+            sizing_delegate=self.constant_sizing_delegate,
+            pricing_delegate=self.constant_pricing_delegate,
             cancel_order_wait_time=45,
             logging_options=logging_options
         )
 
         self.multi_order_equal_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
-            legacy_order_size=1.0,
-            legacy_bid_spread=self.bid_threshold,
-            legacy_ask_spread=self.ask_threshold,
-            cancel_order_wait_time=45,
-            sizing_delegate=self.equal_strategy_sizing_delegate,
+            filter_delegate=self.filter_delegate,
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
+            sizing_delegate=self.equal_strategy_sizing_delegate,
+            cancel_order_wait_time=45,
             logging_options=logging_options
         )
 
         self.multi_order_staggered_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
-            legacy_order_size=1.0,
-            legacy_bid_spread=self.bid_threshold,
-            legacy_ask_spread=self.ask_threshold,
-            cancel_order_wait_time=45,
-            sizing_delegate=self.staggered_strategy_sizing_delegate,
+            filter_delegate=self.filter_delegate,
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
+            sizing_delegate=self.staggered_strategy_sizing_delegate,
+            cancel_order_wait_time=45,
             logging_options=logging_options
         )
 
@@ -231,9 +236,9 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
     def test_correct_price_correct_size(self):
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
-        self.assertEqual(self.mid_price*(1 + self.ask_threshold),
+        self.assertEqual(self.mid_price * (1 + self.ask_threshold),
                          self.strategy.active_asks[0][1].price)
-        self.assertEqual(self.mid_price*(1 - self.bid_threshold),
+        self.assertEqual(self.mid_price * (1 - self.bid_threshold),
                          self.strategy.active_bids[0][1].price)
         self.assertEqual(1, self.strategy.active_bids[0][1].quantity)
         self.assertEqual(1, self.strategy.active_asks[0][1].quantity)
@@ -286,7 +291,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
         self.simulate_maker_market_trade(True, 5.0)
 
-        self.clock.backtest_til(self.start_timestamp + 2*self.clock_tick_size+1)
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
         self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
 
         maker_fill: OrderFilledEvent = self.maker_order_fill_logger.event_log[0]
@@ -516,3 +521,195 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.clock.backtest_til(end_ts)
         self.assertEqual(5, len(self.multi_order_staggered_strategy.active_bids))
         self.assertEqual(5, len(self.multi_order_staggered_strategy.active_asks))
+
+
+class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
+    start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
+    end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
+    start_timestamp: float = start.timestamp()
+    end_timestamp: float = end.timestamp()
+    maker_symbols: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
+
+    def setUp(self):
+        self.clock_tick_size = 1
+        self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
+        self.maker_market: BacktestMarket = BacktestMarket()
+        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_symbols)
+        self.mid_price = 100
+        self.bid_threshold = 0.01
+        self.ask_threshold = 0.01
+        self.cancel_order_wait_time = 30
+        self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
+                                                max_price=200, price_step_size=1, volume_step_size=10)
+        self.filter_delegate = PassThroughFilterDelegate()
+        self.constant_pricing_delegate = ConstantSpreadPricingDelegate(self.bid_threshold, self.ask_threshold)
+        self.multiple_order_strategy_pricing_delegate = ConstantMultipleSpreadPricingDelegate(
+            bid_spread=self.bid_threshold,
+            ask_spread=self.ask_threshold,
+            order_interval_size=0.01,
+            number_of_orders=5
+        )
+        self.inventory_skew_single_size_sizing_delegate = InventorySkewSingleSizeSizingDelegate(
+            order_size=1,
+            inventory_target_base_percent=0.5
+        )
+        self.inventory_skew_multiple_size_sizing_delegate = InventorySkewMultipleSizeSizingDelegate(
+            order_start_size=1.0,
+            order_step_size=0.5,
+            number_of_orders=5,
+            inventory_target_base_percent=0.5
+        )
+
+        self.maker_market.add_data(self.maker_data)
+        self.maker_market.set_balance("COINALPHA", 500)
+        self.maker_market.set_balance("WETH", 5000)
+        self.maker_market.set_balance("QETH", 500)
+        self.maker_market.set_quantization_param(
+            QuantizationParams(
+                self.maker_symbols[0], 6, 6, 6, 6
+            )
+        )
+
+        self.market_info: MarketSymbolPair = MarketSymbolPair(
+            *(
+                [self.maker_market] + self.maker_symbols
+            )
+        )
+
+        logging_options: int = (PureMarketMakingStrategyV2.OPTION_LOG_ALL &
+                                (~PureMarketMakingStrategyV2.OPTION_LOG_NULL_ORDER_SIZE))
+
+        self.inventory_skew_single_order_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+            [self.market_info],
+            filter_delegate=self.filter_delegate,
+            sizing_delegate=self.inventory_skew_single_size_sizing_delegate,
+            pricing_delegate=self.constant_pricing_delegate,
+            cancel_order_wait_time=45,
+            logging_options=logging_options
+        )
+
+        self.inventory_skew_multiple_order_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+            [self.market_info],
+            filter_delegate=self.filter_delegate,
+            sizing_delegate=self.inventory_skew_multiple_size_sizing_delegate,
+            pricing_delegate=self.multiple_order_strategy_pricing_delegate,
+            cancel_order_wait_time=45,
+            logging_options=logging_options
+        )
+
+        self.logging_options = logging_options
+        self.clock.add_iterator(self.maker_market)
+        self.maker_order_fill_logger: EventLogger = EventLogger()
+        self.cancel_order_logger: EventLogger = EventLogger()
+        self.maker_market.add_listener(MarketEvent.OrderFilled, self.maker_order_fill_logger)
+        self.maker_market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
+
+    def simulate_maker_market_trade(self, is_buy: bool, quantity: float):
+        maker_symbol: str = self.maker_symbols[0]
+        order_book: OrderBook = self.maker_market.get_order_book(maker_symbol)
+        trade_event: OrderBookTradeEvent = OrderBookTradeEvent(
+            maker_symbol,
+            self.clock.current_timestamp,
+            TradeType.BUY if is_buy else TradeType.SELL,
+            (self.mid_price * (1 - self.bid_threshold - 0.01)
+             if not is_buy
+             else self.mid_price * (1 + self.ask_threshold + 0.01)),
+            quantity
+        )
+        order_book.apply_trade(trade_event)
+
+    def test_inventory_skew_single_order_strategy(self):
+        self.clock.add_iterator(self.inventory_skew_single_order_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy.active_bids))
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy.active_asks))
+        first_bid_order: LimitOrder = self.inventory_skew_single_order_strategy.active_bids[0][1]
+        first_ask_order: LimitOrder = self.inventory_skew_single_order_strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("101"), first_ask_order.price)
+        self.assertEqual(Decimal("0.181818"), first_bid_order.quantity)
+        self.assertEqual(Decimal("1.81818"), first_ask_order.quantity)
+
+        self.simulate_maker_market_trade(True, 5.0)
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy.active_bids))
+        self.assertEqual(0, len(self.inventory_skew_single_order_strategy.active_asks))
+
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+
+        maker_fill: OrderFilledEvent = self.maker_order_fill_logger.event_log[0]
+        self.assertEqual(TradeType.SELL, maker_fill.trade_type)
+        self.assertAlmostEqual(101, maker_fill.price)
+        self.assertAlmostEqual(Decimal("1.81818"), Decimal(str(maker_fill.amount)), places=4)
+
+        self.clock.backtest_til(self.start_timestamp + 3 * self.clock_tick_size + 1)
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy.active_bids))
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy.active_asks))
+        first_bid_order: LimitOrder = self.inventory_skew_single_order_strategy.active_bids[0][1]
+        first_ask_order: LimitOrder = self.inventory_skew_single_order_strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("101"), first_ask_order.price)
+        self.assertEqual(Decimal("0.181818"), first_bid_order.quantity)
+        self.assertEqual(Decimal("1.81151"), first_ask_order.quantity)
+
+        self.clock.backtest_til(self.start_timestamp + 60 * self.clock_tick_size + 1)
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy.active_bids))
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy.active_asks))
+        first_bid_order: LimitOrder = self.inventory_skew_single_order_strategy.active_bids[0][1]
+        first_ask_order: LimitOrder = self.inventory_skew_single_order_strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("101"), first_ask_order.price)
+        self.assertEqual(Decimal("0.188489"), first_bid_order.quantity)
+        self.assertEqual(Decimal("1.81151"), first_ask_order.quantity)
+
+    def test_inventory_skew_multiple_order_strategy(self):
+        self.clock.add_iterator(self.inventory_skew_multiple_order_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(5, len(self.inventory_skew_multiple_order_strategy.active_bids))
+        self.assertEqual(5, len(self.inventory_skew_multiple_order_strategy.active_asks))
+
+        first_bid_order: LimitOrder = self.inventory_skew_multiple_order_strategy.active_bids[0][1]
+        first_ask_order: LimitOrder = self.inventory_skew_multiple_order_strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("101"), first_ask_order.price)
+        self.assertEqual(Decimal("0.181818"), first_bid_order.quantity)
+        self.assertEqual(Decimal("1.81818"), first_ask_order.quantity)
+
+        last_bid_order: LimitOrder = self.inventory_skew_multiple_order_strategy.active_bids[-1][1]
+        last_ask_order: LimitOrder = self.inventory_skew_multiple_order_strategy.active_asks[-1][1]
+        last_bid_price = Decimal(99 * (1 - 0.01) ** 4).quantize(Decimal("0.001"))
+        last_ask_price = Decimal(101 * (1 + 0.01) ** 4).quantize(Decimal("0.001"))
+        self.assertAlmostEqual(last_bid_price, last_bid_order.price, 3)
+        self.assertAlmostEqual(last_ask_price, last_ask_order.price, 3)
+        self.assertEqual(Decimal("0.545454"), last_bid_order.quantity)
+        self.assertEqual(Decimal("5.45454"), last_ask_order.quantity)
+
+        self.simulate_maker_market_trade(True, 5.0)
+        self.assertEqual(5, len(self.inventory_skew_multiple_order_strategy.active_bids))
+        self.assertEqual(4, len(self.inventory_skew_multiple_order_strategy.active_asks))
+
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+
+        maker_fill: OrderFilledEvent = self.maker_order_fill_logger.event_log[0]
+        self.assertEqual(TradeType.SELL, maker_fill.trade_type)
+        self.assertAlmostEqual(101, maker_fill.price)
+        self.assertAlmostEqual(Decimal("1.81818"), Decimal(str(maker_fill.amount)), places=4)
+
+        self.clock.backtest_til(self.start_timestamp + 60 * self.clock_tick_size + 1)
+        self.assertEqual(5, len(self.inventory_skew_multiple_order_strategy.active_bids))
+        self.assertEqual(5, len(self.inventory_skew_multiple_order_strategy.active_asks))
+        first_bid_order: LimitOrder = self.inventory_skew_multiple_order_strategy.active_bids[0][1]
+        first_ask_order: LimitOrder = self.inventory_skew_multiple_order_strategy.active_asks[0][1]
+        last_bid_order: LimitOrder = self.inventory_skew_multiple_order_strategy.active_bids[-1][1]
+        last_ask_order: LimitOrder = self.inventory_skew_multiple_order_strategy.active_asks[-1][1]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("101"), first_ask_order.price)
+        self.assertEqual(Decimal("0.188489"), first_bid_order.quantity)
+        self.assertEqual(Decimal("1.81151"), first_ask_order.quantity)
+        last_bid_price = Decimal(99 * (1 - 0.01) ** 4).quantize(Decimal("0.001"))
+        last_ask_price = Decimal(101 * (1 + 0.01) ** 4).quantize(Decimal("0.001"))
+        self.assertAlmostEqual(last_bid_price, last_bid_order.price, 3)
+        self.assertAlmostEqual(last_ask_price, last_ask_order.price, 3)
+        self.assertEqual(Decimal("0.565468"), last_bid_order.quantity)
+        self.assertEqual(Decimal("5.43453"), last_ask_order.quantity)
