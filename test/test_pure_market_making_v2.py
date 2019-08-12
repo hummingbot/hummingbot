@@ -550,49 +550,51 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
         self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
         self.assertEqual(1, len(self.delayed_placement_strategy.active_asks))
-        bid_order = LimitOrder()
+        ask_order: LimitOrder = self.delayed_placement_strategy.active_asks[0][1]
 
-        self.simulate_limit_order_fill(self.maker_market, 5.0)
+        self.simulate_limit_order_fill(self.maker_market, ask_order)
 
         self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size )
         self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
         self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
         self.assertEqual(0, len(self.delayed_placement_strategy.active_asks))
 
-    #     self.clock.backtest_til(self.start_timestamp + 5 * self.clock_tick_size )
-    #     self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
-    #     self.assertEqual(1, len(self.delayed_placement_strategy.active_asks))
-    #
-    #     bid_order: LimitOrder = self.strategy.active_bids[0][1]
-    #     ask_order: LimitOrder = self.strategy.active_asks[0][1]
-    #     self.assertEqual(Decimal("99"), bid_order.price)
-    #     self.assertEqual(Decimal("101"), ask_order.price)
-    #     self.assertEqual(Decimal("1.0"), bid_order.quantity)
-    #     self.assertEqual(Decimal("1.0"), ask_order.quantity)
-    #
-    #
-    #
-    # def test_replenish_delay_adjust_prices(self):
-    #     self.clock.remove_iterator(self.strategy)
-    #     self.clock.add_iterator(self.delayed_placement_strategy)
-    #     self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
-    #     self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
-    #     self.assertEqual(1, len(self.delayed_placement_strategy.active_asks))
-    #
-    #     self.simulate_maker_market_trade(True, 5.0)
-    #
-    #     self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size )
-    #     self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
-    #     self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
-    #     self.assertEqual(0, len(self.delayed_placement_strategy.active_asks))
-    #
-    #     self.clock.backtest_til(self.start_timestamp + 5 * self.clock_tick_size )
-    #     self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
-    #     self.assertEqual(1, len(self.delayed_placement_strategy.active_asks))
-    #
-    #     bid_order: LimitOrder = self.strategy.active_bids[0][1]
-    #     ask_order: LimitOrder = self.strategy.active_asks[0][1]
-    #     self.assertEqual(Decimal("99.99"), bid_order.price)
-    #     self.assertEqual(Decimal("102.01"), ask_order.price)
-    #     self.assertEqual(Decimal("1.0"), bid_order.quantity)
-    #     self.assertEqual(Decimal("1.0"), ask_order.quantity)
+        self.clock.backtest_til(self.start_timestamp + 4 * self.clock_tick_size )
+        self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
+        self.assertEqual(1, len(self.delayed_placement_strategy.active_asks))
+
+        bid_order: LimitOrder = self.delayed_placement_strategy.active_bids[0][1]
+        ask_order: LimitOrder = self.delayed_placement_strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), bid_order.price)
+        self.assertEqual(Decimal("101"), ask_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+        self.maker_order_fill_logger.clear()
+
+
+    def test_replenish_delay_adjust_prices(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(self.delayed_placement_strategy_adjust_price)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(self.delayed_placement_strategy_adjust_price.active_bids))
+        self.assertEqual(1, len(self.delayed_placement_strategy_adjust_price.active_asks))
+        bid_order: LimitOrder = self.delayed_placement_strategy_adjust_price.active_bids[0][1]
+
+        self.simulate_limit_order_fill(self.maker_market, bid_order)
+
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size)
+        self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+        self.assertEqual(0, len(self.delayed_placement_strategy_adjust_price.active_bids))
+        self.assertEqual(1, len(self.delayed_placement_strategy_adjust_price.active_asks))
+
+        self.clock.backtest_til(self.start_timestamp + 4 * self.clock_tick_size)
+        self.assertEqual(1, len(self.delayed_placement_strategy_adjust_price.active_bids))
+        self.assertEqual(1, len(self.delayed_placement_strategy_adjust_price.active_asks))
+
+        bid_order: LimitOrder = self.delayed_placement_strategy_adjust_price.active_bids[0][1]
+        ask_order: LimitOrder = self.delayed_placement_strategy_adjust_price.active_asks[0][1]
+        self.assertEqual(Decimal("99.99"), ask_order.price)
+        self.assertEqual(Decimal("98.01"), bid_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+        self.maker_order_fill_logger.clear()

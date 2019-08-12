@@ -108,7 +108,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._last_timestamp = 0
         self._filled_price = 0
         self._status_report_interval = status_report_interval
-        self._adjust_order_price_after_fill = False
+        self._adjust_order_price_after_fill = [False, False]
         self._filled_order_adjust_other_side_enabled = filled_order_adjust_other_side_enabled
 
         if filter_delegate is None:
@@ -306,9 +306,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         #  1. Ask the pricing delegate on what are the order prices.
         #  2. Ask the sizing delegate on what are the order sizes.
         #  3. Set the actions to carry out in the orders proposal to include create orders.
-        if self._filled_order_adjust_other_side_enabled and self._adjust_order_price_after_fill:
+        if self._filled_order_adjust_other_side_enabled and any(self._adjust_order_price_after_fill) :
+            self.logger().info("New pricing proposal suggested")
             pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self, market_info, active_orders, self._filled_price)
         else:
+            self.logger().info("Old pricing proposal enabled")
             pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self, market_info, active_orders)
 
         sizing_proposal = self._sizing_delegate.c_get_order_size_proposal(self,
@@ -330,6 +332,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
             if len(cancel_order_ids) > 0:
                 actions |= ORDER_PROPOSAL_ACTION_CANCEL_ORDERS
+
+        self.logger().info(f"Buy order prices inside propo is {pricing_proposal.buy_order_prices} ")
+        self.logger().info(f"sell order prices inside propo is {pricing_proposal.sell_order_prices} ")
 
         return OrdersProposal(actions,
                               OrderType.LIMIT,
@@ -355,15 +360,15 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 if self._logging_options & self.OPTION_LOG_MAKER_ORDER_FILLED:
                     self.log_with_clock(
                         logging.INFO,
-                        f"({market_info.trading_pair}) Maker buy order of "
-                        f"{order_filled_event.amount} {market_info.base_asset} filled."
+                        f"({market_info.trading_pair}) Maker buy order of {order_filled_event.order_id} "
+                        f"{order_filled_event.amount} {market_info.base_asset} {order_filled_event} filled."
                     )
             else:
                 if self._logging_options & self.OPTION_LOG_MAKER_ORDER_FILLED:
                     self.log_with_clock(
                         logging.INFO,
-                        f"({market_info.trading_pair}) Maker sell order of "
-                        f"{order_filled_event.amount} {market_info.base_asset} filled."
+                        f"({market_info.trading_pair}) Maker sell order of {order_filled_event.order_id} "
+                        f"{order_filled_event.amount} {market_info.base_asset} {order_filled_event} filled."
                     )
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
@@ -378,17 +383,18 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
             # if filled order is buy, adjust the cancel time for sell order
             for _, ask_order in self.active_asks:
-                order_id = ask_order.client_order_id
-                if order_id in self._time_to_cancel:
+                other_order_id = ask_order.client_order_id
+                if other_order_id in self._time_to_cancel:
                     #cancel time is minimum of current cancel time and replenish time to sync up both
-                    self._time_to_cancel[order_id] = min(self._time_to_cancel[order_id], replenish_time_stamp)
+                    self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
 
             self.filter_delegate.order_placing_timestamp = replenish_time_stamp
 
             if self._filled_order_adjust_other_side_enabled:
-                self._adjust_order_price_after_fill = True
+                self._adjust_order_price_after_fill = [True, True]
                 limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
                 self._filled_price = limit_order_record.price
+                self.logger().info(f"This should be called and price should be {limit_order_record.price}")
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
@@ -411,15 +417,15 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
             # if filled order is sell, adjust the cancel time for sell order
             for _, bid_order in self.active_bids:
-                order_id = bid_order.client_order_id
-                if order_id in self._time_to_cancel:
+                other_order_id = bid_order.client_order_id
+                if other_order_id in self._time_to_cancel:
                     #cancel time is minimum of current cancel time and replenish time to sync up both
-                    self._time_to_cancel[order_id] = min(self._time_to_cancel[order_id], replenish_time_stamp)
+                    self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
 
             self.filter_delegate.order_placing_timestamp = replenish_time_stamp
 
             if self._filled_order_adjust_other_side_enabled:
-                self._adjust_order_price_after_fill = True
+                self._adjust_order_price_after_fill = [True, True]
                 limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
                 self._filled_price = limit_order_record.price
 
@@ -439,8 +445,13 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                          if ((market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
                                              (market_info.market.name == "bamboo_relay" and not market_info.market.use_coordinator))
                                          else NaN)
-            str bid_order_id
+            str bid_order_id, ask_order_id
 
+        self.logger().info(f"Buy order prices is {orders_proposal.buy_order_prices} ")
+        self.logger().info(f"sell order prices is {orders_proposal.sell_order_prices} ")
+
+        self.logger().info(f"Buy order size is {orders_proposal.buy_order_sizes} ")
+        self.logger().info(f"sell order size is {orders_proposal.sell_order_sizes} ")
         # Cancel orders.
         if actions & ORDER_PROPOSAL_ACTION_CANCEL_ORDERS:
             for order_id in orders_proposal.cancel_order_ids:
@@ -470,6 +481,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                             expiration_seconds=expiration_seconds
                         )
                         self._time_to_cancel[bid_order_id] = self._current_timestamp + self._cancel_order_wait_time
+                        self._adjust_order_price_after_fill[0] = False
                 elif orders_proposal.buy_order_type is OrderType.MARKET:
                     raise RuntimeError("Market buy order in orders proposal is not supported yet.")
 
@@ -491,9 +503,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                             expiration_seconds=expiration_seconds
                         )
                         self._time_to_cancel[ask_order_id] = self._current_timestamp + self._cancel_order_wait_time
+                        self._adjust_order_price_after_fill[1] = False
                 elif orders_proposal.sell_order_type is OrderType.MARKET:
                     raise RuntimeError("Market sell order in orders proposal is not supported yet.")
-
-
-            self._adjust_order_price_after_fill = False
-            self._filled_price = 0
