@@ -49,5 +49,11 @@ inventory_skew_enabled: null
 # Target base asset inventory percentage target to be maintained
 inventory_target_base_percent: null
 
+# Adjusts the next placed order based on the price of the current filled order for single order mode
+filled_order_adjust_other_side_enabled: null
+
+# How long to wait before placing the next order in case your order gets filled for single order mode
+filled_order_replenish_wait_time: null
+
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parameters
