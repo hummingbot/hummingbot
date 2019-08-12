@@ -544,7 +544,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.assertEqual(5, len(self.multi_order_staggered_strategy.active_bids))
         self.assertEqual(5, len(self.multi_order_staggered_strategy.active_asks))
 
-    def test_replenish_delay(self):
+    def test_replenish_delay_without_adjusting_prices(self):
         self.clock.remove_iterator(self.strategy)
         self.clock.add_iterator(self.delayed_placement_strategy)
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
@@ -554,15 +554,18 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
         self.simulate_limit_order_fill(self.maker_market, ask_order)
 
+        # Ask is filled and due to delay is not replenished immediately
         self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size )
         self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
         self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
         self.assertEqual(0, len(self.delayed_placement_strategy.active_asks))
 
+        # Orders are placed after replenish delay
         self.clock.backtest_til(self.start_timestamp + 4 * self.clock_tick_size )
         self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
         self.assertEqual(1, len(self.delayed_placement_strategy.active_asks))
 
+        # Prices are not adjusted according to filled price as per settings
         bid_order: LimitOrder = self.delayed_placement_strategy.active_bids[0][1]
         ask_order: LimitOrder = self.delayed_placement_strategy.active_asks[0][1]
         self.assertEqual(Decimal("99"), bid_order.price)
@@ -582,15 +585,21 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
         self.simulate_limit_order_fill(self.maker_market, bid_order)
 
+        # Bid is filled and due to delay is not replenished immediately
         self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size)
         self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
         self.assertEqual(0, len(self.delayed_placement_strategy_adjust_price.active_bids))
         self.assertEqual(1, len(self.delayed_placement_strategy_adjust_price.active_asks))
 
+        # Orders are placed after replenish delay
         self.clock.backtest_til(self.start_timestamp + 4 * self.clock_tick_size)
         self.assertEqual(1, len(self.delayed_placement_strategy_adjust_price.active_bids))
         self.assertEqual(1, len(self.delayed_placement_strategy_adjust_price.active_asks))
 
+        # Prices are adjusted according to filled price as per settings
+        # Filled order is bid order which was filled at 99
+        # New ask order is at 1% above which is 99.99
+        # New bid order is at 1% below which is 98.01
         bid_order: LimitOrder = self.delayed_placement_strategy_adjust_price.active_bids[0][1]
         ask_order: LimitOrder = self.delayed_placement_strategy_adjust_price.active_asks[0][1]
         self.assertEqual(Decimal("99.99"), ask_order.price)
@@ -598,6 +607,19 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.0"), bid_order.quantity)
         self.assertEqual(Decimal("1.0"), ask_order.quantity)
         self.maker_order_fill_logger.clear()
+
+        self.clock.backtest_til(self.start_timestamp + 60 * self.clock_tick_size)
+
+        self.assertEqual(1, len(self.delayed_placement_strategy_adjust_price.active_bids))
+        self.assertEqual(1, len(self.delayed_placement_strategy_adjust_price.active_asks))
+        # Prices revert back after cancel order wait time
+        bid_order: LimitOrder = self.delayed_placement_strategy_adjust_price.active_bids[0][1]
+        ask_order: LimitOrder = self.delayed_placement_strategy_adjust_price.active_asks[0][1]
+        self.assertEqual(Decimal("101"), ask_order.price)
+        self.assertEqual(Decimal("99"), bid_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+
 
 class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
