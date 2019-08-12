@@ -44,6 +44,7 @@ cdef class PassThroughFilterDelegate(OrderFilterDelegate):
 
         if current_timestamp > self._order_placing_timestamp:
             #Proposal not modified
+            self.logger().info("Not modifying proposal")
             return orders_proposal
         else:
             self.logger().info(f"Current timestamp is less than {current_timestamp} <  order placing{self._order_placing_timestamp}")
