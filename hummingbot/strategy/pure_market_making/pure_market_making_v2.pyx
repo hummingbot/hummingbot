@@ -7,7 +7,6 @@ from typing import (
     Dict
 )
 
-import math
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
@@ -113,7 +112,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._adjust_order_price_after_fill = [False, False]
         self._filled_order_adjust_other_side_enabled = filled_order_adjust_other_side_enabled
 
-
+        # Create a filter delegate which will create orders after the current timestamp
         self._filter_delegate = PassThroughFilterDelegate(self._current_timestamp)
         self._pricing_delegate = pricing_delegate
         self._sizing_delegate = sizing_delegate
@@ -392,7 +391,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             for _, ask_order in self.active_asks:
                 other_order_id = ask_order.client_order_id
                 if other_order_id in self._time_to_cancel:
-                    #cancel time is minimum of current cancel time and replenish time to sync up both
+                    # cancel time is minimum of current cancel time and replenish time to sync up both
                     self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
 
 
@@ -402,7 +401,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 self._adjust_order_price_after_fill = [True, True]
                 limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
                 self._filled_price = limit_order_record.price
-                self.logger().info(f"This should be called and price should be {limit_order_record.price}")
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
@@ -429,7 +427,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             for _, bid_order in self.active_bids:
                 other_order_id = bid_order.client_order_id
                 if other_order_id in self._time_to_cancel:
-                    #cancel time is minimum of current cancel time and replenish time to sync up both
+                    # cancel time is minimum of current cancel time and replenish time to sync up both
                     self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
 
             self.filter_delegate.order_placing_timestamp = replenish_time_stamp

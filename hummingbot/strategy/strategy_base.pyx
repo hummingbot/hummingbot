@@ -358,16 +358,7 @@ cdef class StrategyBase(TimeIterator):
                 self.c_stop_tracking_market_order(market_pair, order_id)
 
     cdef c_did_complete_sell_order_tracker(self, object order_completed_event):
-        cdef:
-            str order_id = order_completed_event.order_id
-            object market_pair = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
-            object order_type = order_completed_event.order_type
-
-        if market_pair is not None:
-            if order_type == OrderType.LIMIT:
-                self.c_stop_tracking_limit_order(market_pair, order_id)
-            elif order_type == OrderType.MARKET:
-                self.c_stop_tracking_market_order(market_pair, order_id)
+        self.c_did_complete_buy_order_tracker(order_completed_event)
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 

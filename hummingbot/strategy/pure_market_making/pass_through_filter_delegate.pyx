@@ -47,6 +47,7 @@ cdef class PassThroughFilterDelegate(OrderFilterDelegate):
 
         # If the current timestamp is less than the timestamp to place order modify order proposal to NOT place orders
         else:
+            # If the proposal is trying to create orders
             if actions & ORDER_PROPOSAL_ACTION_CREATE_ORDERS:
                 # set actions to not create orders by masking the Order creation bit
                 # Refer datatypes.py
