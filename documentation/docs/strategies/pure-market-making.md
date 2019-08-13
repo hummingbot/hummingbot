@@ -48,6 +48,8 @@ The following walks through all the steps when running `config` for the first ti
 | `What base token would you like to use to calculate your inventory value? (Default "USD") >>>` | This sets `stop_loss_base_token` (see [definition](#configuration-parameters)) |
 | `Would you like to enable inventory skew? (Default is False) >>>` | This sets `inventory_skew_enabled` (see [definition](#configuration-parameters)) |
 | `What is your target base asset inventory percentage (Enter 0.01 to indicate 1%)? >>> ` | This sets `inventory_target_base_percent` (see [definition](#configuration-parameters)) |
+| `Would you like to adjust the next order price based on current filled price? (default is False) >>>` | This sets `filled_order_adjust_other_side_enabled` (see [definition](#configuration-parameters)) |
+| `How long do you want to wait before placing the next order in case your order gets filled (in seconds). (Default is 10 seconds)? >>> " ` | This sets `filled_order_replenish_wait_time` (see [definition](#configuration-parameters)) |
 
 ### Multiple Order Configuration
 
@@ -70,6 +72,22 @@ For example, if you are targeting a 50/50 base to quote asset ratio but the curr
 |-----|-----|
 | `Would you like to enable inventory skew? (y/n) >>>`: | This sets `inventory_skew_enabled` (see [definition](#configuration-parameters)) |
 | `What is your target base asset inventory percentage (Enter 0.01 to indicate 1%) >>>`: | This sets `inventory_target_base_percent` (see [definition](#configuration-parameters)) |
+
+
+### Order Adjustment based on fills
+
+You can now introduce delay in order placements right after it gets completely filled. As the bot currently places orders as soon as there are no active orders, there is a risk that if the market goes in one direction continously, you might have bought/sold a lot of token continously.
+
+Now you can set the delay for how long to wait before placing the next order in case of order fills. 
+
+You can also choose to adjust the price of next order after the fill as the price of the fill. For example if you had a buy order of 1eth@100 USD and it gets filled. If this feature is enabled, the mid price is treated as 100 usd instead of the current mid price. 
+
+The price reverts back to current mid price if there are no fills which take place before the orders get cancelled as per cancel_order_wait_time
+
+ | Prompt | Description |
+|-----|-----|
+| `Would you like to adjust the next order price based on current filled price? (default is False) >>>` | This sets `filled_order_adjust_other_side_enabled` (see [definition](#configuration-parameters)) |
+| `How long do you want to wait before placing the next order in case your order gets filled (in seconds). (Default is 10 seconds)? >>> " ` | This sets `filled_order_replenish_wait_time` (see [definition](#configuration-parameters)) |
 
 #### Determining order size
 
@@ -96,6 +114,8 @@ The following parameters are fields in Hummingbot configuration files (located i
 | **stop_loss_base_token** | The base currency into which inventory is valued for purposes of evaluating stop loss.
 | **inventory_skew_enabled** | When this is `true`, the bid and ask order sizes are adjusted based on the `inventory_target_base_percent`.
 | **inventory_target_base_percent** | An amount expressed in decimals (i.e. input of `0.01` corresponds to 1%) <br/> The strategy will place bid and ask orders with adjusted sizes (based on `order_amount`, `order_start_size`) and try to maintain this base asset vs. total (base + quote) asset value.<br/><br/>*Example: You are market making ETH / USD with `order_amount: 1` and balances of 10 ETH and 1000 USD. Your current base asset value is ~67% and quote asset value is ~33%. If `inventory_target_base_percent: 0.5`, the order amount will be adjusted from 1 ETH bid, 1 ETH ask to 0.67 ETH bid, 1.33 ETH ask.*
+| **filled_order_adjust_other_side_enabled** | When enabled, the price of the next bid and ask orders are based on the filled price instead of the current mid price in the market for single order mode.
+| **filled_order_replenish_wait_time** | An amount in seconds, which specifies the delay before placing the next order for single order mode. _Default value: 10 seconds_. <br/> For example if your buy order for 1ETH@100 gets filled, your next buy order is placed after this delay. The sell order is also cancelled and placed at this time to ensure both buy and sell orders use the same reference mid price.
 
 ## Risks and Trading Mechanics
 
