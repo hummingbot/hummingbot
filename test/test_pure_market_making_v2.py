@@ -687,13 +687,32 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
             logging_options=logging_options
         )
 
+        self.inventory_skew_single_order_strategy_delayed_fill: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+            [self.market_info],
+            sizing_delegate=self.inventory_skew_single_size_sizing_delegate,
+            pricing_delegate=self.constant_pricing_delegate,
+            cancel_order_wait_time=45,
+            filled_order_adjust_other_side_enabled=False,
+            filled_order_replenish_wait_time=15,
+            logging_options=logging_options
+        )
+
+        self.inventory_skew_single_order_strategy_delayed_fill_adjusted_price: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+            [self.market_info],
+            sizing_delegate=self.inventory_skew_single_size_sizing_delegate,
+            pricing_delegate=self.constant_pricing_delegate,
+            cancel_order_wait_time=45,
+            filled_order_adjust_other_side_enabled=True,
+            filled_order_replenish_wait_time=15,
+            logging_options=logging_options
+        )
+
         self.inventory_skew_multiple_order_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
             sizing_delegate=self.inventory_skew_multiple_size_sizing_delegate,
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
             cancel_order_wait_time=45,
             filled_order_adjust_other_side_enabled=False,
-            filled_order_replenish_wait_time=0,
             logging_options=logging_options
         )
 
@@ -749,6 +768,92 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
         first_ask_order: LimitOrder = self.inventory_skew_single_order_strategy.active_asks[0][1]
         self.assertEqual(Decimal("99"), first_bid_order.price)
         self.assertEqual(Decimal("101"), first_ask_order.price)
+        self.assertEqual(Decimal("0.188489"), first_bid_order.quantity)
+        self.assertEqual(Decimal("1.81151"), first_ask_order.quantity)
+
+    def test_inventory_skew_single_order_strategy_delayed_fill_no_price_adjustment(self):
+        self.clock.add_iterator(self.inventory_skew_single_order_strategy_delayed_fill)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size + 1)
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy_delayed_fill.active_bids))
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy_delayed_fill.active_asks))
+        first_bid_order: LimitOrder = self.inventory_skew_single_order_strategy_delayed_fill.active_bids[0][1]
+        first_ask_order: LimitOrder = self.inventory_skew_single_order_strategy_delayed_fill.active_asks[0][1]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("101"), first_ask_order.price)
+        self.assertEqual(Decimal("0.181818"), first_bid_order.quantity)
+        self.assertEqual(Decimal("1.81818"), first_ask_order.quantity)
+
+        self.simulate_maker_market_trade(True, 5.0)
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy_delayed_fill.active_bids))
+        self.assertEqual(0, len(self.inventory_skew_single_order_strategy_delayed_fill.active_asks))
+
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+
+        maker_fill: OrderFilledEvent = self.maker_order_fill_logger.event_log[0]
+        self.assertEqual(TradeType.SELL, maker_fill.trade_type)
+        self.assertAlmostEqual(101, maker_fill.price)
+        self.assertAlmostEqual(Decimal("1.81818"), Decimal(str(maker_fill.amount)), places=4)
+
+        self.clock.backtest_til(self.start_timestamp + 3 * self.clock_tick_size + 1)
+        # Order is not replenished till replenish time
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy_delayed_fill.active_bids))
+        self.assertEqual(0, len(self.inventory_skew_single_order_strategy_delayed_fill.active_asks))
+        first_bid_order: LimitOrder = self.inventory_skew_single_order_strategy_delayed_fill.active_bids[0][1]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("0.181818"), first_bid_order.quantity)
+
+        self.clock.backtest_til(self.start_timestamp + 60 * self.clock_tick_size + 1)
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy_delayed_fill.active_bids))
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy_delayed_fill.active_asks))
+        first_bid_order: LimitOrder = self.inventory_skew_single_order_strategy_delayed_fill.active_bids[0][1]
+        first_ask_order: LimitOrder = self.inventory_skew_single_order_strategy_delayed_fill.active_asks[0][1]
+        # Price does not change based on filled price
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("101"), first_ask_order.price)
+        self.assertEqual(Decimal("0.188489"), first_bid_order.quantity)
+        self.assertEqual(Decimal("1.81151"), first_ask_order.quantity)
+
+    def test_inventory_skew_single_order_strategy_delayed_fill_with_price_adjustment(self):
+        self.clock.add_iterator(self.inventory_skew_single_order_strategy_delayed_fill_adjusted_price)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size + 1)
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy_delayed_fill_adjusted_price.active_bids))
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy_delayed_fill_adjusted_price.active_asks))
+        first_bid_order: LimitOrder = self.inventory_skew_single_order_strategy_delayed_fill_adjusted_price.active_bids[0][1]
+        first_ask_order: LimitOrder = self.inventory_skew_single_order_strategy_delayed_fill_adjusted_price.active_asks[0][1]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("101"), first_ask_order.price)
+        self.assertEqual(Decimal("0.181818"), first_bid_order.quantity)
+        self.assertEqual(Decimal("1.81818"), first_ask_order.quantity)
+
+        self.simulate_maker_market_trade(True, 5.0)
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy_delayed_fill_adjusted_price.active_bids))
+        self.assertEqual(0, len(self.inventory_skew_single_order_strategy_delayed_fill_adjusted_price.active_asks))
+
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+
+        maker_fill: OrderFilledEvent = self.maker_order_fill_logger.event_log[0]
+        self.assertEqual(TradeType.SELL, maker_fill.trade_type)
+        self.assertAlmostEqual(101, maker_fill.price)
+        self.assertAlmostEqual(Decimal("1.81818"), Decimal(str(maker_fill.amount)), places=4)
+
+        self.clock.backtest_til(self.start_timestamp + 3 * self.clock_tick_size + 1)
+        # Order is not replenished till replenish time
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy_delayed_fill_adjusted_price.active_bids))
+        self.assertEqual(0, len(self.inventory_skew_single_order_strategy_delayed_fill_adjusted_price.active_asks))
+        first_bid_order: LimitOrder = self.inventory_skew_single_order_strategy_delayed_fill_adjusted_price.active_bids[0][1]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("0.181818"), first_bid_order.quantity)
+
+        self.clock.backtest_til(self.start_timestamp + 60 * self.clock_tick_size + 1)
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy_delayed_fill_adjusted_price.active_bids))
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy_delayed_fill_adjusted_price.active_asks))
+        first_bid_order: LimitOrder = self.inventory_skew_single_order_strategy_delayed_fill_adjusted_price.active_bids[0][1]
+        first_ask_order: LimitOrder = self.inventory_skew_single_order_strategy_delayed_fill_adjusted_price.active_asks[0][1]
+        # Price changes based on filled price
+        self.assertEqual(Decimal("99.99"), first_bid_order.price)
+        self.assertEqual(Decimal("102.01"), first_ask_order.price)
         self.assertEqual(Decimal("0.188489"), first_bid_order.quantity)
         self.assertEqual(Decimal("1.81151"), first_ask_order.quantity)
 
