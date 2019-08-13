@@ -12,7 +12,6 @@ else:
     from os.path import join, realpath
     import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
-import argparse
 import asyncio
 import logging
 
@@ -25,11 +24,12 @@ from hummingbot.client.config.config_helpers import (
     read_configs_from_yml
 )
 from hummingbot.client.ui.stdout_redirection import patch_stdout
+from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.client.settings import STRATEGIES
 from hummingbot.core.utils.wallet_setup import unlock_wallet
 
 
-class CmdlineParser(argparse.ArgumentParser):
+class CmdlineParser(ThrowingArgumentParser):
     def __init__(self):
         super().__init__()
         self.add_argument("--strategy", "-s",
@@ -51,14 +51,14 @@ class CmdlineParser(argparse.ArgumentParser):
                           help="Specify the password if you need to unlock your wallet.")
 
 
-async def func_wrapper(func):
-    func()
+async def normal_start():
+    from bin.hummingbot import main
+    await main()
 
 
-async def main():
+async def quick_start():
     try:
         args = CmdlineParser().parse_args()
-        os.chdir(os.path.realpath(os.path.join(__file__, "../../")))
 
         strategy = args.strategy
         config_file_path = args.config_file_path
@@ -68,14 +68,14 @@ async def main():
         await create_yml_files()
         init_logging("hummingbot_logs.yml")
         read_configs_from_yml()
-        hb = HummingbotApplication()
+        hb = HummingbotApplication.main_application()
 
         in_memory_config_map.get("strategy").value = strategy
         in_memory_config_map.get("strategy").validate(strategy)
         in_memory_config_map.get("strategy_file_path").value = config_file_path
         in_memory_config_map.get("strategy_file_path").validate(config_file_path)
 
-        if wallet is not None and wallet_password is not None:
+        if wallet and wallet_password:
             global_config_map.get("wallet").value = wallet
             hb.acct = unlock_wallet(public_key=wallet, password=wallet_password)
 
@@ -85,15 +85,15 @@ async def main():
             raise ValueError(f"Missing empty configs: {empty_config_description}\n")
 
         with patch_stdout(log_field=hb.app.log_field):
-            init_logging("hummingbot_logs.yml", override_log_level=global_config_map.get("log_level").value)
-            hb.start()
+            log_level = global_config_map.get("log_level").value
+            init_logging("hummingbot_logs.yml", override_log_level=log_level)
+            hb.start(log_level)
             await asyncio.gather(hb.run())
-    except KeyboardInterrupt:
-        logging.getLogger().error("KeyboardInterrupt: Aborted.")
-    except Exception as e:
-        logging.getLogger().error(str(e), exc_info=True)
 
+    except Exception as e:
+        # In case of quick start failure, start the bot normally to allow further configuration
+        logging.getLogger().warning(f"Bot config incomplete: {str(e)}. Starting normally...")
+        await normal_start()
 
 if __name__ == "__main__":
-    ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-    ev_loop.run_until_complete(main())
+    asyncio.get_event_loop().run_until_complete(quick_start())
