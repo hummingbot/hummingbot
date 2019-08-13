@@ -42,10 +42,10 @@ pure_market_making_config_map = {
                                                   type_str="float",
                                                   default=0.01),
     "ask_place_threshold":              ConfigVar(key="ask_place_threshold",
-                                                 prompt="How far away from the mid price do you want to place the "
-                                                        "first ask order (Enter 0.01 to indicate 1%)? >>> ",
-                                                 type_str="float",
-                                                 default=0.01),
+                                                  prompt="How far away from the mid price do you want to place the "
+                                                         "first ask order (Enter 0.01 to indicate 1%)? >>> ",
+                                                  type_str="float",
+                                                  default=0.01),
     "cancel_order_wait_time":           ConfigVar(key="cancel_order_wait_time",
                                                   prompt="How often do you want to cancel and replace bids and asks "
                                                          "(in seconds). (Default is 60 seconds) ? >>> ",
@@ -73,17 +73,28 @@ pure_market_making_config_map = {
                                                   type_str="float",
                                                   default=1),
     "order_step_size":                  ConfigVar(key="order_step_size",
-                                                  prompt="How much do you want to increase the order size for each additional order"
-                                                  " (default is 0) ? >>> ",
+                                                  prompt="How much do you want to increase the order size for each "
+                                                         "additional order (default is 0) ? >>> ",
                                                   required_if=
                                                   lambda: pure_market_making_config_map.get("mode").value == "multiple",
                                                   type_str="float",
                                                   default=0),
     "order_interval_percent":           ConfigVar(key="order_interval_percent",
-                                                  prompt="Enter the price increments (as percentage) for subsequent orders"
-                                                  " (Enter 0.01 to indicate 1%)? >>> ",
+                                                  prompt="Enter the price increments (as percentage) for subsequent "
+                                                         "orders (Enter 0.01 to indicate 1%)? >>> ",
                                                   required_if=
                                                   lambda: pure_market_making_config_map.get("mode").value == "multiple",
+                                                  type_str="float",
+                                                  default=0.01),
+    "inventory_skew_enabled":           ConfigVar(key="inventory_skew_enabled",
+                                                  prompt="Would you like to enable inventory skew? (y/n) >>> ",
+                                                  type_str="bool",
+                                                  default=False),
+    "inventory_target_base_percent":    ConfigVar(key="inventory_target_base_percent",
+                                                  prompt="What is your target base asset inventory percentage "
+                                                         "(Enter 0.01 to indicate 1%)? >>> ",
+                                                  required_if=
+                                                  lambda: pure_market_making_config_map.get("inventory_skew_enabled").value,
                                                   type_str="float",
                                                   default=0.01),
 }
