@@ -439,12 +439,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 )
             if order_type == OrderType.MARKET:
                 market_order_record = self._sb_order_tracker.c_get_market_order(market_pair.taker, order_id)
-                    if market_order_record is not None:
-                        self.log_with_clock(
-                            logging.INFO,
-                            f"({market_pair.taker.trading_pair}) Taker sell order {order_id} for "
-                            f"({market_order_record.amount} {market_order_record.base_asset} has been completely filled."
-                        )
+                if market_order_record is not None:
+                    self.log_with_clock(
+                        logging.INFO,
+                        f"({market_pair.taker.trading_pair}) Taker sell order {order_id} for "
+                        f"({market_order_record.amount} {market_order_record.base_asset} has been completely filled."
+                    )
 
     cdef c_check_and_hedge_orders(self, object market_pair):
         cdef:
