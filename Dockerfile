@@ -17,6 +17,12 @@ ENV COMMIT_SHA=${COMMIT}
 ENV COMMIT_BRANCH=${BRANCH}
 ENV BUILD_DATE=${DATE}
 
+ENV QUICKSTART="false"
+ENV STRATEGY=""
+ENV CONFIG_FILE_PATH=""
+ENV WALLET=""
+ENV WALLET_PASSWORD=""
+
 # Create mount points
 RUN mkdir /conf && mkdir /logs
 VOLUME /conf /logs
@@ -44,4 +50,6 @@ ENV PATH /opt/conda/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/
 # ./compile
 RUN /opt/conda/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 setup.py build_ext --inplace -j 8
 
-CMD [ "sh", "-c", "/opt/conda/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 bin/hummingbot.py" ]
+# CMD if [ "x$QUICKSTART" = "true" ] ; then [ "sh", "-c", "/opt/conda/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 bin/hummingbot.py" ] ; else [ "sh", "-c", "/opt/conda/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 bin/hummingbot_quickstart.py -s ${STRATEGY} -f ${CONFIG_FILE_PATH} -w ${WALLET} -p ${WALLET_PASSWORD}" ]; fi
+CMD [ "sh", "-c", "/opt/conda/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 bin/hummingbot_quickstart.py -s ${STRATEGY} -f ${CONFIG_FILE_PATH} -w ${WALLET} -p ${WALLET_PASSWORD}" ]
+
