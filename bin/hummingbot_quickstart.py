@@ -14,8 +14,14 @@ else:
 
 import asyncio
 import logging
-
-from hummingbot import init_logging
+from typing import (
+    Coroutine,
+    List,
+)
+from hummingbot import (
+    check_dev_mode,
+    init_logging,
+)
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.in_memory_config_map import in_memory_config_map
@@ -27,6 +33,11 @@ from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.client.settings import STRATEGIES
 from hummingbot.core.utils.wallet_setup import unlock_wallet
+from hummingbot.core.management.console import start_management_console
+from bin.hummingbot import (
+    detect_available_port,
+    main as normal_start,
+)
 
 
 class CmdlineParser(ThrowingArgumentParser):
@@ -49,11 +60,6 @@ class CmdlineParser(ThrowingArgumentParser):
                           type=str,
                           required=False,
                           help="Specify the password if you need to unlock your wallet.")
-
-
-async def normal_start():
-    from bin.hummingbot import main
-    await main()
 
 
 async def quick_start():
@@ -85,15 +91,25 @@ async def quick_start():
             raise ValueError(f"Missing empty configs: {empty_config_description}\n")
 
         with patch_stdout(log_field=hb.app.log_field):
+            dev_mode = check_dev_mode()
+            if dev_mode:
+                hb.app.log("Running from dev branches. Full remote logging will be enabled.")
+
             log_level = global_config_map.get("log_level").value
-            init_logging("hummingbot_logs.yml", override_log_level=log_level)
+            init_logging("hummingbot_logs.yml", override_log_level=log_level, dev_mode=dev_mode)
             hb.start(log_level)
-            await asyncio.gather(hb.run())
+
+            tasks: List[Coroutine] = [hb.run()]
+            if global_config_map.get("debug_console").value:
+                management_port: int = detect_available_port(8211)
+                tasks.append(start_management_console(locals(), host="localhost", port=management_port))
+            await asyncio.gather(*tasks)
 
     except Exception as e:
         # In case of quick start failure, start the bot normally to allow further configuration
         logging.getLogger().warning(f"Bot config incomplete: {str(e)}. Starting normally...")
         await normal_start()
+
 
 if __name__ == "__main__":
     asyncio.get_event_loop().run_until_complete(quick_start())
