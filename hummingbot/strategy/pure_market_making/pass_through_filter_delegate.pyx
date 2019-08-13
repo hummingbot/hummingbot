@@ -17,7 +17,6 @@ cdef class PassThroughFilterDelegate(OrderFilterDelegate):
 
     @order_placing_timestamp.setter
     def order_placing_timestamp(self, double order_placing_timestamp):
-        self.logger().info(f"order placing timestamp is {order_placing_timestamp}")
         self._order_placing_timestamp = order_placing_timestamp
 
     @classmethod

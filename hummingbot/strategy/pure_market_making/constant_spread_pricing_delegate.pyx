@@ -45,12 +45,10 @@ cdef class ConstantSpreadPricingDelegate(OrderPricingDelegate):
             double bid_price = mid_price * (1.0 - self._bid_spread)
             double ask_price = mid_price * (1.0 + self._ask_spread)
 
+        # If there is an input for filled price, calculate price based on filled price
         if filled_price !=0:
             bid_price = filled_price * (1.0 - self._bid_spread)
             ask_price = filled_price * (1.0 + self._ask_spread)
-            self.logger().info(f"fill price: {filled_price}.. setting the prices as {bid_price}, {ask_price}")
-            self.logger().info(f"Quantized bid {maker_market.c_quantize_order_price(market_info.trading_pair, bid_price)}, "
-                               f"Quantized ask {maker_market.c_quantize_order_price(market_info.trading_pair, ask_price)}")
 
         return PricingProposal([maker_market.c_quantize_order_price(market_info.trading_pair, bid_price)],
                                [maker_market.c_quantize_order_price(market_info.trading_pair, ask_price)])
