@@ -15,10 +15,6 @@ else:
 import argparse
 import asyncio
 import logging
-from typing import (
-    List,
-    Coroutine
-)
 
 from hummingbot import init_logging
 from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -36,13 +32,20 @@ from hummingbot.core.utils.wallet_setup import unlock_wallet
 class CmdlineParser(argparse.ArgumentParser):
     def __init__(self):
         super().__init__()
-        self.add_argument("--strategy", "-s", type=str, choices=STRATEGIES,
+        self.add_argument("--strategy", "-s",
+                          type=str,
+                          choices=STRATEGIES,
                           help="Choose the strategy you would like to run.")
-        self.add_argument("--config-file-path", "-f", type=str,
+        self.add_argument("--config-file-path", "-f",
+                          type=str,
                           help="Specify a file in `conf/` to load as the strategy config file.")
-        self.add_argument("--wallet", "-w", type=str,
+        self.add_argument("--wallet", "-w",
+                          type=str,
+                          required=False,
                           help="Specify the wallet public key you would like to use.")
-        self.add_argument("--wallet-password", type=str,
+        self.add_argument("--wallet-password", "-p",
+                          type=str,
+                          required=False,
                           help="Specify the password if you need to unlock your wallet.")
 
 
