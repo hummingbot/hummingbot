@@ -101,9 +101,113 @@ By default, the Docker Toolbox has copy and paste disabled within the command li
 
 Close any warnings, and you're done! Just hit enter to move onto the next line and you should be able to copy and paste text using **Ctrl+Shift+C** and **Ctrl+Shift+V**.
 
+#### How do I update Hummingbot after I had previously installed using old instructions?
+
+If you have previously installed Hummingbot using Docker and our previous documentation naming conventions, can you copy and paste the following command to update to the latest naming as well as to enable the user scripts:
+
+Copy the commands below and run from the root folder (i.e. when you type `ls`, make sure you see the `my-hummingbot` folder).
+
+***If your previous instance was named `my-hummingbot`*** (check by running `docker ps -a`):
+
+```
+# Remove instance
+docker rm my-hummingbot && \
+# Remove old image
+docker image rm coinalpha/hummingbot:latest && \
+# Rename file folder
+sudo mv my-hummingbot hummingbot_files && \
+# Start new instance
+docker run -it \
+--name hummingbot-instance \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
+coinalpha/hummingbot:latest
+```
+
+***If your previous instance was named `my-instance-1`*** (check by running `docker ps -a`):
+
+```
+# Remove instance
+docker rm my-instance-1 && \
+# Remove old image
+docker image rm coinalpha/hummingbot:latest && \
+# Rename file folder
+sudo mv my-hummingbot hummingbot_files && \
+# Start new instance
+docker run -it \
+--name hummingbot-instance \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
+coinalpha/hummingbot:latest
+```
+
+You will then be able to use the [automated docker scripts](/cheatsheets/docker/#automated-docker-scripts-optional).
+
+
 ## Installed from source
 
-Coming soon.
+#### How do I update Hummingbot?
+
+
+Download the latest code from github:
+
+```
+# From the hummingbot root folder:
+git pull origin master
+
+# Recompile the code:
+conda deactivate
+./uninstall
+./clean
+./install
+conda activate hummingbot
+./compile
+bin/hummingbot.py
+```
+
+Alternatively, use our automated script:
+
+```
+# From the *root* folder:
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/update.sh
+chmod a+x update.sh
+./update.sh
+```
+
+#### conda: not found
+
+
+```
+$ conda
+-bash: conda: command not found
+```
+
+If you have just installed conda, close Terminal and reopen a new Terminal to update the command line's program registry.
+
+If you use `zshrc` or another shell other than `bash`, see the note at the bottom of this section: [install dependencies](/installation/from-source/macos/#part-1-install-dependencies).
+
+#### I can not start Hummingbot
+
+***Error message 1***:
+
+```
+File "bin/hummingbot.py", line 40
+  def detect_available_port(starting_port: int) -> int:
+                                           ^
+SyntaxError: invalid syntax
+```
+
+Make sure you have activated the conda environment: `conda activate hummingbot`.
+
+***Error message 2***:
+
+```
+ModuleNotFoundError: No module named 'hummingbot.market.market_base'
+```
+
+Make sure you have compiled Hummingbot in the Hummingbot environment: `conda activate hummingbot && ./compile`.
+
+
 
 ## Running Hummingbot
 

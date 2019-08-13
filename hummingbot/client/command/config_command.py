@@ -68,6 +68,7 @@ class ConfigCommand:
     async def reset_config_loop(self,  # type: HummingbotApplication
                                 key: str = None):
         strategy = in_memory_config_map.get("strategy").value
+        strategy_cm = get_strategy_config_map(strategy)
 
         self.placeholder_mode = True
         self.app.toggle_hide_input()
@@ -86,6 +87,10 @@ class ConfigCommand:
             if self.strategy:
                 await self.stop_loop()
             if key is None:
+                # Clear original strategy config map
+                if strategy_cm:
+                    for k in strategy_cm:
+                        strategy_cm[k].value = None
                 in_memory_config_map.get("strategy").value = None
                 in_memory_config_map.get("strategy_file_path").value = None
                 self.clear_application_warning()

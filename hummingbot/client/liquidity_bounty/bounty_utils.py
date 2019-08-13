@@ -242,6 +242,40 @@ class LiquidityBounty(NetworkBase):
         except Exception:
             raise
 
+    async def restore_id(self, email: str) -> str:
+        try:
+            client = await self._http_client()
+            data = {"email": email}
+            async with client.request("POST", f"{self.LIQUIDITY_BOUNTY_REST_API}/client/restore_id", json=data) as resp:
+                if resp.status not in {200, 400}:
+                    raise Exception(f"Liquidity bounty server error. Server responded with status {resp.status}")
+
+                results = await resp.json()
+                if results["status"] != "success":
+                    raise Exception(f"Failed to restore liquidity bounty: {results['status']}")
+                return results["message"]
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            raise
+
+    async def send_verification_code(self, email: str, verification_code: str) -> str:
+        try:
+            client = await self._http_client()
+            data = {"email": email, "verification_code": verification_code}
+            async with client.request("POST", f"{self.LIQUIDITY_BOUNTY_REST_API}/client/verify_client", json=data) as resp:
+                if resp.status not in {200, 400}:
+                    raise Exception(f"Liquidity bounty server error. Server responded with status {resp.status}")
+
+                results = await resp.json()
+                if results["status"] != "success":
+                    raise Exception(f"Failed to verify client: {results['status']}")
+                return results["client_id"]
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            raise
+
     async def authenticated_request(self, request_method: str, url: str, **kwargs) -> Dict[str, Any]:
         try:
             # Set default data value here in case an assertion error occurs
@@ -286,16 +320,17 @@ class LiquidityBounty(NetworkBase):
     async def status_polling_loop(self):
         while True:
             try:
-                await asyncio.gather([
-                    await self.fetch_client_status(),
-                    await self.fetch_last_timestamp(),
-                ], loop=self._ev_loop)
+                await asyncio.gather(*[
+                    self.fetch_client_status(),
+                    self.fetch_last_timestamp(),
+                ], loop=self._ev_loop, return_exceptions=True)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 if "User not registered" in str(e):
                     self.logger().warning("User not registered. Aborting fetch_client_status_loop.")
                     break
+                self.logger().error(f"Error getting bounty status: {e}", exc_info=True)
             await asyncio.sleep(self._update_interval)
 
     async def fetch_filled_volume_metrics(self, start_time: int) -> List[Dict[str, Any]]:
@@ -410,10 +445,12 @@ class LiquidityBounty(NetworkBase):
             client = await self._http_client()
             async with client.request("GET", f"{self.LIQUIDITY_BOUNTY_REST_API}/") as resp:
                 if resp.status != 200:
+                    self.logger().error(resp.status)
                     raise Exception(f"Liquidity bounty server is down.")
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as e:
+            self.logger().error(str(e))
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 

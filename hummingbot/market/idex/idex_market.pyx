@@ -410,12 +410,14 @@ cdef class IDEXMarket(MarketBase):
                            headers: Optional[Dict[str, str]] = None,
                            json: Any = None) -> Dict[str, Any]:
         client = await self._http_client()
+        default_headers = {"User-Agent": "hummingbot"}
+        headers_with_ua = {**headers, **default_headers} if headers else default_headers
         async with client.request(http_method,
                                   url=url,
                                   timeout=self.API_CALL_TIMEOUT,
                                   data=data,
                                   params=params,
-                                  headers=headers,
+                                  headers=headers_with_ua,
                                   json=json) as response:
             data = await response.json()
             if response.status != 200:
@@ -795,8 +797,7 @@ cdef class IDEXMarket(MarketBase):
             self.logger().network(
                 f"Error submitting buy order to IDEX for {amount} {symbol}.",
                 exc_info=True,
-                app_warning_msg=f"Failed to submit buy order to IDEX. "
-                                f"Check Ethereum wallet and network connection."
+                app_warning_msg=f"Failed to submit buy order to IDEX: {e}"
             )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp,
@@ -904,8 +905,7 @@ cdef class IDEXMarket(MarketBase):
             self.logger().network(
                 f"Error submitting sell order to IDEX for {amount} {symbol}.",
                 exc_info=True,
-                app_warning_msg=f"Failed to submit sell order to IDEX. "
-                                f"Check Ethereum wallet and network connection."
+                app_warning_msg=f"Failed to submit sell order to IDEX: {e}"
             )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp,
@@ -1083,3 +1083,21 @@ cdef class IDEXMarket(MarketBase):
             base_asset_decimals = self._assets_info[base_asset]["decimals"]
         decimals_quantum = Decimal(f"1e-{base_asset_decimals}")
         return decimals_quantum
+
+    def quantize_order_amount(self, symbol: str, amount: float, price: float=0) -> Decimal:
+        return self.c_quantize_order_amount(symbol, amount, price)
+
+    cdef object c_quantize_order_amount(self, str symbol, double amount, double price=0):
+        quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
+        base_asset, quote_asset = self.split_symbol(symbol)
+
+        # Check against MINIMUM_MAKER_ORDER_SIZE_ETH return 0 if less than minimum.
+        if base_asset == "ETH" and float(quantized_amount) < self.MINIMUM_MAKER_ORDER_SIZE_ETH:
+            return s_decimal_0
+        elif quote_asset == "ETH":
+            # Price is not passed in for market orders so price needs to be checked via the order book
+            actual_price = Decimal(price or self.get_price(symbol, True))  # Since order side is unknown use higher price (buy)
+            amount_quote = quantized_amount * actual_price
+            if float(amount_quote) < self.MINIMUM_MAKER_ORDER_SIZE_ETH:
+                return s_decimal_0
+        return quantized_amount
