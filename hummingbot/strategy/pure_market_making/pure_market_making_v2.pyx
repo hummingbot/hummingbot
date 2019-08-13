@@ -286,8 +286,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 finally:
                     self._sb_delegate_lock = False
                 filtered_proposal = self._filter_delegate.c_filter_orders_proposal(self,
-                                                                                      market_info,
-                                                                                      orders_proposal)
+                                                                                   market_info,
+                                                                                   orders_proposal)
                 self.c_execute_orders_proposal(market_info, filtered_proposal)
         finally:
             self._last_timestamp = timestamp
@@ -307,7 +307,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         #  2. Ask the sizing delegate on what are the order sizes.
         #  3. Set the actions to carry out in the orders proposal to include create orders.
 
-        # If adjusting prices based on filled orders and if any of the orders still need to be adjusted,
+        # If prices need to be adjusted based on filled orders & if any of the buy/sell order still need to be adjusted,
         # Suggest new pricing proposal based on filled price
         if self._filled_order_adjust_other_side_enabled and any(self._adjust_order_price_after_fill) :
             pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self,
@@ -365,15 +365,15 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 if self._logging_options & self.OPTION_LOG_MAKER_ORDER_FILLED:
                     self.log_with_clock(
                         logging.INFO,
-                        f"({market_info.trading_pair}) Maker buy order of {order_filled_event.order_id} "
-                        f"{order_filled_event.amount} {market_info.base_asset} {order_filled_event} filled."
+                        f"({market_info.trading_pair}) Maker buy order of "
+                        f"{order_filled_event.amount} {market_info.base_asset} filled."
                     )
             else:
                 if self._logging_options & self.OPTION_LOG_MAKER_ORDER_FILLED:
                     self.log_with_clock(
                         logging.INFO,
-                        f"({market_info.trading_pair}) Maker sell order of {order_filled_event.order_id} "
-                        f"{order_filled_event.amount} {market_info.base_asset} {order_filled_event} filled."
+                        f"({market_info.trading_pair}) Maker sell order of "
+                        f"{order_filled_event.amount} {market_info.base_asset} filled."
                     )
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
@@ -486,6 +486,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                             expiration_seconds=expiration_seconds
                         )
                         self._time_to_cancel[bid_order_id] = self._current_timestamp + self._cancel_order_wait_time
+                        # If the order is placed, buy order price does not need to be adjusted
                         self._adjust_order_price_after_fill[0] = False
                 elif orders_proposal.buy_order_type is OrderType.MARKET:
                     raise RuntimeError("Market buy order in orders proposal is not supported yet.")
@@ -508,6 +509,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                             expiration_seconds=expiration_seconds
                         )
                         self._time_to_cancel[ask_order_id] = self._current_timestamp + self._cancel_order_wait_time
+                        # If the order is placed, sell order price does not need to be adjusted
                         self._adjust_order_price_after_fill[1] = False
                 elif orders_proposal.sell_order_type is OrderType.MARKET:
                     raise RuntimeError("Market sell order in orders proposal is not supported yet.")
