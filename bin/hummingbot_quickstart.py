@@ -35,9 +35,11 @@ class CmdlineParser(argparse.ArgumentParser):
         self.add_argument("--strategy", "-s",
                           type=str,
                           choices=STRATEGIES,
+                          required=True,
                           help="Choose the strategy you would like to run.")
         self.add_argument("--config-file-path", "-f",
                           type=str,
+                          required=True,
                           help="Specify a file in `conf/` to load as the strategy config file.")
         self.add_argument("--wallet", "-w",
                           type=str,
@@ -68,17 +70,17 @@ async def main():
         read_configs_from_yml()
         hb = HummingbotApplication()
 
-        if wallet is not None and wallet_password is not None:
-            hb.acct = unlock_wallet(public_key=wallet, password=wallet_password)
-
         in_memory_config_map.get("strategy").value = strategy
         in_memory_config_map.get("strategy").validate(strategy)
         in_memory_config_map.get("strategy_file_path").value = config_file_path
         in_memory_config_map.get("strategy_file_path").validate(config_file_path)
-        global_config_map.get("wallet").value = wallet
 
-        empty_configs = hb._get_empty_configs()
-        if len(empty_configs) > 0:
+        if wallet is not None and wallet_password is not None:
+            global_config_map.get("wallet").value = wallet
+            hb.acct = unlock_wallet(public_key=wallet, password=wallet_password)
+
+        if not hb.config_complete:
+            empty_configs = hb._get_empty_configs()
             empty_config_description: str = "\n- ".join([""] + empty_configs)
             raise ValueError(f"Missing empty configs: {empty_config_description}\n")
 
