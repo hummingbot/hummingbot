@@ -414,11 +414,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 )
             if order_type == OrderType.MARKET:
                 market_order_record = self._sb_order_tracker.c_get_market_order(market_pair.taker, order_id)
-                self.log_with_clock(
-                    logging.INFO,
-                    f"({market_pair.taker.trading_pair}) Taker buy order {order_id} for "
-                    f"({market_order_record.quantity} {market_order_record.base_asset} has been completely filled."
-                )
+                if market_order_record:
+                    self.log_with_clock(
+                        logging.INFO,
+                        f"({market_pair.taker.trading_pair}) Taker buy order {order_id} for "
+                        f"({market_order_record.amount} {market_order_record.base_asset} has been completely filled."
+                    )
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
         cdef:
@@ -437,12 +438,13 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
                 )
             if order_type == OrderType.MARKET:
-                market_order_record = self._sb_order_tracker.c_get_market_order(market_pair.taker, order_id)
-                self.log_with_clock(
-                    logging.INFO,
-                    f"({market_pair.taker.trading_pair}) Taker sell order {order_id} for "
-                    f"({market_order_record.quantity} {market_order_record.base_asset} has been completely filled."
-                )
+                if market_order_record:
+                    market_order_record = self._sb_order_tracker.c_get_market_order(market_pair.taker, order_id)
+                    self.log_with_clock(
+                        logging.INFO,
+                        f"({market_pair.taker.trading_pair}) Taker sell order {order_id} for "
+                        f"({market_order_record.amount} {market_order_record.base_asset} has been completely filled."
+                    )
 
     cdef c_check_and_hedge_orders(self, object market_pair):
         cdef:
