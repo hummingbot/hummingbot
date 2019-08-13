@@ -448,8 +448,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             MarketBase taker_market = market_pair.taker.market
             str taker_symbol = market_pair.taker.trading_pair
             OrderBook taker_order_book = market_pair.taker.order_book
-            list buy_fill_records = self._order_fill_buy_events.get(market_pair, [])
-            list sell_fill_records = self._order_fill_sell_events.get(market_pair, [])
+            # Only hedge limit orders
+            list buy_fill_records = [(r, e) for r, e in self._order_fill_buy_events.get(market_pair, [])
+                                     if e.order_type is OrderType.LIMIT]
+            list sell_fill_records = [(r, e) for r, e in self._order_fill_sell_events.get(market_pair, [])
+                                     if e.order_type is OrderType.LIMIT]
             double buy_fill_quantity = sum([fill_event.amount for _, fill_event in buy_fill_records])
             double sell_fill_quantity = sum([fill_event.amount for _, fill_event in sell_fill_records])
             double taker_top
