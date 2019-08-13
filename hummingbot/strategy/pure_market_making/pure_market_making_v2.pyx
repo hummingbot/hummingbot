@@ -66,6 +66,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     # These are exchanges where you're expected to expire orders instead of actively cancelling them.
     RADAR_RELAY_TYPE_EXCHANGES = {"radar_relay", "bamboo_relay"}
 
+    SINGLE_ORDER_SIZING_DELEGATES = {"constant_size", "inventory_skew_single_size"}
+
     @classmethod
     def logger(cls):
         global s_logger
@@ -103,6 +105,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._last_timestamp = 0
         self._filled_price = 0
         self._status_report_interval = status_report_interval
+        # Parameter is used to keep track of which orders needs to be adjusted after order fills
+        # Initially set to False so that no orders need to be adjusted
+        # As this is only used for single order mode,
+        # index[0] is buy order and index[1] is the sell order
+        # Can be extended later to multiple order mode
         self._adjust_order_price_after_fill = [False, False]
         self._filled_order_adjust_other_side_enabled = filled_order_adjust_other_side_enabled
 
@@ -157,6 +164,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     @property
     def sizing_delegate(self) -> OrderSizingDelegate:
         return self._sizing_delegate
+
+    @property
+    def sizing_delegate_name(self) -> str:
+        return self._sizing_delegate.name
 
     @property
     def order_tracker(self):
@@ -295,12 +306,20 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         #  1. Ask the pricing delegate on what are the order prices.
         #  2. Ask the sizing delegate on what are the order sizes.
         #  3. Set the actions to carry out in the orders proposal to include create orders.
+
+        # If adjusting prices based on filled orders and if any of the orders still need to be adjusted,
+        # Suggest new pricing proposal based on filled price
         if self._filled_order_adjust_other_side_enabled and any(self._adjust_order_price_after_fill) :
-            self.logger().info("New pricing proposal suggested")
-            pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self, market_info, active_orders, self._filled_price)
+            pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self,
+                                                                                 market_info,
+                                                                                 active_orders,
+                                                                                 self._filled_price)
+
+        # Revert to old pricing proposal if orders are adjusted or if setting is disabled
         else:
-            self.logger().info("Old pricing proposal enabled")
-            pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self, market_info, active_orders)
+            pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self,
+                                                                                 market_info,
+                                                                                 active_orders)
 
         sizing_proposal = self._sizing_delegate.c_get_order_size_proposal(self,
                                                                           market_info,
@@ -321,9 +340,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
             if len(cancel_order_ids) > 0:
                 actions |= ORDER_PROPOSAL_ACTION_CANCEL_ORDERS
-
-        self.logger().info(f"Buy order prices inside propo is {pricing_proposal.buy_order_prices} ")
-        self.logger().info(f"sell order prices inside propo is {pricing_proposal.sell_order_prices} ")
 
         return OrdersProposal(actions,
                               OrderType.LIMIT,
@@ -366,12 +382,13 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
             LimitOrder limit_order_record
 
-        if self.sizing_delegate.name == "constant_size" or self.sizing_delegate.name == "inventory_skew_single_size" \
-                and not math.isnan(self._current_timestamp):
+        # Adjusting filled orders only for single order mode (identified using name of the delegate)
+        if self.sizing_delegate_name in self.SINGLE_ORDER_SIZING_DELEGATES:
             #Set the replenish time as current_timestamp + order replenish time
             replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
 
             # if filled order is buy, adjust the cancel time for sell order
+            # For syncing buy and sell orders during order completed events
             for _, ask_order in self.active_asks:
                 other_order_id = ask_order.client_order_id
                 if other_order_id in self._time_to_cancel:
@@ -402,12 +419,13 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
             LimitOrder limit_order_record
 
-        if self.sizing_delegate.name == "constant_size" or self.sizing_delegate.name == "inventory_skew_single_size"\
-                and not math.isnan(self._current_timestamp):
+        # Adjusting filled orders only for single order mode (identified using name of the delegate)
+        if self.sizing_delegate_name in self.SINGLE_ORDER_SIZING_DELEGATES:
             #Set the replenish time as current_timestamp + order replenish time
             replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
 
-            # if filled order is sell, adjust the cancel time for sell order
+            # if filled order is sell, adjust the cancel time for buy order
+            # For syncing buy and sell orders during order completed events
             for _, bid_order in self.active_bids:
                 other_order_id = bid_order.client_order_id
                 if other_order_id in self._time_to_cancel:
@@ -439,11 +457,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                          else NaN)
             str bid_order_id, ask_order_id
 
-        self.logger().info(f"Buy order prices is {orders_proposal.buy_order_prices} ")
-        self.logger().info(f"sell order prices is {orders_proposal.sell_order_prices} ")
-
-        self.logger().info(f"Buy order size is {orders_proposal.buy_order_sizes} ")
-        self.logger().info(f"sell order size is {orders_proposal.sell_order_sizes} ")
         # Cancel orders.
         if actions & ORDER_PROPOSAL_ACTION_CANCEL_ORDERS:
             for order_id in orders_proposal.cancel_order_ids:
