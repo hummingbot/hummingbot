@@ -62,13 +62,13 @@ Multiple orders allow you to create multiple orders for each bid and ask side, e
 
 ### Inventory-Based Dynamic Order Sizing
 
-The inventory skew function is ***currentlyavailable in single order trading mode only***.  This function allows you to specify a target base to quote asset inventory ratio and adjust order sizes whenever the current portfolio ratio deviates from this target.
+This function allows you to specify a target base to quote asset inventory ratio and adjust order sizes whenever the current portfolio ratio deviates from this target.
 
-For example, if you are targeting a 50/50 base to quote asset ratio but the current value of your base asset accounts for more than 50% of the value of your inventory, then bid sizes (buy base asset) are decreased, while ask sizes (sell base asset) are increased.
+For example, if you are targeting a 50/50 base to quote asset ratio but the current value of your base asset accounts for more than 50% of the value of your inventory, then bid order amount (buy base asset) is decreased, while ask order amount (sell base asset) is increased.
 
  | Prompt | Description |
 |-----|-----|
-| `Would you like to enable inventory skew? (true/false) default is false >>>`: | This sets `inventory_skew_enabled` (see [definition](#configuration-parameters)) |
+| `Would you like to enable inventory skew? (y/n) >>>`: | This sets `inventory_skew_enabled` (see [definition](#configuration-parameters)) |
 | `What is your target base asset inventory percentage (Enter 0.01 to indicate 1%) >>>`: | This sets `inventory_target_base_percent` (see [definition](#configuration-parameters)) |
 
 #### Determining order size
