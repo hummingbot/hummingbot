@@ -474,7 +474,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         self.log_with_clock(
                             logging.INFO,
                             f"({market_info.trading_pair}) Creating limit bid orders for "
-                            f"  Bids (Size,Price) to be placed at: {[str(size) + ' ' + market_info.base_asset + ' @ ' + ' ' + str(price) + ' ' + market_info.quote_asset for size,price in zip(orders_proposal.buy_order_sizes, orders_proposal.buy_order_prices)]}"
+                            f"  Bids (Size,Price) to be placed at: "
+                            f"{[str(size) + ' ' + market_info.base_asset + ' @ ' + ' ' + str(price) + ' ' + market_info.quote_asset for size,price in zip(orders_proposal.buy_order_sizes, orders_proposal.buy_order_prices)]}"
                         )
 
                     for idx in range(len(orders_proposal.buy_order_sizes)):
@@ -497,7 +498,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         self.log_with_clock(
                             logging.INFO,
                             f"({market_info.trading_pair}) Creating limit ask order for "
-                            f"  Asks (Size,Price) to be placed at: {[str(size) + ' ' + market_info.base_asset + ' @ ' + ' ' + str(price) + ' ' + market_info.quote_asset for size,price in zip(orders_proposal.sell_order_sizes, orders_proposal.sell_order_prices)]}"
+                            f"  Asks (Size,Price) to be placed at: "
+                            f"{[str(size) + ' ' + market_info.base_asset + ' @ ' + ' ' + str(price) + ' ' + market_info.quote_asset for size,price in zip(orders_proposal.sell_order_sizes, orders_proposal.sell_order_prices)]}"
                         )
 
                     for idx in range(len(orders_proposal.sell_order_sizes)):
