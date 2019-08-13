@@ -361,7 +361,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             object market_pair = self._market_pair_tracker.c_get_market_pair_from_order_id(order_id)
             tuple order_fill_record
 
-        if market_pair is not None:
+        # only hedge limit orders
+        if market_pair is not None and order_filled_event.order_type is OrderType.LIMIT:
             limit_order_record = self._sb_order_tracker.c_get_shadow_limit_order(order_id)
             order_fill_record = (limit_order_record, order_filled_event)
 
@@ -448,11 +449,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             MarketBase taker_market = market_pair.taker.market
             str taker_symbol = market_pair.taker.trading_pair
             OrderBook taker_order_book = market_pair.taker.order_book
-            # Only hedge limit orders
-            list buy_fill_records = [(r, e) for r, e in self._order_fill_buy_events.get(market_pair, [])
-                                     if e.order_type is OrderType.LIMIT]
-            list sell_fill_records = [(r, e) for r, e in self._order_fill_sell_events.get(market_pair, [])
-                                     if e.order_type is OrderType.LIMIT]
+            list buy_fill_records = self._order_fill_buy_events.get(market_pair, [])
+            list sell_fill_records = self._order_fill_sell_events.get(market_pair, [])
             double buy_fill_quantity = sum([fill_event.amount for _, fill_event in buy_fill_records])
             double sell_fill_quantity = sum([fill_event.amount for _, fill_event in sell_fill_records])
             double taker_top
