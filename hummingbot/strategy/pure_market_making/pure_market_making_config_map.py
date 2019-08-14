@@ -99,7 +99,7 @@ pure_market_making_config_map = {
                                                   default=0.01),
     "filled_order_adjust_other_side_enabled": ConfigVar(key="filled_order_adjust_other_side_enabled",
                                                   prompt="Would you like to adjust the price of the next order based "
-                                                         "on current filled price? (default is False) >>> ",
+                                                         "on current filled price? (y/n) >>> ",
                                                   type_str="bool",
                                                   default=False),
     "filled_order_replenish_wait_time":    ConfigVar(key="filled_order_replenish_wait_time",
