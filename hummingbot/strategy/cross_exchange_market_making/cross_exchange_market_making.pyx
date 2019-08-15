@@ -244,6 +244,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._last_timestamp = timestamp
 
     cdef c_tick(self, double timestamp):
+        """
+        Clock tick entry point.
+
+        For cross exchange market making strategy, this function mostly just checks the readiness and connection
+        status of markets, and then delegates the processing of each market pair to c_process_market_pair().
+
+        :param timestamp: current tick timestamp
+        """
         StrategyBase.c_tick(self, timestamp)
 
         cdef:
@@ -255,6 +263,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             LimitOrder limit_order
 
         try:
+            # Perform clock tick with the market pair tracker.
             self._market_pair_tracker.c_tick(timestamp)
 
             if not self._all_markets_ready:
@@ -265,14 +274,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         self.logger().warning(f"Markets are not ready. No market making trades are permitted.")
                     return
                 else:
+                    # Markets are ready, ok to proceed.
                     if self.OPTION_LOG_STATUS_REPORT:
                         self.logger().info(f"Markets are ready. Trading started.")
 
             if should_report_warnings:
+                # Check if all markets are still connected or not. If not, log a warning.
                 if not all([market.network_status is NetworkStatus.CONNECTED for market in self._sb_markets]):
                     self.logger().warning(f"WARNING: Some markets are not connected or are down at the moment. Market "
                                           f"making may be dangerous when markets or networks are unstable.")
 
+            # Calculate a mapping from market pair to list of active limit orders on the market.
             market_pair_to_active_orders = defaultdict(list)
 
             for maker_market, limit_order in active_maker_orders:
@@ -286,12 +298,32 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 if not self._sb_order_tracker.c_has_in_flight_cancel(limit_order.client_order_id):
                     market_pair_to_active_orders[market_pair].append(limit_order)
 
+            # Process each market pair independently.
             for market_pair in self._market_pairs.values():
                 self.c_process_market_pair(market_pair, market_pair_to_active_orders[market_pair])
         finally:
             self._last_timestamp = timestamp
 
     cdef c_process_market_pair(self, object market_pair, list active_orders):
+        """
+        For market pair being managed by this strategy object, do the following:
+
+         1. Check whether any of the existing orders need to be cancelled.
+         2. Check if new orders should be created.
+
+        For each market pair, only 1 active bid offer and 1 active ask offer is allowed at a time at maximum.
+
+        If an active order is determined to be not needed at step 1, it would cancel the order within step 1.
+
+        If there's no active order found in step 1, and condition allows (i.e. profitability, account balance, etc.),
+        then a new limit order would be created at step 2.
+
+        Combining step 1 and step 2 over time, means the offers made to the maker market side would be adjusted over
+        time regularly.
+
+        :param market_pair: cross exchange market pair
+        :param active_orders: list of active limit orders associated with the market pair
+        """
         cdef:
             double current_hedging_price
             MarketBase taker_market
@@ -315,6 +347,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             else:
                 has_active_ask = True
 
+            # Suppose the active order is hedged on the taker market right now, what's the average price the hedge
+            # would happen?
             current_hedging_price = self.c_calculate_effective_hedging_price(
                 market_pair.taker.order_book,
                 is_buy,
@@ -333,7 +367,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             # order on taker market. If not, adjust it.
             if not self.c_check_if_sufficient_balance(market_pair, active_order):
                 continue
-            # Am I still the top order on maker market? If not, re-calculate the price/size and re-submit.
+
+            # Am I still the top order on maker market? If not, cancel the existing order, and wait for the order to
+            # be placed again at the next tick.
             if self._current_timestamp > anti_hysteresis_timer:
                 if not self.c_check_if_price_correct(market_pair, active_order, current_hedging_price):
                     need_adjust_order = True
@@ -356,16 +392,22 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self.c_check_and_create_new_orders(market_pair, has_active_bid, has_active_ask)
 
     cdef c_did_fill_order(self, object order_filled_event):
+        """
+        If a limit order previously made to the maker side has been filled, hedge it on the taker side.
+        :param order_filled_event: event object
+        """
         cdef:
             str order_id = order_filled_event.order_id
             object market_pair = self._market_pair_tracker.c_get_market_pair_from_order_id(order_id)
             tuple order_fill_record
 
-        # only hedge limit orders
+        # Make sure to only hedge limit orders.
         if market_pair is not None and order_filled_event.order_type is OrderType.LIMIT:
             limit_order_record = self._sb_order_tracker.c_get_shadow_limit_order(order_id)
             order_fill_record = (limit_order_record, order_filled_event)
 
+            # Store the limit order fill event in a map, s.t. it can be processed in c_check_and_hedge_orders()
+            # later.
             if order_filled_event.trade_type is TradeType.BUY:
                 if market_pair not in self._order_fill_buy_events:
                     self._order_fill_buy_events[market_pair] = [order_fill_record]
@@ -391,12 +433,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         f"{order_filled_event.amount} {market_pair.maker.base_asset} filled."
                     )
 
+            # Call c_check_and_hedge_orders() to emit the market orders on the taker side.
             try:
                 self.c_check_and_hedge_orders(market_pair)
             except Exception:
                 self.log_with_clock(logging.ERROR, "Unexpected error.", exc_info=True)
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
+        """
+        Output log message when a bid order (on maker side or taker side) is completely taken.
+        :param order_completed_event: event object
+        """
         cdef:
             str order_id = order_completed_event.order_id
             object market_pair = self._market_pair_tracker.c_get_market_pair_from_order_id(order_id)
@@ -422,6 +469,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     )
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
+        """
+        Output log message when a ask order (on maker side or taker side) is completely taken.
+        :param order_completed_event: event object
+        """
         cdef:
             str order_id = order_completed_event.order_id
             object market_pair = self._market_pair_tracker.c_get_market_pair_from_order_id(order_id)
@@ -447,6 +498,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     )
 
     cdef c_check_and_hedge_orders(self, object market_pair):
+        """
+        Look into the stored and un-hedged limit order fill events, and emit market orders to hedge them, depending on
+        availability of funds on the taker market.
+
+        :param market_pair: cross exchange market pair
+        """
         cdef:
             MarketBase taker_market = market_pair.taker.market
             str taker_symbol = market_pair.taker.trading_pair
@@ -523,6 +580,19 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 )
 
     cdef object c_get_adjusted_limit_order_size(self, object market_pair, double price, double original_order_size):
+        """
+        Given the proposed order size of a proposed limit order (regardless of bid or ask), adjust and refine the order
+        sizing according to either the trade size override setting (if it exists), or the portfolio ratio limit (if
+        no trade size override exists).
+
+        Also, this function will convert the input order size proposal from floating point to Decimal by quantizing the
+        order size.
+
+        :param market_pair: cross exchange market pair
+        :param price: the price of the proposed limit order, regardless of bid or ask
+        :param original_order_size: the originally proposed size of the limit order
+        :rtype: Decimal
+        """
         cdef:
             MarketBase maker_market = market_pair.maker.market
             str symbol = market_pair.maker.trading_pair
@@ -536,6 +606,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             return self.c_get_order_size_after_portfolio_ratio_limit(market_pair, original_order_size)
 
     cdef object c_get_order_size_after_portfolio_ratio_limit(self, object market_pair, double original_order_size):
+        """
+        Given the proposed order size of a proposed limit order (regardless of bid or ask), adjust the order sizing
+        according to the portfolio ratio limit.
+
+        Also, this function will convert the input order size proposal from floating point to Decimal by quantizing the
+        order size.
+
+        :param market_pair: cross exchange market pair
+        :param original_order_size: the price of the proposed limit order, regardless of bid or ask
+        :rtype: Decimal
+        """
         cdef:
             MarketBase maker_market = market_pair.maker.market
             str symbol = market_pair.maker.trading_pair
@@ -552,11 +633,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
     cdef double c_sum_flat_fees(self, str quote_currency, list flat_fees):
         """
-        Converts flat fees to quote token and sums up all flat fees 
+        Converts flat fees to quote token and sums up all flat fees
+
+        :param quote_currency: Quote asset symbol
+        :param flat_fees: list of flat fee tuples, of (symbol, amount) format.
         """
         cdef:
             double total_flat_fees = 0.0
- 
+
         for flat_fee_currency, flat_fee_amount in flat_fees:
             if flat_fee_currency == quote_currency:
                 total_flat_fees += flat_fee_amount
@@ -570,6 +654,16 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         return total_flat_fees
 
     cdef double c_calculate_bid_profitability(self, object market_pair, double bid_order_size = 0.0):
+        """
+        Assuming that I create a limit bid order at the top of the order book on the maker side, how profitable is the
+        order if it's filled and hedged on the taker side right now?
+
+        Positive ratio means profit, negative ratio means loss.
+
+        :param market_pair: cross exchange market pair
+        :param bid_order_size: proposed bid order size
+        :return: profitability ratio of the bid order, if it's filled and hedged immediately
+        """
         cdef:
             double maker_bid_price = (<OrderBook> market_pair.maker.order_book).c_get_price_for_quote_volume(
                 False,
@@ -586,7 +680,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             )
         if bid_order_size == 0.0:
             return taker_bid_price_adjusted / maker_bid_price_adjusted - 1
-        
+
         cdef:
             object maker_bid_fee = (<MarketBase> market_pair.maker.market).c_get_fee(
                 market_pair.maker.base_asset,
@@ -617,10 +711,20 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double bid_net_buy_costs = maker_bid_price_adjusted * bid_order_size * \
                 (1 + maker_bid_fee.percent) + maker_bid_fee_flat_fees
             double bid_profitability = bid_net_sell_proceeds / bid_net_buy_costs - 1
-        
+
         return bid_profitability
 
     cdef double c_calculate_ask_profitability(self, object market_pair, double ask_order_size = 0.0):
+        """
+        Assuming that I create a limit ask order at the top of the order book on the maker side, how profitable is the
+        order if it's filled and hedged on the taker side right now?
+
+        Positive ratio means profit, negative ratio means loss.
+
+        :param market_pair: cross exchange market pair
+        :param ask_order_size: proposed ask order size
+        :return: profitability ratio of the ask order, if it's filled and hedged immediately
+        """
         cdef:
             double maker_ask_price = (<OrderBook> market_pair.maker.order_book).c_get_price_for_quote_volume(
                 True,
@@ -673,8 +777,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
     cdef tuple c_calculate_market_making_profitability(self, object market_pair):
         """
-        :param market_pair: The hedging market pair.        
-        :return: a (double, double) tuple. Calculates the profitability ratio of bid limit orders and ask limit orders
+        If I put a limit bid and a limit ask order on the maker side of the market, at the top of the order book,
+        accounting for all applicable settings and account balance limits - how profitable are those orders if they are
+        filled and hedged right now?
+
+        :param market_pair: cross market making pair.
+        :return: a (double, double) tuple. The immediate profitability ratios of the bid and ask limit orders
         """
         bid_price, bid_size_limit = self.c_get_market_making_price_and_size_limit(
             market_pair,
@@ -710,7 +818,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
     cdef tuple c_has_market_making_profit_potential(self, object market_pair):
         """
-        :param market_pair: The hedging market pair.        
+        If I put a limit bid and a limit ask order on the maker side of the market, at the top of the order book,
+        accounting for all applicable settings and account balance limits - are the orders profitable or not?
+
+        :param market_pair: cross market making pair.
         :return: a (boolean, boolean) tuple. First item indicates whether bid limit order is profitable. Second item
                  indicates whether ask limit order is profitable.
         """
