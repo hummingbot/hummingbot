@@ -42,9 +42,11 @@ class IDEXOrderBookTracker(OrderBookTracker):
         return cls._iobt_logger
 
     def __init__(self,
+                 idex_api_key: str,
                  data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
                  symbols: Optional[List[str]] = None):
         super().__init__(data_source_type=data_source_type)
+        self._idex_api_key = idex_api_key
         self._past_diffs_windows: Dict[str, Deque] = {}
         self._order_books: Dict[str, IDEXOrderBook] = {}
         self._saved_message_queues: Dict[str, Deque[IDEXOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
@@ -59,7 +61,7 @@ class IDEXOrderBookTracker(OrderBookTracker):
     def data_source(self) -> OrderBookTrackerDataSource:
         if not self._data_source:
             if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = IDEXAPIOrderBookDataSource(symbols=self._symbols)
+                self._data_source = IDEXAPIOrderBookDataSource(idex_api_key=self._idex_api_key, symbols=self._symbols)
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source
