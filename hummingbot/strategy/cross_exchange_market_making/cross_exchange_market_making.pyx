@@ -61,7 +61,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             s_logger = logging.getLogger(__name__)
         return s_logger
 
-    def __init__(self, market_pairs: List[CrossExchangeMarketPair], min_profitability: float,
+    def __init__(self,
+                 market_pairs: List[CrossExchangeMarketPair],
+                 min_profitability: float,
                  trade_size_override: Optional[float] = 0.0,
                  order_size_taker_volume_factor: float = 0.25,
                  order_size_taker_balance_factor: float = 0.995,
@@ -72,6 +74,26 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                  anti_hysteresis_duration: float = 60.0,
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900):
+        """
+        Initializes a cross exchange market making strategy object.
+
+        :param market_pairs: list of cross exchange market pairs
+        :param min_profitability: minimum profitability ratio threshold, for actively cancelling unprofitable orders
+        :param trade_size_override: override the limit order trade size, in base asset unit
+        :param order_size_taker_volume_factor: maximum size limit of new limit orders, in terms of ratio of hedge-able
+                                               volume on taker side
+        :param order_size_taker_balance_factor: maximum size limit of new limit orders, in terms of ratio of asset
+                                                balance available for hedging trade on taker side
+        :param order_size_portfolio_ratio_limit: maximum size limit of new limit orders, in terms of ratio of total
+                                                 portfolio value on both maker and taker markets
+        :param limit_order_min_expiration: parameter not being used
+        :param cancel_order_threshold: if active order cancellation is disabled, the hedging loss ratio required for the
+                                       strategy to force an order cancellation
+        :param active_order_canceling: True if active order cancellation is enabled, False if disabled
+        :param anti_hysteresis_duration: the minimum amount of time interval between adjusting limit order prices
+        :param logging_options: bit field for what types of logging to enable in this strategy object
+        :param status_report_interval: what is the time interval between outputting new network warnings
+        """
         if len(market_pairs) < 0:
             raise ValueError(f"market_pairs must not be empty.")
         if not 0 <= order_size_taker_volume_factor <= 1:
@@ -957,6 +979,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                                     OrderBook taker_order_book,
                                                     bint is_maker_bid,
                                                     double maker_order_size) except? -1:
+        """
+        Calculate the average hedging price of a limit order, assuming it's hedged on the taker side immediately.
+
+        :param taker_order_book: Taker order book
+        :param is_maker_bid: is the maker order a bid or ask?
+        :param maker_order_size: the size of the maker order
+        :return: the average price obtained from hedging the maker order on the taker side
+        """
         cdef:
             double price_quantity_product_sum = 0
             double quantity_sum = 0
@@ -984,6 +1014,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
     cdef tuple c_get_suggested_price_samples(self, object market_pair):
         """
+        Get the queues of order book price samples for a market pair.
+
         :param market_pair: The market pair under which samples were collected for.
         :return: (bid order price samples, ask order price samples)
         """
@@ -992,6 +1024,16 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         return deque(), deque()
 
     cdef c_take_suggested_price_sample(self, object market_pair, list active_orders):
+        """
+        Calculate the ideal market making prices at the moment, taking into account of parameters like depth tolerance,
+        and record them to the bid and ask sample queues.
+
+        These samples are later taken to adjust the price proposals for new limit orders, s.t. new limit orders can
+        properly take into account transient orders that appear and disappear frequently on the maker market.
+
+        :param market_pair: cross exchange market pair
+        :param active_orders: list of currently active orders associated to the market pair
+        """
         if ((self._last_timestamp // self.ORDER_ADJUST_SAMPLE_INTERVAL) <
                 (self._current_timestamp // self.ORDER_ADJUST_SAMPLE_INTERVAL)):
             if market_pair not in self._suggested_price_samples:
@@ -1022,6 +1064,18 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                           object market_pair,
                                           LimitOrder active_order,
                                           double current_hedging_price):
+        """
+        Check whether a currently active limit order should be cancelled or not, according to profitability metric.
+
+        If active order cancelling is enabled (e.g. for centralized exchanges), then the min profitability config is
+        used as the threshold. If it is disabled (e.g. for decentralized exchanges), then the cancel order threshold
+        is used instead.
+
+        :param market_pair: cross exchange market pair
+        :param active_order: the currently active order to check for cancellation
+        :param current_hedging_price: the current average hedging price on taker market for the limit order
+        :return: True if the limit order stays, False if the limit order is being cancelled.
+        """
         cdef:
             bint is_buy = active_order.is_buy
             str limit_order_type_str = "bid" if is_buy else "ask"
@@ -1053,6 +1107,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         return True
 
     cdef bint c_check_if_sufficient_balance(self, object market_pair, LimitOrder active_order):
+        """
+        Check whether there's enough asset balance for a currently active limit order. If there's not enough asset
+        balance for the order (e.g. because the required asset has been moved), cancel the active order.
+
+        This function is only used when active order cancelled is enabled.
+
+        :param market_pair: cross exchange market pair
+        :param active_order: current limit order
+        :return: True if there's sufficient balance for the limit order, False if there isn't and the order is being
+                 cancelled.
+        """
         cdef:
             bint is_buy = active_order.is_buy
             double order_price = float(active_order.price)
@@ -1080,6 +1145,20 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         return True
 
     cdef bint c_check_if_price_correct(self, object market_pair, LimitOrder active_order, double current_hedging_price):
+        """
+        Given a currently active limit order on maker side, check if its current price is still correct - given the
+        current hedging price on taker market, depth tolerance and transient orders on the maker market captured by
+        recent suggested price samples.
+
+        If the active order's price is no longer the right price, the order will be cancelled.
+
+        This function is only used when active order cancelled is enabled.
+
+        :param market_pair: cross exchange market pair
+        :param active_order: a current active limit order in the market pair
+        :param current_hedging_price: the current active hedging price for the active order
+        :return: True if the order stays, False if the order has been cancelled.
+        """
         cdef:
             bint is_buy = active_order.is_buy
             double order_price = float(active_order.price)
@@ -1187,6 +1266,15 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         return True
 
     cdef c_check_and_create_new_orders(self, object market_pair, bint has_active_bid, bint has_active_ask):
+        """
+        Check and account for all applicable conditions for creating new limit orders (e.g. profitability, what's the
+        right price given depth tolerance and transient orders on the market, account balances, etc.), and create new
+        limit orders for market making.
+
+        :param market_pair: cross exchange market pair
+        :param has_active_bid: True if there's already an active bid on the maker side, False otherwise
+        :param has_active_ask: True if there's already an active ask on the maker side, False otherwise
+        """
         cdef:
             double effective_hedging_price
 
