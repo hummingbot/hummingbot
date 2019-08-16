@@ -235,8 +235,10 @@ class HummingbotApplication(*commands):
                                     trading_required=self._trading_required)
 
             elif market_name == "idex" and self.wallet:
+                idex_api_key: str = global_config_map.get("idex_api_key").value
                 try:
-                    market = IDEXMarket(wallet=self.wallet,
+                    market = IDEXMarket(idex_api_key=idex_api_key,
+                                        wallet=self.wallet,
                                         ethereum_rpc_url=ethereum_rpc_url,
                                         order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                         symbols=symbols,
