@@ -147,6 +147,7 @@ nav:
         - Strategies: 
           - Architecture: developers/strategies/index.md
           - Pure Market Making: developers/strategies/pure-market-making.md
+          - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
         - Connectors: developers/connectors/index.md
         - Debug Console: developers/debug.md
     - Release Notes:
