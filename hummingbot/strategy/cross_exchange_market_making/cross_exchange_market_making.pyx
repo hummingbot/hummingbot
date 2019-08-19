@@ -122,7 +122,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._logging_options = <int64_t>logging_options
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
-        self._cancel_order_threshold = cancel_order_threshold
         self._active_order_canceling = active_order_canceling
         self._exchange_rate_conversion = ExchangeRateConversion.get_instance()
         self._market_pair_tracker = OrderIDMarketPairTracker()
@@ -376,6 +375,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 is_buy,
                 float(active_order.quantity)
             )
+
+            ##-------------
+
+            # check if the order is still profitable
+
+            # if it not profitable, cancel and place orders again
+
+            ##-------------
 
             # See if it's still profitable to keep the order on maker market. If not, remove it.
             if not self.c_check_if_still_profitable(market_pair, active_order, current_hedging_price):
@@ -1060,6 +1067,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             while len(ask_price_samples_deque) > self.ORDER_ADJUST_SAMPLE_WINDOW:
                 ask_price_samples_deque.popleft()
 
+    # only use min_profitability here
     cdef bint c_check_if_still_profitable(self,
                                           object market_pair,
                                           LimitOrder active_order,
@@ -1080,21 +1088,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             bint is_buy = active_order.is_buy
             str limit_order_type_str = "bid" if is_buy else "ask"
             double order_price = float(active_order.price)
-            double cancel_order_threshold
             double order_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.taker.quote_asset, float(active_order.price))
             double current_hedging_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.taker.quote_asset, current_hedging_price)
 
-        # If active order canceling is disabled, only cancel order when the profitability goes below
-        # cancel_order_threshold
-        if self._active_order_canceling:
-            cancel_order_threshold = self._min_profitability
-        else:
-            cancel_order_threshold = self._cancel_order_threshold
-
-        if ((is_buy and current_hedging_price_adjusted < order_price_adjusted * (1 + cancel_order_threshold)) or
-                (not is_buy and order_price_adjusted < current_hedging_price_adjusted * (1 + cancel_order_threshold))):
+        # TODO: check the logic here
+        if ((is_buy and current_hedging_price_adjusted < order_price_adjusted * (1 + self._min_profitability)) or
+                (not is_buy and order_price_adjusted < current_hedging_price_adjusted * (1 + self._min_profitability))):
             if self._logging_options & self.OPTION_LOG_REMOVING_ORDER:
                 self.log_with_clock(
                     logging.INFO,
