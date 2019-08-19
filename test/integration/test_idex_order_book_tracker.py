@@ -5,6 +5,7 @@ import sys
 sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 import asyncio
+import conf
 import logging
 import unittest
 from typing import (
@@ -30,7 +31,8 @@ class IDEXOrderBookTrackerUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.order_book_tracker: IDEXOrderBookTracker = IDEXOrderBookTracker(
-            OrderBookTrackerDataSourceType.EXCHANGE_API,
+            idex_api_key=conf.idex_api_key,
+            data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             symbols=TEST_PAIRS
         )
         cls.order_book_tracker_task: asyncio.Task = asyncio.ensure_future(cls.order_book_tracker.start())
