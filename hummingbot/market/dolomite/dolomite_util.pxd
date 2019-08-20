@@ -10,5 +10,6 @@ cdef class DolomiteTradingRule(TradingRule):
     cdef:
         public DolomiteToken primary_token
         public DolomiteToken secondary_token
-        public object amount_decimal_places
-        public object price_decimal_places
+        public DolomiteToken fee_token
+        public object network_fee_per_fill
+        

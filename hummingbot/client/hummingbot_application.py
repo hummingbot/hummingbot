@@ -60,7 +60,6 @@ MARKET_CLASSES = {
     "idex": IDEXMarket,
     "radar_relay": RadarRelayMarket,
     "dolomite": DolomiteMarket,
-    "bittrex": BittrexMarket
 }
 
 
@@ -311,32 +310,14 @@ class HummingbotApplication(*commands):
                                            coinbase_pro_passphrase,
                                            symbols=symbols,
                                            trading_required=self._trading_required)
-            elif market_name == "huobi":
-                huobi_api_key = global_config_map.get("huobi_api_key").value
-                huobi_secret_key = global_config_map.get("huobi_secret_key").value
-                market = HuobiMarket(huobi_api_key,
-                                     huobi_secret_key,
-                                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                     symbols=symbols,
-                                     trading_required=self._trading_required)
+
             elif market_name == "dolomite" and self.wallet:
-                is_test_net: bool = global_config_map.get("ethereum_chain_name").value == "DOLOMITE_TEST"
-                market = DolomiteMarket(
-                    wallet=self.wallet,
-                    ethereum_rpc_url=ethereum_rpc_url,
-                    order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                    symbols=symbols,
-                    isTestNet=is_test_net,
-                    trading_required=self._trading_required,
-                )
-            elif market_name == "bittrex":
-                bittrex_api_key = global_config_map.get("bittrex_api_key").value
-                bittrex_secret_key = global_config_map.get("bittrex_secret_key").value
-                market = BittrexMarket(bittrex_api_key,
-                                       bittrex_secret_key,
-                                       order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                       symbols=symbols,
-                                       trading_required=self._trading_required)
+                market = DolomiteMarket(wallet=self.wallet,
+                                        ethereum_rpc_url=ethereum_rpc_url,
+                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                        symbols=symbols,
+                                        trading_required=self._trading_required)
+
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
 

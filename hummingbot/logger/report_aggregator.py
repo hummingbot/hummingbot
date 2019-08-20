@@ -25,9 +25,7 @@ MARKETS = {
     "bamboo_relay": BambooRelayMarket,
     "radar_relay": RadarRelayMarket,
     "idex": IDEXMarket,
-    "dolomite": DolomiteMarket,
-    "huobi": HuobiMarket,
-    "bittrex": BittrexMarket
+    "dolomite": DolomiteMarket
 }
 
 

@@ -124,7 +124,6 @@ class CoinbaseProOrderBookTrackerEntry(OrderBookTrackerEntry):
     def active_order_tracker(self) -> CoinbaseProActiveOrderTracker:
         return self._active_order_tracker
 
-
 class DolomiteOrderBookTrackerEntry(OrderBookTrackerEntry):
     def __init__(self, symbol: str, timestamp: float, order_book: OrderBook,
                  active_order_tracker: DolomiteActiveOrderTracker):
@@ -138,22 +137,4 @@ class DolomiteOrderBookTrackerEntry(OrderBookTrackerEntry):
 
     @property
     def active_order_tracker(self) -> DolomiteActiveOrderTracker:
-        return self._active_order_tracker
-
-
-class BittrexOrderBookTrackerEntry(OrderBookTrackerEntry):
-    def __init__(
-        self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: BittrexActiveOrderTracker
-    ):
-        self._active_order_tracker = active_order_tracker
-        super(BittrexOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
-
-    def __repr__(self) -> str:
-        return (
-            f"BittrexOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', "
-            f"order_book='{self._order_book}')"
-        )
-
-    @property
-    def active_order_tracker(self) -> BittrexActiveOrderTracker:
         return self._active_order_tracker
