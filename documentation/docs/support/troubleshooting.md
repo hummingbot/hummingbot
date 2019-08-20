@@ -158,6 +158,7 @@ git pull origin master
 # Recompile the code:
 conda deactivate
 ./uninstall
+./clean
 ./install
 conda activate hummingbot
 ./compile

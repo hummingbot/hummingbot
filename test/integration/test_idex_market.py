@@ -81,6 +81,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
                                                        conf.test_ddex_erc20_token_address_2],
                                 chain=EthereumChain.MAIN_NET)
         cls.market: IDEXMarket = IDEXMarket(
+            idex_api_key=conf.idex_api_key,
             wallet=cls.wallet,
             ethereum_rpc_url=conf.test_ddex_web3_provider_list[0],
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
@@ -148,6 +149,12 @@ class IDEXMarketUnitTest(unittest.TestCase):
     def test_get_wallet_balances(self):
         balances = self.market.get_all_balances()
         self.assertGreaterEqual((balances["ETH"]), 0)
+
+    def test_quantize_order_amount(self):
+        amount = self.market.quantize_order_amount("ETH_FXC", 100)
+        self.assertEqual(amount, 0)
+        amount = self.market.quantize_order_amount("ETH_FXC", 100000)
+        self.assertEqual(amount, 100000)
 
     def test_place_limit_buy_and_cancel(self):
         symbol = ETH_FXC

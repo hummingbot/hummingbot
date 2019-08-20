@@ -6,6 +6,7 @@ export hummingbotPath="$(pwd)/hummingbot" && cd $hummingbotPath
 ${CONDAPATH}/bin/deactivate
 ./uninstall
 rm -rf $(pwd)/miniconda3/envs/hummingbot
+./clean
 # UPDATE HUMMINGBOT
 # 1) Download latest code
 git pull origin master

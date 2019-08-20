@@ -45,7 +45,8 @@ class CoinCapDataFeed(DataFeedBase):
 
     @property
     def health_check_endpoint(self):
-        return "http://api.coincap.io/v2/assets"
+        # Only fetch data of one asset - so that the health check is faster
+        return "http://api.coincap.io/v2/assets/bitcoin"
 
     def get_price(self, asset: str) -> float:
         return self._price_dict.get(asset.upper())

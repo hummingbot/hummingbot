@@ -9,6 +9,9 @@ binance_api_secret: null
 coinbase_pro_api_key: null
 coinbase_pro_secret_key: null
 coinbase_pro_passphrase: null
+idex_api_key: null
+bamboo_relay_use_coordinator: null
+bamboo_relay_pre_emptive_soft_cancels: null
 
 # Ethereum wallet address: required for trading on a DEX
 wallet: null
