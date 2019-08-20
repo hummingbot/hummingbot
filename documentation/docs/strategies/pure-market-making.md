@@ -19,8 +19,18 @@ The diagram below illustrates how market making works.  Hummingbot makes a marke
 
 ## Prerequisites: Inventory
 
-1. You will need to hold inventory of quote and base currencies on the exchange.
+1. You will need to hold sufficient inventory of quote and/or base currencies on the exchange to place orders of the exchange's minimum order size.
 2. You will also need some Ethereum to pay gas for transactions on a DEX (if applicable).
+
+### Placing Orders: Minimum Order Size
+
+When placing orders, if the size of the order determined by the order price and quantity is below the exchange's minimum order size, then the orders will not be created.
+
+> For example, if the `bid order amount * bid price` **<** `exchange's minimum order size` while `ask order amount * ask price` **>** `exchange's minimum order size`, a sell order would be created but no bid order would be created.
+
+When using the [multiple order mode](#multiple-order-configuration), this may result in some (or none) of the orders being placed on one side.
+
+> For example, if the `bid order amount 1 * bid price 1` **<** `exchange's minimum order size` while `bid order amount 2 * bid price 2` **>** `exchange's minimum order size`, then only the 2nd bid order would be created.
 
 ## Configuration Walkthrough
 
