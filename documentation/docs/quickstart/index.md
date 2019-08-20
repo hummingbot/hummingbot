@@ -6,11 +6,13 @@ Below, we list what you'll need before you install and run Hummingbot.
 
 ## System Requirements
 
-**Why this is needed**: If you are installing Hummingbot either locally or on a cloud server, here are the recommended minimum system requirements"
+**Why this is needed**: If you are installing Hummingbot either locally or on a cloud server, here are the recommended minimum system requirements:
 
 - (Linux) Ubuntu 16.04 or later
 - (Mac) macOS 10.12.6 (Sierra) or later
 - (Windows) Windows 10 or later
+
+For more information, view [minimum system requirements](/installation/#minimum-system-requirements).
 
 ## Crypto Inventory
 
