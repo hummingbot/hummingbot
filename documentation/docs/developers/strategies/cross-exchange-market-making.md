@@ -88,3 +88,9 @@ The logic inside the create order flow is relatively straightforward. It checks 
 The logic of the create order flow can be found in the function `c_check_and_create_new_orders()` in [`cross_exchange_market_making.pyx`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx).
 
 ## Hedging Order Fills
+
+The cross exchange market making strategy would always immediately hedge any order fills from the maker side, regardless of how profitable the hedge is at the moment. The rationale is, it is more useful to minimize unnecessary exposure to further market risks for the users, than to wait speculatively for a profitable moment to hedge the maker order fill - which may never come.
+
+![Figure 4: Hedging order fills flow chart](/assets/img/xemm-flowchart-4.svg)
+
+The logic of the hedging order fill flow can be found in the function `c_did_fill_order()` and `c_check_and_hedge_orders()` in [`cross_exchange_market_making.pyx`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx).
