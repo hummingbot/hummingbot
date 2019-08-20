@@ -35,6 +35,7 @@ from hummingbot.core.event.events import (
     IncomingEthWatcherEvent,
     WalletWrappedEthEvent,
     WalletUnwrappedEthEvent,
+    NewBlocksWatcherEvent
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.pubsub import PubSub
@@ -50,6 +51,7 @@ from hummingbot.logger import HummingbotLogger
 
 
 class Web3WalletBackend(PubSub):
+    DEFAULT_GAS_PRICE = 1e9  # 1 gwei = 1e9 wei
     TRANSACTION_RECEIPT_POLLING_TICK = 10.0
 
     _w3wb_logger: Optional[HummingbotLogger] = None
@@ -112,6 +114,9 @@ class Web3WalletBackend(PubSub):
         self._outgoing_transactions_task: Optional[asyncio.Task] = None
         self._check_transaction_receipts_task: Optional[asyncio.Task] = None
         self._pending_tx_dict: Dict[str, int] = {}
+        self._gas_price: int = self.DEFAULT_GAS_PRICE
+        self._last_timestamp_received_blocks: float = 0.0
+        self._event_forwarder: EventForwarder = EventForwarder(self._did_receive_new_blocks)
 
     @property
     def address(self) -> str:
@@ -129,7 +134,7 @@ class Web3WalletBackend(PubSub):
         :return: Gas price in wei
         """
         # TODO: The gas price from Parity is not reliable. Convert to use internal gas price calculator
-        return self._w3.eth.gasPrice
+        return self._gas_price
 
     @property
     def nonce(self) -> int:
@@ -206,6 +211,7 @@ class Web3WalletBackend(PubSub):
 
             # Create event watchers.
             self._new_blocks_watcher = NewBlocksWatcher(self._w3)
+            self._new_blocks_watcher.add_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
             self._account_balance_watcher = AccountBalanceWatcher(
                 self._w3,
                 self._new_blocks_watcher,
@@ -277,6 +283,7 @@ class Web3WalletBackend(PubSub):
 
         # Stop the event watchers.
         if self._new_blocks_watcher is not None:
+            self._new_blocks_watcher.remove_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
             await self._new_blocks_watcher.stop_network()
         if self._account_balance_watcher is not None:
             await self._account_balance_watcher.stop_network()
@@ -296,11 +303,12 @@ class Web3WalletBackend(PubSub):
             self._check_transaction_receipts_task = None
 
     async def check_network(self) -> NetworkStatus:
+        # Assume connected if received new blocks in last 2 minutes
+        if time.time() - self._last_timestamp_received_blocks > 60 * 2:
+            return NetworkStatus.CONNECTED
+
         try:
-            await self._ev_loop.run_in_executor(hummingbot.get_executor(),
-                                                getattr,
-                                                self._w3.eth,
-                                                "blockNumber")
+            await self._update_gas_price()
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -309,8 +317,6 @@ class Web3WalletBackend(PubSub):
 
     async def _check_network_loop(self):
         while True:
-            has_unexpected_error: bool = False
-
             try:
                 new_status = await asyncio.wait_for(self.check_network(), timeout=10.0)
             except asyncio.CancelledError:
@@ -322,15 +328,9 @@ class Web3WalletBackend(PubSub):
                                       app_warning_msg=f"Unexpected error while checking for network status. "
                                                       f"Check wallet network connection")
                 new_status = NetworkStatus.NOT_CONNECTED
-                has_unexpected_error = True
 
             self._network_status = new_status
-
-            if not has_unexpected_error:
-                await asyncio.sleep(3.0)
-            else:
-                await asyncio.sleep(30.0)
-
+            await asyncio.sleep(5.0)
     async def check_transaction_receipts_loop(self):
         while True:
             try:
@@ -452,18 +452,6 @@ class Web3WalletBackend(PubSub):
         signature_dict: AttributeDict = self._account.signHash(msg_hash)
         signature: str = signature_dict["signature"].hex()
         return signature
-
-    def estimate_transaction_cost(self, contract_function: ContractFunction, **kwargs) -> int:
-        transaction_args: Dict[str, Any] = {
-            "from": self.address,
-            "nonce": self.nonce,
-            "chainId": self.chain.value,
-            "gasPrice": self.gas_price,
-        }
-        transaction_args.update(kwargs)
-        transaction: Dict[str, Any] = contract_function.buildTransaction(transaction_args)
-        gas_estimate = self._w3.eth.estimateGas(transaction)
-        return gas_estimate * self.gas_price
 
     def execute_transaction(self, contract_function: ContractFunction, **kwargs) -> str:
         """
@@ -625,3 +613,15 @@ class Web3WalletBackend(PubSub):
         self.logger().info(f"Unwrapping {amount} ether from wallet address {self.address}.")
         return self.execute_transaction(contract_func)
 
+    def _did_receive_new_blocks(self, new_blocks: List[AttributeDict]):
+        self._last_timestamp_received_blocks = time.time()
+        asyncio.ensure_future(self._update_gas_price())
+
+    async def _update_gas_price(self):
+        new_gas_price: int = await self._ev_loop.run_in_executor(
+            hummingbot.get_executor(),
+            getattr,
+            self._w3.eth,
+            "gasPrice"
+        )
+        self._gas_price = new_gas_price
