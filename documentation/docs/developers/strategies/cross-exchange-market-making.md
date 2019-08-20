@@ -24,9 +24,13 @@ The cross exchange market making strategy regularly refreshes the limit orders i
 
 ![Figure 1: Order creation and adjustment flow chart](/assets/img/xemm-flowchart-1.svg)
 
+The entry point of this logic flow is the `c_process_market_pair()` function in [`cross_exchange_market_making.pyx`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx).
+
 ### Cancel Order Flow
 
 The cancel order flow regularly monitors all active limit orders on the maker side, to ensure they are all valid and profitable over time. If any active limit order becomes invalid (e.g. because the asset balance changed) or becomes unprofitable (due to market price changes), then it should cancel such orders.
+
+![Figure 2: Cancel order flow chart](/assets/img/xemm-flowchart-2.svg)
 
 #### Active order cancellation setting
 
@@ -44,18 +48,43 @@ Assuming active order canceling is enabled, the first check the strategy does wi
 
 If the profit ratio calculated for the maker order is less than the [`min_profitability`](/strategies/corss-exchange-market-making/) setting, then the order is canceled.
 
+The logic of this check can be found in the function `c_check_if_still_profitable()` in [`cross_exchange_market_making.pyx`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx).
+
 Otherwise, the strategy will go onto the next check.
 
 #### Is there sufficient account balance?
 
 The next check afterwards checks whether there's enough asset balance left to satisfy the maker order. If there is not enough balance left on the exchange, the order would be cancelled.
 
+The logic of this check can be found in the function `c_check_if_sufficient_balance()` in [`cross_exchange_market_making.pyx`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx).
+
 Otherwise, the strategy will go onto the next check.
 
 #### Is the price correct?
 
+Asset prices on both the maker side and taker side are always changing, and thus the optimal prices for the limit orders on the maker side would change over time as well.
 
+The cross exchange market making strategy calculates the optimal pricing from the following factors:
+
+ 1. Current market order prices on the taker side.
+ 2. Current order book depth on the maker side.
+ 3. [`top_depth_tolerance`](/strategies/cross-exchange-market-making/) setting, which is applied to the order book depths on maker side.
+ 4. [`min_profitability`](/strategies/cross-exchange-market-making/) setting, which is applied to the market order prices on the taker side.
+
+If the price of the active order is different from the optimal price calculated, then the order would be cancelled. Otherwise, the strategy would allow the order to stay.
+
+The logic of this check can be found in the function `c_check_if_price_correct()` in [`cross_exchange_market_making.pyx`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx).
+
+After all the active orders on make side have been checked, the strategy will proceed to the create order flow.
 
 ### Create Order Flow
+
+After going through the cancel order flow, the cross exchange market making strategy would check and re-create any missing limit orders on the maker side.
+
+![Figure 3: Cancel order flow chart](/assets/img/xemm-flowchart-3.svg)
+
+The logic inside the create order flow is relatively straightforward. It checks whether there are existing bid and ask orders on the maker side. If any of the orders are missing, it will check whether it is profitable to create one at the moment. If it's profitable to create the missing orders, it will calculate the optimal pricing and size and create those orders.
+
+The logic of the create order flow can be found in the function `c_check_and_create_new_orders()` in [`cross_exchange_market_making.pyx`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx).
 
 ## Hedging Order Fills
