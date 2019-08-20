@@ -372,8 +372,8 @@ cdef class ArbitrageStrategy(StrategyBase):
         markets and the profitability ratio. This function accounts for trading fees required by both markets before
         arriving at the optimal order size and profitability ratio.
 
-        :param buy_market_symbol_pair:
-        :param sell_market_symbol_pair:
+        :param buy_market_symbol_pair: symbol pair for buy side
+        :param sell_market_symbol_pair: symbol pair for sell side
         :return: (order size, profitability ratio)
         :rtype: Tuple[float, float]
         """
