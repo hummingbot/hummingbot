@@ -682,182 +682,183 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 )
         return total_flat_fees
 
-    cdef double c_calculate_bid_profitability(self, object market_pair, double bid_order_size = 0.0):
-        """
-        Assuming that I create a limit bid order at the top of the order book on the maker side, how profitable is the
-        order if it's filled and hedged on the taker side right now?
+    # cdef double c_calculate_bid_profitability(self, object market_pair, double bid_order_size = 0.0):
+    #     """
+    #     Assuming that I create a limit bid order at the top of the order book on the maker side, how profitable is the
+    #     order if it's filled and hedged on the taker side right now?
+    #
+    #     Positive ratio means profit, negative ratio means loss.
+    #
+    #     :param market_pair: cross exchange market pair
+    #     :param bid_order_size: proposed bid order size
+    #     :return: profitability ratio of the bid order, if it's filled and hedged immediately
+    #     """
+    #     cdef:
+    #         double maker_bid_price = (<OrderBook> market_pair.maker.order_book).c_get_price_for_quote_volume(
+    #             False,
+    #             0.0
+    #         ).result_price
+    #         double taker_bid_price = (<OrderBook> market_pair.taker.order_book).c_get_price(False)
+    #         double maker_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
+    #             market_pair.maker.quote_asset,
+    #             maker_bid_price
+    #         )
+    #         double taker_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
+    #             market_pair.taker.quote_asset,
+    #             taker_bid_price
+    #         )
+    #     if bid_order_size == 0.0:
+    #         return taker_bid_price_adjusted / maker_bid_price_adjusted - 1
+    #
+    #     cdef:
+    #         object maker_bid_fee = (<MarketBase> market_pair.maker.market).c_get_fee(
+    #             market_pair.maker.base_asset,
+    #             market_pair.maker.quote_asset,
+    #             OrderType.LIMIT,
+    #             TradeType.BUY,
+    #             bid_order_size,
+    #             maker_bid_price_adjusted
+    #         )
+    #         double maker_bid_fee_flat_fees = self.c_sum_flat_fees(
+    #             market_pair.maker.quote_asset,
+    #             maker_bid_fee.flat_fees
+    #         )
+    #         object taker_bid_fee = (<MarketBase> market_pair.taker.market).c_get_fee(
+    #             market_pair.taker.base_asset,
+    #             market_pair.taker.quote_asset,
+    #             OrderType.MARKET,
+    #             TradeType.SELL,
+    #             bid_order_size,
+    #             taker_bid_price_adjusted
+    #         )
+    #         double taker_bid_fee_flat_fees = self.c_sum_flat_fees(
+    #             market_pair.taker.quote_asset,
+    #             taker_bid_fee.flat_fees
+    #         )
+    #         double bid_net_sell_proceeds = taker_bid_price_adjusted * bid_order_size * \
+    #             (1 - taker_bid_fee.percent) - taker_bid_fee_flat_fees
+    #         double bid_net_buy_costs = maker_bid_price_adjusted * bid_order_size * \
+    #             (1 + maker_bid_fee.percent) + maker_bid_fee_flat_fees
+    #         double bid_profitability = bid_net_sell_proceeds / bid_net_buy_costs - 1
+    #
+    #     return bid_profitability
 
-        Positive ratio means profit, negative ratio means loss.
+    # cdef double c_calculate_ask_profitability(self, object market_pair, double ask_order_size = 0.0):
+    #     """
+    #     Assuming that I create a limit ask order at the top of the order book on the maker side, how profitable is the
+    #     order if it's filled and hedged on the taker side right now?
+    #
+    #     Positive ratio means profit, negative ratio means loss.
+    #
+    #     :param market_pair: cross exchange market pair
+    #     :param ask_order_size: proposed ask order size
+    #     :return: profitability ratio of the ask order, if it's filled and hedged immediately
+    #     """
+    #     cdef:
+    #         double maker_ask_price = (<OrderBook> market_pair.maker.order_book).c_get_price_for_quote_volume(
+    #             True,
+    #             0.0
+    #         ).result_price
+    #         double taker_ask_price = (<OrderBook> market_pair.taker.order_book).c_get_price(True)
+    #         double maker_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
+    #             market_pair.maker.quote_asset,
+    #             maker_ask_price
+    #         )
+    #         double taker_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
+    #             market_pair.taker.quote_asset,
+    #             taker_ask_price
+    #         )
+    #     if ask_order_size == 0.0:
+    #         return maker_ask_price_adjusted / taker_ask_price_adjusted - 1
+    #
+    #     cdef:
+    #         object maker_ask_fee = (<MarketBase> market_pair.maker.market).c_get_fee(
+    #             market_pair.maker.base_asset,
+    #             market_pair.maker.quote_asset,
+    #             OrderType.LIMIT,
+    #             TradeType.SELL,
+    #             ask_order_size,
+    #             maker_ask_price_adjusted
+    #         )
+    #         double maker_ask_fee_flat_fees = self.c_sum_flat_fees(
+    #             market_pair.maker.quote_asset,
+    #             maker_ask_fee.flat_fees
+    #         )
+    #         object taker_ask_fee = (<MarketBase> market_pair.taker.market).c_get_fee(
+    #             market_pair.taker.base_asset,
+    #             market_pair.taker.quote_asset,
+    #             OrderType.MARKET,
+    #             TradeType.BUY,
+    #             ask_order_size,
+    #             taker_ask_price_adjusted
+    #         )
+    #         double taker_ask_fee_flat_fees = self.c_sum_flat_fees(
+    #             market_pair.taker.quote_asset,
+    #             taker_ask_fee.flat_fees
+    #         )
+    #         double ask_net_sell_proceeds = maker_ask_price_adjusted * \
+    #             ask_order_size * (1 - maker_ask_fee.percent) - maker_ask_fee_flat_fees
+    #         double ask_net_buy_costs = taker_ask_price_adjusted * \
+    #             ask_order_size * (1 + taker_ask_fee.percent) + taker_ask_fee_flat_fees
+    #         double ask_profitability = ask_net_sell_proceeds / ask_net_buy_costs - 1
+    #
+    #     return ask_profitability
 
-        :param market_pair: cross exchange market pair
-        :param bid_order_size: proposed bid order size
-        :return: profitability ratio of the bid order, if it's filled and hedged immediately
-        """
-        cdef:
-            double maker_bid_price = (<OrderBook> market_pair.maker.order_book).c_get_price_for_quote_volume(
-                False,
-                0.0
-            ).result_price
-            double taker_bid_price = (<OrderBook> market_pair.taker.order_book).c_get_price(False)
-            double maker_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.maker.quote_asset,
-                maker_bid_price
-            )
-            double taker_bid_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.taker.quote_asset,
-                taker_bid_price
-            )
-        if bid_order_size == 0.0:
-            return taker_bid_price_adjusted / maker_bid_price_adjusted - 1
+    # cdef tuple c_calculate_market_making_profitability(self, object market_pair):
+    #     """
+    #     If I put a limit bid and a limit ask order on the maker side of the market, at the top of the order book,
+    #     accounting for all applicable settings and account balance limits - how profitable are those orders if they are
+    #     filled and hedged right now?
+    #
+    #     :param market_pair: cross market making pair.
+    #     :return: a (double, double) tuple. The immediate profitability ratios of the bid and ask limit orders
+    #     """
+    #     bid_price, bid_size_limit = self.c_get_market_making_price_and_size_limit(
+    #         market_pair,
+    #         True,
+    #         own_order_depth=0
+    #     )
+    #     bid_order_size = float(self.c_get_adjusted_limit_order_size(
+    #         market_pair,
+    #         float(bid_price),
+    #         float(bid_size_limit)
+    #     ))
+    #     ask_price, ask_size_limit = self.c_get_market_making_price_and_size_limit(
+    #         market_pair,
+    #         False,
+    #         own_order_depth=0
+    #     )
+    #     ask_order_size = float(self.c_get_adjusted_limit_order_size(
+    #         market_pair,
+    #         float(ask_price),
+    #         float(ask_size_limit)
+    #     ))
+    #
+    #     cdef:
+    #         double bid_profitability = self.c_calculate_bid_profitability(
+    #             market_pair,
+    #             bid_order_size
+    #         )
+    #         double ask_profitability = self.c_calculate_ask_profitability(
+    #             market_pair,
+    #             ask_order_size
+    #         )
+    #     return bid_profitability, ask_profitability
 
-        cdef:
-            object maker_bid_fee = (<MarketBase> market_pair.maker.market).c_get_fee(
-                market_pair.maker.base_asset,
-                market_pair.maker.quote_asset,
-                OrderType.LIMIT,
-                TradeType.BUY,
-                bid_order_size,
-                maker_bid_price_adjusted
-            )
-            double maker_bid_fee_flat_fees = self.c_sum_flat_fees(
-                market_pair.maker.quote_asset,
-                maker_bid_fee.flat_fees
-            )
-            object taker_bid_fee = (<MarketBase> market_pair.taker.market).c_get_fee(
-                market_pair.taker.base_asset,
-                market_pair.taker.quote_asset,
-                OrderType.MARKET,
-                TradeType.SELL,
-                bid_order_size,
-                taker_bid_price_adjusted
-            )
-            double taker_bid_fee_flat_fees = self.c_sum_flat_fees(
-                market_pair.taker.quote_asset,
-                taker_bid_fee.flat_fees
-            )
-            double bid_net_sell_proceeds = taker_bid_price_adjusted * bid_order_size * \
-                (1 - taker_bid_fee.percent) - taker_bid_fee_flat_fees
-            double bid_net_buy_costs = maker_bid_price_adjusted * bid_order_size * \
-                (1 + maker_bid_fee.percent) + maker_bid_fee_flat_fees
-            double bid_profitability = bid_net_sell_proceeds / bid_net_buy_costs - 1
+    # cdef tuple c_has_market_making_profit_potential(self, object market_pair):
+    #     """
+    #     If I put a limit bid and a limit ask order on the maker side of the market, at the top of the order book,
+    #     accounting for all applicable settings and account balance limits - are the orders profitable or not?
+    #
+    #     :param market_pair: cross market making pair.
+    #     :return: a (boolean, boolean) tuple. First item indicates whether bid limit order is profitable. Second item
+    #              indicates whether ask limit order is profitable.
+    #     """
+    #     bid_profitability, ask_profitability = self.c_calculate_market_making_profitability(market_pair)
+    #
+    #     return bid_profitability > self._min_profitability, ask_profitability > self._min_profitability
 
-        return bid_profitability
-
-    cdef double c_calculate_ask_profitability(self, object market_pair, double ask_order_size = 0.0):
-        """
-        Assuming that I create a limit ask order at the top of the order book on the maker side, how profitable is the
-        order if it's filled and hedged on the taker side right now?
-
-        Positive ratio means profit, negative ratio means loss.
-
-        :param market_pair: cross exchange market pair
-        :param ask_order_size: proposed ask order size
-        :return: profitability ratio of the ask order, if it's filled and hedged immediately
-        """
-        cdef:
-            double maker_ask_price = (<OrderBook> market_pair.maker.order_book).c_get_price_for_quote_volume(
-                True,
-                0.0
-            ).result_price
-            double taker_ask_price = (<OrderBook> market_pair.taker.order_book).c_get_price(True)
-            double maker_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.maker.quote_asset,
-                maker_ask_price
-            )
-            double taker_ask_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.taker.quote_asset,
-                taker_ask_price
-            )
-        if ask_order_size == 0.0:
-            return maker_ask_price_adjusted / taker_ask_price_adjusted - 1
-
-        cdef:
-            object maker_ask_fee = (<MarketBase> market_pair.maker.market).c_get_fee(
-                market_pair.maker.base_asset,
-                market_pair.maker.quote_asset,
-                OrderType.LIMIT,
-                TradeType.SELL,
-                ask_order_size,
-                maker_ask_price_adjusted
-            )
-            double maker_ask_fee_flat_fees = self.c_sum_flat_fees(
-                market_pair.maker.quote_asset,
-                maker_ask_fee.flat_fees
-            )
-            object taker_ask_fee = (<MarketBase> market_pair.taker.market).c_get_fee(
-                market_pair.taker.base_asset,
-                market_pair.taker.quote_asset,
-                OrderType.MARKET,
-                TradeType.BUY,
-                ask_order_size,
-                taker_ask_price_adjusted
-            )
-            double taker_ask_fee_flat_fees = self.c_sum_flat_fees(
-                market_pair.taker.quote_asset,
-                taker_ask_fee.flat_fees
-            )
-            double ask_net_sell_proceeds = maker_ask_price_adjusted * \
-                ask_order_size * (1 - maker_ask_fee.percent) - maker_ask_fee_flat_fees
-            double ask_net_buy_costs = taker_ask_price_adjusted * \
-                ask_order_size * (1 + taker_ask_fee.percent) + taker_ask_fee_flat_fees
-            double ask_profitability = ask_net_sell_proceeds / ask_net_buy_costs - 1
-
-        return ask_profitability
-
-    cdef tuple c_calculate_market_making_profitability(self, object market_pair):
-        """
-        If I put a limit bid and a limit ask order on the maker side of the market, at the top of the order book,
-        accounting for all applicable settings and account balance limits - how profitable are those orders if they are
-        filled and hedged right now?
-
-        :param market_pair: cross market making pair.
-        :return: a (double, double) tuple. The immediate profitability ratios of the bid and ask limit orders
-        """
-        bid_price, bid_size_limit = self.c_get_market_making_price_and_size_limit(
-            market_pair,
-            True,
-            own_order_depth=0
-        )
-        bid_order_size = float(self.c_get_adjusted_limit_order_size(
-            market_pair,
-            float(bid_price),
-            float(bid_size_limit)
-        ))
-        ask_price, ask_size_limit = self.c_get_market_making_price_and_size_limit(
-            market_pair,
-            False,
-            own_order_depth=0
-        )
-        ask_order_size = float(self.c_get_adjusted_limit_order_size(
-            market_pair,
-            float(ask_price),
-            float(ask_size_limit)
-        ))
-
-        cdef:
-            double bid_profitability = self.c_calculate_bid_profitability(
-                market_pair,
-                bid_order_size
-            )
-            double ask_profitability = self.c_calculate_ask_profitability(
-                market_pair,
-                ask_order_size
-            )
-        return bid_profitability, ask_profitability
-
-    cdef tuple c_has_market_making_profit_potential(self, object market_pair):
-        """
-        If I put a limit bid and a limit ask order on the maker side of the market, at the top of the order book,
-        accounting for all applicable settings and account balance limits - are the orders profitable or not?
-
-        :param market_pair: cross market making pair.
-        :return: a (boolean, boolean) tuple. First item indicates whether bid limit order is profitable. Second item
-                 indicates whether ask limit order is profitable.
-        """
-        bid_profitability, ask_profitability = self.c_calculate_market_making_profitability(market_pair)
-
-        return bid_profitability > self._min_profitability, ask_profitability > self._min_profitability
-
+    # TODO: modify this for correct price
     cdef tuple c_get_market_making_price_and_size_limit(self,
                                                         object market_pair,
                                                         bint is_bid,
@@ -1041,6 +1042,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         :param market_pair: cross exchange market pair
         :param active_orders: list of currently active orders associated to the market pair
         """
+        #TODO: check timestamp logic here
         if ((self._last_timestamp // self.ORDER_ADJUST_SAMPLE_INTERVAL) <
                 (self._current_timestamp // self.ORDER_ADJUST_SAMPLE_INTERVAL)):
             if market_pair not in self._suggested_price_samples:
@@ -1124,6 +1126,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double order_price = float(active_order.price)
             MarketBase maker_market = market_pair.maker.market
             MarketBase taker_market = market_pair.taker.market
+
+            # If its a buy order, get quote asset from m
             double quote_asset_amount = maker_market.c_get_balance(market_pair.maker.quote_asset) if is_buy else \
                 taker_market.c_get_balance(market_pair.taker.quote_asset)
             double base_asset_amount = taker_market.c_get_balance(market_pair.taker.base_asset) if is_buy else \
@@ -1145,6 +1149,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             return False
         return True
 
+    #Todo: modify this
     cdef bint c_check_if_price_correct(self, object market_pair, LimitOrder active_order, double current_hedging_price):
         """
         Given a currently active limit order on maker side, check if its current price is still correct - given the
@@ -1279,11 +1284,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             double effective_hedging_price
 
-        # See if it's profitable to place a limit order on maker market.
-        is_bid_profitable, is_ask_profitable = self.c_has_market_making_profit_potential(market_pair)
-        bid_price_samples, ask_price_samples = self.c_get_suggested_price_samples(market_pair)
+        # # See if it's profitable to place a limit order on maker market.
+        # is_bid_profitable, is_ask_profitable = self.c_has_market_making_profit_potential(market_pair)
+        # bid_price_samples, ask_price_samples = self.c_get_suggested_price_samples(market_pair)
 
-        if is_bid_profitable and not has_active_bid:
+        # if is_bid_profitable and not has_active_bid:
+        if not has_active_bid:
             bid_price, bid_size_limit = self.c_get_market_making_price_and_size_limit(
                 market_pair,
                 True,
