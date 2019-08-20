@@ -46,6 +46,10 @@ coinbase_pro_passphrase = os.getenv("COINBASE_PRO_PASSPHRASE")
 # IDEX Tests
 idex_api_key = os.getenv("IDEX_API_KEY")
 
+# Dolomite Tests
+dolomite_test_web3_private_key = os.getenv("DOLOMITE_TEST_PK")
+dolomite_test_web3_address = os.getenv("DOLOMITE_TEST_ADDR")
+
 test_web3_provider_list = [os.getenv("WEB3_PROVIDER")]
 
 # Wallet Tests

@@ -13,6 +13,7 @@ from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
+from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 
 MARKETS = {
     "ddex": DDEXMarket,
@@ -20,7 +21,8 @@ MARKETS = {
     "binance": BinanceMarket,
     "bamboo_relay": BambooRelayMarket,
     "radar_relay": RadarRelayMarket,
-    "idex": IDEXMarket
+    "idex": IDEXMarket,
+    "dolomite": DolomiteMarket
 }
 
 

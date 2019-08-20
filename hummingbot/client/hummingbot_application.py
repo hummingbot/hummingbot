@@ -26,6 +26,7 @@ from hummingbot.market.market_base import MarketBase
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
+from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
@@ -67,6 +68,7 @@ MARKET_CLASSES = {
     "idex": IDEXMarket,
     "ddex": DDEXMarket,
     "radar_relay": RadarRelayMarket,
+    "dolomite": DolomiteMarket,
 }
 
 
@@ -281,6 +283,13 @@ class HummingbotApplication(*commands):
                                            coinbase_pro_passphrase,
                                            symbols=symbols,
                                            trading_required=self._trading_required)
+
+            elif market_name == "dolomite" and self.wallet:
+                market = DolomiteMarket(wallet=self.wallet,
+                                        ethereum_rpc_url=ethereum_rpc_url,
+                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                        symbols=symbols,
+                                        trading_required=self._trading_required)
 
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
