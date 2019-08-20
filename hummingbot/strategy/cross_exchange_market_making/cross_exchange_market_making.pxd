@@ -34,8 +34,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
     cdef c_process_market_pair(self, object market_pair, list active_ddex_orders)
     cdef c_check_and_hedge_orders(self, object market_pair)
-    cdef object c_get_order_size_after_portfolio_ratio_limit(self, object market_pair, double original_order_size)
-    cdef object c_get_adjusted_limit_order_size(self, object market_pair, double price, double original_order_size)
+    cdef object c_get_order_size_after_portfolio_ratio_limit(self, object market_pair)
+    cdef object c_get_adjusted_limit_order_size(self, object market_pair)
     cdef double c_sum_flat_fees(self, str quote_currency, list flat_fees)
 
     cdef double c_calculate_bid_profitability(self,

@@ -192,14 +192,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             lines.extend(["", "  Assets:"] +
                          ["    " + line for line in str(assets_df).split("\n")])
 
-            bid_profitability, ask_profitability = self.c_calculate_market_making_profitability(
-                market_pair
-            )
-            lines.extend(["", "  Profitability:"] +
-                         [f"    make bid on {market_pair.maker.market.name}, "
-                          f"take bid on {market_pair.taker.market.name}: {round(bid_profitability * 100, 4)} %"] +
-                         [f"    make ask on {market_pair.maker.market.name}, "
-                          f"take ask on {market_pair.taker.market.name}: {round(ask_profitability * 100, 4)} %"])
+            # bid_profitability, ask_profitability = self.c_calculate_market_making_profitability(
+            #     market_pair
+            # )
+            # lines.extend(["", "  Profitability:"] +
+            #              [f"    make bid on {market_pair.maker.market.name}, "
+            #               f"take bid on {market_pair.taker.market.name}: {round(bid_profitability * 100, 4)} %"] +
+            #              [f"    make ask on {market_pair.maker.market.name}, "
+            #               f"take ask on {market_pair.taker.market.name}: {round(ask_profitability * 100, 4)} %"])
 
             # See if there're any open orders.
             if market_pair in tracked_maker_orders and len(tracked_maker_orders[market_pair]) > 0:
@@ -232,8 +232,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                       original_order_size: float) -> float:
         return self.c_get_adjusted_limit_order_size(market_pair, price, original_order_size)
 
-    def has_market_making_profit_potential(self, market_pair: CrossExchangeMarketPair) -> Tuple[bool, bool]:
-        return self.c_has_market_making_profit_potential(market_pair)
+    # def has_market_making_profit_potential(self, market_pair: CrossExchangeMarketPair) -> Tuple[bool, bool]:
+    #     return self.c_has_market_making_profit_potential(market_pair)
 
     def get_market_making_price_and_size_limit(self, market_pair: CrossExchangeMarketPair,
                                                is_bid: bool,
@@ -608,7 +608,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     f"allowed on the taker market. No hedging possible yet."
                 )
 
-    cdef object c_get_adjusted_limit_order_size(self, object market_pair, double price, double original_order_size):
+    cdef object c_get_adjusted_limit_order_size(self, object market_pair):
         """
         Given the proposed order size of a proposed limit order (regardless of bid or ask), adjust and refine the order
         sizing according to either the trade size override setting (if it exists), or the portfolio ratio limit (if
@@ -618,8 +618,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         order size.
 
         :param market_pair: cross exchange market pair
-        :param price: the price of the proposed limit order, regardless of bid or ask
-        :param original_order_size: the originally proposed size of the limit order
         :rtype: Decimal
         """
         cdef:
@@ -628,13 +626,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double adjusted_order_size
 
         if self._trade_size_override and self._trade_size_override > 0:
-            quote_trade_size_limit = min(self._trade_size_override, original_order_size * price)
-            adjusted_base_order_size = quote_trade_size_limit / price
-            return maker_market.c_quantize_order_amount(symbol, adjusted_base_order_size)
+            base_order_size = self._trade_size_override
+            return maker_market.c_quantize_order_amount(symbol, base_order_size)
         else:
-            return self.c_get_order_size_after_portfolio_ratio_limit(market_pair, original_order_size)
+            return self.c_get_order_size_after_portfolio_ratio_limit(market_pair)
 
-    cdef object c_get_order_size_after_portfolio_ratio_limit(self, object market_pair, double original_order_size):
+    cdef object c_get_order_size_after_portfolio_ratio_limit(self, object market_pair):
         """
         Given the proposed order size of a proposed limit order (regardless of bid or ask), adjust the order sizing
         according to the portfolio ratio limit.
@@ -643,7 +640,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         order size.
 
         :param market_pair: cross exchange market pair
-        :param original_order_size: the price of the proposed limit order, regardless of bid or ask
         :rtype: Decimal
         """
         cdef:
@@ -654,10 +650,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double current_price = (maker_market.c_get_price(symbol, True) +
                                     maker_market.c_get_price(symbol, False)) * 0.5
             double maker_portfolio_value = base_balance + quote_balance / current_price
-            double adjusted_order_size = min(
-                original_order_size,
-                maker_portfolio_value * self._order_size_portfolio_ratio_limit
-            )
+            double adjusted_order_size = maker_portfolio_value * self._order_size_portfolio_ratio_limit
+
         return maker_market.c_quantize_order_amount(symbol, adjusted_order_size)
 
     cdef double c_sum_flat_fees(self, str quote_currency, list flat_fees):
@@ -894,94 +888,126 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double taker_order_book_size_limit
             double adjusted_taker_price
 
-        # Get the top-of-order-book prices, taking the top depth tolerance into account.
-        try:
-            top_bid_price = maker_order_book.c_get_price_for_quote_volume(
-                False, market_pair.top_depth_tolerance + own_order_depth
-            ).result_price
-        except EnvironmentError:
-            top_bid_price = maker_order_book.c_get_price(False)
-
-        try:
-            top_ask_price = maker_order_book.c_get_price_for_quote_volume(
-                True, market_pair.top_depth_tolerance + own_order_depth
-            ).result_price
-        except EnvironmentError:
-            top_ask_price = maker_order_book.c_get_price(True)
+        # # Get the top-of-order-book prices, taking the top depth tolerance into account.
+        # try:
+        #     top_bid_price = maker_order_book.c_get_price_for_quote_volume(
+        #         False, market_pair.top_depth_tolerance + own_order_depth
+        #     ).result_price
+        # except EnvironmentError:
+        #     top_bid_price = maker_order_book.c_get_price(False)
+        #
+        # try:
+        #     top_ask_price = maker_order_book.c_get_price_for_quote_volume(
+        #         True, market_pair.top_depth_tolerance + own_order_depth
+        #     ).result_price
+        # except EnvironmentError:
+        #     top_ask_price = maker_order_book.c_get_price(True)
 
         # Calculate the next price from the top, and the order size limit.
         if is_bid:
-            price_quantum = maker_market.c_get_order_price_quantum(
-                market_pair.maker.trading_pair,
-                top_bid_price
-            )
-            next_price = (round(Decimal(top_bid_price) / price_quantum) + 1) * price_quantum
+            # price_quantum = maker_market.c_get_order_price_quantum(
+            #     market_pair.maker.trading_pair,
+            #     top_bid_price
+            # )
+            # next_price = (round(Decimal(top_bid_price) / price_quantum) + 1) * price_quantum
 
             # Calculate the order size limit from maker and taker market balances.
-            maker_balance_size_limit = (maker_market.c_get_available_balance(market_pair.maker.quote_asset) /
-                                        float(next_price))
-            taker_balance_size_limit = (taker_market.c_get_available_balance(market_pair.taker.base_asset) *
-                                        self._order_size_taker_balance_factor)
+            if own_order_depth == 0:
+                maker_balance = maker_market.c_get_available_balance(market_pair.maker.quote_asset)
+
+                taker_balance = (taker_market.c_get_available_balance(market_pair.taker.base_asset) *
+                                            self._order_size_taker_balance_factor)
+
+                user_order = self.c_get_adjusted_limit_order_size(market_pair)
+
+                raw_size = min(
+                    maker_balance,
+                    taker_balance,
+                    user_order
+                )
+
+                size_limit = maker_market.c_quantize_order_amount(market_pair.maker.trading_pair, raw_size)
+            else:
+                size_limit = maker_market.c_quantize_order_amount(market_pair.maker.trading_pair, own_order_depth)
+
+            # sell on taker
+            taker_price = taker_order_book.c_get_vwap_for_volume(False, size_limit)
+
+            maker_price = taker_price / (1 + self._min_profitability)
 
             # Convert the proposed maker order price to the equivalent price on the taker market.
-            adjusted_taker_price = (self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.maker.quote_asset,
-                float(next_price)
-            ) / self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.taker.quote_asset,
-                1.0
-            ))
+            # adjusted_taker_price = (self._exchange_rate_conversion.adjust_token_rate(
+            #     market_pair.maker.quote_asset,
+            #     float(next_price)
+            # ) / self._exchange_rate_conversion.adjust_token_rate(
+            #     market_pair.taker.quote_asset,
+            #     1.0
+            # ))
 
             # Calculate the order size limit from the minimal profitable hedge on the taker market.
-            profitable_hedge_price = adjusted_taker_price * (1 + self._min_profitability)
-            taker_order_book_size_limit = (
-                taker_order_book.c_get_volume_for_price(False, profitable_hedge_price).result_volume *
-                self._order_size_taker_volume_factor
-            )
+            # profitable_hedge_price = adjusted_taker_price * (1 + self._min_profitability)
 
-            raw_size_limit = min(
-                taker_order_book_size_limit,
-                maker_balance_size_limit,
-                taker_balance_size_limit
-            )
-            size_limit = maker_market.c_quantize_order_amount(market_pair.maker.trading_pair, raw_size_limit)
-            return next_price, size_limit
+            # taker_order_book_size_limit = (
+            #     taker_order_book.c_get_volume_for_price(False, profitable_hedge_price).result_volume *
+            #     self._order_size_taker_volume_factor
+            # )
+
+
+
+            return maker_price, size_limit
         else:
-            price_quantum = maker_market.c_get_order_price_quantum(
-                market_pair.maker.trading_pair,
-                top_ask_price
-            )
-            next_price = (round(Decimal(top_ask_price) / price_quantum) - 1) * price_quantum
+            # price_quantum = maker_market.c_get_order_price_quantum(
+            #     market_pair.maker.trading_pair,
+            #     top_ask_price
+            # )
+            # next_price = (round(Decimal(top_ask_price) / price_quantum) - 1) * price_quantum
 
             # Calculate the order size limit from maker and taker market balances.
-            maker_balance_size_limit = maker_market.c_get_available_balance(market_pair.maker.base_asset)
-            taker_balance_size_limit = (taker_market.c_get_available_balance(market_pair.taker.quote_asset) /
-                                        float(next_price) *
-                                        self._order_size_taker_balance_factor)
+            if own_order_depth == 0:
+                maker_balance = maker_market.c_get_available_balance(market_pair.maker.base_asset)
+                taker_balance = (taker_market.c_get_available_balance(market_pair.taker.quote_asset) *
+                                            self._order_size_taker_balance_factor)
+                user_order = self.c_get_adjusted_limit_order_size(market_pair)
+
+                raw_size = min(
+                    maker_balance,
+                    taker_balance,
+                    user_order
+                )
+
+                size_limit = maker_market.c_quantize_order_amount(market_pair.maker.trading_pair, raw_size)
+            else:
+                size_limit = maker_market.c_quantize_order_amount(market_pair.maker.trading_pair, own_order_depth)
+
+            # buy on taker
+            taker_price = taker_order_book.c_get_vwap_for_volume(True, size_limit)
+
+            maker_price = taker_price * (1 + self._min_profitability)
 
             # Convert the proposed maker order price to the equivalent price on the taker market.
-            adjusted_taker_price = (self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.maker.quote_asset,
-                float(next_price)
-            ) / self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.taker.quote_asset,
-                1.0
-            ))
+            # adjusted_taker_price = (self._exchange_rate_conversion.adjust_token_rate(
+            #     market_pair.maker.quote_asset,
+            #     float(next_price)
+            # ) / self._exchange_rate_conversion.adjust_token_rate(
+            #     market_pair.taker.quote_asset,
+            #     1.0
+            # ))
 
             # Calculate the order size limit from the minimal profitable hedge on the taker market.
-            profitable_hedge_price = adjusted_taker_price / (1 + self._min_profitability)
-            taker_order_book_size_limit = (
-                taker_order_book.c_get_volume_for_price(True, profitable_hedge_price).result_volume *
-                self._order_size_taker_volume_factor
-            )
+            # profitable_hedge_price = adjusted_taker_price / (1 + self._min_profitability)
+            # taker_order_book_size_limit = (
+            #     taker_order_book.c_get_volume_for_price(True, profitable_hedge_price).result_volume *
+            #     self._order_size_taker_volume_factor
+            # )
 
-            raw_size_limit = min(
-                taker_order_book_size_limit,
-                maker_balance_size_limit,
-                taker_balance_size_limit
-            )
-            size_limit = maker_market.c_quantize_order_amount(market_pair.maker.trading_pair, raw_size_limit)
-            return next_price, size_limit
+            # raw_size_limit = min(
+            #     taker_order_book_size_limit,
+            #     maker_balance_size_limit,
+            #     taker_balance_size_limit
+            # )
+
+
+            return maker_price, size_limit
 
     cdef double c_calculate_effective_hedging_price(self,
                                                     OrderBook taker_order_book,
@@ -1331,7 +1357,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         f"({market_pair.maker.trading_pair}) Attempting to place a limit bid but the "
                         f"bid size limit is 0. Skipping."
                     )
-        if is_ask_profitable and not has_active_ask:
+        if not has_active_ask:
             ask_price, ask_size_limit = self.c_get_market_making_price_and_size_limit(
                 market_pair,
                 False,
