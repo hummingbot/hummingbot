@@ -1,49 +1,70 @@
 # Harmony $ONE Makers
 ![](https://cdn-images-1.medium.com/max/800/1*ZlrtjaSC6xqJGWfeh_kDmg.png)
-[Harmony](https://harmony.one/) is a new base layer blockchain for decentralized economies. Partnering with Harmony, we have launched **$ONE Makers**, a liquidity bounty program rewarding community members for providing liquidity to $ONE tokens. Users who use Hummingbot to build and run market making bots for $ONE can earn additional rewards.
+[Harmony](https://harmony.one/) is a new base layer blockchain for decentralized economies. Partnering with Harmony, we have launched **$ONE Makers**, a liquidity bounty program rewarding community members for providing liquidity.
+
+Users who use Hummingbot to build and run market making bots for $ONE can earn rewards based on their filled limit order volume.
 
 ## Timeline
 
-The first $ONE Makers competition will end on **July 31, 2019**.
+$ONE Makers will run from July 1, 2019 to September 30, 2019, split into 3 monthly competition periods:
 
-Join the mailing list by entering your email on [this page](https://www.hummingbot.io/liquidity-bounties/harmony/).
+* July 1st to July 31st
+* **August 1st to August 31st (current)**
+* September 1st to September 30th
+
+Each period begins at 12am UTC on the 1st of the month and ends at 12am UTC time on the 1st of the following month.
 
 ## Rewards¹
 
-1. All users who register for $ONE Makers will eligible to receive the basic rewards.
-2. In addition, bonus rewards will be awarded to participants based on filled limit order volume.
+Users can earn the following achievements during each competition period. Achievements in each period stack, allowing users to earn multiple tiers. 
 
-### Basic Rewards for All Users
+The leaderboard and the rewards schedule reset at the end of every period.
 
-- **0.2%** on all filled volume of ONE
+### August 2019
 
-### Bonus Rewards
+Achievement | Requirements | Max Spots | Rewards
+---|---|---|---
+**$ONE Maker** | 1 filled limit order | Unlimited | A chance to win **0.5 ETH** (10 users will be randomly selected at end of the period)
+**$ONE Plus** | Filled limit order volume >= 200,000 $ONE | 50 | **0.2 ETH**
+**$ONE Pro** | Filled limit order volume >= 2,000,000 $ONE | 20 | **0.5 ETH**
+**$ONE Ultimate** | Top 3 market makers based on filled limit order volume | 3 | 1st place: **5 ETH**<br/>2nd place: **3 ETH**<br/>3rd place: **2 ETH**
 
-Tier | Requirements | Bonus Rewards
----|---|---
-**$ONE Maker** | Unique users that have signed up for $ONE Makers and have at least 1 limit order filled using Hummingbot | <ul><li>**0.05 ETH**<li>**2x reward (additional +0.05 ETH) for the *first 300 signups***</ul>
-**$ONE Pro** | Unique users whose filled limit order volume is equal to or exceeds 2,000,000 $ONE per month | <ul><li>**0.5 ETH**<li>**Leaderboard recognition**</ul>
-**$ONE Ultimate** | Top monthly market maker based on filled limit order volume | <ul><li>**5 ETH**<li>**Leaderboard recognition**
+### July 2019
 
-¹ This reward schedule is tentative and subject to change without prior notice.
+Achievement | Requirements | Max Spots | Rewards
+---|---|---|---
+**Volume-based Rebate** | Percentage of filled limit order volume | Unlimited | 0.2% rebate
+**$ONE Maker** | 1 filled limit order | Unlimited | **0.1 ETH**
+**$ONE Pro** | Filled limit order volume >= 2,000,000 $ONE | Unlimited | **0.5 ETH**
+**$ONE Ultimate** | Top market maker based on filled limit order volume | 1 | 1st place: **5 ETH**
+
+¹ Reward schedules are tentative and subject to change without prior notice.
 
 ## How to Participate
 
-1. Follow the [Quickstart guide](/quickstart/) to install Hummingbot and register
-2. Run a market making bot for $ONE
-3. Compete with other participants to earn monthly rewards! 😎
+1. Follow the [Quickstart guide](/quickstart/) to install Hummingbot and register for Liquidity Bounties
+2. Configure and run a bot that uses either the [pure market making](/strategies/pure-market-making) or the [cross-exchange market making](/strategies/cross-exchange-market-making) strategy for a $ONE trading pair
+3. Earn rewards based on your filled limit order volume! 😎
+
+## How to Get Updates
+
+We send out a bi-weekly update with statistics and performance updates.
+
+To get these updates, enter your email address on [this page](https://www.hummingbot.io/liquidity-bounties/harmony/). 
 
 ## Evaluation
 
-Once the program officially kicks off, the rewards will be paid out **monthly** based on the **actual trading activity** of the participants. The data collected is solely used to verify participants' actual trading activities.
+Once the program officially kicks off, the rewards will be paid out **monthly** based on the **actual trading activity** of the participants. The Hummingbot client automatically collects order and trade data in order to verify filled limit order volume and to prevent market manipulative practices like wash trading. We may request read-only exchange API keys from users for verification purposes prior to paying out rewards.
 
-All rewards will be subject to the sole discretion of the token issuer and/or the Hummingbot team.
+Payouts occur approximately one week after the end of each period. All rewards will be subject to the sole discretion of the token issuer and/or the Hummingbot team.
+
 
 ## More Resources
 
 - [The Vision and Mission](https://medium.com/harmony-one/one-maker-initiative-stronger-one-by-every-one-429ab7bfcacd)
 - [Quick Start Video Guide](https://www.youtube.com/watch?v=wySYAPbHRwQ&list=PLDwlNkL_4MMczSzZiomX5wFFuF40z-KLl&index=5&t=19s)
-- [Bounty Tutorial](/bounties/tutorial/tutorial)
+- [Register for Bounties](/quickstart/2-configure-bot/#step-2-register-for-liquidity-bounties-optional)
+- [Bounties FAQs](/bounties/faq/)
 
 ---
 ## Important Disclaimer
