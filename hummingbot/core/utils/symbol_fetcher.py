@@ -9,6 +9,7 @@ from typing import (
 
 BINANCE_ENDPOINT = "https://api.binance.com/api/v1/exchangeInfo"
 DDEX_ENDPOINT = "https://api.ddex.io/v3/markets"
+DOLOMITE_ENDPOINT = "https://exchange-api.dolomite.io/v1/markets"
 RADAR_RELAY_ENDPOINT = "https://api.radarrelay.com/v2/markets"
 BAMBOO_RELAY_ENDPOINT = "https://rest.bamboorelay.com/main/0x/markets"
 COINBASE_PRO_ENDPOINT = "https://api.pro.coinbase.com/products/"
@@ -58,6 +59,21 @@ class SymbolFetcher:
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for binance symbols
+                return []
+
+    @staticmethod
+    async def fetch_dolomite_symbols() -> List[str]:
+        async with aiohttp.ClientSession() as client:
+            async with client.get(DOLOMITE_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                if response.status == 200:
+                    try:
+                        response = await response.json()
+                        markets = response.get("data")
+                        symbols = list(map(lambda symbol_details: symbol_details.get('market'), markets))
+                        return symbols
+                    except Exception:
+                        pass
+                        # Do nothing if the request fails -- there will be no autocomplete for dolomite symbols
                 return []
 
     @staticmethod
@@ -135,6 +151,7 @@ class SymbolFetcher:
     async def fetch_all(self):
         binance_symbols = await self.fetch_binance_symbols()
         ddex_symbols = await self.fetch_ddex_symbols()
+        dolomite_symbols = await self.fetch_dolomite_symbols()
         radar_relay_symbols = await self.fetch_radar_relay_symbols()
         bamboo_relay_symbols = await self.fetch_bamboo_relay_symbols()
         coinbase_pro_symbols = await self.fetch_coinbase_pro_symbols()
@@ -143,6 +160,7 @@ class SymbolFetcher:
             "binance": binance_symbols,
             "idex": idex_symbols,
             "ddex": ddex_symbols,
+            "dolomite": dolomite_symbols,
             "radar_relay": radar_relay_symbols,
             "bamboo_relay": bamboo_relay_symbols,
             "coinbase_pro": coinbase_pro_symbols,
