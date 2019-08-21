@@ -328,14 +328,18 @@ cdef class DiscoveryStrategy(StrategyBase):
 
         return ret
 
-    def calculate_arbitrage_discovery(self, market_pair: DiscoveryMarketPair,
+    def calculate_arbitrage_discovery(self,
+                                      market_pair: DiscoveryMarketPair,
                                       matching_pairs: set,
                                       target_amount: float,
                                       target_profitability: float):
         return self.c_calculate_arbitrage_discovery(market_pair, matching_pairs, target_amount, target_profitability)
 
-    cdef c_calculate_arbitrage_discovery(self, object market_pair, set matching_pairs,
-                                         double target_amount, double target_profitability):
+    cdef dict c_calculate_arbitrage_discovery(self,
+                                              object market_pair,
+                                              set matching_pairs,
+                                              double target_amount,
+                                              double target_profitability):
         """
         Given a set of matching symbol pairs and a discovery market pair, calculate the optimal order sizes and the
         buy-sell orders of all the symbol pairs to make the maximal arbitrage profits out of them.
