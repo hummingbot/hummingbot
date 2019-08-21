@@ -48,7 +48,7 @@ class CmdlineParser(ThrowingArgumentParser):
                           choices=STRATEGIES,
                           required=True,
                           help="Choose the strategy you would like to run.")
-        self.add_argument("--config-file-path", "-f",
+        self.add_argument("--config-file-name", "-f",
                           type=str,
                           required=True,
                           help="Specify a file in `conf/` to load as the strategy config file.")
@@ -67,7 +67,7 @@ async def quick_start():
         args = CmdlineParser().parse_args()
 
         strategy = args.strategy
-        config_file_path = args.config_file_path
+        config_file_name = args.config_file_name
         wallet = args.wallet
         wallet_password = args.wallet_password
 
@@ -78,8 +78,8 @@ async def quick_start():
 
         in_memory_config_map.get("strategy").value = strategy
         in_memory_config_map.get("strategy").validate(strategy)
-        in_memory_config_map.get("strategy_file_path").value = config_file_path
-        in_memory_config_map.get("strategy_file_path").validate(config_file_path)
+        in_memory_config_map.get("strategy_file_path").value = config_file_name
+        in_memory_config_map.get("strategy_file_path").validate(config_file_name)
 
         if wallet and wallet_password:
             global_config_map.get("wallet").value = wallet
