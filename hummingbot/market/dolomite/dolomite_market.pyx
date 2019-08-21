@@ -394,11 +394,17 @@ cdef class DolomiteMarket(MarketBase):
         
         else:
             if order_side is TradeType.BUY:
-                fills = order_book.simulate_buy(float(amount))
+                filled_rows = order_book.simulate_buy(float(amount))
             else:
-                fills = order_book.simulate_sell(float(amount))
+                filled_rows = order_book.simulate_sell(float(amount))
 
-            if len(fills) == 0:
+            fill_count = 0
+            for order_row in filled_rows:
+                fill_count += order_row.order_count
+
+            fill_count = max(fill_count, 16)
+            
+            if fill_count == 0:
                 raise ValueError("Unfillable MARKET order: {order_side} of {amount} {trading_rule.secondary_token.ticker}")
 
             book_query = order_book.get_quote_volume_for_base_amount(order_side is TradeType.BUY, float(amount))
@@ -406,7 +412,7 @@ cdef class DolomiteMarket(MarketBase):
 
             fee_ticker = trading_rule.fee_token.ticker
             fee_per_fill = exchange_info.per_fill_fee_registry[fee_ticker]
-            network_fee = fee_per_fill * Decimal(len(fills))
+            network_fee = fee_per_fill * Decimal(fill_count)
             
             secondary_ticker = trading_rule.secondary_token.ticker
             service_fee_in_secondary = Decimal(taker_fee_percentage) * fill_amount_secondary
@@ -414,7 +420,7 @@ cdef class DolomiteMarket(MarketBase):
             fee_amount = self.c_quantize_order_amount(symbol, max(service_fee + network_fee, s_decimal_0))
 
             trade_fee = TradeFee(percent=taker_fee_percentage, flat_fees=[(fee_ticker, float(network_fee))])
-            return (trade_fee, fill_amount_secondary, fee_amount, len(fills), fee_per_fill)
+            return (trade_fee, fill_amount_secondary, fee_amount, fill_count, fee_per_fill)
 
 
     cdef object c_get_fee(self,

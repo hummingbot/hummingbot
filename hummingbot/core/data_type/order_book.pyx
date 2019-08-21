@@ -139,9 +139,9 @@ cdef class OrderBook(PubSub):
             vector[OrderBookEntry] cpp_bids
             vector[OrderBookEntry] cpp_asks
         for row in bids:
-            cpp_bids.push_back(OrderBookEntry(row.price, row.amount, row.update_id))
+            cpp_bids.push_back(OrderBookEntry(row.price, row.amount, row.update_id, row.order_count))
         for row in asks:
-            cpp_asks.push_back(OrderBookEntry(row.price, row.amount, row.update_id))
+            cpp_asks.push_back(OrderBookEntry(row.price, row.amount, row.update_id, row.order_count))
         self.c_apply_diffs(cpp_bids, cpp_asks, update_id)
 
     def apply_snapshot(self, bids: List[OrderBookRow], asks: List[OrderBookRow], update_id: int):
@@ -149,9 +149,9 @@ cdef class OrderBook(PubSub):
             vector[OrderBookEntry] cpp_bids
             vector[OrderBookEntry] cpp_asks
         for row in bids:
-            cpp_bids.push_back(OrderBookEntry(row.price, row.amount, row.update_id))
+            cpp_bids.push_back(OrderBookEntry(row.price, row.amount, row.update_id, row.order_count))
         for row in asks:
-            cpp_asks.push_back(OrderBookEntry(row.price, row.amount, row.update_id))
+            cpp_asks.push_back(OrderBookEntry(row.price, row.amount, row.update_id, row.order_count))
         self.c_apply_snapshot(cpp_bids, cpp_asks, update_id)
 
     def apply_trade(self, trade: OrderBookTradeEvent):
@@ -225,7 +225,7 @@ cdef class OrderBook(PubSub):
             OrderBookEntry entry
         while it != self._bid_book.rend():
             entry = deref(it)
-            yield OrderBookRow(entry.getPrice(), entry.getAmount(), entry.getUpdateId())
+            yield OrderBookRow(entry.getPrice(), entry.getAmount(), entry.getUpdateId(), entry.getOrderCount())
             inc(it)
 
     def ask_entries(self) -> Iterator[OrderBookRow]:
@@ -234,7 +234,7 @@ cdef class OrderBook(PubSub):
             OrderBookEntry entry
         while it != self._ask_book.end():
             entry = deref(it)
-            yield OrderBookRow(entry.getPrice(), entry.getAmount(), entry.getUpdateId())
+            yield OrderBookRow(entry.getPrice(), entry.getAmount(), entry.getUpdateId(), entry.getOrderCount())
             inc(it)
 
     def simulate_buy(self, amount: float) -> List[OrderBookRow]:
@@ -246,7 +246,7 @@ cdef class OrderBook(PubSub):
                 retval.append(ask_entry)
                 amount_left -= ask_entry.amount
             else:
-                retval.append(OrderBookRow(ask_entry.price, amount_left, ask_entry.update_id))
+                retval.append(OrderBookRow(ask_entry.price, amount_left, ask_entry.update_id, ask_entry.order_count))
                 amount_left = 0.0
                 break
         return retval
@@ -260,7 +260,7 @@ cdef class OrderBook(PubSub):
                 retval.append(bid_entry)
                 amount_left -= bid_entry.amount
             else:
-                retval.append(OrderBookRow(bid_entry.price, amount_left, bid_entry.update_id))
+                retval.append(OrderBookRow(bid_entry.price, amount_left, bid_entry.update_id, bid_entry.order_count))
                 amount_left = 0.0
                 break
         return retval
