@@ -47,6 +47,13 @@ cdef class ArbitrageStrategy(StrategyBase):
                  logging_options: int = OPTION_LOG_ORDER_COMPLETED,
                  status_report_interval: float = 60.0,
                  next_trade_delay_interval: float = 15.0):
+        """
+        :param market_pairs: list of arbitrage market pairs
+        :param min_profitability: minimum profitability limit, for calculating arbitrage order sizes
+        :param logging_options: select the types of logs to output
+        :param status_report_interval: how often to report network connection related warnings, if any
+        :param next_trade_delay_interval: cool off period between trades
+        """
 
         if len(market_pairs) < 0:
             raise ValueError(f"market_pairs must not be empty.")
