@@ -4,7 +4,10 @@ import logging
 
 import pandas as pd
 from typing import (
-    List
+    List,
+    Set,
+    Tuple,
+    Dict,
 )
 
 from hummingbot.core.clock cimport Clock
@@ -13,9 +16,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.discovery.discovery_market_pair import DiscoveryMarketPair
 from hummingbot.strategy.arbitrage import ArbitrageStrategy
 from hummingbot.strategy.strategy_base cimport StrategyBase
-from hummingbot.market.market_base cimport MarketBase
 
-from libc.stdint cimport int64_t
 from hummingbot.core.data_type.order_book cimport OrderBook
 import itertools
 
@@ -43,6 +44,16 @@ cdef class DiscoveryStrategy(StrategyBase):
                  status_report_interval: float = 900,
                  target_symbols: list = [],
                  equivalent_token: list = []):
+        """
+        :param market_pairs: list of discovery market pairs. Currently, the strategy only supports one market pair.
+        :param discovery_method: which type of opportunity to discovery. Currently, only "arbitrage" is supported.
+        :param target_amount: the maximum limit of proposed order sizes
+        :param target_profitability: the minimum profitability ratio required for an opportunity to be printed
+        :param logging_options: select the types of logs to output
+        :param status_report_interval: not used
+        :param target_symbols: List of token pairs, or single tokens
+        :param equivalent_token: List of lists of equivalent token symbols
+        """
         if len(market_pairs) < 0:
             raise ValueError(f"market_pairs must not be empty.")
 
@@ -71,7 +82,14 @@ cdef class DiscoveryStrategy(StrategyBase):
         self.c_add_markets(list(all_markets))
 
     @classmethod
-    def parse_equivalent_token(cls, equivalent_token: List[list] = []):
+    def parse_equivalent_token(cls, equivalent_token: List[List[str]]) -> Dict[str, Set[str]]:
+        """
+        Converts a list of lists of equivalent tokens (e.g. [['DAI', 'USDT', 'PAX', ...], ...]) into a lookup dictionary
+        that maps from individual token names to their equivalent classes.
+
+        :param equivalent_token: list of lists of equivalent tokens
+        :return: mapping from token name to equivalent sets
+        """
         equivalent_token_dict = {}
         for token_list in equivalent_token:
             for token in token_list:
@@ -79,7 +97,18 @@ cdef class DiscoveryStrategy(StrategyBase):
         return equivalent_token_dict
 
     @classmethod
-    def filter_trading_pairs(cls, target_tokens: List[list], markets: pd.DataFrame, equivalent_token: List[list] = []):
+    def filter_trading_pairs(cls,
+                             target_tokens: List[List[str]],
+                             markets: pd.DataFrame,
+                             equivalent_token: List[List[str]]) -> pd.DataFrame:
+        """
+        Filters down an active markets data frame, according to a set of target tokens or token pairs.
+
+        :param target_tokens: List of token pairs, or single tokens
+        :param markets: data frame of all trading pairs, of the `get_active_exchange_markets()` format
+        :param equivalent_token: List of list of equivalent tokens.
+        :return: filtered data frame of active markets, matching the `target_tokens` specification
+        """
         if not target_tokens or (len(target_tokens) == 1 and not target_tokens[0]):
             return markets
 
@@ -102,7 +131,13 @@ cdef class DiscoveryStrategy(StrategyBase):
 
         return markets[[i in filtered_symbol for i in markets.index]].copy()
 
-    async def fetch_market_info(self, market_pair):
+    async def fetch_market_info(self, market_pair: DiscoveryMarketPair):
+        """
+        Fetches and calculates all the matching symbol pairs between two exchanges. Saved the fetched and processed
+        market info and matched trading pairs to `self._market_info` and `self._matching_pairs`.
+
+        :param market_pair: discovery market pair
+        """
         try:
             for market, fetch_market_info in [(market_pair.market_1, market_pair.market_1_fetch_market_info),
                                               (market_pair.market_2, market_pair.market_2_fetch_market_info)]:
@@ -115,14 +150,22 @@ cdef class DiscoveryStrategy(StrategyBase):
                 for trading_symbol, b, q in zip(markets.index, markets.baseAsset, markets.quoteAsset):
                     self._market_info[market]["base_quote_to_symbol"][(b, q)] = (trading_symbol, b, q)
 
-            self._matching_pairs = self.get_matching_pair(market_pair)
+            self._matching_pairs = self.get_matching_pairs(market_pair)
 
         except Exception as e:
             self.logger().network(f"Could not fetch market info for {market_pair}", exc_info=True,
                                   app_warning_msg=f"Failed to fetch market info for {market_pair}. "
                                                   f"Check network connection.")
 
-    def get_matching_pair(self, market_pair):
+    def get_matching_pairs(self, market_pair: DiscoveryMarketPair) -> Set[Tuple[str, str]]:
+        """
+        Given a discovery market pair, find out all the matching symbol pairs for the two exchanges.
+
+        XXX: this function takes O(n^2), need to optimize.
+
+        :param market_pair: discovery market pair
+        :return: all matching symbols in the two exchanges
+        """
         market_1 = market_pair.market_1
         market_2 = market_pair.market_2
         market_1_info_df = self._market_info[market_1]["markets"]
@@ -146,6 +189,16 @@ cdef class DiscoveryStrategy(StrategyBase):
         return matching_pair
 
     cdef c_tick(self, double timestamp):
+        """
+        Clock tick entry point.
+
+        For the discovery strategy or tool, this function starts the fetch market info task, and waits for both the
+        market info and all the markets to get ready.
+
+        Afterwards, it delegates the processing of all discovery market pairs to c_process_market_pair().
+
+        :param timestamp: current tick timestamp
+        """
         StrategyBase.c_tick(self, timestamp)
         if not self._fetch_market_info_task_list:
             self._fetch_market_info_task_list = [asyncio.ensure_future(self.fetch_market_info(market_pair))
@@ -167,22 +220,25 @@ cdef class DiscoveryStrategy(StrategyBase):
             except Exception:
                 self.logger().error(f"Error processing market pair {market_pair}.", exc_info=True)
 
-        cdef:
-            int64_t current_tick
-            int64_t last_tick
-
-        if self._logging_options & self.OPTION_LOG_STATUS_REPORT:
-            current_tick = <int64_t>(timestamp // self._status_report_interval)
-            last_tick = <int64_t>(self._last_timestamp // self._status_report_interval)
-            if current_tick < last_tick:
-                self.logger().info(self.format_status())
         self._last_timestamp = timestamp
 
-    cdef c_calculate_single_arbitrage_profitability(self,
+    cdef dict c_calculate_single_arbitrage_profitability(self,
                                                     object market_pair,
                                                     tuple matching_pair,
                                                     double target_amount=float("inf"),
                                                     double target_profitability=0.0):
+        """
+        Given a matching symbol pair and a discovery market pair, calculate the optimal order size and the buy-sell
+        order of the two marktes to make the maximal arbitrage profits out of them.
+
+        :param market_pair: discovery market pair
+        :param matching_pair: a matching symbol pair between the two exchanges
+        :param target_amount: (optional) maximum limit for arbitrage order size
+        :param target_profitability: (optional) minimum limit for the profitability ratio
+        :return: a dictionary mapping from a 4-tuple of buy and sell market descriptions, to a 3-tuple of
+                 (order size in base asset, expected ask order proceeds in quote asset, profitability ratio)
+        :rtype: Dict[Tuple[str, str, str, str], Tuple[float, float, float]]
+        """
         cdef:
             double total_bid_value = 0 # total revenue
             double total_ask_value = 0 # total cost
@@ -280,6 +336,18 @@ cdef class DiscoveryStrategy(StrategyBase):
 
     cdef c_calculate_arbitrage_discovery(self, object market_pair, set matching_pairs,
                                          double target_amount, double target_profitability):
+        """
+        Given a set of matching symbol pairs and a discovery market pair, calculate the optimal order sizes and the
+        buy-sell orders of all the symbol pairs to make the maximal arbitrage profits out of them.
+
+        :param market_pair: discovery market pair
+        :param matching_pairs: set of matching symbol pairs between the two exchanges
+        :param target_amount: maximum limit for arbitrage order size
+        :param target_profitability: minimum limit for the profitability ratio
+        :rtype: pd.DataFrame
+        :return: data frame with the following columns: "buy_market", "buy_pair", "sell_market", "sell_pair",
+                 "profit (quote)", "profit (%)"
+        """
         cdef:
             dict arbitrage_discovery = {}
             dict discovery_dict = {}
@@ -303,6 +371,15 @@ cdef class DiscoveryStrategy(StrategyBase):
         return self.c_calculate_market_stats(market_pair, exchange_market_info)
 
     cdef c_calculate_market_stats(self, object market_pair, dict exchange_market_info):
+        """
+        Calculates some basic statistics of selected markets.
+
+        :param market_pair: discovery market pair
+        :param exchange_market_info: exchange market info dictionary, as generated in `fetch_market_info()`
+        :return: data frame with the following columns: "market", "base", "quote", "mid_price", "spread (%)",
+                 "usd_volume"
+        :rtype: pd.DataFrame
+        """
         cdef:
             dict market_stats = {}
             OrderBook order_book
@@ -335,6 +412,12 @@ cdef class DiscoveryStrategy(StrategyBase):
         return market_stats_discovery_df.sort_values(["usd_volume", "spread (%)"], ascending=False)
 
     cdef c_process_market_pair(self, object market_pair):
+        """
+        Calculates market stats and all the arbitrage opportunities from a discovery market pair, and save them to
+        internal data structures for display later.
+
+        :param market_pair: discovery market pair
+        """
         self._discovery_stats["market_stats"] = self.c_calculate_market_stats(market_pair, self._market_info)
         if self._discovery_method == "arbitrage":
             self._discovery_stats["arbitrage"] = self.c_calculate_arbitrage_discovery(market_pair,
@@ -400,6 +483,9 @@ cdef class DiscoveryStrategy(StrategyBase):
         return lines
 
     def format_status(self):
+        """
+        Status command output.
+        """
         cdef:
             list lines = []
         self.logger().debug(
@@ -417,6 +503,11 @@ cdef class DiscoveryStrategy(StrategyBase):
         return "\n".join(lines)
 
     cdef c_stop(self, Clock clock):
+        """
+        Stops any ongoing background tasks and performs clean up.
+
+        :param clock: clock driver
+        """
         StrategyBase.c_stop(self, clock)
         for task in self._fetch_market_info_task_list:
             task.cancel()
