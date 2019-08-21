@@ -1,5 +1,16 @@
 # Overview of Hummingbot Installation
 
+## Minimum System Requirements
+
+Hummingbot has been successfully tested with the following specifications:
+
+Resource | Requirement
+---|---
+**Operating System** | **Linux**: Ubuntu 16.,04 or later (recommended)<ul><li>*Other Linux installations: Debian GNU/Linux 9, CentOS 7, Amazon Linux 2 AMI*</ul>**MacOS**: macOS 10.12.6 (Sierra) or later<br/>**Windows**: Windows 10 or later
+**Memory/RAM** | 1 GB one instance *+250 MB per addiional instance*
+**Storage** | <li>**Install using Docker**: 5 GB per instance<li>**Install from source**: 3 GB per instance
+**Network** | A reliable internet connection is critical to keeping Hummingbot connected to exchanges.
+
 ## Recommended Setup
 
 We recommend that users utilize the setup below for the best experience running Hummingbot:
@@ -26,7 +37,7 @@ Alternative installations with Docker:
 
 ## Note for Windows Users
 
-Since native Windows installation and operation is not supported, we recommend that Windows users either:
+Native Windows installation and operation is currenty not supported.  We recommend that Windows users either:
 
 1. Install the Docker version in a Linux (Ubuntu) server in the cloud (see [Setup a Cloud Server](/installation/cloud/))
 2. Install the Docker version locally using Docker Toolbox (see [Install on Windows](/installation/windows/))
