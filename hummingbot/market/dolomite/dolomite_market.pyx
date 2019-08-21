@@ -81,7 +81,8 @@ EXCHANGE_RATES_ROUTE = "/v1/tokens/rates/latest"
 HASH_ORDER_ROUTE = "/v1/orders/hash"
 CREATE_ORDER_ROUTE = "/v1/orders/create"
 CANCEL_ORDER_ROUTE = "/v1/orders/:order_id/cancel"
-GET_ORDERS_ROUTE = "/v1/orders/addresses/:address"
+GET_ORDERS_BY_ADDR_ROUTE = "/v1/orders/addresses/:address"
+GET_ORDER_ROUTE = "/v1/orders/:order_id"
 GET_ORDER_FILLS_ROUTE = "/v1/orders/:order_id/fills"
 
 
@@ -588,18 +589,18 @@ cdef class DolomiteMarket(MarketBase):
     async def _update_order_status(self):
         tracked_orders = self._in_flight_orders.copy()
 
-        orders = await self.api_request("GET", GET_ORDERS_ROUTE.replace(":address", self._wallet.address))
-        orders = dict([(order["dolomite_order_id"], order) for order in orders["data"]])
-
         for client_order_id, tracked_order in tracked_orders.iteritems():
             dolomite_order_id = tracked_order.exchange_order_id
-            dolomite_order = orders[dolomite_order_id]
-            (primary_ticker, secondary_ticker) = self.split_symbol(dolomite_order["market"])
-
-            if dolomite_order is None:
+            
+            try:
+                dolomite_order_request = await self.api_request("GET", GET_ORDER_ROUTE.replace(":order_id", dolomite_order_id))
+                dolomite_order = dolomite_order_request["data"]
+            except Exception:
                 self.logger().warn(f"Tracked Dolomite order {tracked_order.identifier} not found from api")
                 self.stop_tracking(client_order_id)
                 continue
+
+            (primary_ticker, secondary_ticker) = self.split_symbol(dolomite_order["market"])
 
             try:
                 get_order_fills_route = GET_ORDER_FILLS_ROUTE.replace(':order_id', dolomite_order_id)
