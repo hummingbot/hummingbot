@@ -18,7 +18,7 @@ ENV COMMIT_BRANCH=${BRANCH}
 ENV BUILD_DATE=${DATE}
 
 ENV STRATEGY=${STRATEGY}
-ENV CONFIG_FILE_PATH=${CONFIG_FILE_PATH}
+ENV CONFIG_FILE_NAME=${CONFIG_FILE_NAME}
 ENV WALLET=${WALLET}
 ENV WALLET_PASSWORD=${WALLET_PASSWORD}
 
@@ -49,5 +49,5 @@ ENV PATH /opt/conda/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/
 # ./compile
 RUN /opt/conda/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 setup.py build_ext --inplace -j 8
 
-CMD [ "sh", "-c", "/opt/conda/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 bin/hummingbot_quickstart.py -s ${STRATEGY} -f ${CONFIG_FILE_PATH} -w \"${WALLET}\" -p \"${WALLET_PASSWORD}\"" ]
+CMD [ "sh", "-c", "/opt/conda/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 bin/hummingbot_quickstart.py -s ${STRATEGY} -f ${CONFIG_FILE_NAME} -w \"${WALLET}\" -p \"${WALLET_PASSWORD}\"" ]
 
