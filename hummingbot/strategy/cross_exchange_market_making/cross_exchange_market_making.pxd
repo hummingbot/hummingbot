@@ -29,7 +29,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         dict _order_fill_sell_events
         dict _suggested_price_samples
         int64_t _logging_options
-        double _hedging_price_adjustment_factor
+        # double _hedging_price_adjustment_factor
         object _exchange_rate_conversion
         OrderIDMarketPairTracker _market_pair_tracker
 
@@ -55,12 +55,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                                     OrderBook taker_order_book,
                                                     bint is_maker_bid,
                                                     double maker_order_size) except? -1
-    cdef tuple c_get_suggested_price_samples(self, object market_pair)
-    cdef c_take_suggested_price_sample(self, object market_pair, list active_orders)
+    # cdef tuple c_get_suggested_price_samples(self, object market_pair)
+    # cdef c_take_suggested_price_sample(self, object market_pair, list active_orders)
     cdef bint c_check_if_still_profitable(self,
                                           object market_pair,
                                           LimitOrder active_order,
                                           double current_hedging_price)
     cdef bint c_check_if_sufficient_balance(self, object market_pair, LimitOrder active_order)
-    cdef bint c_check_if_price_correct(self, object market_pair, LimitOrder active_order, double current_hedging_price)
+    # cdef bint c_check_if_price_correct(self, object market_pair, LimitOrder active_order, double current_hedging_price)
     cdef c_check_and_create_new_orders(self, object market_pair, bint has_active_bid, bint has_active_ask)

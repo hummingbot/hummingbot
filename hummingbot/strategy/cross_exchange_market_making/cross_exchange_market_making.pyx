@@ -4,6 +4,10 @@ from collections import (
 )
 from decimal import Decimal
 import logging
+from math import (
+floor,
+ceil
+)
 from typing import (
     List,
     Tuple,
@@ -121,9 +125,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._anti_hysteresis_duration = anti_hysteresis_duration
         self._logging_options = <int64_t>logging_options
         self._last_timestamp = 0
-        self._hedging_price_adjustment_factor = 1.0005
+        # self._hedging_price_adjustment_factor = 1.0005
         self._status_report_interval = status_report_interval
-        self._active_order_canceling = active_order_canceling
+        # self._active_order_canceling = active_order_canceling
         self._exchange_rate_conversion = ExchangeRateConversion.get_instance()
         self._market_pair_tracker = OrderIDMarketPairTracker()
 
@@ -357,7 +361,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         global s_decimal_zero
 
         # Take suggested bid / ask price samples.
-        self.c_take_suggested_price_sample(market_pair, active_orders)
+        # self.c_take_suggested_price_sample(market_pair, active_orders)
 
         for active_order in active_orders:
             # Mark the has_active_bid and has_active_ask flags
@@ -390,8 +394,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 continue
 
             # If active order canceling is disabled, do not adjust orders actively
-            if not self._active_order_canceling:
-                continue
+            # if not self._active_order_canceling:
+            #     continue
 
             # See if I still have enough balance on my wallet to fill the order on maker market, and to hedge the
             # order on taker market. If not, adjust it.
@@ -400,15 +404,15 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             # Am I still the top order on maker market? If not, cancel the existing order, and wait for the order to
             # be placed again at the next tick.
-            if self._current_timestamp > anti_hysteresis_timer:
-                if not self.c_check_if_price_correct(market_pair, active_order, current_hedging_price):
-                    need_adjust_order = True
-                    continue
+            # if self._current_timestamp > anti_hysteresis_timer:
+            #     if not self.c_check_if_price_correct(market_pair, active_order, current_hedging_price):
+            #         need_adjust_order = True
+            #         continue
 
         # If order adjustment is needed in the next tick, set the anti-hysteresis timer s.t. the next order adjustment
         # for the same pair wouldn't happen within the time limit.
-        if need_adjust_order:
-            self._anti_hysteresis_timers[market_pair] = self._current_timestamp + self._anti_hysteresis_duration
+        # if need_adjust_order:
+        #     self._anti_hysteresis_timers[market_pair] = self._current_timestamp + self._anti_hysteresis_duration
 
         # If there's both an active bid and ask, then there's no need to think about making new limit orders.
         if has_active_bid and has_active_ask:
@@ -936,8 +940,29 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             # sell on taker
             taker_price = taker_order_book.c_get_vwap_for_volume(False, size_limit).result_price
 
-            maker_price = maker_market.c_quantize_order_price(market_pair.maker.trading_pair,
-                                                              taker_price / (1 + self._min_profitability))
+            # adjusted_taker_price = (self._exchange_rate_conversion.adjust_token_rate(
+            #     market_pair.maker.quote_asset,
+            #     float(taker_price)
+            # ) / self._exchange_rate_conversion.adjust_token_rate(
+            #     market_pair.taker.quote_asset,
+            #     1.0
+            # ))
+
+            # If quote assets are not same, convert them from taker's quote asset to maker's quote asset
+            if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
+                taker_price *= self._exchange_rate_conversion.convert_token_value(1,
+                                                                                  market_pair.taker.quote_asset,
+                                                                                  market_pair.maker.quote_asset)
+
+            maker_price = taker_price / (1 + self._min_profitability)
+
+            price_quantum = maker_market.c_get_order_price_quantum(
+                market_pair.maker.trading_pair,
+                maker_price
+            )
+
+            # Rounds down for ensuring profitable
+            maker_price = (floor(Decimal(maker_price) / price_quantum) ) * price_quantum
 
             # self.logger().info(f"sell on taker for {taker_price}, buy on maker for {maker_price}")
 
@@ -988,7 +1013,20 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             # buy on taker
             taker_price = taker_order_book.c_get_vwap_for_volume(True, size_limit).result_price
 
-            maker_price = maker_market.c_quantize_order_price(market_pair.maker.trading_pair, taker_price * (1 + self._min_profitability))
+            if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
+                taker_price *= self._exchange_rate_conversion.convert_token_value(1,
+                                                                                  market_pair.taker.quote_asset,
+                                                                                  market_pair.maker.quote_asset)
+
+            maker_price = taker_price * (1 + self._min_profitability)
+
+            price_quantum = maker_market.c_get_order_price_quantum(
+                market_pair.maker.trading_pair,
+                maker_price
+            )
+
+            # Rounds up for ensuring profitable
+            maker_price = (ceil(Decimal(maker_price) / price_quantum) ) * price_quantum
 
             # self.logger().info(f"buy on Taker for:{taker_price}, sell on maker for:{maker_price}")
 
@@ -1054,54 +1092,54 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
         return price_quantity_product_sum / quantity_sum
 
-    cdef tuple c_get_suggested_price_samples(self, object market_pair):
-        """
-        Get the queues of order book price samples for a market pair.
+    # cdef tuple c_get_suggested_price_samples(self, object market_pair):
+    #     """
+    #     Get the queues of order book price samples for a market pair.
+    #
+    #     :param market_pair: The market pair under which samples were collected for.
+    #     :return: (bid order price samples, ask order price samples)
+    #     """
+    #     if market_pair in self._suggested_price_samples:
+    #         return self._suggested_price_samples[market_pair]
+    #     return deque(), deque()
 
-        :param market_pair: The market pair under which samples were collected for.
-        :return: (bid order price samples, ask order price samples)
-        """
-        if market_pair in self._suggested_price_samples:
-            return self._suggested_price_samples[market_pair]
-        return deque(), deque()
-
-    cdef c_take_suggested_price_sample(self, object market_pair, list active_orders):
-        """
-        Calculate the ideal market making prices at the moment, taking into account of parameters like depth tolerance,
-        and record them to the bid and ask sample queues.
-
-        These samples are later taken to adjust the price proposals for new limit orders, s.t. new limit orders can
-        properly take into account transient orders that appear and disappear frequently on the maker market.
-
-        :param market_pair: cross exchange market pair
-        :param active_orders: list of currently active orders associated to the market pair
-        """
-        #TODO: check timestamp logic here
-        if ((self._last_timestamp // self.ORDER_ADJUST_SAMPLE_INTERVAL) <
-                (self._current_timestamp // self.ORDER_ADJUST_SAMPLE_INTERVAL)):
-            if market_pair not in self._suggested_price_samples:
-                self._suggested_price_samples[market_pair] = (deque(), deque())
-
-            own_bid_depth = float(sum([o.price * o.quantity for o in active_orders if o.is_buy is True]))
-            own_ask_depth = float(sum([o.price * o.quantity for o in active_orders if o.is_buy is not True]))
-            suggested_bid_price, _ = self.c_get_market_making_price_and_size_limit(
-                market_pair,
-                True,
-                own_order_depth=own_bid_depth
-            )
-            suggested_ask_price, _ = self.c_get_market_making_price_and_size_limit(
-                market_pair,
-                False,
-                own_order_depth=own_ask_depth
-            )
-
-            bid_price_samples_deque, ask_price_samples_deque = self._suggested_price_samples[market_pair]
-            bid_price_samples_deque.append(suggested_bid_price)
-            ask_price_samples_deque.append(suggested_ask_price)
-            while len(bid_price_samples_deque) > self.ORDER_ADJUST_SAMPLE_WINDOW:
-                bid_price_samples_deque.popleft()
-            while len(ask_price_samples_deque) > self.ORDER_ADJUST_SAMPLE_WINDOW:
-                ask_price_samples_deque.popleft()
+    # cdef c_take_suggested_price_sample(self, object market_pair, list active_orders):
+    #     """
+    #     Calculate the ideal market making prices at the moment, taking into account of parameters like depth tolerance,
+    #     and record them to the bid and ask sample queues.
+    #
+    #     These samples are later taken to adjust the price proposals for new limit orders, s.t. new limit orders can
+    #     properly take into account transient orders that appear and disappear frequently on the maker market.
+    #
+    #     :param market_pair: cross exchange market pair
+    #     :param active_orders: list of currently active orders associated to the market pair
+    #     """
+    #     #TODO: check timestamp logic here
+    #     if ((self._last_timestamp // self.ORDER_ADJUST_SAMPLE_INTERVAL) <
+    #             (self._current_timestamp // self.ORDER_ADJUST_SAMPLE_INTERVAL)):
+    #         if market_pair not in self._suggested_price_samples:
+    #             self._suggested_price_samples[market_pair] = (deque(), deque())
+    #
+    #         own_bid_depth = float(sum([o.price * o.quantity for o in active_orders if o.is_buy is True]))
+    #         own_ask_depth = float(sum([o.price * o.quantity for o in active_orders if o.is_buy is not True]))
+    #         suggested_bid_price, _ = self.c_get_market_making_price_and_size_limit(
+    #             market_pair,
+    #             True,
+    #             own_order_depth=own_bid_depth
+    #         )
+    #         suggested_ask_price, _ = self.c_get_market_making_price_and_size_limit(
+    #             market_pair,
+    #             False,
+    #             own_order_depth=own_ask_depth
+    #         )
+    #
+    #         bid_price_samples_deque, ask_price_samples_deque = self._suggested_price_samples[market_pair]
+    #         bid_price_samples_deque.append(suggested_bid_price)
+    #         ask_price_samples_deque.append(suggested_ask_price)
+    #         while len(bid_price_samples_deque) > self.ORDER_ADJUST_SAMPLE_WINDOW:
+    #             bid_price_samples_deque.popleft()
+    #         while len(ask_price_samples_deque) > self.ORDER_ADJUST_SAMPLE_WINDOW:
+    #             ask_price_samples_deque.popleft()
 
     # only use min_profitability here
     cdef bint c_check_if_still_profitable(self,
@@ -1135,13 +1173,13 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         # self.logger().info(current_hedging_price_adjusted * self._hedging_price_adjustment_factor)
 
         # TODO: check the logic here
-        if ((is_buy and (current_hedging_price_adjusted * self._hedging_price_adjustment_factor) <
+        if ((is_buy and (current_hedging_price_adjusted) <
              order_price_adjusted * (1 + self._min_profitability)) or
-                (not is_buy and order_price_adjusted < current_hedging_price_adjusted/self._hedging_price_adjustment_factor * (
+                (not is_buy and order_price_adjusted < current_hedging_price_adjusted * (
                         1 + self._min_profitability))):
 
             if is_buy:
-                self.logger().info(f"hedging price: {current_hedging_price} , order price:{order_price_adjusted}, "
+                self.logger().info(f"is_buy hedging price: {current_hedging_price} , order price:{order_price_adjusted}, "
                                    f"final order price: {order_price_adjusted * (1 + self._min_profitability)}")
 
             if self._logging_options & self.OPTION_LOG_REMOVING_ORDER:
@@ -1196,126 +1234,128 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         return True
 
     #Todo: modify this
-    cdef bint c_check_if_price_correct(self, object market_pair, LimitOrder active_order, double current_hedging_price):
-        """
-        Given a currently active limit order on maker side, check if its current price is still correct - given the
-        current hedging price on taker market, depth tolerance and transient orders on the maker market captured by
-        recent suggested price samples.
-
-        If the active order's price is no longer the right price, the order will be cancelled.
-
-        This function is only used when active order cancelled is enabled.
-
-        :param market_pair: cross exchange market pair
-        :param active_order: a current active limit order in the market pair
-        :param current_hedging_price: the current active hedging price for the active order
-        :return: True if the order stays, False if the order has been cancelled.
-        """
-        cdef:
-            bint is_buy = active_order.is_buy
-            double order_price = float(active_order.price)
-            double order_quantity = float(active_order.quantity)
-            MarketBase maker_market = market_pair.maker.market
-            MarketBase taker_market = market_pair.taker.market
-            OrderBook maker_order_book = market_pair.maker.order_book
-            OrderBook taker_order_book = market_pair.taker.order_book
-            double top_depth_tolerance = market_pair.top_depth_tolerance
-            bint should_adjust_buy = False
-            bint should_adjust_sell = False
-
-        price_quantum = maker_market.c_get_order_price_quantum(
-            market_pair.maker.trading_pair,
-            order_price
-        )
-        bid_price_samples, ask_price_samples = self.c_get_suggested_price_samples(market_pair)
-
-        if is_buy:
-            above_price = order_price + float(price_quantum)
-            above_quote_volume = maker_order_book.c_get_quote_volume_for_price(False, above_price).result_volume
-            suggested_price, order_size_limit = self.c_get_market_making_price_and_size_limit(
-                market_pair,
-                True,
-                own_order_depth=order_price * order_quantity
-            )
-
-            # Incorporate the past bid price samples.
-            top_ask_price = maker_order_book.c_get_price(True)
-            suggested_price = max([suggested_price] +
-                                  [p for p in bid_price_samples
-                                   if float(p) < top_ask_price])
-
-            if suggested_price < active_order.price:
-                if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
-                    self.log_with_clock(
-                        logging.INFO,
-                        f"({market_pair.maker.trading_pair}) The current limit bid order for "
-                        f"{active_order.quantity} {market_pair.maker.base_asset} at "
-                        f"{order_price:.8g} {market_pair.maker.quote_asset} is now above the suggested order "
-                        f"price at {suggested_price}. Going to cancel the old order and create a new one..."
-                    )
-                should_adjust_buy = True
-            elif suggested_price > active_order.price:
-                if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
-                    self.log_with_clock(
-                        logging.INFO,
-                        f"({market_pair.maker.trading_pair}) The current limit bid order for "
-                        f"{active_order.quantity} {market_pair.maker.base_asset} at "
-                        f"{order_price:.8g} {market_pair.maker.quote_asset} is now below the suggested order "
-                        f"price at {suggested_price}. Going to cancel the old order and create a new one..."
-                    )
-                should_adjust_buy = True
-
-            if should_adjust_buy:
-                self.c_cancel_order(market_pair, active_order.client_order_id)
-                self.log_with_clock(logging.DEBUG,
-                                    f"Current buy order price={order_price}, "
-                                    f"above quote depth={above_quote_volume}, "
-                                    f"suggested order price={suggested_price}")
-                return False
-        else:
-            above_price = order_price - float(price_quantum)
-            above_quote_volume = maker_order_book.c_get_quote_volume_for_price(True, above_price).result_volume
-            suggested_price, order_size_limit = self.c_get_market_making_price_and_size_limit(
-                market_pair,
-                False,
-                own_order_depth=order_price * order_quantity
-            )
-
-            # Incorporate the past ask price samples.
-            top_bid_price = maker_order_book.c_get_price(False)
-            suggested_price = min([suggested_price] +
-                                  [p for p in ask_price_samples
-                                   if float(p) > top_bid_price])
-
-            if suggested_price > active_order.price:
-                if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
-                    self.log_with_clock(
-                        logging.INFO,
-                        f"({market_pair.maker.trading_pair}) The current limit ask order for "
-                        f"{active_order.quantity} {market_pair.maker.base_asset} at "
-                        f"{order_price:.8g} {market_pair.maker.quote_asset} is now below the suggested order "
-                        f"price at {suggested_price}. Going to cancel the old order and create a new one..."
-                    )
-                should_adjust_sell = True
-            elif suggested_price < active_order.price:
-                if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
-                    self.log_with_clock(
-                        logging.INFO,
-                        f"({market_pair.maker.trading_pair}) The current limit ask order for "
-                        f"{active_order.quantity} {market_pair.maker.base_asset} at "
-                        f"{order_price:.8g} {market_pair.maker.quote_asset} is now above the suggested order "
-                        f"price at {suggested_price}. Going to cancel the old order and create a new one..."
-                    )
-                should_adjust_sell = True
-
-            if should_adjust_sell:
-                self.c_cancel_order(market_pair, active_order.client_order_id)
-                self.log_with_clock(logging.DEBUG,
-                                    f"Current sell order price={order_price}, "
-                                    f"above quote depth={above_quote_volume}, "
-                                    f"suggested order price={suggested_price}")
-                return False
-        return True
+    # cdef bint c_check_if_price_correct(self, object market_pair, LimitOrder active_order, double current_hedging_price):
+    #     """
+    #     Given a currently active limit order on maker side, check if its current price is still correct - given the
+    #     current hedging price on taker market, depth tolerance and transient orders on the maker market captured by
+    #     recent suggested price samples.
+    #
+    #     If the active order's price is no longer the right price, the order will be cancelled.
+    #
+    #     This function is only used when active order cancelled is enabled.
+    #
+    #     :param market_pair: cross exchange market pair
+    #     :param active_order: a current active limit order in the market pair
+    #     :param current_hedging_price: the current active hedging price for the active order
+    #     :return: True if the order stays, False if the order has been cancelled.
+    #     """
+    #     cdef:
+    #         bint is_buy = active_order.is_buy
+    #         double order_price = float(active_order.price)
+    #         double order_quantity = float(active_order.quantity)
+    #         MarketBase maker_market = market_pair.maker.market
+    #         MarketBase taker_market = market_pair.taker.market
+    #         OrderBook maker_order_book = market_pair.maker.order_book
+    #         OrderBook taker_order_book = market_pair.taker.order_book
+    #         double top_depth_tolerance = market_pair.top_depth_tolerance
+    #         bint should_adjust_buy = False
+    #         bint should_adjust_sell = False
+    #
+    #     price_quantum = maker_market.c_get_order_price_quantum(
+    #         market_pair.maker.trading_pair,
+    #         order_price
+    #     )
+    #     # bid_price_samples, ask_price_samples = self.c_get_suggested_price_samples(market_pair)
+    #
+    #     if is_buy:
+    #         above_price = order_price + float(price_quantum)
+    #         above_quote_volume = maker_order_book.c_get_quote_volume_for_price(False, above_price).result_volume
+    #
+    #         suggested_price, order_size_limit = self.c_get_market_making_price_and_size_limit(
+    #             market_pair,
+    #             True,
+    #             own_order_depth=order_price * order_quantity
+    #         )
+    #
+    #         # Incorporate the past bid price samples.
+    #         top_ask_price = maker_order_book.c_get_price(True)
+    #         suggested_price = max([suggested_price] +
+    #                               [p for p in bid_price_samples
+    #                                if float(p) < top_ask_price])
+    #
+    #         if suggested_price < active_order.price:
+    #             if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
+    #                 self.log_with_clock(
+    #                     logging.INFO,
+    #                     f"({market_pair.maker.trading_pair}) The current limit bid order for "
+    #                     f"{active_order.quantity} {market_pair.maker.base_asset} at "
+    #                     f"{order_price:.8g} {market_pair.maker.quote_asset} is now above the suggested order "
+    #                     f"price at {suggested_price}. Going to cancel the old order and create a new one..."
+    #                 )
+    #             should_adjust_buy = True
+    #
+    #         elif suggested_price > active_order.price:
+    #             if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
+    #                 self.log_with_clock(
+    #                     logging.INFO,
+    #                     f"({market_pair.maker.trading_pair}) The current limit bid order for "
+    #                     f"{active_order.quantity} {market_pair.maker.base_asset} at "
+    #                     f"{order_price:.8g} {market_pair.maker.quote_asset} is now below the suggested order "
+    #                     f"price at {suggested_price}. Going to cancel the old order and create a new one..."
+    #                 )
+    #             should_adjust_buy = True
+    #
+    #         if should_adjust_buy:
+    #             self.c_cancel_order(market_pair, active_order.client_order_id)
+    #             self.log_with_clock(logging.DEBUG,
+    #                                 f"Current buy order price={order_price}, "
+    #                                 f"above quote depth={above_quote_volume}, "
+    #                                 f"suggested order price={suggested_price}")
+    #             return False
+    #     else:
+    #         above_price = order_price - float(price_quantum)
+    #         above_quote_volume = maker_order_book.c_get_quote_volume_for_price(True, above_price).result_volume
+    #         suggested_price, order_size_limit = self.c_get_market_making_price_and_size_limit(
+    #             market_pair,
+    #             False,
+    #             own_order_depth=order_price * order_quantity
+    #         )
+    #
+    #         # Incorporate the past ask price samples.
+    #         top_bid_price = maker_order_book.c_get_price(False)
+    #         suggested_price = min([suggested_price] +
+    #                               [p for p in ask_price_samples
+    #                                if float(p) > top_bid_price])
+    #
+    #         if suggested_price > active_order.price:
+    #             if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
+    #                 self.log_with_clock(
+    #                     logging.INFO,
+    #                     f"({market_pair.maker.trading_pair}) The current limit ask order for "
+    #                     f"{active_order.quantity} {market_pair.maker.base_asset} at "
+    #                     f"{order_price:.8g} {market_pair.maker.quote_asset} is now below the suggested order "
+    #                     f"price at {suggested_price}. Going to cancel the old order and create a new one..."
+    #                 )
+    #             should_adjust_sell = True
+    #         elif suggested_price < active_order.price:
+    #             if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
+    #                 self.log_with_clock(
+    #                     logging.INFO,
+    #                     f"({market_pair.maker.trading_pair}) The current limit ask order for "
+    #                     f"{active_order.quantity} {market_pair.maker.base_asset} at "
+    #                     f"{order_price:.8g} {market_pair.maker.quote_asset} is now above the suggested order "
+    #                     f"price at {suggested_price}. Going to cancel the old order and create a new one..."
+    #                 )
+    #             should_adjust_sell = True
+    #
+    #         if should_adjust_sell:
+    #             self.c_cancel_order(market_pair, active_order.client_order_id)
+    #             self.log_with_clock(logging.DEBUG,
+    #                                 f"Current sell order price={order_price}, "
+    #                                 f"above quote depth={above_quote_volume}, "
+    #                                 f"suggested order price={suggested_price}")
+    #             return False
+    #     return True
 
     cdef c_check_and_create_new_orders(self, object market_pair, bint has_active_bid, bint has_active_ask):
         """
