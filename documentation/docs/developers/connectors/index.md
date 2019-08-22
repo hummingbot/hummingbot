@@ -1,5 +1,8 @@
 # Developing an Exchange Connector
 
+!!! warning
+    This document is inocmplete and a work in progress.
+
 Exchange connectors are modules that allow Hummingbot to connect to an exchange.  Each exchange connector is comprised of the following components:
 
 Component | Function
@@ -12,11 +15,11 @@ Component | Function
 
 There are [existing connectors](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market) (each folder contained here is a different exchange connector) that can serve as a template for creating a new exchange connector.
 
+Building a new exchange connector requires conforming to the teamplate code to the new exchange's APIs, identifying and handling any differences in functions/behaviors, and testing the new exchange connector on that exchange.
+
 ### Examples / templates
 - Centralized exchange: [Binance](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/binance)
 - DEX (Ethereum): [Radar Relay](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/radar_relay), [IDEX](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/idex)
-
-Building a new exchange connector requires conforming to the teamplate code to the new exchange's APIs, identifying and handling any differences in functions/behaviors, and testing the new exchange connector on that exchange.
 
 ## Exchange connector files
 
@@ -31,6 +34,7 @@ Each exchange connector consists of the following files:
 ├── *_active_order_tracker # for DEXes that require keeping track of
 └── *_user_stream_tracker  # tracker that process data specific to the user running the bot
 ```
+
 ## Requirements
 1. A complete set of exchange connector files as listed [above](#exchange-connector-files).
 2. Unit tests (see [existing unit tests](https://github.com/CoinAlpha/hummingbot/tree/master/test/integration)):
