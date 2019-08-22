@@ -121,6 +121,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._anti_hysteresis_duration = anti_hysteresis_duration
         self._logging_options = <int64_t>logging_options
         self._last_timestamp = 0
+        self._hedging_price_adjustment_factor = 1.0005
         self._status_report_interval = status_report_interval
         self._active_order_canceling = active_order_canceling
         self._exchange_rate_conversion = ExchangeRateConversion.get_instance()
@@ -224,13 +225,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                                own_order_depth: float = 0.0) -> Tuple[Decimal, Decimal]:
         return self.c_get_market_making_price_and_size_limit(market_pair, is_bid, own_order_depth=own_order_depth)
 
-    def get_order_size_after_portfolio_ratio_limit(self, market_pair: CrossExchangeMarketPair,
-                                                   original_order_size: float) -> float:
-        return self.c_get_order_size_after_portfolio_ratio_limit(market_pair, original_order_size)
+    def get_order_size_after_portfolio_ratio_limit(self, market_pair: CrossExchangeMarketPair) -> float:
+        return self.c_get_order_size_after_portfolio_ratio_limit(market_pair)
 
-    def get_adjusted_limit_order_size(self, market_pair: CrossExchangeMarketPair, price: float,
-                                      original_order_size: float) -> float:
-        return self.c_get_adjusted_limit_order_size(market_pair, price, original_order_size)
+    def get_adjusted_limit_order_size(self, market_pair: CrossExchangeMarketPair) -> float:
+        return self.c_get_adjusted_limit_order_size(market_pair)
 
     # def has_market_making_profit_potential(self, market_pair: CrossExchangeMarketPair) -> Tuple[bool, bool]:
     #     return self.c_has_market_making_profit_potential(market_pair)
@@ -362,6 +361,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
         for active_order in active_orders:
             # Mark the has_active_bid and has_active_ask flags
+
+            # self.logger().info(f"active orders are {active_order}")
             is_buy = active_order.is_buy
             if is_buy:
                 has_active_bid = True
@@ -430,6 +431,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             object market_pair = self._market_pair_tracker.c_get_market_pair_from_order_id(order_id)
             tuple order_fill_record
 
+        self.logger().info("Order filled event is being called in the first place")
         # Make sure to only hedge limit orders.
         if market_pair is not None and order_filled_event.order_type is OrderType.LIMIT:
             limit_order_record = self._sb_order_tracker.c_get_shadow_limit_order(order_id)
@@ -449,6 +451,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         f"({market_pair.maker.trading_pair}) Maker buy order of "
                         f"{order_filled_event.amount} {market_pair.maker.base_asset} filled."
                     )
+
             else:
                 if market_pair not in self._order_fill_sell_events:
                     self._order_fill_sell_events[market_pair] = [order_fill_record]
@@ -931,9 +934,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 size_limit = maker_market.c_quantize_order_amount(market_pair.maker.trading_pair, own_order_depth)
 
             # sell on taker
-            taker_price = taker_order_book.c_get_vwap_for_volume(False, size_limit)
+            taker_price = taker_order_book.c_get_vwap_for_volume(False, size_limit).result_price
 
-            maker_price = taker_price / (1 + self._min_profitability)
+            maker_price = maker_market.c_quantize_order_price(market_pair.maker.trading_pair,
+                                                              taker_price / (1 + self._min_profitability))
+
+            # self.logger().info(f"sell on taker for {taker_price}, buy on maker for {maker_price}")
 
             # Convert the proposed maker order price to the equivalent price on the taker market.
             # adjusted_taker_price = (self._exchange_rate_conversion.adjust_token_rate(
@@ -980,9 +986,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 size_limit = maker_market.c_quantize_order_amount(market_pair.maker.trading_pair, own_order_depth)
 
             # buy on taker
-            taker_price = taker_order_book.c_get_vwap_for_volume(True, size_limit)
+            taker_price = taker_order_book.c_get_vwap_for_volume(True, size_limit).result_price
 
-            maker_price = taker_price * (1 + self._min_profitability)
+            maker_price = maker_market.c_quantize_order_price(market_pair.maker.trading_pair, taker_price * (1 + self._min_profitability))
+
+            # self.logger().info(f"buy on Taker for:{taker_price}, sell on maker for:{maker_price}")
 
             # Convert the proposed maker order price to the equivalent price on the taker market.
             # adjusted_taker_price = (self._exchange_rate_conversion.adjust_token_rate(
@@ -1121,9 +1129,21 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double current_hedging_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
                 market_pair.taker.quote_asset, current_hedging_price)
 
+        # self.logger().info(type(self._hedging_price_adjustment_factor))
+        # self.logger().info(type(current_hedging_price_adjusted))
+        #
+        # self.logger().info(current_hedging_price_adjusted * self._hedging_price_adjustment_factor)
+
         # TODO: check the logic here
-        if ((is_buy and current_hedging_price_adjusted < order_price_adjusted * (1 + self._min_profitability)) or
-                (not is_buy and order_price_adjusted < current_hedging_price_adjusted * (1 + self._min_profitability))):
+        if ((is_buy and (current_hedging_price_adjusted * self._hedging_price_adjustment_factor) <
+             order_price_adjusted * (1 + self._min_profitability)) or
+                (not is_buy and order_price_adjusted < current_hedging_price_adjusted/self._hedging_price_adjustment_factor * (
+                        1 + self._min_profitability))):
+
+            if is_buy:
+                self.logger().info(f"hedging price: {current_hedging_price} , order price:{order_price_adjusted}, "
+                                   f"final order price: {order_price_adjusted * (1 + self._min_profitability)}")
+
             if self._logging_options & self.OPTION_LOG_REMOVING_ORDER:
                 self.log_with_clock(
                     logging.INFO,
@@ -1322,9 +1342,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 own_order_depth=0
             )
             bid_size = self.c_get_adjusted_limit_order_size(
-                market_pair,
-                float(bid_price),
-                float(bid_size_limit)
+                market_pair
             )
             if bid_size > s_decimal_zero:
                 effective_hedging_price = self.c_calculate_effective_hedging_price(
@@ -1364,9 +1382,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 own_order_depth=0
             )
             ask_size = self.c_get_adjusted_limit_order_size(
-                market_pair,
-                float(ask_price),
-                float(ask_size_limit)
+                market_pair
             )
             if ask_size > s_decimal_zero:
                 effective_hedging_price = self.c_calculate_effective_hedging_price(

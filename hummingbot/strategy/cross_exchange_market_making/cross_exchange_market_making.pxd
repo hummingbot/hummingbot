@@ -29,6 +29,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         dict _order_fill_sell_events
         dict _suggested_price_samples
         int64_t _logging_options
+        double _hedging_price_adjustment_factor
         object _exchange_rate_conversion
         OrderIDMarketPairTracker _market_pair_tracker
 
@@ -38,14 +39,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef object c_get_adjusted_limit_order_size(self, object market_pair)
     cdef double c_sum_flat_fees(self, str quote_currency, list flat_fees)
 
-    cdef double c_calculate_bid_profitability(self,
-                                              object market_pair,
-                                              double bid_order_size = *)
-    cdef double c_calculate_ask_profitability(self,
-                                              object market_pair,
-                                              double ask_order_size = *)
-    cdef tuple c_calculate_market_making_profitability(self, object market_pair)
-    cdef tuple c_has_market_making_profit_potential(self, object market_pair)
+    # cdef double c_calculate_bid_profitability(self,
+    #                                           object market_pair,
+    #                                           double bid_order_size = *)
+    # cdef double c_calculate_ask_profitability(self,
+    #                                           object market_pair,
+    #                                           double ask_order_size = *)
+    # cdef tuple c_calculate_market_making_profitability(self, object market_pair)
+    # cdef tuple c_has_market_making_profit_potential(self, object market_pair)
     cdef tuple c_get_market_making_price_and_size_limit(self,
                                                         object market_pair,
                                                         bint is_bid,
