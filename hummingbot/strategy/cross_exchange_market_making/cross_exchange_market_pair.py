@@ -16,4 +16,3 @@ class CrossExchangeMarketPair(NamedTuple):
     """
     maker: MarketSymbolPair
     taker: MarketSymbolPair
-    top_depth_tolerance: float = 0
