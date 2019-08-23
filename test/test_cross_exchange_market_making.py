@@ -361,30 +361,6 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal("1.063689473"), ask_order.price)
         self.assertAlmostEqual(Decimal("2.928571428"), bid_order.quantity)
         self.assertAlmostEqual(Decimal("2.928571428"), ask_order.quantity)
-        # self.assertEqual((False, False), self.strategy.has_market_making_profit_potential(
-        #     self.market_pair
-        # ))
-
-        self.clock.remove_iterator(self.strategy)
-        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
-            [self.market_pair],
-            0.003,
-            order_size_portfolio_ratio_limit=0.3,
-            logging_options=self.logging_options
-        )
-        self.clock.add_iterator(self.strategy)
-        self.clock.backtest_til(self.start_timestamp + 10)
-        self.assertEqual(1, len(self.strategy.active_bids))
-        self.assertEqual(1, len(self.strategy.active_asks))
-        bid_order: LimitOrder = self.strategy.active_bids[0][1]
-        ask_order: LimitOrder = self.strategy.active_asks[0][1]
-        self.assertAlmostEqual(Decimal("1.048958387"), bid_order.price)
-        self.assertAlmostEqual(Decimal("1.056317368"), ask_order.price)
-        self.assertAlmostEqual(Decimal("2.928571428"), bid_order.quantity)
-        self.assertAlmostEqual(Decimal("2.928571428"), ask_order.quantity)
-        # self.assertEqual((True, True), self.strategy.has_market_making_profit_potential(
-        #     self.market_pair
-        # ))
 
     def test_price_and_size_limit_calculation(self):
         self.taker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.001, 20)
@@ -410,3 +386,10 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         )
         self.assertEqual((Decimal("0.99452"), Decimal("3")), (bid_price, bid_size_limit))
         self.assertEqual((Decimal("1.0056"), Decimal("3")), (ask_price, ask_size_limit))
+
+    # If the taker orderbook does not have enough volume for the order size on maker, do not place order
+    def test_thin_taker_order_book(self):
+        self.taker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.001, 3)
+        self.clock.backtest_til(self.start_timestamp + 5)
+        self.assertEqual(0, len(self.strategy.active_bids))
+        self.assertEqual(0, len(self.strategy.active_asks))
