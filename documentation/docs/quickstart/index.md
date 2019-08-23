@@ -18,7 +18,7 @@ For more information, view [minimum system requirements](/installation/#minimum-
 
 **Why this is needed**: In order to run trading bot, you'll need some inventory of crypto assets available on the exchange, or in your Ethereum wallet (for Ethereum-based decentralized exchanges).
 
-Remember that you need inventory of both the **base asset** (the asset that you are buying and selling) and the **quote asset** (the asset that you exchange for it). For example, if you are making a market in a `BTC/USDT` trading pair, you'll need some `BTC` and `USDT`. 
+Remember that you need inventory of both the **base asset** (the asset that you are buying and selling) and the **quote asset** (the asset that you exchange for it). For example, if you are making a market in a `BTC/USDT` trading pair, you'll need some `BTC` and `USDT`.
 
 In addition, be aware of the minimum order size requirements on different exchanges. For more information, please see [Connectors](/connectors).
 
@@ -42,4 +42,4 @@ For more information on creating or importing an Ethereum wallet, see [Ethereum 
 For more information, see [Ethereum node](/installation/node). To get a free node, see [Get a Free Ethereum Node](/installation/node/infura/).
 
 ---
-# Next: [Install Hummingbot](/quickstart/1-install)
+# Next: [Install Hummingbot](/quickstart/2-install)
