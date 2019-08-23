@@ -368,7 +368,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             object market_pair = self._market_pair_tracker.c_get_market_pair_from_order_id(order_id)
             tuple order_fill_record
 
-        self.logger().info("Order filled event is being called in the first place")
         # Make sure to only hedge limit orders.
         if market_pair is not None and order_filled_event.order_type is OrderType.LIMIT:
             limit_order_record = self._sb_order_tracker.c_get_shadow_limit_order(order_id)
