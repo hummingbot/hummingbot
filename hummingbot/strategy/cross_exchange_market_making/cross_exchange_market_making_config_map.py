@@ -58,33 +58,5 @@ cross_exchange_market_making_config_map = {
                                                          "the quote asset) >>> ",
                                                   required_if=lambda: False,
                                                   default=0.0,
-                                                  type_str="float"),
-    "top_depth_tolerance":              ConfigVar(key="top_depth_tolerance",
-                                                  prompt="What is the maximum depth you would go into th"
-                                                         "e order book to make a trade? >>> ",
-                                                  type_str="list",
-                                                  required_if=lambda: False,
-                                                  default=[
-                                                      ["^.+(USDT|USDC|USDS|DAI|PAX|TUSD)$", 0],
-                                                      ["^.+ETH$", 0],
-                                                      ["^.+BTC$", 0],
-                                                  ]),
-    "active_order_canceling":           ConfigVar(key="active_order_canceling",
-                                                  prompt="Do you want to actively adjust/cancel orders? (Default "\
-                                                         "True, only set to False if maker market is Radar Relay) >>> ",
-                                                  type_str="bool",
-                                                  default=True),
-    # Setting the default threshold to -1.0 when to active_order_canceling is disabled
-    # prevent canceling orders after it has expired
-    "cancel_order_threshold":           ConfigVar(key="cancel_order_threshold",
-                                                  prompt="What is the minimum profitability to actively cancel orders? "
-                                                         "(Default to -1.0, only specify when active_order_canceling "
-                                                         "is disabled, value can be negative) >>> ",
-                                                  default=-1.0,
-                                                  type_str="float"),
-    "limit_order_min_expiration":       ConfigVar(key="limit_order_min_expiration",
-                                                  prompt="What is the minimum limit order expiration in seconds? "
-                                                         "(Default to 130 seconds) >>> ",
-                                                  default=130.0,
                                                   type_str="float")
 }
