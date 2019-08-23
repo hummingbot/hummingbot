@@ -16,6 +16,7 @@ File | Description
 `conf_cross_exchange_market_making_strategy_[#].yml` | Settings for the [cross-exchange market making](/strategies/cross-exchange-market-making/) strategy.
 `conf_pure_market_making_strategy_[#].yml` | Settings for the [pure market making](/strategies/pure-market-making/) strategy.
 `conf_discovery_strategy_[#].yml` | Settings for the [discovery](/strategies/discovery/) strategy.
+`conf_simple_trade_strategy_[#].yml` | Settings for the [simple trade](/strategies/simple-trade/) strategy.
 
 !!! tip "Editing Configuration Files Directly"
     Once they are created, you may find it easier to edit the configuration files in the `conf/` folder. Simply open them with a text editor and make any desired modifications.
