@@ -97,8 +97,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
         self.market_pair: CrossExchangeMarketPair = CrossExchangeMarketPair(
             MarketSymbolPair(self.maker_market, *self.maker_symbols),
-            MarketSymbolPair(self.taker_market, *self.taker_symbols),
-            2
+            MarketSymbolPair(self.taker_market, *self.taker_symbols)
         )
 
         logging_options: int = (CrossExchangeMarketMakingStrategy.OPTION_LOG_ALL &
@@ -326,8 +325,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.clock.remove_iterator(self.strategy)
         self.market_pair: CrossExchangeMarketPair = CrossExchangeMarketPair(
             MarketSymbolPair(self.maker_market, *["COINALPHA-QETH", "COINALPHA", "QETH"]),
-            MarketSymbolPair(self.taker_market, *self.taker_symbols),
-            2
+            MarketSymbolPair(self.taker_market, *self.taker_symbols)
         )
         self.maker_data: MockOrderBookLoader = MockOrderBookLoader("COINALPHA-QETH", "COINALPHA", "QETH")
         self.maker_data.set_balanced_order_book(1.05, 0.55, 1.55, 0.01, 10)
