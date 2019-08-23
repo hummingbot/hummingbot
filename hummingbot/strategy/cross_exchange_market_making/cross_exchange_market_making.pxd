@@ -29,7 +29,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         dict _order_fill_sell_events
         dict _suggested_price_samples
         int64_t _logging_options
-        # double _hedging_price_adjustment_factor
         object _exchange_rate_conversion
         OrderIDMarketPairTracker _market_pair_tracker
 
