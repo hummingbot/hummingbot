@@ -6,7 +6,7 @@ Hummingbot uses a command-line interface (CLI) that helps users configure and ru
 
 ### Installed from Docker
 
-Creating a new instance of Hummingbot with `docker run` will automatically start the Hummingbot client (see Docker installation guides for [Windows](/installation/windows) and [MacOS](/installation/macOS)).
+Creating a new instance of Hummingbot with `docker run` will automatically start the Hummingbot client (see Docker installation guides for [Windows](/installation/windows), [Linux](/installation/linux) and [MacOS](/installation/macOS)).
 
 To run a previously created, stopped container where $NAME is the name of your instance of Hummingbot:
 
@@ -74,7 +74,7 @@ The CLI is divided into three panes:
 | `Single CTRL + C` | Copy | Copy text [used for text edit in Input pane only].
 | `CTRL + V` | Paste | Paste text [used for text edit in Input pane only].
 
-***Note about search:*** 
+***Note about search:***
 1. Press `CTRL + F` to trigger display the search field
 2. Enter your search keyword (not case sensitive)
 3. Hit `Enter` to jump to the next matching keyword (incremental search)
