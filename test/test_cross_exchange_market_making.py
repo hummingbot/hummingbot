@@ -75,8 +75,6 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.taker_market: BacktestMarket = BacktestMarket()
         self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_symbols)
         self.taker_data: MockOrderBookLoader = MockOrderBookLoader(*self.taker_symbols)
-        # self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
-        #                                         max_price=200, price_step_size=1, volume_step_size=10)
         self.maker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.01, 10)
         self.taker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.001, 4)
         self.maker_market.add_data(self.maker_data)
@@ -126,7 +124,6 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
     def simulate_maker_market_trade(self, is_buy: bool, quantity: float, price: float):
         maker_symbol: str = self.maker_symbols[0]
         order_book: OrderBook = self.maker_market.get_order_book(maker_symbol)
-        #trade_price: float = order_book.get_price(True) if is_buy else order_book.get_price(False)
         trade_event: OrderBookTradeEvent = OrderBookTradeEvent(
             maker_symbol,
             self.clock.current_timestamp,
