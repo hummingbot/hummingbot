@@ -141,7 +141,7 @@ Which Ethereum node would you like your client to connect to? >>>
 [ENTER ADDRESS OF YOUR ETHEREUM NODE]
 ```
 
-See [Ethereum wallet](/installation/wallet) and [Ethereum node](/installation/node) for more information.
+See [Ethereum wallet](/installation/wallet) and [Ethereum node](/installation/node/node) for more information.
 
 #### e) Enter kill switch parameters
 
