@@ -47,6 +47,13 @@ cdef class ArbitrageStrategy(StrategyBase):
                  logging_options: int = OPTION_LOG_ORDER_COMPLETED,
                  status_report_interval: float = 60.0,
                  next_trade_delay_interval: float = 15.0):
+        """
+        :param market_pairs: list of arbitrage market pairs
+        :param min_profitability: minimum profitability limit, for calculating arbitrage order sizes
+        :param logging_options: select the types of logs to output
+        :param status_report_interval: how often to report network connection related warnings, if any
+        :param next_trade_delay_interval: cool off period between trades
+        """
 
         if len(market_pairs) < 0:
             raise ValueError(f"market_pairs must not be empty.")
@@ -119,6 +126,14 @@ cdef class ArbitrageStrategy(StrategyBase):
         return "\n".join(lines)
 
     cdef c_tick(self, double timestamp):
+        """
+        Clock tick entry point.
+
+        For arbitrage strategy, this function simply checks for the readiness and connection status of markets, and
+        then delegates the processing of each market pair to c_process_market_pair().
+
+        :param timestamp: current tick timestamp
+        """
         StrategyBase.c_tick(self, timestamp)
 
         cdef:
@@ -149,6 +164,11 @@ cdef class ArbitrageStrategy(StrategyBase):
             self._last_timestamp = timestamp
 
     cdef c_did_complete_buy_order(self, object buy_order_completed_event):
+        """
+        Output log for completed buy order.
+
+        :param buy_order_completed_event: Order completed event
+        """
         cdef:
             str order_id = buy_order_completed_event.order_id
             object market_symbol_pair = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
@@ -158,6 +178,11 @@ cdef class ArbitrageStrategy(StrategyBase):
                                     f"Market order completed on {market_symbol_pair[0].name}: {order_id}")
 
     cdef c_did_complete_sell_order(self, object sell_order_completed_event):
+        """
+        Output log for completed sell order.
+
+        :param sell_order_completed_event: Order completed event
+        """
         cdef:
             str order_id = sell_order_completed_event.order_id
             object market_symbol_pair = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
@@ -167,6 +192,11 @@ cdef class ArbitrageStrategy(StrategyBase):
                                     f"Market order completed on {market_symbol_pair[0].name}: {order_id}")
 
     cdef c_did_fail_order(self, object fail_event):
+        """
+        Output log for failed order.
+
+        :param fail_event: Order failure event
+        """
         cdef:
             str order_id = fail_event.order_id
             object market_symbol_pair = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
@@ -175,6 +205,11 @@ cdef class ArbitrageStrategy(StrategyBase):
                                 f"Market order failed on {market_symbol_pair[0].name}: {order_id}")
 
     cdef c_did_cancel_order(self, object cancel_event):
+        """
+        Output log for cancelled order.
+
+        :param cancel_event: Order cancelled event.
+        """
         cdef:
             str order_id = cancel_event.order_id
             object market_symbol_pair = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
@@ -186,6 +221,7 @@ cdef class ArbitrageStrategy(StrategyBase):
         """
         Calculate the profitability of crossing the exchanges in both directions (buy on exchange 2 + sell
         on exchange 1 | buy on exchange 1 + sell on exchange 2) using the best bid and ask price on each.
+
         :param market_pair:
         :return: (double, double) that indicates profitability of arbitraging on each side
         """
@@ -202,7 +238,20 @@ cdef class ArbitrageStrategy(StrategyBase):
         profitability_buy_1_sell_2 = market_2_bid_price / market_1_ask_price - 1
         return profitability_buy_2_sell_1, profitability_buy_1_sell_2
 
-    cdef c_ready_for_new_orders(self, list market_symbol_pairs):
+    cdef bint c_ready_for_new_orders(self, list market_symbol_pairs):
+        """
+        Check whether we are ready for making new arbitrage orders or not. Conditions where we should not make further
+        new orders include:
+
+         1. There's an in-flight market order that's still being resolved.
+         2. We're still within the cool-off period from the last trade, which means the exchange balances may be not
+            accurate temporarily.
+
+        If none of the above conditions are matched, then we're ready for new orders.
+
+        :param market_symbol_pairs: list of arbitrage market pairs
+        :return: True if ready, False if not
+        """
         cdef:
             double time_left
             dict tracked_taker_orders = self._sb_order_tracker.c_get_taker_orders()
@@ -228,8 +277,10 @@ cdef class ArbitrageStrategy(StrategyBase):
 
     cdef c_process_market_pair(self, object market_pair):
         """
-        Check which direction is more profitable (buy/sell on exchange 2/1 or 1/2) and send the more
-        profitable direction for execution.
+        Checks which direction is more profitable (buy/sell on exchange 2/1 or 1/2) and sends the more profitable
+        direction for execution.
+
+        :param market_pair: arbitrage market pair
         """
         if not self.c_ready_for_new_orders([market_pair.first, market_pair.second]):
             return
@@ -237,7 +288,8 @@ cdef class ArbitrageStrategy(StrategyBase):
         profitability_buy_2_sell_1, profitability_buy_1_sell_2 = \
             self.c_calculate_arbitrage_top_order_profitability(market_pair)
 
-        if profitability_buy_1_sell_2 < self._min_profitability and profitability_buy_2_sell_1 < self._min_profitability:
+        if (profitability_buy_1_sell_2 < self._min_profitability and
+                profitability_buy_2_sell_1 < self._min_profitability):
             return
 
         if profitability_buy_1_sell_2 > profitability_buy_2_sell_1:
@@ -247,11 +299,11 @@ cdef class ArbitrageStrategy(StrategyBase):
             self.c_process_market_pair_inner(market_pair.second, market_pair.first)
 
     cdef c_process_market_pair_inner(self, object buy_market_symbol_pair, object sell_market_symbol_pair):
-        """        
-        Execute strategy for the input market pair
-        :param buy_market_symbol_pair: MarketSymbolPair
-        :param sell_market_symbol_pair: MarketSymbolPair               
-        :return: 
+        """
+        Executes arbitrage trades for the input market pair.
+
+        :type buy_market_symbol_pair: MarketSymbolPair
+        :type sell_market_symbol_pair: MarketSymbolPair
         """
         cdef:
             object quantized_buy_amount
@@ -304,7 +356,7 @@ cdef class ArbitrageStrategy(StrategyBase):
 
     cdef double c_sum_flat_fees(self, str quote_asset, list flat_fees):
         """
-        Converts flat fees to quote token and sums up all flat fees 
+        Converts flat fees to quote token and sums up all flat fees
         """
         cdef:
             double total_flat_fees = 0.0
@@ -322,6 +374,16 @@ cdef class ArbitrageStrategy(StrategyBase):
         return total_flat_fees
 
     cdef tuple c_find_best_profitable_amount(self, object buy_market_symbol_pair, object sell_market_symbol_pair):
+        """
+        Given a buy market and a sell market, calculate the optimal order size for the buy and sell orders on both
+        markets and the profitability ratio. This function accounts for trading fees required by both markets before
+        arriving at the optimal order size and profitability ratio.
+
+        :param buy_market_symbol_pair: symbol pair for buy side
+        :param sell_market_symbol_pair: symbol pair for sell side
+        :return: (order size, profitability ratio)
+        :rtype: Tuple[float, float]
+        """
         cdef:
             double total_bid_value = 0 # total revenue
             double total_ask_value = 0 # total cost
@@ -398,8 +460,8 @@ cdef class ArbitrageStrategy(StrategyBase):
             buy_market_quote_balance = buy_market.c_get_available_balance(buy_market_symbol_pair.quote_asset)
             sell_market_base_balance = sell_market.c_get_available_balance(sell_market_symbol_pair.base_asset)
             # stop current step if buy/sell market does not have enough asset
-            if buy_market_quote_balance < net_buy_costs or \
-                    sell_market_base_balance < (total_previous_step_base_amount + amount):
+            if (buy_market_quote_balance < net_buy_costs or
+                    sell_market_base_balance < (total_previous_step_base_amount + amount)):
                 # use previous step as best profitable order if below min profitability
                 if profitability < (1 + self._min_profitability):
                     break
@@ -412,8 +474,8 @@ cdef class ArbitrageStrategy(StrategyBase):
                                     f"Base asset available balance: {sell_market_base_balance}. ")
 
                 # market buys need to be adjusted to account for additional fees
-                buy_market_adjusted_order_size = (buy_market_quote_balance / ask_price - total_buy_flat_fees)\
-                                                 / (1 + buy_fee.percent)
+                buy_market_adjusted_order_size = ((buy_market_quote_balance / ask_price - total_buy_flat_fees) /
+                                                  (1 + buy_fee.percent))
                 # buy and sell with the amount of available base or quote asset, whichever is smaller
                 best_profitable_order_amount = min(sell_market_base_balance, buy_market_adjusted_order_size)
                 best_profitable_order_profitability = profitability
@@ -458,12 +520,15 @@ cdef list c_find_profitable_arbitrage_orders(double min_profitability,
     """
     Iterates through sell and buy order books and returns a list of matched profitable sell and buy order
     pairs with sizes.
-    :param min_profitability: 
-    :param buy_order_book: 
-    :param sell_order_book: 
-    :param buy_market_quote_asset: 
-    :param sell_market_quote_asset: 
-    :return: ordered list of (bid_price, ask_price, amount) 
+
+    If no profitable trades can be done between the buy and sell order books, then returns an empty list.
+
+    :param min_profitability: Minimum profit ratio
+    :param buy_order_book: Order book for the buy order
+    :param sell_order_book: Order book for the sell order
+    :param buy_market_quote_asset: Quote asset for the buy side
+    :param sell_market_quote_asset: Quote asset for the sell side
+    :return: ordered list of (bid_price, ask_price, amount)
     """
     cdef:
         double step_amount = 0
