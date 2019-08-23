@@ -57,7 +57,7 @@ The CLI is divided into three panes:
 
 | Command | Description |
 |-------- | ----------- |
-| `bounty --register` | Register to participate in for liquidity bounties
+| `bounty --register` | Register to participate in for liquidity bounties.
 | `bounty --list` | See a list of active bounties.
 | `bounty --restore-id` | If you lost your configuration file, this is the command to restore it.
 | `bounty --status` | See your accumulated rewards.
@@ -75,7 +75,11 @@ The CLI is divided into three panes:
 | `CTRL + V` | Paste | Paste text [used for text edit in Input pane only].
 
 ***Note about search:***
+
 1. Press `CTRL + F` to trigger display the search field
+
 2. Enter your search keyword (not case sensitive)
+
 3. Hit `Enter` to jump to the next matching keyword (incremental search)
+
 4. When you are done. Press `CTRL + F` again to go back to reset.
