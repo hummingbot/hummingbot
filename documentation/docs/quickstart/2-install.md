@@ -6,7 +6,7 @@ If you would like to install from source or see the detailed installation instru
 
 ## Step 1: Set up a cloud server (Optional)
 
-We recommend that users run trading bots in the cloud, since bots require a stable network connection and can run 24/7. 
+We recommend that users run trading bots in the cloud, since bots require a stable network connection and can run 24/7.
 
 Follow the guide [Set up a cloud server](/installation/cloud) to set up a cloud server on your preferred cloud platform. Hummingbot is not resource-intensive so the lowest/free tiers should work.
 
@@ -46,7 +46,7 @@ chmod a+x install-docker-ubuntu.sh
 
 ### MacOS
 
-You can install Docker by [downloading an installer](https://docs.docker.com/v17.12/docker-for-mac/install/) from the official page. 
+You can install Docker by [downloading an installer](https://docs.docker.com/v17.12/docker-for-mac/install/) from the official page.
 
 After you have downloaded and installed Docker, restart your system if necessary. Then, proceed to [Step 3](#step-3-install-hummingbot).
 
@@ -152,7 +152,7 @@ chmod a+x *.sh
 ./create.sh
 ```
 
-Afterwards, you should see the Hummingbot client interface. Proceed to [Configure a Bot](/quickstart/2-configure-bot).
+Afterwards, you should see the Hummingbot client interface. Proceed to [Configure a Bot](/quickstart/3-configure-bot).
 
 ---
-# Next: [Configure Your First Trading Bot](/quickstart/2-configure-bot)
+# Next: [Configure Your First Trading Bot](/quickstart/3-configure-bot)
