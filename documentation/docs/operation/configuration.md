@@ -29,6 +29,7 @@ When running `config`, you are asked to select a strategy and enter strategy-spe
 * [Cross-exchange market making](/strategies/cross-exchange-market-making#configuration-walkthrough)
 * [Pure market making](/strategies/pure-market-making#configuration-walkthrough)
 * [Discovery](/strategies/discovery#configuration-walkthrough)
+* [Simple Trade](/strategies/simple-trade#configuration-walkthrough)
 
 !!! note "Essential Trading Considerations"
     When configuring your bot, make sure you are aware of your exchange's minimum order sizes and fees, and check that your trading pair has sufficient order book and trading volumes. You can find more info about specific exchanges in the [connector section](/connectors).
