@@ -827,7 +827,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             MarketBase maker_market = market_pair.maker.market
             MarketBase taker_market = market_pair.taker.market
 
-            # If its a buy order, get quote asset from m
             double quote_asset_amount = maker_market.c_get_balance(market_pair.maker.quote_asset) if is_buy else \
                 taker_market.c_get_balance(market_pair.taker.quote_asset)
             double base_asset_amount = taker_market.c_get_balance(market_pair.taker.base_asset) if is_buy else \
