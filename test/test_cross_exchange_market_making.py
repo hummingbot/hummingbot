@@ -58,6 +58,11 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         ExchangeRateConversion.set_global_exchange_rate_config({
+            "global_config": {
+                "WETH": {"default": 1.0, "source": "None"},
+                "ETH": {"default": 1.0, "source": "None"},
+                "QETH": {"default": 0.95, "source": "None"}
+            },
             "conversion_required": {
                 "WETH": {"default": 1.0, "source": "None"},
                 "QETH": {"default": 0.95, "source": "None"}
@@ -320,48 +325,88 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             10
         )
 
-    # def test_price_and_size_limit_calculation(self):
-    #     # Test the case where the profitable hedging depth is less than order size limit based on balance.
-    #     self.taker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.001, 3)
-    #     bid_price, bid_size_limit = self.strategy.get_market_making_price_and_size_limit(
-    #         self.market_pair,
-    #         True
-    #     )
-    #     ask_price, ask_size_limit = self.strategy.get_market_making_price_and_size_limit(
-    #         self.market_pair,
-    #         False
-    #     )
-    #     self.assertEqual((Decimal("0.99501"), Decimal("4.9749")), (bid_price, bid_size_limit))
-    #     self.assertEqual((Decimal("1.0049"), Decimal("4.9507")), (ask_price, ask_size_limit))
-    #
-    #     # Test the case where the profitable hedging depth is equal to order size limit based on balance.
-    #     self.taker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.001, 4)
-    #     bid_price, bid_size_limit = self.strategy.get_market_making_price_and_size_limit(
-    #         self.market_pair,
-    #         True
-    #     )
-    #     ask_price, ask_size_limit = self.strategy.get_market_making_price_and_size_limit(
-    #         self.market_pair,
-    #         False
-    #     )
-    #     self.assertEqual((Decimal("0.99501"), Decimal("4.9749")), (bid_price, bid_size_limit))
-    #     self.assertEqual((Decimal("1.0049"), Decimal("4.9507")), (ask_price, ask_size_limit))
-    #
-    #     # Test the case where the hedging trade is numerically profitable but below the min profit setting.
-    #     self.simulate_order_book_widening(self.taker_data.order_book, 0.995, 1.005)
-    #     bid_price, bid_size_limit = self.strategy.get_market_making_price_and_size_limit(
-    #         self.market_pair,
-    #         True
-    #     )
-    #     ask_price, ask_size_limit = self.strategy.get_market_making_price_and_size_limit(
-    #         self.market_pair,
-    #         False
-    #     )
-    #     self.assertEqual((Decimal("0.99501"), Decimal("0")), (bid_price, bid_size_limit))
-    #     self.assertEqual((Decimal("1.0049"), Decimal("0")), (ask_price, ask_size_limit))
-    #
-    #     # Make sure the strategy doesn't emit any orders in this case
-    #     self.clock.backtest_til(self.start_timestamp + 5)
-    #     self.assertEqual(0, len(self.strategy.active_bids))
-    #     self.assertEqual(0, len(self.strategy.active_asks))
-    #     self.assertEqual(0, len(self.cancel_order_logger.event_log))
+    def test_with_conversion(self):
+        self.clock.remove_iterator(self.strategy)
+        self.market_pair: CrossExchangeMarketPair = CrossExchangeMarketPair(
+            MarketSymbolPair(self.maker_market, *["COINALPHA-QETH", "COINALPHA", "QETH"]),
+            MarketSymbolPair(self.taker_market, *self.taker_symbols),
+            2
+        )
+        self.maker_data: MockOrderBookLoader = MockOrderBookLoader("COINALPHA-QETH", "COINALPHA", "QETH")
+        self.maker_data.set_balanced_order_book(1.05, 0.55, 1.55, 0.01, 10)
+        self.maker_market.add_data(self.maker_data)
+        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
+            [self.market_pair],
+            0.01,
+            order_size_portfolio_ratio_limit=0.3,
+            logging_options=self.logging_options
+        )
+        self.maker_market.set_quantization_param(
+            QuantizationParams(
+                self.maker_symbols[0], 2, 2, 2, 2
+            )
+        )
+        self.taker_market.set_quantization_param(
+            QuantizationParams(
+                self.taker_symbols[0], 2, 2, 2, 2
+            )
+        )
+        self.clock.add_iterator(self.strategy)
+        self.clock.backtest_til(self.start_timestamp + 5)
+        self.assertEqual(1, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))
+        bid_order: LimitOrder = self.strategy.active_bids[0][1]
+        ask_order: LimitOrder = self.strategy.active_asks[0][1]
+        self.assertAlmostEqual(Decimal("1.041688379"), bid_order.price)
+        self.assertAlmostEqual(Decimal("1.063689473"), ask_order.price)
+        self.assertAlmostEqual(Decimal("2.928571428"), bid_order.quantity)
+        self.assertAlmostEqual(Decimal("2.928571428"), ask_order.quantity)
+        # self.assertEqual((False, False), self.strategy.has_market_making_profit_potential(
+        #     self.market_pair
+        # ))
+
+        self.clock.remove_iterator(self.strategy)
+        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
+            [self.market_pair],
+            0.003,
+            order_size_portfolio_ratio_limit=0.3,
+            logging_options=self.logging_options
+        )
+        self.clock.add_iterator(self.strategy)
+        self.clock.backtest_til(self.start_timestamp + 10)
+        self.assertEqual(1, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))
+        bid_order: LimitOrder = self.strategy.active_bids[0][1]
+        ask_order: LimitOrder = self.strategy.active_asks[0][1]
+        self.assertAlmostEqual(Decimal("1.048958387"), bid_order.price)
+        self.assertAlmostEqual(Decimal("1.056317368"), ask_order.price)
+        self.assertAlmostEqual(Decimal("2.928571428"), bid_order.quantity)
+        self.assertAlmostEqual(Decimal("2.928571428"), ask_order.quantity)
+        # self.assertEqual((True, True), self.strategy.has_market_making_profit_potential(
+        #     self.market_pair
+        # ))
+
+    def test_price_and_size_limit_calculation(self):
+        self.taker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.001, 20)
+        bid_price, bid_size = self.strategy.get_market_making_price_and_size_limit(
+            self.market_pair,
+            True
+        )
+        ask_price, ask_size = self.strategy.get_market_making_price_and_size_limit(
+            self.market_pair,
+            False
+        )
+        self.assertEqual((Decimal("0.99452"), Decimal("3")), (bid_price, bid_size))
+        self.assertEqual((Decimal("1.0056"), Decimal("3")), (ask_price, ask_size))
+
+        self.taker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.001, 25)
+        bid_price, bid_size_limit = self.strategy.get_market_making_price_and_size_limit(
+            self.market_pair,
+            True
+        )
+        ask_price, ask_size_limit = self.strategy.get_market_making_price_and_size_limit(
+            self.market_pair,
+            False
+        )
+        self.assertEqual((Decimal("0.99452"), Decimal("3")), (bid_price, bid_size_limit))
+        self.assertEqual((Decimal("1.0056"), Decimal("3")), (ask_price, ask_size_limit))
