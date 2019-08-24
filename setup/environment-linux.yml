@@ -101,6 +101,7 @@ dependencies:
     - multidict==4.5.2
     - mypy-extensions==0.4.1
     - parsimonious==0.8.1
+    - pre-commit==1.18.2
     - py-ecc==1.7.0
     - pyasn1==0.4.5
     - pyasn1-modules==0.2.4
