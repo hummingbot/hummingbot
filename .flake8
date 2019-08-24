@@ -1,0 +1,5 @@
+[flake8]
+filename = *.py, *.pyx
+ignore = E501,E702
+per-file-ignores =
+    hummingbot/**/*.pyx: E225, E226
