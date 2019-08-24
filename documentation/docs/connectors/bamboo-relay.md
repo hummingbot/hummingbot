@@ -30,10 +30,6 @@ When running the connector in coordinated mode it is advised to enable this sett
 
 ## Miscellaneous Info
 
-### DAI-WETH Pair
-
-Currently the DAI-WETH pair is incompatible with WETH-DAI pairs across other exchanges. Exercise caution if using this pair within a strategy.
-
 ### Minimum Order Sizes
 
 The minimum acceptable order size is 0.00000001 normalized units of price, amount or total, which ever of these is the lowest.
