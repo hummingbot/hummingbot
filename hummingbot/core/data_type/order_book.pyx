@@ -328,6 +328,33 @@ cdef class OrderBook(PubSub):
 
         return OrderBookQueryResult(NaN, volume, result_vwap, min(total_volume, volume))
 
+    cdef OrderBookQueryResult c_get_vwap_for_quote_volume(self, bint is_buy, double quote_volume):
+        cdef:
+            double total_cost  = 0
+            double total_volume = 0
+            double result_vwap = NaN
+
+        if is_buy:
+            for order_book_row in self.ask_entries():
+                total_cost += order_book_row.amount * order_book_row.price
+                total_volume += order_book_row.amount
+                if total_cost >= quote_volume:
+                    incremental_base_asset = (total_cost-quote_volume)/order_book_row.price
+                    required_base_asset = total_volume - incremental_base_asset
+                    result_vwap = quote_volume / required_base_asset
+                    break
+        else:
+            for order_book_row in self.bid_entries():
+                total_cost += order_book_row.amount * order_book_row.price
+                total_volume += order_book_row.amount
+                if total_cost >= quote_volume:
+                    incremental_base_asset = (total_cost-quote_volume)/order_book_row.price
+                    required_base_asset = total_volume - incremental_base_asset
+                    result_vwap = quote_volume / required_base_asset
+                    break
+
+        return OrderBookQueryResult(NaN, required_base_asset, result_vwap, required_base_asset)
+
     cdef OrderBookQueryResult c_get_price_for_quote_volume(self, bint is_buy, double quote_volume):
         cdef:
             double cumulative_volume = 0
