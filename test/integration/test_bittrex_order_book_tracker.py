@@ -38,9 +38,8 @@ class BittrexOrderBookTrackerUnitTest(unittest.TestCase):
         # Wait 5 seconds to process some diffs.
         self.ev_loop.run_until_complete(asyncio.sleep(5.0))
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
-        print(order_books)
         btcltc_book: OrderBook = order_books["BTC-LTC"]
-        # print(btcltc_book.snapshot)
+        # print(btcltc_book)
         self.assertGreaterEqual(btcltc_book.get_price_for_volume(True, 10).result_price,
                                 btcltc_book.get_price(True))
         self.assertLessEqual(btcltc_book.get_price_for_volume(False, 10).result_price,

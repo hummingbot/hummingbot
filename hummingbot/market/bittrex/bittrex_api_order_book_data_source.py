@@ -156,6 +156,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     )
                     order_book: BittrexOrderBook = BittrexOrderBook()
                     active_order_tracker: BittrexActiveOrderTracker = BittrexActiveOrderTracker()
+                    print(snapshot_msg)
                     bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
                     order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
                     retval[trading_pair] = BittrexOrderBookTrackerEntry(
