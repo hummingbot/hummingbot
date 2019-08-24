@@ -1,5 +1,7 @@
 [flake8]
 filename = *.py, *.pyx
-ignore = E501,E702
+ignore = E501,E702,W504
 per-file-ignores =
-    hummingbot/**/*.pyx: E225, E226
+    hummingbot/**/*.pyx: E225, E226, E999
+    hummingbot/**/*.pxd: E225, E226, E999
+max-line-length = 120
