@@ -79,6 +79,7 @@ dependencies:
     - eth-rlp==0.1.2
     - eth-typing==2.1.0
     - eth-utils==1.6.1
+    - flake8==3.7.8
     - future==0.17.1
     - hexbytes==0.2.0
     - hyperlink==19.0.0

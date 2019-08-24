@@ -87,6 +87,7 @@ dependencies:
     - eth-rlp==0.1.2
     - eth-typing==2.1.0
     - eth-utils==1.4.1
+    - flake8==3.7.8
     - future==0.17.1
     - hexbytes==0.1.0
     - http://hummingbot-python.s3-website-us-west-2.amazonaws.com/hummingsim-20190729-cp36-cp36m-linux_x86_64.whl
