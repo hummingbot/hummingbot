@@ -652,12 +652,23 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         # Calculate the next price from the top, and the order size limit.
         if is_bid:
 
-            maker_balance = maker_market.c_get_available_balance(market_pair.maker.quote_asset)
+            maker_balance_in_quote = maker_market.c_get_available_balance(market_pair.maker.quote_asset)
+
+            # maker_balance = maker_balance_in_quote * market_pair.maker.
 
             taker_balance = (taker_market.c_get_available_balance(market_pair.taker.base_asset) *
                                         self._order_size_taker_balance_factor)
+            try:
+                taker_price = taker_order_book.c_get_vwap_for_volume(False, taker_balance).result_price
+            except ZeroDivisionError:
+                self.logger().info("Not enough volume available on taker")
+                return None, taker_balance
+
+            maker_balance = maker_balance_in_quote / taker_price
 
             user_order = self.c_get_adjusted_limit_order_size(market_pair)
+
+            self.logger().info(f"M:{maker_balance} T:{taker_balance} U:{user_order}")
 
             raw_size = min(
                 maker_balance,
@@ -669,10 +680,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
 
             # You are selling on the taker market
-            try:
-                taker_price = taker_order_book.c_get_vwap_for_volume(False, size_limit).result_price
-            except ZeroDivisionError:
-                return None, size_limit
+
 
             # If quote assets are not same, convert them from taker's quote asset to maker's quote asset
             if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
@@ -696,9 +704,26 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             # Calculate the order size limit from maker and taker market balances.
             maker_balance = maker_market.c_get_available_balance(market_pair.maker.base_asset)
-            taker_balance = (taker_market.c_get_available_balance(market_pair.taker.quote_asset) *
+            taker_balance_in_quote = (taker_market.c_get_available_balance(market_pair.taker.quote_asset) *
                                         self._order_size_taker_balance_factor)
+
+            try:
+                taker_price = taker_order_book.c_get_vwap_for_volume(True, taker_balance_in_quote).result_price
+            except ZeroDivisionError:
+                self.logger().info("Not enough volume available on taker")
+                return None, taker_balance_in_quote
+
+            taker_balance = taker_balance_in_quote/ taker_price
+
             user_order = self.c_get_adjusted_limit_order_size(market_pair)
+
+            raw_size = min(
+                maker_balance,
+                taker_balance,
+                user_order
+            )
+
+            self.logger().info(f"M:{maker_balance} T:{taker_balance} U:{user_order}")
 
             raw_size = min(
                 maker_balance,
@@ -709,10 +734,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             size_limit = maker_market.c_quantize_order_amount(market_pair.maker.trading_pair, raw_size)
 
             # You are buying on the taker market
-            try:
-                taker_price = taker_order_book.c_get_vwap_for_volume(True, size_limit).result_price
-            except ZeroDivisionError:
-                return None, size_limit
+
 
             if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
                 taker_price *= self._exchange_rate_conversion.convert_token_value(1,
@@ -867,6 +889,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 market_pair,
                 True
             )
+            self.logger().info(f"Bid price: {bid_price} for size: {bid_size}")
             if bid_price is not None:
                 effective_hedging_price = self.c_calculate_effective_hedging_price(
                     market_pair.taker.order_book,

@@ -213,8 +213,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_asks[0][1]
-        self.assertEqual(Decimal("0.99452"), bid_order.price)
-        self.assertEqual(Decimal("1.0056"), ask_order.price)
+        self.assertEqual(Decimal("0.99389"), bid_order.price)
+        self.assertEqual(Decimal("1.0062"), ask_order.price)
         self.assertEqual(Decimal("3.0"), bid_order.quantity)
         self.assertEqual(Decimal("3.0"), ask_order.quantity)
 
@@ -229,7 +229,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         taker_fill: OrderFilledEvent = self.taker_order_fill_logger.event_log[0]
         self.assertEqual(TradeType.BUY, maker_fill.trade_type)
         self.assertEqual(TradeType.SELL, taker_fill.trade_type)
-        self.assertAlmostEqual(0.99452, maker_fill.price)
+        self.assertAlmostEqual(0.99389, maker_fill.price)
         self.assertAlmostEqual(0.9995, taker_fill.price)
         self.assertAlmostEqual(3.0, maker_fill.amount)
         self.assertAlmostEqual(3.0, taker_fill.amount)
@@ -242,8 +242,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         ask_order: LimitOrder = self.strategy.active_asks[0][1]
         print(bid_order)
         print(ask_order)
-        self.assertEqual(Decimal("0.99452"), bid_order.price)
-        self.assertEqual(Decimal("1.0056"), ask_order.price)
+        self.assertEqual(Decimal("0.99389"), bid_order.price)
+        self.assertEqual(Decimal("1.0062"), ask_order.price)
         self.assertEqual(Decimal("3.0"), bid_order.quantity)
         self.assertEqual(Decimal("3.0"), ask_order.quantity)
 
@@ -264,8 +264,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.clock.backtest_til(self.start_timestamp + 5)
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_asks[0][1]
-        self.assertEqual(Decimal("0.99452"), bid_order.price)
-        self.assertEqual(Decimal("1.0056"), ask_order.price)
+        self.assertEqual(Decimal("0.99389"), bid_order.price)
+        self.assertEqual(Decimal("1.0062"), ask_order.price)
         self.assertEqual(Decimal("3.0"), bid_order.quantity)
         self.assertEqual(Decimal("3.0"), ask_order.quantity)
 
@@ -278,15 +278,15 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
         bid_order = self.strategy.active_bids[0][1]
         ask_order = self.strategy.active_asks[0][1]
-        self.assertEqual(Decimal("0.99452"), bid_order.price)
-        self.assertEqual(Decimal("1.0056"), ask_order.price)
+        self.assertEqual(Decimal("0.99389"), bid_order.price)
+        self.assertEqual(Decimal("1.0062"), ask_order.price)
 
     def test_order_fills_after_cancellation(self):
         self.clock.backtest_til(self.start_timestamp + 5)
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_asks[0][1]
-        self.assertEqual(Decimal("0.99452"), bid_order.price)
-        self.assertEqual(Decimal("1.0056"), ask_order.price)
+        self.assertEqual(Decimal("0.99389"), bid_order.price)
+        self.assertEqual(Decimal("1.0062"), ask_order.price)
         self.assertEqual(Decimal("3.0"), bid_order.quantity)
         self.assertEqual(Decimal("3.0"), ask_order.quantity)
 
@@ -352,10 +352,10 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.strategy.active_asks))
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_asks[0][1]
-        self.assertAlmostEqual(Decimal("1.041688379"), bid_order.price)
-        self.assertAlmostEqual(Decimal("1.063689473"), ask_order.price)
-        self.assertAlmostEqual(Decimal("2.928571428"), bid_order.quantity)
-        self.assertAlmostEqual(Decimal("2.928571428"), ask_order.quantity)
+        self.assertAlmostEqual(Decimal("1.0410"), round(bid_order.price, 4))
+        self.assertAlmostEqual(Decimal("1.0644"), round(ask_order.price, 4))
+        self.assertAlmostEqual(Decimal("2.9286"), round(bid_order.quantity,4))
+        self.assertAlmostEqual(Decimal("2.9286"), round(ask_order.quantity,4))
 
     def test_price_and_size_limit_calculation(self):
         self.taker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.001, 20)
@@ -381,10 +381,3 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         )
         self.assertEqual((Decimal("0.99452"), Decimal("3")), (bid_price, bid_size_limit))
         self.assertEqual((Decimal("1.0056"), Decimal("3")), (ask_price, ask_size_limit))
-
-    # If the taker orderbook does not have enough volume for the order size on maker, do not place order
-    def test_thin_taker_order_book(self):
-        self.taker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.001, 3)
-        self.clock.backtest_til(self.start_timestamp + 5)
-        self.assertEqual(0, len(self.strategy.active_bids))
-        self.assertEqual(0, len(self.strategy.active_asks))
