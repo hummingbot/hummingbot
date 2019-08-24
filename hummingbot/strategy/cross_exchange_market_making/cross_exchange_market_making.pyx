@@ -654,8 +654,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             maker_balance_in_quote = maker_market.c_get_available_balance(market_pair.maker.quote_asset)
 
-            # maker_balance = maker_balance_in_quote * market_pair.maker.
-
             taker_balance = (taker_market.c_get_available_balance(market_pair.taker.base_asset) *
                                         self._order_size_taker_balance_factor)
             try:
@@ -680,7 +678,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
 
             # You are selling on the taker market
-
 
             # If quote assets are not same, convert them from taker's quote asset to maker's quote asset
             if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
@@ -810,14 +807,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             bint is_buy = active_order.is_buy
             str limit_order_type_str = "bid" if is_buy else "ask"
             double order_price = float(active_order.price)
-            double order_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.taker.quote_asset, float(active_order.price))
-            double current_hedging_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
-                market_pair.taker.quote_asset, current_hedging_price)
 
-        if ((is_buy and (current_hedging_price_adjusted) <
-             order_price_adjusted * (1 + self._min_profitability)) or
-                (not is_buy and order_price_adjusted < current_hedging_price_adjusted * (
+        if ((is_buy and current_hedging_price <
+             order_price * (1 + self._min_profitability)) or
+                (not is_buy and order_price < current_hedging_price * (
                         1 + self._min_profitability))):
 
             if self._logging_options & self.OPTION_LOG_REMOVING_ORDER:
