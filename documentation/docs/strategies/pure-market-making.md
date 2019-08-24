@@ -19,8 +19,18 @@ The diagram below illustrates how market making works.  Hummingbot makes a marke
 
 ## Prerequisites: Inventory
 
-1. You will need to hold inventory of quote and base currencies on the exchange.
+1. You will need to hold sufficient inventory of quote and/or base currencies on the exchange to place orders of the exchange's minimum order size.
 2. You will also need some Ethereum to pay gas for transactions on a DEX (if applicable).
+
+### Placing Orders: Minimum Order Size
+
+When placing orders, if the size of the order determined by the order price and quantity is below the exchange's minimum order size, then the orders will not be created.
+
+> For example, if the `bid order amount * bid price` **<** `exchange's minimum order size` while `ask order amount * ask price` **>** `exchange's minimum order size`, a sell order would be created but no bid order would be created.
+
+When using the [multiple order mode](#multiple-order-configuration), this may result in some (or none) of the orders being placed on one side.
+
+> For example, if the `bid order amount 1 * bid price 1` **<** `exchange's minimum order size` while `bid order amount 2 * bid price 2` **>** `exchange's minimum order size`, then only the 2nd bid order would be created.
 
 ## Configuration Walkthrough
 
@@ -58,7 +68,7 @@ Multiple orders allow you to create multiple orders for each bid and ask side, e
 | `How many orders do you want to place on both sides, (default is 1) ? >>>`: | This sets `number_of_orders` (see [definition](#configuration-parameters)) |
 | `What is the size of the first bid and ask order, (default is 1) >>>`: | This sets `order_start_size` (see [definition](#configuration-parameters)) |
 | `How much do you want to increase the order size for each additional order (default is 0) ? >>>` | This sets `order_step_size` (see [definition](#configuration-parameters)) |
-| `Enter the price increments (as percentage) for subsequent orders (Enter 0.01 to indicate 1%)? >>>` | This sets `order_interval_percent` (see [definition](#configuration-parameters)) |
+| `Enter the price increments (as percentage) for subsequent orders (Enter 0.01 to indicate 1%)? >>>` | This sets `order_interval_percent` (see [definition](#configuration-parameters)) <br/><table><tbody><tr><td bgcolor="#e5f8f6">**Warning**: If you set this to a very low number, multiple orders may be placed on the same price level. For example for an asset like SNM/BTC, if you set an order interval percent of 0.004 (~0.4%) because of low asset value the price of the next order will be rounded to the nearest price supported by the exchange, which in this case might lead to multiple orders being placed at the same price level.</td></tr></tbody></table> |
 
 ### Inventory-Based Dynamic Order Sizing
 
