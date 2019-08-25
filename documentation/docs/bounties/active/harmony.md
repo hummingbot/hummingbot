@@ -16,7 +16,7 @@ Each period begins at 12am UTC on the 1st of the month and ends at 12am UTC time
 
 ## Rewards¹
 
-Users can earn the following achievements during each competition period. Achievements in each period stack, allowing users to earn multiple tiers. 
+Users can earn the following achievements during each competition period. Achievements in each period stack, allowing users to earn multiple tiers.
 
 The leaderboard and the rewards schedule reset at the end of every period.
 
@@ -50,7 +50,7 @@ Achievement | Requirements | Max Spots | Rewards
 
 We send out a bi-weekly update with statistics and performance updates.
 
-To get these updates, enter your email address on [this page](https://www.hummingbot.io/liquidity-bounties/harmony/). 
+To get these updates, enter your email address on [this page](https://www.hummingbot.io/liquidity-bounties/harmony/).
 
 ## Evaluation
 
@@ -63,7 +63,7 @@ Payouts occur approximately one week after the end of each period. All rewards w
 
 - [The Vision and Mission](https://medium.com/harmony-one/one-maker-initiative-stronger-one-by-every-one-429ab7bfcacd)
 - [Quick Start Video Guide](https://www.youtube.com/watch?v=wySYAPbHRwQ&list=PLDwlNkL_4MMczSzZiomX5wFFuF40z-KLl&index=5&t=19s)
-- [Register for Bounties](/quickstart/2-configure-bot/#step-2-register-for-liquidity-bounties-optional)
+- [Register for Bounties](/quickstart/3-configure-bot/#step-2-register-for-liquidity-bounties-optional)
 - [Bounties FAQs](/bounties/faq/)
 
 ---
