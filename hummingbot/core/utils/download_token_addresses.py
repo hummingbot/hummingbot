@@ -45,6 +45,9 @@ async def download_dolomite_token_addresses(token_dict: Dict[str, str]):
                         symbol = token["ticker"]
                         if symbol not in token_dict:
                             token_dict[symbol] = Web3.toChecksumAddress(token["identifier"])
+                        elif symbol == "LRC":
+                            # Other integrations use the wrong address for LRC
+                            token_dict[symbol] = Web3.toChecksumAddress(token["identifier"])
                             
                 except Exception as err:
                     logging.getLogger().error(err)                              
