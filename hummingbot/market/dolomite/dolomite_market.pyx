@@ -206,9 +206,6 @@ cdef class DolomiteMarket(MarketBase):
             exchange_info = self._exchange_info
             order_book = self.c_get_order_book(symbol)
 
-            print(f"a1: {amount}")
-            print(f"p1: {price}")
-
             # Check order type support
             if order_type == OrderType.LIMIT and trading_rule.supports_limit_orders == False:
                 raise ValueError("LIMIT orders are not supported")
@@ -227,9 +224,6 @@ cdef class DolomiteMarket(MarketBase):
                 price = self.c_quantize_order_price(symbol, Decimal(price))
                 primary_amount = self.c_quantize_order_amount(symbol, Decimal(amount), price)
 
-            print(f"a2: {primary_amount}")
-            print(f"p2: {price}")
-
             (__, 
                 secondary_amount, 
                 fee_amount, 
@@ -239,11 +233,6 @@ cdef class DolomiteMarket(MarketBase):
 
             if price is None:
                 price = self.c_quantize_order_price(symbol, secondary_amount / primary_amount)
-
-            print(f"a3: {primary_amount}")
-            print(f"p3: {price}")
-            print(f"s:  {secondary_amount}")
-            print(f"rp: {secondary_amount / primary_amount}")
 
             # Check order size limitations
             minimum_order_size = trading_rule.min_order_size
