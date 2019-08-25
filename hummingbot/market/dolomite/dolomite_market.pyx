@@ -12,7 +12,7 @@ from typing import(
     Optional
 )
 import math
-from decimal import Decimal
+from decimal import *
 from libc.stdint cimport int64_t
 from web3 import Web3
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -52,6 +52,14 @@ from hummingbot.market.dolomite.dolomite_util import (
 )
 
 s_decimal_0 = Decimal(0)
+
+def num_d(amount):
+    return abs(Decimal(amount).normalize().as_tuple().exponent)
+
+def round_d(amount, n):
+    if n < 1: return Decimal(int(amount))
+    quantum = Decimal('0.' + ('0' * (n - 1)) + '1')
+    return Decimal(str(amount)).quantize(quantum, rounding=ROUND_HALF_DOWN).normalize()
 
 def now():
     return int(time.time()) * 1000
@@ -198,6 +206,9 @@ cdef class DolomiteMarket(MarketBase):
             exchange_info = self._exchange_info
             order_book = self.c_get_order_book(symbol)
 
+            print(f"a1: {amount}")
+            print(f"p1: {price}")
+
             # Check order type support
             if order_type == OrderType.LIMIT and trading_rule.supports_limit_orders == False:
                 raise ValueError("LIMIT orders are not supported")
@@ -209,12 +220,15 @@ cdef class DolomiteMarket(MarketBase):
             secondary_token = trading_rule.secondary_token
             fee_token = trading_rule.fee_token
 
-            primary_amount = self.c_quantize_order_amount(symbol, Decimal(amount))
-            
             if price is None or math.isnan(price) or price == 0.0:
                 price = None
+                primary_amount = self.c_quantize_order_amount(symbol, Decimal(amount))
             else:
                 price = self.c_quantize_order_price(symbol, Decimal(price))
+                primary_amount = self.c_quantize_order_amount(symbol, Decimal(amount), price)
+
+            print(f"a2: {primary_amount}")
+            print(f"p2: {price}")
 
             (__, 
                 secondary_amount, 
@@ -225,6 +239,11 @@ cdef class DolomiteMarket(MarketBase):
 
             if price is None:
                 price = self.c_quantize_order_price(symbol, secondary_amount / primary_amount)
+
+            print(f"a3: {primary_amount}")
+            print(f"p3: {price}")
+            print(f"s:  {secondary_amount}")
+            print(f"rp: {secondary_amount / primary_amount}")
 
             # Check order size limitations
             minimum_order_size = trading_rule.min_order_size
@@ -683,19 +702,19 @@ cdef class DolomiteMarket(MarketBase):
     # Miscellaneous
     # ----------------------------------------------------------
 
-    cdef object c_get_order_price_quantum(self, str symbol, double price):
-        cdef DolomiteTradingRule trading_rule = self._trading_rules[symbol]
-        return trading_rule.min_price_increment
-
-
-    cdef object c_get_order_size_quantum(self, str symbol, double order_size):
-        cdef DolomiteTradingRule trading_rule = self._trading_rules[symbol]
-        return trading_rule.min_base_amount_increment
+    cdef object c_quantize_order_price(self, str symbol, double price):
+        cdef num_decimals = min(8, num_d(price))
+        return round_d(price, num_decimals)
 
 
     cdef object c_quantize_order_amount(self, str symbol, double amount, double price = 0.0):
-        order_size_quantum = self.c_get_order_size_quantum(symbol, amount)
-        return (Decimal(amount) // order_size_quantum) * order_size_quantum
+        if price > 0:
+            num_decimals_price = min(8, num_d(price))
+            num_decimals = 8 - num_decimals_price
+            return round_d(amount, num_decimals)
+        else:
+            num_decimals = min(8, num_d(amount))
+            return round_d(amount, num_decimals)
 
 
     cdef c_tick(self, double timestamp):
@@ -737,8 +756,8 @@ cdef class DolomiteMarket(MarketBase):
         async with self._shared_client.request(http_method, url=f"{API_REST_ENDPOINT}{url}", timeout=API_CALL_TIMEOUT, 
                                                data=data, params=params, headers=headers) as response:
             if response.status != 200:
-                self.logger().debug("Issue with Dolomite API, response: ")
-                self.logger().debug(await response.json())
+                self.logger().info("Issue with Dolomite API, response: ")
+                self.logger().info(await response.json())
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
             data = await response.json()
             return data
