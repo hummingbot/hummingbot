@@ -26,6 +26,30 @@ Open a Terminal window and go to the root of the directory that contains Humming
 bin/hummingbot.py
 ```
 
+### Trading Strategy Autostart
+
+Hummingbot can be configured to automatically start the execution of a stratey on launch.  Any parameters that are required when running `config` + `start` can be passed into the Hummingbot launch command.
+
+**Launch command**
+
+```bash tab="Docker command"
+docker run -it \
+-e STRATEGY=${STRATEGY} \
+-e CONFIG_FILE_PATH="/hummingbot_files/hummingbot_conf/${CONFIG_FILENAME}" \
+--name hummingbot-instance \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/logs/" \
+coinalpha/hummingbot:latest
+```
+
+```bash tab="Installed from source"
+bin/hummingbot_quickstart.py \
+--strategy ${STRATEGY} \
+--config-file-path "conf/${CONFIG_FILENAME}" \
+--wallet ${WALLET} \
+--wallet_password ${WALLET_PASSWORD}
+```
+
 ## User Interface
 
 ### Client Layout
