@@ -11,6 +11,12 @@ Because IDEX is a decentralized exchange, you will need an independent cryptocur
 * [Creating a crypto wallet](/installation/wallet)
 * [Creating an ethereum node](/installation/node/node)
 
+## API Key
+
+IDEX requires an API key authentcation to access API endpoints required for Hummingbot use.
+
+* [Generate IDEX API key](https://docs.idex.market/#tag/API-Keys)
+
 ## Miscellaneous Info
 
 ### Minimum Order Sizes
