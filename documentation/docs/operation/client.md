@@ -28,7 +28,7 @@ bin/hummingbot.py
 
 ### Trading Strategy Autostart
 
-Hummingbot can be configured to automatically start the execution of a stratey on launch.  Any parameters that are required when running `config` + `start` can be passed into the Hummingbot launch command.
+Hummingbot can automatically start the execution of a previously configured trading strategy upon launch without requiring the Hummingbot interface `config` and `start` commands.  Any parameters that are required for `config` can be passed into the Hummingbot launch command.
 
 **Launch command**
 
