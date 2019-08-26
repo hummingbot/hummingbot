@@ -26,10 +26,8 @@ class HuobiAuth:
     def add_auth_to_params(self,
                            method: str,
                            path_url: str,
-                           args: Dict[str, Any]=None,
-                           timestamp: Optional[str]=None) -> Dict[str, Any]:
-        # if timestamp is None:
-        timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+                           args: Dict[str, Any]=None) -> Dict[str, Any]:
+        timestamp: str = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
         request = {
             "AccessKeyId": self.api_key,
             "SignatureMethod": "HmacSHA256",
