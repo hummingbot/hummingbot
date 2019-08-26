@@ -77,10 +77,13 @@ class ListCommand:
                         .filter(TradeFill.timestamp >= start_timestamp)
                         .order_by(TradeFill.timestamp.desc()))
         if number_of_rows is None:
-            result: Optional[TradeFill] = query.all()
+            result: List[TradeFill] = query.all() or []
         else:
-            result: Optional[TradeFill] = query.limit(number_of_rows).all()
-        return result or []
+            result: List[TradeFill] = query.limit(number_of_rows).all() or []
+
+        # Get the latest 100 trades in ascending timestamp order
+        result.reverse()
+        return result
 
     def list_trades(self,  # type: HummingbotApplication
                     ):
