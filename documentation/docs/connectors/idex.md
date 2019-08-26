@@ -13,7 +13,7 @@ Because IDEX is a decentralized exchange, you will need an independent cryptocur
 
 ## API Key
 
-IDEX requires an API key authentcation to access API endpoints required for Hummingbot use.
+IDEX requires an API key authentication to access API endpoints required for Hummingbot use.
 
 * [Generate IDEX API key](https://docs.idex.market/#tag/API-Keys)
 
