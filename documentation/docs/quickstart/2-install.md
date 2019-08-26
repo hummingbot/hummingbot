@@ -13,7 +13,7 @@ Follow the guide [Set up a cloud server](/installation/cloud) to set up a cloud 
 !!! tip
     Don't know which cloud platform to use? Read our [blog post](https://www.hummingbot.io/blog/2019-06-cloud-providers/) that compares and contrasts the different providers.
 
-If you just want to test out Hummingbot, you can skip to [Step 2](step-2-install-docker) and install locally.
+If you just want to test out Hummingbot, you can skip to [Step 2](#step-2-install-docker) and install locally.
 
 ## Step 2: Install Docker
 
@@ -107,7 +107,7 @@ chmod a+x *.sh
 ./create.sh
 ```
 
-Afterwards, you should see the Hummingbot client interface. Proceed to [Configure a Bot](/quickstart/2-configure-bot).
+Afterwards, you should see the Hummingbot client interface. Proceed to [Configure a Bot](/quickstart/3-configure-bot).
 
 ### MacOS
 
@@ -125,7 +125,7 @@ chmod a+x *.sh
 ./create.sh
 ```
 
-Afterwards, you should see the Hummingbot client interface. Proceed to [Configure a Bot](/quickstart/2-configure-bot).
+Afterwards, you should see the Hummingbot client interface. Proceed to [Configure a Bot](/quickstart/3-configure-bot).
 
 
 ### Windows

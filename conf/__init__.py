@@ -46,6 +46,10 @@ coinbase_pro_passphrase = os.getenv("COINBASE_PRO_PASSPHRASE")
 # IDEX Tests
 idex_api_key = os.getenv("IDEX_API_KEY")
 
+# Huobi Tests
+huobi_api_key = os.getenv("HUOBI_API_KEY")
+huobi_secret_key = os.getenv("HUOBI_SECRET_KEY")
+
 test_web3_provider_list = [os.getenv("WEB3_PROVIDER")]
 
 # Wallet Tests
@@ -80,5 +84,10 @@ except ModuleNotFoundError:
 
 try:
     from .coinbase_pro_secrets import *
+except ModuleNotFoundError:
+    pass
+
+try:
+    from .huobi_secret import *
 except ModuleNotFoundError:
     pass
