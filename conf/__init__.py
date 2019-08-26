@@ -59,26 +59,26 @@ coinalpha_order_book_api_password = "***REMOVED***"
 
 kafka_2 = {
     "bootstrap_servers": "***REMOVED***",
-    "zookeeper_servers":  "***REMOVED***"
+    "zookeeper_servers": "***REMOVED***"
 }
 
 
 try:
-    from .config_local import *
+    from .config_local import *             # noqa: F401, F403
 except ModuleNotFoundError:
     pass
 
 try:
-    from .web3_wallet_secret import *
+    from .web3_wallet_secret import *       # noqa: F401, F403
 except ModuleNotFoundError:
     pass
 
 try:
-    from .binance_secret import *
+    from .binance_secret import *           # noqa: F401, F403
 except ModuleNotFoundError:
     pass
 
 try:
-    from .coinbase_pro_secrets import *
+    from .coinbase_pro_secrets import *     # noqa: F401, F403
 except ModuleNotFoundError:
     pass
