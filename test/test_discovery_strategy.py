@@ -132,4 +132,4 @@ class DiscoveryUnitTest(unittest.TestCase):
                          (('ETHUSDC', 'ETH', 'USDC'), ('WETH-PAX', 'WETH', 'PAX'))}
 
         run(self.strategy.fetch_market_info(self.market_pair))
-        self.assertTrue(self.strategy.get_matching_pair(self.market_pair) == expected_pair)
+        self.assertTrue(self.strategy.get_matching_pairs(self.market_pair) == expected_pair)
