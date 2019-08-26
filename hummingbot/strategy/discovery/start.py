@@ -1,17 +1,12 @@
-from typing import (
-    List,
-    Tuple,
-)
+from typing import List, Tuple
 
+import hummingbot
 from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
 from hummingbot.strategy.discovery.discovery_config_map import discovery_config_map
-from hummingbot.strategy.discovery.discovery import (
-    DiscoveryMarketPair,
-    DiscoveryStrategy,
-)
+from hummingbot.strategy.discovery.discovery import DiscoveryMarketPair, DiscoveryStrategy
 
 
-def start(self: "HummingbotApplication"):
+def start(self: "hummingbot.client.hummingbot_application.HummingbotApplication"):
     try:
         market_1 = discovery_config_map.get("primary_market").value.lower()
         market_2 = discovery_config_map.get("secondary_market").value.lower()
@@ -26,8 +21,7 @@ def start(self: "HummingbotApplication"):
         if not target_symbol_1:
             target_symbol_1 = SymbolFetcher.get_instance().symbols.get(market_1, [])
 
-        market_names: List[Tuple[str, List[str]]] = [(market_1, target_symbol_1),
-                                                     (market_2, target_symbol_2)]
+        market_names: List[Tuple[str, List[str]]] = [(market_1, target_symbol_1), (market_2, target_symbol_2)]
         target_base_quote_1: List[Tuple[str, str]] = self._initialize_market_assets(market_1, target_symbol_1)
         target_base_quote_2: List[Tuple[str, str]] = self._initialize_market_assets(market_2, target_symbol_2)
 
@@ -36,13 +30,18 @@ def start(self: "HummingbotApplication"):
         self._initialize_markets(market_names)
 
         self.market_pair = DiscoveryMarketPair(
-            *([self.markets[market_1], self.markets[market_1].get_active_exchange_markets] +
-              [self.markets[market_2], self.markets[market_2].get_active_exchange_markets]))
-        self.strategy = DiscoveryStrategy(market_pairs=[self.market_pair],
-                                          target_symbols=target_base_quote_1 + target_base_quote_2,
-                                          equivalent_token=equivalent_token,
-                                          target_profitability=target_profitability,
-                                          target_amount=target_amount)
+            *(
+                [self.markets[market_1], self.markets[market_1].get_active_exchange_markets]
+                + [self.markets[market_2], self.markets[market_2].get_active_exchange_markets]
+            )
+        )
+        self.strategy = DiscoveryStrategy(
+            market_pairs=[self.market_pair],
+            target_symbols=target_base_quote_1 + target_base_quote_2,
+            equivalent_token=equivalent_token,
+            target_profitability=target_profitability,
+            target_amount=target_amount,
+        )
     except Exception as e:
         self._notify(str(e))
         self.logger().error("Error initializing strategy.", exc_info=True)
