@@ -941,9 +941,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     # attribution of trades to XEMM market pairs.
     # ----------------------------------------------------------------------------------------------------------
     cdef str c_buy_with_specific_market(self, object market_pair, object amount,
-                                    object order_type = OrderType.MARKET,
-                                    object price = s_decimal_nan,
-                                    double expiration_seconds = NaN):
+                                        object order_type=OrderType.MARKET,
+                                        object price=s_decimal_nan,
+                                        double expiration_seconds=NaN):
         if not isinstance(market_pair, CrossExchangeMarketPair):
             raise TypeError("market_pair must be a CrossExchangeMarketPair.")
 
@@ -957,9 +957,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         return order_id
 
     cdef str c_sell_with_specific_market(self, object market_pair, object amount,
-                                         object order_type = OrderType.MARKET,
-                                         object price = s_decimal_nan,
-                                         double expiration_seconds = NaN):
+                                         object order_type=OrderType.MARKET,
+                                         object price=s_decimal_nan,
+                                         double expiration_seconds=NaN):
         if not isinstance(market_pair, CrossExchangeMarketPair):
             raise TypeError("market_pair must be a CrossExchangeMarketPair.")
 
