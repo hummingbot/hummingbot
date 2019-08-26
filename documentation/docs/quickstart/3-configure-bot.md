@@ -31,7 +31,7 @@ etc...
 
 Liquidity Bounties allow you to earn rewards by running market making bots for specific tokens and/or exchanges.
 
-Hummingbot enters into partnerships with token issuers and exchanges to administer bounty programs that reward Hummingobt users based on their volume of filled market maker orders. For more information, please see [Bounties FAQ](/bounties/faq).
+Hummingbot enters into partnerships with token issuers and exchanges to administer bounty programs that reward Hummingbot users based on their volume of filled market maker orders. For more information, please see [Bounties FAQ](/bounties/faq).
 
 **Enter `bounty --register` to start the registration process:**
 
@@ -141,7 +141,7 @@ Which Ethereum node would you like your client to connect to? >>>
 [ENTER ADDRESS OF YOUR ETHEREUM NODE]
 ```
 
-See [Ethereum wallet](/installation/wallet) and [Ethereum node](/installation/node) for more information.
+See [Ethereum wallet](/installation/wallet) and [Ethereum node](/installation/node/node) for more information.
 
 #### e) Enter kill switch parameters
 
