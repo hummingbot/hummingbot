@@ -675,7 +675,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 )
         return total_flat_fees
 
-    cdef double c_calculate_bid_profitability(self, object market_pair, double bid_order_size = 0.0):
+    cdef double c_calculate_bid_profitability(self, object market_pair, double bid_order_size=0.0):
         """
         Assuming that I create a limit bid order at the top of the order book on the maker side, how profitable is the
         order if it's filled and hedged on the taker side right now?
@@ -736,7 +736,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
         return bid_profitability
 
-    cdef double c_calculate_ask_profitability(self, object market_pair, double ask_order_size = 0.0):
+    cdef double c_calculate_ask_profitability(self, object market_pair, double ask_order_size=0.0):
         """
         Assuming that I create a limit ask order at the top of the order book on the maker side, how profitable is the
         order if it's filled and hedged on the taker side right now?
@@ -854,7 +854,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef tuple c_get_market_making_price_and_size_limit(self,
                                                         object market_pair,
                                                         bint is_bid,
-                                                        double own_order_depth = 0):
+                                                        double own_order_depth=0):
         """
         Get the ideal market making order size and maximum order size given a market pair and a side.
 
@@ -1372,9 +1372,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     # attribution of trades to XEMM market pairs.
     # ----------------------------------------------------------------------------------------------------------
     cdef str c_buy_with_specific_market(self, object market_pair, object amount,
-                                    object order_type = OrderType.MARKET,
-                                    object price = s_decimal_nan,
-                                    double expiration_seconds = NaN):
+                                        object order_type=OrderType.MARKET,
+                                        object price=s_decimal_nan,
+                                        double expiration_seconds=NaN):
         if not isinstance(market_pair, CrossExchangeMarketPair):
             raise TypeError("market_pair must be a CrossExchangeMarketPair.")
 
@@ -1388,9 +1388,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         return order_id
 
     cdef str c_sell_with_specific_market(self, object market_pair, object amount,
-                                         object order_type = OrderType.MARKET,
-                                         object price = s_decimal_nan,
-                                         double expiration_seconds = NaN):
+                                         object order_type=OrderType.MARKET,
+                                         object price=s_decimal_nan,
+                                         double expiration_seconds=NaN):
         if not isinstance(market_pair, CrossExchangeMarketPair):
             raise TypeError("market_pair must be a CrossExchangeMarketPair.")
 
