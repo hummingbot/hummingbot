@@ -148,7 +148,9 @@ nav:
           - Architecture: developers/strategies/index.md
           - Pure Market Making: developers/strategies/pure-market-making.md
           - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
-        - Connectors: developers/connectors/index.md
+        - Connectors:
+          - Adding Connectors: developers/connectors/index.md
+          - Adding Connectors to Other Blockchains: developers/connectors/new-blockchain.md
         - Debug Console: developers/debug.md
     - Release Notes:
       - About Releases: release-notes/index.md
