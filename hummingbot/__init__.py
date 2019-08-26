@@ -3,6 +3,7 @@ from typing import Optional
 import logging
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from os import path
 from hummingbot.logger.struct_logger import (
     StructLogRecord,
     StructLogger
@@ -69,6 +70,8 @@ def set_data_path(path: str):
 
 def check_dev_mode():
     try:
+        if not path.isdir(".git"):
+            return False
         current_branch = subprocess.check_output(["git", "symbolic-ref", "--short", "HEAD"]).decode("utf8").rstrip()
         if current_branch != "master":
             return True
