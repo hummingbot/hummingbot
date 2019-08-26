@@ -1,7 +1,9 @@
-# Developing an Exchange Connector
+# Adding Exchange Connectors
 
 !!! warning
-    This document is inocmplete and a work in progress.
+    This document is incomplete and a work in progress.
+
+## What are connectors?
 
 Exchange connectors are modules that allow Hummingbot to connect to an exchange.  Each exchange connector is comprised of the following components:
 
@@ -13,15 +15,19 @@ Component | Function
 **(4) Active order tracking** | State management: tracking orders placed by the bot on the exchange.
 **(5) User stream tracker** | Tracking data specific to the user of the bot.
 
+## Examples / templates
+
 There are [existing connectors](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market) (each folder contained here is a different exchange connector) that can serve as a template for creating a new exchange connector.
 
 Building a new exchange connector requires conforming to the teamplate code to the new exchange's APIs, identifying and handling any differences in functions/behaviors, and testing the new exchange connector on that exchange.
 
-### Examples / templates
-- Centralized exchange: [Binance](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/binance)
-- DEX (Ethereum): [Radar Relay](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/radar_relay), [IDEX](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/idex)
+- Centralized exchange: [Binance](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/binance), [Coinbase Pro](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/coinbase_pro)
+- Ethereum DEX (0x open order book): [Radar Relay](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/radar_relay)
+- Ethereum DEX (0x open order book w/coordinator support): [Bamboo Relay](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/bamboo_relay)
+- Ethereum DEX (matcher model): [DDEX](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/ddex)
+- Ethereum DEX (deposit/redeem model): [IDEX](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/idex)
 
-## Exchange connector files
+## How connectors are organized
 
 Each exchange connector consists of the following files:
 

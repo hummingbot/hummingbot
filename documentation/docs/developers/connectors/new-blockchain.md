@@ -1,13 +1,15 @@
-# Developing a Connector for a New Blockchain
+# # Adding Connectors to Exchanges on Other Blockchains
 
 !!! warning
-    This document is inocmplete and a work in progress.
+    This document is incomplete and a work in progress.
 
 Hummingbot currently has connectors to Ethereum-based exchanges and has built in [Ethereum wallet support](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/wallet/ethereum).
 
-Developing a connector for a blockchain other than Ethereum would require the creation of similar, blockchain-specific functionality:
+We plan to support multiple blockchains in the near future. To support blockchains other than Ethereum, connectors for new blockchains other than Ethereum would require integrations that enables the following blockchain-specific functionalities:
 
-- blockchain wallet
-- token addresses
-- event watchers: balances, contract events, token events
-- exchange interactions
+- interactions with blockchain wallets: import, creation, encryption
+- interactions with blockchain nodes
+- interactions with event watchers: balances, token address mappings, contract events, token events,
+- interaction with blockchain-based exchanges
+
+For more information, please contact our engineering team at dev@coinalpha.com.
