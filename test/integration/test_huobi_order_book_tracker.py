@@ -43,7 +43,7 @@ class HuobiOrderBookTrackerUnitTest(unittest.TestCase):
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
         btcusdt_book: OrderBook = order_books["btcusdt"]
         xrpusdt_book: OrderBook = order_books["xrpusdt"]
-        print(btcusdt_book.snapshot)
+        # print(btcusdt_book.snapshot)
         # print(xrpusdt_book.snapshot)
         self.assertGreaterEqual(btcusdt_book.get_price_for_volume(True, 10).result_price,
                                 btcusdt_book.get_price(True))

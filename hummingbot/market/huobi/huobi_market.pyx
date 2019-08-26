@@ -27,7 +27,6 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
-from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 from hummingbot.core.event.events import (
     MarketEvent,
     MarketWithdrawAssetEvent,
@@ -50,7 +49,6 @@ from hummingbot.market.huobi.huobi_api_order_book_data_source import HuobiAPIOrd
 from hummingbot.market.huobi.huobi_auth import HuobiAuth
 from hummingbot.market.huobi.huobi_in_flight_order import HuobiInFlightOrder
 from hummingbot.market.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
-# from hummingbot.market.huobi.huobi_user_stream_tracker import HuobiUserStreamTracker
 from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.market.market_base import (
     MarketBase,
@@ -88,6 +86,7 @@ cdef class HuobiMarket(MarketBase):
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
     API_CALL_TIMEOUT = 10.0
+    UPDATE_ORDERS_INTERVAL = 10.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -102,8 +101,6 @@ cdef class HuobiMarket(MarketBase):
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                     OrderBookTrackerDataSourceType.EXCHANGE_API,
-                 user_stream_tracker_data_source_type: UserStreamTrackerDataSourceType =
-                    UserStreamTrackerDataSourceType.EXCHANGE_API,
                  symbols: Optional[List[str]] = None,
                  trading_required: bool = True):
 
@@ -131,12 +128,6 @@ cdef class HuobiMarket(MarketBase):
         self._trading_rules = {}
         self._trading_rules_polling_task = None
         self._tx_tracker = HuobiMarketTransactionTracker(self)
-        # self._user_stream_tracker = HuobiUserStreamTracker(
-        #     huobi_auth=self._huobi_auth,
-        #     data_source_type=user_stream_tracker_data_source_type
-        # )
-        self._user_stream_event_listener_task = None
-        self._user_stream_tracker_task = None
 
     @staticmethod
     def split_symbol(symbol: str) -> Tuple[str, str]:
@@ -201,8 +192,6 @@ cdef class HuobiMarket(MarketBase):
             await self._update_account_id()
             self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
             self._trading_rules_polling_task = asyncio.ensure_future(self._trading_rules_polling_loop())
-            self._user_stream_tracker_task = asyncio.ensure_future(self._user_stream_tracker.start())
-            self._user_stream_event_listener_task = asyncio.ensure_future(self._user_stream_event_listener())
 
     def _stop_network(self):
         if self._order_tracker_task is not None:
@@ -211,12 +200,6 @@ cdef class HuobiMarket(MarketBase):
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
-        if self._user_stream_tracker_task is not None:
-            self._user_stream_tracker_task.cancel()
-            self._user_stream_tracker_task = None
-        if self._user_stream_event_listener_task is not None:
-            self._user_stream_event_listener_task.cancel()
-            self._user_stream_event_listener_task = None
         if self._trading_rules_polling_task is not None:
             self._trading_rules_polling_task.cancel()
             self._trading_rules_polling_task = None
@@ -226,7 +209,7 @@ cdef class HuobiMarket(MarketBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            await self.query_url(method="get", path_url="common/timestamp")
+            await self._api_request(method="get", path_url="common/timestamp")
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -249,7 +232,7 @@ cdef class HuobiMarket(MarketBase):
             self._shared_client = aiohttp.ClientSession()
         return self._shared_client
 
-    async def query_url(self,
+    async def _api_request(self,
                         method,
                         path_url,
                         params: Optional[Dict[str, Any]] = None,
@@ -280,7 +263,7 @@ cdef class HuobiMarket(MarketBase):
             return parsed_response["data"]
 
     async def _update_account_id(self) -> str:
-        accounts = await self.query_url("get", path_url="account/accounts", is_auth_required=True)
+        accounts = await self._api_request("get", path_url="account/accounts", is_auth_required=True)
         try:
             for account in accounts:
                 if account["state"] == "working" and account["type"] == "spot":
@@ -291,7 +274,7 @@ cdef class HuobiMarket(MarketBase):
     async def _update_balances(self):
         cdef:
             str path_url = f"account/accounts/{self._account_id}/balance"
-            dict data = await self.query_url("get", path_url=path_url, is_auth_required=True)
+            dict data = await self._api_request("get", path_url=path_url, is_auth_required=True)
             list balances = data.get("list", [])
             dict new_available_balances = {}
             dict new_balances = {}
@@ -334,7 +317,7 @@ cdef class HuobiMarket(MarketBase):
             int64_t last_tick = <int64_t>(self._last_timestamp / 60.0)
             int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) < 1:
-            exchange_info = await self.query_url("get", path_url="common/symbols")
+            exchange_info = await self._api_request("get", path_url="common/symbols")
             trading_rules_list = self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
@@ -366,7 +349,7 @@ cdef class HuobiMarket(MarketBase):
                 "account-id": int(self._account_id),
                 "symbol": symbol
             }
-            open_orders = await self.query_url("get", path_url, params, is_auth_required=True)
+            open_orders = await self._api_request("get", path_url, params, is_auth_required=True)
             for item in open_orders:
                 result.append(item)
         return result
@@ -395,13 +378,13 @@ cdef class HuobiMarket(MarketBase):
         }
         """
         path_url = f"order/orders/{exchange_order_id}"
-        return await self.query_url("get", path_url=path_url, is_auth_required=True)
+        return await self._api_request("get", path_url=path_url, is_auth_required=True)
 
     async def _update_order_status(self):
         cdef:
             # The poll interval for order status is 10 seconds.
-            int64_t last_tick = <int64_t>(self._last_pull_timestamp / 10.0)
-            int64_t current_tick = <int64_t>(self._current_timestamp / 10.0)
+            int64_t last_tick = <int64_t>(self._last_pull_timestamp / self.UPDATE_ORDERS_INTERVAL)
+            int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDERS_INTERVAL)
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
@@ -561,7 +544,7 @@ cdef class HuobiMarket(MarketBase):
         }
         if order_type is OrderType.LIMIT:
             params["price"] = str(price)
-        exchange_order_id = await self.query_url(
+        exchange_order_id = await self._api_request(
             "post",
             path_url=path_url,
             params=params,
@@ -726,7 +709,7 @@ cdef class HuobiMarket(MarketBase):
             raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
         path_url = f"order/orders/{tracked_order.exchange_order_id}/submitcancel"
         try:
-            await self.query_url("post", path_url=path_url, is_auth_required=True)
+            await self._api_request("post", path_url=path_url, is_auth_required=True)
         except Exception as e:
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(e)}",
@@ -745,12 +728,15 @@ cdef class HuobiMarket(MarketBase):
         path_url = "order/orders/batchcancel"
         params = {"order-ids": ujson.dumps(cancel_order_ids)}
         data = {"order-ids": cancel_order_ids}
-        # tasks = [self.execute_cancel(o.symbol, o.client_order_id) for o in incomplete_orders]
-        # order_id_set = set([o.client_order_id for o in incomplete_orders])
-        # successful_cancellations = []
         cancellation_results = []
         try:
-            cancel_all_results = await self.query_url("post", path_url=path_url, params=params, data=data, is_auth_required=True)
+            cancel_all_results = await self._api_request(
+                "post",
+                path_url=path_url,
+                params=params,
+                data=data,
+                is_auth_required=True
+            )
             for oid in cancel_all_results["success"]:
                 cancellation_results.append(CancellationResult(oid, True))
             for oid in cancel_all_results["failed"]:

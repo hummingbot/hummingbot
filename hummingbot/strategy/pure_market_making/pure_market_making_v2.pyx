@@ -384,10 +384,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         # Cancel orders.
         if actions & ORDER_PROPOSAL_ACTION_CANCEL_ORDERS:
             for order_id in orders_proposal.cancel_order_ids:
-                self.log_with_clock(
-                    logging.INFO,
-                    f"({market_info.trading_pair}) Cancelling the limit order {order_id}."
-                )
                 self.c_cancel_order(market_info, order_id)
 
         # Create orders.

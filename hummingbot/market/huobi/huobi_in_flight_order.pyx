@@ -34,13 +34,11 @@ cdef class HuobiInFlightOrder(InFlightOrderBase):
             amount,
             initial_state  # submitted, partial-filled, cancelling, filled, canceled, partial-canceled
         )
-        # self.trade_id_set = set()
 
     @property
     def is_done(self) -> bool:
         return self.last_state in {"filled", "canceled", "partial-canceled"}
 
-    
     @property
     def is_failure(self) -> bool:
         return self.last_state in {"canceled"}
@@ -64,10 +62,3 @@ cdef class HuobiInFlightOrder(InFlightOrderBase):
         retval.fee_paid = Decimal(data["fee_paid"])
         retval.last_state = data["last_state"]
         return retval
-
-    def update_with_trade_id(self, sequence_id: int, order_id: str):
-        if order_id != self.exchange_order_id or sequence_id in self.trade_id_set:
-            # trade already recorded
-            return
-        self.trade_id_set.add(sequence_id)
-        return sequence_id
