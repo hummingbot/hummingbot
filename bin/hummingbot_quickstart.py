@@ -1,23 +1,13 @@
 #!/usr/bin/env python
 
-import os
-if "hummingbot-dist" in __file__:
-    # Dist environment.
-    import sys
-    sys.path.append(sys.path.pop(0))
-    sys.path.insert(0, os.getcwd())
-    import hummingbot;hummingbot.set_prefix_path(os.getcwd())
-else:
-    # Dev environment.
-    from os.path import join, realpath
-    import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
-
+import path_util        # noqa: F401
 import asyncio
 import logging
 from typing import (
     Coroutine,
     List,
 )
+
 from hummingbot import (
     check_dev_mode,
     init_logging,
