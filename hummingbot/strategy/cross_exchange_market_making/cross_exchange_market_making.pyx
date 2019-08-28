@@ -704,8 +704,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             user_order = self.c_get_adjusted_limit_order_size(market_pair)
 
+            taker_size = min(maker_balance, user_order)
+
             try:
-                taker_price = taker_order_book.c_get_vwap_for_volume(True, taker_balance_in_quote).result_price
+                taker_price = taker_order_book.c_get_vwap_for_quote_volume(True,
+                                                                           taker_balance_in_quote).result_price
             except ZeroDivisionError:
                 return None, taker_balance_in_quote
 
