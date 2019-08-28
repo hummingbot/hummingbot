@@ -10,7 +10,7 @@ from hummingbot.market.market_base cimport MarketBase
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.event.events import MarketEvent, OrderType
 
-from hummingbot.market.paper_trade.symbol_pair import SymbolPair
+from hummingbot.market.paper_trade.trading_pair import SymbolPair
 
 from .market_config import (
     MarketConfig,
@@ -31,15 +31,17 @@ cdef class PaperTradeMarket(MarketBase):
     cdef:
         LimitOrders _bid_limit_orders
         LimitOrders _ask_limit_orders
-        dict _tracker_symbol_pairs
+        dict _trading_pairs
         dict _account_balance
         object _order_book_tracker
         object _config
         object _queued_orders
         dict _quantization_params
         object _order_book_trade_listener
+        object _market_order_filled_listener
         LimitOrderExpirationSet _limit_order_expiration_set
         object _order_tracker_task
+        object _target_market
 
     cdef c_execute_buy(self, str order_id, str symbol, double amount)
     cdef c_execute_sell(self, str order_id, str symbol, double amount)
@@ -52,9 +54,6 @@ cdef class PaperTradeMarket(MarketBase):
                           object order_side,
                           double amount,
                           double price)
-
-    cdef c_process_limit_order_expiration(self)
-    cdef bint c_delete_expired_limit_orders(self, LimitOrders *orders_map, str symbol, str client_order_id)
     cdef c_delete_limit_order(self,
                               LimitOrders *limit_orders_map_ptr,
                               LimitOrdersIterator *map_it_ptr,
@@ -78,3 +77,5 @@ cdef class PaperTradeMarket(MarketBase):
                                                    LimitOrdersIterator *map_it_ptr)
     cdef c_process_crossed_limit_orders(self)
     cdef c_match_trade_to_limit_orders(self, object order_book_trade_event)
+    cdef bint c_cancel_order_from_orders_map(self, LimitOrders *orders_map, str symbol, bint cancel_all = *,
+                                             str client_order_id = *)

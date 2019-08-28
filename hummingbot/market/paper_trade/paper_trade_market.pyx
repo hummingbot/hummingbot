@@ -2,7 +2,7 @@
 
 import asyncio
 from async_timeout import timeout
-from collections import deque
+from collections import deque, defaultdict
 from cpython cimport PyObject
 from cython.operator cimport (
     postincrement as inc,
@@ -36,26 +36,31 @@ from hummingbot.core.Utils cimport (
 )
 
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.composite_order_book import CompositeOrderBook
+from hummingbot.core.data_type.composite_order_book cimport CompositeOrderBook
 from hummingbot.core.data_type.limit_order cimport c_create_limit_order_from_cpp_limit_order
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.event.events import MarketEvent, OrderType, OrderExpiredEvent, TradeType, TradeFee, \
-    BuyOrderCompletedEvent, OrderFilledEvent, SellOrderCompletedEvent, MarketOrderFailureEvent, OrderBookEvent
+    BuyOrderCompletedEvent, OrderFilledEvent, SellOrderCompletedEvent, MarketOrderFailureEvent, OrderBookEvent, \
+    BuyOrderCreatedEvent, SellOrderCreatedEvent, OrderBookTradeEvent, OrderCancelledEvent
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
+from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
+from hummingbot.market.binance.binance_market import BinanceMarket
+from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
+from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.deposit_info import DepositInfo
+from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.market.market_base import MarketBase
-from hummingbot.market.paper_trade.symbol_pair import SymbolPair, TrackerSymbolPair
+from hummingbot.market.paper_trade.trading_pair import TradingPair
 
 from .market_config import (
     MarketConfig,
     AssetType
 )
-
-s_logger = None
-
 
 # NOT IMPLEMENTED IN PAPER_TRADE_MARKET:
 #
@@ -68,11 +73,18 @@ s_logger = None
 
 # Order book tracker, markets
 # quantize order
-#
-#
-#
-#
-#
+# create market order
+# create limit order
+# process market order
+#   order simulation
+#       composite order book
+# process limit order
+#   order simulation
+#       trade matching
+#   order expiration
+# cancel orders
+ptm_logger = None
+
 
 cdef class QuantizationParams:
     cdef:
@@ -104,14 +116,14 @@ cdef class QueuedOrder:
         double create_timestamp
         str _order_id
         bint _is_buy
-        str _symbol
+        str _trading_pair
         double _amount
 
-    def __init__(self, create_timestamp: float, order_id: str, is_buy: bool, symbol: str, amount: float):
+    def __init__(self, create_timestamp: float, order_id: str, is_buy: bool, trading_pair: str, amount: float):
         self.create_timestamp = create_timestamp
         self._order_id = order_id
         self._is_buy = is_buy
-        self._symbol = symbol
+        self._trading_pair = trading_pair
         self._amount = amount
 
     @property
@@ -127,15 +139,15 @@ cdef class QueuedOrder:
         return self._is_buy
 
     @property
-    def symbol(self) -> str:
-        return self._symbol
+    def trading_pair(self) -> str:
+        return self._trading_pair
 
     @property
     def amount(self) -> double:
         return self._amount
 
     def __repr__(self) -> str:
-        return (f"QueuedOrder({self.create_timestamp}, '{self.order_id}', {self.is_buy}, '{self.symbol}', "
+        return (f"QueuedOrder({self.create_timestamp}, '{self.order_id}', {self.is_buy}, '{self.trading_pair}', "
                 f"{self.amount})")
 
 
@@ -147,8 +159,35 @@ cdef class OrderBookTradeListener(EventListener):
         super().__init__()
         self._market = market
 
-    cdef c_call(self, object arg):
-        self._market.c_match_trade_to_limit_orders(arg)
+    cdef c_call(self, object event_object):
+        try:
+            self._market.match_trade_to_limit_orders(event_object)
+        except Exception as e:
+            print(e)
+
+cdef class OrderBookMarketOrderFillListener(EventListener):
+    cdef:
+        MarketBase _market
+
+    def __init__(self, market: MarketBase):
+        super().__init__()
+        self._market = market
+
+    cdef c_call(self, object event_object):
+
+        if event_object.symbol not in self._market.order_books or event_object.order_type != OrderType.MARKET:
+            return
+        order_book = self._market.order_books[event_object.symbol]
+        order_book.record_filled_order(event_object)
+
+
+MARKET_CLASSES = {
+    "binance": BinanceMarket,
+    "idex": IDEXMarket,
+    "ddex": DDEXMarket,
+    "coinbase_pro": CoinbaseProMarket,
+    "bamboo_relay": BambooRelayMarket
+}
 
 
 cdef class PaperTradeMarket(MarketBase):
@@ -159,22 +198,14 @@ cdef class PaperTradeMarket(MarketBase):
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     ORDER_BOOK_TRADE_EVENT_TAG = OrderBookEvent.TradeEvent.value
+    MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
+    MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
 
-    @classmethod
-    def random_order_id(cls, prefix: str, symbol: str) -> str:
-        vals = [random.choice(range(0, 256)) for i in range(0, 32)]
-        return f"{prefix}://" + symbol + "/" + "".join([f"{val:02x}" for val in vals])
-
-    @classmethod
-    def logger(cls) -> logging.Logger:
-        global s_logger
-        if s_logger is None:
-            s_logger = logging.getLogger(__name__)
-        return s_logger
-
-    def __init__(self, order_book_tracker: OrderBookTracker, symbol_pairs: List[SymbolPair], config: MarketConfig):
+    def __init__(self, order_book_tracker: OrderBookTracker, config: MarketConfig):
         super(MarketBase, self).__init__()
-        self._tracker_symbol_pairs = {}
+        order_book_tracker.data_source.order_book_create_function = lambda: CompositeOrderBook()
+
+        self._trading_pairs = {}
         self._account_balance = {}
         self._config = config
         self._queued_orders = deque()
@@ -182,24 +213,39 @@ cdef class PaperTradeMarket(MarketBase):
         self._order_tracker_task = None
         self._order_book_tracker = order_book_tracker
         self._order_book_trade_listener = OrderBookTradeListener(self)
-        self.init_paper_market()
+        self._target_market = MARKET_CLASSES[order_book_tracker.exchange_name]
+        self._market_order_filled_listener = OrderBookMarketOrderFillListener(self)
+        self.c_add_listener(self.ORDER_FILLED_EVENT_TAG, self._market_order_filled_listener)
 
-    def init_paper_market(self, symbol_pairs: List[SymbolPair]):
-        for symbol_pair in symbol_pairs:
-            self._symbol_pairs[symbol_pairs.trading_pair] = symbol_pair
-        for order_book in self._order_book_tracker.order_books.values():
-                (<OrderBook>order_book).c_add_listener(
-                    self.ORDER_BOOK_TRADE_EVENT_TAG,
-                    self._order_book_trade_listener
-                )
+    @classmethod
+    def random_order_id(cls, order_side: str, symbol: str) -> str:
+        vals = [random.choice(range(0, 256)) for i in range(0, 32)]
+        return f"{order_side}://" + symbol + "/" + "".join([f"{val:02x}" for val in vals])
+
+    def init_paper_trade_market(self):
+        for trading_pair_str, order_book in self._order_book_tracker.order_books.items():
+            assert type(order_book) is CompositeOrderBook
+            base_asset, quote_asset = self._target_market.split_symbol(trading_pair_str)
+            self._trading_pairs[trading_pair_str] = TradingPair(trading_pair_str, base_asset, quote_asset)
+            (<CompositeOrderBook>order_book).c_add_listener(
+                self.ORDER_BOOK_TRADE_EVENT_TAG,
+                self._order_book_trade_listener
+            )
+
+    #<editor-fold desc="Property">
 
     @property
-    def order_books(self) -> Dict[str, OrderBook]:
+    def order_books(self) -> Dict[str, CompositeOrderBook]:
         return self._order_book_tracker.order_books
+
 
     @property
     def ready(self):
-        return self._order_book_tracker and len(self._order_book_tracker.order_books) > 0
+        if self._order_book_tracker and len(self._order_book_tracker.order_books) > 0:
+            self.init_paper_trade_market()
+            return True
+        else:
+            return False
 
     @property
     def queued_orders(self) -> List[QueuedOrder]:
@@ -237,6 +283,27 @@ cdef class PaperTradeMarket(MarketBase):
 
         return retval
 
+    @property
+    def on_hold_balances(self) -> Dict[str, Decimal]:
+        cdef:
+            dict _on_hold_balances = defaultdict(Decimal)
+
+        for limit_order in self.limit_orders:
+            if limit_order.is_buy:
+                _on_hold_balances[limit_order.base_currency] += limit_order.quantity * limit_order.price
+            else:
+                _on_hold_balances[limit_order.quote_currency] += limit_order.quantity
+        return _on_hold_balances
+
+    @property
+    def available_balances(self) ->  Dict[str, Decimal]:
+        _available_balances = self._account_balance.copy()
+        for trading_pair_str, balance in _available_balances.items():
+            _available_balances[trading_pair_str] -= self.on_hold_balances[trading_pair_str]
+        return _available_balances
+
+    #</editor-fold>
+
     cdef c_start(self, Clock clock, double timestamp):
         MarketBase.c_start(self, clock, timestamp)
 
@@ -245,140 +312,152 @@ cdef class PaperTradeMarket(MarketBase):
             self.stop_network()
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
 
-    def stop_network(self):
+    async def stop_network(self):
         if self._order_tracker_task is not None:
+            self._order_book_tracker.stop()
             self._order_tracker_task.cancel()
 
     async def check_network(self) -> NetworkStatus:
-        # Currently order book tracker is not a network iterator and there are not API calls in paper trade market
-        # We will make network status always connected for now
         return NetworkStatus.CONNECTED
+        #try:
+        #    return await self._target_market.check_network()
+        #except asyncio.CancelledError:
+        #    raise
 
-    def set_balance(self, currency: str, balance: double):
-        self.c_set_balance(currency, balance)
 
     cdef c_set_balance(self, str currency, double balance):
-        self._account_balance[currency] = balance
-
-    def get_balance(self, currency: str):
-        return self.c_get_balance(currency)
+        ## (refactor) to pass in Decimal
+        self._account_balance[currency] = Decimal(str(balance))
 
     cdef double c_get_balance(self, str currency) except? -1:
-        return self._account_balance[currency]
+        ## (refactor) to return in Decimal
+        return float(self._account_balance[currency])
 
     cdef c_tick(self, double timestamp):
         MarketBase.c_tick(self, timestamp)
         self.c_process_market_orders()
-        self.c_process_limit_order_expiration()
         self.c_process_crossed_limit_orders()
 
-    cdef str c_buy(self, str trading_pair, double amount, object order_type = OrderType.MARKET, double price = 0.0,
+    cdef str c_buy(self, str trading_pair_str, double amount, object order_type = OrderType.MARKET, double price = 0.0,
                    dict kwargs = {}):
-        if trading_pair not in self._symbol_pairs:
-            raise ValueError(f"Trading symbol '{trading_pair}' does not existing in current data set.")
+        if trading_pair_str not in self._trading_pairs:
+            raise ValueError(f"Trading symbol '{trading_pair_str}' does not existing in current data set.")
 
         cdef:
-            str order_id = self.random_order_id("buy", trading_pair)
+            str order_id = self.random_order_id("buy", trading_pair_str)
+            str quote_asset = self._trading_pairs[trading_pair_str].quote_asset
             string cpp_order_id = order_id.encode("utf8")
-            string cpp_symbol = trading_pair.encode("utf8")
-            string cpp_base_currency = self._symbol_pairs[trading_pair].base_asset.encode("utf8")
-            string cpp_quote_currency = self._symbol_pairs[trading_pair].quote_asset.encode("utf8")
+            string cpp_trading_pair_str = trading_pair_str.encode("utf8")
+            string cpp_base_asset = self._trading_pairs[trading_pair_str].base_asset.encode("utf8")
+            string cpp_quote_asset = quote_asset.encode("utf8")
             LimitOrdersIterator map_it
             SingleSymbolLimitOrders *limit_orders_collection_ptr = NULL
             pair[LimitOrders.iterator, cppbool] insert_result
-            double time_now = self._current_timestamp
-            double order_expiration_ts = kwargs.get("expiration_ts", 0)
 
+        quantized_price = self.c_quantize_order_price(trading_pair_str, price)
+        quantized_amount = self.c_quantize_order_amount(trading_pair_str, amount)
         if order_type is OrderType.MARKET:
-            self._queued_orders.append(QueuedOrder(self._current_timestamp, order_id, True, trading_pair, amount))
+            self._queued_orders.append(QueuedOrder(self._current_timestamp, order_id, True, trading_pair_str,
+                                                   quantized_amount))
         elif order_type is OrderType.LIMIT:
-            quantized_price = self.c_quantize_order_price(trading_pair, price)
-            quantized_amount = self.c_quantize_order_amount(trading_pair, amount)
-            map_it = self._bid_limit_orders.find(cpp_symbol)
+
+            map_it = self._bid_limit_orders.find(cpp_trading_pair_str)
 
             if map_it == self._bid_limit_orders.end():
-                insert_result = self._bid_limit_orders.insert(LimitOrdersPair(cpp_symbol, SingleSymbolLimitOrders()))
+                insert_result = self._bid_limit_orders.insert(LimitOrdersPair(cpp_trading_pair_str,
+                                                                              SingleSymbolLimitOrders()))
                 map_it = insert_result.first
             limit_orders_collection_ptr = address(deref(map_it).second)
             limit_orders_collection_ptr.insert(CPPLimitOrder(
                 cpp_order_id,
-                cpp_symbol,
+                cpp_trading_pair_str,
                 True,
-                cpp_base_currency,
-                cpp_quote_currency,
+                cpp_base_asset,
+                cpp_quote_asset,
                 <PyObject *> quantized_price,
                 <PyObject *> quantized_amount
             ))
+        self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
+                             BuyOrderCreatedEvent(
+                                 self._current_timestamp,
+                                 order_type,
+                                 trading_pair_str,
+                                 float(quantized_amount),
+                                 float(quantized_price),
+                                 order_id
+                             ))
 
-    cdef str c_sell(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0,
+    cdef str c_sell(self, str trading_pair_str, double amount, object order_type = OrderType.MARKET, double price = 0.0,
                     dict kwargs = {}):
-        if symbol not in self._symbol_pairs:
-                raise ValueError(f"Trading symbol '{symbol}' does not existing in current data set.")
+        if trading_pair_str not in self._trading_pairs:
+                raise ValueError(f"Trading symbol '{trading_pair_str}' does not existing in current data set.")
         cdef:
-            str order_id = self.random_order_id("sell", symbol)
+            str order_id = self.random_order_id("sell", trading_pair_str)
+            str base_asset = self._trading_pairs[trading_pair_str].base_asset
             string cpp_order_id = order_id.encode("utf8")
-            string cpp_symbol = symbol.encode("utf8")
-            string cpp_base_currency = self._symbol_pairs[symbol].base_currency.encode("utf8")
-            string cpp_quote_currency = self._symbol_pairs[symbol].quote_currency.encode("utf8")
+            string cpp_trading_pair_str = trading_pair_str.encode("utf8")
+            string cpp_base_asset = base_asset.encode("utf8")
+            string cpp_quote_asset = self._trading_pairs[trading_pair_str].quote_asset.encode("utf8")
             LimitOrdersIterator map_it
             SingleSymbolLimitOrders *limit_orders_collection_ptr = NULL
             pair[LimitOrders.iterator, cppbool] insert_result
-            double time_now = self._current_timestamp
-            double order_expiration_ts = kwargs.get("expiration_ts", 0)
+
+        quantized_price = self.c_quantize_order_price(trading_pair_str, price)
+        quantized_amount = self.c_quantize_order_amount(trading_pair_str, amount)
         if order_type is OrderType.MARKET:
-            self._queued_orders.append(QueuedOrder(self._current_timestamp, order_id, False, symbol, amount))
+            self._queued_orders.append(QueuedOrder(self._current_timestamp, order_id, False, trading_pair_str,
+                                                   quantized_amount))
         elif order_type is OrderType.LIMIT:
-            quantized_price = self.c_quantize_order_price(symbol, price)
-            quantized_amount = self.c_quantize_order_amount(symbol, amount)
-            map_it = self._ask_limit_orders.find(cpp_symbol)
+            map_it = self._ask_limit_orders.find(cpp_trading_pair_str)
 
             if map_it == self._ask_limit_orders.end():
-                insert_result = self._ask_limit_orders.insert(LimitOrdersPair(cpp_symbol, SingleSymbolLimitOrders()))
+                insert_result = self._ask_limit_orders.insert(LimitOrdersPair(cpp_trading_pair_str,
+                                                                              SingleSymbolLimitOrders()))
                 map_it = insert_result.first
             limit_orders_collection_ptr = address(deref(map_it).second)
             limit_orders_collection_ptr.insert(CPPLimitOrder(
                 cpp_order_id,
-                cpp_symbol,
+                cpp_trading_pair_str,
                 False,
-                cpp_base_currency,
-                cpp_quote_currency,
+                cpp_base_asset,
+                cpp_quote_asset,
                 <PyObject *> quantized_price,
                 <PyObject *> quantized_amount
             ))
+        self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
+                             SellOrderCreatedEvent(
+                                 self._current_timestamp,
+                                 order_type,
+                                 trading_pair_str,
+                                 float(quantized_amount),
+                                 float(quantized_price),
+                                 order_id
+                             ))
 
     cdef c_execute_buy(self, str order_id, str symbol, double amount):
         cdef:
-            double quote_currency_amount
-            double base_currency_amount
-
+            double quote_balance
+            double base_balance
+        quote_asset = self._trading_pairs[symbol].quote_asset
+        base_asset = self._trading_pairs[symbol].base_asset
+        quote_balance = self.c_get_balance(quote_asset)
+        base_balance = self.c_get_balance(base_asset)
         config = self._config
-        quote_currency = self._symbol_pairs[symbol].quote_currency
-        quote_currency_amount = self.c_get_balance(quote_currency)
-        base_currency = self._symbol_pairs[symbol].base_currency
-        base_currency_amount = self.c_get_balance(base_currency)
-
         order_book = self.order_books[symbol]
         buy_entries = order_book.simulate_buy(amount)
         # Calculate the quote currency needed, including fees.
-        total_needed = sum(row.price * row.amount for row in buy_entries)
-        sold_amount = total_needed
-        fee_amount = total_needed * config.buy_fees_amount
-        if config.buy_fees_asset is AssetType.QUOTE_CURRENCY:
-            total_needed += fee_amount
-        if total_needed > quote_currency_amount:
-            raise ValueError(f"Insufficient {quote_currency} balance available for buy order. "
-                             f"{quote_currency_amount} {quote_currency} available vs. "
-                             f"{total_needed} {quote_currency} required for the order.")
+        total_quote_needed = sum(row.price * row.amount for row in buy_entries)
+
+        if total_quote_needed > quote_balance:
+            raise ValueError(f"Insufficient {quote_asset} balance available for buy order. "
+                             f"{quote_balance} {quote_asset} available vs. "
+                             f"{total_quote_needed} {quote_asset} required for the order.")
 
         # Calculate the base currency acquired, including fees.
-        acquired_amount = sum(row.amount for row in buy_entries)
-        bought_amount = acquired_amount
-        if config.buy_fees_asset is AssetType.BASE_CURRENCY:
-            fee_amount = acquired_amount * config.buy_fees_amount
-            acquired_amount -= fee_amount
+        total_base_acquired = sum(row.amount for row in buy_entries)
 
-        self.c_set_balance(quote_currency, quote_currency_amount - total_needed)
-        self.c_set_balance(base_currency, base_currency_amount + acquired_amount)
+        self.c_set_balance(quote_asset, quote_balance - total_quote_needed)
+        self.c_set_balance(base_asset, base_balance + total_base_acquired)
 
         order_filled_events = OrderFilledEvent.order_filled_events_from_order_book_rows(
             self._current_timestamp, order_id, symbol, TradeType.BUY, OrderType.MARKET, TradeFee(0.0), buy_entries
@@ -386,36 +465,36 @@ cdef class PaperTradeMarket(MarketBase):
 
         for order_filled_event in order_filled_events:
             self.c_trigger_event(self.ORDER_FILLED_EVENT_TAG, order_filled_event)
+
         self.c_trigger_event(self.BUY_ORDER_COMPLETED_EVENT_TAG,
                              BuyOrderCompletedEvent(self._current_timestamp,
                                                     order_id,
-                                                    base_currency,
-                                                    quote_currency,
-                                                    base_currency if \
+                                                    base_asset,
+                                                    quote_asset,
+                                                    base_asset if \
                                                         config.buy_fees_asset is AssetType.BASE_CURRENCY else \
-                                                        quote_currency,
-                                                    bought_amount,
-                                                    sold_amount,
-                                                    fee_amount,
+                                                        quote_asset,
+                                                    total_base_acquired,
+                                                    total_quote_needed,
+                                                    0,
                                                     OrderType.MARKET))
 
-    cdef c_execute_sell(self, str order_id, str symbol, double amount):
+    cdef c_execute_sell(self, str order_id, str trading_pair_str, double amount):
         cdef:
-            double quote_currency_amount
-            double base_currency_amount
-
+            double quote_asset_amount
+            double base_asset_amount
         config = self._config
-        quote_currency = self._symbol_pairs[symbol].quote_currency
-        quote_currency_amount = self.c_get_balance(quote_currency)
-        base_currency = self._symbol_pairs[symbol].base_currency
-        base_currency_amount = self.c_get_balance(base_currency)
+        quote_asset = self._trading_pairs[trading_pair_str].quote_asset
+        quote_asset_amount = self.c_get_balance(quote_asset)
+        base_asset = self._trading_pairs[trading_pair_str].base_asset
+        base_asset_amount = self.c_get_balance(base_asset)
 
-        if amount > base_currency_amount:
-            raise ValueError(f"Insufficient {base_currency} balance available for sell order. "
-                             f"{base_currency_amount} {base_currency} available vs. "
-                             f"{amount} {base_currency} required for the order.")
+        if amount > base_asset_amount:
+            raise ValueError(f"Insufficient {base_asset} balance available for sell order. "
+                             f"{base_asset_amount} {base_asset} available vs. "
+                             f"{amount} {base_asset} required for the order.")
 
-        order_book = self.order_books[symbol]
+        order_book = self.order_books[trading_pair_str]
 
         # Calculate the base currency used, including fees.
         sold_amount = amount
@@ -431,26 +510,28 @@ cdef class PaperTradeMarket(MarketBase):
             fee_amount = acquired_amount * config.sell_fees_amount
             acquired_amount -= fee_amount
 
-        self.c_set_balance(quote_currency,
-                           quote_currency_amount + acquired_amount)
-        self.c_set_balance(base_currency,
-                           base_currency_amount - amount)
+        self.c_set_balance(quote_asset,
+                           quote_asset_amount + acquired_amount)
+        self.c_set_balance(base_asset,
+                           base_asset_amount - amount)
 
         order_filled_events = OrderFilledEvent.order_filled_events_from_order_book_rows(
-            self._current_timestamp, order_id, symbol, TradeType.SELL, OrderType.MARKET, TradeFee(0.0), sell_entries
+            self._current_timestamp, order_id, trading_pair_str, TradeType.SELL,
+            OrderType.MARKET, TradeFee(0.0), sell_entries
         )
 
         for order_filled_event in order_filled_events:
             self.c_trigger_event(self.ORDER_FILLED_EVENT_TAG, order_filled_event)
 
+
         self.c_trigger_event(self.SELL_ORDER_COMPLETED_EVENT_TAG,
                              SellOrderCompletedEvent(self._current_timestamp,
                                                      order_id,
-                                                     base_currency,
-                                                     quote_currency,
-                                                     base_currency if \
+                                                     base_asset,
+                                                     quote_asset,
+                                                     base_asset if \
                                                         config.sell_fees_asset is AssetType.BASE_CURRENCY else \
-                                                        quote_currency,
+                                                        quote_asset,
                                                      sold_amount,
                                                      bought_amount,
                                                      fee_amount,
@@ -465,60 +546,14 @@ cdef class PaperTradeMarket(MarketBase):
                 self._queued_orders.popleft()
                 try:
                     if front_order.is_buy:
-                        self.c_execute_buy(front_order.order_id, front_order.symbol, front_order.amount)
+                        self.c_execute_buy(front_order.order_id, front_order.trading_pair, front_order.amount)
                     else:
-                        self.c_execute_sell(front_order.order_id, front_order.symbol, front_order.amount)
-                except Exception:
+                        self.c_execute_sell(front_order.order_id, front_order.trading_pair, front_order.amount)
+                except Exception as e:
+                    print(f"exception {e}")
                     self.logger().error("Error executing queued order.", exc_info=True)
             else:
                 return
-
-    cdef bint c_delete_expired_limit_orders(self, LimitOrders *orders_map, str symbol, str client_order_id):
-        cdef:
-            string cpp_symbol = symbol.encode("utf8")
-            string cpp_client_order_id = client_order_id.encode("utf8")
-            LimitOrdersIterator map_it = orders_map.find(cpp_symbol)
-            SingleSymbolLimitOrders *limit_orders_collection_ptr = NULL
-            SingleSymbolLimitOrdersIterator orders_it
-            const CPPLimitOrder *limit_order_ptr = NULL
-
-        if map_it == orders_map.end():
-            return False
-
-        limit_orders_collection_ptr = address(deref(map_it).second)
-
-        orders_it = limit_orders_collection_ptr.begin()
-        while orders_it != limit_orders_collection_ptr.end():
-            limit_order_ptr = address(deref(orders_it))
-            if limit_order_ptr.getClientOrderID() == cpp_client_order_id:
-                self.c_delete_limit_order(orders_map, address(map_it), orders_it)
-                self.c_trigger_event(self.ORDER_EXPIRED_EVENT_TAG,
-                                     OrderExpiredEvent(self.current_timestamp, client_order_id))
-                return True
-            inc(orders_it)
-        return False
-
-    cdef c_process_limit_order_expiration(self):
-        cdef:
-            LimitOrderExpirationSetIterator order_expiration_it
-            const CPPOrderExpirationEntry *order_expiration_entry_ptr = NULL
-            double time_now = self.current_timestamp
-            double expiration_time
-            str symbol
-            str client_order_id
-
-        order_expiration_it = self._limit_order_expiration_set.begin()
-        while order_expiration_it != self._limit_order_expiration_set.end():
-            order_expiration_entry_ptr = address(deref(order_expiration_it))
-            expiration_time = order_expiration_entry_ptr.getExpirationTimestamp()
-            if expiration_time <= time_now:
-                symbol = order_expiration_entry_ptr.getSymbol().decode("utf8")
-                client_order_id = order_expiration_entry_ptr.getClientOrderID().decode("utf8")
-                if not self.c_delete_expired_limit_orders(address(self._bid_limit_orders), symbol, client_order_id):
-                    self.c_delete_expired_limit_orders(address(self._ask_limit_orders), symbol, client_order_id)
-                self._limit_order_expiration_set.erase(inc(order_expiration_it))
-            else:
-                break
 
     cdef c_delete_limit_order(self,
                               LimitOrders *limit_orders_map_ptr,
@@ -537,28 +572,33 @@ cdef class PaperTradeMarket(MarketBase):
         cdef:
             const CPPLimitOrder *cpp_limit_order_ptr = address(deref(orders_it))
             str symbol = cpp_limit_order_ptr.getSymbol().decode("utf8")
-            str quote_currency = cpp_limit_order_ptr.getQuoteCurrency().decode("utf8")
-            str base_currency = cpp_limit_order_ptr.getBaseCurrency().decode("utf8")
+            str quote_asset = cpp_limit_order_ptr.getQuoteCurrency().decode("utf8")
+            str base_asset = cpp_limit_order_ptr.getBaseCurrency().decode("utf8")
             str order_id = cpp_limit_order_ptr.getClientOrderID().decode("utf8")
-            double quote_currency_balance = self.c_get_balance(quote_currency)
-            double quote_currency_traded = (float(<object> cpp_limit_order_ptr.getPrice()) *
+            double quote_asset_balance = self.c_get_balance(quote_asset)
+            double quote_asset_traded = (float(<object> cpp_limit_order_ptr.getPrice()) *
                                             float(<object> cpp_limit_order_ptr.getQuantity()))
-            double base_currency_traded = float(<object> cpp_limit_order_ptr.getQuantity())
+            double base_asset_traded = float(<object> cpp_limit_order_ptr.getQuantity())
 
         # Check if there's enough balance to satisfy the order. If not, remove the limit order without doing anything.
-        if quote_currency_balance < quote_currency_traded:
-            self.logger().warning(f"Not enough {quote_currency} balance to fill limit buy order on {symbol}. "
-                                  f"{quote_currency_traded:.8g} {quote_currency} needed vs. "
-                                  f"{quote_currency_balance:.8g} {quote_currency} available.")
+        if quote_asset_balance < quote_asset_traded:
+            self.logger().warning(f"Not enough {quote_asset} balance to fill limit buy order on {symbol}. "
+                                  f"{quote_asset_traded:.8g} {quote_asset} needed vs. "
+                                  f"{quote_asset_balance:.8g} {quote_asset} available.")
+
+            print(f"Not enough {quote_asset} balance to fill limit buy order on {symbol}. "
+                                  f"{quote_asset_traded:.8g} {quote_asset} needed vs. "
+                                  f"{quote_asset_balance:.8g} {quote_asset} available.")
             self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
             return
 
         # Adjust the market balances according to the trade done.
-        self.c_set_balance(quote_currency, self.c_get_balance(quote_currency) - quote_currency_traded)
-        self.c_set_balance(base_currency, self.c_get_balance(base_currency) + base_currency_traded)
+        self.c_set_balance(quote_asset, self.c_get_balance(quote_asset) - quote_asset_traded)
+        self.c_set_balance(base_asset, self.c_get_balance(base_asset) + base_asset_traded)
 
         # Emit the trade and order completed events.
         config = self._config
+
         self.c_trigger_event(self.ORDER_FILLED_EVENT_TAG,
                              OrderFilledEvent(self._current_timestamp,
                                               order_id,
@@ -569,16 +609,17 @@ cdef class PaperTradeMarket(MarketBase):
                                               float(<object> cpp_limit_order_ptr.getQuantity()),
                                               TradeFee(0.0)
                                               ))
+
         self.c_trigger_event(self.BUY_ORDER_COMPLETED_EVENT_TAG,
                              BuyOrderCompletedEvent(self._current_timestamp,
                                                     order_id,
-                                                    base_currency,
-                                                    quote_currency,
-                                                    base_currency if \
+                                                    base_asset,
+                                                    quote_asset,
+                                                    base_asset if \
                                                         config.buy_fees_asset is AssetType.BASE_CURRENCY else \
-                                                        quote_currency,
-                                                    base_currency_traded,
-                                                    quote_currency_traded,
+                                                        quote_asset,
+                                                    base_asset_traded,
+                                                    quote_asset_traded,
                                                     0.0,
                                                     OrderType.LIMIT))
         self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
@@ -589,33 +630,34 @@ cdef class PaperTradeMarket(MarketBase):
                                    SingleSymbolLimitOrdersIterator orders_it):
         cdef:
             const CPPLimitOrder *cpp_limit_order_ptr = address(deref(orders_it))
-            str symbol = cpp_limit_order_ptr.getSymbol().decode("utf8")
-            str quote_currency = cpp_limit_order_ptr.getQuoteCurrency().decode("utf8")
-            str base_currency = cpp_limit_order_ptr.getBaseCurrency().decode("utf8")
+            str trading_pair_str = cpp_limit_order_ptr.getSymbol().decode("utf8")
+            str quote_asset = cpp_limit_order_ptr.getQuoteCurrency().decode("utf8")
+            str base_asset = cpp_limit_order_ptr.getBaseCurrency().decode("utf8")
             str order_id = cpp_limit_order_ptr.getClientOrderID().decode("utf8")
-            double base_currency_balance = self.c_get_balance(base_currency)
-            double quote_currency_traded = (float(<object> cpp_limit_order_ptr.getPrice()) *
+            double base_asset_balance = self.c_get_balance(base_asset)
+            double quote_asset_traded = (float(<object> cpp_limit_order_ptr.getPrice()) *
                                             float(<object> cpp_limit_order_ptr.getQuantity()))
-            double base_currency_traded = float(<object> cpp_limit_order_ptr.getQuantity())
+            double base_asset_traded = float(<object> cpp_limit_order_ptr.getQuantity())
 
         # Check if there's enough balance to satisfy the order. If not, remove the limit order without doing anything.
-        if base_currency_balance < base_currency_traded:
-            self.logger().warning(f"Not enough {base_currency} balance to fill limit sell order on {symbol}. "
-                                  f"{base_currency_traded:.8g} {base_currency} needed vs. "
-                                  f"{base_currency_balance:.8g} {base_currency} available.")
+        if base_asset_balance < base_asset_traded:
+            self.logger().warning(f"Not enough {base_asset} balance to fill limit sell order on {trading_pair_str}. "
+                                  f"{base_asset_traded:.8g} {base_asset} needed vs. "
+                                  f"{base_asset_balance:.8g} {base_asset} available.")
             self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
+            print("c_process_limit_ask_order not enough asset")
             return
 
         # Adjust the market balances according to the trade done.
-        self.c_set_balance(quote_currency, self.c_get_balance(quote_currency) + quote_currency_traded)
-        self.c_set_balance(base_currency, self.c_get_balance(base_currency) - base_currency_traded)
+        self.c_set_balance(quote_asset, self.c_get_balance(quote_asset) + quote_asset_traded)
+        self.c_set_balance(base_asset, self.c_get_balance(base_asset) - base_asset_traded)
 
         # Emit the trade and order completed events.
         config = self._config
         self.c_trigger_event(self.ORDER_FILLED_EVENT_TAG,
                              OrderFilledEvent(self._current_timestamp,
                                               order_id,
-                                              symbol,
+                                              trading_pair_str,
                                               TradeType.SELL,
                                               OrderType.LIMIT,
                                               float(<object> cpp_limit_order_ptr.getPrice()),
@@ -625,13 +667,13 @@ cdef class PaperTradeMarket(MarketBase):
         self.c_trigger_event(self.SELL_ORDER_COMPLETED_EVENT_TAG,
                              SellOrderCompletedEvent(self._current_timestamp,
                                                      order_id,
-                                                     base_currency,
-                                                     quote_currency,
-                                                     base_currency if \
+                                                     base_asset,
+                                                     quote_asset,
+                                                     base_asset if \
                                                          config.sell_fees_asset is AssetType.BASE_CURRENCY else \
-                                                         quote_currency,
-                                                     base_currency_traded,
-                                                     quote_currency_traded,
+                                                         quote_asset,
+                                                     base_asset_traded,
+                                                     quote_asset_traded,
                                                      0.0,
                                                      OrderType.LIMIT))
         self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
@@ -641,10 +683,14 @@ cdef class PaperTradeMarket(MarketBase):
                                LimitOrders *limit_orders_map_ptr,
                                LimitOrdersIterator *map_it_ptr,
                                SingleSymbolLimitOrdersIterator orders_it):
-        if is_buy:
-            self.c_process_limit_bid_order(limit_orders_map_ptr, map_it_ptr, orders_it)
-        else:
-            self.c_process_limit_ask_order(limit_orders_map_ptr, map_it_ptr, orders_it)
+        self.logger().error(f"c_process_limit_order")
+        try:
+            if is_buy:
+                self.c_process_limit_bid_order(limit_orders_map_ptr, map_it_ptr, orders_it)
+            else:
+                self.c_process_limit_ask_order(limit_orders_map_ptr, map_it_ptr, orders_it)
+        except Exception as e:
+            print(f"error processing limit oredr {e}")
 
     cdef c_process_crossed_limit_orders_for_symbol(self,
                                                    bint is_buy,
@@ -704,6 +750,7 @@ cdef class PaperTradeMarket(MarketBase):
             if map_it != limit_orders_ptr.end():
                 inc(map_it)
 
+    #<editor-fold desc="Event listener functions">
     cdef c_match_trade_to_limit_orders(self, object order_book_trade_event):
         """
         Trigger limit orders when incoming market orders have crossed the limit order's price.
@@ -711,14 +758,14 @@ cdef class PaperTradeMarket(MarketBase):
         :param order_book_trade_event: trade event from order book
         """
         cdef:
-            string cpp_symbol = order_book_trade_event.symbol.encode("utf8")
+            string cpp_trading_pair = order_book_trade_event.symbol.encode("utf8")
             bint is_maker_buy = order_book_trade_event.type is TradeType.SELL
             double trade_price = order_book_trade_event.price
             double trade_quantity = order_book_trade_event.amount
             LimitOrders *limit_orders_map_ptr = (address(self._bid_limit_orders)
                                                  if is_maker_buy
                                                  else address(self._ask_limit_orders))
-            LimitOrdersIterator map_it = limit_orders_map_ptr.find(cpp_symbol)
+            LimitOrdersIterator map_it = limit_orders_map_ptr.find(cpp_trading_pair)
             SingleSymbolLimitOrders *orders_collection_ptr = NULL
             SingleSymbolLimitOrdersIterator orders_it
             SingleSymbolLimitOrdersRIterator orders_rit
@@ -729,12 +776,11 @@ cdef class PaperTradeMarket(MarketBase):
             return
 
         orders_collection_ptr = address(deref(map_it).second)
-
         if is_maker_buy:
             orders_rit = orders_collection_ptr.rbegin()
             while orders_rit != orders_collection_ptr.rend():
                 cpp_limit_order_ptr = address(deref(orders_rit))
-                if float(<object>cpp_limit_order_ptr.getPrice()) <= trade_price:
+                if float(<object>cpp_limit_order_ptr.getPrice()) < trade_price:
                     break
                 process_order_its.push_back(getIteratorFromReverseIterator(
                     <reverse_iterator[SingleSymbolLimitOrdersIterator]>orders_rit))
@@ -743,7 +789,7 @@ cdef class PaperTradeMarket(MarketBase):
             orders_it = orders_collection_ptr.begin()
             while orders_it != orders_collection_ptr.end():
                 cpp_limit_order_ptr = address(deref(orders_it))
-                if float(<object>cpp_limit_order_ptr.getPrice()) >= trade_price:
+                if float(<object>cpp_limit_order_ptr.getPrice()) > trade_price:
                     break
                 process_order_its.push_back(orders_it)
                 inc(orders_it)
@@ -751,33 +797,73 @@ cdef class PaperTradeMarket(MarketBase):
         for orders_it in process_order_its:
             self.c_process_limit_order(is_maker_buy, limit_orders_map_ptr, address(map_it), orders_it)
 
+
+    #</editor-fold>
     cdef double c_get_available_balance(self, str currency) except? -1:
-        pass
+        return float(self.available_balances[currency])
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
-        pass
-
-    def get_all_balances(self) -> Dict[str, float]:
-        return self._account_balance
-
-    async def get_deposit_info(self, asset: str) -> DepositInfo:
-        pass
+        return await self._order_book_tracker.data_source.get_active_exchange_markets()
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
-        pass
+        cdef:
+            LimitOrders *limit_orders_map_ptr
 
-    cdef c_cancel(self, str symbol, str client_order_id):
-        pass
+        limit_orders_map_ptr = address(self._bid_limit_orders)
+        for trading_pair_str in self._trading_pairs.keys():
+            self.c_cancel_order_from_orders_map(limit_orders_map_ptr, trading_pair_str, cancel_all=True)
+
+        limit_orders_map_ptr = address(self._ask_limit_orders)
+        for trading_pair_str in self._trading_pairs.keys():
+            self.c_cancel_order_from_orders_map(limit_orders_map_ptr, trading_pair_str, cancel_all=True)
+
+    cdef bint c_cancel_order_from_orders_map(self, LimitOrders *orders_map, str symbol, bint cancel_all = False,
+                                             str client_order_id = None):
+        cdef:
+            string cpp_symbol = symbol.encode("utf8")
+            string cpp_client_order_id
+            LimitOrdersIterator map_it = orders_map.find(cpp_symbol)
+            SingleSymbolLimitOrders *limit_orders_collection_ptr = NULL
+            SingleSymbolLimitOrdersIterator orders_it
+            const CPPLimitOrder *limit_order_ptr = NULL
+
+        if map_it == orders_map.end():
+            return False
+        if cancel_all:
+            cpp_client_order_id = client_order_id.encode("utf8")
+
+        limit_orders_collection_ptr = address(deref(map_it).second)
+        orders_it = limit_orders_collection_ptr.begin()
+        while orders_it != limit_orders_collection_ptr.end():
+            limit_order_ptr = address(deref(orders_it))
+            if not cancel_all and limit_order_ptr.getClientOrderID() == cpp_client_order_id:
+                self.c_delete_limit_order(orders_map, address(map_it), orders_it)
+                self.c_trigger_event(self.ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp,
+                                                         limit_order_ptr.getClientOrderID().decode("utf8")))
+                return True
+            inc(orders_it)
+
+        return False
+
+    cdef c_cancel(self, str trading_pair_str, str client_order_id):
+        cdef:
+            string cpp_trading_pair = trading_pair_str.encode("utf8")
+            string cpp_client_order_id = client_order_id.encode("utf8")
+            str trade_type = client_order_id.split("://")
+            bint is_maker_buy = trade_type.upper() == "BUY"
+
+            LimitOrders *limit_orders_map_ptr = (address(self._bid_limit_orders)
+                                                 if is_maker_buy
+                                                 else address(self._ask_limit_orders))
+        self.c_cancel_order_from_orders_map(limit_orders_map_ptr, trading_pair_str, client_order_id)
 
     cdef object c_get_fee(self, str base_currency, str quote_currency, object order_type, object order_side,
                           double amount, double price):
         pass
 
-    cdef str c_withdraw(self, str address, str currency, double amount):
-        pass
-
     cdef OrderBook c_get_order_book(self, str symbol):
-        if symbol not in self._symbol_pairs:
+        if symbol not in self._trading_pairs:
             raise ValueError(f"No order book exists for '{symbol}'.")
         return self._order_book_tracker.order_books[symbol]
 
@@ -814,3 +900,14 @@ cdef class PaperTradeMarket(MarketBase):
             return max(precision_quantum, decimals_quantum)
         else:
             return Decimal(f"1e-15")
+
+    #<editor-fold desc="Python wrapper for cdef functions">
+    def match_trade_to_limit_orders(self, event_object: OrderBookTradeEvent):
+        self.c_match_trade_to_limit_orders(event_object)
+
+    def get_balance(self, currency: str):
+        return self.c_get_balance(currency)
+
+    def set_balance(self, currency: str, balance: double):
+        self.c_set_balance(currency, balance)
+    #</editor-fold>
