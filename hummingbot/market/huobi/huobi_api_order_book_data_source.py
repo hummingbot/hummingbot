@@ -3,6 +3,7 @@
 import aiohttp
 import asyncio
 import gzip
+import json
 import logging
 import pandas as pd
 import time
@@ -13,7 +14,6 @@ from typing import (
     List,
     Optional,
 )
-import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
@@ -72,8 +72,10 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             market_data = await market_response.json()
             exchange_data = await exchange_response.json()
 
+            attr_name_map = {"base-currency": "baseAsset", "quote-currency": "quoteAsset"}
+
             trading_pairs: Dict[str, Any] = {
-                item["symbol"]: {k: item[k] for k in ["base-currency", "quote-currency"]}
+                item["symbol"]: {attr_name_map[k]: item[k] for k in ["base-currency", "quote-currency"]}
                 for item in exchange_data["data"]
                 if item["state"] == "online"
             }
@@ -119,7 +121,7 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     raise IOError(f"Error fetching Huobi market snapshot for {trading_pair}. "
                                   f"HTTP status is {response.status}.")
                 api_data = await response.read()
-                data: Dict[str, Any] = ujson.loads(api_data)
+                data: Dict[str, Any] = json.loads(api_data)
                 return data
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
@@ -180,13 +182,13 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             "sub": f"market.{trading_pair}.depth.step0",
                             "id": trading_pair
                         }
-                        await ws.send(ujson.dumps(subscribe_request))
+                        await ws.send(json.dumps(subscribe_request))
 
                     async for raw_msg in self._inner_messages(ws):
                         # Huobi compresses their ws data
                         encoded_msg: bytes = gzip.decompress(raw_msg)
                         # Huobi's data value for id is a large int too big for ujson to parse
-                        msg: Dict = ujson.loads(encoded_msg.decode('utf-8'))
+                        msg: Dict[str, Any] = json.loads(encoded_msg.decode('utf-8'))
                         if "ping" in msg:
                             await ws.send(f'{{"op":"pong","ts": {str(msg["ping"])}}}')
                         elif "subbed" in msg:
