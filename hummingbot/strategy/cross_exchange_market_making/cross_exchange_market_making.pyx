@@ -65,7 +65,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     def __init__(self,
                  market_pairs: List[CrossExchangeMarketPair],
                  min_profitability: float,
-                 trade_size_override: Optional[float] = 0.0,
+                 order_amount: Optional[float] = 0.0,
                  order_size_taker_volume_factor: float = 0.25,
                  order_size_taker_balance_factor: float = 0.995,
                  order_size_portfolio_ratio_limit: float = 0.1667,
@@ -104,7 +104,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._min_profitability = min_profitability
         self._order_size_taker_volume_factor = order_size_taker_volume_factor
         self._order_size_taker_balance_factor = order_size_taker_balance_factor
-        self._trade_size_override = trade_size_override
+        self._order_amount = order_amount
         self._order_size_portfolio_ratio_limit = order_size_portfolio_ratio_limit
         self._anti_hysteresis_timers = {}
         self._order_fill_buy_events = {}
@@ -564,8 +564,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             str symbol = market_pair.maker.trading_pair
             double adjusted_order_size
 
-        if self._trade_size_override and self._trade_size_override > 0:
-            base_order_size = self._trade_size_override
+        if self._order_amount and self._order_amount > 0:
+            base_order_size = self._order_amount
             return maker_market.c_quantize_order_amount(symbol, base_order_size)
         else:
             return self.c_get_order_size_after_portfolio_ratio_limit(market_pair)
@@ -656,14 +656,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             taker_balance = (taker_market.c_get_available_balance(market_pair.taker.base_asset) *
                                         self._order_size_taker_balance_factor)
-            try:
-                taker_price = taker_order_book.c_get_vwap_for_volume(False, taker_balance).result_price
-            except ZeroDivisionError:
-                return None, taker_balance
-
-            maker_balance = maker_balance_in_quote / taker_price
 
             user_order = self.c_get_adjusted_limit_order_size(market_pair)
+
+            taker_size = min(taker_balance, user_order)
+
+            try:
+                taker_price = taker_order_book.c_get_vwap_for_volume(False, taker_size).result_price
+            except ZeroDivisionError:
+                return None, taker_size
+
+            maker_balance = maker_balance_in_quote / taker_price
 
             raw_size = min(
                 maker_balance,
@@ -695,8 +698,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             # Calculate the order size limit from maker and taker market balances.
             maker_balance = maker_market.c_get_available_balance(market_pair.maker.base_asset)
+
             taker_balance_in_quote = (taker_market.c_get_available_balance(market_pair.taker.quote_asset) *
                                         self._order_size_taker_balance_factor)
+
+            user_order = self.c_get_adjusted_limit_order_size(market_pair)
 
             try:
                 taker_price = taker_order_book.c_get_vwap_for_volume(True, taker_balance_in_quote).result_price
@@ -704,8 +710,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 return None, taker_balance_in_quote
 
             taker_balance = taker_balance_in_quote/ taker_price
-
-            user_order = self.c_get_adjusted_limit_order_size(market_pair)
 
             raw_size = min(
                 maker_balance,
