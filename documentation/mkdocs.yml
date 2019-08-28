@@ -80,10 +80,10 @@ nav:
         - Timeline: roadmap.md
         - Useful Terminology: glossary.md
       - Quickstart:
-        - 0. Setup: quickstart/index.md
-        - 1. Install Hummingbot: quickstart/1-install.md
-        - 2. Configure a Bot: quickstart/2-configure-bot.md
-        - 3. Run a Bot: quickstart/3-run-bot.md
+        - 1. Setup: quickstart/index.md
+        - 2. Install Hummingbot: quickstart/2-install.md
+        - 3. Configure a Bot: quickstart/3-configure-bot.md
+        - 4. Run a Bot: quickstart/4-run-bot.md
       - Cheatsheets:
         - Cheatsheets Overview: cheatsheets/index.md
         - Docker Commands: cheatsheets/docker.md
@@ -147,10 +147,14 @@ nav:
         - Strategies: 
           - Architecture: developers/strategies/index.md
           - Pure Market Making: developers/strategies/pure-market-making.md
-        - Connectors: developers/connectors/index.md
+          - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
+        - Connectors:
+          - Adding Connectors: developers/connectors/index.md
+          - Adding Connectors to Other Blockchains: developers/connectors/new-blockchain.md
         - Debug Console: developers/debug.md
     - Release Notes:
       - About Releases: release-notes/index.md
+      - 0.13.0: release-notes/0.13.0.md
       - 0.12.1: release-notes/0.12.1.md
       - 0.12.0: release-notes/0.12.0.md
       - 0.11.1: release-notes/0.11.1.md
