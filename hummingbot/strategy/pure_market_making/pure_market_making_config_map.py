@@ -92,9 +92,9 @@ pure_market_making_config_map = {
                                                   default=False),
     "inventory_target_base_percent":    ConfigVar(key="inventory_target_base_percent",
                                                   prompt="What is your target base asset inventory percentage "
-                                                         "(Enter 0.01 to indicate 1%)? >>> ",
+                                                         "(Enter 0.01 to indicate 1%). (Default is 0.5 (50%)) ? >>> ",
                                                   required_if=
                                                   lambda: pure_market_making_config_map.get("inventory_skew_enabled").value,
                                                   type_str="float",
-                                                  default=0.01),
+                                                  default=0.5),
 }
