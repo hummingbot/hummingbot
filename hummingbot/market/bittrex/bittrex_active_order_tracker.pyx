@@ -78,22 +78,14 @@ cdef class BittrexActiveOrderTracker:
         # Refresh all order tracking.
         self._active_bids.clear()
         self._active_asks.clear()
-        # for snapshot_orders, active_orders in [(message.content["bids"], self._active_bids),
-        #                                        (message.content["asks"], self._active_asks)]:
-        buys = message.content["buy"]
-        sells = message.content["sell"]
-
         timestamp = message.timestamp
 
-        for snapshot_orders, active_orders in [(message.content["buy"], self._active_bids),
-                                              (message.content["sell"], self.active_asks)]:
-
-            print(f"{snapshot_orders}")
+        for snapshot_orders, active_orders in [(message.content["Z"], self._active_bids),
+                                              (message.content["S"], self.active_asks)]:
 
             for order in snapshot_orders:
-                price = float(order["Rate"])
-                amount = order["Quantity"]
-                print(f"{price}: {amount}")
+                price = order["R"]
+                amount = str(order["Q"])
                 order_dict = {
                     "order_id": timestamp,
                     "remaining_size": amount
@@ -120,16 +112,13 @@ cdef class BittrexActiveOrderTracker:
                   sum([float(order_dict["remaining_size"])
                        for order_dict in self.active_asks[price].values()]),
                   message.update_id]
-                 for price in sorted(self.active_asks.keys(), reverse=True, dtype="float64", ndmin=2)]
+                 for price in sorted(self.active_asks.keys(), reverse=True)], dtype="float64", ndmin=2
             )
 
         if bids.shape[1] != 4:
             bids = bids.reshape((0, 4))
         if asks.shape[1] != 4:
             asks = asks.reshape((0, 4))
-
-        print(f"processed bids: {bids}")
-        print(f"processed asks: {asks}")
 
         return bids, asks
 
