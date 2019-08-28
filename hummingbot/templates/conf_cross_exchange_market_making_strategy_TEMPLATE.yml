@@ -15,7 +15,7 @@ taker_market_symbol: null
 # Expressed in decimals: 0.01 = 1% target profit
 min_profitability: null
 
-# Maximum order size in terms of quote currency
+# Maximum order size in terms of base currency
 trade_size_override: null
 
 # For more detailed information, see:
