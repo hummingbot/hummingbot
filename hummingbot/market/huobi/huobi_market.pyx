@@ -341,19 +341,6 @@ cdef class HuobiMarket(MarketBase):
                 self.logger().error(f"Error parsing the symbol rule {info}. Skipping.", exc_info=True)
         return trading_rules
 
-    async def list_orders(self, symbol_set) -> List[Any]:
-        path_url = "order/openOrders"
-        result = []
-        for symbol in symbol_set:
-            params = {
-                "account-id": int(self._account_id),
-                "symbol": symbol
-            }
-            open_orders = await self._api_request("get", path_url, params, is_auth_required=True)
-            for item in open_orders:
-                result.append(item)
-        return result
-
     async def get_order_status(self, exchange_order_id: str) -> Dict[str, Any]:
         """
         Example:

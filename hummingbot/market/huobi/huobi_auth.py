@@ -4,8 +4,7 @@ import hashlib
 import hmac
 from typing import (
     Any,
-    Dict,
-    Optional
+    Dict
 )
 from urllib.parse import urlencode
 from collections import OrderedDict

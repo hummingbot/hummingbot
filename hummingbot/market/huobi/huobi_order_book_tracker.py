@@ -181,3 +181,4 @@ class HuobiOrderBookTracker(OrderBookTracker):
                     exc_info=True,
                     app_warning_msg=f"Unexpected error tracking order book. Retrying after 5 seconds."
                 )
+                await asyncio.sleep(5.0)
