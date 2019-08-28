@@ -29,9 +29,9 @@ etc...
 
 ## Step 2: Register for Liquidity Bounties (Optional)
 
-Liquidity Bounties allow you to earn rewards by running market making bots for specific tokens and/or exchanges. 
+Liquidity Bounties allow you to earn rewards by running market making bots for specific tokens and/or exchanges.
 
-Hummingbot enters into partnerships with token issuers and exchanges to administer bounty programs that reward Hummingobt users based on their volume of filled market maker orders. For more information, please see [Bounties FAQ](/bounties/faq).
+Hummingbot enters into partnerships with token issuers and exchanges to administer bounty programs that reward Hummingbot users based on their volume of filled market maker orders. For more information, please see [Bounties FAQ](/bounties/faq).
 
 **Enter `bounty --register` to start the registration process:**
 
@@ -141,7 +141,7 @@ Which Ethereum node would you like your client to connect to? >>>
 [ENTER ADDRESS OF YOUR ETHEREUM NODE]
 ```
 
-See [Ethereum wallet](/installation/wallet) and [Ethereum node](/installation/node) for more information.
+See [Ethereum wallet](/installation/wallet) and [Ethereum node](/installation/node/node) for more information.
 
 #### e) Enter kill switch parameters
 
@@ -151,7 +151,7 @@ Hummingbot comes with utilities that help you run the bot, such as:
 * **Exchange rates**: Sets exchange rates between stablecoins and other crypto assets so that you can run bots on non-identical trading pairs on different exchanges
 * **Telegram integration**: Control your trading bot from anywhere by hooking up a Telegram bot that can issue commands
 
-For more information on these utilities, see the Utilities section in the [User Manual](/manual). By default, only the **kill switch** is configured via the walkthrough. 
+For more information on these utilities, see the Utilities section in the [User Manual](/manual). By default, only the **kill switch** is configured via the walkthrough.
 
 Activate the kill switch feature and tell it to stop the bot at a 5% loss:
 ```
@@ -177,4 +177,4 @@ Config process complete. Enter "start" to start market making.
 
 
 ---
-# Next: [Run Your First Trading Bot](/quickstart/3-run-bot)
+# Next: [Run Your First Trading Bot](/quickstart/4-run-bot)
