@@ -4,16 +4,17 @@ from os.path import join, realpath
 import sys
 sys.path.insert(0, realpath(join(__file__, "../../../")))
 
-from hummingbot.market.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
 import asyncio
 import logging
-from typing import Dict, Optional
+from typing import (
+    Dict,
+    Optional
+)
 import unittest
 
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_tracker import (
-    OrderBookTrackerDataSourceType
-)
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.market.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
 
 
 class HuobiOrderBookTrackerUnitTest(unittest.TestCase):
@@ -22,7 +23,9 @@ class HuobiOrderBookTrackerUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.order_book_tracker: HuobiOrderBookTracker = HuobiOrderBookTracker(
-            OrderBookTrackerDataSourceType.EXCHANGE_API)
+            OrderBookTrackerDataSourceType.EXCHANGE_API,
+            symbols=["btcusdt", "xrpusdt"]
+        )
         cls.order_book_tracker_task: asyncio.Task = asyncio.ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
 
@@ -36,7 +39,7 @@ class HuobiOrderBookTrackerUnitTest(unittest.TestCase):
 
     def test_tracker_integrity(self):
         # Wait 5 seconds to process some diffs.
-        self.ev_loop.run_until_complete(asyncio.sleep(10.0))
+        self.ev_loop.run_until_complete(asyncio.sleep(60.0))
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
         btcusdt_book: OrderBook = order_books["btcusdt"]
         xrpusdt_book: OrderBook = order_books["xrpusdt"]
