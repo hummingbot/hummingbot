@@ -10,10 +10,10 @@ from .order_id_market_pair_tracker cimport OrderIDMarketPairTracker
 
 cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef:
-        dict _market_pairs
         set _maker_markets
         set _taker_markets
         bint _all_markets_ready
+        bint _active_order_canceling
         dict _anti_hysteresis_timers
         double _min_profitability
         double _order_size_taker_volume_factor
@@ -22,12 +22,13 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         double _anti_hysteresis_duration
         double _status_report_interval
         double _last_timestamp
-        double _trade_size_override
+        double _order_amount
         double _cancel_order_threshold
-        bint _active_order_canceling
+        double _limit_order_min_expiration
         dict _order_fill_buy_events
         dict _order_fill_sell_events
         dict _suggested_price_samples
+        dict _market_pairs
         int64_t _logging_options
         object _exchange_rate_conversion
         OrderIDMarketPairTracker _market_pair_tracker
@@ -44,13 +45,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef double c_sum_flat_fees(self,
                                 str quote_currency,
                                 list flat_fees)
-    cdef tuple c_get_market_making_price_and_size_limit(self,
-                                                        object market_pair,
-                                                        bint is_bid)
-    cdef double c_calculate_effective_hedging_price(self,
-                                                    OrderBook taker_order_book,
-                                                    bint is_maker_bid,
-                                                    double maker_order_size) except? -1
+    cdef object c_get_market_making_size(self,
+                                        object market_pair,
+                                        bint is_bid)
+    cdef object c_get_market_making_price(self,
+                                         object market_pair,
+                                         bint is_bid,
+                                         double size)
+    cdef object c_calculate_effective_hedging_price(self,
+                                         object market_pair,
+                                         bint is_bid,
+                                         double size)
     cdef bint c_check_if_still_profitable(self,
                                           object market_pair,
                                           LimitOrder active_order,
@@ -58,6 +63,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef bint c_check_if_sufficient_balance(self,
                                             object market_pair,
                                             LimitOrder active_order)
+    cdef tuple c_get_suggested_price_samples(self, object market_pair)
+    cdef c_take_suggested_price_sample(self, object market_pair, list active_orders)
     cdef c_check_and_create_new_orders(self,
                                        object market_pair,
                                        bint has_active_bid,
