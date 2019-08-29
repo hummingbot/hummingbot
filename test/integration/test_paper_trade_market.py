@@ -48,7 +48,6 @@ import logging; logging.basicConfig(level=logging.INFO)
 class TestUtils:
     @staticmethod
     def filter_events_by_type(event_logs, event_type):
-        print([type(e) for e in event_logs])
         return [e for e in event_logs if type(e) == event_type]
 
     @classmethod
@@ -127,128 +126,7 @@ class OrderBookUtils:
             return compare_df[(compare_df["pre"]["amount"] - compare_df["post"]["amount"]).abs() > 1e-8]
 
 
-class PaperTradePlaceOrdersTest(unittest.TestCase):
-    events: List[MarketEvent] = [
-        MarketEvent.ReceivedAsset,
-        MarketEvent.BuyOrderCompleted,
-        MarketEvent.SellOrderCompleted,
-        MarketEvent.WithdrawAsset,
-        MarketEvent.OrderFilled,
-        MarketEvent.TransactionFailure,
-        MarketEvent.BuyOrderCreated,
-        MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCancelled
-    ]
-
-    market: PaperTradeMarket
-    market_logger: EventLogger
-    stack: contextlib.ExitStack
-
-    @classmethod
-    def setUpClass(cls):
-        global MAINNET_RPC_URL
-
-        cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: PaperTradeMarket = PaperTradeMarket(
-            order_book_tracker=BinanceOrderBookTracker(symbols=["ETHUSDT", "BTCUSDT"]),
-            config=MarketConfig.default_config()
-        )
-        print("Initializing PaperTrade place orders market... this will take about a minute.")
-        cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.clock.add_iterator(cls.market)
-        cls.stack: contextlib.ExitStack = contextlib.ExitStack()
-        cls._clock = cls.stack.enter_context(cls.clock)
-        cls.ev_loop.run_until_complete(cls.wait_til_ready())
-        print("Ready.")
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls.stack.close()
-
-    @classmethod
-    async def wait_til_ready(cls):
-        while True:
-            now = time.time()
-            next_iteration = now // 1.0 + 1
-            if cls.market.ready:
-                break
-            else:
-                await cls._clock.run_til(next_iteration)
-            await asyncio.sleep(1.0)
-
-    def setUp(self):
-        self.db_path: str = realpath(join(__file__, "../binance_test.sqlite"))
-        try:
-            os.unlink(self.db_path)
-        except FileNotFoundError:
-            pass
-
-        self.market_logger = EventLogger()
-        for event_tag in self.events:
-            self.market.add_listener(event_tag, self.market_logger)
-
-    def tearDown(self):
-        for event_tag in self.events:
-            self.market.remove_listener(event_tag, self.market_logger)
-        self.market_logger = None
-
-    async def run_parallel_async(self, *tasks):
-        future: asyncio.Future = asyncio.ensure_future(asyncio.gather(*tasks))
-        while not future.done():
-            now = time.time()
-            next_iteration = now // 1.0 + 1
-            await self._clock.run_til(next_iteration)
-            await asyncio.sleep(1.0)
-        return future.result()
-
-    def run_parallel(self, *tasks):
-        return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
-
-    def testPlaceLimitOrders(self):
-        """Tests that limit orders can be placed"""
-        self.market.sell("ETHUSDT", 30, OrderType.LIMIT, 100)
-        list_limit_orders: List[LimitOrder] = self.market.limit_orders
-        first_limit_order: LimitOrder = list_limit_orders[0]
-        self.assertEqual(first_limit_order.base_currency, "ETH", msg="Base currency is incorrect")
-        self.assertEqual(first_limit_order.quote_currency, "USDT", msg="Quote currency is incorrect")
-        self.assertFalse(first_limit_order.is_buy, msg="Limit order is not sell")
-        self.assertEqual(first_limit_order.symbol, "ETHUSDT", msg="Symbol is incorrect")
-        self.assertEqual(first_limit_order.price, 100, msg="Price is incorrect")
-        self.assertEqual(first_limit_order.quantity, 30, msg="Quantity is incorrect")
-        self.assertEqual(len(list_limit_orders), 1, msg="First limit order did not get added")
-
-        self.market.buy("BTCUSDT", 23, OrderType.LIMIT, 34)
-        list_limit_orders: List[LimitOrder] = self.market.limit_orders
-        second_limit_order: LimitOrder = list_limit_orders[0]
-        self.assertEqual(second_limit_order.base_currency, "BTC", msg="Base currency is incorrect")
-        self.assertEqual(second_limit_order.quote_currency, "USDT", msg="Quote currency is incorrect")
-        self.assertTrue(second_limit_order.is_buy, msg="Limit order is not buy")
-        self.assertEqual(second_limit_order.symbol, "BTCUSDT", msg="Symbol is incorrect")
-        self.assertEqual(second_limit_order.price, 34, msg="Price is incorrect")
-        self.assertEqual(second_limit_order.quantity, 23, msg="Quantity is incorrect")
-        self.assertEqual(len(list_limit_orders), 2, msg="Second limit order did not get added")
-
-    def testPlaceMarketOrders(self):
-        self.market.sell("ETHUSDT", 30, OrderType.MARKET)
-        list_queued_orders: List[QueuedOrder] = self.market.queued_orders
-        first_queued_order: QueuedOrder = list_queued_orders[0]
-        self.assertFalse(first_queued_order.is_buy, msg="Market order is not sell")
-        self.assertEqual(first_queued_order.trading_pair, "ETHUSDT", msg="Symbol is incorrect")
-        self.assertEqual(first_queued_order.amount, 30, msg="Quantity is incorrect")
-        self.assertEqual(len(list_queued_orders), 1, msg="First market order did not get added")
-
-        # Figure out why this test is failing
-        self.market.buy("BTCUSDT", 30, OrderType.MARKET)
-        list_queued_orders: List[QueuedOrder] = self.market.queued_orders
-        second_queued_order: QueuedOrder = list_queued_orders[1]
-        self.assertTrue(second_queued_order.is_buy, msg="Market order is not buy")
-        self.assertEqual(second_queued_order.trading_pair, "BTCUSDT", msg="Symbol is incorrect")
-        self.assertEqual(second_queued_order.amount, 30, msg="Quantity is incorrect")
-        self.assertEqual(second_queued_order.amount, 30, msg="Quantity is incorrect")
-        self.assertEqual(len(list_queued_orders), 2, msg="Second market order did not get added")
-
-
-class PaperTradeExecuteMarketOrdersTest(unittest.TestCase):
+class PaperTradeMarketTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
@@ -329,6 +207,25 @@ class PaperTradeExecuteMarketOrdersTest(unittest.TestCase):
     def run_parallel(self, *tasks):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
+    def test_place_market_orders(self):
+        self.market.sell("ETHUSDT", 30, OrderType.MARKET)
+        list_queued_orders: List[QueuedOrder] = self.market.queued_orders
+        first_queued_order: QueuedOrder = list_queued_orders[0]
+        self.assertFalse(first_queued_order.is_buy, msg="Market order is not sell")
+        self.assertEqual(first_queued_order.trading_pair, "ETHUSDT", msg="Symbol is incorrect")
+        self.assertEqual(first_queued_order.amount, 30, msg="Quantity is incorrect")
+        self.assertEqual(len(list_queued_orders), 1, msg="First market order did not get added")
+
+        # Figure out why this test is failing
+        self.market.buy("BTCUSDT", 30, OrderType.MARKET)
+        list_queued_orders: List[QueuedOrder] = self.market.queued_orders
+        second_queued_order: QueuedOrder = list_queued_orders[1]
+        self.assertTrue(second_queued_order.is_buy, msg="Market order is not buy")
+        self.assertEqual(second_queued_order.trading_pair, "BTCUSDT", msg="Symbol is incorrect")
+        self.assertEqual(second_queued_order.amount, 30, msg="Quantity is incorrect")
+        self.assertEqual(second_queued_order.amount, 30, msg="Quantity is incorrect")
+        self.assertEqual(len(list_queued_orders), 2, msg="Second market order did not get added")
+
     def test_market_order_simulation(self):
         self.market.set_balance("ETH", 20)
         self.market.set_balance("USDT", 100)
@@ -336,14 +233,14 @@ class PaperTradeExecuteMarketOrdersTest(unittest.TestCase):
         self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
         # Get diff between composite bid entries and original bid entries
-        d2 = OrderBookUtils.get_compare_df(
+        compare_df = OrderBookUtils.get_compare_df(
             self.market.order_books['ETHUSDT'].original_bid_entries(),
             self.market.order_books['ETHUSDT'].bid_entries(), diffs_only=True).sort_index().round(10)
         filled_bids = OrderBookUtils.ob_rows_data_frame(
             list(self.market.order_books['ETHUSDT'].traded_order_book.bid_entries())).sort_index().round(10)
 
         # assert filled orders matches diff
-        diff_bid = d2["diff"] - filled_bids["amount"]
+        diff_bid = compare_df["diff"] - filled_bids["amount"]
 
         self.assertFalse(diff_bid.to_numpy().any())
 
@@ -352,39 +249,46 @@ class PaperTradeExecuteMarketOrdersTest(unittest.TestCase):
         self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
         # Get diff between composite bid entries and original bid entries
-        d2 = OrderBookUtils.get_compare_df(
+        compare_df = OrderBookUtils.get_compare_df(
             self.market.order_books['ETHUSDT'].original_ask_entries(),
             self.market.order_books['ETHUSDT'].ask_entries(), diffs_only=True).sort_index().round(10)
         filled_asks = OrderBookUtils.ob_rows_data_frame(
             list(self.market.order_books['ETHUSDT'].traded_order_book.ask_entries())).sort_index().round(10)
 
         # assert filled orders matches diff
-        diff_ask = d2["diff"] - filled_asks["amount"]
+        diff_ask = compare_df["diff"] - filled_asks["amount"]
 
         self.assertFalse(diff_ask.to_numpy().any())
         self.assertEquals(15, self.market.get_balance("ETH"), msg="Balance was not updated.")
 
     def test_limit_order_crossed(self):
-        self.market.set_balance("ETH", 20)
-        self.market.set_balance("USDT", 1000)
+        starting_base_balance = 20
+        starting_quote_balance = 1000
+        self.market.set_balance("ETH", starting_base_balance)
+        self.market.set_balance("USDT", starting_quote_balance)
         self.market.sell("ETHUSDT", 10, OrderType.LIMIT, 100)
-
         self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
-        #self.assertEquals(10, self.market.get_balance("ETH"), msg="ETH Balance was not updated.")
-        #self.assertEquals(1100, self.market.get_balance("USDT"), msg="USDT Balance was not updated.")
+        self.assertEquals(starting_base_balance - 10, self.market.get_balance("ETH"),
+                          msg="ETH Balance was not updated.")
+        self.assertEquals(starting_quote_balance + 1000, self.market.get_balance("USDT"),
+                          msg="USDT Balance was not updated.")
         self.market.buy("ETHUSDT", 1, OrderType.LIMIT, 500)
         self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
-        #self.assertEquals(11, self.market.get_balance("ETH"), msg="ETH Balance was not updated.")
-        #self.assertEquals(600, self.market.get_balance("USDT"), msg="USDT Balance was not updated.")
+        self.assertEquals(11, self.market.get_balance("ETH"),
+                          msg="ETH Balance was not updated.")
+        self.assertEquals(1500, self.market.get_balance("USDT"),
+                          msg="USDT Balance was not updated.")
 
     def test_bid_limit_order_trade_match(self):
         """
-        Test bid limit order fill simulation, and market events emission
+        Test bid limit order fill and balance simulation, and market events emission
         """
         trading_pair = TradingPair("ETHUSDT", "ETH", "USDT")
         base_quantity = 2.0
-        self.market.set_balance(trading_pair.base_asset, 200)
-        self.market.set_balance(trading_pair.quote_asset, 2000)
+        starting_base_balance = 200
+        starting_quote_balance = 2000
+        self.market.set_balance(trading_pair.base_asset, starting_base_balance)
+        self.market.set_balance(trading_pair.quote_asset, starting_quote_balance)
 
         best_bid_price = self.market.order_books[trading_pair.trading_pair].get_price(True)
         client_order_id = self.market.buy(trading_pair.trading_pair, base_quantity, OrderType.LIMIT, best_bid_price)
@@ -400,6 +304,13 @@ class PaperTradeExecuteMarketOrdersTest(unittest.TestCase):
         })
         # Market should track limit orders
         self.assertEqual(1, len(matched_limit_orders))
+
+        # Market should on hold balance for the created order
+        self.assertAlmostEqual(float(self.market.on_hold_balances[trading_pair.quote_asset]),
+                               base_quantity * best_bid_price)
+        # Market should reflect on hold balance in available balance
+        self.assertAlmostEqual(self.market.get_available_balance(trading_pair.quote_asset),
+                               starting_quote_balance - base_quantity * best_bid_price)
 
         matched_order_create_events = TestUtils.get_match_events(self.market_logger.event_log, BuyOrderCreatedEvent, {
             "type": OrderType.LIMIT,
@@ -443,14 +354,22 @@ class PaperTradeExecuteMarketOrdersTest(unittest.TestCase):
         # Market should emit OrderFilledEvent
         self.assertEqual(1, len(matched_order_fill_events))
 
+        # Market should have no more on hold balance
+        self.assertAlmostEqual(float(self.market.on_hold_balances[trading_pair.quote_asset]), 0)
+        # Market should update balance for the filled order
+        self.assertAlmostEqual(self.market.get_available_balance(trading_pair.quote_asset),
+                               starting_quote_balance - base_quantity * best_bid_price)
+
     def test_ask_limit_order_trade_match(self):
         """
-        Test ask limit order fill simulation
+        Test ask limit order fill and balance simulation, and market events emission
         """
         trading_pair = TradingPair("ETHUSDT", "ETH", "USDT")
         base_quantity = 2.0
-        self.market.set_balance(trading_pair.base_asset, 200)
-        self.market.set_balance(trading_pair.quote_asset, 2000)
+        starting_base_balance = 200
+        starting_quote_balance = 2000
+        self.market.set_balance(trading_pair.base_asset, starting_base_balance)
+        self.market.set_balance(trading_pair.quote_asset, starting_quote_balance)
 
         best_ask_price = self.market.order_books[trading_pair.trading_pair].get_price(False)
         client_order_id = self.market.sell(trading_pair.trading_pair, base_quantity, OrderType.LIMIT, best_ask_price)
@@ -466,6 +385,12 @@ class PaperTradeExecuteMarketOrdersTest(unittest.TestCase):
         })
         # Market should track limit orders
         self.assertEqual(1, len(matched_limit_orders))
+
+        # Market should on hold balance for the created order
+        self.assertAlmostEqual(float(self.market.on_hold_balances[trading_pair.base_asset]), base_quantity)
+        # Market should reflect on hold balance in available balance
+        self.assertAlmostEqual(self.market.get_available_balance(trading_pair.base_asset),
+                               starting_base_balance - base_quantity)
 
         matched_order_create_events = TestUtils.get_match_events(self.market_logger.event_log, SellOrderCreatedEvent, {
             "type": OrderType.LIMIT,
@@ -484,7 +409,7 @@ class PaperTradeExecuteMarketOrdersTest(unittest.TestCase):
             self.market.order_books[trading_pair.trading_pair].apply_trade(trade_event)
 
         asyncio.ensure_future(delay_trigger_event2())
-        print(self.market_logger.event_log)
+
         self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
         placed_ask_orders: List[LimitOrder] = [o for o in self.market.limit_orders if not o.is_buy]
@@ -500,7 +425,7 @@ class PaperTradeExecuteMarketOrdersTest(unittest.TestCase):
         })
         # Market should emit BuyOrderCompletedEvent
         self.assertEqual(1, len(matched_order_complete_events))
-        
+
         matched_order_fill_events = TestUtils.get_match_events(
             self.market_logger.event_log, OrderFilledEvent, {
                 "order_type": OrderType.LIMIT,
@@ -510,3 +435,73 @@ class PaperTradeExecuteMarketOrdersTest(unittest.TestCase):
             })
         # Market should emit OrderFilledEvent
         self.assertEqual(1, len(matched_order_fill_events))
+
+        # Market should have no more on hold balance
+        self.assertAlmostEqual(float(self.market.on_hold_balances[trading_pair.base_asset]), 0)
+        # Market should update balance for the filled order
+        self.assertAlmostEqual(self.market.get_available_balance(trading_pair.base_asset),
+                               starting_base_balance - base_quantity)
+
+    def test_order_cancellation(self):
+        trading_pair = TradingPair("ETHUSDT", "ETH", "USDT")
+        base_quantity = 2.0
+        starting_base_balance = 200
+        starting_quote_balance = 2000
+        self.market.set_balance(trading_pair.base_asset, starting_base_balance)
+        self.market.set_balance(trading_pair.quote_asset, starting_quote_balance)
+        best_ask_price = self.market.order_books[trading_pair.trading_pair].get_price(False)
+        ask_client_order_id = self.market.sell(trading_pair.trading_pair, base_quantity,
+                                               OrderType.LIMIT, best_ask_price)
+        best_bid_price = self.market.order_books[trading_pair.trading_pair].get_price(True)
+        bid_client_order_id = self.market.buy(trading_pair.trading_pair, base_quantity, OrderType.LIMIT, best_bid_price)
+
+        # Market should track limit orders
+        self.assertEqual(2, len(self.market.limit_orders))
+        self.market.cancel(trading_pair.trading_pair, ask_client_order_id)
+
+        matched_limit_orders = TestUtils.get_match_limit_orders(self.market.limit_orders, {
+            "client_order_id": ask_client_order_id,
+            "symbol": trading_pair.trading_pair,
+            "is_buy": False,
+            "base_currency": trading_pair.base_asset,
+            "quote_currency": trading_pair.quote_asset,
+            "price": best_ask_price,
+            "quantity": base_quantity
+        })
+
+        # Market should remove canceled orders
+        self.assertEqual(0, len(matched_limit_orders))
+
+        matched_order_cancel_events = TestUtils.get_match_events(
+            self.market_logger.event_log, OrderCancelledEvent, {
+                "order_id": ask_client_order_id
+        })
+        # Market should emit cancel event
+        self.assertEqual(1, len(matched_order_cancel_events))
+
+    def test_order_cancel_all(self):
+        trading_pair = TradingPair("ETHUSDT", "ETH", "USDT")
+        base_quantity = 2.0
+        starting_base_balance = 200
+        starting_quote_balance = 2000
+        self.market.set_balance(trading_pair.base_asset, starting_base_balance)
+        self.market.set_balance(trading_pair.quote_asset, starting_quote_balance)
+        best_ask_price = self.market.order_books[trading_pair.trading_pair].get_price(False)
+        ask_client_order_id = self.market.sell(trading_pair.trading_pair, base_quantity,
+                                               OrderType.LIMIT, best_ask_price)
+        best_bid_price = self.market.order_books[trading_pair.trading_pair].get_price(True)
+        bid_client_order_id = self.market.buy(trading_pair.trading_pair, base_quantity, OrderType.LIMIT, best_bid_price)
+
+        # Market should track limit orders
+        self.assertEqual(2, len(self.market.limit_orders))
+
+        asyncio.get_event_loop().run_until_complete(self.market.cancel_all(0))
+
+        # Market should remove all canceled orders
+        self.assertEqual(0, len(self.market.limit_orders))
+
+        matched_order_cancel_events = TestUtils.get_match_events(
+            self.market_logger.event_log, OrderCancelledEvent, {})
+        # Market should emit cancel event
+        self.assertEqual(2, len(matched_order_cancel_events))
+
