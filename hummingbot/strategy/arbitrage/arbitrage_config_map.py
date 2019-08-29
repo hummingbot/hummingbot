@@ -43,9 +43,11 @@ arbitrage_config_map = {
                                                   validator=is_exchange,
                                                   on_validated=lambda value: required_exchanges.append(value)),
     "primary_market_symbol":            ConfigVar(key="primary_market_symbol",
-                                                  prompt=primary_symbol_prompt),
+                                                  prompt=primary_symbol_prompt,
+                                                  validator=is_valid_primary_market_symbol),
     "secondary_market_symbol":          ConfigVar(key="secondary_market_symbol",
-                                                  prompt=secondary_symbol_prompt),
+                                                  prompt=secondary_symbol_prompt,
+                                                  validator=is_valid_secondary_market_symbol),
     "min_profitability":                ConfigVar(key="min_profitability",
                                                   prompt="What is the minimum profitability for you to make a trade? "\
                                                          "(Enter 0.01 to indicate 1%) >>> ",

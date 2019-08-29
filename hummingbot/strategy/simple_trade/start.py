@@ -17,7 +17,7 @@ def start(self):
         is_buy = simple_trade_config_map.get("is_buy").value
         time_delay = simple_trade_config_map.get("time_delay").value
         market = simple_trade_config_map.get("market").value.lower()
-        raw_market_symbol = simple_trade_config_map.get("market_symbol_pair").value.upper()
+        raw_market_symbol = simple_trade_config_map.get("market_symbol_pair").value
         order_price = None
         cancel_order_wait_time = None
 
