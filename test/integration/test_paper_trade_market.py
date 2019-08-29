@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from decimal import Decimal
 from os.path import join, realpath
 import sys;
 
@@ -40,8 +41,55 @@ from hummingbot.market.paper_trade.paper_trade_market import PaperTradeMarket, Q
 from hummingbot.market.paper_trade.trading_pair import TradingPair
 from hummingbot.market.paper_trade.market_config import MarketConfig
 import pandas as pd
-from typing import List, Tuple, Iterator
+from typing import List, Tuple, Iterator, NamedTuple, Dict
 import logging; logging.basicConfig(level=logging.INFO)
+
+
+class TestUtils:
+    @staticmethod
+    def filter_events_by_type(event_logs, event_type):
+        print([type(e) for e in event_logs])
+        return [e for e in event_logs if type(e) == event_type]
+
+    @classmethod
+    def get_match_events(cls, event_logs: List[NamedTuple], event_type: NamedTuple, match_dict: Dict[str, any]):
+        match_events = []
+        for e in cls.filter_events_by_type(event_logs, event_type):
+            match = True
+            for k, v in match_dict.items():
+                try:
+                    event_value = getattr(e, k)
+                    if type(v) in [float]:
+                        if abs(v - float(event_value)) <= 1*10**(-8):
+                            continue
+                    elif event_value != v:
+                        match = False
+                        break
+                except Exception as err:
+                    print(f"Key {k} does not exist in event {e}. Error: {err}")
+            if match:
+                match_events.append(e)
+        return match_events
+
+    @classmethod
+    def get_match_limit_orders(cls, limit_orders: List[LimitOrder], match_dict: Dict[str, any]):
+        match_orders = []
+        for o in limit_orders:
+            match = True
+            for k, v in match_dict.items():
+                try:
+                    order_value = getattr(o, k)
+                    if type(v) in [float]:
+                        if abs(v - float(order_value)) <= 1 * 10 ** (-8):
+                            continue
+                    elif order_value != v:
+                        match = False
+                        break
+                except Exception as err:
+                    print(f"Key {k} does not exist in LimitOrder {o}. Error: {err}")
+            if match:
+                match_orders.append(o)
+        return match_orders
 
 
 class OrderBookUtils:
@@ -330,47 +378,110 @@ class PaperTradeExecuteMarketOrdersTest(unittest.TestCase):
         #self.assertEquals(600, self.market.get_balance("USDT"), msg="USDT Balance was not updated.")
 
     def test_bid_limit_order_trade_match(self):
-        self.market.set_balance("ETH", 200)
-        self.market.set_balance("USDT", 2000)
-        best_bid_price = self.market.order_books['ETHUSDT'].get_price(True)
+        """
+        Test bid limit order fill simulation, and market events emission
+        """
+        trading_pair = TradingPair("ETHUSDT", "ETH", "USDT")
+        base_quantity = 2.0
+        self.market.set_balance(trading_pair.base_asset, 200)
+        self.market.set_balance(trading_pair.quote_asset, 2000)
 
-        self.market.buy("ETHUSDT", 1, OrderType.LIMIT, best_bid_price)
+        best_bid_price = self.market.order_books[trading_pair.trading_pair].get_price(True)
+        client_order_id = self.market.buy(trading_pair.trading_pair, base_quantity, OrderType.LIMIT, best_bid_price)
 
-        placed_bid_orders: List[LimitOrder] = [o for o in self.market.limit_orders if o.is_buy]
+        matched_limit_orders = TestUtils.get_match_limit_orders(self.market.limit_orders, {
+            "client_order_id": client_order_id,
+            "symbol": trading_pair.trading_pair,
+            "is_buy": True,
+            "base_currency": trading_pair.base_asset,
+            "quote_currency": trading_pair.quote_asset,
+            "price": best_bid_price,
+            "quantity": base_quantity
+        })
+        # Market should track limit orders
+        self.assertEqual(1, len(matched_limit_orders))
 
-        self.assertEqual(1, len(placed_bid_orders))
+        matched_order_create_events = TestUtils.get_match_events(self.market_logger.event_log, BuyOrderCreatedEvent, {
+            "type": OrderType.LIMIT,
+            "amount": base_quantity,
+            "price": best_bid_price,
+            "order_id": client_order_id
+        })
+        # Market should emit BuyOrderCreatedEvent
+        self.assertEqual(1, len(matched_order_create_events))
 
         async def delay_trigger_event1():
             await asyncio.sleep(1)
-            trade_event = OrderBookTradeEvent(
-                symbol="ETHUSDT", timestamp=time.time(), type=TradeType.SELL, price=best_bid_price, amount=1)
-            self.market.order_books['ETHUSDT'].apply_trade(trade_event)
+            trade_event1 = OrderBookTradeEvent(
+                symbol="ETHUSDT", timestamp=time.time(), type=TradeType.SELL, price=best_bid_price+1,
+                amount=1.0)
+            self.market.order_books['ETHUSDT'].apply_trade(trade_event1)
+
         asyncio.ensure_future(delay_trigger_event1())
         self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
         placed_bid_orders: List[LimitOrder] = [o for o in self.market.limit_orders if o.is_buy]
-
+        # Market should delete limit order when it is filled
         self.assertEqual(0, len(placed_bid_orders))
 
-        print(self.market_logger.event_log)
+        matched_order_complete_events = TestUtils.get_match_events(
+            self.market_logger.event_log, BuyOrderCompletedEvent, {
+                "order_type": OrderType.LIMIT,
+                "quote_asset_amount": base_quantity * best_bid_price,
+                "order_id": client_order_id
+        })
+        # Market should emit BuyOrderCompletedEvent
+        self.assertEqual(1, len(matched_order_complete_events))
+
+        matched_order_fill_events = TestUtils.get_match_events(
+            self.market_logger.event_log, OrderFilledEvent, {
+                "order_type": OrderType.LIMIT,
+                "trade_type": TradeType.BUY,
+                "symbol": trading_pair.trading_pair,
+                "order_id": client_order_id
+            })
+        # Market should emit OrderFilledEvent
+        self.assertEqual(1, len(matched_order_fill_events))
 
     def test_ask_limit_order_trade_match(self):
-        self.market.set_balance("ETH", 200)
-        self.market.set_balance("USDT", 2000)
+        """
+        Test ask limit order fill simulation
+        """
+        trading_pair = TradingPair("ETHUSDT", "ETH", "USDT")
+        base_quantity = 2.0
+        self.market.set_balance(trading_pair.base_asset, 200)
+        self.market.set_balance(trading_pair.quote_asset, 2000)
 
-        best_ask_price = self.market.order_books['ETHUSDT'].get_price(False)
+        best_ask_price = self.market.order_books[trading_pair.trading_pair].get_price(False)
+        client_order_id = self.market.sell(trading_pair.trading_pair, base_quantity, OrderType.LIMIT, best_ask_price)
 
-        self.market.sell("ETHUSDT", 1, OrderType.LIMIT, best_ask_price)
+        matched_limit_orders = TestUtils.get_match_limit_orders(self.market.limit_orders, {
+            "client_order_id": client_order_id,
+            "symbol": trading_pair.trading_pair,
+            "is_buy": False,
+            "base_currency": trading_pair.base_asset,
+            "quote_currency": trading_pair.quote_asset,
+            "price": best_ask_price,
+            "quantity": base_quantity
+        })
+        # Market should track limit orders
+        self.assertEqual(1, len(matched_limit_orders))
 
-        placed_ask_orders: List[LimitOrder] = [o for o in self.market.limit_orders if not o.is_buy]
-
-        self.assertEqual(1, len(placed_ask_orders))
+        matched_order_create_events = TestUtils.get_match_events(self.market_logger.event_log, SellOrderCreatedEvent, {
+            "type": OrderType.LIMIT,
+            "amount": base_quantity,
+            "price": best_ask_price,
+            "order_id": client_order_id
+        })
+        # Market should emit BuyOrderCreatedEvent
+        self.assertEqual(1, len(matched_order_create_events))
 
         async def delay_trigger_event2():
             await asyncio.sleep(1)
             trade_event = OrderBookTradeEvent(
-                symbol="ETHUSDT", timestamp=time.time(), type=TradeType.BUY, price=best_ask_price, amount=1)
-            self.market.order_books['ETHUSDT'].apply_trade(trade_event)
+                symbol=trading_pair.trading_pair, timestamp=time.time(), type=TradeType.BUY,
+                price=best_ask_price-1, amount=base_quantity)
+            self.market.order_books[trading_pair.trading_pair].apply_trade(trade_event)
 
         asyncio.ensure_future(delay_trigger_event2())
         print(self.market_logger.event_log)
@@ -378,5 +489,24 @@ class PaperTradeExecuteMarketOrdersTest(unittest.TestCase):
 
         placed_ask_orders: List[LimitOrder] = [o for o in self.market.limit_orders if not o.is_buy]
 
+        # Market should delete limit order when it is filled
         self.assertEqual(0, len(placed_ask_orders))
-        print(self.market_logger.event_log)
+
+        matched_order_complete_events = TestUtils.get_match_events(
+            self.market_logger.event_log, SellOrderCompletedEvent, {
+                "order_type": OrderType.LIMIT,
+                "quote_asset_amount": base_quantity * base_quantity,
+                "order_id": client_order_id
+        })
+        # Market should emit BuyOrderCompletedEvent
+        self.assertEqual(1, len(matched_order_complete_events))
+        
+        matched_order_fill_events = TestUtils.get_match_events(
+            self.market_logger.event_log, OrderFilledEvent, {
+                "order_type": OrderType.LIMIT,
+                "trade_type": TradeType.SELL,
+                "symbol": trading_pair.trading_pair,
+                "order_id": client_order_id
+            })
+        # Market should emit OrderFilledEvent
+        self.assertEqual(1, len(matched_order_fill_events))
