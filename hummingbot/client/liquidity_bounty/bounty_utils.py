@@ -74,7 +74,9 @@ class LiquidityBounty(NetworkBase):
         return self._status
 
     def formatted_status(self) -> str:
-        df: pd.DataFrame = pd.DataFrame(self._status.items())
+        status_dict = self._status.copy()
+        del status_dict["status_codes"]
+        df: pd.DataFrame = pd.DataFrame(status_dict.items())
         lines = ["", "  Client Status:"] + ["    " + line for line in df.to_string(index=False, header=False).split("\n")]
         return "\n".join(lines)
 
@@ -91,25 +93,9 @@ class LiquidityBounty(NetworkBase):
         ] for bounty in self._active_bounties]
         df: pd.DataFrame = pd.DataFrame(
             rows,
-            columns=["Market", "Asset", "Start (MM/DD/YYYY)", "End (MM/DD/YYYY)", "More Info"]
+            columns=["Market", "Asset", "Start (MM/DD/YYYY)", "End (MM/DD/YYYY)", "Leaderboard link"]
         )
         lines = ["", "  Bounties:"] + ["    " + line for line in df.to_string(index=False).split("\n")]
-        return "\n".join(lines)
-
-    @staticmethod
-    def format_volume_metrics(volume_metrics: List[Dict[str, Any]]) -> str:
-        rows = [[
-            vm["market"],
-            vm["base_asset"],
-            vm["total_filled_volume"],
-            vm["total_filled_volume_in_session"],
-            vm["trades_submitted_count"]
-        ] for vm in volume_metrics]
-        df: pd.DataFrame = pd.DataFrame(
-            rows,
-            columns=["Market", "Asset", "Filled Volume", "Filled volume in current session", "Total trades submitted"]
-        )
-        lines = ["", "  Volume Metrics:"] + ["    " + line for line in df.to_string(index=False).split("\n")]
         return "\n".join(lines)
 
     async def _wait_till_ready(self):
@@ -332,20 +318,6 @@ class LiquidityBounty(NetworkBase):
                     break
                 self.logger().error(f"Error getting bounty status: {e}", exc_info=True)
             await asyncio.sleep(self._update_interval)
-
-    async def fetch_filled_volume_metrics(self, start_time: int) -> List[Dict[str, Any]]:
-        try:
-            url = f"{self.LIQUIDITY_BOUNTY_REST_API}/metrics"
-            data = {"start_time": start_time}
-            results: Dict[str, Any] = await self.authenticated_request("GET", url, json=data)
-            if results["status"] != "success":
-                raise Exception(str(results))
-            return results["metrics"]
-        except Exception as e:
-            if "User not registered" in str(e):
-                self.logger().warning("User not registered. Aborting fetch_filled_volume_metrics.")
-            else:
-                self.logger().error(f"Error fetching filled volume metrics: {str(e)}", exc_info=True)
 
     async def submit_trades(self):
         try:
