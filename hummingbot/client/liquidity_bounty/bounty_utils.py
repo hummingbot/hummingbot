@@ -74,7 +74,9 @@ class LiquidityBounty(NetworkBase):
         return self._status
 
     def formatted_status(self) -> str:
-        df: pd.DataFrame = pd.DataFrame(self._status.items())
+        status_dict = self._status.copy()
+        del status_dict["status_codes"]
+        df: pd.DataFrame = pd.DataFrame(status_dict.items())
         lines = ["", "  Client Status:"] + ["    " + line for line in df.to_string(index=False, header=False).split("\n")]
         return "\n".join(lines)
 
@@ -91,7 +93,7 @@ class LiquidityBounty(NetworkBase):
         ] for bounty in self._active_bounties]
         df: pd.DataFrame = pd.DataFrame(
             rows,
-            columns=["Market", "Asset", "Start (MM/DD/YYYY)", "End (MM/DD/YYYY)", "More Info"]
+            columns=["Market", "Asset", "Start (MM/DD/YYYY)", "End (MM/DD/YYYY)", "Leaderboard link"]
         )
         lines = ["", "  Bounties:"] + ["    " + line for line in df.to_string(index=False).split("\n")]
         return "\n".join(lines)
