@@ -101,7 +101,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
 
-
         self._filter_delegate = filter_delegate
         self._pricing_delegate = pricing_delegate
         self._sizing_delegate = sizing_delegate
@@ -195,7 +194,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     def execute_orders_proposal(self, market_info: MarketSymbolPair, orders_proposal: OrdersProposal):
         return self.c_execute_orders_proposal(market_info, orders_proposal)
 
-    def cancel_order(self, market_info: MarketSymbolPair, order_id:str):
+    def cancel_order(self, market_info: MarketSymbolPair, order_id: str):
         return self.c_cancel_order(market_info, order_id)
 
     def get_order_price_proposal(self, market_info: MarketSymbolPair) -> PricingProposal:
@@ -294,8 +293,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         if sizing_proposal.buy_order_sizes[0] > 0 or sizing_proposal.sell_order_sizes[0] > 0:
             actions |= ORDER_PROPOSAL_ACTION_CREATE_ORDERS
 
-        if ((market_info.market.name not in self.RADAR_RELAY_TYPE_EXCHANGES) or 
-            (market_info.market.name == "bamboo_relay" and market_info.market.use_coordinator)):
+        if ((market_info.market.name not in self.RADAR_RELAY_TYPE_EXCHANGES) or
+                (market_info.market.name == "bamboo_relay" and market_info.market.use_coordinator)):
             for active_order in active_orders:
                 # If there are active orders, and active order cancellation is needed, then do the following:
                 #  1. Check the time to cancel for each order, and see if cancellation should be proposed.
@@ -315,7 +314,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                               pricing_proposal.sell_order_prices,
                               sizing_proposal.sell_order_sizes,
                               cancel_order_ids)
-
 
     cdef c_did_fill_order(self, object order_filled_event):
         cdef:
@@ -384,10 +382,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         # Cancel orders.
         if actions & ORDER_PROPOSAL_ACTION_CANCEL_ORDERS:
             for order_id in orders_proposal.cancel_order_ids:
-                self.log_with_clock(
-                    logging.INFO,
-                    f"({market_info.trading_pair}) Cancelling the limit order {order_id}."
-                )
                 self.c_cancel_order(market_info, order_id)
 
         # Create orders.
