@@ -88,6 +88,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                                 balance available for hedging trade on taker side
         :param order_size_portfolio_ratio_limit: maximum size limit of new limit orders, in terms of ratio of total
                                                  portfolio value on both maker and taker markets
+        :param limit_order_min_expiration: amount of time after which limit order will expire to be used alongside
+                                           cancel_order_threshold
+        :param cancel_order_threshold: if active order cancellation is disabled, the hedging loss ratio required for the
+                                       strategy to force an order cancellation
+        :param active_order_canceling: True if active order cancellation is enabled, False if disabled
+        :param anti_hysteresis_duration: the minimum amount of time interval between adjusting limit order prices
         :param logging_options: bit field for what types of logging to enable in this strategy object
         :param status_report_interval: what is the time interval between outputting new network warnings
         """
@@ -506,8 +512,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
         :param market_pair: cross exchange market pair
         :param active_order: a current active limit order in the market pair
-        :param current_hedging_price: the current active hedging price for the active order
-        :return: True if the order stays, False if the order has been cancelled.
+        :return: True if the order stays, False if the order has been cancelled and we need to re place the orders.
         """
         cdef:
             bint is_buy = active_order.is_buy
@@ -525,14 +530,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         suggested_price = float(self.c_get_market_making_price(market_pair, is_buy, order_quantity))
 
         if is_buy:
-            # above_price = order_price + float(price_quantum)
-            # above_quote_volume = maker_order_book.c_get_quote_volume_for_price(False, above_price).result_volume
-            # suggested_price, order_size_limit = self.c_get_market_making_price_and_size_limit(
-            #     market_pair,
-            #     True,
-            #     own_order_depth=order_price * order_quantity
-            # )
-
             # Incorporate the past bid price samples.
             current_top_bid_price = maker_order_book.c_get_price(False)
 
@@ -553,15 +550,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                     f"suggested order price={suggested_price}")
                 return False
         else:
-            # above_price = order_price - float(price_quantum)
-            # above_quote_volume = maker_order_book.c_get_quote_volume_for_price(True, above_price).result_volume
-            # suggested_price, order_size_limit = self.c_get_market_making_price_and_size_limit(
-            #     market_pair,
-            #     False,
-            #     own_order_depth=order_price * order_quantity
-            # )
-            #
-
             # Incorporate the past ask price samples.
             current_top_ask_price = maker_order_book.c_get_price(True)
 
@@ -718,14 +706,13 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         Get the ideal market making order size given a market pair and a side.
 
         This function does a few things:
-         1. Get the widest possible order price for market making on the maker market.
-         2. Calculate the largest order size possible given the current balances on both maker and taker markets.
-         3. Calculate the largest order size possible that's still profitable after hedging.
+         1. Calculate the largest order size possible given the current balances on both maker and taker markets.
+         2. Calculate the largest order size possible that's still profitable after hedging.
 
 
         :param market_pair: The cross exchange market pair to calculate order price/size limits.
         :param is_bid: Whether the order to make will be bid or ask.
-        :return: a Decimal which is size limit.
+        :return: a Decimal which is the size of maker order.
         
         """
         cdef:
@@ -780,21 +767,15 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                          bint is_bid,
                                          double size):
         """
-        Get the ideal market making order size and maximum order size given a market pair and a side.
+        Get the ideal market making order price given a market pair, side and size.
 
-        This function does a few things:
-         1. Get the widest possible order price for market making on the maker market.
-         2. Calculate the largest order size possible given the current balances on both maker and taker markets.
-         3. Calculate the largest order size possible that's still profitable after hedging.
-
-        The price returned is calculated from step 1. The order size returned is the minimum from 2 and 3. If either
-        there's not enough balance for the maker order or the hedging trade; or if it's not possible to hedge the
-        trade profitably, then the returned order size will be 0.
+        The price returned is calculated by adding the profitability to vwap of hedging it on the taker side. 
+        or if it's not possible to hedge the trade profitably, then the returned order price will be none.
 
         :param market_pair: The cross exchange market pair to calculate order price/size limits.
         :param is_bid: Whether the order to make will be bid or ask.
-        :param own_order_depth: Market depth caused by existing order issued by ourselves.
-        :return: a (Decimal, Decimal) tuple. First item is price, second item is size limit.
+        :param size: size of hte order.
+        :return: a Decimal which is the price
         """
         cdef:
             MarketBase maker_market = market_pair.maker.market
@@ -839,8 +820,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             if maker_price > price_above_bid:
                 maker_price = price_above_bid
 
-            self.logger().info(f"Top bid price is {price_above_bid}. Maker Price is {maker_price}")
-
             price_quantum = maker_market.c_get_order_price_quantum(
                 market_pair.maker.trading_pair,
                 maker_price
@@ -876,8 +855,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             if maker_price < next_price_below_top_ask:
                 maker_price = next_price_below_top_ask
 
-            self.logger().info(f"Top ask price is {next_price_below_top_ask}. Maker Price is {maker_price}")
-
             price_quantum = maker_market.c_get_order_price_quantum(
                 market_pair.maker.trading_pair,
                 maker_price
@@ -906,8 +883,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
         :param market_pair: The cross exchange market pair to calculate order price/size limits.
         :param is_bid: Whether the order to make will be bid or ask.
-        :param own_order_depth: Market depth caused by existing order issued by ourselves.
-        :return: a (Decimal, Decimal) tuple. First item is price, second item is size limit.
+        :param size: The size of the maker order.
+        :return: a Decimal which is the hedging price
         """
         cdef:
             OrderBook taker_order_book = market_pair.taker.order_book
@@ -957,14 +934,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
     cdef c_take_suggested_price_sample(self, object market_pair):
         """
-        Calculate the ideal market making prices at the moment, taking into account of parameters like depth tolerance,
-        and record them to the bid and ask sample queues.
+        Record the bid and ask sample queues.
 
-        These samples are later taken to adjust the price proposals for new limit orders, s.t. new limit orders can
+        These samples are later taken to check if price has drifted for new limit orders, s.t. new limit orders can
         properly take into account transient orders that appear and disappear frequently on the maker market.
 
         :param market_pair: cross exchange market pair
-        :param active_orders: list of currently active orders associated to the market pair
         """
         cdef:
             OrderBook maker_order_book = market_pair.maker.order_book
@@ -974,9 +949,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 (self._current_timestamp // self.ORDER_ADJUST_SAMPLE_INTERVAL)):
             if market_pair not in self._suggested_price_samples:
                 self._suggested_price_samples[market_pair] = (deque(), deque())
-
-            # own_bid_depth = float(sum([o.price * o.quantity for o in active_orders if o.is_buy is True]))
-            # own_ask_depth = float(sum([o.price * o.quantity for o in active_orders if o.is_buy is not True]))
 
             top_bid_price = maker_order_book.c_get_price(False)
 
