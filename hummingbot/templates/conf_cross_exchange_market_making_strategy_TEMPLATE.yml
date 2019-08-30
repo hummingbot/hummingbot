@@ -16,7 +16,7 @@ taker_market_symbol: null
 min_profitability: null
 
 # Maximum order size in terms of base currency
-trade_size_override: null
+order_amount: null
 
 # Have Hummingbot actively adjust/cancel orders if necessary.
 # If set to true, outstanding orders are adjusted if

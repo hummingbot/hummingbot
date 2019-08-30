@@ -56,9 +56,9 @@ cross_exchange_market_making_config_map = {
         prompt="What is the minimum profitability for you to make a trade? " "(Enter 0.01 to indicate 1%) >>> ",
         type_str="float",
     ),
-    "trade_size_override": ConfigVar(
-        key="trade_size_override",
-        prompt="What is your preferred trade size? (denominated in " "the quote asset) >>> ",
+    "order_amount": ConfigVar(
+        key="order_amount",
+        prompt="What is your preferred trade size? (denominated in " "the base asset) >>> ",
         required_if=lambda: False,
         default=0.0,
         type_str="float",
