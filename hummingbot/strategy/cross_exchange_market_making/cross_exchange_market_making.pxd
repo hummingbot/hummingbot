@@ -42,9 +42,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                                              object market_pair)
     cdef object c_get_adjusted_limit_order_size(self,
                                                 object market_pair)
-    cdef double c_sum_flat_fees(self,
-                                str quote_currency,
-                                list flat_fees)
     cdef object c_get_market_making_size(self,
                                         object market_pair,
                                         bint is_bid)
@@ -59,12 +56,16 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef bint c_check_if_still_profitable(self,
                                           object market_pair,
                                           LimitOrder active_order,
-                                          double current_hedging_price)
+                                          object current_hedging_price)
     cdef bint c_check_if_sufficient_balance(self,
                                             object market_pair,
                                             LimitOrder active_order)
+
+    cdef bint c_check_if_price_has_drifted(self,
+                                           object market_pair,
+                                           LimitOrder active_order)
     cdef tuple c_get_suggested_price_samples(self, object market_pair)
-    cdef c_take_suggested_price_sample(self, object market_pair, list active_orders)
+    cdef c_take_suggested_price_sample(self, object market_pair)
     cdef c_check_and_create_new_orders(self,
                                        object market_pair,
                                        bint has_active_bid,
