@@ -18,5 +18,21 @@ min_profitability: null
 # Maximum order size in terms of base currency
 trade_size_override: null
 
+# Have Hummingbot actively adjust/cancel orders if necessary.
+# If set to true, outstanding orders are adjusted if
+# profitability falls below min_profitability.
+# If set to false, outstanding orders are adjusted if
+# profitability falls below cancel_order_threshold.
+active_order_canceling: null
+
+# If active_order_canceling = false, this is the profitability/
+# loss threshold at which to cancel the order.
+# Expressed in decimals: 0.01 = 1% target profit
+cancel_order_threshold: null
+
+# An amount in seconds, which is the minimum duration for any
+# placed limit orders. Default value = 130 seconds.
+limit_order_min_expiration: null
+
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/cross-exchange-market-making/#configuration-parameters
