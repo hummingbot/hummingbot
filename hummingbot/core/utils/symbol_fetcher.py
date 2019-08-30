@@ -13,6 +13,7 @@ RADAR_RELAY_ENDPOINT = "https://api.radarrelay.com/v2/markets"
 BAMBOO_RELAY_ENDPOINT = "https://rest.bamboorelay.com/main/0x/markets"
 COINBASE_PRO_ENDPOINT = "https://api.pro.coinbase.com/products/"
 IDEX_REST_ENDPOINT = "https://api.idex.market/returnTicker"
+HUOBI_ENDPOINT = "https://api.huobi.pro/v1/common/symbols"
 API_CALL_TIMEOUT = 5
 
 
@@ -132,12 +133,30 @@ class SymbolFetcher:
                         # Do nothing if the request fails -- there will be no autocomplete for binance symbols
                 return []
 
+    @staticmethod
+    async def fetch_huobi_symbols() -> List[str]:
+        async with aiohttp.ClientSession() as client:
+            async with client.get(HUOBI_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                if response.status == 200:
+                    try:
+                        all_symbols: Dict[str, any] = await response.json()
+                        valid_symbols: list = []
+                        for item in all_symbols["data"]:
+                            if item["state"] == "online":
+                                valid_symbols.append(item["symbol"])
+                        return valid_symbols
+                    except Exception:
+                        pass
+                        # Do nothing if the request fails -- there will be no autocomplete for huobi symbols
+                return []
+
     async def fetch_all(self):
         binance_symbols = await self.fetch_binance_symbols()
         ddex_symbols = await self.fetch_ddex_symbols()
         radar_relay_symbols = await self.fetch_radar_relay_symbols()
         bamboo_relay_symbols = await self.fetch_bamboo_relay_symbols()
         coinbase_pro_symbols = await self.fetch_coinbase_pro_symbols()
+        huobi_symbols = await self.fetch_huobi_symbols()
         idex_symbols = await self.fetch_idex_symbols()
         self.symbols = {
             "binance": binance_symbols,
@@ -146,6 +165,6 @@ class SymbolFetcher:
             "radar_relay": radar_relay_symbols,
             "bamboo_relay": bamboo_relay_symbols,
             "coinbase_pro": coinbase_pro_symbols,
+            "huobi": huobi_symbols
         }
         self.ready = True
-

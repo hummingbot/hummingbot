@@ -29,7 +29,7 @@ def start(self):
         order_step_size = pure_market_making_config_map.get("order_step_size").value
         order_interval_percent = pure_market_making_config_map.get("order_interval_percent").value
         maker_market = pure_market_making_config_map.get("maker_market").value.lower()
-        raw_maker_symbol = pure_market_making_config_map.get("maker_market_symbol").value.upper()
+        raw_maker_symbol = pure_market_making_config_map.get("maker_market_symbol").value
         inventory_skew_enabled = pure_market_making_config_map.get("inventory_skew_enabled").value
         inventory_target_base_percent = pure_market_making_config_map.get("inventory_target_base_percent").value
 

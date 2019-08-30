@@ -46,6 +46,10 @@ coinbase_pro_passphrase = os.getenv("COINBASE_PRO_PASSPHRASE")
 # IDEX Tests
 idex_api_key = os.getenv("IDEX_API_KEY")
 
+# Huobi Tests
+huobi_api_key = os.getenv("HUOBI_API_KEY")
+huobi_secret_key = os.getenv("HUOBI_SECRET_KEY")
+
 test_web3_provider_list = [os.getenv("WEB3_PROVIDER")]
 
 # Wallet Tests
@@ -59,26 +63,31 @@ coinalpha_order_book_api_password = "***REMOVED***"
 
 kafka_2 = {
     "bootstrap_servers": "***REMOVED***",
-    "zookeeper_servers":  "***REMOVED***"
+    "zookeeper_servers": "***REMOVED***"
 }
 
 
 try:
-    from .config_local import *
+    from .config_local import *             # noqa: F401, F403
 except ModuleNotFoundError:
     pass
 
 try:
-    from .web3_wallet_secret import *
+    from .web3_wallet_secret import *       # noqa: F401, F403
 except ModuleNotFoundError:
     pass
 
 try:
-    from .binance_secret import *
+    from .binance_secret import *           # noqa: F401, F403
 except ModuleNotFoundError:
     pass
 
 try:
-    from .coinbase_pro_secrets import *
+    from .coinbase_pro_secrets import *     # noqa: F401, F403
+except ModuleNotFoundError:
+    pass
+
+try:
+    from .huobi_secret import *
 except ModuleNotFoundError:
     pass
