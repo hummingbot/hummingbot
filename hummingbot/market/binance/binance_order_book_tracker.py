@@ -11,6 +11,7 @@ from typing import (
     Optional
 )
 
+from hummingbot.core.event.events import OrderBookTradeEvent, TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTracker,
@@ -38,6 +39,7 @@ class BinanceOrderBookTracker(OrderBookTracker):
 
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
+
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[OrderBookTrackerDataSource] = None
         self._process_msg_deque_task: Optional[asyncio.Task] = None
@@ -56,15 +58,21 @@ class BinanceOrderBookTracker(OrderBookTracker):
         return self._data_source
 
     @property
-    async def exchange_name(self) -> str:
+    def exchange_name(self) -> str:
         return "binance"
 
     async def start(self):
+        self._order_book_trade_listener_task = asyncio.ensure_future(
+            self.data_source.listen_for_trades(self._ev_loop, self._order_book_trade_stream)
+        )
         self._order_book_diff_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
         self._order_book_snapshot_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
+        )
+        self._emit_trade_event_task = asyncio.ensure_future(
+            self._emit_trade_event_loop()
         )
         self._refresh_tracking_task = asyncio.ensure_future(
             self._refresh_tracking_loop()
@@ -82,6 +90,26 @@ class BinanceOrderBookTracker(OrderBookTracker):
                              self._order_book_diff_router_task,
                              self._refresh_tracking_task,
                              )
+
+    def stop(self):
+        if self._order_book_trade_listener_task is not None:
+            self._order_book_trade_listener_task.cancel()
+            self._order_book_trade_listener_task = None
+        if self._order_book_diff_listener_task is not None:
+            self._order_book_diff_listener_task.cancel()
+            self._order_book_diff_listener_task = None
+        if self._order_book_snapshot_listener_task is not None:
+            self._order_book_snapshot_listener_task.cancel()
+            self._order_book_snapshot_listener_task = None
+        if self._refresh_tracking_task is not None:
+            self._refresh_tracking_task.cancel()
+            self._refresh_tracking_task = None
+        if self._order_book_diff_router_task is not None:
+            self._order_book_diff_router_task.cancel()
+            self._order_book_diff_router_task = None
+        if self._order_book_snapshot_router_task is not None:
+            self._order_book_snapshot_router_task.cancel()
+            self._order_book_snapshot_router_task = None
 
     async def _order_book_diff_router(self):
         """
@@ -116,9 +144,9 @@ class BinanceOrderBookTracker(OrderBookTracker):
                 now: float = time.time()
                 if int(now / 60.0) > int(last_message_timestamp / 60.0):
                     self.logger().debug("Diff messages processed: %d, rejected: %d, queued: %d",
-                                       messages_accepted,
-                                       messages_rejected,
-                                       messages_queued)
+                                        messages_accepted,
+                                        messages_rejected,
+                                        messages_queued)
                     messages_accepted = 0
                     messages_rejected = 0
                     messages_queued = 0
@@ -165,7 +193,7 @@ class BinanceOrderBookTracker(OrderBookTracker):
                     now: float = time.time()
                     if int(now / 60.0) > int(last_message_timestamp / 60.0):
                         self.logger().debug("Processed %d order book diffs for %s.",
-                                           diff_messages_accepted, symbol)
+                                            diff_messages_accepted, symbol)
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                 elif message.type is OrderBookMessageType.SNAPSHOT:
