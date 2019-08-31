@@ -42,7 +42,6 @@ class BinanceOrderBookTracker(OrderBookTracker):
 
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[OrderBookTrackerDataSource] = None
-        self._process_msg_deque_task: Optional[asyncio.Task] = None
         self._saved_message_queues: Dict[str, Deque[OrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
         self._symbols: Optional[List[str]] = symbols
 
@@ -84,7 +83,9 @@ class BinanceOrderBookTracker(OrderBookTracker):
             self._order_book_snapshot_router()
         )
 
-        await asyncio.gather(self._order_book_snapshot_listener_task,
+        await asyncio.gather(self._emit_trade_event_task,
+                             self._order_book_trade_listener_task,
+                             self._order_book_snapshot_listener_task,
                              self._order_book_diff_listener_task,
                              self._order_book_snapshot_router_task,
                              self._order_book_diff_router_task,
@@ -92,6 +93,9 @@ class BinanceOrderBookTracker(OrderBookTracker):
                              )
 
     def stop(self):
+        if self._emit_trade_event_task is not None:
+            self._emit_trade_event_task.cancel()
+            self._emit_trade_event_task = None
         if self._order_book_trade_listener_task is not None:
             self._order_book_trade_listener_task.cancel()
             self._order_book_trade_listener_task = None
