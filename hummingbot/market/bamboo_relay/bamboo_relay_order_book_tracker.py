@@ -41,7 +41,6 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
         self._data_source: Optional[OrderBookTrackerDataSource] = None
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
-        self._process_msg_deque_task: Optional[asyncio.Task] = None
         self._past_diffs_windows: Dict[str, Deque] = {}
         self._order_books: Dict[str, BambooRelayOrderBook] = {}
         self._saved_message_queues: Dict[str, Deque[BambooRelayOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
@@ -58,15 +57,21 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
         return self._data_source
 
     @property
-    async def exchange_name(self) -> str:
+    def exchange_name(self) -> str:
         return "bamboo_relay"
 
     async def start(self):
+        self._order_book_trade_listener_task = asyncio.ensure_future(
+            self.data_source.listen_for_trades(self._ev_loop, self._order_book_trade_stream)
+        )
         self._order_book_diff_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
         self._order_book_snapshot_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
+        )
+        self._emit_trade_event_task = asyncio.ensure_future(
+            self._emit_trade_event_loop()
         )
         self._refresh_tracking_task = asyncio.ensure_future(
             self._refresh_tracking_loop()
@@ -78,11 +83,36 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
             self._order_book_snapshot_router()
         )
 
-        await asyncio.gather(self._order_book_snapshot_listener_task,
+        await asyncio.gather(self._emit_trade_event_task,
+                             self._order_book_trade_listener_task,
+                             self._order_book_snapshot_listener_task,
                              self._order_book_diff_listener_task,
                              self._order_book_snapshot_router_task,
                              self._order_book_diff_router_task,
                              self._refresh_tracking_task)
+
+    def stop(self):
+        if self._emit_trade_event_task is not None:
+            self._emit_trade_event_task.cancel()
+            self._emit_trade_event_task = None
+        if self._order_book_trade_listener_task is not None:
+            self._order_book_trade_listener_task.cancel()
+            self._order_book_trade_listener_task = None
+        if self._order_book_diff_listener_task is not None:
+            self._order_book_diff_listener_task.cancel()
+            self._order_book_diff_listener_task = None
+        if self._order_book_snapshot_listener_task is not None:
+            self._order_book_snapshot_listener_task.cancel()
+            self._order_book_snapshot_listener_task = None
+        if self._refresh_tracking_task is not None:
+            self._refresh_tracking_task.cancel()
+            self._refresh_tracking_task = None
+        if self._order_book_diff_router_task is not None:
+            self._order_book_diff_router_task.cancel()
+            self._order_book_diff_router_task = None
+        if self._order_book_snapshot_router_task is not None:
+            self._order_book_snapshot_router_task.cancel()
+            self._order_book_snapshot_router_task = None
 
     async def _refresh_tracking_tasks(self):
         """
