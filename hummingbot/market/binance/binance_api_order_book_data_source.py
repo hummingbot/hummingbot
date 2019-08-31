@@ -9,7 +9,7 @@ from typing import (
     Dict,
     List,
     Optional,
-)
+    Callable)
 import re
 import time
 import ujson
@@ -22,6 +22,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book import OrderBook
 
 TRADING_PAIR_FILTER = re.compile(r"(BTC|ETH|USDT)$")
 
@@ -47,6 +48,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(self, symbols: Optional[List[str]] = None):
         super().__init__()
         self._symbols: Optional[List[str]] = symbols
+        self._order_book_create_function = lambda: OrderBook()
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
@@ -102,6 +104,14 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def order_book_class(self) -> BinanceOrderBook:
         return BinanceOrderBook
 
+    @property
+    def order_book_create_function(self) -> Callable[[], OrderBook]:
+        return self._order_book_create_function
+
+    @order_book_create_function.setter
+    def order_book_create_function(self, func: Callable[[], OrderBook]):
+        self._order_book_create_function = func
+
     async def get_trading_pairs(self) -> List[str]:
         if not self._symbols:
             try:
@@ -143,12 +153,13 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 try:
                     snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, 1000)
                     snapshot_timestamp: float = time.time()
-                    snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                    snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
                         snapshot,
                         snapshot_timestamp,
                         metadata={"symbol": trading_pair}
                     )
-                    order_book: BinanceOrderBook = self.order_book_class.from_snapshot(snapshot_msg)
+                    order_book: OrderBook = self.order_book_create_function()
+                    order_book.from_snapshot(snapshot_msg)
                     retval[trading_pair] = OrderBookTrackerEntry(trading_pair, snapshot_timestamp, order_book)
                     self.logger().info(f"Initialized order book for {trading_pair}. "
                                         f"{index+1}/{number_of_pairs} completed.")
@@ -181,6 +192,26 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         finally:
             await ws.close()
 
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        while True:
+            try:
+                trading_pairs: List[str] = await self.get_trading_pairs()
+                ws_path: str = "/".join([f"{trading_pair.lower()}@trade" for trading_pair in trading_pairs])
+                stream_url: str = f"{DIFF_STREAM_URL}/{ws_path}"
+
+                async with websockets.connect(stream_url) as ws:
+                    ws: websockets.WebSocketClientProtocol = ws
+                    async for raw_msg in self._inner_messages(ws):
+                        msg = ujson.loads(raw_msg)
+                        trade_msg: OrderBookMessage = BinanceOrderBook.trade_message_from_exchange(msg)
+                        output.put_nowait(trade_msg)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
+                                    exc_info=True)
+                await asyncio.sleep(30.0)
+
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
@@ -192,7 +223,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     ws: websockets.WebSocketClientProtocol = ws
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
-                        order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(
+                        order_book_message: OrderBookMessage = BinanceOrderBook.diff_message_from_exchange(
                             msg, time.time())
                         output.put_nowait(order_book_message)
             except asyncio.CancelledError:
@@ -211,7 +242,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         try:
                             snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
                             snapshot_timestamp: float = time.time()
-                            snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                            snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
                                 snapshot,
                                 snapshot_timestamp,
                                 metadata={"symbol": trading_pair}
