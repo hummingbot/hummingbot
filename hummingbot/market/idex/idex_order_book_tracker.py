@@ -65,7 +65,7 @@ class IDEXOrderBookTracker(OrderBookTracker):
         return self._data_source
 
     @property
-    async def exchange_name(self) -> str:
+    def exchange_name(self) -> str:
         return "idex"
 
     async def start(self):
