@@ -22,6 +22,8 @@ from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.market_base import MarketBase
+from hummingbot.market.paper_trade import create_paper_trade_market
+from hummingbot.market.paper_trade.paper_trade_market import PaperTradeMarket
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
@@ -222,6 +224,9 @@ class HummingbotApplication(*commands):
             market_symbols_map[market_name] += symbols
 
         for market_name, symbols in market_symbols_map.items():
+            if global_config_map.get("paper_trade_enabled").value:
+                market = create_paper_trade_market(market_name, symbols)
+
             if market_name == "ddex" and self.wallet:
                 market = DDEXMarket(wallet=self.wallet,
                                     ethereum_rpc_url=ethereum_rpc_url,

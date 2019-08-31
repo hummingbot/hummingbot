@@ -161,5 +161,10 @@ global_config_map = {
     "telegram_chat_id":                 ConfigVar(key="telegram_chat_id",
                                                   prompt="What is your telegram chat id? >>> ",
                                                   required_if=lambda: False),
+    "paper_trade_mode":                 ConfigVar(key="paper_trade_enabled",
+                                                  prompt="Enable paper trade? >>> ",
+                                                  type_str="bool",
+                                                  default=False,
+                                                  required_if=lambda: False),
 }
 
