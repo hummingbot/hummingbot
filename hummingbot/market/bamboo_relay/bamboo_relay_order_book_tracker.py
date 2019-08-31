@@ -5,6 +5,7 @@ import bisect
 from collections import deque, defaultdict
 import logging
 import time
+from decimal import Decimal
 from typing import (
     Deque,
     Dict,
@@ -13,11 +14,13 @@ from typing import (
     Set
 )
 
+from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType, BambooRelayOrderBookMessage
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType, BambooRelayOrderBookMessage, \
+    OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_entry import BambooRelayOrderBookTrackerEntry
 from hummingbot.market.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
 from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
@@ -174,6 +177,19 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
                     messages_rejected += 1
                     continue
                 await message_queue.put(ob_message)
+
+                if ob_message.content["action"] == "FILL":  # put FILL messages to trade queue
+                    trade_type = float(TradeType.BUY.value) if ob_message.content["type"] == "BUY" \
+                        else float(TradeType.SELL.value)
+                    self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
+                        "symbol": trading_pair_symbol,
+                        "trade_type": trade_type,
+                        "trade_id": ob_message.update_id,
+                        "update_id": ob_message.timestamp,
+                        "price": Decimal(ob_message.content["order"]["price"]),
+                        "amount": Decimal(ob_message.content["order"]["filledBaseTokenAmount"])
+                    }, timestamp=ob_message.timestamp))
+
                 messages_accepted += 1
 
                 # Log some statistics.
