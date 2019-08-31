@@ -78,7 +78,7 @@ class ArbitrageUnitTest(unittest.TestCase):
         self.market_symbol_pair_1 = MarketSymbolPair(*([self.market_1] + self.market_1_symbols))
         self.market_symbol_pair_2 = MarketSymbolPair(*([self.market_2] + self.market_2_symbols))
         self.market_pair: ArbitrageMarketPair = ArbitrageMarketPair(
-            *(self.market_symbol_pair_1 + self.market_symbol_pair_2)
+            self.market_symbol_pair_1, self.market_symbol_pair_2
         )
 
         self.logging_options: int = ArbitrageStrategy.OPTION_LOG_ALL

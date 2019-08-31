@@ -8,11 +8,13 @@ sh Miniconda3-latest-Linux-x86_64.sh
 export CONDAPATH="$(pwd)/miniconda3"
 export PYTHON="$(pwd)/miniconda3/envs/hummingbot/bin/python3"
 # INSTALL HUMMINGBOT
-# 4) Clone Hummingbot
+# 3) Clone Hummingbot
 git clone https://github.com/CoinAlpha/hummingbot.git
-# 5) Install Hummingbot
+# 4) Install Hummingbot
 export hummingbotPath="$(pwd)/hummingbot" && cd $hummingbotPath && ./install
-# 6) Activate environment and compile code
+# 5) Activate environment and compile code
 ${CONDAPATH}/bin/activate hummingbot && ${PYTHON} setup.py build_ext --inplace
-# 7) Start Hummingbot
+# 6) Start Hummingbot
 ${PYTHON} bin/hummingbot.py
+# 7) Update .bashrc to register `conda`
+exec bash

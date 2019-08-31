@@ -3,6 +3,7 @@
 import asyncio
 from collections import deque
 import logging
+import time
 from eth_account.local import LocalAccount
 from typing import (
     List,
@@ -21,6 +22,7 @@ from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.ddex.ddex_market import DDEXMarket
+from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.paper_trade import create_paper_trade_market
 from hummingbot.market.paper_trade.paper_trade_market import PaperTradeMarket
@@ -49,8 +51,8 @@ from hummingbot.client.config.config_helpers import get_erc20_token_addresses
 from hummingbot.logger.report_aggregator import ReportAggregator
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
-from hummingbot.strategy.pure_market_making import MarketInfo
-from hummingbot.core.utils.stop_loss_tracker import StopLossTracker
+
+from hummingbot.core.utils.kill_switch import KillSwitch
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
@@ -65,14 +67,15 @@ MARKET_CLASSES = {
     "bamboo_relay": BambooRelayMarket,
     "binance": BinanceMarket,
     "coinbase_pro": CoinbaseProMarket,
-    "idex": IDEXMarket,
     "ddex": DDEXMarket,
+    "huobi": HuobiMarket,
+    "idex": IDEXMarket,
     "radar_relay": RadarRelayMarket,
 }
 
 
 class HummingbotApplication(*commands):
-    KILL_TIMEOUT = 5.0
+    KILL_TIMEOUT = 10.0
     IDEX_KILL_TIMEOUT = 30.0
     APP_WARNING_EXPIRY_DURATION = 3600.0
     APP_WARNING_STATUS_LIMIT = 6
@@ -106,10 +109,10 @@ class HummingbotApplication(*commands):
         self.strategy_task: Optional[asyncio.Task] = None
         self.strategy: Optional[StrategyBase] = None
         self.market_pair: Optional[CrossExchangeMarketPair] = None
-        self.market_info: Optional[MarketInfo] = None
         self.market_symbol_pairs: List[MarketSymbolPair] = []
         self.clock: Optional[Clock] = None
 
+        self.init_time: int = int(time.time() * 1e3)
         self.start_time: Optional[int] = None
         self.assets: Optional[Set[str]] = set()
         self.starting_balances = {}
@@ -117,8 +120,8 @@ class HummingbotApplication(*commands):
         self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
         self.reporting_module: Optional[ReportAggregator] = None
         self.data_feed: Optional[DataFeedBase] = None
-        self.stop_loss_tracker: Optional[StopLossTracker] = None
         self.notifiers: List[NotifierBase] = []
+        self.kill_switch: Optional[KillSwitch] = None
         self.liquidity_bounty: Optional[LiquidityBounty] = None
         self._initialize_liquidity_bounty()
         self._app_warnings: Deque[ApplicationWarning] = deque()
@@ -138,7 +141,7 @@ class HummingbotApplication(*commands):
     def _notify(self, msg: str):
         self.app.log(msg)
         for notifier in self.notifiers:
-            notifier.send_msg(msg)
+            notifier.add_msg_to_queue(msg)
 
     def _handle_command(self, raw_command: str):
         raw_command = raw_command.lower().strip()
@@ -165,6 +168,7 @@ class HummingbotApplication(*commands):
 
     async def _cancel_outstanding_orders(self) -> bool:
         on_chain_cancel_on_exit = global_config_map.get("on_chain_cancel_on_exit").value
+        bamboo_relay_use_coordinator = global_config_map.get("bamboo_relay_use_coordinator").value
         success = True
         kill_timeout: float = self.KILL_TIMEOUT
         self._notify("Cancelling outstanding orders...")
@@ -175,7 +179,7 @@ class HummingbotApplication(*commands):
                 kill_timeout = self.IDEX_KILL_TIMEOUT
             # By default, the bot does not cancel orders on exit on Radar Relay or Bamboo Relay,
             # since all open orders will expire in a short window
-            if not on_chain_cancel_on_exit and (market_name == "radar_relay" or market_name == "bamboo_relay"):
+            if not on_chain_cancel_on_exit and (market_name == "radar_relay" or (market_name == "bamboo_relay" and not bamboo_relay_use_coordinator)):
                 continue
             cancellation_results = await market.cancel_all(kill_timeout)
             uncancelled = list(filter(lambda cr: cr.success is False, cancellation_results))
@@ -196,6 +200,9 @@ class HummingbotApplication(*commands):
     def add_application_warning(self, app_warning: ApplicationWarning):
         self._expire_old_application_warnings()
         self._app_warnings.append(app_warning)
+
+    def clear_application_warning(self):
+        self._app_warnings.clear()
 
     @staticmethod
     def _initialize_market_assets(market_name: str, symbols: List[str]) -> List[Tuple[str, str]]:
@@ -235,8 +242,10 @@ class HummingbotApplication(*commands):
                                     trading_required=self._trading_required)
 
             elif market_name == "idex" and self.wallet:
+                idex_api_key: str = global_config_map.get("idex_api_key").value
                 try:
-                    market = IDEXMarket(wallet=self.wallet,
+                    market = IDEXMarket(idex_api_key=idex_api_key,
+                                        wallet=self.wallet,
                                         ethereum_rpc_url=ethereum_rpc_url,
                                         order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                         symbols=symbols,
@@ -260,9 +269,14 @@ class HummingbotApplication(*commands):
                                           trading_required=self._trading_required)
 
             elif market_name == "bamboo_relay" and self.wallet:
+                use_coordinator = global_config_map.get("bamboo_relay_use_coordinator").value
+                pre_emptive_soft_cancels = global_config_map.get("bamboo_relay_pre_emptive_soft_cancels").value
                 market = BambooRelayMarket(wallet=self.wallet,
                                            ethereum_rpc_url=ethereum_rpc_url,
-                                           symbols=symbols)
+                                           symbols=symbols,
+                                           use_coordinator=use_coordinator,
+                                           pre_emptive_soft_cancels=pre_emptive_soft_cancels,
+                                           trading_required=self._trading_required)
 
             elif market_name == "coinbase_pro":
                 coinbase_pro_api_key = global_config_map.get("coinbase_pro_api_key").value
@@ -274,7 +288,14 @@ class HummingbotApplication(*commands):
                                            coinbase_pro_passphrase,
                                            symbols=symbols,
                                            trading_required=self._trading_required)
-
+            elif market_name == "huobi":
+                huobi_api_key = global_config_map.get("huobi_api_key").value
+                huobi_secret_key = global_config_map.get("huobi_secret_key").value
+                market = HuobiMarket(huobi_api_key,
+                                     huobi_secret_key,
+                                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                     symbols=symbols,
+                                     trading_required=self._trading_required)
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
 

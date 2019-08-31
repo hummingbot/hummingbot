@@ -32,12 +32,6 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 |:---:|:---:|:---:|:---:|:---:|
 | [![Bamboo Relay](https://i.ibb.co/1sPt940/Screen-Shot-2019-06-06-at-17-50-04.png)](https://bamboorelay.com/) | bamboo_relay | [Bamboo Relay](https://bamboorelay.com/) | * | [API](https://sra.bamboorelay.com/) |
 
-## Community contributed exchanges
-
-| logo | id | name | ver | doc|
-|:---:|:---:|:---:|:---:|:---:|
-| [![Bamboo Relay](https://i.ibb.co/1sPt940/Screen-Shot-2019-06-06-at-17-50-04.png)](https://bamboorelay.com/) | bamboo_relay | [Bamboo Relay](https://bamboorelay.com/) | * | [API](https://sra.bamboorelay.com/) |
-
 ## Currently available strategies
 
 | Strategy | Test |

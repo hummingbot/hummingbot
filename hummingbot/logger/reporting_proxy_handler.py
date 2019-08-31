@@ -4,8 +4,10 @@ from typing import Optional
 import logging
 import json
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.logger.struct_logger import log_encoder
-from hummingbot.logger import HummingbotLogger
+from hummingbot.logger import (
+    HummingbotLogger,
+    log_encoder
+)
 from hummingbot.logger.log_server_client import LogServerClient
 from hummingbot.logger.report_aggregator import REPORT_EVENT_QUEUE
 
@@ -89,12 +91,7 @@ class ReportingProxyHandler(logging.Handler):
 
     def process_event_log(self, log):
         event_dict = log.__dict__.get("dict_msg", {})
-        if "timestamp" in event_dict:
-            event_dict["ts"] = event_dict["timestamp"]
-            del event_dict["timestamp"]
-
         if event_dict:
-            REPORT_EVENT_QUEUE.put_nowait(event_dict)
             self._event_queue.append(event_dict)
 
     def process_metric_log(self, log):

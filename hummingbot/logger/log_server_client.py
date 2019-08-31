@@ -38,7 +38,7 @@ class LogServerClient(NetworkBase):
             try:
                 req = await self.queue.get()
                 self.logger().debug(
-                    f"Remote logging payload: {reg}"
+                    f"Remote logging payload: {req}"
                 )
                 async with session.request(req["method"], req["url"], **req["request_obj"]) as resp:
                     resp_text = await resp.text()

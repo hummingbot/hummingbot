@@ -18,8 +18,8 @@ from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_maki
 def start(self: "HummingbotApplication"):
     maker_market = cross_exchange_market_making_config_map.get("maker_market").value.lower()
     taker_market = cross_exchange_market_making_config_map.get("taker_market").value.lower()
-    raw_maker_symbol = cross_exchange_market_making_config_map.get("maker_market_symbol").value.upper()
-    raw_taker_symbol = cross_exchange_market_making_config_map.get("taker_market_symbol").value.upper()
+    raw_maker_trading_pair = cross_exchange_market_making_config_map.get("maker_market_symbol").value
+    raw_taker_trading_pair = cross_exchange_market_making_config_map.get("taker_market_symbol").value
     min_profitability = cross_exchange_market_making_config_map.get("min_profitability").value
     trade_size_override = cross_exchange_market_making_config_map.get("trade_size_override").value
     strategy_report_interval = global_config_map.get("strategy_report_interval").value
@@ -32,26 +32,30 @@ def start(self: "HummingbotApplication"):
     top_depth_tolerance = 0.0
 
     for regex, tolerance_value in top_depth_tolerance_rules:
-        if regex.match(raw_maker_symbol) is not None:
+        if regex.match(raw_maker_trading_pair) is not None:
             top_depth_tolerance = tolerance_value
 
     market_names: List[Tuple[str, List[str]]] = [
-        (maker_market, [raw_maker_symbol]),
-        (taker_market, [raw_taker_symbol])
+        (maker_market, [raw_maker_trading_pair]),
+        (taker_market, [raw_taker_trading_pair])
     ]
     try:
-        maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_symbol])[0]
-        taker_assets: Tuple[str, str] = self._initialize_market_assets(taker_market, [raw_taker_symbol])[0]
+        maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_trading_pair])[0]
+        taker_assets: Tuple[str, str] = self._initialize_market_assets(taker_market, [raw_taker_trading_pair])[0]
     except ValueError as e:
         self._notify(str(e))
         return
     self._initialize_wallet(token_symbols=list(set(maker_assets + taker_assets)))
     self._initialize_markets(market_names)
     self.assets = set(maker_assets + taker_assets)
-    maker_data = [self.markets[maker_market], raw_maker_symbol] + list(maker_assets)
-    taker_data = [self.markets[taker_market], raw_taker_symbol] + list(taker_assets)
-    self.market_symbol_pairs = [MarketSymbolPair(*maker_data), MarketSymbolPair(*taker_data)]
-    self.market_pair = CrossExchangeMarketPair(*(maker_data + taker_data + [top_depth_tolerance]))
+    maker_data = [self.markets[maker_market], raw_maker_trading_pair] + list(maker_assets)
+    taker_data = [self.markets[taker_market], raw_taker_trading_pair] + list(taker_assets)
+    maker_market_symbol_pair = MarketSymbolPair(*maker_data)
+    taker_market_symbol_pair = MarketSymbolPair(*taker_data)
+    self.market_symbol_pairs = [maker_market_symbol_pair, taker_market_symbol_pair]
+    self.market_pair = CrossExchangeMarketPair(maker=maker_market_symbol_pair,
+                                               taker=taker_market_symbol_pair,
+                                               top_depth_tolerance=top_depth_tolerance)
 
     strategy_logging_options = (CrossExchangeMarketMakingStrategy.OPTION_LOG_CREATE_ORDER |
                                 CrossExchangeMarketMakingStrategy.OPTION_LOG_ADJUST_ORDER |

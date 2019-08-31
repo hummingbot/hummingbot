@@ -99,6 +99,28 @@ global_config_map = {
                                                   prompt="Enter your Coinbase passphrase >>> ",
                                                   required_if=using_exchange("coinbase_pro"),
                                                   is_secure=True),
+    "huobi_api_key":                    ConfigVar(key="huobi_api_key",
+                                                  prompt="Enter your Huobi API key >>> ",
+                                                  required_if=using_exchange("huobi"),
+                                                  is_secure=True),
+    "huobi_secret_key":                 ConfigVar(key="huobi_secret_key",
+                                                  prompt="Enter your Huobi secret key >>> ",
+                                                  required_if=using_exchange("huobi"),
+                                                  is_secure=True),
+    "idex_api_key":                     ConfigVar(key="idex_api_key",
+                                                  prompt="Enter your IDEX API key >>> ",
+                                                  required_if=using_exchange("idex"),
+                                                  is_secure=True),
+    "bamboo_relay_use_coordinator":     ConfigVar(key="bamboo_relay_use_coordinator",
+                                                  prompt="Would you like to use the Bamboo Relay Coordinator (y/n) >>> ",
+                                                  required_if=using_exchange("bamboo_relay"),
+                                                  type_str="bool",
+                                                  default=True),
+    "bamboo_relay_pre_emptive_soft_cancels":      ConfigVar(key="bamboo_relay_pre_emptive_soft_cancels",
+                                                            prompt="Would you like to pre-emptively soft cancel orders (y/n) >>> ",
+                                                            required_if=using_exchange("bamboo_relay"),
+                                                            type_str="bool",
+                                                            default=True),
     "wallet":                           ConfigVar(key="wallet",
                                                   prompt="Would you like to import an existing wallet or create a new"
                                                          " wallet? (import/create) >>> ",
@@ -107,7 +129,7 @@ global_config_map = {
     "ethereum_rpc_url":                 ConfigVar(key="ethereum_rpc_url",
                                                   prompt="Which Ethereum node would you like your client to connect "
                                                          "to? >>> ",
-                                                  required_if=lambda: True),
+                                                  required_if=using_wallet),
     # Whether or not to invoke cancel_all on exit if marketing making on a open order book DEX (e.g. Radar Relay)
     "on_chain_cancel_on_exit":          ConfigVar(key="on_chain_cancel_on_exit",
                                                   prompt="Would you like to cancel transactions on chain if using an "
@@ -120,35 +142,27 @@ global_config_map = {
                                                   required_if=lambda: False,
                                                   type_str="list",
                                                   default=[["USD", 1.0, "manual"],
-                                                           ["DAI", 1.0, "coincap_api"],
-                                                           ["USDT", 1.0, "coincap_api"],
-                                                           ["USDC", 1.0, "coincap_api"],
-                                                           ["TUSD", 1.0, "coincap_api"]]),
+                                                           ["DAI", 1.0, "coin_gecko_api"],
+                                                           ["USDT", 1.0, "coin_gecko_api"],
+                                                           ["USDC", 1.0, "coin_gecko_api"],
+                                                           ["TUSD", 1.0, "coin_gecko_api"]]),
     "exchange_rate_fetcher":            ConfigVar(key="exchange_rate_fetcher",
                                                   prompt="Enter your custom exchange rate fetcher settings >>> ",
                                                   required_if=lambda: False,
                                                   type_str="list",
-                                                  default=[["ETH", "coincap_api"],
-                                                           ["DAI", "coincap_api"]]),
-    "stop_loss_pct":                    ConfigVar(key="stop_loss_pct",
-                                                  prompt="At what percentage of loss would you like the bot to stop "
-                                                         "trading? (Enter 0.03 to indicate 3%. "
-                                                         "Enter -1.0 to disable) >>> ",
-                                                  default=-1.0,
-                                                  type_str="float"),
-    "stop_loss_price_type":             ConfigVar(key="stop_loss_price_type",
-                                                  prompt="What type of price data would you like to use for stop "
-                                                         "loss (fixed/dynamic) ? >>> ",
-                                                  required_if=lambda:
-                                                      type(global_config_map.get("stop_loss_pct").value) is float and
-                                                      global_config_map.get("stop_loss_pct").value >= 0,
-                                                  validator=lambda v: v in {"fixed", "dynamic"}),
-    "stop_loss_base_token":             ConfigVar(key="stop_loss_base_token",
-                                                  prompt="What base token would you like to use to calculate your "
-                                                         "inventory value? (Default \"USD\") >>> ",
-                                                  default="USD",
-                                                  required_if=lambda:
-                                                      global_config_map.get("stop_loss_price_type").value == "dynamic"),
+                                                  default=[["ETH", "coin_gecko_api"],
+                                                           ["DAI", "coin_gecko_api"]]),
+
+    "kill_switch_enabled":              ConfigVar(key="kill_switch_enabled",
+                                                  prompt="Would you like to enable the kill switch? (y/n) >>> ",
+                                                  type_str="bool",
+                                                  default=False),
+    "kill_switch_rate":                 ConfigVar(key="kill_switch_rate",
+                                                  prompt="At what profit/loss rate would you like the bot to "
+                                                         "stop? (e.g. -0.05 equals 5 percent loss) >>> ",
+                                                  type_str="float",
+                                                  default=-1,
+                                                  required_if=lambda: global_config_map["kill_switch_enabled"].value),
 
     "telegram_enabled":                 ConfigVar(key="telegram_enabled",
                                                   prompt="Would you like to enable telegram? >>> ",
@@ -167,4 +181,3 @@ global_config_map = {
                                                   default=False,
                                                   required_if=lambda: False),
 }
-

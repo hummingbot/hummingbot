@@ -2,30 +2,35 @@ import asyncio
 import logging
 import math
 from typing import (
-    Optional,
+    Dict,
     List,
-    Dict)
+    Optional
+)
 
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.data_feed.coin_metrics_data_feed import CoinMetricsDataFeed
-from hummingbot.logger import HummingbotLogger
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
+from hummingbot.data_feed.coin_gecko_data_feed import CoinGeckoDataFeed
 from hummingbot.data_feed.data_feed_base import DataFeedBase
+from hummingbot.logger import HummingbotLogger
 
 NaN = float("nan")
 
 
 class ExchangeRateConversion:
+    DEFAULT_DATA_FEED_NAME = "coin_gecko_api"
     erc_logger: Optional[HummingbotLogger] = None
     _erc_shared_instance: "ExchangeRateConversion" = None
     _exchange_rate_config_override: Optional[Dict[str, Dict]] = None
     _data_feeds_override: Optional[List[DataFeedBase]] = None
     _update_interval: float = 5.0
+    _data_feed_timeout: float = 30.0
     _data_feeds: List[DataFeedBase] = []
     _exchange_rate_config: Dict[str, Dict] = {"conversion_required": {}, "global_config": {}}
     _exchange_rate: Dict[str, float] = {}
     _started: bool = False
     _ready_notifier: asyncio.Event = asyncio.Event()
+    _show_update_exchange_rates_from_data_feeds_errors: bool = True
+    _show_wait_till_ready_errors: bool = True
 
     @property
     def ready_notifier(self) -> asyncio.Event:
@@ -72,8 +77,7 @@ class ExchangeRateConversion:
     def init_config(cls):
         try:
             if cls._data_feeds_override is None:
-                cls._data_feeds = [CoinCapDataFeed.get_instance(),
-                                   CoinMetricsDataFeed.get_instance()]
+                cls._data_feeds = [CoinCapDataFeed.get_instance(), CoinGeckoDataFeed.get_instance()]
             else:
                 cls._data_feeds = cls._data_feeds_override
             # Set default rate and source for token rates globally
@@ -98,7 +102,7 @@ class ExchangeRateConversion:
             cls.logger().error("Error initiating config for exchange rate conversion.", exc_info=True)
 
     @property
-    def exchange_rate(self):
+    def exchange_rate(self) -> Dict[str, float]:
         return self._exchange_rate.copy()
 
     def __init__(self):
@@ -139,7 +143,11 @@ class ExchangeRateConversion:
         return amount * from_currency_usd_rate / to_currency_usd_rate
 
     async def update_exchange_rates_from_data_feeds(self):
+        has_errors: bool = False
         try:
+            for data_feed in self._data_feeds:
+                if data_feed.name == self.DEFAULT_DATA_FEED_NAME:
+                    self._exchange_rate = data_feed.price_dict
             for data_feed in self._data_feeds:
                 source_name = data_feed.name
                 for symbol, config in self._exchange_rate_config["global_config"].items():
@@ -148,18 +156,29 @@ class ExchangeRateConversion:
                         if price:
                             self._exchange_rate[symbol] = price
                         else:
-                            self.logger().network(
-                                f"No data found for {symbol} in {source_name} data feed.",
-                                app_warning_msg=f"Asset data for {symbol} not found in {source_name} data feed, "
-                                                f"please check your 'exchange_rate_conversion' configs."
-                            )
+                            if self._show_update_exchange_rates_from_data_feeds_errors:
+                                self.logger().network(
+                                    f"No data found for {symbol} in {source_name} data feed.",
+                                    app_warning_msg=f"Asset data for {symbol} not found in {source_name} data feed, "
+                                                    f"please check your 'exchange_rate_conversion' configs."
+                                )
+                            has_errors = True
+            if has_errors:
+                # only show these errors once
+                self._show_update_exchange_rates_from_data_feeds_errors = False
+
         except Exception:
             self.logger().warning(f"Error getting data from {source_name} data feed.", exc_info=True)
             raise
 
     async def wait_till_ready(self):
         for data_feed in self._data_feeds:
-            await data_feed.get_ready()
+            try:
+                await asyncio.wait_for(data_feed.get_ready(), timeout=self._data_feed_timeout)
+            except asyncio.TimeoutError:
+                if self._show_wait_till_ready_errors:
+                    self.logger().warning(f"Error initializing data feed - {data_feed.name}.")
+                    self._show_wait_till_ready_errors = False
 
     async def request_loop(self):
         while True:

@@ -33,10 +33,3 @@ class PricingProposal(NamedTuple):
 class SizingProposal(NamedTuple):
     buy_order_sizes: List[Decimal]
     sell_order_sizes: List[Decimal]
-
-
-class MarketInfo(NamedTuple):
-    market: MarketBase
-    symbol: str
-    base_currency: str
-    quote_currency: str

@@ -26,11 +26,13 @@ cdef class ConstantSpreadPricingDelegate(OrderPricingDelegate):
                                            list active_orders):
         cdef:
             MarketBase maker_market = market_info.market
-            OrderBook maker_order_book = maker_market.c_get_order_book(market_info.symbol)
+            OrderBook maker_order_book = maker_market.c_get_order_book(market_info.trading_pair)
             double top_bid_price = maker_order_book.c_get_price(False)
             double top_ask_price = maker_order_book.c_get_price(True)
             str market_name = maker_market.name
             double mid_price = (top_bid_price + top_ask_price) * 0.5
+            double bid_price = mid_price * (1.0 - self._bid_spread)
+            double ask_price = mid_price * (1.0 + self._ask_spread)
 
-        return PricingProposal([mid_price * (1.0 - self._bid_spread)],
-                               [mid_price * (1.0 + self._ask_spread)])
+        return PricingProposal([maker_market.c_quantize_order_price(market_info.trading_pair, bid_price)],
+                               [maker_market.c_quantize_order_price(market_info.trading_pair, ask_price)])

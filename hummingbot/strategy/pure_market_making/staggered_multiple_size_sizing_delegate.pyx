@@ -1,21 +1,22 @@
-from hummingbot.core.data_type.limit_order import LimitOrder
+from decimal import Decimal
+import logging
+
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import MarketBase
-import logging
 from hummingbot.core.event.events import (
-OrderType,
-TradeType,
-TradeFee
+    OrderType,
+    TradeType,
 )
-from .data_types import SizingProposal
-from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
 from hummingbot.logger import HummingbotLogger
 
+from .data_types import SizingProposal
+from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
 
-s_logger: Optional[HummingbotLogger] = None
+s_logger = None
+s_decimal_0 = Decimal(0)
+
 
 cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
-
     def __init__(self, order_start_size: float,
                  order_step_size:float,
                  number_of_orders:int):
@@ -52,8 +53,8 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
                                           object pricing_proposal):
         cdef:
             MarketBase market = market_info.market
-            double base_asset_balance = market.c_get_balance(market_info.base_currency)
-            double quote_asset_balance = market.c_get_balance(market_info.quote_currency)
+            double base_asset_balance = market.c_get_available_balance(market_info.base_asset)
+            double quote_asset_balance = market.c_get_available_balance(market_info.quote_asset)
             double required_quote_asset_balance = 0
             double required_base_asset_balance = 0
             list buy_orders = []
@@ -64,28 +65,30 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
         for active_order in active_orders:
             if active_order.is_buy:
                 has_active_bid = True
+                quote_asset_balance += float(active_order.quantity) * float(active_order.price)
             else:
                 has_active_ask = True
+                base_asset_balance += float(active_order.quantity)
 
 
         for idx in range(self.number_of_orders):
             current_order_size = self.order_start_size + self.order_step_size * idx
-            buy_fees = market.c_get_fee(market_info.base_currency, market_info.quote_currency,
+            buy_fees = market.c_get_fee(market_info.base_asset, market_info.quote_asset,
                                     OrderType.MARKET, TradeType.BUY,
                                     current_order_size, pricing_proposal.buy_order_prices[idx])
 
             if market.name == "binance":
                 #For binance fees is calculated in base token, so need to adjust for that
-                buy_order_size = market.c_quantize_order_amount(market_info.symbol, current_order_size, pricing_proposal.buy_order_prices[idx])
+                buy_order_size = market.c_quantize_order_amount(market_info.trading_pair, current_order_size, pricing_proposal.buy_order_prices[idx])
                 #Check whether you have enough quote tokens
                 required_quote_asset_balance += ( float(buy_order_size) * float(pricing_proposal.buy_order_prices[idx]) )
 
             else:
-                buy_order_size = market.c_quantize_order_amount(market_info.symbol, current_order_size)
+                buy_order_size = market.c_quantize_order_amount(market_info.trading_pair, current_order_size)
                 #For other exchanges, fees is calculated in quote tokens, so need to ensure you have enough for order + fees
                 required_quote_asset_balance += ( float(buy_order_size) * float(pricing_proposal.buy_order_prices[idx]) *(1+float(buy_fees.percent)) )
 
-            sell_order_size = market.c_quantize_order_amount(market_info.symbol, current_order_size, pricing_proposal.sell_order_prices[idx])
+            sell_order_size = market.c_quantize_order_amount(market_info.trading_pair, current_order_size, pricing_proposal.sell_order_prices[idx])
             required_base_asset_balance += float(sell_order_size)
             if self._log_warning_order_size:
                 if buy_order_size == 0 :
@@ -107,16 +110,14 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
 
         if self._log_warning_balance:
             if quote_asset_balance < required_quote_asset_balance:
-                self.logger().network(f"Buy(bid) order is not placed because there is not enough Quote asset. "
-                                      f"Quote Asset: {quote_asset_balance}, Required Quote Asset: {required_quote_asset_balance}",
-                                      f"Not enough asset to place the required buy(bid) orders. Check balances.")
+                self.logger().debug(f"Buy(bid) order is not placed because there is not enough Quote asset. "
+                                      f"Quote Asset: {quote_asset_balance}, Required Quote Asset: {required_quote_asset_balance}")
                 #After warning once, set warning flag to False
                 self._log_warning_balance = False
 
-            if (base_asset_balance < required_base_asset_balance):
-                self.logger().network(f"Sell(ask) order is not placed because there is not enough Base asset. "
-                                      f"Base Asset: {base_asset_balance}, Required Base Asset: {required_base_asset_balance}",
-                                      f"Not enough asset to place the required sell(ask) orders. Check balances.")
+            if base_asset_balance < required_base_asset_balance:
+                self.logger().debug(f"Sell(ask) order is not placed because there is not enough Base asset. "
+                                      f"Base Asset: {base_asset_balance}, Required Base Asset: {required_base_asset_balance}")
                 #After warning once, set warning flag to False
                 self._log_warning_balance = False
 
@@ -133,8 +134,8 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
         return SizingProposal(
             (buy_orders
              if quote_asset_balance >= required_quote_asset_balance and not has_active_bid
-             else [0.0]),
+             else [s_decimal_0]),
             (sell_orders
              if base_asset_balance >= required_base_asset_balance and not has_active_ask else
-             [0.0])
+             [s_decimal_0])
         )

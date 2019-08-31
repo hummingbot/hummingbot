@@ -87,6 +87,7 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     bounty_parser.add_argument("--status", action="store_true", help="Show your current bounty status")
     bounty_parser.add_argument("--terms", action="store_true", help="Read liquidity bounty terms and conditions")
     bounty_parser.add_argument("--list", action="store_true", help="Show list of available bounties")
+    bounty_parser.add_argument("--restore-id", action="store_true", help="Restore your lost bounty ID")
     bounty_parser.set_defaults(func=hummingbot.bounty)
 
     return parser

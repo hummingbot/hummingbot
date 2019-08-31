@@ -1,4 +1,7 @@
+import asyncio
 import logging
+from decimal import Decimal
+from enum import Enum
 from logging import (
     DEBUG,
     INFO,
@@ -11,6 +14,16 @@ from logging import (
 from .logger import HummingbotLogger
 
 NETWORK = DEBUG + 6
+REPORT_EVENT_QUEUE = asyncio.Queue()
+
+
+def log_encoder(obj):
+    if isinstance(obj, Decimal):
+        return str(obj)
+    elif isinstance(obj, Enum):
+        return str(obj)
+    raise TypeError("Object of type '%s' is not JSON serializable" % type(obj).__name__)
+
 
 __all__ = [
     "DEBUG",
@@ -19,7 +32,9 @@ __all__ = [
     "ERROR",
     "CRITICAL",
     "NETWORK",
-    "HummingbotLogger"
+    "HummingbotLogger",
+    "REPORT_EVENT_QUEUE",
+    "log_encoder"
 ]
 logging.setLoggerClass(HummingbotLogger)
 logging.addLevelName(NETWORK, "NETWORK")

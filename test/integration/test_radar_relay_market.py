@@ -226,7 +226,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
         symbol: str = "ZRX-WETH"
         current_price: float = self.market.get_price(symbol, True)
         amount: float = 10
-        expires = int(time.time() + 60 * 3) # expires in 3 min
+        expires = int(time.time() + 60 * 2)  # expires in 2 min
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
         buy_order_id = self.market.buy(symbol=symbol,
                                        amount=amount,
