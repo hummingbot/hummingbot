@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.market.bittrex.bittrex_active_order_tracker import BittrexActiveOrderTracker
 from hummingbot.market.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
 from hummingbot.market.ddex.ddex_active_order_tracker import DDEXActiveOrderTracker
 from hummingbot.market.idex.idex_active_order_tracker import IDEXActiveOrderTracker
@@ -15,8 +16,10 @@ class OrderBookTrackerEntry:
         self._order_book = order_book
 
     def __repr__(self) -> str:
-        return f"OrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', " \
-               f"order_book='{self._order_book}')"
+        return (
+            f"OrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', "
+            f"order_book='{self._order_book}')"
+        )
 
     @property
     def symbol(self) -> str:
@@ -32,14 +35,17 @@ class OrderBookTrackerEntry:
 
 
 class DDEXOrderBookTrackerEntry(OrderBookTrackerEntry):
-    def __init__(self, symbol: str, timestamp: float, order_book: OrderBook,
-                 active_order_tracker: DDEXActiveOrderTracker):
+    def __init__(
+        self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: DDEXActiveOrderTracker
+    ):
         self._active_order_tracker = active_order_tracker
         super(DDEXOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
 
     def __repr__(self) -> str:
-        return f"DDEXOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', " \
-               f"order_book='{self._order_book}')"
+        return (
+            f"DDEXOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', "
+            f"order_book='{self._order_book}')"
+        )
 
     @property
     def active_order_tracker(self) -> DDEXActiveOrderTracker:
@@ -47,14 +53,17 @@ class DDEXOrderBookTrackerEntry(OrderBookTrackerEntry):
 
 
 class IDEXOrderBookTrackerEntry(OrderBookTrackerEntry):
-    def __init__(self, symbol: str, timestamp: float, order_book: OrderBook,
-                 active_order_tracker: IDEXActiveOrderTracker):
+    def __init__(
+        self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: IDEXActiveOrderTracker
+    ):
         self._active_order_tracker = active_order_tracker
         super(IDEXOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
 
     def __repr__(self) -> str:
-        return f"IDEXOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', " \
-               f"order_book='{self._order_book}')"
+        return (
+            f"IDEXOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', "
+            f"order_book='{self._order_book}')"
+        )
 
     @property
     def active_order_tracker(self) -> IDEXActiveOrderTracker:
@@ -62,14 +71,17 @@ class IDEXOrderBookTrackerEntry(OrderBookTrackerEntry):
 
 
 class RadarRelayOrderBookTrackerEntry(OrderBookTrackerEntry):
-    def __init__(self, symbol: str, timestamp: float, order_book: OrderBook,
-                 active_order_tracker: RadarRelayActiveOrderTracker):
+    def __init__(
+        self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: RadarRelayActiveOrderTracker
+    ):
         self._active_order_tracker = active_order_tracker
         super(RadarRelayOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
 
     def __repr__(self) -> str:
-        return f"RadarRelayOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', " \
-               f"order_book='{self._order_book}')"
+        return (
+            f"RadarRelayOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', "
+            f"order_book='{self._order_book}')"
+        )
 
     @property
     def active_order_tracker(self) -> RadarRelayActiveOrderTracker:
@@ -77,14 +89,17 @@ class RadarRelayOrderBookTrackerEntry(OrderBookTrackerEntry):
 
 
 class BambooRelayOrderBookTrackerEntry(OrderBookTrackerEntry):
-    def __init__(self, symbol: str, timestamp: float, order_book: OrderBook,
-                 active_order_tracker: BambooRelayActiveOrderTracker):
+    def __init__(
+        self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: BambooRelayActiveOrderTracker
+    ):
         self._active_order_tracker = active_order_tracker
         super(BambooRelayOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
 
     def __repr__(self) -> str:
-        return f"BambooRelayOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', " \
-               f"order_book='{self._order_book}')"
+        return (
+            f"BambooRelayOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', "
+            f"order_book='{self._order_book}')"
+        )
 
     @property
     def active_order_tracker(self) -> BambooRelayActiveOrderTracker:
@@ -92,14 +107,17 @@ class BambooRelayOrderBookTrackerEntry(OrderBookTrackerEntry):
 
 
 class CoinbaseProOrderBookTrackerEntry(OrderBookTrackerEntry):
-    def __init__(self, symbol: str, timestamp: float, order_book: OrderBook,
-                 active_order_tracker: CoinbaseProActiveOrderTracker):
+    def __init__(
+        self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: CoinbaseProActiveOrderTracker
+    ):
         self._active_order_tracker = active_order_tracker
         super(CoinbaseProOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
 
     def __repr__(self) -> str:
-        return f"CoinbaseProOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', " \
-               f"order_book='{self._order_book}')"
+        return (
+            f"CoinbaseProOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', "
+            f"order_book='{self._order_book}')"
+        )
 
     @property
     def active_order_tracker(self) -> CoinbaseProActiveOrderTracker:
@@ -107,14 +125,18 @@ class CoinbaseProOrderBookTrackerEntry(OrderBookTrackerEntry):
 
 
 class BittrexOrderBookTrackerEntry(OrderBookTrackerEntry):
-    def __init__(self, symbol: str, timestamp: float, order_book: OrderBook,
-                 active_order_tracker=None):
+    def __init__(
+        self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: BittrexActiveOrderTracker
+    ):
+        self._active_order_tracker = active_order_tracker
         super(BittrexOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
 
     def __repr__(self) -> str:
-        return f"BittrexOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', " \
-               f"order_book='{self._order_book}')"
+        return (
+            f"BittrexOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', "
+            f"order_book='{self._order_book}')"
+        )
 
     @property
-    def active_order_tracker(self):
-        return NotImplementedError
+    def active_order_tracker(self) -> BittrexActiveOrderTracker:
+        return self._active_order_tracker

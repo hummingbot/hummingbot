@@ -198,15 +198,20 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
                 order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
                 retval[trading_pair] = BittrexOrderBookTrackerEntry(
-                    trading_pair, snapshot_timestamp, order_book, active_order_tracker=None
+                    trading_pair, snapshot_timestamp, order_book, active_order_tracker
                 )
                 self.logger().info(
                     f"Initialized order book for {trading_pair}. " f"{index + 1}/{number_of_pairs} completed."
                 )
+                await asyncio.sleep(0.6)
             except IOError:
-                self.logger().error(f"Max retries met fetching snapshot for {trading_pair} on Bittrex.")
+                self.logger().network(
+                    f"Max retries met fetching snapshot for {trading_pair}.",
+                    exc_info=True,
+                    app_warning_msg=f"Error getting snapshot fro {trading_pair}. Check network connection.",
+                )
             except Exception:
-                self.logger().error(f"Error getting snapshot for {trading_pair}. ", exc_info=True)
+                self.logger().error(f"Error initiailizing order book for {trading_pair}. ", exc_info=True)
                 await asyncio.sleep(5.0)
         return retval
 
@@ -275,7 +280,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         snapshot: Dict[str, any] = decoded
                         snapshot_timestamp = snapshot["nonce"]
                         snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
-                            snapshot, snapshot_timestamp, metadata={"product_id": symbol}
+                            snapshot["tick"], snapshot_timestamp, metadata={"product_id": symbol}
                         )
                         output.put_nowait(snapshot_msg)
 
@@ -314,7 +319,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         snapshot: Dict[str, any] = decoded
                         snapshot_timestamp = snapshot["nonce"]
                         snapshot_msg: OrderBookMessage = self.order_book_class.diff_message_from_exchange(
-                            snapshot, snapshot_timestamp, metadata={"product_id": symbol}
+                            snapshot["tick"], snapshot_timestamp, metadata={"product_id": symbol}
                         )
                         output.put_nowait(snapshot_msg)
 

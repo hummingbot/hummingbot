@@ -15,13 +15,6 @@ s_empty_diff = np.ndarray(shape=(0, 4), dtype="float64")
 
 BittrexOrderBookTrackingDictionary = Dict[Decimal, Dict[str, Dict[str, any]]]
 
-TYPE_OPEN = "open"
-TYPE_CHANGE = "change"
-TYPE_MATCH = "match"
-TYPE_DONE = "done"
-SIDE_BUY = "buy"
-SIDE_SELL = "sell"
-
 cdef class BittrexActiveOrderTracker:
     def __init__(self,
                  active_asks: BittrexOrderBookTrackingDictionary = None,
@@ -51,21 +44,58 @@ cdef class BittrexActiveOrderTracker:
     def volume_for_bid_price(self, price) -> float:
         return sum([float(msg["remaining_size"]) for msg in self._active_bids[price].values()])
 
+    def get_rates_and_quantities(self, entry) -> tuple:
+        entry = next(entry)
+        print(entry)
+        return entry["R"], entry["Q"]
+
     cdef tuple c_convert_diff_message_to_np_arrays(self, object message):
         cdef:
             dict content = message.content
-            str msg_type = content["type"]
+            list bid_entries = content["Z"]
+            list ask_entries = content["S"]
             str order_id
             str order_side
             str price_raw
             object price
             dict order_dict
-            str remaining_size
             double timestamp = message.timestamp
             double quantity = 0
 
-        bids = {}
-        asks = {}
+        bids = s_empty_diff
+        asks = s_empty_diff
+
+        if len(bid_entries) > 0:
+            bids = np.array(
+                [[timestamp,
+                  float(price),
+                  float(quantity),
+                  message.update_id]
+                 for price, quantity in [self.get_rates_and_quantities(entry for entry in bid_entries)]],
+                dtype="float64",
+                ndmin=2
+            )
+        # bids = np.ndarray(shape=(len(bid_entries), 4), dtype="float64")
+            # for bid_entry in bid_entries:
+            #     price = Decimal(bid_entry.get("R"))
+            #     quantity = bid_entry.get("Q")
+            #
+            #     bids = np.array([[timestamp, float(price), float(quantity), int(message.update_id)]], dtype="float64")
+
+        if len(ask_entries) > 0:
+            asks = np.array(
+                [[timestamp,
+                  float(price),
+                  float(quantity),
+                  message.update_id
+                  ]
+                 for price, quantity in [self.get_rates_and_quantities(entry for entry in ask_entries)]],
+                dtype="float64",
+                ndmin=2
+            )
+
+        print(bids, asks)
+
         return bids, asks
 
     cdef tuple c_convert_snapshot_message_to_np_arrays(self, object message):
@@ -88,7 +118,7 @@ cdef class BittrexActiveOrderTracker:
                 amount = str(order["Q"])
                 order_dict = {
                     "order_id": timestamp,
-                    "remaining_size": amount
+                    "quantity": amount
                 }
 
                 if price in active_orders:
@@ -102,14 +132,14 @@ cdef class BittrexActiveOrderTracker:
             np.ndarray[np.float64_t, ndim=2] bids = np.array(
                 [[message.timestamp,
                   float(price),
-                  sum([float(order_dict["remaining_size"])
+                  sum([float(order_dict["quantity"])
                        for order_dict in self._active_bids[price].values()]),
                   message.update_id]
                  for price in sorted(self._active_bids.keys(), reverse=True)], dtype="float64", ndmin=2)
             np.ndarray[np.float64_t, ndim=2] asks = np.array(
                 [[message.timestamp,
                   float(price),
-                  sum([float(order_dict["remaining_size"])
+                  sum([float(order_dict["quantity"])
                        for order_dict in self.active_asks[price].values()]),
                   message.update_id]
                  for price in sorted(self.active_asks.keys(), reverse=True)], dtype="float64", ndmin=2
@@ -124,7 +154,7 @@ cdef class BittrexActiveOrderTracker:
 
     cdef np.ndarray[np.float64_t, ndim=1] c_convert_trade_message_to_np_array(self, object message):
         cdef:
-            double trade_type_value = 1.0 if message.content["side"] == SIDE_SELL else 2.0
+            double trade_type_value = 2.0
 
         return np.array(
             [message.timestamp, trade_type_value, float(message.content["price"]), float(message.content["size"])],
