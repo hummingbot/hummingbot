@@ -11,6 +11,7 @@ from typing import (
 )
 import ujson
 
+from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
@@ -20,8 +21,6 @@ from hummingbot.core.data_type.order_book_message import (
 )
 
 _dob_logger = None
-
-DDEXOrderBookTrackingDictionary = Dict[Decimal, Dict[str, Dict[str, any]]]
 
 
 cdef class DDEXOrderBook(OrderBook):
@@ -50,6 +49,20 @@ cdef class DDEXOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return DDEXOrderBookMessage(OrderBookMessageType.DIFF, msg, timestamp)
+
+    @classmethod
+    def trade_message_from_exchange(cls,
+                                   msg: Dict[str, any],
+                                   timestamp: Optional[float] = None,
+                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+        if metadata:
+            msg.update(metadata)
+        return DDEXOrderBookMessage(OrderBookMessageType.DIFF, {
+            "symbol": msg["marketId"],
+            "trade_type": float(TradeType.SELL.value) if msg["makerSide"] == "sell" else float(TradeType.BUY.value),
+            "price": msg["price"],
+            "amount": msg["amount"]
+        }, timestamp)
 
     @classmethod
     def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:

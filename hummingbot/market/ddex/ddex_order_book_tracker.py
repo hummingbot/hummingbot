@@ -65,15 +65,21 @@ class DDEXOrderBookTracker(OrderBookTracker):
         return self._data_source
 
     @property
-    async def exchange_name(self) -> str:
+    def exchange_name(self) -> str:
         return "ddex"
 
     async def start(self):
+        self._order_book_trade_listener_task = asyncio.ensure_future(
+            self.data_source.listen_for_trades(self._ev_loop, self._order_book_trade_stream)
+        )
         self._order_book_diff_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
         self._order_book_snapshot_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
+        )
+        self._emit_trade_event_task = asyncio.ensure_future(
+            self._emit_trade_event_loop()
         )
         self._refresh_tracking_task = asyncio.ensure_future(
             self._refresh_tracking_loop()
@@ -85,11 +91,36 @@ class DDEXOrderBookTracker(OrderBookTracker):
             self._order_book_snapshot_router()
         )
 
-        await asyncio.gather(self._order_book_snapshot_listener_task,
+        await asyncio.gather(self._emit_trade_event_task,
+                             self._order_book_trade_listener_task,
+                             self._order_book_snapshot_listener_task,
                              self._order_book_diff_listener_task,
                              self._order_book_snapshot_router_task,
                              self._order_book_diff_router_task,
                              self._refresh_tracking_task)
+
+    def stop(self):
+        if self._emit_trade_event_task is not None:
+            self._emit_trade_event_task.cancel()
+            self._emit_trade_event_task = None
+        if self._order_book_trade_listener_task is not None:
+            self._order_book_trade_listener_task.cancel()
+            self._order_book_trade_listener_task = None
+        if self._order_book_diff_listener_task is not None:
+            self._order_book_diff_listener_task.cancel()
+            self._order_book_diff_listener_task = None
+        if self._order_book_snapshot_listener_task is not None:
+            self._order_book_snapshot_listener_task.cancel()
+            self._order_book_snapshot_listener_task = None
+        if self._refresh_tracking_task is not None:
+            self._refresh_tracking_task.cancel()
+            self._refresh_tracking_task = None
+        if self._order_book_diff_router_task is not None:
+            self._order_book_diff_router_task.cancel()
+            self._order_book_diff_router_task = None
+        if self._order_book_snapshot_router_task is not None:
+            self._order_book_snapshot_router_task.cancel()
+            self._order_book_snapshot_router_task = None
 
     async def _refresh_tracking_tasks(self):
         """
@@ -144,7 +175,12 @@ class DDEXOrderBookTracker(OrderBookTracker):
                 if order_book.snapshot_uid > ob_message.update_id:
                     messages_rejected += 1
                     continue
-                await message_queue.put(ob_message)
+
+                if ob_message.type == OrderBookMessageType.DIFF:
+                    await message_queue.put(ob_message)
+                elif ob_message.type == OrderBookMessageType.TRADE:
+                    self._order_book_trade_stream.put_nowait(ob_message)
+
                 messages_accepted += 1
 
                 # Log some statistics.
