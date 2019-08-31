@@ -1,7 +1,6 @@
 #!/usr/bin/env python
-import logging
 from os.path import join, realpath
-import sys;sys.path.insert(0, realpath(join(__file__, "../../../")))
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 import asyncio
 import time
@@ -74,11 +73,6 @@ class LiquidityBountyUnitTest(unittest.TestCase):
     def test_submit_trades(self):
         self.assertTrue(liquidity_bounty_config_map["liquidity_bounty_client_id"].value is not None)
         self.run_parallel(self.bounty.submit_trades())
-
-    def test_fetch_filled_volume_metrics(self):
-        self.assertTrue(liquidity_bounty_config_map["liquidity_bounty_client_id"].value is not None)
-        [results] = self.run_parallel(self.bounty.fetch_filled_volume_metrics(-1))
-        self.assertGreaterEqual(len(results), 0)
 
 
 if __name__ == "__main__":

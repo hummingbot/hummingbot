@@ -5,6 +5,7 @@ from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 cdef class IDEXMarket(MarketBase):
     cdef:
         object _shared_client
+        str _idex_api_key
         object _wallet
         object _order_book_tracker
         dict _account_balances
@@ -36,7 +37,7 @@ cdef class IDEXMarket(MarketBase):
     cdef c_start_tracking_order(self,
                                 str order_id,
                                 str symbol,
-                                bint is_buy,
+                                object trade_type,
                                 object order_type,
                                 object amount,
                                 object price)

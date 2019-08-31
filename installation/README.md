@@ -10,7 +10,7 @@ For full documentation, please vist the [Hummingbot Installation Guide](https://
 - Linux OS: Ubuntu 16.04 or later
 - Docker
 
-If you do not have Docker installed: [install Docker and Hummingbot](./install-with-docker/).
+If you do not have Docker installed: [install Docker and Hummingbot](./install-docker/).
 
 If you already have Docker installed: proceed to [docker commands](./docker-commands/).
 

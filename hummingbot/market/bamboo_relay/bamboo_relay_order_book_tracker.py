@@ -21,20 +21,21 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessageType, B
 from hummingbot.core.data_type.order_book_tracker_entry import BambooRelayOrderBookTrackerEntry
 from hummingbot.market.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
 from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
-
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 
 class BambooRelayOrderBookTracker(OrderBookTracker):
-    _rrobt_logger: Optional[HummingbotLogger] = None
+    _brobt_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._rrobt_logger is None:
-            cls._rrobt_logger = logging.getLogger(__name__)
-        return cls._rrobt_logger
+        if cls._brobt_logger is None:
+            cls._brobt_logger = logging.getLogger(__name__)
+        return cls._brobt_logger
 
     def __init__(self,
                  data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
-                 symbols: Optional[List[str]] = None):
+                 symbols: Optional[List[str]] = None,
+                 chain: EthereumChain = EthereumChain.MAIN_NET):
         super().__init__(data_source_type=data_source_type)
 
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -46,12 +47,13 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
         self._saved_message_queues: Dict[str, Deque[BambooRelayOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
         self._active_order_trackers: Dict[str, BambooRelayActiveOrderTracker] = defaultdict(BambooRelayActiveOrderTracker)
         self._symbols: Optional[List[str]] = symbols
+        self._chain = chain
 
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
         if not self._data_source:
             if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = BambooRelayAPIOrderBookDataSource(symbols=self._symbols)
+                self._data_source = BambooRelayAPIOrderBookDataSource(symbols=self._symbols, chain=self._chain)
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source
@@ -189,7 +191,11 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unknown error. Retrying after 5 seconds.", exc_info=True)
+                self.logger().network(
+                    f"Unexpected error routing order book messages.",
+                    exc_info=True,
+                    app_warning_msg=f"Unexpected error routing order book messages. Retrying after 5 seconds."
+                )
                 await asyncio.sleep(5.0)
 
     async def _track_single_book(self, symbol: str):
@@ -243,5 +249,9 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unknown error. Retrying after 5 seconds.", exc_info=True)
+                self.logger().network(
+                    f"Unexpected error tracking order book for {symbol}.",
+                    exc_info=True,
+                    app_warning_msg=f"Unexpected error tracking order book. Retrying after 5 seconds."
+                )
                 await asyncio.sleep(5.0)

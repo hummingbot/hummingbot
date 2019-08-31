@@ -40,7 +40,7 @@ cdef class DDEXMarket(MarketBase):
     cdef c_start_tracking_order(self,
                                 str order_id,
                                 str symbol,
-                                bint is_buy,
+                                object trade_type,
                                 object order_type,
                                 object amount,
                                 object price)

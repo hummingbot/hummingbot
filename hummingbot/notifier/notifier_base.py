@@ -2,7 +2,7 @@ class NotifierBase:
     def __init__(self):
         self._started = False
 
-    def send_msg(self, msg: str):
+    def add_msg_to_queue(self, msg: str):
         raise NotImplementedError
 
     def start(self):

@@ -11,6 +11,7 @@ cdef class Web3Wallet(WalletBase):
         list _last_backend_network_states
         object _best_backend
         object _select_best_backend_task
+        object _chain
         object _event_dedup_window
         object _erc20_token
         EventListener _received_asset_forwarder

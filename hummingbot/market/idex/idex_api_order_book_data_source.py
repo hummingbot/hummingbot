@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import asyncio
 import aiohttp
+import asyncio
 import logging
 import pandas as pd
 from typing import (
@@ -31,7 +31,6 @@ from hummingbot.core.data_type.order_book_message import IDEXOrderBookMessage
 IDEX_REST_URL = "https://api.idex.market"
 IDEX_WS_URL = "wss://datastream.idex.market"
 IDEX_WS_VERSION = "1.0.0"
-IDEX_STATIC_API_KEY = "17paIsICur8sA0OBqG6dH5G1rmrHNMwt4oNk4iX9" # not unique / shared for all users
 IDEX_WS_TRADING_PAIRS_SUBSCRIPTION_LIMIT = 100
 
 
@@ -48,8 +47,9 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._iaobds_logger = logging.getLogger(__name__)
         return cls._iaobds_logger
 
-    def __init__(self, symbols: Optional[List[str]] = None):
+    def __init__(self, idex_api_key: str, symbols: Optional[List[str]] = None):
         super().__init__()
+        self._idex_api_key = idex_api_key
         self._symbols: Optional[List[str]] = symbols
         self._get_tracking_pair_done_event: asyncio.Event = asyncio.Event()
 
@@ -228,7 +228,7 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "request": "handshake",
             "payload": {
                 "version": IDEX_WS_VERSION,
-                "key": IDEX_STATIC_API_KEY
+                "key": self._idex_api_key
             }
         }
         await ws.send(ujson.dumps(handshake_request))

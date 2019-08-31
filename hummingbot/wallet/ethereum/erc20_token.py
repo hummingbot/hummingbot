@@ -35,6 +35,9 @@ with open(os.path.join(os.path.dirname(__file__), 'token_abi/mkr_abi.json')) as 
 MAINNET_WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
 MAINNET_DAI_ADDRESS = "0x89d24A6b4CcB1B6fAA2625fE562bDD9a23260359"
 MAINNET_MKR_ADDRESS = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2"
+ROPSTEN_WETH_ADDRESS = "0xc778417E063141139Fce010982780140Aa0cD5Ab"
+RINKEBY_WETH_ADDRESS = "0xc778417E063141139Fce010982780140Aa0cD5Ab"
+KOVAN_WETH_ADDRESS = "0xd0A1E359811322d97991E03f863a0C30C2cF029C"
 
 
 class ERC20Token:
@@ -61,6 +64,15 @@ class ERC20Token:
                 self._abi = d_abi
             elif self._address == MAINNET_MKR_ADDRESS:
                 self._abi = m_abi
+        elif chain is EthereumChain.ROPSTEN:
+            if self._address == ROPSTEN_WETH_ADDRESS:
+                self._abi = w_abi
+        elif chain is EthereumChain.RINKEBY:
+            if self._address == RINKEBY_WETH_ADDRESS:
+                self._abi = w_abi
+        elif chain is EthereumChain.KOVAN:        
+            if self._address == KOVAN_WETH_ADDRESS:
+                self._abi = w_abi
 
         self._contract: Contract = self._w3.eth.contract(address=self._address, abi=self._abi)
         self._name: Optional[str] = None

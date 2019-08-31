@@ -14,6 +14,7 @@ from hummingbot.client.ui.layout import (
     create_input_field,
     create_log_field,
     create_output_field,
+    create_search_field,
     generate_layout,
 )
 from hummingbot.client.ui.style import load_style
@@ -25,10 +26,11 @@ class HummingbotCLI:
                  bindings: KeyBindings,
                  completer: Completer):
         use_asyncio_event_loop()
+        self.search_field = create_search_field()
         self.input_field = create_input_field(completer=completer)
         self.output_field = create_output_field()
-        self.log_field = create_log_field()
-        self.layout = generate_layout(self.input_field, self.output_field, self.log_field)
+        self.log_field = create_log_field(self.search_field)
+        self.layout = generate_layout(self.input_field, self.output_field, self.log_field, self.search_field)
 
         self.bindings = bindings
         self.input_handler = input_handler

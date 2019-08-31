@@ -69,15 +69,16 @@ class StatusCommand:
             self._notify('   x Config check: Pending config. Please enter "config" before starting the bot.')
             return False
 
-        eth_node_valid = check_web3(global_config_map.get("ethereum_rpc_url").value)
-        if eth_node_valid:
-            self._notify("   - Node check: Ethereum node running and current")
-        else:
-            self._notify('   x Node check: Bad ethereum rpc url. Your node may be syncing. '
-                         'Please re-configure by entering "config ethereum_rpc_url"')
-            return False
-
         if self.wallet is not None:
+            # Only check node url when a wallet has been initialized
+            eth_node_valid = check_web3(global_config_map.get("ethereum_rpc_url").value)
+            if eth_node_valid:
+                self._notify("   - Node check: Ethereum node running and current")
+            else:
+                self._notify('   x Node check: Bad ethereum rpc url. Your node may be syncing. '
+                             'Please re-configure by entering "config ethereum_rpc_url"')
+                return False
+
             if self.wallet.network_status is NetworkStatus.CONNECTED:
                 if self._trading_required:
                     has_minimum_eth = self.wallet.get_balance("ETH") > 0.01

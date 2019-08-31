@@ -45,8 +45,6 @@ from hummingbot.model.sql_connection_manager import (
     SQLConnectionType
 )
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
-from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
@@ -79,15 +77,9 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             conf.coinbase_pro_passphrase,
             symbols=["ETH-USDC", "ETH-USD"]
         )
-        cls.wallet: Web3Wallet = Web3Wallet(private_key=conf.web3_private_key_coinbase_pro,
-                                            backend_urls=conf.test_web3_provider_list,
-                                            erc20_token_addresses=[conf.mn_weth_token_address,
-                                                                   conf.mn_zerox_token_address],
-                                            chain=EthereumChain.MAIN_NET)
         print("Initializing Coinbase Pro market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.market)
-        cls.clock.add_iterator(cls.wallet)
         cls.stack = contextlib.ExitStack()
         cls._clock = cls.stack.enter_context(cls.clock)
         cls.ev_loop.run_until_complete(cls.wait_til_ready())
@@ -374,7 +366,6 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
             self.market: CoinbaseProMarket = CoinbaseProMarket(
-                ethereum_rpc_url=conf.test_web3_provider_list[0],
                 coinbase_pro_api_key=conf.coinbase_pro_api_key,
                 coinbase_pro_secret_key=conf.coinbase_pro_secret_key,
                 coinbase_pro_passphrase=conf.coinbase_pro_passphrase,

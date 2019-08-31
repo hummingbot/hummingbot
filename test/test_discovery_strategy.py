@@ -61,8 +61,8 @@ class DiscoveryUnitTest(unittest.TestCase):
                                  ['ETH', 'WETH'],
                                  ['BTC', 'WBTC']]
 
-        self.binance_market = create_autospec(BacktestMarket)
-        self.ddex_market = create_autospec(BacktestMarket)
+        self.binance_market = BacktestMarket()
+        self.ddex_market = BacktestMarket()
 
         self.market_pair = DiscoveryMarketPair(
             *([self.binance_market, mock_binance_active_markets_func] +
@@ -77,8 +77,7 @@ class DiscoveryUnitTest(unittest.TestCase):
     def test_market_info_spec(self):
         exchange_get_market_func_list = [
             RadarRelayAPIOrderBookDataSource.get_active_exchange_markets,
-            # TODO: re-enable test
-            # BambooRelayAPIOrderBookDataSource.get_active_exchange_markets,
+            BambooRelayAPIOrderBookDataSource.get_active_exchange_markets,
             BinanceAPIOrderBookDataSource.get_active_exchange_markets,
             DDEXAPIOrderBookDataSource.get_active_exchange_markets
         ]
@@ -133,4 +132,4 @@ class DiscoveryUnitTest(unittest.TestCase):
                          (('ETHUSDC', 'ETH', 'USDC'), ('WETH-PAX', 'WETH', 'PAX'))}
 
         run(self.strategy.fetch_market_info(self.market_pair))
-        self.assertTrue(self.strategy.get_matching_pair(self.market_pair) == expected_pair)
+        self.assertTrue(self.strategy.get_matching_pairs(self.market_pair) == expected_pair)

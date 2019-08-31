@@ -1,7 +1,7 @@
 from typing import List
 
+from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from .data_types import (
-    MarketInfo,
     OrdersProposal
 )
 from .pure_market_making_v2 import PureMarketMakingStrategyV2
@@ -14,13 +14,13 @@ cdef class OrderFilterDelegate:
     # ---------------------------------------------------------------
     def should_proceed_with_processing(self,
                                        strategy: PureMarketMakingStrategyV2,
-                                       market_info: MarketInfo,
+                                       market_info: MarketSymbolPair,
                                        active_orders: List[LimitOrder]) -> bool:
         return self.c_should_proceed_with_processing(strategy, market_info, active_orders)
 
     def filter_orders_proposal(self,
                                strategy: PureMarketMakingStrategyV2,
-                               market_info: MarketInfo,
+                               market_info: MarketSymbolPair,
                                active_orders: List[LimitOrder],
                                orders_proposal: OrdersProposal
                                ):

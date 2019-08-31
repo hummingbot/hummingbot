@@ -4,7 +4,6 @@ from os.path import join, realpath, dirname
 import sys;sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 from prompt_toolkit.layout.containers import (
-    ConditionalContainer,
     VSplit,
     HSplit,
     Window,
@@ -16,11 +15,11 @@ from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer
-from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea
 from prompt_toolkit.utils import is_windows
-from prompt_toolkit.filters import Condition
 from prompt_toolkit.layout.controls import FormattedTextControl
+from prompt_toolkit.widgets import SearchToolbar, TextArea
 
+from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea
 from hummingbot.client.settings import (
     MAXIMUM_OUTPUT_PANE_LINE_COUNT,
     MAXIMUM_LOG_PANE_LINE_COUNT,
@@ -99,7 +98,13 @@ def create_output_field():
     )
 
 
-def create_log_field():
+def create_search_field() -> SearchToolbar:
+    return SearchToolbar(text_if_not_searching=[('class:primary', "[CTRL + F] to start searching.")],
+                         forward_search_prompt=[('class:primary', "Search logs [Press CTRL + F to hide search] >>> ")],
+                         ignore_case=True)
+
+
+def create_log_field(search_field: SearchToolbar):
     return TextArea(
         style='class:log-field',
         text="Running logs\n",
@@ -107,7 +112,9 @@ def create_log_field():
         read_only=False,
         scrollbar=True,
         max_line_count=MAXIMUM_LOG_PANE_LINE_COUNT,
-        initial_text="Running Logs \n"
+        initial_text="Running Logs \n",
+        search_field=search_field,
+        preview_search=False,
     )
 
 
@@ -133,16 +140,16 @@ def get_title_bar_right_text():
     ]
 
 
-def generate_layout(input_field: TextArea, output_field: TextArea, log_field: TextArea):
+def generate_layout(input_field: TextArea,
+                    output_field: TextArea,
+                    log_field: TextArea,
+                    search_field: SearchToolbar):
     root_container = HSplit([
-        ConditionalContainer(
-            content=VSplit([
-                Window(FormattedTextControl(get_version), style="class:title"),
-                Window(FormattedTextControl(get_bounty_status), style="class:title"),
-                Window(FormattedTextControl(get_title_bar_right_text), align=WindowAlign.RIGHT, style="class:title"),
-            ], height=1),
-            filter=Condition(lambda: True),
-        ),
+        VSplit([
+            Window(FormattedTextControl(get_version), style="class:title"),
+            Window(FormattedTextControl(get_bounty_status), style="class:title"),
+            Window(FormattedTextControl(get_title_bar_right_text), align=WindowAlign.RIGHT, style="class:title"),
+        ], height=1),
         VSplit([
             FloatContainer(
                 HSplit([
@@ -161,7 +168,10 @@ def generate_layout(input_field: TextArea, output_field: TextArea, log_field: Te
                 ]
             ),
             Window(width=1, char='|', style='class:primary'),
-            log_field,
+            HSplit([
+                log_field,
+                search_field,
+            ]),
         ]),
 
     ])

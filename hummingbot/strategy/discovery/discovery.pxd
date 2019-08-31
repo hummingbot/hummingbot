@@ -13,7 +13,6 @@ cdef class DiscoveryStrategy(StrategyBase):
         double _refetch_market_info_interval
         bint _all_markets_ready
         double _last_timestamp
-        set _markets
         object strategy
         dict _discovery_stats
         dict _market_info
@@ -26,11 +25,14 @@ cdef class DiscoveryStrategy(StrategyBase):
 
     cdef c_process_market_pair(self, object market_pair)
     cdef c_tick(self, double timestamp)
-    cdef c_calculate_arbitrage_discovery(self, object market_pair, set matching_pairs,
-                                         double target_amount, double target_profitability)
+    cdef dict c_calculate_arbitrage_discovery(self,
+                                              object market_pair,
+                                              set matching_pairs,
+                                              double target_amount,
+                                              double target_profitability)
     cdef c_calculate_market_stats(self, object market_pair, dict exchange_market_info)
-    cdef c_calculate_single_arbitrage_profitability(self,
-                                           object market_pair,
-                                           tuple matching_pair,
-                                           double target_amount = *,
-                                           double target_profitability = *)
+    cdef dict c_calculate_single_arbitrage_profitability(self,
+                                                         object market_pair,
+                                                         tuple matching_pair,
+                                                         double target_amount=*,
+                                                         double target_profitability=*)

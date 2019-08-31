@@ -8,7 +8,7 @@ from typing import Dict
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
-_rraot_logger = None
+_braot_logger = None
 
 s_empty_diff = np.ndarray(shape=(0, 4), dtype="float64")
 
@@ -27,10 +27,10 @@ cdef class BambooRelayActiveOrderTracker:
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global _rraot_logger
-        if _rraot_logger is None:
-            _rraot_logger = logging.getLogger(__name__)
-        return _rraot_logger
+        global _braot_logger
+        if _braot_logger is None:
+            _braot_logger = logging.getLogger(__name__)
+        return _braot_logger
 
     @property
     def active_asks(self) -> BambooRelayOrderBookTrackingDictionary:
@@ -69,7 +69,8 @@ cdef class BambooRelayActiveOrderTracker:
             self._order_price_map[order_hash] = price
             order_dict = {
                 "orderHash": order_hash,
-                "remainingBaseTokenAmount": event["order"]["remainingBaseTokenAmount"]
+                "remainingBaseTokenAmount": event["order"]["remainingBaseTokenAmount"],
+                "isCoordinated": event["order"]["isCoordinated"]
             }
             if order_side == "BID":
                 if price in self._active_bids:
@@ -203,7 +204,8 @@ cdef class BambooRelayActiveOrderTracker:
                 order_hash = order["orderHash"]
                 order_dict = {
                     "orderHash": order_hash,
-                    "remainingBaseTokenAmount": order["remainingBaseTokenAmount"]
+                    "remainingBaseTokenAmount": order["remainingBaseTokenAmount"],
+                    "isCoordinated": order["isCoordinated"]
                 }
 
                 if price in active_orders:

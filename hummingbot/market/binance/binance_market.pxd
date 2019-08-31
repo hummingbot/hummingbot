@@ -18,6 +18,7 @@ cdef class BinanceMarket(MarketBase):
         double _last_pull_timestamp
         dict _in_flight_deposits
         dict _in_flight_orders
+        dict _order_not_found_records
         TransactionTracker _tx_tracker
         dict _withdraw_rules
         dict _trading_rules

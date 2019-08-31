@@ -18,10 +18,28 @@ If you do not have `docker` permissions:
 
 ## Download all scipts
 
+#### Linux
 ```
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh
+chmod a+x *.sh
+```
+
+#### MacOS
+```
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh -o create.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh -o start.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh -o update.sh
+chmod a+x *.sh
+```
+
+#### Windows (Docker Toolbox)
+```
+cd ~
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh -o create.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh -o start.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh -o update.sh
 chmod a+x *.sh
 ```
 
@@ -33,9 +51,9 @@ The `create.sh` script will create the folders needed to run Hummingbot and then
 ./create.sh
 ```
 
-## Starting a previously created instance of Hummingbot
+## Start up / connect to an instance of Hummingbot
 
-The `start.sh` script will start and connect to a previously created instance of Hummingbot.
+The `start.sh` script will connect to a running instance of Hummingbot.
 
 ```
 ./start.sh
