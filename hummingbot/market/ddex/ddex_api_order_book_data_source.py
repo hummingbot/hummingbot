@@ -16,6 +16,7 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.market.ddex.ddex_active_order_tracker import DDEXActiveOrderTracker
 from hummingbot.market.ddex.ddex_order_book import DDEXOrderBook
@@ -154,8 +155,7 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         snapshot_timestamp,
                         {"marketId": trading_pair}
                     )
-
-                    ddex_order_book: DDEXOrderBook = DDEXOrderBook()
+                    ddex_order_book: OrderBook = self.order_book_create_function()
                     ddex_active_order_tracker: DDEXActiveOrderTracker = DDEXActiveOrderTracker()
                     bids, asks = ddex_active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
                     ddex_order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
