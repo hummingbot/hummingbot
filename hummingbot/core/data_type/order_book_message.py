@@ -4,11 +4,7 @@ from collections import namedtuple
 from enum import Enum
 from functools import total_ordering
 import pandas as pd
-from typing import (
-    Optional,
-    List,
-    Dict
-)
+from typing import Optional, List, Dict
 
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
@@ -25,8 +21,14 @@ class OrderBookMessage(namedtuple("_OrderBookMessage", "type, content, timestamp
     content: Dict[str, any]
     timestamp: float
 
-    def __new__(cls, message_type: OrderBookMessageType, content: Dict[str, any], timestamp: Optional[float] = None,
-                *args, **kwargs):
+    def __new__(
+        cls,
+        message_type: OrderBookMessageType,
+        content: Dict[str, any],
+        timestamp: Optional[float] = None,
+        *args,
+        **kwargs,
+    ):
         return super(OrderBookMessage, cls).__new__(cls, message_type, content, timestamp, *args, **kwargs)
 
     @property
@@ -48,13 +50,15 @@ class OrderBookMessage(namedtuple("_OrderBookMessage", "type, content, timestamp
 
     @property
     def asks(self) -> List[OrderBookRow]:
-        return [OrderBookRow(float(price), float(amount), self.update_id)
-                for price, amount, *trash in self.content["asks"]]
+        return [
+            OrderBookRow(float(price), float(amount), self.update_id) for price, amount, *trash in self.content["asks"]
+        ]
 
     @property
     def bids(self) -> List[OrderBookRow]:
-        return [OrderBookRow(float(price), float(amount), self.update_id)
-                for price, amount, *trash in self.content["bids"]]
+        return [
+            OrderBookRow(float(price), float(amount), self.update_id) for price, amount, *trash in self.content["bids"]
+        ]
 
     @property
     def has_update_id(self) -> bool:
@@ -86,14 +90,21 @@ class OrderBookMessage(namedtuple("_OrderBookMessage", "type, content, timestamp
 
 
 class DDEXOrderBookMessage(OrderBookMessage):
-    def __new__(cls, message_type: OrderBookMessageType, content: Dict[str, any], timestamp: Optional[float] = None,
-                *args, **kwargs):
+    def __new__(
+        cls,
+        message_type: OrderBookMessageType,
+        content: Dict[str, any],
+        timestamp: Optional[float] = None,
+        *args,
+        **kwargs,
+    ):
         if timestamp is None:
             if message_type is OrderBookMessageType.SNAPSHOT:
                 raise ValueError("timestamp must not be None when initializing snapshot messages.")
             timestamp = content["time"] * 1e-3
-        return super(DDEXOrderBookMessage, cls).__new__(cls, message_type, content,
-                                                        timestamp=timestamp, *args, **kwargs)
+        return super(DDEXOrderBookMessage, cls).__new__(
+            cls, message_type, content, timestamp=timestamp, *args, **kwargs
+        )
 
     @property
     def update_id(self) -> int:
@@ -137,8 +148,14 @@ class DDEXOrderBookMessage(OrderBookMessage):
 
 
 class IDEXOrderBookMessage(OrderBookMessage):
-    def __new__(cls, message_type: OrderBookMessageType, content: Dict[str, any], timestamp: Optional[float] = None,
-                *args, **kwargs):
+    def __new__(
+        cls,
+        message_type: OrderBookMessageType,
+        content: Dict[str, any],
+        timestamp: Optional[float] = None,
+        *args,
+        **kwargs,
+    ):
         if timestamp is None:
             if message_type is OrderBookMessageType.SNAPSHOT:
                 timestamp = 0.0
@@ -147,8 +164,9 @@ class IDEXOrderBookMessage(OrderBookMessage):
                 if datetime_str is None:
                     raise ValueError(f"Invalid time for this diff message: {content}")
                 timestamp = pd.Timestamp(datetime_str, tz="UTC").timestamp()
-        return super(IDEXOrderBookMessage, cls).__new__(cls, message_type, content,
-                                                        timestamp=timestamp, *args, **kwargs)
+        return super(IDEXOrderBookMessage, cls).__new__(
+            cls, message_type, content, timestamp=timestamp, *args, **kwargs
+        )
 
     @property
     def update_id(self) -> int:
@@ -197,8 +215,14 @@ class IDEXOrderBookMessage(OrderBookMessage):
 
 
 class RadarRelayOrderBookMessage(OrderBookMessage):
-    def __new__(cls, message_type: OrderBookMessageType, content: Dict[str, any], timestamp: Optional[float] = None,
-                *args, **kwargs):
+    def __new__(
+        cls,
+        message_type: OrderBookMessageType,
+        content: Dict[str, any],
+        timestamp: Optional[float] = None,
+        *args,
+        **kwargs,
+    ):
         if message_type is OrderBookMessageType.SNAPSHOT and timestamp is None:
             raise ValueError("timestamp must not be None when initializing snapshot messages.")
 
@@ -212,7 +236,8 @@ class RadarRelayOrderBookMessage(OrderBookMessage):
             raise ValueError("timestamp field required for this message.")
 
         return super(RadarRelayOrderBookMessage, cls).__new__(
-            cls, message_type, content, timestamp=timestamp, *args, **kwargs)
+            cls, message_type, content, timestamp=timestamp, *args, **kwargs
+        )
 
     @property
     def update_id(self) -> int:
@@ -256,8 +281,14 @@ class RadarRelayOrderBookMessage(OrderBookMessage):
 
 
 class BambooRelayOrderBookMessage(OrderBookMessage):
-    def __new__(cls, message_type: OrderBookMessageType, content: Dict[str, any], timestamp: Optional[float] = None,
-                *args, **kwargs):
+    def __new__(
+        cls,
+        message_type: OrderBookMessageType,
+        content: Dict[str, any],
+        timestamp: Optional[float] = None,
+        *args,
+        **kwargs,
+    ):
         if message_type is OrderBookMessageType.SNAPSHOT and timestamp is None:
             raise ValueError("timestamp must not be None when initializing snapshot messages.")
 
@@ -271,7 +302,8 @@ class BambooRelayOrderBookMessage(OrderBookMessage):
             raise ValueError("timestamp field required for this message.")
 
         return super(BambooRelayOrderBookMessage, cls).__new__(
-            cls, message_type, content, timestamp=timestamp, *args, **kwargs)
+            cls, message_type, content, timestamp=timestamp, *args, **kwargs
+        )
 
     @property
     def update_id(self) -> int:
@@ -315,14 +347,21 @@ class BambooRelayOrderBookMessage(OrderBookMessage):
 
 
 class CoinbaseProOrderBookMessage(OrderBookMessage):
-    def __new__(cls, message_type: OrderBookMessageType, content: Dict[str, any], timestamp: Optional[float] = None,
-                *args, **kwargs):
+    def __new__(
+        cls,
+        message_type: OrderBookMessageType,
+        content: Dict[str, any],
+        timestamp: Optional[float] = None,
+        *args,
+        **kwargs,
+    ):
         if timestamp is None:
             if message_type is OrderBookMessageType.SNAPSHOT:
                 raise ValueError("timestamp must not be None when initializing snapshot messages.")
             timestamp = pd.Timestamp(content["time"], tz="UTC").timestamp()
-        return super(CoinbaseProOrderBookMessage, cls).__new__(cls, message_type, content,
-                                                               timestamp=timestamp, *args, **kwargs)
+        return super(CoinbaseProOrderBookMessage, cls).__new__(
+            cls, message_type, content, timestamp=timestamp, *args, **kwargs
+        )
 
     @property
     def update_id(self) -> int:
@@ -354,14 +393,21 @@ class CoinbaseProOrderBookMessage(OrderBookMessage):
 
 
 class BittrexOrderBookMessage(OrderBookMessage):
-    def __new__(cls, message_type: OrderBookMessageType, content: Dict[str, any], timestamp: Optional[float] = None,
-                *args, **kwargs):
+    def __new__(
+        cls,
+        message_type: OrderBookMessageType,
+        content: Dict[str, any],
+        timestamp: Optional[float] = None,
+        *args,
+        **kwargs,
+    ):
         if timestamp is None:
             if message_type is OrderBookMessageType.SNAPSHOT:
                 raise ValueError("timestamp must not be None when initializing snapshot messages.")
             timestamp = pd.Timestamp(content["time"], tz="UTC").timestamp()
-        return super(BittrexOrderBookMessage, cls).__new__(cls, message_type, content,
-                                                           timestamp=timestamp, *args, **kwargs)
+        return super(BittrexOrderBookMessage, cls).__new__(
+            cls, message_type, content, timestamp=timestamp, *args, **kwargs
+        )
 
     @property
     def update_id(self) -> int:
@@ -373,7 +419,7 @@ class BittrexOrderBookMessage(OrderBookMessage):
 
     @property
     def symbol(self) -> str:
-        return self.content["market"]
+        return self.content["M"]
 
     @property
     def asks(self) -> List[OrderBookRow]:

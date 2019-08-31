@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 import asyncio
+import bisect
 import logging
 import time
 from collections import defaultdict, deque
 from typing import Optional, Dict, List, Set, Deque
 
-from hummingbot.core.data_type.order_book_message import BittrexOrderBookMessage
+from hummingbot.core.data_type.order_book_message import BittrexOrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker_entry import BittrexOrderBookTrackerEntry
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
@@ -125,7 +126,7 @@ class BittrexOrderBookTracker(OrderBookTracker):
                     )
                     message_accepted = 0
                     message_rejected = 0
-                    message_queue = 0
+                    message_queued = 0
 
                 last_message_timestamp = now
 
@@ -143,6 +144,67 @@ class BittrexOrderBookTracker(OrderBookTracker):
     async def _track_single_book(self, symbol: str):
         past_diffs_window: Deque[BittrexOrderBookMessage] = deque()
         self._past_diffs_windows[symbol] = past_diffs_window
+
+        message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
+        order_book: BittrexOrderBook = self._order_books[symbol]
+        active_order_tracker: BittrexActiveOrderTracker = self._active_order_trackers[symbol]
+
+        last_message_timestamp = order_book.snapshot_uid
+        diff_message_accepted: int = 0
+
+        while True:
+            try:
+                message: BittrexOrderBookMessage = None
+                save_messages: Deque[BittrexOrderBookMessage] = self._saved_message_queues[symbol]
+                # Process saved messages first if there are any
+                if len(save_messages) > 0:
+                    message = save_messages.popleft()
+                elif message_queue.qsize() > 0:
+                    message = await message_queue.get()
+                else:
+                    # Waits to received some diff messages
+                    await asyncio.sleep(3)
+                    continue
+
+                # Processes diff stream
+                if message.type is OrderBookMessageType.DIFF:
+
+                    bids, asks = active_order_tracker.convert_diff_message_to_order_book_row(message)
+                    order_book.apply_diffs(bids, asks, message.update_id)
+                    past_diffs_window.append(message)
+                    while len(past_diffs_window) > self.PAST_DIFF_WINDOW_SIZE:
+                        past_diffs_window.popleft()
+                    diff_message_accepted += 1
+
+                    # Output some statistics periodically.
+                    now: float = message.update_id
+                    if now > last_message_timestamp:
+                        self.logger().debug(f"Processed {diff_message_accepted} order book diffs for {symbol}")
+                        diff_message_accepted = 0
+                    last_message_timestamp = now
+                # Processes snapshot stream
+                elif message.type is OrderBookMessageType.SNAPSHOT:
+                    past_diffs: List[BittrexOrderBookMessage] = list(past_diffs_window)
+                    # only replay diffs later than snapshot, first update active order with snapshot then replay diffs
+                    replay_position = bisect.bisect_right(past_diffs, message)
+                    replay_diffs = past_diffs[replay_position:]
+                    s_bids, s_asks = active_order_tracker.convert_snapshot_message_to_order_book_row(message)
+                    order_book.apply_snapshot(s_bids, s_asks, message.update_id)
+                    for diff_message in replay_diffs:
+                        d_bids, d_asks = active_order_tracker.convert_diff_message_to_order_book_row(diff_message)
+                        order_book.apply_diffs(d_bids, d_asks, diff_message.update_id)
+
+                    self.logger().debug("Processed order book snapshot for %s.", symbol)
+            except asyncio.CancelledError:
+                raise
+            except Exception as err:
+                print(err)
+                self.logger().network(
+                    f"Unexpected error processing order book messages for {symbol}.",
+                    exc_info=True,
+                    app_warning_msg=f"Unexpected error processing order book messages. Retrying after 5 seconds.",
+                )
+                await asyncio.sleep(5.0)
 
     async def start(self):
         self._order_book_diff_listener_task = safe_ensure_future(
