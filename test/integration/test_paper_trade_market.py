@@ -487,10 +487,10 @@ class PaperTradeMarketTest(unittest.TestCase):
         self.market.set_balance(trading_pair.base_asset, starting_base_balance)
         self.market.set_balance(trading_pair.quote_asset, starting_quote_balance)
         best_ask_price = self.market.order_books[trading_pair.trading_pair].get_price(False)
-        ask_client_order_id = self.market.sell(trading_pair.trading_pair, base_quantity,
+        self.market.sell(trading_pair.trading_pair, base_quantity,
                                                OrderType.LIMIT, best_ask_price)
         best_bid_price = self.market.order_books[trading_pair.trading_pair].get_price(True)
-        bid_client_order_id = self.market.buy(trading_pair.trading_pair, base_quantity, OrderType.LIMIT, best_bid_price)
+        self.market.buy(trading_pair.trading_pair, base_quantity, OrderType.LIMIT, best_bid_price)
 
         # Market should track limit orders
         self.assertEqual(2, len(self.market.limit_orders))
