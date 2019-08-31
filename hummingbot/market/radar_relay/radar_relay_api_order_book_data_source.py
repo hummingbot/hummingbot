@@ -150,7 +150,8 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     radar_relay_order_book: OrderBook = self.order_book_create_function()
                     radar_relay_active_order_tracker: RadarRelayActiveOrderTracker = RadarRelayActiveOrderTracker()
-                    bids, asks = radar_relay_active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
+                    bids, asks = radar_relay_active_order_tracker.convert_snapshot_message_to_order_book_row(
+                        snapshot_msg)
                     radar_relay_order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
 
                     retval[trading_pair] = RadarRelayOrderBookTrackerEntry(
