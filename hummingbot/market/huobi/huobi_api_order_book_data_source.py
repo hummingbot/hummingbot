@@ -17,6 +17,7 @@ from typing import (
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
@@ -93,10 +94,6 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             return all_markets.sort_values("USDVolume", ascending=False)
 
-    @property
-    def order_book_class(self) -> HuobiOrderBook:
-        return HuobiOrderBook
-
     async def get_trading_pairs(self) -> List[str]:
         if not self._symbols:
             try:
@@ -134,11 +131,12 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             for index, trading_pair in enumerate(trading_pairs):
                 try:
                     snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
-                    snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                    snapshot_msg: OrderBookMessage = HuobiOrderBook.snapshot_message_from_exchange(
                         snapshot,
                         metadata={"symbol": trading_pair}
                     )
-                    order_book: HuobiOrderBook = self.order_book_class.from_snapshot(snapshot_msg)
+                    order_book: OrderBook = self.order_book_create_function()
+                    order_book.from_snapshot(snapshot_msg)
                     retval[trading_pair] = OrderBookTrackerEntry(trading_pair, snapshot_msg.timestamp, order_book)
                     self.logger().info(f"Initialized order book for {trading_pair}. "
                                        f"{index + 1}/{number_of_pairs} completed.")
@@ -171,6 +169,41 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
         finally:
             await ws.close()
 
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        while True:
+            try:
+                trading_pairs: List[str] = await self.get_trading_pairs()
+                async with websockets.connect(HUOBI_WS_URI) as ws:
+                    ws: websockets.WebSocketClientProtocol = ws
+                    for trading_pair in trading_pairs:
+                        subscribe_request: Dict[str, Any] = {
+                            "sub": f"market.{trading_pair}.trade.detail",
+                            "id": trading_pair
+                        }
+                        await ws.send(json.dumps(subscribe_request))
+
+                    async for raw_msg in self._inner_messages(ws):
+                        # Huobi compresses their ws data
+                        encoded_msg: bytes = gzip.decompress(raw_msg)
+                        # Huobi's data value for id is a large int too big for ujson to parse
+                        msg: Dict[str, Any] = json.loads(encoded_msg.decode('utf-8'))
+                        if "ping" in msg:
+                            await ws.send(f'{{"op":"pong","ts": {str(msg["ping"])}}}')
+                        elif "subbed" in msg:
+                            pass
+                        elif "ch" in msg:
+                            for data in msg["tick"]["data"]:
+                                trade_message: OrderBookMessage = HuobiOrderBook.trade_message_from_exchange(data)
+                                output.put_nowait(trade_message)
+                        else:
+                            self.logger().debug(f"Unrecognized message received from Huobi websocket: {msg}")
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
+                                    exc_info=True)
+                await asyncio.sleep(30.0)
+
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
@@ -194,7 +227,7 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         elif "subbed" in msg:
                             pass
                         elif "ch" in msg:
-                            order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(msg)
+                            order_book_message: OrderBookMessage = HuobiOrderBook.diff_message_from_exchange(msg)
                             output.put_nowait(order_book_message)
                         else:
                             self.logger().debug(f"Unrecognized message received from Huobi websocket: {msg}")
@@ -213,7 +246,7 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     for trading_pair in trading_pairs:
                         try:
                             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
-                            snapshot_message: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                            snapshot_message: OrderBookMessage = HuobiOrderBook.snapshot_message_from_exchange(
                                 snapshot,
                                 metadata={"symbol": trading_pair}
                             )
