@@ -112,10 +112,6 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 all_markets["USDVolume"] = usd_volume
                 return all_markets.sort_values("USDVolume", ascending=False)
 
-    @property
-    def order_book_class(self) -> CoinbaseProOrderBook:
-        return CoinbaseProOrderBook
-
     async def get_trading_pairs(self) -> List[str]:
         if not self._symbols:
             try:
@@ -152,7 +148,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 try:
                     snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
                     snapshot_timestamp: float = time.time()
-                    snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                    snapshot_msg: OrderBookMessage = CoinbaseProOrderBook.snapshot_message_from_exchange(
                         snapshot,
                         snapshot_timestamp,
                         metadata={"symbol": trading_pair}
@@ -203,6 +199,10 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
         finally:
             await ws.close()
 
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        # Trade messages are received from the order book web socket
+        pass
+
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
@@ -226,7 +226,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             if msg_type == "done" and "price" not in msg:
                                 # done messages with no price are completed market orders which can be ignored
                                 continue
-                            order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(msg)
+                            order_book_message: OrderBookMessage = CoinbaseProOrderBook.diff_message_from_exchange(msg)
                             output.put_nowait(order_book_message)
                         elif msg_type in ["received", "activate", "subscriptions"]:
                             # these messages are not needed to track the order book
@@ -253,7 +253,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         try:
                             snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
                             snapshot_timestamp: float = time.time()
-                            snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                            snapshot_msg: OrderBookMessage = CoinbaseProOrderBook.snapshot_message_from_exchange(
                                 snapshot,
                                 snapshot_timestamp,
                                 metadata={"product_id": trading_pair}
