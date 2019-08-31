@@ -104,14 +104,6 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def order_book_class(self) -> BinanceOrderBook:
         return BinanceOrderBook
 
-    @property
-    def order_book_create_function(self) -> Callable[[], OrderBook]:
-        return self._order_book_create_function
-
-    @order_book_create_function.setter
-    def order_book_create_function(self, func: Callable[[], OrderBook]):
-        self._order_book_create_function = func
-
     async def get_trading_pairs(self) -> List[str]:
         if not self._symbols:
             try:
