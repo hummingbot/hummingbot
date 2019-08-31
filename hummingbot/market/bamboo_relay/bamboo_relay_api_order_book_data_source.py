@@ -119,10 +119,6 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             all_markets.loc[:, "volume"] = quote_volume
             return all_markets.sort_values("USDVolume", ascending=False)
 
-    @property
-    def order_book_class(self) -> BambooRelayOrderBook:
-        return BambooRelayOrderBook
-
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, 
                            trading_pair: str, 
