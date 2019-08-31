@@ -197,8 +197,7 @@ class BittrexOrderBookTracker(OrderBookTracker):
                     self.logger().debug("Processed order book snapshot for %s.", symbol)
             except asyncio.CancelledError:
                 raise
-            except Exception as err:
-                print(err)
+            except Exception:
                 self.logger().network(
                     f"Unexpected error processing order book messages for {symbol}.",
                     exc_info=True,
