@@ -8,6 +8,7 @@ from collections import (
 )
 import logging
 import time
+from decimal import Decimal
 from typing import (
     Deque,
     Dict,
@@ -16,14 +17,15 @@ from typing import (
     Set
 )
 
+from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.market.coinbase_pro.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessageType,
-    CoinbaseProOrderBookMessage
-)
+    CoinbaseProOrderBookMessage,
+    OrderBookMessage)
 from hummingbot.core.data_type.order_book_tracker_entry import CoinbaseProOrderBookTrackerEntry
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 from hummingbot.market.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
@@ -64,15 +66,21 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
         return self._data_source
 
     @property
-    async def exchange_name(self) -> str:
+    def exchange_name(self) -> str:
         return "coinbase_pro"
 
     async def start(self):
+        self._order_book_trade_listener_task = asyncio.ensure_future(
+            self.data_source.listen_for_trades(self._ev_loop, self._order_book_trade_stream)
+        )
         self._order_book_diff_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
         self._order_book_snapshot_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
+        )
+        self._emit_trade_event_task = asyncio.ensure_future(
+            self._emit_trade_event_loop()
         )
         self._refresh_tracking_task = asyncio.ensure_future(
             self._refresh_tracking_loop()
@@ -84,11 +92,36 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
             self._order_book_snapshot_router()
         )
 
-        await asyncio.gather(self._order_book_snapshot_listener_task,
+        await asyncio.gather(self._emit_trade_event_task,
+                             self._order_book_trade_listener_task,
+                             self._order_book_snapshot_listener_task,
                              self._order_book_diff_listener_task,
                              self._order_book_snapshot_router_task,
                              self._order_book_diff_router_task,
                              self._refresh_tracking_task)
+
+    def stop(self):
+        if self._emit_trade_event_task is not None:
+            self._emit_trade_event_task.cancel()
+            self._emit_trade_event_task = None
+        if self._order_book_trade_listener_task is not None:
+            self._order_book_trade_listener_task.cancel()
+            self._order_book_trade_listener_task = None
+        if self._order_book_diff_listener_task is not None:
+            self._order_book_diff_listener_task.cancel()
+            self._order_book_diff_listener_task = None
+        if self._order_book_snapshot_listener_task is not None:
+            self._order_book_snapshot_listener_task.cancel()
+            self._order_book_snapshot_listener_task = None
+        if self._refresh_tracking_task is not None:
+            self._refresh_tracking_task.cancel()
+            self._refresh_tracking_task = None
+        if self._order_book_diff_router_task is not None:
+            self._order_book_diff_router_task.cancel()
+            self._order_book_diff_router_task = None
+        if self._order_book_snapshot_router_task is not None:
+            self._order_book_snapshot_router_task.cancel()
+            self._order_book_snapshot_router_task = None
 
     async def _refresh_tracking_tasks(self):
         """
@@ -143,6 +176,18 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
                     continue
                 await message_queue.put(ob_message)
                 messages_accepted += 1
+
+                if ob_message.content["action"] == "FILL":  # put FILL messages to trade queue
+                    trade_type = float(TradeType.SELL.value) if ob_message.content["side"].upper() == "SELL" \
+                        else float(TradeType.BUY.value)
+                    self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
+                        "symbol": ob_message.symbol ,
+                        "trade_type": trade_type,
+                        "trade_id": ob_message.update_id,
+                        "update_id": ob_message.timestamp,
+                        "price": Decimal(ob_message.content["price"]),
+                        "amount": Decimal(ob_message.content["size"])
+                    }, timestamp=ob_message.timestamp))
 
                 # Log some statistics.
                 now: float = time.time()
