@@ -66,9 +66,6 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
         return "bamboo_relay"
 
     async def start(self):
-        self._order_book_trade_listener_task = asyncio.ensure_future(
-            self.data_source.listen_for_trades(self._ev_loop, self._order_book_trade_stream)
-        )
         self._order_book_diff_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
@@ -89,7 +86,6 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
         )
 
         await asyncio.gather(self._emit_trade_event_task,
-                             self._order_book_trade_listener_task,
                              self._order_book_snapshot_listener_task,
                              self._order_book_diff_listener_task,
                              self._order_book_snapshot_router_task,
@@ -100,9 +96,6 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
         if self._emit_trade_event_task is not None:
             self._emit_trade_event_task.cancel()
             self._emit_trade_event_task = None
-        if self._order_book_trade_listener_task is not None:
-            self._order_book_trade_listener_task.cancel()
-            self._order_book_trade_listener_task = None
         if self._order_book_diff_listener_task is not None:
             self._order_book_diff_listener_task.cancel()
             self._order_book_diff_listener_task = None
@@ -186,8 +179,8 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
                         "trade_type": trade_type,
                         "trade_id": ob_message.update_id,
                         "update_id": ob_message.timestamp,
-                        "price": Decimal(ob_message.content["order"]["price"]),
-                        "amount": Decimal(ob_message.content["order"]["filledBaseTokenAmount"])
+                        "price": ob_message.content["order"]["price"],
+                        "amount": ob_message.content["order"]["filledBaseTokenAmount"]
                     }, timestamp=ob_message.timestamp))
 
                 messages_accepted += 1

@@ -100,10 +100,6 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             return all_markets.sort_values("USDVolume", ascending=False)
 
-    @property
-    def order_book_class(self) -> BinanceOrderBook:
-        return BinanceOrderBook
-
     async def get_trading_pairs(self) -> List[str]:
         if not self._symbols:
             try:

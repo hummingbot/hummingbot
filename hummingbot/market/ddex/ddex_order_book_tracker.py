@@ -187,9 +187,9 @@ class DDEXOrderBookTracker(OrderBookTracker):
                 now: float = time.time()
                 if int(now / 60.0) > int(last_message_timestamp / 60.0):
                     self.logger().debug("Diff messages processed: %d, rejected: %d, queued: %d",
-                                       messages_accepted,
-                                       messages_rejected,
-                                       messages_queued)
+                                        messages_accepted,
+                                        messages_rejected,
+                                        messages_queued)
                     messages_accepted = 0
                     messages_rejected = 0
                     messages_queued = 0
@@ -238,7 +238,7 @@ class DDEXOrderBookTracker(OrderBookTracker):
                     now: float = time.time()
                     if int(now / 60.0) > int(last_message_timestamp / 60.0):
                         self.logger().debug("Processed %d order book diffs for %s.",
-                                           diff_messages_accepted, symbol)
+                                            diff_messages_accepted, symbol)
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                 elif message.type is OrderBookMessageType.SNAPSHOT:
