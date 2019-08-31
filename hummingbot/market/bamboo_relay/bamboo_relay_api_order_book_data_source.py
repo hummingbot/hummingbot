@@ -16,6 +16,7 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.market.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
 from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
 from hummingbot.core.utils import async_ttl_cache
@@ -158,15 +159,16 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 try:
                     snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, self._api_prefix)
                     snapshot_timestamp: float = time.time()
-                    snapshot_msg: BambooRelayOrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                    snapshot_msg: BambooRelayOrderBookMessage = BambooRelayOrderBook.snapshot_message_from_exchange(
                         snapshot,
                         snapshot_timestamp,
                         metadata={"symbol": trading_pair}
                     )
 
-                    bamboo_relay_order_book: BambooRelayOrderBook = BambooRelayOrderBook()
+                    bamboo_relay_order_book: OrderBook = self.order_book_create_function()
                     bamboo_relay_active_order_tracker: BambooRelayActiveOrderTracker = BambooRelayActiveOrderTracker()
-                    bids, asks = bamboo_relay_active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
+                    bids, asks = bamboo_relay_active_order_tracker.convert_snapshot_message_to_order_book_row(
+                        snapshot_msg)
                     bamboo_relay_order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
 
                     retval[trading_pair] = BambooRelayOrderBookTrackerEntry(
@@ -207,6 +209,10 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
         finally:
             await ws.close()
 
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        # Trade messages are received from the order book web socket
+        pass
+
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
@@ -225,7 +231,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         msg = ujson.loads(raw_msg)
                         # Valid Diff messages from BambooRelay have action key
                         if "action" in msg:
-                            diff_msg: BambooRelayOrderBookMessage = self.order_book_class.diff_message_from_exchange(
+                            diff_msg: BambooRelayOrderBookMessage = BambooRelayOrderBook.diff_message_from_exchange(
                                 msg, time.time())
                             output.put_nowait(diff_msg)
             except asyncio.CancelledError:
@@ -244,7 +250,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     try:
                         snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, self._api_prefix)
                         snapshot_timestamp: float = time.time()
-                        snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                        snapshot_msg: OrderBookMessage = BambooRelayOrderBook.snapshot_message_from_exchange(
                             snapshot,
                             snapshot_timestamp,
                             metadata={"symbol": trading_pair}
