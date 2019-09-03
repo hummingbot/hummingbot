@@ -58,7 +58,5 @@ ETH Address (First 6 digits) | Bugs Reported | Link | Paid?
  0xf01E | export_trades command will only export 100 trades | [Issue 677](https://github.com/CoinAlpha/hummingbot/issues/677) | Y 
 
 
-<br />
-<br />
 **Happy 🐞 hunting!**
 
