@@ -175,9 +175,17 @@ global_config_map = {
     "telegram_chat_id":                 ConfigVar(key="telegram_chat_id",
                                                   prompt="What is your telegram chat id? >>> ",
                                                   required_if=lambda: False),
-    "paper_trade_mode":                 ConfigVar(key="paper_trade_enabled",
+    "paper_trade_enabled":              ConfigVar(key="paper_trade_enabled",
                                                   prompt="Enable paper trade? >>> ",
                                                   type_str="bool",
                                                   default=False,
                                                   required_if=lambda: False),
+    "paper_trade_account_balance":      ConfigVar(key="paper_trade_account_balance",
+                                                  prompt="Enter paper trade balance settings [asset, balance] >>> ",
+                                                  required_if=lambda: False,
+                                                  type_str="list",
+                                                  default=[["USDT", 1000],
+                                                           ["ONE", 1000],
+                                                           ["ETH", 10],
+                                                           ["USDC", 1000]])
 }
