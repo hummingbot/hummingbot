@@ -48,7 +48,7 @@ You can install Hummingbot by selecting ***either*** of the following options fr
 
 ```bash tab="Option 1: Easy Install"
 # 1) Download Hummingbot install script
-curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/from-source/install-source-macOS.sh -o install-source-macOS.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-source-macOS.sh -o install-source-macOS.sh
 
 # 2) Enable script permissions
 chmod a+x install-source-macOS.sh

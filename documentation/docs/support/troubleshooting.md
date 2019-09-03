@@ -144,36 +144,6 @@ coinalpha/hummingbot:latest
 You will then be able to use the [automated docker scripts](/cheatsheets/docker/#automated-docker-scripts-optional).
 
 
-## Installed from source
-
-#### How do I update Hummingbot?
-
-
-Download the latest code from github:
-
-```
-# From the hummingbot root folder:
-git pull origin master
-
-# Recompile the code:
-conda deactivate
-./uninstall
-./clean
-./install
-conda activate hummingbot
-./compile
-bin/hummingbot.py
-```
-
-Alternatively, use our automated script:
-
-```
-# From the *root* folder:
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/update.sh
-chmod a+x update.sh
-./update.sh
-```
-
 #### conda: not found
 
 
