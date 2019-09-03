@@ -34,5 +34,5 @@ cdef class DiscoveryStrategy(StrategyBase):
     cdef dict c_calculate_single_arbitrage_profitability(self,
                                                          object market_pair,
                                                          tuple matching_pair,
-                                                         double target_amount = *,
-                                                         double target_profitability = *)
+                                                         double target_amount=*,
+                                                         double target_profitability=*)
