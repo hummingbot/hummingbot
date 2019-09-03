@@ -56,6 +56,7 @@ ETH Address (First 6 digits) | Bugs Reported | Github Issue | Paid?
  0xFcba | Trades for taker market > maker market | [#627](https://github.com/CoinAlpha/hummingbot/issues/627) | Y 
  0x2212 | Bounties "Filled volume" remain constant | [#644](https://github.com/CoinAlpha/hummingbot/issues/644) | Y 
  0xf01E | export_trades command will only export 100 trades | [#677](https://github.com/CoinAlpha/hummingbot/issues/677) | Y 
+ 0x8950 | Token symbol format for Discovery configuration | [#724](https://github.com/CoinAlpha/hummingbot/issues/724) | Y 
 
 
 **Happy 🐞 hunting!**
