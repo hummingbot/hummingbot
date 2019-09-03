@@ -71,6 +71,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                  order_size_taker_balance_factor: float = 0.995,
                  order_size_portfolio_ratio_limit: float = 0.1667,
                  limit_order_min_expiration: float = 130.0,
+                 adjust_order_enabled: bool = True,
                  anti_hysteresis_duration: float = 60.0,
                  active_order_canceling: bint = True,
                  cancel_order_threshold: float = 0.05,
@@ -130,6 +131,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._status_report_interval = status_report_interval
         self._exchange_rate_conversion = ExchangeRateConversion.get_instance()
         self._market_pair_tracker = OrderIDMarketPairTracker()
+        self._adjust_orders_enabled = adjust_order_enabled
 
         cdef:
             list all_markets = list(self._maker_markets | self._taker_markets)
@@ -369,8 +371,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             if not self.c_check_if_sufficient_balance(market_pair, active_order):
                 continue
 
-            # Am I still the top order on maker market? If not, cancel the existing order, and wait for the order to
-            # be placed again at the next tick.
+            # If prices have moved, one side is still profitable, here cancel and
+            # place at the next tick.
             if self._current_timestamp > anti_hysteresis_timer:
                 if not self.c_check_if_price_has_drifted(market_pair, active_order):
                     need_adjust_order = True
@@ -535,7 +537,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             top_bid_price = max(list(bid_price_samples) + [current_top_bid_price])
 
-            if suggested_price > order_price and suggested_price > top_bid_price:
+            if self._adjust_orders_enabled:
+                adjusting_condition = suggested_price > order_price and suggested_price > top_bid_price
+            else:
+                adjusting_condition = suggested_price > order_price
+
+            if adjusting_condition:
                 if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
                     self.log_with_clock(
                         logging.INFO,
@@ -554,6 +561,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             current_top_ask_price = maker_order_book.c_get_price(True)
 
             top_ask_price = min(list(ask_price_samples) + [current_top_ask_price])
+
+            if self._adjust_orders_enabled:
+                adjusting_condition = suggested_price < order_price and suggested_price < top_ask_price
+            else:
+                adjusting_condition = suggested_price < order_price
 
             if suggested_price < order_price and suggested_price < top_ask_price:
                 if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
@@ -816,9 +828,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             # you are buying on the maker market and selling on the taker market
             maker_price = taker_price / (1 + self._min_profitability)
 
-            # If your bid is higher than highest bid price, reduce it to one tick above the top bid price
-            if maker_price > price_above_bid:
-                maker_price = price_above_bid
+            if self._adjust_orders_enabled:
+                # If your bid is higher than highest bid price, reduce it to one tick above the top bid price
+                if maker_price > price_above_bid:
+                    maker_price = price_above_bid
 
             price_quantum = maker_market.c_get_order_price_quantum(
                 market_pair.maker.trading_pair,
@@ -851,9 +864,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             # You are buying on the taker market and selling on the maker market
             maker_price = taker_price * (1 + self._min_profitability)
 
-            # If your ask is lower than the the top ask, increase it to just one tick below top ask
-            if maker_price < next_price_below_top_ask:
-                maker_price = next_price_below_top_ask
+            if self._adjust_orders_enabled:
+                # If your ask is lower than the the top ask, increase it to just one tick below top ask
+                if maker_price < next_price_below_top_ask:
+                    maker_price = next_price_below_top_ask
 
             price_quantum = maker_market.c_get_order_price_quantum(
                 market_pair.maker.trading_pair,

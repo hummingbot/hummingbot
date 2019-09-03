@@ -63,9 +63,16 @@ cross_exchange_market_making_config_map = {
         default=0.0,
         type_str="float",
     ),
+    "adjust_orders_enabled": ConfigVar(
+        key="adjust_orders_enabled",
+        prompt="Do you want to adjust the prices to be above top bid/ask instead of the expected price, "
+        "if profitable ? (Default is True) >>> ",
+        default=True,
+        type_str="bool",
+    ),
     "active_order_canceling": ConfigVar(
         key="active_order_canceling",
-        prompt="Do you want to actively adjust/cancel orders? (Default "
+        prompt="Do you want to actively cancel orders? (Default "
         "True, only set to False if maker market is Radar Relay) >>> ",
         type_str="bool",
         default=True,
@@ -75,8 +82,8 @@ cross_exchange_market_making_config_map = {
     "cancel_order_threshold": ConfigVar(
         key="cancel_order_threshold",
         prompt="What is the minimum profitability to actively cancel orders? "
-        "(Default to -1.0, only specify when active_order_canceling "
-        "is disabled, value can be negative) >>> ",
+        "(only specify when active_order_canceling "
+        "is disabled). Default is 5%. >>> ",
         default=0.05,
         type_str="float",
     ),

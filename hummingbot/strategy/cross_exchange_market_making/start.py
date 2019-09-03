@@ -22,6 +22,7 @@ def start(self):
     limit_order_min_expiration = cross_exchange_market_making_config_map.get("limit_order_min_expiration").value
     cancel_order_threshold = cross_exchange_market_making_config_map.get("cancel_order_threshold").value
     active_order_canceling = cross_exchange_market_making_config_map.get("active_order_canceling").value
+    adjust_orders_enabled = cross_exchange_market_making_config_map.get("adjust_orders_enabled").value
 
     market_names: List[Tuple[str, List[str]]] = [
         (maker_market, [raw_maker_trading_pair]),
@@ -61,4 +62,5 @@ def start(self):
         limit_order_min_expiration=limit_order_min_expiration,
         cancel_order_threshold=cancel_order_threshold,
         active_order_canceling=active_order_canceling,
+        adjust_orders_enabled=adjust_orders_enabled,
     )
