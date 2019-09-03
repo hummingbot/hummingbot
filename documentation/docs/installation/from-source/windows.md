@@ -1,11 +1,11 @@
 # Windows Source Installation
 
 !!! info "Recommended for Developers Only"
-    [Installation using Docker](/installation/windows) is more efficient for running Hummingbot.  Installing from source is only recommended for developers who want to access and modify the software code.
+    [Installation using Docker](/installation/via-docker/windows) is more efficient for running Hummingbot.  Installing from source is only recommended for developers who want to access and modify the software code.
 
 The Hummingbot code base is designed and optimized for UNIX-based systems such as macOS and Linux. We recommend that Windows users either:
 
-* Install the [Docker version](/installation/windows). Note that it is recommended to use the Docker Toolbox over native Docker in most cases.
+* Install the [Docker version](/installation/via-docker/windows). Note that it is recommended to use the Docker Toolbox over native Docker in most cases.
 * Install in [the cloud](/installation/cloud) by using a native Linux virtual machine.
 
 Hummingbot can also be installed by utilizing the built-in Windows Subsystem for Linux. However, this is only recommended for users familiar with development.

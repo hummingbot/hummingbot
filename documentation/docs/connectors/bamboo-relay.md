@@ -2,8 +2,8 @@
 
 ## About Bamboo Relay
 
-[Bamboo Relay](https://bamboorelay.com/) is an exchange application specializing in ERC-20 tokens that uses the [0x Protocol](https://0x.org/). 
- Currently, Bamboo Relay allows any user to connect their wallet and trade between any coin pair combination. 
+[Bamboo Relay](https://bamboorelay.com/) is an exchange application specializing in ERC-20 tokens that uses the [0x Protocol](https://0x.org/).
+ Currently, Bamboo Relay allows any user to connect their wallet and trade between any coin pair combination.
 
 ## Using the Connector
 
@@ -32,7 +32,7 @@ When running the connector in coordinated mode it is advised to enable this sett
 
 ### Minimum Order Sizes
 
-The minimum acceptable order size is 0.00000001 normalized units of price, amount or total, which ever of these is the lowest.
+The minimum acceptable order size is 0.00000001 normalized units of price, amount or total, whichever of these is the lowest.
 
 ### Transaction Fees
 
