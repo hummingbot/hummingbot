@@ -9,8 +9,8 @@ Users who use Hummingbot to build and run market making bots for $ONE can earn r
 $ONE Makers will run from July 1, 2019 to September 30, 2019, split into 3 monthly competition periods:
 
 * July 1st to July 31st
-* **August 1st to August 31st (current)**
-* September 1st to September 30th
+* August 1st to August 31st
+* **September 1st to September 30th (current)**
 
 Each period begins at 12am UTC on the 1st of the month and ends at 12am UTC time on the 1st of the following month.
 
@@ -19,6 +19,15 @@ Each period begins at 12am UTC on the 1st of the month and ends at 12am UTC time
 Users can earn the following achievements during each competition period. Achievements in each period stack, allowing users to earn multiple tiers.
 
 The leaderboard and the rewards schedule reset at the end of every period.
+
+### September 2019
+
+Achievement | Requirements | Max Spots | Rewards
+---|---|---|---
+**$ONE Plus** | Filled limit order volume >= 200,000 $ONE | 50 | **0.2 ETH**
+**$ONE Pro** | Filled limit order volume >= 2,000,000 $ONE | 20 | **0.4 ETH**
+**$ONE Master** | Filled limit order volume >= 10,000,000 $ONE | 10 | **0.8 ETH**
+**$ONE Ultimate** | Top 3 market makers based on filled limit order volume | 3 | 1st place: **5 ETH**<br/>2nd place: **3 ETH**<br/>3rd place: **2 ETH**
 
 ### August 2019
 
