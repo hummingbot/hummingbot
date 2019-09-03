@@ -113,7 +113,7 @@ class LiquidityBounty(NetworkBase):
             and_conditions: BooleanClauseList = [and_(
                 TradeFill.base_asset == ab["base_asset"],
                 TradeFill.market == ab["market"],
-                TradeFill.timestamp >= ab["start_timestamp"], # does not matter if start_timestamp == -1
+                TradeFill.timestamp >= ab["start_timestamp"],  # does not matter if start_timestamp == -1
                 TradeFill.timestamp <= (ab["end_timestamp"] if ab["end_timestamp"] > 0 else 1e14)
             ) for ab in self._active_bounties]
 
@@ -213,13 +213,13 @@ class LiquidityBounty(NetworkBase):
             client = await self._http_client()
             data = {"email": email, "eth_address": eth_address}
             async with client.request("POST", f"{self.LIQUIDITY_BOUNTY_REST_API}/client", json=data) as resp:
-                # registration_status = "success" or <reason_for_failure>
                 if resp.status not in {200, 400}:
                     raise Exception(f"Liquidity bounty server error. Server responded with status {resp.status}")
 
                 results = await resp.json()
-                if results["registration_status"] != "success":
-                    raise Exception(f"Failed to register for liquidity bounty: {results['registration_status']}")
+                status: str = results.get("status") or results.get("registration_status")
+                if status != "success":
+                    raise Exception(f"Failed to register for liquidity bounty: {status}")
                 return results
         except AssertionError:
             raise
@@ -384,9 +384,9 @@ class LiquidityBounty(NetworkBase):
                 await self.submit_orders()
                 await self.submit_order_statuses()
             except asyncio.CancelledError:
-                    raise
+                raise
             except asyncio.TimeoutError:
-                    continue
+                continue
             except Exception as e:
                 if "User not registered" in str(e):
                     self.logger().warning("User not registered. Aborting submit_data_loop.")
