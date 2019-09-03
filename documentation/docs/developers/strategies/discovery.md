@@ -34,3 +34,8 @@ Besides calculating the basic stats of each trading symbol, the discovery strate
 
 ![Figure 3: Arbitrage profitability calculation](/assets/img/discovery-flowchart-3.svg)
 
+The calculation is done only for symbols that are trading equivalent assets on both exchanges. e.g. if there's a WETH-DAI pair on the left exchange, and a ETH-USDT pair on the right exchange, and ["ETH", "WETH"] and ["DAI", "USDT"] are defined as equivalent sets - then one arbitrage calculation row would be generated between WETH and ETH-USDT. On the other hand, if there's a BNB-USDT pair on the left exchange, but the right exchange doesn't trade BNB - then no arbitrage calculation would be done for BNB-USDT.
+
+After the calculation for all matching trading pairs is done, the strategy would condense the results into a Pandas Dataframe table for output. Each row of the table would include the buy exchange name, buy symbol, sell exchange name, sell symbol, potential profit in quote asset, and potential profit in %.
+
+The arbitrage profitability calculation logic can be found int he function `c_calculate_arbitrage_discovery()` inside [discovery.pyx](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/discovery/discovery.pyx).
