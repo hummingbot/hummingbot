@@ -17,4 +17,4 @@ We recommend that users download separate docker images for each client that the
 
 ## Access Cloud Instances on your Phone
 
-Use Hummingbot's [Telegram integration](/operation/telegram) to connect to your cloud instance without a computer. Note that this has limited functionality and remains a work in progress.
+Use Hummingbot's [Telegram integration](/utilities/telegram) to connect to your cloud instance without a computer. Note that this has limited functionality and remains a work in progress.
