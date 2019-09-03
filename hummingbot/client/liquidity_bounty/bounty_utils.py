@@ -218,6 +218,7 @@ class LiquidityBounty(NetworkBase):
 
                 results = await resp.json()
                 status: str = results.get("status") or results.get("registration_status")
+                # registration_status is for backwards compatibility
                 if status != "success":
                     raise Exception(f"Failed to register for liquidity bounty: {status}")
                 return results
