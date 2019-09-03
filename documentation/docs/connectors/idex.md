@@ -21,7 +21,7 @@ IDEX requires an API key authentication to access API endpoints required for Hum
 
 ### Asset Availability for US Markets
 
-In compliance with US laws, IDEX has limit access to certain assets for customers in the US region (see [Updated Asset Availability for US Markets](https://medium.com/idex/idex-kyc-transition-period-and-updated-asset-availability-for-us-markets-set-to-begin-d45e945f842d)).
+IDEX has limit access to certain assets for customers in the US region (see [Updated Asset Availability for US Markets](https://medium.com/idex/idex-kyc-transition-period-and-updated-asset-availability-for-us-markets-set-to-begin-d45e945f842d)).
 
 ### Minimum Order Sizes
 
