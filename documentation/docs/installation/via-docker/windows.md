@@ -3,7 +3,7 @@
 The Hummingbot code base is designed and optimized for UNIX-based systems such as macOS and Linux. We recommend that Windows users either:
 
 * Install in [the cloud](/installation/cloud) and use a native Linux virtual machine.
-* Install using [Docker version](/installation/windows): [Docker Toolbox](https://docs.docker.com/toolbox/toolbox_install_windows/) recommended.
+* Install using [Docker version](/installation/via-docker/windows): [Docker Toolbox](https://docs.docker.com/toolbox/toolbox_install_windows/) recommended.
 
 Hummingbot can also be installed by utilizing the built-in Windows Subsystem for Linux. However, this is only recommended for users familiar with development.
 
