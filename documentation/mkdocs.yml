@@ -141,9 +141,10 @@ nav:
       - Data Feeds:
         - Data Feeds Overview: feeds.md
       - Utilities:
-        - Logs and Logging: operation/logging.md
-        - Using Exchange Rates: operation/exchange-rates.md
-        - Integrating Telegram: operation/telegram.md
+        - Kill Switch: utilities/kill-switch.md
+        - Logs and Logging: utilities/logging.md
+        - Using Exchange Rates: utilities/exchange-rates.md
+        - Integrating Telegram: utilities/telegram.md
     - Developer Manual:
         - Intro: developers/index.md
         - Strategies:
