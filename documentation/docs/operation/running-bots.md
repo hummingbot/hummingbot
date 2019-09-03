@@ -41,7 +41,7 @@ Please see [Client: Commands](/operation/client#client-commands) for a comprehen
 
 ## Understanding Logs
 
-Hummingbot's right pane contains a log of all actions taken by the bot, including approvals, canncellations, fills, etc. When the user exits Hummingbot, it saves a log file containing all of the section's activity to the `logs/` folder. (For more info, see: [Logs and Logging](/operation/logging))
+Hummingbot's right pane contains a log of all actions taken by the bot, including approvals, canncellations, fills, etc. When the user exits Hummingbot, it saves a log file containing all of the section's activity to the `logs/` folder. (For more info, see: [Logs and Logging](/utilities/logging))
 
 ## Running Multiple Bots
 

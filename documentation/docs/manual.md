@@ -8,4 +8,4 @@ This section is for experienced users who want to get the most of Hummingbot:
 * [Connectors](/connectors): Reference for connectors to centralized and decentralized exchanges
 * [Strategies](/strategies): Reference for trading strategies available in Hummingbot
 * [Data Feeds](/feeds): Reference for external data feeds used to fetch real-time conversion rates, along with how to add your own
-* Utilities: Miscellaneous features such as [logging](/operation/logging) and the [Telegram integration](/operation/telegram).
+* Utilities: Miscellaneous features such as [logging](/utilities/logging) and the [Telegram integration](/utilities/telegram).
