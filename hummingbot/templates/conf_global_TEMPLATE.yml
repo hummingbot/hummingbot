@@ -42,5 +42,7 @@ telegram_enabled: false
 telegram_token: null
 telegram_chat_id: null
 
+# paper trade template
+
 # For more detailed information: https://docs.hummingbot.io
 
