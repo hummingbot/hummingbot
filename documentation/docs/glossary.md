@@ -1,4 +1,4 @@
-# Glossary
+# Trading Glossary
 
 Market making, along with algorithmic trading generally, entails specific terminology. We define some of the most commonly used terms below.
 

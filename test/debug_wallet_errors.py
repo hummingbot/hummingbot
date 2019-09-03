@@ -6,12 +6,12 @@ import logging; logging.basicConfig(level=logging.INFO)
 import asyncio
 import time
 
-from hummingbot.cli.settings import get_erc20_token_addresses
-from wings.wallet.web3_wallet import Web3Wallet
-from wings.clock import Clock, ClockMode
-from wings.market.ddex_market import DDEXMarket
-from wings.ethereum_chain import EthereumChain
-from wings.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.client.config.config_helpers import get_erc20_token_addresses
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
+from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.market.ddex.ddex_market import DDEXMarket
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 
 token_addresses = get_erc20_token_addresses(["WETH", "DAI"])
 zrx_addr = "0x74622073a4821dbfd046E9AA2ccF691341A076e1"
@@ -19,11 +19,13 @@ pkey = "7BB21B1C4C9C0A474BCD08C1BA3C31ACEA8B6840AC72A67EDD38CB32899CBF87"
 server = "http://aws-mainnet-1.mainnet-rpc-headless.mainnet:8545"
 clock = Clock(ClockMode.REALTIME)
 wallet = Web3Wallet(pkey, [server], token_addresses, chain=EthereumChain.MAIN_NET)
-market = DDEXMarket(wallet, server,
-        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-        symbols=["WETH-DAI"])
+market = DDEXMarket(wallet,
+                    server,
+                    order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                    symbols=["WETH-DAI"])
 clock.add_iterator(wallet)
 clock.add_iterator(market)
+
 
 async def main():
     begin = time.time() // 1

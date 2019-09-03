@@ -43,6 +43,13 @@ coinbase_pro_api_key = os.getenv("COINBASE_PRO_API_KEY")
 coinbase_pro_secret_key = os.getenv("COINBASE_PRO_SECRET_KEY")
 coinbase_pro_passphrase = os.getenv("COINBASE_PRO_PASSPHRASE")
 
+# IDEX Tests
+idex_api_key = os.getenv("IDEX_API_KEY")
+
+# Huobi Tests
+huobi_api_key = os.getenv("HUOBI_API_KEY")
+huobi_secret_key = os.getenv("HUOBI_SECRET_KEY")
+
 test_web3_provider_list = [os.getenv("WEB3_PROVIDER")]
 
 # Wallet Tests
@@ -56,27 +63,31 @@ coinalpha_order_book_api_password = "***REMOVED***"
 
 kafka_2 = {
     "bootstrap_servers": "***REMOVED***",
-    "zookeeper_servers":  "***REMOVED***"
+    "zookeeper_servers": "***REMOVED***"
 }
 
 
 try:
-    from .config_local import *
+    from .config_local import *             # noqa: F401, F403
 except ModuleNotFoundError:
-    _logger.warning("Warning: local config not found. You need to define the API keys in config_local.py.")
+    pass
 
 try:
-    from .web3_wallet_secret import *
+    from .web3_wallet_secret import *       # noqa: F401, F403
 except ModuleNotFoundError:
-    _logger.warning("Warning: web3 wallet secret not found. You need to define the web3 wallet secret in "
-                    "web3_wallet_secret.py")
+    pass
 
 try:
-    from .binance_secret import *
+    from .binance_secret import *           # noqa: F401, F403
 except ModuleNotFoundError:
-    _logger.warning("Warning: binance secret not found. You need to define the binance secret in binance_secret.py")
+    pass
 
 try:
-    from .coinbase_pro_secrets import *
+    from .coinbase_pro_secrets import *     # noqa: F401, F403
 except ModuleNotFoundError:
-    _logger.warning("Warning: coinbase pro secret not found. You need to define the coinbase pro secret in coinbase_pro_secrets.py")
+    pass
+
+try:
+    from .huobi_secret import *
+except ModuleNotFoundError:
+    pass
