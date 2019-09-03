@@ -110,16 +110,16 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
-            # when type is set to "step0", the default value of "depth" is 150
-            params: Dict = {"symbol": trading_pair, "type": "step0"}
-            async with client.get(HUOBI_DEPTH_URL, params=params) as response:
-                response: aiohttp.ClientResponse = response
-                if response.status != 200:
-                    raise IOError(f"Error fetching Huobi market snapshot for {trading_pair}. "
-                                  f"HTTP status is {response.status}.")
-                api_data = await response.read()
-                data: Dict[str, Any] = json.loads(api_data)
-                return data
+        # when type is set to "step0", the default value of "depth" is 150
+        params: Dict = {"symbol": trading_pair, "type": "step0"}
+        async with client.get(HUOBI_DEPTH_URL, params=params) as response:
+            response: aiohttp.ClientResponse = response
+            if response.status != 200:
+                raise IOError(f"Error fetching Huobi market snapshot for {trading_pair}. "
+                              f"HTTP status is {response.status}.")
+            api_data = await response.read()
+            data: Dict[str, Any] = json.loads(api_data)
+            return data
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         # Get the currently active markets

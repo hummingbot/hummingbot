@@ -389,10 +389,12 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             if orders_proposal.buy_order_sizes[0] > 0:
                 if orders_proposal.buy_order_type is OrderType.LIMIT and orders_proposal.buy_order_prices[0] > 0:
                     if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
+                        order_price_quote = zip(orders_proposal.buy_order_sizes, orders_proposal.buy_order_prices)
+                        price_quote_str = [f"{s} {market_info.base_asset}, {p} {market_info.quote_asset}"
+                                           for s, p in order_price_quote]
                         self.log_with_clock(
                             logging.INFO,
-                            f"({market_info.trading_pair}) Creating limit bid orders for "
-                            f"  Bids (Size,Price) to be placed at: {[str(size) + ' ' + market_info.base_asset + ' @ ' + ' ' + str(price) + ' ' + market_info.quote_asset for size,price in zip(orders_proposal.buy_order_sizes, orders_proposal.buy_order_prices)]}"
+                            f"({market_info.trading_pair}) Creating limit bid orders at (Size, Price): {price_quote_str}"
                         )
 
                     for idx in range(len(orders_proposal.buy_order_sizes)):
@@ -410,10 +412,12 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             if orders_proposal.sell_order_sizes[0] > 0:
                 if orders_proposal.sell_order_type is OrderType.LIMIT and orders_proposal.sell_order_prices[0] > 0:
                     if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
+                        order_price_quote = zip(orders_proposal.sell_order_sizes, orders_proposal.sell_order_prices)
+                        price_quote_str = [f"{s} {market_info.base_asset}, {p} {market_info.quote_asset}"
+                                           for s, p in order_price_quote]
                         self.log_with_clock(
                             logging.INFO,
-                            f"({market_info.trading_pair}) Creating limit ask order for "
-                            f"  Asks (Size,Price) to be placed at: {[str(size) + ' ' + market_info.base_asset + ' @ ' + ' ' + str(price) + ' ' + market_info.quote_asset for size,price in zip(orders_proposal.sell_order_sizes, orders_proposal.sell_order_prices)]}"
+                            f"({market_info.trading_pair}) Creating limit ask orders at (Size, Price): {price_quote_str}"
                         )
 
                     for idx in range(len(orders_proposal.sell_order_sizes)):
