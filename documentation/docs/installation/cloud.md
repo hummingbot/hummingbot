@@ -77,4 +77,4 @@ Below, we show you how to set up a new Virtual Machine Instance on each major cl
    ![Connect to Azure Instance](/assets/img/azure7.png)
 
 ---
-# Next: [Install Hummingbot for Linux](/installation/linux)
+# Next: [Install Hummingbot for Linux](/installation/via-docker/linux)
