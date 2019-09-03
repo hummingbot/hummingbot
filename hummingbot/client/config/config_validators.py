@@ -32,5 +32,3 @@ def is_valid_market_symbol(market: str, value: str) -> bool:
         return value in symbol_fetcher.symbols.get(market) if len(market_symbols) > 0 else True
     else:
         return True
-
-
