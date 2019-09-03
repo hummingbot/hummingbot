@@ -147,7 +147,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         metadata={"symbol": trading_pair}
                     )
                     order_book: OrderBook = self.order_book_create_function()
-                    order_book.from_snapshot(snapshot_msg)
+                    order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
                     retval[trading_pair] = OrderBookTrackerEntry(trading_pair, snapshot_timestamp, order_book)
                     self.logger().info(f"Initialized order book for {trading_pair}. "
                                         f"{index+1}/{number_of_pairs} completed.")
