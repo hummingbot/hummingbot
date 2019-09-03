@@ -40,4 +40,4 @@ cancel_order_threshold: null
 limit_order_min_expiration: null
 
 # For more detailed information, see:
-# https://docs.hummingbot.io/configuration/#hummingbot-configuration-variables
+# https://docs.hummingbot.io/strategies/cross-exchange-market-making/#configuration-parameters

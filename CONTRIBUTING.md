@@ -3,12 +3,12 @@
 ## General workflow
 
 1. Fork the repo
-1. Create a new branch from master (see: [branch naming guidelines](#branch-naming-guidelines))
-2. Make commits to your branch
-3. When you've finished with your fix or feature:
-  - Rebase upstream changes into your branch
-  - Submit a pull request directly to master
-  - Include a description of your changes
+1. Create a new branch from the [`development`](https://github.com/CoinAlpha/hummingbot/tree/development) branch (see: [branch naming guidelines](#branch-naming-guidelines))
+1. Make commits to your branch
+1. When you've finished with your fix or feature:
+    - Rebase upstream changes into your branch
+    - Submit a pull request to the [`development`](https://github.com/CoinAlpha/hummingbot/tree/development) branch
+    - Include a description of your changes
 1. Your pull request will be reviewed by [CoinAlpha's development team](mailto:dev@coinalpha.com).
 1. Fix any issues raised by your code reviewer, and push your fixes as a single new commit.
 1. Once the pull request has been reviewed and accepted, it will be merged by a member of the CoinAlpha development team.
@@ -64,11 +64,11 @@ changes.
 
 Once you are done making changes, you can begin the process of getting
 your code merged into the main repo. Step 1 is to rebase upstream
-changes to the master branch into yours by running this command
+changes to the `development` branch into yours by running this command
 from your branch:
 
 ```bash
-git pull --rebase upstream master
+git pull --rebase upstream development
 ```
 
 This will start the rebase process. You must commit all of your changes
@@ -103,7 +103,7 @@ you get here again and nothing is broken and all the tests pass.
 
 ### Make a pull request
 
-Make a clear pull request from your fork and branch to the upstream master
+Make a clear pull request from your fork and branch to the upstream `development`
 branch, detailing exactly what changes you made and what feature this
 should add. The clearer your pull request is the faster you can get
 your changes incorporated into this repo.
@@ -125,11 +125,11 @@ Tests are very, very important. Submit tests if your pull request contains new, 
 
 This is just to help you organize your process
 
-- [ ] Did I create my branch from master (don't create new branches from existing feature branches)?
+- [ ] Did I create my branch from `development` (don't create new branches from existing feature branches)?
 - [ ] Did I follow the correct naming convention for my branch?
 - [ ] Is my branch focused on a single main change?
   - [ ] Do all of my changes directly relate to this change?
-- [ ] Did I rebase the upstream master branch after I finished all my
+- [ ] Did I rebase the upstream `development` branch after I finished all my
   work?
 - [ ] Did I write a clear pull request message detailing what changes I made?
 - [ ] Did I get a code review?

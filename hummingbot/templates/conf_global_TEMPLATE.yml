@@ -9,6 +9,9 @@ binance_api_secret: null
 coinbase_pro_api_key: null
 coinbase_pro_secret_key: null
 coinbase_pro_passphrase: null
+idex_api_key: null
+bamboo_relay_use_coordinator: null
+bamboo_relay_pre_emptive_soft_cancels: null
 
 # Ethereum wallet address: required for trading on a DEX
 wallet: null
@@ -24,13 +27,20 @@ reporting_log_interval: 60.0
 logger_override_whitelist:
 - hummingbot.strategy.arbitrage
 - hummingbot.strategy.cross_exchange_market_making
-- wings.web3_wallet
-- wings.web3_wallet_backend
-- wings.ddex_market
-- wings.binance_market
 - conf
 key_file_path: conf/
 log_file_path: logs/
 on_chain_cancel_on_exit: false
 
+# kill switch
+kill_switch_enabled: null
+# The rate of performance at which you would want the bot to stop trading (-0.2 = 20%)
+kill_switch_rate: null
+
+# telegram integration
+telegram_enabled: false
+telegram_token: null
+telegram_chat_id: null
+
 # For more detailed information: https://docs.hummingbot.io
+

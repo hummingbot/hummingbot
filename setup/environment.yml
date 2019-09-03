@@ -4,6 +4,7 @@ channels:
   - defaults
 dependencies:
   - libffi=3.2.1=1
+  - appnope=0.1.0=py36hf537a9a_0
   - asn1crypto=0.24.0=py36_0
   - blas=1.0=mkl
   - blosc=1.15.0=hd9629dc_0
@@ -25,7 +26,9 @@ dependencies:
   - mkl=2019.3=199
   - mkl_fft=1.0.10=py36h5e564d8_0
   - mkl_random=1.0.2=py36h27c97d8_0
+  - nose=1.3.7=py36_2
   - ncurses=6.1=h0a44026_1
+  - nose=1.3.7=py36_2
   - numexpr=2.6.9=py36h7413580_0
   - numpy=1.16.2=py36hacdab7b_0
   - numpy-base=1.16.2=py36h6575580_0
@@ -73,7 +76,9 @@ dependencies:
     - attrs==19.1.0
     - autobahn==19.3.3
     - automat==0.7.0
+    - cachetools==3.0.0
     - chardet==3.0.4
+    - coincurve==12.0.0
     - constantly==15.1.0
     - cytoolz==0.9.0.1
     - dateparser==0.7.1
@@ -85,25 +90,29 @@ dependencies:
     - eth-rlp==0.1.2
     - eth-typing==2.1.0
     - eth-utils==1.4.1
+    - flake8==3.7.8
     - hexbytes==0.1.0
-    - hummingsim==20190328
+    - hummingsim==20190724
     - hyperlink==18.0.0
     - hypothesis==4.14.2
     - idna-ssl==1.1.0
     - incremental==17.5.0
     - jsonschema==3.0.1
-    - kafka-python==1.4.5
+    - kafka-python==1.4.3
     - lru-dict==1.1.6
     - multidict==4.5.2
     - mypy-extensions==0.4.1
     - parsimonious==0.8.1
+    - pre-commit==1.18.2
+    - py-ecc==1.7.0
     - pyasn1==0.4.5
     - pyasn1-modules==0.2.4
     - pycryptodome==3.8.0
     - pyhamcrest==1.9.0
     - pyperclip==1.7.0
     - pyrsistent==0.14.11
-    - python-binance==0.6.9
+    - python-binance==0.7.1
+    - python-telegram-bot==11.1.0
     - regex==2019.3.12
     - requests==2.21.0
     - rlp==1.1.0

@@ -1,20 +1,6 @@
 #!/usr/bin/env python
 
-if "hummingbot-dist" in __file__:
-    # Dist environment.
-    import os
-    import sys
-    sys.path.append(sys.path.pop(0))
-    sys.path.insert(0, os.getcwd())
-
-    import hummingbot
-    hummingbot.set_prefix_path(os.getcwd())
-else:
-    # Dev environment.
-    from os.path import join, realpath
-    import sys
-    sys.path.insert(0, realpath(join(__file__, "../../")))
-
+import path_util        # noqa: F401
 import asyncio
 import errno
 import socket
@@ -23,18 +9,18 @@ from typing import (
     Coroutine
 )
 
-from hummingbot import (
-    init_logging
-)
-
-from hummingbot.cli.hummingbot_application import HummingbotApplication
-from hummingbot.cli.settings import (
-    global_config_map,
+from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.config_helpers import (
     create_yml_files,
     read_configs_from_yml
 )
-from hummingbot.cli.ui.stdout_redirection import patch_stdout
-from hummingbot.management.console import start_management_console
+from hummingbot import (
+    init_logging,
+    check_dev_mode
+)
+from hummingbot.client.ui.stdout_redirection import patch_stdout
+from hummingbot.core.management.console import start_management_console
 
 
 def detect_available_port(starting_port: int) -> int:
@@ -53,13 +39,21 @@ def detect_available_port(starting_port: int) -> int:
 
 async def main():
     await create_yml_files()
+
+    # This init_logging() call is important, to skip over the missing config warnings.
+    init_logging("hummingbot_logs.yml")
+
     read_configs_from_yml()
 
-    init_logging("hummingbot_logs.yml")
-    hb = HummingbotApplication()
+    hb = HummingbotApplication.main_application()
+
     with patch_stdout(log_field=hb.app.log_field):
+        dev_mode = check_dev_mode()
+        if dev_mode:
+            hb.app.log("Running from dev branches. Full remote logging will be enabled.")
         init_logging("hummingbot_logs.yml",
-                     override_log_level=global_config_map.get("log_level").value)
+                     override_log_level=global_config_map.get("log_level").value,
+                     dev_mode=dev_mode)
         tasks: List[Coroutine] = [hb.run()]
         if global_config_map.get("debug_console").value:
             management_port: int = detect_available_port(8211)

@@ -10,7 +10,7 @@ After you start Hummingbot and run the `config` process, you are asked: *Would y
 
 Respond with `create` to create a new wallet. Note that you will need to send ETH and tokens to this wallet address in order to run trading bots.
 
-Afterwards, you are prompted to enter a password that protects the wallet. Each time you launch `hummingbot`, you need to unlock the wallet using this password in order to start running trading bots on decentralized exchanges.
+Afterwards, you are prompted to enter a password that protects the wallet. Each time you launch Hummingbot, you need to unlock the wallet using this password in order to start running trading bots on decentralized exchanges.
 
 ## Importing your wallet
 
@@ -56,5 +56,4 @@ When you import or create a wallet with Hummingbot, a JSON file named `key_file_
 
 ### Private key
 
-Within the `hummingbot` CLI, you can use the `export_private_key` command to display the private key associated with a wallet address. You can import your wallet to dApps like Metamask and MyCrypto using this private key as well.
-
+Within the Hummingbot CLI, you can use the `export_private_key` command to display the private key associated with a wallet address. You can import your wallet to dApps like Metamask and MyCrypto using this private key as well.

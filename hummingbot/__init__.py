@@ -1,14 +1,44 @@
 #!/usr/bin/env python
 from typing import Optional
+import logging
+import subprocess
+from concurrent.futures import ThreadPoolExecutor
+from os import path
+from hummingbot.logger.struct_logger import (
+    StructLogRecord,
+    StructLogger
+)
 
 STRUCT_LOGGER_SET = False
 _prefix_path = None
+
+# Do not raise exceptions during log handling
+logging.setLogRecordFactory(StructLogRecord)
+logging.setLoggerClass(StructLogger)
+
+_shared_executor = None
+_data_path = None
+
+
+def root_path() -> str:
+    from os.path import realpath, join
+    return realpath(join(__file__, "../../"))
+
+
+def get_executor() -> ThreadPoolExecutor:
+    global _shared_executor
+    if _shared_executor is None:
+        _shared_executor = ThreadPoolExecutor()
+    return _shared_executor
 
 
 def prefix_path() -> str:
     global _prefix_path
     if _prefix_path is None:
-        from os.path import realpath, join
+        from os.path import (
+            realpath,
+            join
+        )
         _prefix_path = realpath(join(__file__, "../../"))
     return _prefix_path
 
@@ -18,7 +48,54 @@ def set_prefix_path(path: str):
     _prefix_path = path
 
 
-def init_logging(conf_filename: str, override_log_level: Optional[str] = None):
+def data_path() -> str:
+    global _data_path
+    if _data_path is None:
+        from os.path import (
+            realpath,
+            join
+        )
+        _data_path = realpath(join(prefix_path(), "data"))
+
+    import os
+    if not os.path.exists(_data_path):
+        os.makedirs(_data_path)
+    return _data_path
+
+
+def set_data_path(path: str):
+    global _data_path
+    _data_path = path
+
+
+def check_dev_mode():
+    try:
+        if not path.isdir(".git"):
+            return False
+        current_branch = subprocess.check_output(["git", "symbolic-ref", "--short", "HEAD"]).decode("utf8").rstrip()
+        if current_branch != "master":
+            return True
+    except Exception:
+        return False
+
+
+def add_remote_logger_handler(loggers):
+    from hummingbot.logger.reporting_proxy_handler import ReportingProxyHandler
+    root_logger = logging.getLogger()
+    try:
+        remote_logger = ReportingProxyHandler(level="DEBUG",
+                                              proxy_url="https://api.coinalpha.com/reporting-proxy",
+                                              capacity=5
+                                              )
+        root_logger.addHandler(remote_logger)
+        for logger_name in loggers:
+            logger = logging.getLogger(logger_name)
+            logger.addHandler(remote_logger)
+    except Exception:
+        root_logger.error("Error adding remote log handler.", exc_info=True)
+
+
+def init_logging(conf_filename: str, override_log_level: Optional[str] = None, dev_mode: bool = False):
     import io
     import logging.config
     from os.path import join
@@ -26,13 +103,12 @@ def init_logging(conf_filename: str, override_log_level: Optional[str] = None):
     from typing import Dict
     from ruamel.yaml import YAML
 
-    from hummingbot.cli.settings import global_config_map
+    from hummingbot.client.config.global_config_map import global_config_map
     from hummingbot.logger import reporting_proxy_handler
-    from wings.logger.struct_logger import (
+    from hummingbot.logger.struct_logger import (
         StructLogRecord,
         StructLogger
     )
-
     global STRUCT_LOGGER_SET
     if not STRUCT_LOGGER_SET:
         logging.setLogRecordFactory(StructLogRecord)
@@ -56,3 +132,6 @@ def init_logging(conf_filename: str, override_log_level: Optional[str] = None):
                         logger in global_config_map["logger_override_whitelist"].value:
                     config_dict["loggers"][logger]["level"] = override_log_level
         logging.config.dictConfig(config_dict)
+        # add remote logging to logger if in dev mode
+        if dev_mode:
+            add_remote_logger_handler(config_dict.get("loggers", []))
