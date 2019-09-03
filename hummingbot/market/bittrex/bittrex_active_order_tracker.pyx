@@ -45,7 +45,6 @@ cdef class BittrexActiveOrderTracker:
         return sum([float(msg["remaining_size"]) for msg in self._active_bids[price].values()])
 
     def get_rates_and_quantities(self, entry) -> tuple:
-        entry = next(entry)
         return entry["R"], entry["Q"]
 
     cdef tuple c_convert_diff_message_to_np_arrays(self, object message):
@@ -70,7 +69,7 @@ cdef class BittrexActiveOrderTracker:
                   float(price),
                   float(quantity),
                   message.update_id]
-                 for price, quantity in [self.get_rates_and_quantities(entry for entry in bid_entries)]],
+                 for price, quantity in [self.get_rates_and_quantities(entry) for entry in bid_entries]],
                 dtype="float64",
                 ndmin=2
             )
@@ -80,9 +79,8 @@ cdef class BittrexActiveOrderTracker:
                 [[timestamp,
                   float(price),
                   float(quantity),
-                  message.update_id
-                  ]
-                 for price, quantity in [self.get_rates_and_quantities(entry for entry in ask_entries)]],
+                  message.update_id]
+                 for price, quantity in [self.get_rates_and_quantities(entry) for entry in ask_entries]],
                 dtype="float64",
                 ndmin=2
             )
