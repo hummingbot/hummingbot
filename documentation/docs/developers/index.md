@@ -3,7 +3,7 @@
 This section is for developers looking to contribute to Hummingbot or extend its capabilities:
 
 * [Strategies](/developers/strategies): Create and customize your own strategies
-* [Connectors](/developers/connectors): Develop new exchange connectors *(coming soon!)*
+* [Connectors](/developers/connectors): Develop new exchange connectors
 * [Debug console](/developers/debug): Inspect and modify Hummingbot state while it's running
 
 ## Contributing to Hummingbot
