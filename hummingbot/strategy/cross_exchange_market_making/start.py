@@ -22,10 +22,7 @@ def start(self):
     limit_order_min_expiration = cross_exchange_market_making_config_map.get("limit_order_min_expiration").value
     cancel_order_threshold = cross_exchange_market_making_config_map.get("cancel_order_threshold").value
     active_order_canceling = cross_exchange_market_making_config_map.get("active_order_canceling").value
-    self.logger().info("everything except adjust enabled")
-    self.logger().info(cross_exchange_market_making_config_map)
     adjust_orders_enabled = cross_exchange_market_making_config_map.get("adjust_orders_enabled").value
-    self.logger().info("passing adjust")
 
     market_names: List[Tuple[str, List[str]]] = [
         (maker_market, [raw_maker_trading_pair]),
@@ -55,7 +52,6 @@ def start(self):
         | CrossExchangeMarketMakingStrategy.OPTION_LOG_STATUS_REPORT
         | CrossExchangeMarketMakingStrategy.OPTION_LOG_MAKER_ORDER_HEDGED
     )
-    self.logger.info("everything properly initialized")
 
     self.strategy = CrossExchangeMarketMakingStrategy(
         market_pairs=[self.market_pair],

@@ -60,8 +60,15 @@ cross_exchange_market_making_config_map = {
         key="order_amount",
         prompt="What is your preferred trade size? (denominated in " "the base asset) >>> ",
         required_if=lambda: False,
-        type_str="float",
         default=0.0,
+        type_str="float",
+    ),
+    "adjust_orders_enabled": ConfigVar(
+        key="adjust_orders_enabled",
+        prompt="Do you want to adjust the prices to be above top bid/ask instead of the expected price, "
+        "if profitable ? (Default is True) >>> ",
+        default=True,
+        type_str="bool",
     ),
     "active_order_canceling": ConfigVar(
         key="active_order_canceling",
@@ -77,20 +84,13 @@ cross_exchange_market_making_config_map = {
         prompt="What is the minimum profitability to actively cancel orders? "
         "(only specify when active_order_canceling "
         "is disabled). Default is 5%. >>> ",
-        type_str="float",
         default=0.05,
+        type_str="float",
     ),
     "limit_order_min_expiration": ConfigVar(
         key="limit_order_min_expiration",
         prompt="What is the minimum limit order expiration in seconds? " "(Default to 130 seconds) >>> ",
-        type_str="float",
         default=130.0,
-    ),
-    "adjust_orders_enabled": ConfigVar(
-        key="adjust_orders_enabled",
-        prompt="Do you want to adjust the prices to be above top bid/ask instead of the expected price, "
-        "if profitable ? (Default is True) >>> ",
-        type_str="bool",
-        default=True,
+        type_str="float",
     ),
 }
