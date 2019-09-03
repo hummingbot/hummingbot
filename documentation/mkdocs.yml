@@ -103,13 +103,15 @@ nav:
       - Installation:
         - Installation Overview: installation/index.md
         - Setup a Cloud Server: installation/cloud.md
-        - Install on Linux: installation/linux.md
-        - Install on MacOS: installation/macOS.md
-        - Install on Windows: installation/windows.md
+        - Install via Docker:
+          - Linux: installation/via-docker/linux.md
+          - MacOS: installation/via-docker/macOS.md
+          - Windows: installation/via-docker/windows.md
         - Install from Source:
           - Linux: installation/from-source/linux.md
-          - macOS: installation/from-source/macOS.md
+          - MacOS: installation/from-source/macOS.md
           - Windows: installation/from-source/windows.md
+        - Updating Hummingbot: installation/updating.md
       - Configuration:
         - Configuring Hummingbot: operation/configuration.md
         - API Keys: installation/api-keys.md
@@ -144,7 +146,7 @@ nav:
         - Integrating Telegram: operation/telegram.md
     - Developer Manual:
         - Intro: developers/index.md
-        - Strategies: 
+        - Strategies:
           - Architecture: developers/strategies/index.md
           - Pure Market Making: developers/strategies/pure-market-making.md
           - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
