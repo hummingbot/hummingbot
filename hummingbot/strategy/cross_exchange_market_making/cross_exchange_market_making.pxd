@@ -14,6 +14,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         set _taker_markets
         bint _all_markets_ready
         bint _active_order_canceling
+        bint _adjust_orders_enabled
         dict _anti_hysteresis_timers
         double _min_profitability
         double _order_size_taker_volume_factor
