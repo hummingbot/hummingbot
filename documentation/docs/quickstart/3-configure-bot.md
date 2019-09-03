@@ -153,14 +153,6 @@ Hummingbot comes with utilities that help you run the bot, such as:
 
 For more information on these utilities, see the Utilities section in the [User Manual](/manual). By default, only the **kill switch** is configured via the walkthrough.
 
-Activate the kill switch feature and tell it to stop the bot at a 5% loss:
-```
-Would you like to enable the kill switch? (y/n) >>>  
-y
-
-At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5% loss) >>>
--0.05
-```
 ---
 If you completed the steps above successfully, you should see the message:
 ```

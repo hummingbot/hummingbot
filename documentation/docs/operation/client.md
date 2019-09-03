@@ -35,8 +35,8 @@ Hummingbot can automatically start the execution of a previously configured trad
 ```bash tab="Docker command"
 docker run -it \
 -e STRATEGY=${STRATEGY} \
--e CONFIG_FILE_NAME=${CONFIG_FILENAME}" \
--e WALLET=${WALLET}
+-e CONFIG_FILE_NAME=${CONFIG_FILENAME} \
+-e WALLET=${WALLET} \
 -e WALLET_PASSWORD=${WALLET_PASSWORD} \
 --name hummingbot-instance \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
