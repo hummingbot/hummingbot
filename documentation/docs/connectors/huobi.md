@@ -36,7 +36,7 @@ Because Huobi is a centralized exchange, you will need to generate and provide y
 
 ## Miscellaneous Info
 
-#### Minimum Order Sizes
+### Minimum Order Sizes
 
 You may refer to [this page](https://support.huobi.so/hc/en-us/articles/360000400491-Trade-Limits) for the minimum order size per trading pair.
 
