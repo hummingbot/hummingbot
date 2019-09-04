@@ -2,7 +2,7 @@
 
 ## About Huobi Global
 
-Huobi is a global cryptocurrency exchange based in Singapore.
+Huobi is a global cryptocurrency centralized exchange based in Singapore and has expanded its offices in Hong Kong, Korea, Japan and the United States. As of March 2018, Huobi processed around US $1 billion in trades daily.
 
 
 ## Using the Connector
@@ -36,8 +36,14 @@ Because Huobi is a centralized exchange, you will need to generate and provide y
 
 ## Miscellaneous Info
 
-### Minimum Order Sizes
+#### Minimum Order Sizes
 
-See [this page](https://support.huobi.so/hc/en-us/articles/360000400491-Trade-Limits) for the minimum order size per trading pair.
+You may refer to [this page](https://support.huobi.so/hc/en-us/articles/360000400491-Trade-Limits) for the minimum order size per trading pair.
 
 ## Transaction Fees
+
+Huobi charges 0.2% on both maker and taker for most pairs. However, Huobi VIP users can also enjoy fees at discounted rate.
+
+No maker and taker fees for trading on stablecoins with HUSD (PAX/HUSD, USDC/HUSD, TUSD/HUSD, USDT/HUSD).
+
+See [this page](https://www.hbg.com/en-us/about/fee/) for more information about their fees.
