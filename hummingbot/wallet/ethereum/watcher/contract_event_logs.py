@@ -15,7 +15,8 @@ from web3.datastructures import AttributeDict
 from web3.utils.contracts import find_matching_event_abi
 from web3.utils.events import get_event_data
 from web3.utils.filters import construct_event_filter_params
-import hummingbot
+
+from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.logger import HummingbotLogger
 
 DEFAULT_WINDOW_SIZE = 100
@@ -92,12 +93,12 @@ class ContractEventLogger:
             tx_hashes: List[HexBytes] = self._block_events.popitem(last=False)[1]
             for tx_hash in tx_hashes:
                 self._event_cache.remove(tx_hash)
-        return new_entries 
+        return new_entries
 
     async def _get_logs(self,
                         event_filter_params: Dict[str, any],
                         max_tries: Optional[int] = 30) -> List[Dict[str, any]]:
-        ev_loop: asyncio.BaseEventLoop = self._ev_loop
+        async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()
         count: int = 0
         logs = []
         while True:
@@ -108,15 +109,13 @@ class ContractEventLogger:
                         f"Error fetching logs from block with filters: '{event_filter_params}'."
                     )
                     break
-                logs = await ev_loop.run_in_executor(
-                    hummingbot.get_executor(),
-                    functools.partial(
-                        self._w3.eth.getLogs,
-                        event_filter_params))
+                logs = await async_scheduler.call_async(
+                    functools.partial(self._w3.eth.getLogs, event_filter_params)
+                )
                 break
             except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except Exception:
                 self.logger().debug(f"Block not found with filters: '{event_filter_params}'. Retrying...")
                 await asyncio.sleep(0.5)
         return logs

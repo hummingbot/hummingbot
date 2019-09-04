@@ -89,9 +89,9 @@ class AsyncCallScheduler:
             except Exception as e:
                 # Add exception information.
                 app_warning_msg += f" [[Got exception: {str(e)}]]"
-                self.logger().network(app_warning_msg,
-                                      exc_info=True,
-                                      app_warning_msg=app_warning_msg)
+                self.logger().debug(app_warning_msg,
+                                    exc_info=True,
+                                    app_warning_msg=app_warning_msg)
                 try:
                     fut.set_exception(e)
                 except Exception:
