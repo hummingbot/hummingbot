@@ -22,7 +22,8 @@ def start(self):
     limit_order_min_expiration = cross_exchange_market_making_config_map.get("limit_order_min_expiration").value
     cancel_order_threshold = cross_exchange_market_making_config_map.get("cancel_order_threshold").value
     active_order_canceling = cross_exchange_market_making_config_map.get("active_order_canceling").value
-    adjust_orders_enabled = cross_exchange_market_making_config_map.get("adjust_orders_enabled").value
+    adjust_order_enabled = cross_exchange_market_making_config_map.get("adjust_order_enabled").value
+    top_depth_tolerance = cross_exchange_market_making_config_map.get("top_depth_tolerance").value
 
     market_names: List[Tuple[str, List[str]]] = [
         (maker_market, [raw_maker_trading_pair]),
@@ -36,6 +37,7 @@ def start(self):
         return
     self._initialize_wallet(token_symbols=list(set(maker_assets + taker_assets)))
     self._initialize_markets(market_names)
+    self.logger().info("wallet works")
     self.assets = set(maker_assets + taker_assets)
     maker_data = [self.markets[maker_market], raw_maker_trading_pair] + list(maker_assets)
     taker_data = [self.markets[taker_market], raw_taker_trading_pair] + list(taker_assets)
@@ -52,7 +54,7 @@ def start(self):
         | CrossExchangeMarketMakingStrategy.OPTION_LOG_STATUS_REPORT
         | CrossExchangeMarketMakingStrategy.OPTION_LOG_MAKER_ORDER_HEDGED
     )
-
+    self.logger().info("initializing strategy")
     self.strategy = CrossExchangeMarketMakingStrategy(
         market_pairs=[self.market_pair],
         min_profitability=min_profitability,
@@ -62,5 +64,6 @@ def start(self):
         limit_order_min_expiration=limit_order_min_expiration,
         cancel_order_threshold=cancel_order_threshold,
         active_order_canceling=active_order_canceling,
-        adjust_orders_enabled=adjust_orders_enabled,
+        adjust_order_enabled=adjust_order_enabled,
+        top_depth_tolerance=top_depth_tolerance,
     )

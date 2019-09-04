@@ -26,6 +26,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         double _order_amount
         double _cancel_order_threshold
         double _limit_order_min_expiration
+        double _top_depth_tolerance
         dict _order_fill_buy_events
         dict _order_fill_sell_events
         dict _suggested_price_samples
@@ -65,8 +66,15 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef bint c_check_if_price_has_drifted(self,
                                            object market_pair,
                                            LimitOrder active_order)
-    cdef tuple c_get_suggested_price_samples(self, object market_pair)
-    cdef c_take_suggested_price_sample(self, object market_pair)
+
+    cdef tuple c_get_top_bid_ask(self,
+                                 object market_pair)
+    cdef tuple c_get_top_bid_ask_from_price_samples(self,
+                                              object market_pair)
+    cdef tuple c_get_suggested_price_samples(self,
+                                             object market_pair)
+    cdef c_take_suggested_price_sample(self,
+                                       object market_pair)
     cdef c_check_and_create_new_orders(self,
                                        object market_pair,
                                        bint has_active_bid,
