@@ -100,6 +100,11 @@ docker start hummingbot-instance
 docker attach hummingbot-instance
 ```
 
+#### Running bot in background
+
+Press keys `ctrl+P` then `ctrl+Q` in sequence to detach from Docker (i.e. return to command line). This exits out of Hummingbot without shutting down the container instance.
+
+
 ## Hummingbot Setup
 
 #### Docker Command Parameters

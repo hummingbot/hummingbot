@@ -57,7 +57,7 @@ The following walks through all the steps when running `config` for the first ti
 | `At what percentage of loss would you like the bot to stop trading? (Enter 0.03 to indicate 3%. Enter -1.0 to disable) >>>` | This sets `stop_loss_pct` (see [definition](#configuration-parameters)) |
 | `What type of price data would you like to use for stop loss (fixed/dynamic) ? >>>` | This sets `stop_loss_price_type` (see [definition](#configuration-parameters)) |
 | `What base token would you like to use to calculate your inventory value? (Default "USD") >>>` | This sets `stop_loss_base_token` (see [definition](#configuration-parameters)) |
-| `Would you like to enable inventory skew? (Default is False) >>>` | This sets `inventory_skew_enabled` (see [definition](#configuration-parameters)) |
+| `Would you like to enable inventory skew? (y/n) >>>` | This sets `inventory_skew_enabled` (see [definition](#configuration-parameters)) |
 | `What is your target base asset inventory percentage (Enter 0.01 to indicate 1%)? >>> ` | This sets `inventory_target_base_percent` (see [definition](#configuration-parameters)) |
 
 ### Multiple Order Configuration
