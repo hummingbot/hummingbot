@@ -335,7 +335,7 @@ cdef class DiscoveryStrategy(StrategyBase):
                                       target_profitability: float):
         return self.c_calculate_arbitrage_discovery(market_pair, matching_pairs, target_amount, target_profitability)
 
-    cdef dict c_calculate_arbitrage_discovery(self,
+    cdef object c_calculate_arbitrage_discovery(self,
                                               object market_pair,
                                               set matching_pairs,
                                               double target_amount,

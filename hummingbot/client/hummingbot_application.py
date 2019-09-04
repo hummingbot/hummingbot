@@ -238,7 +238,10 @@ class HummingbotApplication(*commands):
         for market_name, symbols in market_symbols_map.items():
             if global_config_map.get("paper_trade_enabled").value:
                 self._notify(f"\nPaper trade is enabled for market {market_name}")
-                market = create_paper_trade_market(market_name, symbols)
+                try:
+                    market = create_paper_trade_market(market_name, symbols)
+                except Exception as err:
+                    raise
                 paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
                 for asset, balance in paper_trade_account_balance:
                     market.set_balance(asset, balance)

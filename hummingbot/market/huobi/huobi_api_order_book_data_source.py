@@ -136,7 +136,7 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         metadata={"symbol": trading_pair}
                     )
                     order_book: OrderBook = self.order_book_create_function()
-                    order_book.from_snapshot(snapshot_msg)
+                    order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
                     retval[trading_pair] = OrderBookTrackerEntry(trading_pair, snapshot_msg.timestamp, order_book)
                     self.logger().info(f"Initialized order book for {trading_pair}. "
                                        f"{index + 1}/{number_of_pairs} completed.")
@@ -192,8 +192,11 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         elif "subbed" in msg:
                             pass
                         elif "ch" in msg:
+                            trading_pair = msg["ch"].split(".")[1]
                             for data in msg["tick"]["data"]:
-                                trade_message: OrderBookMessage = HuobiOrderBook.trade_message_from_exchange(data)
+                                trade_message: OrderBookMessage = HuobiOrderBook.trade_message_from_exchange(
+                                    data, metadata={"trading_pair": trading_pair}
+                                )
                                 output.put_nowait(trade_message)
                         else:
                             self.logger().debug(f"Unrecognized message received from Huobi websocket: {msg}")
