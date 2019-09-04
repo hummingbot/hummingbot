@@ -41,7 +41,7 @@ Make sure you store your Secret Key somewhere secure, and do not share it with a
 
 ### Minimum Order Sizes
 
-See [this page](https://support.binance.com/hc/en-us/articles/115000594711-Trading-Rule) for the minimum order size per trading pair. Typically, the minimum is around $10 equivalent of whichever currency you are trading in.
+See [this page](https://www.binance.com/en/trade-rule) for the minimum order size per trading pair. Typically, the minimum is around $10 equivalent of whichever currency you are trading in.
 
 ## Transaction Fees
 
