@@ -184,8 +184,12 @@ global_config_map = {
                                                   prompt="Enter paper trade balance settings [asset, balance] >>> ",
                                                   required_if=lambda: False,
                                                   type_str="list",
-                                                  default=[["USDT", 1000],
+                                                  default=[["USDT", 3000],
                                                            ["ONE", 1000],
+                                                           ["BTC", 1],
                                                            ["ETH", 10],
-                                                           ["USDC", 1000]])
+                                                           ["WETH", 10],
+                                                           ["USDC", 3000],
+                                                           ["TUSD", 3000],
+                                                           ["PAX", 3000]])
 }
