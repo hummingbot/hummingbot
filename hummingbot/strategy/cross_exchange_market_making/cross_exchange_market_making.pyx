@@ -75,6 +75,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                  anti_hysteresis_duration: float = 60.0,
                  active_order_canceling: bint = True,
                  cancel_order_threshold: float = 0.05,
+                 top_depth_tolerance: float = 0,
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900):
         """
@@ -132,6 +133,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._exchange_rate_conversion = ExchangeRateConversion.get_instance()
         self._market_pair_tracker = OrderIDMarketPairTracker()
         self._adjust_orders_enabled = adjust_order_enabled
+        self._top_depth_tolerance = top_depth_tolerance
 
         cdef:
             list all_markets = list(self._maker_markets | self._taker_markets)
@@ -392,6 +394,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         if len(tracked_taker_orders.get(market_pair, {})) > 0:
             return
 
+        self.logger().info("about to create new orders")
         # See if it's profitable to place a limit order on maker market.
         self.c_check_and_create_new_orders(market_pair, has_active_bid, has_active_ask)
 
@@ -524,18 +527,16 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             OrderBook maker_order_book = market_pair.maker.order_book
             double suggested_price
 
-        price_quantum = maker_market.c_get_order_price_quantum(
-            market_pair.maker.trading_pair,
-            order_price
-        )
-        bid_price_samples, ask_price_samples = self.c_get_suggested_price_samples(market_pair)
+        # price_quantum = maker_market.c_get_order_price_quantum(
+        #     market_pair.maker.trading_pair,
+        #     order_price
+        # )
         suggested_price = float(self.c_get_market_making_price(market_pair, is_buy, order_quantity))
 
-        if is_buy:
-            # Incorporate the past bid price samples.
-            current_top_bid_price = maker_order_book.c_get_price(False)
+        top_bid_price, top_ask_price = self.c_get_top_bid_ask_from_price_samples(market_pair)
 
-            top_bid_price = max(list(bid_price_samples) + [current_top_bid_price])
+        if is_buy:
+
 
             if self._adjust_orders_enabled:
                 adjusting_condition = suggested_price > order_price and suggested_price > top_bid_price
@@ -557,10 +558,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                     f"suggested order price={suggested_price}")
                 return False
         else:
-            # Incorporate the past ask price samples.
-            current_top_ask_price = maker_order_book.c_get_price(True)
 
-            top_ask_price = min(list(ask_price_samples) + [current_top_ask_price])
 
             if self._adjust_orders_enabled:
                 adjusting_condition = suggested_price < order_price and suggested_price < top_ask_price
@@ -798,10 +796,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double top_ask_price
             double raw_size_limit
 
-        # Get the top-of-order-book prices
-        top_bid_price = maker_order_book.c_get_price(False)
+        # # Get the top-of-order-book prices
+        # top_bid_price = maker_order_book.c_get_price(False)
+        #
+        # top_ask_price = maker_order_book.c_get_price(True)
 
-        top_ask_price = maker_order_book.c_get_price(True)
+        top_bid_price, top_ask_price = self.c_get_top_bid_ask_from_price_samples(market_pair)
 
 
         # Calculate the next price from the top, and the order size limit.
@@ -946,6 +946,31 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             return self._suggested_price_samples[market_pair]
         return deque(), deque()
 
+    cdef tuple c_get_top_bid_ask(self, object market_pair):
+        """
+        Calculate the top bid and ask using top depth tolerance in maker order book
+
+        :param market_pair: cross exchange market pair
+        """
+        cdef:
+            OrderBook maker_order_book = market_pair.maker.order_book
+
+        if self._top_depth_tolerance == 0:
+
+            top_bid_price = maker_order_book.c_get_price(False)
+
+            top_ask_price = maker_order_book.c_get_price(True)
+
+        else:
+            # Use bid entries in maker order book
+            top_bid_price = maker_order_book.c_get_vwap_for_volume(False, self._top_depth_tolerance)
+
+            # Use ask entries in maker order book
+            top_ask_price = maker_order_book.c_get_vwap_for_volume(True, self._top_depth_tolerance)
+
+        return top_bid_price, top_ask_price
+
+
     cdef c_take_suggested_price_sample(self, object market_pair):
         """
         Record the bid and ask sample queues.
@@ -964,10 +989,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             if market_pair not in self._suggested_price_samples:
                 self._suggested_price_samples[market_pair] = (deque(), deque())
 
-            top_bid_price = maker_order_book.c_get_price(False)
-
-            top_ask_price = maker_order_book.c_get_price(True)
-
+            top_bid_price, top_ask_price = self.c_get_top_bid_ask_from_price_samples(market_pair)
 
             bid_price_samples_deque, ask_price_samples_deque = self._suggested_price_samples[market_pair]
             bid_price_samples_deque.append(top_bid_price)
@@ -977,6 +999,20 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             while len(ask_price_samples_deque) > self.ORDER_ADJUST_SAMPLE_WINDOW:
                 ask_price_samples_deque.popleft()
 
+
+    cdef tuple c_get_top_bid_ask_from_price_samples(self,
+                                              object market_pair):
+        # Incorporate the past bid price samples.
+        current_top_bid_price, current_top_ask_price = self.c_get_top_bid_ask(market_pair)
+
+        bid_price_samples, ask_price_samples = self.c_get_suggested_price_samples(market_pair)
+
+        top_bid_price = max(list(bid_price_samples) + [current_top_bid_price])
+
+        # Incorporate the past ask price samples.
+        top_ask_price = min(list(ask_price_samples) + [current_top_ask_price])
+
+        return top_bid_price, top_ask_price
 
     cdef bint c_check_if_still_profitable(self,
                                           object market_pair,

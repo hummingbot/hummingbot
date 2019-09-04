@@ -63,8 +63,8 @@ cross_exchange_market_making_config_map = {
         default=0.0,
         type_str="float",
     ),
-    "adjust_orders_enabled": ConfigVar(
-        key="adjust_orders_enabled",
+    "adjust_order_enabled": ConfigVar(
+        key="adjust_order_enabled",
         prompt="Do you want to adjust the prices to be above top bid/ask instead of the expected price, "
         "if profitable ? (Default is True) >>> ",
         default=True,
@@ -91,6 +91,12 @@ cross_exchange_market_making_config_map = {
         key="limit_order_min_expiration",
         prompt="What is the minimum limit order expiration in seconds? " "(Default to 130 seconds) >>> ",
         default=130.0,
+        type_str="float",
+    ),
+    "top_depth_tolerance": ConfigVar(
+        key="top_depth_tolerance",
+        prompt="What is the amount in base currency, you want to use, if you decide the jump the top bid/ask",
+        default=0,
         type_str="float",
     ),
 }
