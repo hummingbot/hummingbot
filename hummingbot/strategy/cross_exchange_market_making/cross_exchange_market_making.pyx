@@ -784,8 +784,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
         :param market_pair: The cross exchange market pair to calculate order price/size limits.
         :param is_bid: Whether the order to make will be bid or ask.
-        :param size: size of hte order.
-        :return: a Decimal which is the price
+        :param size: size of the order.
+        :return: a Decimal which is the price or None if order cannot be hedged on the taker market
         """
         cdef:
             MarketBase maker_market = market_pair.maker.market
@@ -830,8 +830,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             if self._adjust_orders_enabled:
                 # If your bid is higher than highest bid price, reduce it to one tick above the top bid price
-                if maker_price > price_above_bid:
-                    maker_price = price_above_bid
+                maker_price = min(maker_price, price_above_bid)
 
             price_quantum = maker_market.c_get_order_price_quantum(
                 market_pair.maker.trading_pair,
@@ -866,8 +865,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             if self._adjust_orders_enabled:
                 # If your ask is lower than the the top ask, increase it to just one tick below top ask
-                if maker_price < next_price_below_top_ask:
-                    maker_price = next_price_below_top_ask
+                maker_price = max(maker_price, next_price_below_top_ask)
 
             price_quantum = maker_market.c_get_order_price_quantum(
                 market_pair.maker.trading_pair,
