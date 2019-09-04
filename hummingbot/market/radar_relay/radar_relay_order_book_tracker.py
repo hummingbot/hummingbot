@@ -170,15 +170,16 @@ class RadarRelayOrderBookTracker(OrderBookTracker):
                 await message_queue.put(ob_message)
 
                 if ob_message.content["action"] == "FILL":  # put FILL messages to trade queue
-                    trade_type = float(TradeType.BUY.value) if ob_message.content["type"] == "BUY" \
+                    self.logger().info(ob_message.content)
+                    trade_type = float(TradeType.BUY.value) if ob_message.content["event"]["type"] == "BUY" \
                         else float(TradeType.SELL.value)
                     self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
                         "symbol": trading_pair_symbol,
                         "trade_type": trade_type,
                         "trade_id": ob_message.update_id,
                         "update_id": ob_message.timestamp,
-                        "price": ob_message.content["order"]["price"],
-                        "amount": ob_message.content["order"]["filledBaseTokenAmount"]
+                        "price": ob_message.content["event"]["order"]["price"],
+                        "amount": ob_message.content["event"]["order"]["filledBaseTokenAmount"]
                     }, timestamp=ob_message.timestamp))
 
                 messages_accepted += 1

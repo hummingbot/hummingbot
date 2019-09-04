@@ -133,6 +133,8 @@ class ExchangeRateConversion:
         """
         if not self._started:
             self.start()
+        from_currency = from_currency.upper()
+        to_currency = to_currency.upper()
         # assume WETH and ETH are equal value
         if from_currency == "ETH" and to_currency == "WETH" or from_currency == "WETH" and to_currency == "ETH":
             return amount

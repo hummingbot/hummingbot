@@ -53,7 +53,7 @@ cdef class HuobiOrderBook(OrderBook):
             msg.update(metadata)
         msg_ts = int(msg["ts"] * 1e-3)
         content = {
-            "symbol": msg["ch"].split(".")[1],
+            "symbol": msg["trading_pair"],
             "trade_type": float(TradeType.SELL.value) if msg["direction"] == "buy" else float(TradeType.BUY.value),
             "trade_id": msg["id"],
             "update_id": msg_ts,

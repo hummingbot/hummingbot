@@ -12,11 +12,11 @@ cdef class LimitOrder:
     @classmethod
     def to_pandas(cls, limit_orders: List[LimitOrder]) -> pd.DataFrame:
         cdef:
-            list columns = ["order_id", "symbol", "is_buy", "base_currency", "quote_currency", "price", "quantity"]
+            list columns = ["Order_Id", "is_buy", "Symbol", "Base_Asset", "Quote_Asset", "Price", "Quantity"]
             list data = [[
                 limit_order.client_order_id,
-                limit_order.symbol,
                 limit_order.is_buy,
+                limit_order.symbol,
                 limit_order.base_currency,
                 limit_order.quote_currency,
                 limit_order.price,

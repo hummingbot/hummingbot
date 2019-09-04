@@ -169,8 +169,7 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
                     continue
                 await message_queue.put(ob_message)
                 messages_accepted += 1
-
-                if ob_message.content["action"] == "FILL":  # put FILL messages to trade queue
+                if ob_message.content["type"] == "FILL":  # put FILL messages to trade queue
                     trade_type = float(TradeType.SELL.value) if ob_message.content["side"].upper() == "SELL" \
                         else float(TradeType.BUY.value)
                     self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {

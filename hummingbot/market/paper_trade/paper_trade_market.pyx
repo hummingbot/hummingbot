@@ -59,13 +59,6 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
-from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
-from hummingbot.market.binance.binance_market import BinanceMarket
-from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
-from hummingbot.market.ddex.ddex_market import DDEXMarket
-from hummingbot.market.deposit_info import DepositInfo
-from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.paper_trade.trading_pair import TradingPair
 
@@ -74,6 +67,7 @@ from .market_config import (
     AssetType
 )
 ptm_logger = None
+s_decimal_0 = Decimal(0)
 
 
 cdef class QuantizationParams:
@@ -171,15 +165,6 @@ cdef class OrderBookMarketOrderFillListener(EventListener):
         order_book.record_filled_order(event_object)
 
 
-MARKET_CLASSES = {
-    "binance": BinanceMarket,
-    "idex": IDEXMarket,
-    "ddex": DDEXMarket,
-    "coinbase_pro": CoinbaseProMarket,
-    "bamboo_relay": BambooRelayMarket
-}
-
-
 cdef class PaperTradeMarket(MarketBase):
     TRADE_EXECUTION_DELAY = 5.0
     ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -191,10 +176,8 @@ cdef class PaperTradeMarket(MarketBase):
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
 
-    def __init__(self, order_book_tracker: OrderBookTracker, config: MarketConfig):
+    def __init__(self, order_book_tracker: OrderBookTracker, config: MarketConfig, target_market: type):
         super(MarketBase, self).__init__()
-        if order_book_tracker.exchange_name not in MARKET_CLASSES:
-            raise Exception(f"Market {order_book_tracker.exchange_name} not supported in paper trading mode.")
         order_book_tracker.data_source.order_book_create_function = lambda: CompositeOrderBook()
         self._paper_trade_market_initialized = False
         self._trading_pairs = {}
@@ -205,7 +188,7 @@ cdef class PaperTradeMarket(MarketBase):
         self._order_tracker_task = None
         self._order_book_tracker = order_book_tracker
         self._order_book_trade_listener = OrderBookTradeListener(self)
-        self._target_market = MARKET_CLASSES[order_book_tracker.exchange_name]
+        self._target_market = target_market
         self._market_order_filled_listener = OrderBookMarketOrderFillListener(self)
         self.c_add_listener(self.ORDER_FILLED_EVENT_TAG, self._market_order_filled_listener)
 
@@ -332,11 +315,14 @@ cdef class PaperTradeMarket(MarketBase):
 
     cdef c_set_balance(self, str currency, double balance):
         ## (refactor) to pass in Decimal
-        self._account_balance[currency] = Decimal(str(balance))
+        self._account_balance[currency.upper()] = Decimal(str(balance))
 
     cdef double c_get_balance(self, str currency) except? -1:
+        if currency.upper() not in self._account_balance:
+            self.logger().warning(f"Account balance does not have asset {currency.upper()}.")
+            return 0.0
         ## (refactor) to return in Decimal
-        return float(self._account_balance[currency])
+        return float(self._account_balance[currency.upper()])
 
     cdef c_tick(self, double timestamp):
         MarketBase.c_tick(self, timestamp)
@@ -359,7 +345,9 @@ cdef class PaperTradeMarket(MarketBase):
             SingleSymbolLimitOrders *limit_orders_collection_ptr = NULL
             pair[LimitOrders.iterator, cppbool] insert_result
 
-        quantized_price = self.c_quantize_order_price(trading_pair_str, price)
+        quantized_price = (self.c_quantize_order_price(trading_pair_str, price)
+                         if order_type is OrderType.LIMIT
+                         else s_decimal_0)
         quantized_amount = self.c_quantize_order_amount(trading_pair_str, amount)
         if order_type is OrderType.MARKET:
             self._queued_orders.append(QueuedOrder(self._current_timestamp, order_id, True, trading_pair_str,
@@ -408,7 +396,9 @@ cdef class PaperTradeMarket(MarketBase):
             SingleSymbolLimitOrders *limit_orders_collection_ptr = NULL
             pair[LimitOrders.iterator, cppbool] insert_result
 
-        quantized_price = self.c_quantize_order_price(trading_pair_str, price)
+        quantized_price = (self.c_quantize_order_price(trading_pair_str, price)
+                         if order_type is OrderType.LIMIT
+                         else s_decimal_0)
         quantized_amount = self.c_quantize_order_amount(trading_pair_str, amount)
         if order_type is OrderType.MARKET:
             self._queued_orders.append(QueuedOrder(self._current_timestamp, order_id, False, trading_pair_str,
@@ -806,7 +796,7 @@ cdef class PaperTradeMarket(MarketBase):
 
     #</editor-fold>
     cdef double c_get_available_balance(self, str currency) except? -1:
-        return float(self.available_balances[currency])
+        return float(self.available_balances[currency.upper()])
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         return await self._order_book_tracker.data_source.get_active_exchange_markets()
@@ -903,7 +893,7 @@ cdef class PaperTradeMarket(MarketBase):
                 precision_quantum = Decimal(0)
             return max(precision_quantum, decimals_quantum)
         else:
-            return Decimal(f"1e-15")
+            return Decimal(f"1e-10")
 
     cdef object c_get_order_size_quantum(self, str symbol, double order_size):
         cdef:
@@ -917,7 +907,7 @@ cdef class PaperTradeMarket(MarketBase):
                 precision_quantum = Decimal(0)
             return max(precision_quantum, decimals_quantum)
         else:
-            return Decimal(f"1e-15")
+            return Decimal(f"1e-10")
 
     def get_all_balances(self) -> Dict[str, float]:
         return self._account_balance.copy()
