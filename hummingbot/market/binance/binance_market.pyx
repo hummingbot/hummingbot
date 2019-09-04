@@ -252,7 +252,7 @@ cdef class BinanceMarket(MarketBase):
             coro: Coroutine,
             timeout_seconds: float,
             app_warning_msg: str = "Binance API call failed. Check API key and network connection.") -> any:
-        return await self._async_scheduler.schedule_async_call(coro, timeout_seconds)
+        return await self._async_scheduler.schedule_async_call(coro, timeout_seconds, app_warning_msg=app_warning_msg)
 
     async def query_api(
             self,
@@ -260,9 +260,9 @@ cdef class BinanceMarket(MarketBase):
             *args,
             app_warning_msg: str = "Binance API call failed. Check API key and network connection.",
             **kwargs) -> Dict[str, any]:
-        async with timeout(self.API_CALL_TIMEOUT):
-            coro = self._ev_loop.run_in_executor(hummingbot.get_executor(), partial(func, *args, **kwargs))
-            return await self.schedule_async_call(coro, self.API_CALL_TIMEOUT, app_warning_msg=app_warning_msg)
+        return await self._async_scheduler.call_async(partial(func, *args, **kwargs),
+                                                      timeout_seconds=self.API_CALL_TIMEOUT,
+                                                      app_warning_msg=app_warning_msg)
 
     async def query_url(self, url) -> any:
         async with aiohttp.ClientSession() as client:
@@ -306,7 +306,8 @@ cdef class BinanceMarket(MarketBase):
                 for fee in res["tradeFee"]:
                     self._trade_fees[fee["symbol"]] = (fee["maker"], fee["taker"])
                 self._last_update_trade_fees_timestamp = current_timestamp
-
+            except asyncio.CancelledError:
+                raise
             except Exception:
                 self.logger().network("Error fetching Binance trade fees.", exc_info=True,
                                       app_warning_msg=f"Could not fetch Binance trading fees. "
@@ -668,7 +669,7 @@ cdef class BinanceMarket(MarketBase):
                                                     tracked_order.order_type
                                                 ))
                         self.c_stop_tracking_order(client_order_id)
-                
+
                 elif event_type == "outboundAccountInfo":
                     local_asset_names = set(self._account_balances.keys())
                     remote_asset_names = set()
@@ -680,7 +681,7 @@ cdef class BinanceMarket(MarketBase):
                         self._account_available_balances[asset_name] = free_balance
                         self._account_balances[asset_name] = total_balance
                         remote_asset_names.add(asset_name)
-                    
+
                     asset_names_to_remove = local_asset_names.difference(remote_asset_names)
                     for asset_name in asset_names_to_remove:
                         del self._account_available_balances[asset_name]
@@ -884,7 +885,7 @@ cdef class BinanceMarket(MarketBase):
                 order_decimal_price = f"{decimal_price:f}"
                 self.c_start_tracking_order(
                     order_id,
-                    "", 
+                    "",
                     symbol,
                     TradeType.BUY,
                     decimal_price,
