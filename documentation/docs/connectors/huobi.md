@@ -7,7 +7,7 @@ Huobi is a global cryptocurrency centralized exchange based in Singapore and has
 
 ## Using the Connector
 
-Because Huobi is a centralized exchange, you will need to generate and provide your API key in order to trade using Hummingbot.
+Because [Huobi](https://www.hbg.com/) is a centralized exchange, you will need to generate and provide your API key in order to trade using Hummingbot.
 
 ### Creating Huobi API Keys
 
@@ -16,6 +16,8 @@ Because Huobi is a centralized exchange, you will need to generate and provide y
 ![huobi1](/assets/img/huobi-account.png)
 
 2 - Add notes (required) and make sure the checkbox for **Trade** is selected to trade on Hummingbot. Withdraw and bind IP address is optional depending on your preference.
+
+For general use of Hummingbot, withdraw permission is not required and it is advised to create API keys that are only "Trade" enabled.
 
 ![huobi2](/assets/img/huobi-create-api-key.png)
 
