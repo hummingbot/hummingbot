@@ -214,10 +214,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
     # The following exposed Python functions are meant for unit tests
     # ---------------------------------------------------------------
-    # def get_market_making_price_and_size_limit(self,
-    #                                            market_pair: CrossExchangeMarketPair,
-    #                                            is_bid: bool) -> Tuple[Decimal, Decimal]:
-    #     return self.c_get_market_making_price_and_size_limit(market_pair, is_bid)
 
     def get_order_size_after_portfolio_ratio_limit(self, market_pair: CrossExchangeMarketPair) -> float:
         return self.c_get_order_size_after_portfolio_ratio_limit(market_pair)
@@ -233,11 +229,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
     def get_effective_hedging_price(self, market_pair: CrossExchangeMarketPair, bint is_bid , double size) -> Decimal:
         return self.c_calculate_effective_hedging_price(market_pair, is_bid, size)
-
-    # def calculate_effective_hedging_price(self, OrderBook taker_order_book,
-    #                                       is_maker_bid: bool,
-    #                                       maker_order_size: float) -> float:
-    #     return self.c_calculate_effective_hedging_price(taker_order_book, is_maker_bid, maker_order_size)
 
     def check_if_still_profitable(self, market_pair: CrossExchangeMarketPair,
                                   LimitOrder active_order,
@@ -529,10 +520,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             OrderBook maker_order_book = market_pair.maker.order_book
             double suggested_price
 
-        # price_quantum = maker_market.c_get_order_price_quantum(
-        #     market_pair.maker.trading_pair,
-        #     order_price
-        # )
         suggested_price = float(self.c_get_market_making_price(market_pair, is_buy, order_quantity))
 
         top_bid_price, top_ask_price = self.c_get_top_bid_ask_from_price_samples(market_pair)
@@ -798,17 +785,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double top_ask_price
             double raw_size_limit
 
-        # # Get the top-of-order-book prices
-        # top_bid_price = maker_order_book.c_get_price(False)
-        #
-        # top_ask_price = maker_order_book.c_get_price(True)
-
         top_bid_price, top_ask_price = self.c_get_top_bid_ask_from_price_samples(market_pair)
 
-
-        # Calculate the next price from the top, and the order size limit.
         if is_bid:
-
+            # Calculate the next price above top bid
             price_quantum = maker_market.c_get_order_price_quantum(
                 market_pair.maker.trading_pair,
                 top_bid_price
@@ -839,12 +819,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 maker_price
             )
 
-            # Rounds down for ensuring profitable
+            # Rounds down for ensuring profitability
             maker_price = (floor(Decimal(maker_price) / price_quantum) ) * price_quantum
 
             return maker_price
         else:
-
+            # Calculate the next price below top ask
             price_quantum = maker_market.c_get_order_price_quantum(
                 market_pair.maker.trading_pair,
                 top_ask_price
@@ -874,7 +854,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 maker_price
             )
 
-            # Rounds up for ensuring profitable
+            # Rounds up for ensuring profitability
             maker_price = (ceil(Decimal(maker_price) / price_quantum) ) * price_quantum
 
             return maker_price
@@ -951,6 +931,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         Calculate the top bid and ask using top depth tolerance in maker order book
 
         :param market_pair: cross exchange market pair
+        :return: (top bid, top ask)
         """
         cdef:
             OrderBook maker_order_book = market_pair.maker.order_book
@@ -1002,6 +983,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
     cdef tuple c_get_top_bid_ask_from_price_samples(self,
                                               object market_pair):
+        """
+        Calculate the top bid and ask using earlier samples
+
+        :param market_pair: cross exchange market pair
+        :return: (top bid, top ask)
+        """
         # Incorporate the past bid price samples.
         current_top_bid_price, current_top_ask_price = self.c_get_top_bid_ask(market_pair)
 
