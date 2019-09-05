@@ -52,12 +52,12 @@ cdef class CompositeOrderBook(OrderBook):
                 if entry.getPrice() == price:
                     amount += entry.getAmount()
                     break
-                # price is further down the bid price range, continue searching
+                # price is outside of the ask price range, break and insert the new filled ask order into the ask book
                 elif entry.getPrice() > price:
-                    inc(ask_order_it)
-                # price is outside of the bid price range, break and insert the new filled order into the bid book
-                elif entry.getPrice() < price:
                     break
+                # price is further up the ask price range, continue searching
+                elif entry.getPrice() < price:
+                    inc(ask_order_it)
             cpp_asks.push_back(OrderBookEntry(price, amount, timestamp))
 
         elif order_fill_event.trade_type is TradeType.SELL:
@@ -66,12 +66,12 @@ cdef class CompositeOrderBook(OrderBook):
                 if entry.getPrice() == price:
                     amount += entry.getAmount()
                     break
-                # price is outside of the ask price range, break and insert the new filled ask order into the ask book
+                # price is further down the bid price range, continue searching
                 elif entry.getPrice() > price:
-                    break
-                # price is further up the ask price range, continue searching
-                elif entry.getPrice() < price:
                     inc(bid_order_it)
+                # price is outside of the bid price range, break and insert the new filled order into the bid book
+                elif entry.getPrice() < price:
+                    break
             cpp_bids.push_back(OrderBookEntry(price, amount, timestamp))
 
         self._traded_order_book.c_apply_diffs(cpp_bids, cpp_asks, timestamp)
