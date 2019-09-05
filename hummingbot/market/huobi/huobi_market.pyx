@@ -500,7 +500,7 @@ cdef class HuobiMarket(MarketBase):
     def status_dict(self) -> Dict[str, bool]:
         return {
             "account_id_initialized": self._account_id != "",
-            "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
+            "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0
         }
