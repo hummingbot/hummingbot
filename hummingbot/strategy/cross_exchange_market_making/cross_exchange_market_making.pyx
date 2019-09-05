@@ -944,10 +944,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
         else:
             # Use bid entries in maker order book
-            top_bid_price = maker_order_book.c_get_vwap_for_volume(False, self._top_depth_tolerance)
+            top_bid_price = maker_order_book.c_get_price_for_volume(False, self._top_depth_tolerance)
 
             # Use ask entries in maker order book
-            top_ask_price = maker_order_book.c_get_vwap_for_volume(True, self._top_depth_tolerance)
+            top_ask_price = maker_order_book.c_get_price_for_volume(True, self._top_depth_tolerance)
 
         return top_bid_price, top_ask_price
 
