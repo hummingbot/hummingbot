@@ -43,6 +43,23 @@ telegram_token: null
 telegram_chat_id: null
 
 # paper trade template
-
+paper_trade_enabled: false
+paper_trade_account_balance:
+- - USDT
+  - 1000
+- - ONE
+  - 1000
+- - USDQ
+  - 1000
+- - TUSD
+  - 1000
+- - ETH
+  - 10
+- - WETH
+  - 10
+- - USDC
+  - 1000
+- - DAI
+  - 1000
 # For more detailed information: https://docs.hummingbot.io
 

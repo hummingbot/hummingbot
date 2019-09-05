@@ -893,7 +893,7 @@ cdef class PaperTradeMarket(MarketBase):
                 precision_quantum = Decimal(0)
             return max(precision_quantum, decimals_quantum)
         else:
-            return Decimal(f"1e-10")
+            return Decimal(f"1e-15")
 
     cdef object c_get_order_size_quantum(self, str symbol, double order_size):
         cdef:
@@ -907,7 +907,17 @@ cdef class PaperTradeMarket(MarketBase):
                 precision_quantum = Decimal(0)
             return max(precision_quantum, decimals_quantum)
         else:
-            return Decimal(f"1e-10")
+            return Decimal(f"1e-15")
+
+    cdef object c_quantize_order_price(self, str symbol, double price):
+        price = float('%.8g' % price) # hard code to round to 8 significant digits
+        price_quantum = self.c_get_order_price_quantum(symbol, price)
+        return round(Decimal('%s' % price) / price_quantum) * price_quantum
+
+    cdef object c_quantize_order_amount(self, str symbol, double amount, double price = 0.0):
+        amount = float('%.8g' % amount)# hard code to round to 8 significant digits
+        order_size_quantum = self.c_get_order_size_quantum(symbol, amount)
+        return (Decimal('%s' % amount) // order_size_quantum) * order_size_quantum
 
     def get_all_balances(self) -> Dict[str, float]:
         return self._account_balance.copy()
