@@ -231,6 +231,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     def get_adjusted_limit_order_size(self, market_pair: CrossExchangeMarketPair) -> float:
         return self.c_get_adjusted_limit_order_size(market_pair)
 
+    def get_effective_hedging_price(self, market_pair: CrossExchangeMarketPair, bint is_bid , double size) -> Decimal:
+        return self.c_calculate_effective_hedging_price(market_pair, is_bid, size)
 
     # def calculate_effective_hedging_price(self, OrderBook taker_order_book,
     #                                       is_maker_bid: bool,
@@ -811,7 +813,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 market_pair.maker.trading_pair,
                 top_bid_price
             )
-            price_above_bid = (round(Decimal(top_bid_price) / price_quantum) + 1) * price_quantum
+            price_above_bid = (ceil(Decimal(top_bid_price) / price_quantum) + 1) * price_quantum
 
             try:
                 taker_price = taker_order_book.c_get_vwap_for_volume(False,
@@ -847,7 +849,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 market_pair.maker.trading_pair,
                 top_ask_price
             )
-            next_price_below_top_ask = (round(Decimal(top_ask_price) / price_quantum) - 1) * price_quantum
+            next_price_below_top_ask = (floor(Decimal(top_ask_price) / price_quantum) - 1) * price_quantum
 
             try:
                 taker_price = taker_order_book.c_get_vwap_for_volume(True,
