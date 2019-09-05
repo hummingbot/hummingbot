@@ -73,6 +73,14 @@ class OrderBookTracker(ABC):
         return self._order_books
 
     @property
+    def symbols(self) -> List[str]:
+        return self.data_source._symbols
+
+    @property
+    def ready(self) -> bool:
+        return len(self.data_source._symbols) == len(self._order_books)
+
+    @property
     def snapshot(self) -> Dict[str, Tuple[pd.DataFrame, pd.DataFrame]]:
         return {
             symbol: order_book.snapshot
