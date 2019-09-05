@@ -112,16 +112,16 @@ nav:
           - MacOS: installation/from-source/macOS.md
           - Windows: installation/from-source/windows.md
         - Updating Hummingbot: installation/updating.md
+      - Operation:
+        - Using the Client: operation/client.md
+        - Running Trading Bots: operation/running-bots.md
+        - Running Multiple Bots: operation/running-multiple-bots.md
       - Configuration:
         - Configuring Hummingbot: operation/configuration.md
         - API Keys: installation/api-keys.md
         - Ethereum Wallet: installation/wallet.md
         - Ethereum Node: installation/node/node.md
         - Get a Free Ethereum Node: installation/node/infura.md
-      - Operation:
-        - Using the Client: operation/client.md
-        - Running Trading Bots: operation/running-bots.md
-        - Tips for Cloud Users: operation/running-bots-in-the-cloud.md
       - Connectors:
         - Connectors Overview: connectors/index.md
         - Binance: connectors/binance.md
