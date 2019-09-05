@@ -35,7 +35,7 @@ from hummingbot.model.order_status import OrderStatus
 class LiquidityBounty(NetworkBase):
     lb_logger: Optional[HummingbotLogger] = None
     _lb_shared_instance: Optional["LiquidityBounty"] = None
-    LIQUIDITY_BOUNTY_REST_API = "https://api-staging.hummingbot.io/bounty"
+    LIQUIDITY_BOUNTY_REST_API = "https://api.hummingbot.io/bounty"
     ACCEPTED_ORDER_STATUS_UPDATES = ["BuyOrderCreated", "SellOrderCreated", "OrderFilled", "OrderCancelled",
                                      "OrderFailure"]
 
@@ -187,7 +187,6 @@ class LiquidityBounty(NetworkBase):
         try:
             client: aiohttp.ClientSession = await self._http_client()
             async with client.request("GET", f"{self.LIQUIDITY_BOUNTY_REST_API}/list") as resp:
-                print('self.LIQUIDITY_BOUNTY_REST_API', self.LIQUIDITY_BOUNTY_REST_API)
                 if resp.status not in {200, 400}:
                     raise Exception(f"Liquidity bounty server error. Server responded with status {resp.status}")
                 results = await resp.json()
