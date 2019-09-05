@@ -3,10 +3,11 @@ from decimal import Decimal
 from os.path import join, realpath
 import sys;
 
+sys.path.insert(0, realpath(join(__file__, "../../../")))
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.event.event_reporter import EventReporter
+from hummingbot.market.binance.binance_market import BinanceMarket
 
-sys.path.insert(0, realpath(join(__file__, "../../../")))
 import asyncio
 import contextlib
 import unittest
@@ -150,7 +151,8 @@ class PaperTradeMarketTest(unittest.TestCase):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: PaperTradeMarket = PaperTradeMarket(
             order_book_tracker=BinanceOrderBookTracker(symbols=["ETHUSDT", "BTCUSDT"]),
-            config=MarketConfig.default_config()
+            config=MarketConfig.default_config(),
+            target_market=BinanceMarket
         )
         print("Initializing PaperTrade execute orders market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()

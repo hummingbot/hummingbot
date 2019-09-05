@@ -93,6 +93,8 @@ class ExchangeRateConversion:
                 conversion_required = cls._exchange_rate_config_override.get("conversion_required", {})
                 global_config = cls._exchange_rate_config_override.get("global_config", {})
 
+            global_config = {k.upper(): v for k, v in global_config.items()}
+            conversion_required = {k.upper(): v for k, v in conversion_required.items()}
             cls._exchange_rate_config = {
                 "conversion_required": conversion_required,
                 "global_config": {**global_config, **conversion_required}
@@ -109,17 +111,18 @@ class ExchangeRateConversion:
         self._fetch_exchange_rate_task: Optional[asyncio.Task] = None
         self.init_config()
 
-    def adjust_token_rate(self, symbol: str, price: float) -> float:
+    def adjust_token_rate(self, asset_name: str, price: float) -> float:
         """
         Returns the USD rate of a given token if it is found in conversion_required config
-        :param symbol:
+        :param asset_name:
         :param price:
         :return:
         """
+        asset_name = asset_name.upper()
         if not self._started:
             self.start()
-        if symbol in self._exchange_rate_config["conversion_required"] and symbol in self._exchange_rate:
-            return self._exchange_rate[symbol] * price
+        if asset_name in self._exchange_rate_config["conversion_required"] and asset_name in self._exchange_rate:
+            return self._exchange_rate[asset_name] * price
         else:
             return price
 
@@ -152,17 +155,18 @@ class ExchangeRateConversion:
                     self._exchange_rate = data_feed.price_dict
             for data_feed in self._data_feeds:
                 source_name = data_feed.name
-                for symbol, config in self._exchange_rate_config["global_config"].items():
+                for asset_name, config in self._exchange_rate_config["global_config"].items():
+                    asset_name = asset_name.upper()
                     if config["source"].lower() == source_name.lower():
-                        price = data_feed.get_price(symbol)
+                        price = data_feed.get_price(asset_name)
                         if price:
-                            self._exchange_rate[symbol] = price
+                            self._exchange_rate[asset_name] = price
                         else:
                             if self._show_update_exchange_rates_from_data_feeds_errors:
                                 self.logger().network(
-                                    f"No data found for {symbol} in {source_name} data feed.",
-                                    app_warning_msg=f"Asset data for {symbol} not found in {source_name} data feed, "
-                                                    f"please check your 'exchange_rate_conversion' configs."
+                                    f"No data found for {asset_name} in {source_name} data feed.",
+                                    app_warning_msg=f"Asset data for {asset_name} not found in {source_name} data feed,"
+                                                    f" please check your 'exchange_rate_conversion' configs."
                                 )
                             has_errors = True
             if has_errors:
