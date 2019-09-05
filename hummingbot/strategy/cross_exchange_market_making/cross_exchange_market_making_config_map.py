@@ -95,7 +95,8 @@ cross_exchange_market_making_config_map = {
     ),
     "top_depth_tolerance": ConfigVar(
         key="top_depth_tolerance",
-        prompt="What is the amount in base currency, you want to use, if you decide the jump the top bid/ask",
+        prompt="What is the amount in base currency, you want to use, for the top depth tolerance ?"
+               "Default is 0. >>> ",
         default=0,
         type_str="float",
     ),

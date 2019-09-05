@@ -34,5 +34,11 @@ cancel_order_threshold: null
 # placed limit orders. Default value = 130 seconds.
 limit_order_min_expiration: null
 
+# If enabled, orders will be placed at right next top bid and ask if profitable
+adjust_order_enabled: null
+
+# An amount in base currency which will be used to calculate top bid and ask
+top_depth_tolerance: null
+
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/cross-exchange-market-making/#configuration-parameters
