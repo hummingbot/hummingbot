@@ -218,9 +218,10 @@ class LiquidityBounty(NetworkBase):
                     raise Exception(f"Liquidity bounty server error. Server responded with status {resp.status}")
 
                 results = await resp.json()
-                print(results)
-                if results["registration_status"] != "success":
-                    raise Exception(f"Failed to register for liquidity bounty: {results['registration_status']}")
+                status: str = results.get("status") or results.get("registration_status")
+                # registration_status is for backwards compatibility
+                if status != "success":
+                    raise Exception(f"Failed to register for liquidity bounty: {status}")
                 return results
         except AssertionError:
             raise
