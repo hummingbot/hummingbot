@@ -179,7 +179,7 @@ class RadarRelayOrderBookTracker(OrderBookTracker):
                         "trade_id": ob_message.update_id,
                         "update_id": ob_message.timestamp,
                         "price": ob_message.content["event"]["order"]["price"],
-                        "amount": ob_message.content["event"]["order"]["filledBaseTokenAmount"]
+                        "amount": ob_message.content["event"]["filledBaseTokenAmount"]
                     }, timestamp=ob_message.timestamp))
 
                 messages_accepted += 1
