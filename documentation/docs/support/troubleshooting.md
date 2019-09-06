@@ -4,34 +4,12 @@
 
 Frequently asked questions and problems that may arise when using Hummingbot with Docker:
 
-#### How do I find out the name of my hummingbot instance?
-
-Run the following command to list all docker instances you have created:
-
-```
-docker ps -a
-```
-
-#### How do I list all the containers I have created?
-
-```
-docker ps -a
-```
-
-#### How do I check that my Hummingbot instance is running?
-
-The following command will list all currently running docker containers:
-
-```
-docker ps
-```
-
 #### How do I find out where the config and log files are on my local computer?
 
 Run the following command to view the details of your instance:
 
 ```
-docker inspect hummingbot-instance
+docker inspect $instance_name
 ```
 
 Look for a field `Mounts`, which will describe where the folders are on you local machine:
@@ -55,12 +33,6 @@ Look for a field `Mounts`, which will describe where the folders are on you loca
         "Propagation": "rprivate"
     }
 ],
-```
-
-#### How do I connect to my Hummingbot instance?
-
-```
-docker attach hummingbot-instance
 ```
 
 #### How do I edit the conf files or access the log files used by my docker instance?
@@ -107,7 +79,7 @@ If you have previously installed Hummingbot using Docker and our previous docume
 
 Copy the commands below and run from the root folder (i.e. when you type `ls`, make sure you see the `my-hummingbot` folder).
 
-***If your previous instance was named `my-hummingbot`*** (check by running `docker ps -a`):
+* If your previous instance was named `my-hummingbot` (check by running `docker ps -a`):
 
 ```
 # Remove instance
@@ -124,7 +96,7 @@ docker run -it \
 coinalpha/hummingbot:latest
 ```
 
-***If your previous instance was named `my-instance-1`*** (check by running `docker ps -a`):
+* If your previous instance was named `my-instance-1` (check by running `docker ps -a`):
 
 ```
 # Remove instance
@@ -144,21 +116,23 @@ coinalpha/hummingbot:latest
 You will then be able to use the [automated docker scripts](/cheatsheets/docker/#automated-docker-scripts-optional).
 
 
-#### conda: not found
 
+## Common errors with installed from source
+
+#### conda: not found
 
 ```
 $ conda
 -bash: conda: command not found
 ```
 
-If you have just installed conda, close Terminal and reopen a new Terminal to update the command line's program registry.
+If you have just installed conda, close terminal and reopen a new terminal to update the command line's program registry.
 
 If you use `zshrc` or another shell other than `bash`, see the note at the bottom of this section: [install dependencies](/installation/from-source/macos/#part-1-install-dependencies).
 
-#### I can not start Hummingbot
+#### Cannot start Hummingbot
 
-***Error message 1***:
+##### Error message:
 
 ```
 File "bin/hummingbot.py", line 40
@@ -169,14 +143,13 @@ SyntaxError: invalid syntax
 
 Make sure you have activated the conda environment: `conda activate hummingbot`.
 
-***Error message 2***:
+##### Error message:
 
 ```
 ModuleNotFoundError: No module named 'hummingbot.market.market_base'
 ```
 
 Make sure you have compiled Hummingbot in the Hummingbot environment: `conda activate hummingbot && ./compile`.
-
 
 
 ## Running Hummingbot
