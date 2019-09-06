@@ -151,7 +151,7 @@ cdef class IDEXMarket(MarketBase):
     def status_dict(self):
         return {
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
+            "order_books_initialized": self._order_book_tracker.ready,
             "asset_info": len(self._assets_info) > 0,
             "next_nonce": self._next_nonce is not None,
             "contract_address": self._contract_address is not None
