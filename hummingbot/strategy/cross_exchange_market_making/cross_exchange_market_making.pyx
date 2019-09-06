@@ -516,45 +516,27 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             bint is_buy = active_order.is_buy
             double order_price = float(active_order.price)
             double order_quantity = float(active_order.quantity)
-            MarketBase maker_market = market_pair.maker.market
-            OrderBook maker_order_book = market_pair.maker.order_book
             double suggested_price
 
         suggested_price = float(self.c_get_market_making_price(market_pair, is_buy, order_quantity))
 
-        top_bid_price, top_ask_price = self.c_get_top_bid_ask_from_price_samples(market_pair)
+        if suggested_price != order_price:
 
-        if is_buy:
-
-
-            if self._adjust_orders_enabled:
-                adjusting_condition = suggested_price > order_price and suggested_price > top_bid_price
+            if is_buy:
+                    if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
+                        self.log_with_clock(
+                            logging.INFO,
+                            f"({market_pair.maker.trading_pair}) The current limit bid order for "
+                            f"{active_order.quantity} {market_pair.maker.base_asset} at "
+                            f"{order_price:.8g} {market_pair.maker.quote_asset} is now below the suggested order "
+                            f"price at {suggested_price}. Going to cancel the old order and create a new one..."
+                        )
+                    self.c_cancel_order(market_pair, active_order.client_order_id)
+                    self.log_with_clock(logging.DEBUG,
+                                        f"Current buy order price={order_price}, "
+                                        f"suggested order price={suggested_price}")
+                    return False
             else:
-                adjusting_condition = suggested_price > order_price
-
-            if adjusting_condition:
-                if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
-                    self.log_with_clock(
-                        logging.INFO,
-                        f"({market_pair.maker.trading_pair}) The current limit bid order for "
-                        f"{active_order.quantity} {market_pair.maker.base_asset} at "
-                        f"{order_price:.8g} {market_pair.maker.quote_asset} is now below the suggested order "
-                        f"price at {suggested_price}. Going to cancel the old order and create a new one..."
-                    )
-                self.c_cancel_order(market_pair, active_order.client_order_id)
-                self.log_with_clock(logging.DEBUG,
-                                    f"Current buy order price={order_price}, "
-                                    f"suggested order price={suggested_price}")
-                return False
-        else:
-
-
-            if self._adjust_orders_enabled:
-                adjusting_condition = suggested_price < order_price and suggested_price < top_ask_price
-            else:
-                adjusting_condition = suggested_price < order_price
-
-            if suggested_price < order_price and suggested_price < top_ask_price:
                 if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
                     self.log_with_clock(
                         logging.INFO,
@@ -568,6 +550,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                     f"Current sell order price={order_price}, "
                                     f"suggested order price={suggested_price}")
                 return False
+
         return True
 
     cdef c_check_and_hedge_orders(self, object market_pair):
