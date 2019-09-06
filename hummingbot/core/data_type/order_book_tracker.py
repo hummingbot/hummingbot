@@ -22,7 +22,7 @@ from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerE
 from .order_book_message import (
     OrderBookMessageType,
     OrderBookMessage,
-    )
+)
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 
 TRADING_PAIR_FILTER = re.compile(r"(BTC|ETH|USDT)$")
@@ -79,6 +79,12 @@ class OrderBookTracker(ABC):
     @property
     def order_books(self) -> Dict[str, OrderBook]:
         return self._order_books
+
+    @property
+    def ready(self) -> bool:
+        symbols: List[str] = self.data_source._symbols or []
+        # if no symbols wait for at least 1 order book else wait for symbols
+        return len(symbols) <= len(self._order_books) and len(self._order_books) > 0
 
     @property
     def snapshot(self) -> Dict[str, Tuple[pd.DataFrame, pd.DataFrame]]:
