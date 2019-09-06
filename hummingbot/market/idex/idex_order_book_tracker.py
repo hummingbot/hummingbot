@@ -184,7 +184,7 @@ class IDEXOrderBookTracker(OrderBookTracker):
                     trade_type = float(TradeType.BUY.value) if ob_message.content["type"].upper() == "BUY" \
                         else float(TradeType.SELL.value)
                     self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
-                        "symbol": ob_message.content["markt"],
+                        "symbol": ob_message.content["market"],
                         "trade_type": trade_type,
                         "trade_id": ob_message.content["tid"],
                         "update_id": ob_message.timestamp,

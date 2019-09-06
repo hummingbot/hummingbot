@@ -294,7 +294,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             actions |= ORDER_PROPOSAL_ACTION_CREATE_ORDERS
 
         if ((market_info.market.name not in self.RADAR_RELAY_TYPE_EXCHANGES) or
-                (market_info.market.name == "bamboo_relay" and market_info.market.use_coordinator)):
+                (market_info.market.display_name == "bamboo_relay" and market_info.market.use_coordinator)):
             for active_order in active_orders:
                 # If there are active orders, and active order cancellation is needed, then do the following:
                 #  1. Check the time to cancel for each order, and see if cancellation should be proposed.
