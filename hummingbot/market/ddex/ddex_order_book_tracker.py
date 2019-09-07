@@ -69,6 +69,7 @@ class DDEXOrderBookTracker(OrderBookTracker):
         return "ddex"
 
     async def start(self):
+        await super().start()
         self._order_book_trade_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_trades(self._ev_loop, self._order_book_trade_stream)
         )
@@ -90,37 +91,6 @@ class DDEXOrderBookTracker(OrderBookTracker):
         self._order_book_snapshot_router_task = asyncio.ensure_future(
             self._order_book_snapshot_router()
         )
-
-        await asyncio.gather(self._emit_trade_event_task,
-                             self._order_book_trade_listener_task,
-                             self._order_book_snapshot_listener_task,
-                             self._order_book_diff_listener_task,
-                             self._order_book_snapshot_router_task,
-                             self._order_book_diff_router_task,
-                             self._refresh_tracking_task)
-
-    def stop(self):
-        if self._emit_trade_event_task is not None:
-            self._emit_trade_event_task.cancel()
-            self._emit_trade_event_task = None
-        if self._order_book_trade_listener_task is not None:
-            self._order_book_trade_listener_task.cancel()
-            self._order_book_trade_listener_task = None
-        if self._order_book_diff_listener_task is not None:
-            self._order_book_diff_listener_task.cancel()
-            self._order_book_diff_listener_task = None
-        if self._order_book_snapshot_listener_task is not None:
-            self._order_book_snapshot_listener_task.cancel()
-            self._order_book_snapshot_listener_task = None
-        if self._refresh_tracking_task is not None:
-            self._refresh_tracking_task.cancel()
-            self._refresh_tracking_task = None
-        if self._order_book_diff_router_task is not None:
-            self._order_book_diff_router_task.cancel()
-            self._order_book_diff_router_task = None
-        if self._order_book_snapshot_router_task is not None:
-            self._order_book_snapshot_router_task.cancel()
-            self._order_book_snapshot_router_task = None
 
     async def _refresh_tracking_tasks(self):
         """

@@ -13,18 +13,24 @@ from typing import (
     Optional,
     Set
 )
-
 from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.order_book_tracker import (
+    OrderBookTracker,
+    OrderBookTrackerDataSourceType
+)
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType, BambooRelayOrderBookMessage, \
+from hummingbot.core.data_type.order_book_message import (
+    OrderBookMessageType,
+    BambooRelayOrderBookMessage,
     OrderBookMessage
+)
 from hummingbot.core.data_type.order_book_tracker_entry import BambooRelayOrderBookTrackerEntry
 from hummingbot.market.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
 from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
+
 
 class BambooRelayOrderBookTracker(OrderBookTracker):
     _brobt_logger: Optional[HummingbotLogger] = None
@@ -66,14 +72,12 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
         return "bamboo_relay"
 
     async def start(self):
+        await super().start()
         self._order_book_diff_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
         self._order_book_snapshot_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
-        )
-        self._emit_trade_event_task = asyncio.ensure_future(
-            self._emit_trade_event_loop()
         )
         self._refresh_tracking_task = asyncio.ensure_future(
             self._refresh_tracking_loop()
@@ -84,33 +88,6 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
         self._order_book_snapshot_router_task = asyncio.ensure_future(
             self._order_book_snapshot_router()
         )
-
-        await asyncio.gather(self._emit_trade_event_task,
-                             self._order_book_snapshot_listener_task,
-                             self._order_book_diff_listener_task,
-                             self._order_book_snapshot_router_task,
-                             self._order_book_diff_router_task,
-                             self._refresh_tracking_task)
-
-    def stop(self):
-        if self._emit_trade_event_task is not None:
-            self._emit_trade_event_task.cancel()
-            self._emit_trade_event_task = None
-        if self._order_book_diff_listener_task is not None:
-            self._order_book_diff_listener_task.cancel()
-            self._order_book_diff_listener_task = None
-        if self._order_book_snapshot_listener_task is not None:
-            self._order_book_snapshot_listener_task.cancel()
-            self._order_book_snapshot_listener_task = None
-        if self._refresh_tracking_task is not None:
-            self._refresh_tracking_task.cancel()
-            self._refresh_tracking_task = None
-        if self._order_book_diff_router_task is not None:
-            self._order_book_diff_router_task.cancel()
-            self._order_book_diff_router_task = None
-        if self._order_book_snapshot_router_task is not None:
-            self._order_book_snapshot_router_task.cancel()
-            self._order_book_snapshot_router_task = None
 
     async def _refresh_tracking_tasks(self):
         """
