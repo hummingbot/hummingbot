@@ -51,6 +51,11 @@ class OrderBookTracker(ABC):
         self._order_books: Dict[str, OrderBook] = {}
         self._tracking_message_queues: Dict[str, asyncio.Queue] = {}
         self._past_diffs_windows: Dict[str, Deque] = {}
+        self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
+        self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
+        self._order_book_trade_stream: asyncio.Queue = asyncio.Queue()
+        self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+
         self._order_book_diff_listener_task: Optional[asyncio.Task] = None
         self._order_book_trade_listener_task: Optional[asyncio.Task] = None
         self._order_book_snapshot_listener_task: Optional[asyncio.Task] = None
@@ -58,10 +63,6 @@ class OrderBookTracker(ABC):
         self._order_book_snapshot_router_task: Optional[asyncio.Task] = None
         self._emit_trade_event_task: Optional[asyncio.Task] = None
         self._refresh_tracking_task: Optional[asyncio.Task] = None
-        self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
-        self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
-        self._order_book_trade_stream: asyncio.Queue = asyncio.Queue()
-        self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
 
     @property
     @abstractmethod
@@ -92,6 +93,31 @@ class OrderBookTracker(ABC):
             symbol: order_book.snapshot
             for symbol, order_book in self._order_books.items()
         }
+
+    async def start(self):
+        self._emit_trade_event_task = asyncio.ensure_future(
+            self._emit_trade_event_loop()
+        )
+
+    def stop(self):
+        if self._emit_trade_event_task is not None:
+            self._emit_trade_event_task.cancel()
+            self._emit_trade_event_task = None
+        if self._order_book_diff_listener_task is not None:
+            self._order_book_diff_listener_task.cancel()
+            self._order_book_diff_listener_task = None
+        if self._order_book_snapshot_listener_task is not None:
+            self._order_book_snapshot_listener_task.cancel()
+            self._order_book_snapshot_listener_task = None
+        if self._refresh_tracking_task is not None:
+            self._refresh_tracking_task.cancel()
+            self._refresh_tracking_task = None
+        if self._order_book_diff_router_task is not None:
+            self._order_book_diff_router_task.cancel()
+            self._order_book_diff_router_task = None
+        if self._order_book_snapshot_router_task is not None:
+            self._order_book_snapshot_router_task.cancel()
+            self._order_book_snapshot_router_task = None
 
     async def _refresh_tracking_tasks(self):
         """

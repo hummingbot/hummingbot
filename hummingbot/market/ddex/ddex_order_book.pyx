@@ -57,11 +57,12 @@ cdef class DDEXOrderBook(OrderBook):
                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-        return DDEXOrderBookMessage(OrderBookMessageType.DIFF, {
-            "symbol": msg["marketId"],
+        return DDEXOrderBookMessage(OrderBookMessageType.TRADE, {
+            "marketId": msg["marketId"],
             "trade_type": float(TradeType.SELL.value) if msg["makerSide"] == "sell" else float(TradeType.BUY.value),
             "price": msg["price"],
-            "amount": msg["amount"]
+            "amount": msg["amount"],
+            "time": msg["time"]
         }, timestamp)
 
     @classmethod
