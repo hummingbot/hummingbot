@@ -18,8 +18,8 @@ from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_maki
 def start(self: "HummingbotApplication"):
     maker_market = cross_exchange_market_making_config_map.get("maker_market").value.lower()
     taker_market = cross_exchange_market_making_config_map.get("taker_market").value.lower()
-    raw_maker_trading_pair = cross_exchange_market_making_config_map.get("maker_market_symbol").value.upper()
-    raw_taker_trading_pair = cross_exchange_market_making_config_map.get("taker_market_symbol").value.upper()
+    raw_maker_trading_pair = cross_exchange_market_making_config_map.get("maker_market_symbol").value
+    raw_taker_trading_pair = cross_exchange_market_making_config_map.get("taker_market_symbol").value
     min_profitability = cross_exchange_market_making_config_map.get("min_profitability").value
     trade_size_override = cross_exchange_market_making_config_map.get("trade_size_override").value
     strategy_report_interval = global_config_map.get("strategy_report_interval").value

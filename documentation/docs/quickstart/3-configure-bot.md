@@ -147,20 +147,12 @@ See [Ethereum wallet](/installation/wallet) and [Ethereum node](/installation/no
 
 Hummingbot comes with utilities that help you run the bot, such as:
 
-* **Kill switch**: Automatically stops the bot after a certain performance threshold, which can be either positive or negative
-* **Exchange rates**: Sets exchange rates between stablecoins and other crypto assets so that you can run bots on non-identical trading pairs on different exchanges
-* **Telegram integration**: Control your trading bot from anywhere by hooking up a Telegram bot that can issue commands
+* [**Kill switch**](/utilities/kill-switch/): Automatically stops the bot after a certain performance threshold, which can be either positive or negative
+* [**Exchange rates**](/utilities/exchange-rates/): Sets exchange rates between stablecoins and other crypto assets so that you can run bots on non-identical trading pairs on different exchanges
+* [**Telegram integration**](/utilities/telegram/): Control your trading bot from anywhere by hooking up a Telegram bot that can issue commands
 
 For more information on these utilities, see the Utilities section in the [User Manual](/manual). By default, only the **kill switch** is configured via the walkthrough.
 
-Activate the kill switch feature and tell it to stop the bot at a 5% loss:
-```
-Would you like to enable the kill switch? (y/n) >>>  
-y
-
-At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5% loss) >>>
--0.05
-```
 ---
 If you completed the steps above successfully, you should see the message:
 ```
