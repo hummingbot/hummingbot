@@ -141,7 +141,6 @@ class RadarRelayOrderBookTracker(OrderBookTracker):
                 await message_queue.put(ob_message)
 
                 if ob_message.content["action"] == "FILL":  # put FILL messages to trade queue
-                    self.logger().info(ob_message.content)
                     trade_type = float(TradeType.BUY.value) if ob_message.content["event"]["type"] == "BUY" \
                         else float(TradeType.SELL.value)
                     self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
