@@ -32,3 +32,7 @@ if ${CONDA_EXE} env list | egrep -qe "^hummingbot"; then
 else
     ${CONDA_EXE} env create -f $ENV_FILE
 fi
+
+source "${CONDA_BIN}/activate" hummingbot
+
+pre-commit install

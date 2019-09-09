@@ -18,7 +18,7 @@ The timeline below shows the past milestones we have completed, along with the f
 * Released connectors for [Coinbase Pro](/connectors/coinbase) and [IDEX](/connectors/idex)
 * First community contributed connector for [Bamboo Relay](https://bamboorelay.com/)
 * Released [pure market making strategy](/strategies/pure-market-making)
-* Released [Telegram integration](/operation/telegram)
+* Released [Telegram integration](/utilities/telegram)
 * Announced [Liquidity Bounty Programs](https://www.hummingbot.io/liquidity-bounties/)
 * Launch 1st liquidity bounty program for [Harmony](https://www.hummingbot.io/liquidity-bounties/harmony)
 
