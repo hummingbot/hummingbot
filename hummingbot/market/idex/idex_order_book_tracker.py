@@ -144,7 +144,7 @@ class IDEXOrderBookTracker(OrderBookTracker):
                     continue
                 await message_queue.put(ob_message)
 
-                if ob_message.content["event"] == "market_trades":  # put FILL messages to trade queue
+                if ob_message.content["event"] == "market_trades":  # put trade messages to trade queue
                     trade_type = float(TradeType.BUY.value) if ob_message.content["type"].upper() == "BUY" \
                         else float(TradeType.SELL.value)
                     self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {

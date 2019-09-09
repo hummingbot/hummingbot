@@ -190,7 +190,6 @@ class PaperTradeMarketTest(unittest.TestCase):
 
         for trading_pair, orderbook in self.market.order_books.items():
             orderbook.clear_traded_order_book()
-            orderbook.clear_traded_order_book()
 
     def tearDown(self):
         for event_tag in self.events:
