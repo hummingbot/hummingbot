@@ -23,6 +23,10 @@ def start(self):
     active_order_canceling = cross_exchange_market_making_config_map.get("active_order_canceling").value
     adjust_order_enabled = cross_exchange_market_making_config_map.get("adjust_order_enabled").value
     top_depth_tolerance = cross_exchange_market_making_config_map.get("top_depth_tolerance").value
+    order_size_taker_volume_factor = cross_exchange_market_making_config_map.get("order_size_taker_volume_factor").value
+    order_size_taker_balance_factor = cross_exchange_market_making_config_map.get("order_size_taker_balance_factor").value
+    order_size_portfolio_ratio_limit = cross_exchange_market_making_config_map.get("order_size_portfolio_ratio_limit").value
+    anti_hysteresis_duration = cross_exchange_market_making_config_map.get("anti_hysteresis_duration").value
 
     market_names: List[Tuple[str, List[str]]] = [
         (maker_market, [raw_maker_trading_pair]),
@@ -63,4 +67,8 @@ def start(self):
         active_order_canceling=active_order_canceling,
         adjust_order_enabled=adjust_order_enabled,
         top_depth_tolerance=top_depth_tolerance,
+        order_size_taker_volume_factor=order_size_taker_volume_factor,
+        order_size_taker_balance_factor=order_size_taker_balance_factor,
+        order_size_portfolio_ratio_limit=order_size_portfolio_ratio_limit,
+        anti_hysteresis_duration=anti_hysteresis_duration
     )
