@@ -34,13 +34,18 @@ Initially, we assume that the maker exchange is an Ethereum-based decentralized 
 
 ### Adjusting Orders
 
-The maker price is calculated based on the price at which you can buy or sell on the taker exchange with a min_profitability added to it.
+Assume the following,
 
-For example if you can sell 1 ETH on taker exchange for 100 USDT on a volume weighted average price basis, then if min_profitability is 0.05, then maker price at which limit buy will be placed is 95 USDT.
+Order amount: 1 ETH
+Sell price on Taker: 100 USDT (on a volume weighted average basis)
+Min profitablity: 0.05
+Top Bid price on Maker: 90 USDT
 
-Now its possible that the top bid on the exchange is much lower, say 90 USDT. In this case if you enable adjust orders it will place at 90.01 (one price level above top bid).
+Adjust Orders Enabled:
+The bid price according to min profitability is 95 (100*(1-0.05)). However as top bid price is 90, you will place just above the top at 90.01 USDT
 
-If you disable adjust orders, it will place order at 95 USDT instead of 90.01 USDT. 
+Adjust Orders Disabled:
+The bid price according to min profitability is 95 (100*(1-0.05)). Here the strategy will place the bid at 95.
 
 ## Configuration Walkthrough
 
@@ -61,7 +66,7 @@ The following walks through all the steps when running `config` for the first ti
 | `Do you want to adjust the prices to be above top bid/ask instead of the expected price, if profitable ? (Default is True) >>>`: | This sets `adjust_order_enabled` (see [definition](/strategies/cross-exchange-market-making/#configuration-parameters)). |
 | `Do you want to actively adjust/cancel orders (Default True) >>>`: | This sets `active_order_canceling` (see [definition](/strategies/cross-exchange-market-making/#configuration-parameters)). |
 | `What is the minimum profitability to actively cancel orders? (Default to 0.0, only specify when active_order_cancelling is disabled, value can be negative) >>>`: | This sets the `cancel_order_threshold` (see [definition](/strategies/cross-exchange-market-making/#configuration-parameters)). |
-| `"What is your preferred trade size? (denominated in " "the base asset) >>>`: | This sets the `order_amount` (see [definition](/strategies/cross-exchange-market-making/#configuration-parameters)). |
+| `What is your preferred trade size? (denominated in " "the base asset) >>>`: | This sets the `order_amount` (see [definition](/strategies/cross-exchange-market-making/#configuration-parameters)). |
 | `What is the minimum limit order expiration in seconds? (Default to 130 seconds) >>>`: | This sets the `limit_order_min_expiration` (see [definition](/strategies/cross-exchange-market-making/#configuration-parameters)). |
 | `What is the amount in base currency, you want to use, for the top depth tolerance ?. Default is 0. >>> `: | This sets `top_depth_tolerance` (see [definition](/strategies/cross-exchange-market-making/#configuration-parameters)). |
 | `Enter your Binance API key >>>`:<br/><br/>`Enter your Binance API secret >>>`: | You must [create a Binance API key](https://docs.hummingbot.io/connectors/binance/) key with trading enabled ("Enable Trading" selected).<br/><table><tbody><tr><td bgcolor="#e5f8f6">**Tip**: You can use Ctrl + R or ⌘ + V to paste from the clipboard.</td></tr></tbody></table> |
@@ -80,4 +85,4 @@ The following parameters are fields in Hummingbot configuration files (located i
 | **active_order_canceling** | `True` or `False`<br/>If enabled (parameter set to `True`), Hummingbot will cancel that become unprofitable based on the `min_profitability` threshold.  If this is set to `False`, Hummingbot will allow any outstanding orders to expire, unless `cancel_order_threshold` is reached.
 | **cancel_order_threshold** | An amount expressed in decimals (i.e. input of `0.01` corresponds to 1%), which can be 0 or negative.<br/>When active order canceling is set to `False`, if the profitability of an order falls below this threshold, Hummingbot will cancel an existing order and place a new one, if possible.  This allows the bot to cancel orders when paying gas to cancel (if applicable) is a better than incurring the potential loss of the trade.
 | **limit_order_min_expiration** | An amount in seconds, which is the minimum duration for any placed limit orders. _Default value: 130 seconds_.
-| **top_depth_tolerance** | An amount in base currency, which is the specifies how much deep you want to go to calculate the top bid and ask. This is used for getting the top bid and ask, ignoring dust orders on top of the order book. _Default value: 0_.
+| **top_depth_tolerance** | This is used for getting the top bid and ask, ignoring dust orders on top of the order book. It is specified in base currency units. *Example: If you have a top depth tolerance of `0.01 ETH`, then while calculating the top bid, you exclude orders starting from the top until the sum of orders excluded reaches `0.01 ETH`.*  _Default value: 0_.

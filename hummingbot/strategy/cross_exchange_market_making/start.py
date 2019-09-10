@@ -1,14 +1,13 @@
-from typing import List, Tuple
+from typing import (
+    List,
+    Tuple
+)
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair
-from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making import (
-    CrossExchangeMarketMakingStrategy,
-)
-from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map import (
-    cross_exchange_market_making_config_map,
-)
+from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making import CrossExchangeMarketMakingStrategy
+from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map import cross_exchange_market_making_config_map
 
 
 def start(self):
@@ -37,7 +36,6 @@ def start(self):
         return
     self._initialize_wallet(token_symbols=list(set(maker_assets + taker_assets)))
     self._initialize_markets(market_names)
-    self.logger().info("wallet works")
     self.assets = set(maker_assets + taker_assets)
     maker_data = [self.markets[maker_market], raw_maker_trading_pair] + list(maker_assets)
     taker_data = [self.markets[taker_market], raw_taker_trading_pair] + list(taker_assets)
@@ -54,7 +52,6 @@ def start(self):
         | CrossExchangeMarketMakingStrategy.OPTION_LOG_STATUS_REPORT
         | CrossExchangeMarketMakingStrategy.OPTION_LOG_MAKER_ORDER_HEDGED
     )
-    self.logger().info("initializing strategy")
     self.strategy = CrossExchangeMarketMakingStrategy(
         market_pairs=[self.market_pair],
         min_profitability=min_profitability,

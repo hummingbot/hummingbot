@@ -52,9 +52,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                          bint is_bid,
                                          double size)
     cdef object c_calculate_effective_hedging_price(self,
-                                         object market_pair,
-                                         bint is_bid,
-                                         double size)
+                                                    object market_pair,
+                                                    bint is_bid,
+                                                    double size)
     cdef bint c_check_if_still_profitable(self,
                                           object market_pair,
                                           LimitOrder active_order,
