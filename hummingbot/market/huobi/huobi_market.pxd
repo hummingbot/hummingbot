@@ -14,7 +14,7 @@ cdef class HuobiMarket(MarketBase):
         object _ev_loop
         object _huobi_auth
         dict _in_flight_orders
-        double _last_pull_timestamp
+        double _last_poll_timestamp
         double _last_timestamp
         object _order_book_tracker
         public object _order_tracker_task
