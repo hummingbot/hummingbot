@@ -42,6 +42,7 @@ telegram_enabled: false
 telegram_token: null
 telegram_chat_id: null
 
+exchange_rate_default_data_feed: coin_gecko_api
 # paper trade template
 paper_trade_enabled: false
 paper_trade_account_balance:
