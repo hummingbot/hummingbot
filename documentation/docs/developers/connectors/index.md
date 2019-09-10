@@ -85,5 +85,5 @@ The `execute_buy` and `execute_sell` methods verify that the trades would be leg
 
 ## Additional resources
 - [DevForum](https://forum.hummingbot.io)
-- [Discord](htt[s://discord.hummingbot.io])
+- [Discord](https://discord.hummingbot.io)
 - Contact the dev team: [dev@hummingbot.io](mailto:dev@hummingbot.io)
