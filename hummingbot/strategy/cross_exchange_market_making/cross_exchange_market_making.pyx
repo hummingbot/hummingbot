@@ -5,8 +5,8 @@ from collections import (
 from decimal import Decimal
 import logging
 from math import (
-floor,
-ceil
+    floor,
+    ceil
 )
 from typing import (
     List,
@@ -227,7 +227,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     def get_adjusted_limit_order_size(self, market_pair: CrossExchangeMarketPair) -> float:
         return self.c_get_adjusted_limit_order_size(market_pair)
 
-    def get_effective_hedging_price(self, market_pair: CrossExchangeMarketPair, bint is_bid , double size) -> Decimal:
+    def get_effective_hedging_price(self, market_pair: CrossExchangeMarketPair, bint is_bid, double size) -> Decimal:
         return self.c_calculate_effective_hedging_price(market_pair, is_bid, size)
 
     def check_if_still_profitable(self, market_pair: CrossExchangeMarketPair,
@@ -372,7 +372,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 if not self.c_check_if_price_has_drifted(market_pair, active_order):
                     need_adjust_order = True
                     continue
-
 
         # If order adjustment is needed in the next tick, set the anti-hysteresis timer s.t. the next order adjustment
         # for the same pair wouldn't happen within the time limit.
@@ -523,19 +522,19 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         if suggested_price != order_price:
 
             if is_buy:
-                    if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
-                        self.log_with_clock(
-                            logging.INFO,
-                            f"({market_pair.maker.trading_pair}) The current limit bid order for "
-                            f"{active_order.quantity} {market_pair.maker.base_asset} at "
-                            f"{order_price:.8g} {market_pair.maker.quote_asset} is now below the suggested order "
-                            f"price at {suggested_price}. Going to cancel the old order and create a new one..."
-                        )
-                    self.c_cancel_order(market_pair, active_order.client_order_id)
-                    self.log_with_clock(logging.DEBUG,
-                                        f"Current buy order price={order_price}, "
-                                        f"suggested order price={suggested_price}")
-                    return False
+                if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
+                    self.log_with_clock(
+                        logging.INFO,
+                        f"({market_pair.maker.trading_pair}) The current limit bid order for "
+                        f"{active_order.quantity} {market_pair.maker.base_asset} at "
+                        f"{order_price:.8g} {market_pair.maker.quote_asset} is now below the suggested order "
+                        f"price at {suggested_price}. Going to cancel the old order and create a new one..."
+                    )
+                self.c_cancel_order(market_pair, active_order.client_order_id)
+                self.log_with_clock(logging.DEBUG,
+                                    f"Current buy order price={order_price}, "
+                                    f"suggested order price={suggested_price}")
+                return False
             else:
                 if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
                     self.log_with_clock(
@@ -695,7 +694,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         :param market_pair: The cross exchange market pair to calculate order price/size limits.
         :param is_bid: Whether the order to make will be bid or ask.
         :return: a Decimal which is the size of maker order.
-        
         """
         cdef:
             MarketBase maker_market = market_pair.maker.market
@@ -707,7 +705,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             maker_balance_in_quote = maker_market.c_get_available_balance(market_pair.maker.quote_asset)
 
             taker_balance = (taker_market.c_get_available_balance(market_pair.taker.base_asset) *
-                                        self._order_size_taker_balance_factor)
+                             self._order_size_taker_balance_factor)
 
             user_order = self.c_get_adjusted_limit_order_size(market_pair)
 
@@ -727,7 +725,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             maker_balance = maker_market.c_get_available_balance(market_pair.maker.base_asset)
 
             taker_balance_in_quote = (taker_market.c_get_available_balance(market_pair.taker.quote_asset) *
-                                        self._order_size_taker_balance_factor)
+                                      self._order_size_taker_balance_factor)
 
             user_order = self.c_get_adjusted_limit_order_size(market_pair)
 
@@ -742,16 +740,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             return maker_market.c_quantize_order_amount(market_pair.maker.trading_pair, order_amount)
 
-
-
     cdef object c_get_market_making_price(self,
-                                         object market_pair,
-                                         bint is_bid,
-                                         double size):
+                                          object market_pair,
+                                          bint is_bid,
+                                          double size):
         """
         Get the ideal market making order price given a market pair, side and size.
 
-        The price returned is calculated by adding the profitability to vwap of hedging it on the taker side. 
+        The price returned is calculated by adding the profitability to vwap of hedging it on the taker side.
         or if it's not possible to hedge the trade profitably, then the returned order price will be none.
 
         :param market_pair: The cross exchange market pair to calculate order price/size limits.
@@ -803,7 +799,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             )
 
             # Rounds down for ensuring profitability
-            maker_price = (floor(Decimal(maker_price) / price_quantum) ) * price_quantum
+            maker_price = (floor(Decimal(maker_price) / price_quantum)) * price_quantum
 
             return maker_price
         else:
@@ -838,14 +834,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             )
 
             # Rounds up for ensuring profitability
-            maker_price = (ceil(Decimal(maker_price) / price_quantum) ) * price_quantum
+            maker_price = (ceil(Decimal(maker_price) / price_quantum)) * price_quantum
 
             return maker_price
 
     cdef object c_calculate_effective_hedging_price(self,
-                                         object market_pair,
-                                         bint is_bid,
-                                         double size):
+                                                    object market_pair,
+                                                    bint is_bid,
+                                                    double size):
         """
         Get the ideal market making order size and maximum order size given a market pair and a side.
 
@@ -865,7 +861,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         """
         cdef:
             OrderBook taker_order_book = market_pair.taker.order_book
-
 
         # Calculate the next price from the top, and the order size limit.
         if is_bid:
@@ -934,7 +929,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
         return top_bid_price, top_ask_price
 
-
     cdef c_take_suggested_price_sample(self, object market_pair):
         """
         Record the bid and ask sample queues.
@@ -946,7 +940,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         """
         cdef:
             OrderBook maker_order_book = market_pair.maker.order_book
-
 
         if ((self._last_timestamp // self.ORDER_ADJUST_SAMPLE_INTERVAL) <
                 (self._current_timestamp // self.ORDER_ADJUST_SAMPLE_INTERVAL)):
@@ -963,9 +956,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             while len(ask_price_samples_deque) > self.ORDER_ADJUST_SAMPLE_WINDOW:
                 ask_price_samples_deque.popleft()
 
-
     cdef tuple c_get_top_bid_ask_from_price_samples(self,
-                                              object market_pair):
+                                                    object market_pair):
         """
         Calculate the top bid and ask using earlier samples
 

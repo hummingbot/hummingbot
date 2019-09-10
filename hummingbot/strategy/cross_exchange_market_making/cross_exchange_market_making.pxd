@@ -1,7 +1,6 @@
 # distutils: language=c++
 
 from libc.stdint cimport int64_t
-
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.strategy.strategy_base cimport StrategyBase
@@ -45,12 +44,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef object c_get_adjusted_limit_order_size(self,
                                                 object market_pair)
     cdef object c_get_market_making_size(self,
-                                        object market_pair,
-                                        bint is_bid)
-    cdef object c_get_market_making_price(self,
                                          object market_pair,
-                                         bint is_bid,
-                                         double size)
+                                         bint is_bid)
+    cdef object c_get_market_making_price(self,
+                                          object market_pair,
+                                          bint is_bid,
+                                          double size)
     cdef object c_calculate_effective_hedging_price(self,
                                                     object market_pair,
                                                     bint is_bid,
@@ -70,7 +69,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef tuple c_get_top_bid_ask(self,
                                  object market_pair)
     cdef tuple c_get_top_bid_ask_from_price_samples(self,
-                                              object market_pair)
+                                                    object market_pair)
     cdef tuple c_get_suggested_price_samples(self,
                                              object market_pair)
     cdef c_take_suggested_price_sample(self,
