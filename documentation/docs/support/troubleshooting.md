@@ -1,37 +1,91 @@
 # Troubleshooting
 
+## Common errors with Hummingbot installed via Docker
+
+##### Error message:
+
+> docker: Got permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock: Post http://%2Fvar%2Frun%2Fdocker.sock/v1.39/containers/create?name=hummingbot_instance: dial unix /var/run/docker.sock: connect: permission denied.
+
+Exit from your virtual machine and restart.
+
+
+
+## Common errors with Hummingbot installed from source
+
+#### conda: not found
+
+```
+$ conda
+-bash: conda: command not found
+```
+
+If you have just installed conda, close terminal and reopen a new terminal to update the command line's program registry.
+
+If you use `zshrc` or another shell other than `bash`, see the note at the bottom of this section: [install dependencies](/installation/from-source/macos/#part-1-install-dependencies).
+
+#### Cannot start Hummingbot
+
+##### Error message:
+
+```
+File "bin/hummingbot.py", line 40
+  def detect_available_port(starting_port: int) -> int:
+                                           ^
+SyntaxError: invalid syntax
+```
+
+Make sure you have activated the conda environment: `conda activate hummingbot`.
+
+##### Error message:
+
+> ModuleNotFoundError: No module named 'hummingbot.market.market_base'
+
+Make sure you have compiled Hummingbot in the Hummingbot environment: `conda activate hummingbot && ./compile`.
+
+## Common Errors with Windows + Docker Toolbox
+
+Windows users may encounter the following error when running the Docker Toolbox for Windows:
+
+```
+C:\Program Files\Docker Toolbox\docker.exe: Error response from daemon: Get https://registry-1.docker.io/v2/: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers).
+See 'C:\Program Files\Docker Toolbox\docker.exe run --help'.
+```
+
+This appears to be an environment configuration problem. The solution is to refresh the environment settings and restart the environment which can be done with the following commands:
+
+```
+# Restart the environment
+docker-machine restart default
+
+# Refresh your environment settings
+eval $(docker-machine env default)
+```
+
+## Errors while running Hummingbot
+
+##### Error in running logs after update
+
+> 2019-08-13 19:26:53,419 - root - ERROR - No module named ‘hummingbot.strategy.pure_market_making.inventory_skew_single_size_sizing_delegate’ (See log file for stack trace dump)
+
+Exit Hummingbot to compile and restart using these commands:
+
+```
+conda activate hummingbot
+./compile
+bin/hummingbot.py
+```
+
+
 ## Installed with Docker
 
 Frequently asked questions and problems that may arise when using Hummingbot with Docker:
-
-#### How do I find out the name of my hummingbot instance?
-
-Run the following command to list all docker instances you have created:
-
-```
-docker ps -a
-```
-
-#### How do I list all the containers I have created?
-
-```
-docker ps -a
-```
-
-#### How do I check that my Hummingbot instance is running?
-
-The following command will list all currently running docker containers:
-
-```
-docker ps
-```
 
 #### How do I find out where the config and log files are on my local computer?
 
 Run the following command to view the details of your instance:
 
 ```
-docker inspect hummingbot-instance
+docker inspect $instance_name
 ```
 
 Look for a field `Mounts`, which will describe where the folders are on you local machine:
@@ -57,31 +111,14 @@ Look for a field `Mounts`, which will describe where the folders are on you loca
 ],
 ```
 
-#### How do I connect to my Hummingbot instance?
-
-```
-docker attach hummingbot-instance
-```
-
 #### How do I edit the conf files or access the log files used by my docker instance?
 
-You can access the files from your local file system, in the `hummingbot_conf` and `hummingbot_logs` folders on your machine.  The docker instance reads from/writes to these local files.
+If Hummingbot is installed on your local machine, you can access the files from your local file system in the `hummingbot_conf` and `hummingbot_logs` folder. The docker instance reads from/writes to these local files.
 
-#### Common Errors with Windows + Docker
+If Hummingbot is installed on a virtual machine, you can use the `vi` text editor (or any text editor of your choice). Do command `vi $filename`. See [this page](https://www.tipsandtricks-hq.com/unix-vi-commands-take-advantage-of-the-unix-vi-editor-374) for more information how to use this text editor.
 
-Windows users may encounter the following error when running the Docker Toolbox for Windows:
+You can also use an FTP client software (e.g. WinSCP, FileZila) to copy, move, files and folders from your virtual machine to your local machine and vice versa.
 
-```
-C:\Program Files\Docker Toolbox\docker.exe: Error response from daemon: Get https://registry-1.docker.io/v2/: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers).
-See 'C:\Program Files\Docker Toolbox\docker.exe run --help'.
-```
-
-This appears to be an environment configuration problem. The solution is to refresh the environment settings and restart the environment which can be done with the following commands:
-
-```
-docker-machine restart default      # Restart the environment
-eval $(docker-machine env default)  # Refresh your environment settings
-```
 
 #### How do I copy and paste in Docker Toolbox (Windows)?
 
@@ -107,7 +144,7 @@ If you have previously installed Hummingbot using Docker and our previous docume
 
 Copy the commands below and run from the root folder (i.e. when you type `ls`, make sure you see the `my-hummingbot` folder).
 
-***If your previous instance was named `my-hummingbot`*** (check by running `docker ps -a`):
+* If your previous instance was named `my-hummingbot` (check by running `docker ps -a`):
 
 ```
 # Remove instance
@@ -124,7 +161,7 @@ docker run -it \
 coinalpha/hummingbot:latest
 ```
 
-***If your previous instance was named `my-instance-1`*** (check by running `docker ps -a`):
+* If your previous instance was named `my-instance-1` (check by running `docker ps -a`):
 
 ```
 # Remove instance
@@ -142,43 +179,3 @@ coinalpha/hummingbot:latest
 ```
 
 You will then be able to use the [automated docker scripts](/cheatsheets/docker/#automated-docker-scripts-optional).
-
-
-#### conda: not found
-
-
-```
-$ conda
--bash: conda: command not found
-```
-
-If you have just installed conda, close Terminal and reopen a new Terminal to update the command line's program registry.
-
-If you use `zshrc` or another shell other than `bash`, see the note at the bottom of this section: [install dependencies](/installation/from-source/macos/#part-1-install-dependencies).
-
-#### I can not start Hummingbot
-
-***Error message 1***:
-
-```
-File "bin/hummingbot.py", line 40
-  def detect_available_port(starting_port: int) -> int:
-                                           ^
-SyntaxError: invalid syntax
-```
-
-Make sure you have activated the conda environment: `conda activate hummingbot`.
-
-***Error message 2***:
-
-```
-ModuleNotFoundError: No module named 'hummingbot.market.market_base'
-```
-
-Make sure you have compiled Hummingbot in the Hummingbot environment: `conda activate hummingbot && ./compile`.
-
-
-
-## Running Hummingbot
-
-Coming soon.
