@@ -2,7 +2,6 @@
 
 from typing import NamedTuple
 
-from hummingbot.market.market_base import MarketBase
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 
 
