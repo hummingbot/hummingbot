@@ -62,42 +62,5 @@ cross_exchange_market_making_config_map = {
         required_if=lambda: False,
         default=0.0,
         type_str="float",
-    ),
-    "adjust_order_enabled": ConfigVar(
-        key="adjust_order_enabled",
-        prompt="Do you want to adjust the prices to be above top bid/ask instead of the expected price, "
-        "if profitable ? (Default is True) >>> ",
-        default=True,
-        type_str="bool",
-    ),
-    "active_order_canceling": ConfigVar(
-        key="active_order_canceling",
-        prompt="Do you want to actively cancel orders? (Default "
-        "True, only set to False if maker market is Radar Relay) >>> ",
-        type_str="bool",
-        default=True,
-    ),
-    # Setting the default threshold to 0.05 when to active_order_canceling is disabled
-    # prevent canceling orders after it has expired
-    "cancel_order_threshold": ConfigVar(
-        key="cancel_order_threshold",
-        prompt="What is the minimum profitability to actively cancel orders? "
-        "(only specify when active_order_canceling "
-        "is disabled). Default is 5%. >>> ",
-        default=0.05,
-        type_str="float",
-    ),
-    "limit_order_min_expiration": ConfigVar(
-        key="limit_order_min_expiration",
-        prompt="What is the minimum limit order expiration in seconds? " "(Default to 130 seconds) >>> ",
-        default=130.0,
-        type_str="float",
-    ),
-    "top_depth_tolerance": ConfigVar(
-        key="top_depth_tolerance",
-        prompt="What is the amount in base currency, you want to use, for the top depth tolerance ?"
-               "Default is 0. >>> ",
-        default=0,
-        type_str="float",
-    ),
+    )
 }
