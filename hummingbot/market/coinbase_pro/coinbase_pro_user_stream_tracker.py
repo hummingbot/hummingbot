@@ -38,6 +38,11 @@ class CoinbaseProUserStreamTracker(UserStreamTracker):
 
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
+        """
+        *required
+        Initializes a user stream data source (user specific order diffs from live socket stream)
+        :return: OrderBookTrackerDataSource
+        """
         if not self._data_source:
             if self._data_source_type is UserStreamTrackerDataSourceType.EXCHANGE_API:
                 self._data_source = CoinbaseProAPIUserStreamDataSource(coinbase_pro_auth=self._coinbase_pro_auth,
@@ -48,9 +53,17 @@ class CoinbaseProUserStreamTracker(UserStreamTracker):
 
     @property
     def exchange_name(self) -> str:
+        """
+        *required
+        Name of the current exchange
+        """
         return "coinbase_pro"
 
     async def start(self):
+        """
+        *required
+        Start all listeners and tasks
+        """
         self._user_stream_tracking_task = asyncio.ensure_future(
             self.data_source.listen_for_user_stream(self._ev_loop, self._user_stream)
         )

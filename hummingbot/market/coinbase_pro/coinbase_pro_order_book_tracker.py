@@ -58,6 +58,11 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
 
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
+        """
+        *required
+        Initializes an order book data source (Either from live API or from historical database)
+        :return: OrderBookTrackerDataSource
+        """
         if not self._data_source:
             if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
                 self._data_source = CoinbaseProAPIOrderBookDataSource(symbols=self._symbols)
@@ -67,10 +72,19 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
 
     @property
     def exchange_name(self) -> str:
+        """
+        *required
+        Name of the current exchange
+        """
         return "coinbase_pro"
 
     async def start(self):
         await super().start()
+        """
+        *required
+        Start all listeners and tasks
+        """
+
         self._order_book_diff_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
@@ -175,6 +189,9 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
                 await asyncio.sleep(5.0)
 
     async def _track_single_book(self, symbol: str):
+        """
+        Update an order book with changes from the latest batch of received messages
+        """
         past_diffs_window: Deque[CoinbaseProOrderBookMessage] = deque()
         self._past_diffs_windows[symbol] = past_diffs_window
 
