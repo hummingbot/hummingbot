@@ -11,3 +11,6 @@ Please see below for instructions to find your API keys for the exchanges that H
 * [Huobi Global](/connectors/huobi/#creating-huobi-api-keys)
 
 * [IDEX](/connectors/idex/#api-key)
+
+!!! warning "API key permissions"
+    For general use of Hummingbot, we recommend "trade only" enabled API keys and suggest not using "transfer" or "withdraw" enabled API keys.
