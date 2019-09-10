@@ -45,9 +45,20 @@ class CoinbaseProAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     @property
     def order_book_class(self):
+        """
+        *required
+        Get relevant order book class to access class specific methods
+        :returns: OrderBook class
+        """
         return CoinbaseProOrderBook
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        """
+        *required
+        Subscribe to user stream via web socket, and keep the connection open for incoming messages
+        :param ev_loop: ev_loop to execute this function in
+        :param output: an async queue where the incoming messages are stored
+        """
         while True:
             try:
                 async with websockets.connect(COINBASE_WS_FEED) as ws:
@@ -84,6 +95,11 @@ class CoinbaseProAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _inner_messages(self,
                               ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+        """
+        Generator function that returns messages from the web socket stream
+        :param ws: current web socket connection
+        :returns: message in AsyncIterable format
+        """
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
