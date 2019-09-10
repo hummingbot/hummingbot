@@ -21,6 +21,10 @@ class MockDataFeed1(DataFeedBase):
     def name(self):
         return "coin_alpha_feed"
 
+    @property
+    def price_dict(self):
+        return self.mock_price_dict
+
     def __init__(self):
         super().__init__()
         self.mock_price_dict = {"COIN_ALPHA": 1, "CAT": 2}
@@ -46,6 +50,10 @@ class MockDataFeed2(DataFeedBase):
         super().__init__()
         self.mock_price_dict = {"COIN_ALPHA": 1, "CAT": 5}
 
+    @property
+    def price_dict(self):
+        return self.mock_price_dict
+
     def get_price(self, symbol):
         return self.mock_price_dict.get(symbol.upper())
 
@@ -65,7 +73,8 @@ class ExchangeRateConverterUnitTest(unittest.TestCase):
             },
             "conversion_required": {
                 "cat": {"default": 100, "source": "cat"}
-            }
+            },
+            "default_data_feed": "cat"
         })
         ExchangeRateConversion.set_data_feeds([
             MockDataFeed1.get_instance(),

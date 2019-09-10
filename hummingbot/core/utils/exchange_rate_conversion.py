@@ -27,7 +27,7 @@ class ExchangeRateConversion:
     _data_feeds: List[DataFeedBase] = []
     _exchange_rate_config: Dict[str, Dict] = {"conversion_required": {}, "global_config": {}}
     _exchange_rate: Dict[str, float] = {}
-    _all_data_feed_exchange_rate: Dict[str, float] = {}
+    _all_data_feed_exchange_rate: Dict[str, Dict[str, float]] = {}
     _started: bool = False
     _ready_notifier: asyncio.Event = asyncio.Event()
     _show_update_exchange_rates_from_data_feeds_errors: bool = True
@@ -53,7 +53,7 @@ class ExchangeRateConversion:
         return cls.erc_logger
 
     @classmethod
-    def set_global_exchange_rate_config(cls, config: Dict[str, Dict]):
+    def set_global_exchange_rate_config(cls, config: Dict[str, any]):
         if cls._exchange_rate_config_override is None:
             cls._exchange_rate_config_override = config
         else:
@@ -75,24 +75,31 @@ class ExchangeRateConversion:
         cls._update_interval = update_interval
 
     @classmethod
+    def set_default_data_feed(cls, default_data_feed: str):
+        cls._default_data_feed = default_data_feed
+
+    @classmethod
     def init_config(cls):
         try:
             if cls._data_feeds_override is None:
                 cls._data_feeds = [CoinCapDataFeed.get_instance(), CoinGeckoDataFeed.get_instance()]
             else:
                 cls._data_feeds = cls._data_feeds_override
+
+            cls._default_data_feed = global_config_map["exchange_rate_default_data_feed"].value
             # Set default rate and source for token rates globally
             fetcher_global_config: List[List[str, str]] = global_config_map["exchange_rate_fetcher"].value or []
             # Set rate and source for tokens that needs conversion, overwrites global config
             rate_conversion_config: List[List[str, str, str]] = global_config_map[
                                                                     "exchange_rate_conversion"].value or []
-
             if cls._exchange_rate_config_override is None:
                 conversion_required = {e[0]: {"default": e[1], "source": e[2]} for e in rate_conversion_config}
                 global_config = {e[0]: {"default": NaN, "source": e[1]} for e in fetcher_global_config}
             else:
                 conversion_required = cls._exchange_rate_config_override.get("conversion_required", {})
                 global_config = cls._exchange_rate_config_override.get("global_config", {})
+                cls._default_data_feed = cls._exchange_rate_config_override.get("default_data_feed",
+                                                                                cls.DEFAULT_DATA_FEED_NAME)
 
             global_config = {k.upper(): v for k, v in global_config.items()}
             conversion_required = {k.upper(): v for k, v in conversion_required.items()}
@@ -106,7 +113,7 @@ class ExchangeRateConversion:
             cls.logger().error("Error initiating config for exchange rate conversion.", exc_info=True)
 
     @property
-    def all_exchange_rate(self) -> Dict[str, float]:
+    def all_exchange_rate(self) -> Dict[str, Dict[str, float]]:
         return self._all_data_feed_exchange_rate.copy()
 
     @property
@@ -115,17 +122,24 @@ class ExchangeRateConversion:
 
     def get_exchange_rate(self, source: str = None):
         if source == "default":
-            if self.DEFAULT_DATA_FEED_NAME not in self.all_exchange_rate:
-                self.logger().error(f"{self.DEFAULT_DATA_FEED_NAME} is not in one of the data feeds: "
+            if self._default_data_feed not in self.all_exchange_rate:
+                self.logger().error(f"{self._default_data_feed} is not in one of the data feeds: "
                                     f"{self.all_exchange_rate.keys()}.")
                 raise Exception("Data feed name not valid.")
-            return self.all_exchange_rate[self.DEFAULT_DATA_FEED_NAME]
+            return self.all_exchange_rate[self._default_data_feed]
 
         elif source in self.all_exchange_rate.keys():
             return self.all_exchange_rate[source]
 
-        elif source == "config":
+        elif source == "config" or source is None:
             return self.exchange_rate
+
+        elif source == "any":
+            _exchange_rate = {}
+            for d in self.all_exchange_rate.values():
+                for k, v in d.items():
+                    _exchange_rate[k] = v
+            return _exchange_rate
         else:
             raise Exception("Source name for exchange rate is not valid.")
 
