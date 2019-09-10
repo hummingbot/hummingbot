@@ -33,4 +33,3 @@ cdef class OrderBook(PubSub):
     cdef OrderBookQueryResult c_get_quote_volume_for_price(self, bint is_buy, double price)
     cdef OrderBookQueryResult c_get_vwap_for_volume(self, bint is_buy, double volume)
     cdef OrderBookQueryResult c_get_quote_volume_for_base_amount(self, bint is_buy, double base_amount)
-    cdef OrderBookQueryResult c_get_vwap_for_quote_volume(self, bint is_buy, double quote_volume)
