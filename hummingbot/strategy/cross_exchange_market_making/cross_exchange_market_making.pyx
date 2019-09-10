@@ -13,11 +13,8 @@ from typing import (
     Tuple,
     Optional
 )
-
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.event.events import (
-    TradeType
-)
+from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
