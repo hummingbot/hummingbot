@@ -125,6 +125,8 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_trading_pairs(self) -> List[str]:
         """
         Get a list of active trading pairs
+        (if the market class already specifies a list of trading pairs,
+        returns that list instead of all active trading pairs)
         :returns: A list of trading pairs defined by the market class, or all active trading pairs from the rest API
         """
         if not self._symbols:
@@ -143,8 +145,8 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, any]:
         """
-        Get a list of active trading pairs from the rest API
-        :returns: A list of active trading pairs
+        Fetches order book snapshot for a particular trading pair from the rest API
+        :returns: Response from the rest API
         """
         product_order_book_url: str = f"{COINBASE_REST_URL}/products/{trading_pair}/book?level=3"
         async with client.get(product_order_book_url) as response:
@@ -278,7 +280,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
         *required
-        Subscribe to snapshot channel via web socket, and keep the connection open for incoming messages
+        Fetches order book snapshots for each trading pair, and use them to update the local order book
         :param ev_loop: ev_loop to execute this function in
         :param output: an async queue where the incoming messages are stored
         """
