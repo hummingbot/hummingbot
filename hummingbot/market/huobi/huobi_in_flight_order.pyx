@@ -43,6 +43,10 @@ cdef class HuobiInFlightOrder(InFlightOrderBase):
     def is_failure(self) -> bool:
         return self.last_state in {"canceled"}
 
+    @property
+    def is_open(self) -> bool:
+        return self.last_state in {"submitted", "partial-filled"}
+
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         cdef:

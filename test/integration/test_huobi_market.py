@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import logging
 from os.path import join, realpath
-import sys;sys.path.insert(0, realpath(join(__file__, "../../../")))
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
@@ -24,7 +24,6 @@ from hummingbot.core.clock import (
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
-    MarketWithdrawAssetEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
     OrderFilledEvent,
@@ -384,7 +383,6 @@ class HuobiMarketUnitTest(unittest.TestCase):
 
         try:
             # Try to buy 0.04 ETH from the exchange, and watch for completion event.
-            current_price: float = self.market.get_price(symbol, True)
             amount: float = 0.04
             order_id = self.market.buy(symbol, amount)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
