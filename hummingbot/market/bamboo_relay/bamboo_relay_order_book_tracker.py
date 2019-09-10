@@ -5,6 +5,7 @@ import bisect
 from collections import deque, defaultdict
 import logging
 import time
+from decimal import Decimal
 from typing import (
     Deque,
     Dict,
@@ -12,16 +13,24 @@ from typing import (
     Optional,
     Set
 )
-
+from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.order_book_tracker import (
+    OrderBookTracker,
+    OrderBookTrackerDataSourceType
+)
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType, BambooRelayOrderBookMessage
+from hummingbot.core.data_type.order_book_message import (
+    OrderBookMessageType,
+    BambooRelayOrderBookMessage,
+    OrderBookMessage
+)
 from hummingbot.core.data_type.order_book_tracker_entry import BambooRelayOrderBookTrackerEntry
 from hummingbot.market.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
 from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
+
 
 class BambooRelayOrderBookTracker(OrderBookTracker):
     _brobt_logger: Optional[HummingbotLogger] = None
@@ -42,7 +51,6 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
         self._data_source: Optional[OrderBookTrackerDataSource] = None
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
-        self._process_msg_deque_task: Optional[asyncio.Task] = None
         self._past_diffs_windows: Dict[str, Deque] = {}
         self._order_books: Dict[str, BambooRelayOrderBook] = {}
         self._saved_message_queues: Dict[str, Deque[BambooRelayOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
@@ -60,10 +68,11 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
         return self._data_source
 
     @property
-    async def exchange_name(self) -> str:
+    def exchange_name(self) -> str:
         return "bamboo_relay"
 
     async def start(self):
+        await super().start()
         self._order_book_diff_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
@@ -79,12 +88,6 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
         self._order_book_snapshot_router_task = asyncio.ensure_future(
             self._order_book_snapshot_router()
         )
-
-        await asyncio.gather(self._order_book_snapshot_listener_task,
-                             self._order_book_diff_listener_task,
-                             self._order_book_snapshot_router_task,
-                             self._order_book_diff_router_task,
-                             self._refresh_tracking_task)
 
     async def _refresh_tracking_tasks(self):
         """
@@ -144,6 +147,19 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
                     messages_rejected += 1
                     continue
                 await message_queue.put(ob_message)
+
+                if ob_message.content["action"] == "FILL":  # put FILL messages to trade queue
+                    trade_type = float(TradeType.BUY.value) if ob_message.content["type"] == "BUY" \
+                        else float(TradeType.SELL.value)
+                    self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
+                        "symbol": trading_pair_symbol,
+                        "trade_type": trade_type,
+                        "trade_id": ob_message.update_id,
+                        "update_id": ob_message.timestamp,
+                        "price": ob_message.content["order"]["price"],
+                        "amount": ob_message.content["order"]["filledBaseTokenAmount"]
+                    }, timestamp=ob_message.timestamp))
+
                 messages_accepted += 1
 
                 # Log some statistics.
