@@ -1,14 +1,12 @@
 #!/usr/bin/env python
 from os.path import join, realpath
-import sys
-sys.path.insert(0, realpath(join(__file__, "../../../")))
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 import pandas as pd
 from typing import (
     List,
     Dict,
     Tuple)
 import unittest
-#from hummingsim.backtest.ddex_order_book_loader import DDEXOrderBookLoader
 from hummingsim.backtest.binance_order_book_loader_v2 import BinanceOrderBookLoaderV2
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import Market, OrderType
@@ -61,8 +59,8 @@ class OrderExpirationTestStrategy(UnitTestStrategy):
             self.start_printing = True
         if not self.start_printing:
             return
-        #print(self.order_expired_events)
-        #print(self.market.limit_orders)
+        # print(self.order_expired_events)
+        # print(self.market.limit_orders)
         print(self.market.order_expirations)
 
     @property
@@ -82,20 +80,20 @@ class OrderExpirationTest(unittest.TestCase):
     base = "USDT"
 
     def setUp(self):
-        #self.weth_dai_data = DDEXOrderBookLoader("WETH-DAI", "WETH", "DAI")
+        # self.weth_dai_data = DDEXOrderBookLoader("WETH-DAI", "WETH", "DAI")
         self.pair_data = BinanceOrderBookLoaderV2(self.market_name, "ETH", "USDT")
-        #self.pair_data = HuobiOrderBookLoader(self.market_name, "", "")
+        # self.pair_data = HuobiOrderBookLoader(self.market_name, "", "")
         self.clock = Clock(ClockMode.BACKTEST, 1.0, self.start.timestamp(), self.end.timestamp())
         self.market = BacktestMarket()
-        #self.market.add_data(self.weth_dai_data)
+        # self.market.add_data(self.weth_dai_data)
         self.market.add_data(self.pair_data)
         self.market.set_balance(self.quote, 200.0)
         self.market.set_balance(self.base, 20000.0)
         self.clock.add_iterator(self.market)
 
     def tearDown(self):
-        #self.weth_dai_data.close()
-        #self.eth_usd_data.close()
+        # self.weth_dai_data.close()
+        # self.eth_usd_data.close()
         self.pair_data.close()
 
     def verify_expired_order_cleanup(self, order_expired_events, limit_orders):

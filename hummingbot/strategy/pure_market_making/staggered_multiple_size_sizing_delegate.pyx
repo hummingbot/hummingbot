@@ -114,16 +114,14 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
 
         if self._log_warning_balance:
             if quote_asset_balance < required_quote_asset_balance:
-                self.logger().network(f"Buy(bid) order is not placed because there is not enough Quote asset. "
-                                      f"Quote Asset: {quote_asset_balance}, Required Quote Asset: {required_quote_asset_balance}",
-                                      f"Not enough asset to place the required buy(bid) orders. Check balances.")
+                self.logger().debug(f"Buy(bid) order is not placed because there is not enough Quote asset. "
+                                      f"Quote Asset: {quote_asset_balance}, Required Quote Asset: {required_quote_asset_balance}")
                 #After warning once, set warning flag to False
                 self._log_warning_balance = False
 
             if base_asset_balance < required_base_asset_balance:
-                self.logger().network(f"Sell(ask) order is not placed because there is not enough Base asset. "
-                                      f"Base Asset: {base_asset_balance}, Required Base Asset: {required_base_asset_balance}",
-                                      f"Not enough asset to place the required sell(ask) orders. Check balances.")
+                self.logger().debug(f"Sell(ask) order is not placed because there is not enough Base asset. "
+                                      f"Base Asset: {base_asset_balance}, Required Base Asset: {required_base_asset_balance}")
                 #After warning once, set warning flag to False
                 self._log_warning_balance = False
 
