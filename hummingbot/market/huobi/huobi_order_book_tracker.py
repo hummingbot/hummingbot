@@ -61,7 +61,15 @@ class HuobiOrderBookTracker(OrderBookTracker):
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source
 
+    @property
+    def exchange_name(self) -> str:
+        return "huobi"
+
     async def start(self):
+        await super().start()
+        self._order_book_trade_listener_task = asyncio.ensure_future(
+            self.data_source.listen_for_trades(self._ev_loop, self._order_book_trade_stream)
+        )
         self._order_book_diff_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
@@ -77,12 +85,6 @@ class HuobiOrderBookTracker(OrderBookTracker):
         self._order_book_snapshot_router_task = asyncio.ensure_future(
             self._order_book_snapshot_router()
         )
-
-        await asyncio.gather(self._order_book_snapshot_listener_task,
-                             self._order_book_diff_listener_task,
-                             self._order_book_snapshot_router_task,
-                             self._order_book_diff_router_task,
-                             self._refresh_tracking_task)
 
     async def _order_book_diff_router(self):
         """

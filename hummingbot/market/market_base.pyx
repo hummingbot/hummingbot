@@ -57,6 +57,10 @@ cdef class MarketBase(NetworkIterator):
         return {}
 
     @property
+    def display_name(self) -> str:
+        return self.name
+
+    @property
     def name(self) -> str:
         return self.__class__.__name__
 
