@@ -16,6 +16,7 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils import async_ttl_cache
@@ -54,6 +55,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         """
+        *required
         Returns all currently active BTC trading pairs from Coinbase Pro, sorted by volume in descending order.
         """
         async with aiohttp.ClientSession() as client:
@@ -112,11 +114,13 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 all_markets["USDVolume"] = usd_volume
                 return all_markets.sort_values("USDVolume", ascending=False)
 
-    @property
-    def order_book_class(self) -> CoinbaseProOrderBook:
-        return CoinbaseProOrderBook
-
     async def get_trading_pairs(self) -> List[str]:
+        """
+        Get a list of active trading pairs
+        (if the market class already specifies a list of trading pairs,
+        returns that list instead of all active trading pairs)
+        :returns: A list of trading pairs defined by the market class, or all active trading pairs from the rest API
+        """
         if not self._symbols:
             try:
                 active_markets: pd.DataFrame = await self.get_active_exchange_markets()
@@ -132,6 +136,10 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, any]:
+        """
+        Fetches order book snapshot for a particular trading pair from the rest API
+        :returns: Response from the rest API
+        """
         product_order_book_url: str = f"{COINBASE_REST_URL}/products/{trading_pair}/book?level=3"
         async with client.get(product_order_book_url) as response:
             response: aiohttp.ClientResponse = response
@@ -142,6 +150,12 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return data
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
+        """
+        *required
+        Initializes order books and order book trackers for the list of trading pairs
+        returned by `self.get_trading_pairs`
+        :returns: A dictionary of order book trackers for each trading pair
+        """
         # Get the currently active markets
         async with aiohttp.ClientSession() as client:
             trading_pairs: List[str] = await self.get_trading_pairs()
@@ -152,12 +166,12 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 try:
                     snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
                     snapshot_timestamp: float = time.time()
-                    snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                    snapshot_msg: OrderBookMessage = CoinbaseProOrderBook.snapshot_message_from_exchange(
                         snapshot,
                         snapshot_timestamp,
                         metadata={"symbol": trading_pair}
                     )
-                    order_book: CoinbaseProOrderBook = CoinbaseProOrderBook()
+                    order_book: OrderBook = self.order_book_create_function()
                     active_order_tracker: CoinbaseProActiveOrderTracker = CoinbaseProActiveOrderTracker()
                     bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
                     order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
@@ -183,6 +197,11 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _inner_messages(self,
                               ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+        """
+        Generator function that returns messages from the web socket stream
+        :param ws: current web socket connection
+        :returns: message in AsyncIterable format
+        """
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
@@ -203,7 +222,17 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
         finally:
             await ws.close()
 
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        # Trade messages are received from the order book web socket
+        pass
+
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        """
+        *required
+        Subscribe to diff channel via web socket, and keep the connection open for incoming messages
+        :param ev_loop: ev_loop to execute this function in
+        :param output: an async queue where the incoming messages are stored
+        """
         while True:
             try:
                 trading_pairs: List[str] = await self.get_trading_pairs()
@@ -226,7 +255,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             if msg_type == "done" and "price" not in msg:
                                 # done messages with no price are completed market orders which can be ignored
                                 continue
-                            order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(msg)
+                            order_book_message: OrderBookMessage = CoinbaseProOrderBook.diff_message_from_exchange(msg)
                             output.put_nowait(order_book_message)
                         elif msg_type in ["received", "activate", "subscriptions"]:
                             # these messages are not needed to track the order book
@@ -245,6 +274,12 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await asyncio.sleep(30.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        """
+        *required
+        Fetches order book snapshots for each trading pair, and use them to update the local order book
+        :param ev_loop: ev_loop to execute this function in
+        :param output: an async queue where the incoming messages are stored
+        """
         while True:
             try:
                 trading_pairs: List[str] = await self.get_trading_pairs()
@@ -253,7 +288,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         try:
                             snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
                             snapshot_timestamp: float = time.time()
-                            snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                            snapshot_msg: OrderBookMessage = CoinbaseProOrderBook.snapshot_message_from_exchange(
                                 snapshot,
                                 snapshot_timestamp,
                                 metadata={"product_id": trading_pair}

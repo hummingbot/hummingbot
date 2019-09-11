@@ -40,11 +40,11 @@ class HistoryCommand:
             return
 
         rows = []
-        for market_name in self.markets:
+        for market_name, market in self.markets.items():
             for asset in self.assets:
                 starting_balance = self.starting_balances.get(asset).get(market_name)
                 current_balance = self.balance_snapshot().get(asset).get(market_name)
-                rows.append([market_name,
+                rows.append([market.display_name,
                              asset,
                              starting_balance,
                              current_balance,
