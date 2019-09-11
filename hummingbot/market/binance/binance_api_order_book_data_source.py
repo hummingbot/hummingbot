@@ -5,24 +5,25 @@ import aiohttp
 import logging
 import pandas as pd
 from typing import (
+    Any,
     AsyncIterable,
     Dict,
     List,
-    Optional,
-    Callable)
+    Optional
+)
 import re
 import time
 import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from hummingbot.market.binance.binance_order_book import BinanceOrderBook
 from hummingbot.core.utils import async_ttl_cache
-from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.logger import HummingbotLogger
+from hummingbot.market.binance.binance_order_book import BinanceOrderBook
 
 TRADING_PAIR_FILTER = re.compile(r"(BTC|ETH|USDT)$")
 
@@ -37,13 +38,13 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
-    _raobds_logger: Optional[HummingbotLogger] = None
+    _baobds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._raobds_logger is None:
-            cls._raobds_logger = logging.getLogger(__name__)
-        return cls._raobds_logger
+        if cls._baobds_logger is None:
+            cls._baobds_logger = logging.getLogger(__name__)
+        return cls._baobds_logger
 
     def __init__(self, symbols: Optional[List[str]] = None):
         super().__init__()
@@ -75,11 +76,11 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             market_data = await market_response.json()
             exchange_data = await exchange_response.json()
 
-            trading_pairs: Dict[str, any] = {item["symbol"]: {k: item[k] for k in ["baseAsset", "quoteAsset"]}
+            trading_pairs: Dict[str, Any] = {item["symbol"]: {k: item[k] for k in ["baseAsset", "quoteAsset"]}
                                              for item in exchange_data["symbols"]
                                              if item["status"] == "TRADING"}
 
-            market_data: List[Dict[str, any]] = [{**item, **trading_pairs[item["symbol"]]}
+            market_data: List[Dict[str, Any]] = [{**item, **trading_pairs[item["symbol"]]}
                                                  for item in market_data
                                                  if item["symbol"] in trading_pairs]
 
@@ -115,20 +116,20 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return self._symbols
 
     @staticmethod
-    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000) -> Dict[str, any]:
-            params: Dict = {"limit": str(limit), "symbol": trading_pair} if limit != 0 else {"symbol": trading_pair}
-            async with client.get(SNAPSHOT_REST_URL, params=params) as response:
-                response: aiohttp.ClientResponse = response
-                if response.status != 200:
-                    raise IOError(f"Error fetching Binance market snapshot for {trading_pair}. "
-                                  f"HTTP status is {response.status}.")
-                data: Dict[str, any] = await response.json()
+    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000) -> Dict[str, Any]:
+        params: Dict = {"limit": str(limit), "symbol": trading_pair} if limit != 0 else {"symbol": trading_pair}
+        async with client.get(SNAPSHOT_REST_URL, params=params) as response:
+            response: aiohttp.ClientResponse = response
+            if response.status != 200:
+                raise IOError(f"Error fetching Binance market snapshot for {trading_pair}. "
+                              f"HTTP status is {response.status}.")
+            data: Dict[str, Any] = await response.json()
 
-                # Need to add the symbol into the snapshot message for the Kafka message queue.
-                # Because otherwise, there'd be no way for the receiver to know which market the
-                # snapshot belongs to.
+            # Need to add the symbol into the snapshot message for the Kafka message queue.
+            # Because otherwise, there'd be no way for the receiver to know which market the
+            # snapshot belongs to.
 
-                return data
+            return data
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         # Get the currently active markets
@@ -139,7 +140,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             number_of_pairs: int = len(trading_pairs)
             for index, trading_pair in enumerate(trading_pairs):
                 try:
-                    snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, 1000)
+                    snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, 1000)
                     snapshot_timestamp: float = time.time()
                     snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
                         snapshot,
@@ -150,9 +151,9 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
                     retval[trading_pair] = OrderBookTrackerEntry(trading_pair, snapshot_timestamp, order_book)
                     self.logger().info(f"Initialized order book for {trading_pair}. "
-                                        f"{index+1}/{number_of_pairs} completed.")
+                                       f"{index+1}/{number_of_pairs} completed.")
                     # Each 1000 limit snapshot costs 10 requests and Binance rate limit is 20 requests per second.
-                    await asyncio.sleep(0.4)
+                    await asyncio.sleep(1.0)
                 except Exception:
                     self.logger().error(f"Error getting snapshot for {trading_pair}. ", exc_info=True)
                     await asyncio.sleep(5)
@@ -228,7 +229,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 async with aiohttp.ClientSession() as client:
                     for trading_pair in trading_pairs:
                         try:
-                            snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
+                            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
                             snapshot_timestamp: float = time.time()
                             snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
                                 snapshot,
