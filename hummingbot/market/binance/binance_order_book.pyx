@@ -121,6 +121,20 @@ cdef class BinanceOrderBook(OrderBook):
         }, timestamp=ts * 1e-3)
 
     @classmethod
+    def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict] = None):
+        if metadata:
+            msg.update(metadata)
+        ts = msg["E"]
+        return OrderBookMessage(OrderBookMessageType.TRADE, {
+            "symbol": msg["s"],
+            "trade_type": float(TradeType.SELL.value) if msg["m"] else float(TradeType.BUY.value),
+            "trade_id": msg["t"],
+            "update_id": ts,
+            "price": msg["p"],
+            "amount": msg["q"]
+        }, timestamp=ts * 1e-3)
+
+    @classmethod
     def from_snapshot(cls, msg: OrderBookMessage) -> "OrderBook":
         retval = BinanceOrderBook()
         retval.apply_snapshot(msg.bids, msg.asks, msg.update_id)
