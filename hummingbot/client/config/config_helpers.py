@@ -140,7 +140,7 @@ def load_required_configs(*args) -> OrderedDict:
     current_strategy = in_memory_config_map.get("strategy").value
     current_strategy_file_path = in_memory_config_map.get("strategy_file_path").value
     if current_strategy is None or current_strategy_file_path is None:
-        return _merge_dicts(in_memory_config_map)
+        return _merge_dicts(in_memory_config_map, global_config_map)
     else:
         strategy_config_map = get_strategy_config_map(current_strategy)
         # create an ordered dict where `strategy` is inserted first
