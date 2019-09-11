@@ -71,9 +71,9 @@ pure_market_making_config_map = {
     "order_step_size": ConfigVar(key="order_step_size",
                                  prompt="How much do you want to increase the order size for each "
                                         "additional order (default is 0) ? >>> ",
-                                        required_if=lambda: pure_market_making_config_map.get("mode").value == "multiple",
-                                        type_str="float",
-                                        default=0),
+                                 required_if=lambda: pure_market_making_config_map.get("mode").value == "multiple",
+                                 type_str="float",
+                                 default=0),
     "order_interval_percent": ConfigVar(key="order_interval_percent",
                                         prompt="Enter the price increments (as percentage) for subsequent "
                                                "orders (Enter 0.01 to indicate 1%)? >>> ",
