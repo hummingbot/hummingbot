@@ -13,4 +13,4 @@ Please see below for instructions to find your API keys for the exchanges that H
 * [IDEX](/connectors/idex/#api-key)
 
 !!! warning "API key permissions"
-    For general use of Hummingbot, we recommend "trade only" enabled API keys and suggest not using "transfer" or "withdraw" enabled API keys.
+    We recommend using only "trade" enabled API keys; enabling "withdraw" is unnecessary for current Hummingbot strategies.
