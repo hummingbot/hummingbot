@@ -17,7 +17,7 @@ Because [Huobi](https://www.hbg.com/) is a centralized exchange, you will need t
 
 2 - Add notes (required) and make sure the checkbox for **Trade** is selected to trade on Hummingbot. Withdraw and bind IP address is optional depending on your preference.
 
-For general use of Hummingbot, withdraw permission is not required and it is advised to create API keys that are only "Trade" enabled.
+We recommend using only "trade" enabled API keys; enabling "withdraw" is unnecessary for current Hummingbot strategies.
 
 ![huobi2](/assets/img/huobi-create-api-key.png)
 
