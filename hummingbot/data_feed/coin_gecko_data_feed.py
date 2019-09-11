@@ -95,7 +95,7 @@ class CoinGeckoDataFeed(DataFeedBase):
                     async with client.request("GET", price_url, params=params) as resp:
                         results: Dict[str, Dict[str, float]] = await resp.json()
                         for id, usd_price in results.items():
-                            symbol: str = id_symbol_map[id]
+                            symbol: str = id_symbol_map[id].upper()
                             price: float = float(usd_price.get("usd", 0.0))
                             price_dict[symbol] = price
                 except Exception:
