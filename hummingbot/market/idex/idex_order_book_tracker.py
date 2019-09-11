@@ -16,6 +16,7 @@ from typing import (
     Set
 )
 
+from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTracker,
@@ -27,8 +28,8 @@ from hummingbot.market.idex.idex_active_order_tracker import IDEXActiveOrderTrac
 from hummingbot.market.idex.idex_api_order_book_data_source import IDEXAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessageType,
-    IDEXOrderBookMessage
-)
+    IDEXOrderBookMessage,
+    OrderBookMessage)
 from hummingbot.core.data_type.order_book_tracker_entry import IDEXOrderBookTrackerEntry
 
 
@@ -67,10 +68,11 @@ class IDEXOrderBookTracker(OrderBookTracker):
         return self._data_source
 
     @property
-    async def exchange_name(self) -> str:
+    def exchange_name(self) -> str:
         return "idex"
 
     async def start(self):
+        await super().start()
         self._order_book_diff_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
@@ -86,12 +88,6 @@ class IDEXOrderBookTracker(OrderBookTracker):
         self._order_book_snapshot_router_task = asyncio.ensure_future(
             self._order_book_snapshot_router()
         )
-
-        await asyncio.gather(self._order_book_snapshot_listener_task,
-                             self._order_book_diff_listener_task,
-                             self._order_book_snapshot_router_task,
-                             self._order_book_diff_router_task,
-                             self._refresh_tracking_task)
 
     async def _refresh_tracking_tasks(self):
         """
@@ -147,15 +143,28 @@ class IDEXOrderBookTracker(OrderBookTracker):
                     messages_rejected += 1
                     continue
                 await message_queue.put(ob_message)
+
+                if ob_message.content["event"] == "market_trades":  # put trade messages to trade queue
+                    trade_type = float(TradeType.BUY.value) if ob_message.content["type"].upper() == "BUY" \
+                        else float(TradeType.SELL.value)
+                    self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
+                        "symbol": ob_message.content["market"],
+                        "trade_type": trade_type,
+                        "trade_id": ob_message.content["tid"],
+                        "update_id": ob_message.timestamp,
+                        "price": ob_message.content["price"],
+                        "amount": ob_message.content["amount"]
+                    }, timestamp=ob_message.timestamp))
+
                 messages_accepted += 1
 
                 # Log some statistics.
                 now: float = time.time()
                 if int(now / 60.0) > int(last_message_timestamp / 60.0):
                     self.logger().debug("Diff messages processed: %d, rejected: %d, queued: %d",
-                                       messages_accepted,
-                                       messages_rejected,
-                                       messages_queued)
+                                        messages_accepted,
+                                        messages_rejected,
+                                        messages_queued)
                     messages_accepted = 0
                     messages_rejected = 0
                     messages_queued = 0
