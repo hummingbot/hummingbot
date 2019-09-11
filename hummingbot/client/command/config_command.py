@@ -54,7 +54,8 @@ class ConfigCommand:
     def config_complete(self,  # type: HummingbotApplication
                         ):
         config_map = load_required_configs()
-        for key in self._get_empty_configs():
+        keys = self.key_filter(self._get_empty_configs())
+        for key in keys:
             cvar = config_map.get(key)
             if cvar.value is None and cvar.required:
                 return False
@@ -194,33 +195,56 @@ class ConfigCommand:
             val = cvar.default
         return val
 
+    def key_filter(self, keys: List[str]):
+        try:
+            exclude_keys = set()
+            if global_config_map.get("paper_trade_enabled").value:
+                exclude_keys.update(["wallet",
+                                     "coinbase_pro_api_key",
+                                     "coinbase_pro_secret_key",
+                                     "coinbase_pro_passphrase",
+                                     "binance_api_key",
+                                     "binance_api_secret",
+                                     "huobi_api_key",
+                                     "huobi_secret_key",
+                                     "idex_api_key",
+                                     "ethereum_rpc_url"
+                                     ])
+            return [k for k in keys if k not in exclude_keys]
+        except Exception as err:
+            self.logger().error("Error filtering config keys.", exc_info=True)
+            return keys
+
+    async def _inner_config_loop(self, _keys: List[str], single_key: bool):
+        keys = self.key_filter(_keys)
+        for key in keys:
+            current_strategy: str = in_memory_config_map.get("strategy").value
+            strategy_cm: Dict[str, ConfigVar] = get_strategy_config_map(current_strategy)
+            if key in in_memory_config_map:
+                cv: ConfigVar = in_memory_config_map.get(key)
+            elif key in global_config_map:
+                cv: ConfigVar = global_config_map.get(key)
+            else:
+                cv: ConfigVar = strategy_cm.get(key)
+
+            value = await self.config_single_variable(cv, is_single_key=single_key)
+            cv.value = parse_cvar_value(cv, value)
+            if single_key:
+                self._notify(f"\nNew config saved:\n{key}: {str(value)}")
+        if not self.config_complete:
+            await self._inner_config_loop(self._get_empty_configs(), single_key)
+
     async def _config_loop(self,  # type: HummingbotApplication
                            keys: List[str] = []):
+
         self._notify("Please follow the prompt to complete configurations: ")
         self.placeholder_mode = True
         self.app.toggle_hide_input()
 
         single_key = len(keys) == 1
 
-        async def inner_loop(_keys: List[str]):
-            for key in _keys:
-                current_strategy: str = in_memory_config_map.get("strategy").value
-                strategy_cm: Dict[str, ConfigVar] = get_strategy_config_map(current_strategy)
-                if key in in_memory_config_map:
-                    cv: ConfigVar = in_memory_config_map.get(key)
-                elif key in global_config_map:
-                    cv: ConfigVar = global_config_map.get(key)
-                else:
-                    cv: ConfigVar = strategy_cm.get(key)
-
-                value = await self.config_single_variable(cv, is_single_key=single_key)
-                cv.value = parse_cvar_value(cv, value)
-                if single_key:
-                    self._notify(f"\nNew config saved:\n{key}: {str(value)}")
-            if not self.config_complete:
-                await inner_loop(self._get_empty_configs())
         try:
-            await inner_loop(keys)
+            await self._inner_config_loop(keys, single_key)
             await write_config_to_yml()
             if not single_key:
                 self._notify("\nConfig process complete. Enter \"start\" to start market making.")

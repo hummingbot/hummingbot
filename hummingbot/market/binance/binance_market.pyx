@@ -66,7 +66,7 @@ from hummingbot.market.trading_rule cimport TradingRule
 
 s_logger = None
 s_decimal_0 = Decimal(0)
-SYMBOL_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX)$")
+SYMBOL_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX)$")
 
 
 cdef class BinanceMarketTransactionTracker(TransactionTracker):
@@ -485,6 +485,11 @@ cdef class BinanceMarket(MarketBase):
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for order_update, tracked_order in zip(results, tracked_orders):
                 client_order_id = tracked_order.client_order_id
+
+                # If the order has already been cancelled or has failed do nothing
+                if client_order_id not in self._in_flight_orders:
+                    continue
+
                 if isinstance(order_update, Exception):
                     if order_update.code == 2013 or order_update.message == "Order does not exist.":
                         self._order_not_found_records[client_order_id] = \
@@ -538,16 +543,13 @@ cdef class BinanceMarket(MarketBase):
                                                                          order_type))
                     else:
                         # check if its a cancelled order
-                        # if its a cancelled order, check in flight orders
-                        # if present in in flight orders issue cancel and stop tracking order
+                        # if its a cancelled order, issue cancel and stop tracking order
                         if tracked_order.last_state == "CANCELED":
-                            if client_order_id in self._in_flight_orders:
-                                self.logger().info(f"Successfully cancelled order {client_order_id}.")
-                                self.c_stop_tracking_order(client_order_id)
-                                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                                     OrderCancelledEvent(
-                                                         self._current_timestamp,
-                                                         client_order_id))
+                            self.logger().info(f"Successfully cancelled order {client_order_id}.")
+                            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                                 OrderCancelledEvent(
+                                                     self._current_timestamp,
+                                                     client_order_id))
                         else:
                             self.logger().info(f"The market order {client_order_id} has failed according to "
                                                f"order status API.")
@@ -616,6 +618,7 @@ cdef class BinanceMarket(MarketBase):
                         self.logger().debug(f"Unrecognized order ID from user stream: {client_order_id}.")
                         self.logger().debug(f"Event: {event_message}")
                         continue
+
                     tracked_order.update_with_execution_report(event_message)
 
                     if execution_type == "TRADE":
@@ -633,11 +636,11 @@ cdef class BinanceMarket(MarketBase):
                     if tracked_order.is_done:
                         if not tracked_order.is_failure:
                             if tracked_order.trade_type is TradeType.BUY:
-                                self.logger().info(f"The market buy order {client_order_id} has completed "
+                                self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
                                                 f"according to user stream.")
                                 self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
                                                     BuyOrderCompletedEvent(self._current_timestamp,
-                                                                            client_order_id,
+                                                                            tracked_order.client_order_id,
                                                                             tracked_order.base_asset,
                                                                             tracked_order.quote_asset,
                                                                             (tracked_order.fee_asset
@@ -647,11 +650,11 @@ cdef class BinanceMarket(MarketBase):
                                                                             float(tracked_order.fee_paid),
                                                                             tracked_order.order_type))
                             else:
-                                self.logger().info(f"The market sell order {client_order_id} has completed "
+                                self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
                                                 f"according to user stream.")
                                 self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
                                                     SellOrderCompletedEvent(self._current_timestamp,
-                                                                            client_order_id,
+                                                                            tracked_order.client_order_id,
                                                                             tracked_order.base_asset,
                                                                             tracked_order.quote_asset,
                                                                             (tracked_order.fee_asset
@@ -661,15 +664,27 @@ cdef class BinanceMarket(MarketBase):
                                                                             float(tracked_order.fee_paid),
                                                                             tracked_order.order_type))
                         else:
-                            self.logger().info(f"The market order {client_order_id} has failed according to user stream.")
-                            self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                                                MarketOrderFailureEvent(
-                                                    self._current_timestamp,
-                                                    tracked_order.client_order_id,
-                                                    tracked_order.order_type
-                                                ))
-                        self.c_stop_tracking_order(client_order_id)
-
+                            # check if its a cancelled order
+                            # if its a cancelled order, check in flight orders
+                            # if present in in flight orders issue cancel and stop tracking order
+                            if tracked_order.last_state == "CANCELED":
+                                if tracked_order.client_order_id in self._in_flight_orders:
+                                    self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+                                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                                         OrderCancelledEvent(
+                                                             self._current_timestamp,
+                                                             tracked_order.client_order_id))
+                            else:
+                                self.logger().info(f"The market order {tracked_order.client_order_id} has failed according to "
+                                                   f"order status API.")
+                                self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                                                     MarketOrderFailureEvent(
+                                                         self._current_timestamp,
+                                                         tracked_order.client_order_id,
+                                                         tracked_order.order_type
+                                                 ))
+                        self.c_stop_tracking_order(tracked_order.client_order_id)
+                
                 elif event_type == "outboundAccountInfo":
                     local_asset_names = set(self._account_balances.keys())
                     remote_asset_names = set()

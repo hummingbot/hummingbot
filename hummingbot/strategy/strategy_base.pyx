@@ -146,7 +146,7 @@ cdef class StrategyBase(TimeIterator):
         for market in self.active_markets:
             event_logs = market.event_logs
             order_filled_events = list(filter(lambda e: isinstance(e, OrderFilledEvent), event_logs))
-            past_trades += list(map(lambda ofe: event_to_trade(ofe, market.name), order_filled_events))
+            past_trades += list(map(lambda ofe: event_to_trade(ofe, market.display_name), order_filled_events))
 
         return sorted(past_trades, key=lambda x: x.timestamp)
 
@@ -172,7 +172,7 @@ cdef class StrategyBase(TimeIterator):
                 bid_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, bid_price)
                 ask_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, ask_price)
                 markets_data.append([
-                    market.name,
+                    market.display_name,
                     trading_pair,
                     bid_price,
                     ask_price,
@@ -205,8 +205,8 @@ cdef class StrategyBase(TimeIterator):
                 base_asset_conversion_rate = ExchangeRateConversion.get_instance().adjust_token_rate(base_asset, 1.0)
                 quote_asset_conversion_rate = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, 1.0)
                 assets_data.extend([
-                    [market.name, base_asset, base_balance, available_base_balance, base_asset_conversion_rate],
-                    [market.name, quote_asset, quote_balance, available_quote_balance, quote_asset_conversion_rate]
+                    [market.display_name, base_asset, base_balance, available_base_balance, base_asset_conversion_rate],
+                    [market.display_name, quote_asset, quote_balance, available_quote_balance, quote_asset_conversion_rate]
                 ])
 
             return pd.DataFrame(data=assets_data, columns=assets_columns)
