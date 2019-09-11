@@ -123,7 +123,7 @@ cdef class CoinbaseProMarket(MarketBase):
                  coinbase_pro_api_key: str,
                  coinbase_pro_secret_key: str,
                  coinbase_pro_passphrase: str,
-                 poll_interval: float = 5.0,
+                 poll_interval: float = 5.0,    # interval which the class periodically pulls status from the rest API
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                     OrderBookTrackerDataSourceType.EXCHANGE_API,
                  symbols: Optional[List[str]] = None,
@@ -155,30 +155,56 @@ cdef class CoinbaseProMarket(MarketBase):
 
     @property
     def name(self) -> str:
+        """
+        *required
+        :return: A lowercase name / id for the market. Must stay consistent with market name in global settings.
+        """
         return "coinbase_pro"
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
+        """
+        *required
+        Get mapping of all the order books that are being tracked.
+        :return: Dict[trading_pair : OrderBook]
+        """
         return self._order_book_tracker.order_books
 
     @property
     def coinbase_auth(self) -> CoinbaseProAuth:
+        """
+        :return: CoinbaseProAuth class (This is unique to coinbase pro market).
+        Read more here: https://docs.pro.coinbase.com/?python#signing-a-message
+        """
         return self._coinbase_auth
 
     @property
     def status_dict(self) -> Dict[str, bool]:
+        """
+        *required
+        :return: a dictionary of relevant status checks.
+        This is used by `ready` method below to determine if a market is ready for trading.
+        """
         return {
-            "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
+            "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True
         }
 
     @property
     def ready(self) -> bool:
+        """
+        *required
+        :return: a boolean value that indicates if the market is ready for trading
+        """
         return all(self.status_dict.values())
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
+        """
+        *required
+        :return: list of active limit orders
+        """
         return [
             in_flight_order.to_limit_order()
             for in_flight_order in self._in_flight_orders.values()
@@ -186,28 +212,55 @@ cdef class CoinbaseProMarket(MarketBase):
 
     @property
     def tracking_states(self) -> Dict[str, any]:
+        """
+        *required
+        :return: Dict[client_order_id: InFlightOrder]
+        This is used by the MarketsRecorder class to orchestrate market classes at a higher level.
+        """
         return {
             key: value.to_json()
             for key, value in self._in_flight_orders.items()
         }
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
+        """
+        *required
+        Updates inflight order statuses from API results
+        This is used by the MarketsRecorder class to orchestrate market classes at a higher level.
+        """
         self._in_flight_orders.update({
             key: CoinbaseProInFlightOrder.from_json(value)
             for key, value in saved_states.items()
         })
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
+        """
+        *required
+        Used by the discovery strategy to read order books of all actively trading markets,
+        and find opportunities to profit
+        """
         return await CoinbaseProAPIOrderBookDataSource.get_active_exchange_markets()
 
     def get_all_balances(self) -> Dict[str, float]:
+        """
+        *required
+        :return: Dict[asset_name: asst_balance]: Balances of all assets being traded
+        """
         return self._account_balances.copy()
 
     cdef c_start(self, Clock clock, double timestamp):
+        """
+        *required
+        c_start function used by top level Clock to orchestrate components of the bot
+        """
         self._tx_tracker.c_start(clock, timestamp)
         MarketBase.c_start(self, clock, timestamp)
 
     async def start_network(self):
+        """
+        *required
+        Async function used by NetworkBase class to handle when a single market goes online
+        """
         if self._order_tracker_task is not None:
             self._stop_network()
 
@@ -219,6 +272,9 @@ cdef class CoinbaseProMarket(MarketBase):
             self._user_stream_event_listener_task = asyncio.ensure_future(self._user_stream_event_listener())
 
     def _stop_network(self):
+        """
+        Synchronous function that handles when a single market goes offline
+        """
         if self._order_tracker_task is not None:
             self._order_tracker_task.cancel()
         if self._status_polling_task is not None:
@@ -231,9 +287,17 @@ cdef class CoinbaseProMarket(MarketBase):
             self._user_stream_event_listener_task = None
 
     async def stop_network(self):
+        """
+        *required
+        Async wrapper for `self._stop_network`. Used by NetworkBase class to handle when a single market goes offline.
+        """
         self._stop_network()
 
     async def check_network(self) -> NetworkStatus:
+        """
+        *required
+        Async function used by NetworkBase class to check if the market is online / offline.
+        """
         try:
             await self._api_request("get", path_url="/time")
         except asyncio.CancelledError:
@@ -243,6 +307,11 @@ cdef class CoinbaseProMarket(MarketBase):
         return NetworkStatus.CONNECTED
 
     cdef c_tick(self, double timestamp):
+        """
+        *required
+        Used by top level Clock to orchestrate components of the bot. 
+        This function is called frequently with every clock tick
+        """
         cdef:
             int64_t last_tick = <int64_t>(self._last_timestamp / self._poll_interval)
             int64_t current_tick = <int64_t>(timestamp / self._poll_interval)
@@ -254,6 +323,9 @@ cdef class CoinbaseProMarket(MarketBase):
         self._last_timestamp = timestamp
 
     async def _http_client(self) -> aiohttp.ClientSession:
+        """
+        :returns: Shared client session instance
+        """
         if self._shared_client is None:
             self._shared_client = aiohttp.ClientSession()
         return self._shared_client
@@ -263,6 +335,10 @@ cdef class CoinbaseProMarket(MarketBase):
                            path_url: str = None,
                            url: str = None,
                            data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        A wrapper for submitting API requests to Coinbase Pro
+        :returns: json data from the endpoints
+        """
         assert path_url is not None or url is not None
 
         url = f"{self.COINBASE_API_ENDPOINT}{path_url}" if url is None else url
@@ -284,6 +360,11 @@ cdef class CoinbaseProMarket(MarketBase):
                           object order_side,
                           double amount,
                           double price):
+        """
+        *required
+        function to calculate fees for a particular order
+        :returns: TradeFee class that includes fee percentage and flat fees
+        """
         # There is no API for checking user's fee tier
         # Fee info from https://pro.coinbase.com/fees
         cdef:
@@ -293,6 +374,9 @@ cdef class CoinbaseProMarket(MarketBase):
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
 
     async def _update_balances(self):
+        """
+        Pulls the API for updated balances
+        """
         cdef:
             dict account_info
             list balances
@@ -318,6 +402,9 @@ cdef class CoinbaseProMarket(MarketBase):
             del self._account_balances[asset_name]
 
     async def _update_trading_rules(self):
+        """
+        Pulls the API for trading rules (min / max order size, etc)
+        """
         cdef:
             # The poll interval for withdraw rules is 60 seconds.
             int64_t last_tick = <int64_t>(self._last_timestamp / 60.0)
@@ -330,6 +417,10 @@ cdef class CoinbaseProMarket(MarketBase):
                 self._trading_rules[trading_rule.symbol] = trading_rule
 
     def _format_trading_rules(self, raw_trading_rules: List[Any]) -> List[TradingRule]:
+        """
+        Turns json data from API into TradingRule instances
+        :returns: List of TradingRule
+        """
         cdef:
             list retval = []
         for rule in raw_trading_rules:
@@ -345,6 +436,9 @@ cdef class CoinbaseProMarket(MarketBase):
         return retval
 
     async def _update_order_status(self):
+        """
+        Pulls the rest API for for latest order statuses and update local order statuses.
+        """
         cdef:
             double current_timestamp = self._current_timestamp
 
@@ -448,6 +542,9 @@ cdef class CoinbaseProMarket(MarketBase):
         self._last_order_update_timestamp = current_timestamp
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, Any]]:
+        """
+        Iterator for incoming messages from the user stream.
+        """
         while True:
             try:
                 yield await self._user_stream_tracker.user_stream.get()
@@ -458,6 +555,9 @@ cdef class CoinbaseProMarket(MarketBase):
                 await asyncio.sleep(1.0)
 
     async def _user_stream_event_listener(self):
+        """
+        Update order statuses from incoming messages from the user stream
+        """
         async for event_message in self._iter_user_event_queue():
             try:
                 content = event_message.content
@@ -574,6 +674,10 @@ cdef class CoinbaseProMarket(MarketBase):
 
     async def place_order(self, order_id: str, symbol: str, amount: Decimal, is_buy: bool, order_type: OrderType,
                           price: float):
+        """
+        Async wrapper for placing orders through the rest API.
+        :returns: json response from the API
+        """
         path_url = "/orders"
         data = {
             "price": price,
@@ -592,6 +696,10 @@ cdef class CoinbaseProMarket(MarketBase):
                           amount: float,
                           order_type: OrderType,
                           price: Optional[float] = None):
+        """
+        Function that takes strategy inputs, auto corrects itself with trading rule,
+        and submit an API request to place a buy order
+        """
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
 
@@ -635,6 +743,10 @@ cdef class CoinbaseProMarket(MarketBase):
 
     cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0,
                    dict kwargs = {}):
+        """
+        *required
+        Synchronous wrapper that generates a client-side order ID and schedules the buy order.
+        """
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"buy-{symbol}-{tracking_nonce}")
@@ -648,6 +760,10 @@ cdef class CoinbaseProMarket(MarketBase):
                            amount: float,
                            order_type: OrderType,
                            price: Optional[float] = None):
+        """
+        Function that takes strategy inputs, auto corrects itself with trading rule,
+        and submit an API request to place a sell order
+        """
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
 
@@ -691,6 +807,10 @@ cdef class CoinbaseProMarket(MarketBase):
 
     cdef str c_sell(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0,
                     dict kwargs = {}):
+        """
+        *required
+        Synchronous wrapper that generates a client-side order ID and schedules the sell order.
+        """
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"sell-{symbol}-{tracking_nonce}")
@@ -698,6 +818,9 @@ cdef class CoinbaseProMarket(MarketBase):
         return order_id
 
     async def execute_cancel(self, symbol: str, order_id: str):
+        """
+        Function that makes API request to cancel an active order
+        """
         try:
             exchange_order_id = await self._in_flight_orders.get(order_id).get_exchange_order_id()
             path_url = f"/orders/{exchange_order_id}"
@@ -728,10 +851,20 @@ cdef class CoinbaseProMarket(MarketBase):
         return None
 
     cdef c_cancel(self, str symbol, str order_id):
+        """
+        *required
+        Synchronous wrapper that schedules cancelling an order.
+        """
         asyncio.ensure_future(self.execute_cancel(symbol, order_id))
         return order_id
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+        """
+        *required
+        Async function that cancels all active orders.
+        Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
+        :returns: List of CancellationResult which indicates whether each order is successfully cancelled.
+        """
         incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
         tasks = [self.execute_cancel(o.symbol, o.client_order_id) for o in incomplete_orders]
         order_id_set = set([o.client_order_id for o in incomplete_orders])
@@ -754,10 +887,10 @@ cdef class CoinbaseProMarket(MarketBase):
         failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
         return successful_cancellations + failed_cancellations
 
-    async def get_active_exchange_markets(self):
-        return await CoinbaseProAPIOrderBookDataSource.get_active_exchange_markets()
-
     async def _status_polling_loop(self):
+        """
+        Background process that periodically pulls for changes from the rest API
+        """
         while True:
             try:
                 self._poll_notifier = asyncio.Event()
@@ -778,6 +911,10 @@ cdef class CoinbaseProMarket(MarketBase):
                 )
 
     async def _trading_rules_polling_loop(self):
+        """
+        Separate background process that periodically pulls for trading rule changes
+        (Since trading rules don't get updated often, it is pulled less often.)
+        """
         while True:
             try:
                 await asyncio.gather(self._update_trading_rules())
@@ -794,6 +931,10 @@ cdef class CoinbaseProMarket(MarketBase):
                 await asyncio.sleep(0.5)
 
     async def get_order(self, client_order_id: str) -> Dict[str, Any]:
+        """
+        Gets status update for a particular order via rest API
+        :returns: json response
+        """
         order = self._in_flight_orders.get(client_order_id)
         exchange_order_id = await order.get_exchange_order_id()
         path_url = f"/orders/{exchange_order_id}"
@@ -801,16 +942,28 @@ cdef class CoinbaseProMarket(MarketBase):
         return result
 
     async def list_orders(self) -> List[Any]:
+        """
+        Gets a list of the user's active orders via rest API
+        :returns: json response
+        """
         path_url = "/orders?status=all"
         result = await self._api_request("get", path_url=path_url)
         return result
 
     async def get_transfers(self) -> Dict[str, Any]:
+        """
+        Gets a list of the user's transfers via rest API
+        :returns: json response
+        """
         path_url = "/transfers"
         result = await self._api_request("get", path_url=path_url)
         return result
 
     async def list_coinbase_accounts(self) -> Dict[str, str]:
+        """
+        Gets a list of the user's coinbase accounts via rest API
+        :returns: json response
+        """
         path_url = "/coinbase-accounts"
         coinbase_accounts = await self._api_request("get", path_url=path_url)
         ids = [a["id"] for a in coinbase_accounts]
@@ -818,6 +971,11 @@ cdef class CoinbaseProMarket(MarketBase):
         return dict(zip(currencies, ids))
 
     async def get_deposit_address(self, asset: str) -> str:
+        """
+        Gets a list of the user's crypto address for a particular asset,
+        so that the bot can deposit funds into coinbase pro
+        :returns: json response
+        """
         coinbase_account_id_dict = await self.list_coinbase_accounts()
         account_id = coinbase_account_id_dict.get(asset)
         path_url = f"/coinbase-accounts/{account_id}/addresses"
@@ -825,9 +983,16 @@ cdef class CoinbaseProMarket(MarketBase):
         return deposit_result.get("address")
 
     async def get_deposit_info(self, asset: str) -> DepositInfo:
+        """
+        Calls `self.get_deposit_address` and format the response into a DepositInfo instance
+        :returns: a DepositInfo instance
+        """
         return DepositInfo(await self.get_deposit_address(asset))
 
     async def execute_withdraw(self, str tracking_id, str to_address, str currency, double amount):
+        """
+        Function that makes API request to withdraw funds
+        """
         path_url = "/withdrawals/crypto"
         data = {
             "amount": amount,
@@ -859,6 +1024,10 @@ cdef class CoinbaseProMarket(MarketBase):
                                  MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
 
     cdef str c_withdraw(self, str to_address, str currency, double amount):
+        """
+        *required
+        Synchronous wrapper that schedules a withdrawal.
+        """
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str tracking_id = str(f"withdraw://{currency}/{tracking_nonce}")
@@ -866,17 +1035,30 @@ cdef class CoinbaseProMarket(MarketBase):
         return tracking_id
 
     cdef double c_get_balance(self, str currency) except? -1:
+        """
+        :returns: Total balance for a specific asset
+        """
         return float(self._account_balances.get(currency, 0.0))
     
     cdef double c_get_available_balance(self, str currency) except? -1:
+        """
+        :returns: Balance available for trading for a specific asset 
+        (balances used to place open orders are not available for trading)
+        """
         return float(self._account_available_balances.get(currency, 0.0))
 
     cdef double c_get_price(self, str symbol, bint is_buy) except? -1:
+        """
+        :returns: Top bid/ask price for a specific trading pair
+        """
         cdef:
             OrderBook order_book = self.c_get_order_book(symbol)
         return order_book.c_get_price(is_buy)
 
     cdef OrderBook c_get_order_book(self, str symbol):
+        """
+        :returns: OrderBook for a specific trading pair
+        """
         cdef:
             dict order_books = self._order_book_tracker.order_books
 
@@ -891,6 +1073,9 @@ cdef class CoinbaseProMarket(MarketBase):
                                 object trade_type,
                                 object price,
                                 object amount):
+        """
+        Add new order to self._in_flight_orders mapping
+        """
         self._in_flight_orders[client_order_id] = CoinbaseProInFlightOrder(
             client_order_id,
             None,
@@ -902,19 +1087,35 @@ cdef class CoinbaseProMarket(MarketBase):
         )
 
     cdef c_stop_tracking_order(self, str order_id):
+        """
+        Delete an order from self._in_flight_orders mapping
+        """
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
     cdef c_did_timeout_tx(self, str tracking_id):
+        """
+        Triggers MarketEvent.TransactionFailure when an Ethereum transaction has timed out
+        """
         self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                              MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
 
     cdef object c_get_order_price_quantum(self, str symbol, double price):
+        """
+        *required
+        Get the minimum increment interval for price  
+        :return: Min order price increment in Decimal format
+        """
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
         return trading_rule.min_price_increment
 
     cdef object c_get_order_size_quantum(self, str symbol, double order_size):
+        """
+        *required
+        Get the minimum increment interval for order size (e.g. 0.01 USD)
+        :return: Min order size increment in Decimal format
+        """
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
 
@@ -923,6 +1124,11 @@ cdef class CoinbaseProMarket(MarketBase):
         return trading_rule.min_order_size
 
     cdef object c_quantize_order_amount(self, str symbol, double amount, double price=0.0):
+        """
+        *required
+        Check current order amount against trading rule, and correct any rule violations 
+        :return: Valid order amount in Decimal format
+        """
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
 

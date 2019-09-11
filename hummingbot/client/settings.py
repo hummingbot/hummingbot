@@ -28,6 +28,7 @@ EXCHANGES = {
     "binance",
     "coinbase_pro",
     "ddex",
+    "huobi",
     "idex",
     "radar_relay",
 }

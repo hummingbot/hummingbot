@@ -59,7 +59,7 @@ cdef class IDEXInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.available_amount_base == s_decimal_0 or self.last_state == "complete"
+        return self.available_amount_base == s_decimal_0 or self.last_state in ["complete", "cancelled"]
 
     @property
     def is_cancelled(self) -> bool:

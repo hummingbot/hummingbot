@@ -102,17 +102,15 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
 
         if self._log_warning_balance:
             if quote_asset_balance < required_quote_asset_balance:
-                self.logger().network(f"Buy(bid) order is not placed because there is not enough Quote asset. "
+                self.logger().debug(f"Buy(bid) order is not placed because there is not enough Quote asset. "
                                       f"Quote Asset: {quote_asset_balance}, Price: {pricing_proposal.buy_order_prices[0]},"
-                                      f"Size: {quantized_bid_order_size}",
-                                      f"Not enough asset to place the required buy(bid) order. Check balances.")
+                                      f"Size: {quantized_bid_order_size}")
                 # After warning once, set warning flag to False
                 self._log_warning_balance = False
 
             if base_asset_balance < quantized_ask_order_size:
-                self.logger().network(f"Sell(ask) order is not placed because there is not enough Base asset. "
-                                      f"Base Asset: {base_asset_balance}, Size: {quantized_ask_order_size}",
-                                      f"Not enough asset to place the required sell(ask) order. Check balances.")
+                self.logger().debug(f"Sell(ask) order is not placed because there is not enough Base asset. "
+                                      f"Base Asset: {base_asset_balance}, Size: {quantized_ask_order_size}")
                 # After warning once, set warning flag to False
                 self._log_warning_balance = False
 

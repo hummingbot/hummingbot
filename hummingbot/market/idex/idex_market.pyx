@@ -98,6 +98,7 @@ cdef class IDEXMarket(MarketBase):
         return im_logger
 
     def __init__(self,
+                 idex_api_key: str,
                  wallet: Web3Wallet,
                  ethereum_rpc_url: str,
                  poll_interval: float = 5.0,
@@ -106,7 +107,9 @@ cdef class IDEXMarket(MarketBase):
                  symbols: Optional[List[str]] = None,
                  trading_required: bool = True):
         super().__init__()
-        self._order_book_tracker = IDEXOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
+        self._idex_api_key = idex_api_key
+        self._order_book_tracker = IDEXOrderBookTracker(idex_api_key=idex_api_key,
+                                                        data_source_type=order_book_tracker_data_source_type,
                                                         symbols=symbols)
         self._trading_required = trading_required
         self._account_balances = {}
@@ -148,7 +151,7 @@ cdef class IDEXMarket(MarketBase):
     def status_dict(self):
         return {
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
+            "order_books_initialized": self._order_book_tracker.ready,
             "asset_info": len(self._assets_info) > 0,
             "next_nonce": self._next_nonce is not None,
             "contract_address": self._contract_address is not None
@@ -410,7 +413,7 @@ cdef class IDEXMarket(MarketBase):
                            headers: Optional[Dict[str, str]] = None,
                            json: Any = None) -> Dict[str, Any]:
         client = await self._http_client()
-        default_headers = {"User-Agent": "hummingbot"}
+        default_headers = {"API-Key": self._idex_api_key, "User-Agent": "hummingbot"}
         headers_with_ua = {**headers, **default_headers} if headers else default_headers
         async with client.request(http_method,
                                   url=url,

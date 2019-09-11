@@ -5,6 +5,7 @@ from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 cdef class IDEXMarket(MarketBase):
     cdef:
         object _shared_client
+        str _idex_api_key
         object _wallet
         object _order_book_tracker
         dict _account_balances

@@ -90,6 +90,7 @@ dependencies:
     - eth-rlp==0.1.2
     - eth-typing==2.1.0
     - eth-utils==1.4.1
+    - flake8==3.7.8
     - hexbytes==0.1.0
     - hummingsim==20190724
     - hyperlink==18.0.0
@@ -102,6 +103,7 @@ dependencies:
     - multidict==4.5.2
     - mypy-extensions==0.4.1
     - parsimonious==0.8.1
+    - pre-commit==1.18.2
     - py-ecc==1.7.0
     - pyasn1==0.4.5
     - pyasn1-modules==0.2.4
