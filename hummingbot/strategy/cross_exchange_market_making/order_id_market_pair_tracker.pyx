@@ -14,9 +14,8 @@ cdef class OrderIDMarketPairTrackingItem:
         self.market_pair = market_pair
         self.expiry_timestamp = NaN
 
-
 cdef class OrderIDMarketPairTracker(TimeIterator):
-    def __init__(self, double expiry_timeout = 3 * 60):
+    def __init__(self, double expiry_timeout=3 * 60):
         super().__init__()
 
         self._order_id_to_tracking_item = OrderedDict()
