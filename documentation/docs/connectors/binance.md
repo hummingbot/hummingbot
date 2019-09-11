@@ -31,7 +31,7 @@ Because Binance is a centralized exchange, you will need to generate and provide
 5 - Now you have created an API key. Please note that to trade on Binance using Hummingbot, **Enable Trading** must be selected.
 
 !!! warning "API key permissions"
-    For general use of Hummingbot, we recommend "trade only" enabled API keys and suggest not using "transfer" or "withdraw" enabled API keys.
+    We recommend using only "trade" enabled API keys; enabling "withdraw" is unnecessary for current Hummingbot strategies.
 
 ![binance4](/assets/img/binance4.png)
 
