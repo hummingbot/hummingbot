@@ -5,7 +5,7 @@
 In the Simple Trade strategy, Hummingbot executes orders after a certain time delay, as specified by the user. For limit orders, the strategy also provides the user with the additional option to cancel them after a certain time period.
 
 !!! warning
-    The strategy is only supposed to provide the user with a basic template for developing custom strategies. Please set variables responsibly. 
+    The strategy is only supposed to provide the user with a basic template for developing custom strategies. Please set variables responsibly.
 
 ## Prerequisites: Inventory
 
@@ -32,9 +32,8 @@ The following walks through all the steps when running `config` for the first ti
 | `Enter your Binance API key >>>`:<br/><br/>`Enter your Binance API secret >>>`: | You must [create a Binance API key](https://docs.hummingbot.io/connectors/binance/) key with trading enabled ("Enable Trading" selected).<br/><table><tbody><tr><td bgcolor="#e5f8f6">**Tip**: You can use Ctrl + R or ⌘ + V to paste from the clipboard.</td></tr></tbody></table> |
 | `Would you like to import an existing wallet or create a new wallet? (import / create) >>>`: | Import or create an Ethereum wallet which will be used for trading on DDEX.<br/><br/>Enter a valid input:<ol><li>`import`: imports a wallet from an input private key.</li><ul><li>If you select import, you will then be asked to enter your private key as well as a password to lock/unlock that wallet for use with Hummingbot</li><li>`Your wallet private key >>>`</li><li>`A password to protect your wallet key >>>`</li></ul><li>`create`: creates a new wallet with new private key.</li><ul><li>If you select create, you will only be asked for a password to protect your newly created wallet</li><li>`A password to protect your wallet key >>>`</li></ul></ol><br/><table><tbody><tr><td bgcolor="#e5f8f6">**Tip**: using a wallet that is available in your Metamask (i.e. importing a wallet from Metamask) allows you to view orders created and trades filled by Hummingbot on the decentralized exchange's website.</td></tr></tbody></table> |
 | `Which Ethereum node would you like your client to connect to? >>>`: | Enter an Ethereum node URL for Hummingbot to use when it trades on Ethereum-based decentralized exchanges.<br /><br />For more information, see: Setting up your Ethereum node](/installation/node/node).<table><tbody><tr><td bgcolor="#ecf3ff">**Tip**: if you are using an Infura endpoint, ensure that you append `https://` before the URL.</td></tr></tbody></table> |
-| `At what percentage of loss would you like the bot to stop trading? (Enter 0.03 to indicate 3%. Enter -1.0 to disable) >>>` | This sets `stop_loss_pct` (see [definition](#configuration-parameters)) |
-| `What type of price data would you like to use for stop loss (fixed/dynamic) ? >>>` | This sets `stop_loss_price_type` (see [definition](#configuration-parameters)) |
-| `What base token would you like to use to calculate your inventory value? (Default "USD") >>>` | This sets `stop_loss_base_token` (see [definition](#configuration-parameters)) |
+| `Would you like to enable the kill switch? (y/n) >>>` | (see [definition](#configuration-parameters)) |
+| `At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5 percent loss) >>>` | (see [definition](#configuration-parameters)) |
 
 ### Limit Order Configuration
 
@@ -56,7 +55,6 @@ The following parameters are fields in Hummingbot configuration files (located i
 | **order_price**<br /> | The price for the limit order. <br/> Specify the price at which are you are willing to buy/sell the tokens <br/>
 | **cancel_order_wait_time** | An amount in seconds, which is the duration for the placed limit orders. _Default value: 60 seconds_. For limit orders, the orders (if still open) are cancelled after this time.
 | **time_delay** | An amount in seconds, after which orders are executed from the start of the strategy. _Default value: 0 seconds_. Orders are placed immediately after strategy is initialized by default.
-| **is_buy** | Specify as a buy or sell order (True: Buy order. False: Sell Order) <br/> 
-| **stop_loss_pct** | The threshold amount upon which `hummingbot` will cease placing orders if the value of inventory has fallen.
-| **stop_loss_price_type** | The pricing methdology used by `hummingbot` uses when calculating inventory value when evaluating the stop loss feature.<ul><li>`fixed`: uses the assets prices from when the strategy was first started.<li>`dynamic`: uses current prevailing prices for assets.</ul>
-| **stop_loss_base_token** | The base currency into which inventory is valued for purposes of evaluating stop loss.
+| **is_buy** | Specify as a buy or sell order (True: Buy order. False: Sell Order) <br/>
+| **kill_switch_enabled** | Automatically stops the bot when it reaches a certain performance threshold, which can be either positive or negative.
+| **kill_switch_rate** | The rate of performance at which you want the bot to stop trading.
