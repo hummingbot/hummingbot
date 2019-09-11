@@ -21,7 +21,10 @@ Because Coinbase Pro is a centralized exchange, you will need to generate and pr
 
 ![coinbase2](/assets/img/coinbase2.png)
 
-Make sure you give permissions to **View** and **Trade** (**Transfer** is optional), and enter your 2FA code.
+Make sure you give permissions to **View** and **Trade**, and enter your 2FA code.
+
+!!! warning "API key permissions"
+    We recommend using only "trade" enabled API keys; enabling "withdraw" is unnecessary for current Hummingbot strategies.
 
 ![coinbase3](/assets/img/coinbase3.png)
 
@@ -37,7 +40,7 @@ When you close the API Secret screen, your API key will be shown in **My API Key
 
 The API Key, Secret, and Passphrase are required for using Hummingbot.
 
-!!! tip
+!!! warning
     If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
 
 ## Miscellaneous Info

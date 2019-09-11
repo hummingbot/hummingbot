@@ -105,7 +105,7 @@ class StatusCommand:
             for market in loading_markets:
                 market_status_df = pd.DataFrame(data=market.status_dict.items(), columns=["description", "status"])
                 self._notify(
-                    f"   x {market.name.capitalize()} market status:\n" +
+                    f"   x {market.display_name.capitalize()} market status:\n" +
                     "\n".join(["     " + line for line in market_status_df.to_string(index=False,).split("\n")]) +
                     "\n"
                 )
