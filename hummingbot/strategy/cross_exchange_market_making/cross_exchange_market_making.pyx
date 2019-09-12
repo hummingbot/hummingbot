@@ -1116,7 +1116,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         self.log_with_clock(
                             logging.WARNING,
                             f"({market_pair.maker.trading_pair})"
-                            f"order book on taker is too thin to place order for size: {bid_size}"
+                            f"Order book on taker is too thin to place order for size: {bid_size}"
                             f"Reduce order_size_portfolio_ratio_limit"
                         )
             else:
@@ -1164,7 +1164,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         self.log_with_clock(
                             logging.WARNING,
                             f"({market_pair.maker.trading_pair})"
-                            f"order book on taker is too thin to place order for size: {ask_size}"
+                            f"Order book on taker is too thin to place order for size: {ask_size}"
                             f"Reduce order_size_portfolio_ratio_limit"
                         )
             else:
