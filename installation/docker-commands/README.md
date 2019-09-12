@@ -23,6 +23,8 @@ If you do not have `docker` permissions:
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create-web3.sh
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update-web3.sh
 chmod a+x *.sh
 ```
 
@@ -31,6 +33,8 @@ chmod a+x *.sh
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh -o create.sh
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh -o start.sh
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh -o update.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create-web3.sh -o create-web3.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update-web3.sh -o update-web3.sh
 chmod a+x *.sh
 ```
 
@@ -40,6 +44,8 @@ cd ~
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh -o create.sh
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh -o start.sh
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh -o update.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create-web3.sh -o create-web3.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update-web3.sh -o update-web3.sh
 chmod a+x *.sh
 ```
 
@@ -65,4 +71,22 @@ The `update.sh` script will update your instance to the latest version of Hummin
 
 ```
 ./update.sh
+```
+
+## Create an instance of Hummingbot which connects to a local node at http:localhost:8545
+### Requires ethereum full node
+
+The `create-web3.sh` script will create the folders needed to run Hummingbot and then install Hummingbot.
+
+```
+./create-web3.sh
+```
+
+## Updating Hummingbot version which connects to a local node at http:localhost:8545
+### Requires ethereum full node
+
+The `update-web3.sh` script will update your instance to the latest version of Hummingbot.
+
+```
+./update-web3.sh
 ```
