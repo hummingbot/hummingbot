@@ -24,7 +24,7 @@ Because Coinbase Pro is a centralized exchange, you will need to generate and pr
 Make sure you give permissions to **View** and **Trade**, and enter your 2FA code.
 
 !!! warning "API key permissions"
-    We recommend using only "trade" enabled API keys; enabling "withdraw" is unnecessary for current Hummingbot strategies.
+    We recommend using only **"trade"** enabled API keys; enabling **"withdraw", "transfer", or the equivalent** is unnecessary for current Hummingbot strategies.
 
 ![coinbase3](/assets/img/coinbase3.png)
 
