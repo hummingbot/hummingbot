@@ -1081,6 +1081,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         # if there is no active bid, place bid again
         if not has_active_bid:
             bid_size = self.c_get_market_making_size(market_pair, True)
+
+            # Check if bid size is greater than zero
             if bid_size > s_decimal_zero:
 
                 bid_price = self.c_get_market_making_price(market_pair, True, bid_size)
@@ -1127,6 +1129,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         # if there is no active ask, place ask again
         if not has_active_ask:
             ask_size = self.c_get_market_making_size(market_pair, False)
+
+            # Check if ask size is greater than zero
             if ask_size > s_decimal_zero:
 
                 ask_price = self.c_get_market_making_price(market_pair, False, ask_size)
