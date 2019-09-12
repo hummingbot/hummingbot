@@ -21,12 +21,16 @@ class MockDataFeed1(DataFeedBase):
     def name(self):
         return "coin_alpha_feed"
 
+    @property
+    def price_dict(self):
+        return self.mock_price_dict
+
     def __init__(self):
         super().__init__()
-        self.mock_price_dict = {"coin_alpha": 1, "cat": 2}
+        self.mock_price_dict = {"COIN_ALPHA": 1, "CAT": 2}
 
     def get_price(self, symbol):
-        return self.mock_price_dict.get(symbol)
+        return self.mock_price_dict.get(symbol.upper())
 
 
 class MockDataFeed2(DataFeedBase):
@@ -44,10 +48,14 @@ class MockDataFeed2(DataFeedBase):
 
     def __init__(self):
         super().__init__()
-        self.mock_price_dict = {"coin_alpha": 1, "cat": 5}
+        self.mock_price_dict = {"COIN_ALPHA": 1, "CAT": 5}
+
+    @property
+    def price_dict(self):
+        return self.mock_price_dict
 
     def get_price(self, symbol):
-        return self.mock_price_dict.get(symbol)
+        return self.mock_price_dict.get(symbol.upper())
 
 
 def async_run(func):
@@ -65,7 +73,8 @@ class ExchangeRateConverterUnitTest(unittest.TestCase):
             },
             "conversion_required": {
                 "cat": {"default": 100, "source": "cat"}
-            }
+            },
+            "default_data_feed": "cat"
         })
         ExchangeRateConversion.set_data_feeds([
             MockDataFeed1.get_instance(),
@@ -95,7 +104,7 @@ class ExchangeRateConverterUnitTest(unittest.TestCase):
 
     def test_get_multiple_data_feed(self):
         exchaneg_rate = ExchangeRateConversion.get_instance().exchange_rate
-        self.assertEqual(exchaneg_rate, {'cat': 5, 'coin_alpha': 1})
+        self.assertEqual(exchaneg_rate, {'CAT': 5, 'COIN_ALPHA': 1})
 
 
 def main():

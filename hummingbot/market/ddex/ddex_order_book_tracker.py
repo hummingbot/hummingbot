@@ -65,15 +65,22 @@ class DDEXOrderBookTracker(OrderBookTracker):
         return self._data_source
 
     @property
-    async def exchange_name(self) -> str:
+    def exchange_name(self) -> str:
         return "ddex"
 
     async def start(self):
+        await super().start()
+        self._order_book_trade_listener_task = asyncio.ensure_future(
+            self.data_source.listen_for_trades(self._ev_loop, self._order_book_trade_stream)
+        )
         self._order_book_diff_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
         self._order_book_snapshot_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
+        )
+        self._emit_trade_event_task = asyncio.ensure_future(
+            self._emit_trade_event_loop()
         )
         self._refresh_tracking_task = asyncio.ensure_future(
             self._refresh_tracking_loop()
@@ -84,12 +91,6 @@ class DDEXOrderBookTracker(OrderBookTracker):
         self._order_book_snapshot_router_task = asyncio.ensure_future(
             self._order_book_snapshot_router()
         )
-
-        await asyncio.gather(self._order_book_snapshot_listener_task,
-                             self._order_book_diff_listener_task,
-                             self._order_book_snapshot_router_task,
-                             self._order_book_diff_router_task,
-                             self._refresh_tracking_task)
 
     async def _refresh_tracking_tasks(self):
         """
@@ -144,16 +145,21 @@ class DDEXOrderBookTracker(OrderBookTracker):
                 if order_book.snapshot_uid > ob_message.update_id:
                     messages_rejected += 1
                     continue
-                await message_queue.put(ob_message)
+
+                if ob_message.type == OrderBookMessageType.DIFF:
+                    await message_queue.put(ob_message)
+                elif ob_message.type == OrderBookMessageType.TRADE:
+                    self._order_book_trade_stream.put_nowait(ob_message)
+
                 messages_accepted += 1
 
                 # Log some statistics.
                 now: float = time.time()
                 if int(now / 60.0) > int(last_message_timestamp / 60.0):
                     self.logger().debug("Diff messages processed: %d, rejected: %d, queued: %d",
-                                       messages_accepted,
-                                       messages_rejected,
-                                       messages_queued)
+                                        messages_accepted,
+                                        messages_rejected,
+                                        messages_queued)
                     messages_accepted = 0
                     messages_rejected = 0
                     messages_queued = 0
@@ -202,7 +208,7 @@ class DDEXOrderBookTracker(OrderBookTracker):
                     now: float = time.time()
                     if int(now / 60.0) > int(last_message_timestamp / 60.0):
                         self.logger().debug("Processed %d order book diffs for %s.",
-                                           diff_messages_accepted, symbol)
+                                            diff_messages_accepted, symbol)
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                 elif message.type is OrderBookMessageType.SNAPSHOT:
