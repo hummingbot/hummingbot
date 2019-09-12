@@ -15,7 +15,6 @@ from typing import (
 from web3 import Web3
 from web3.datastructures import AttributeDict
 
-import hummingbot
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import NewBlocksWatcherEvent
 from .base_watcher import BaseWatcher
@@ -53,7 +52,15 @@ class NewBlocksWatcher(BaseWatcher):
         if self._fetch_new_blocks_task is not None:
             await self.stop_network()
 
-        self._current_block_number = await self.call_async(getattr, self._w3.eth, "blockNumber")
+        try:
+            self._current_block_number = await self.call_async(getattr, self._w3.eth, "blockNumber")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().network("Error fetching newest Ethereum block number.",
+                                  app_warning_msg="Error fetching newest Ethereum block number. "
+                                                  "Check Ethereum node connection",
+                                  exc_info=True)
         self._block_number_to_fetch = self._current_block_number
         self._fetch_new_blocks_task: asyncio.Task = asyncio.ensure_future(self.fetch_new_blocks_loop())
 
@@ -75,13 +82,12 @@ class NewBlocksWatcher(BaseWatcher):
                         raise ValueError(f"Block hash {block_hash.hex()} does not exist.")
                     counter += 1
                     async with timeout(10.0):
-                        ev_loop: asyncio.BaseEventLoop = self._ev_loop
-                        block = await ev_loop.run_in_executor(
-                            hummingbot.get_executor(),
+                        block = await self.call_async(
                             functools.partial(
                                 self._w3.eth.getBlock,
                                 block_hash,
-                                full_transactions=False))
+                                full_transactions=False)
+                        )
                 except TimeoutError:
                     self.logger().network(f"Timed out fetching new block - '{block_hash}'.", exc_info=True,
                                           app_warning_msg=f"Timed out fetching new block - '{block_hash}'. "
@@ -91,17 +97,16 @@ class NewBlocksWatcher(BaseWatcher):
             return block.timestamp
 
     async def fetch_new_blocks_loop(self):
-        ev_loop: asyncio.BaseEventLoop = self._ev_loop
         last_timestamp_received_blocks: float = 0.0
         while True:
             try:
                 async with timeout(30.0):
-                    incoming_block: AttributeDict = await ev_loop.run_in_executor(
-                        hummingbot.get_executor(),
+                    incoming_block: AttributeDict = await self.call_async(
                         functools.partial(
                             self._w3.eth.getBlock,
                             self._block_number_to_fetch,
-                            full_transactions=True))
+                            full_transactions=True)
+                    )
                     if incoming_block is not None:
                         current_block_hash: HexBytes = self._block_number_to_hash_map.get(
                             self._current_block_number,
@@ -148,18 +153,17 @@ class NewBlocksWatcher(BaseWatcher):
             await asyncio.sleep(sleep_time)
 
     async def get_block_reorganization(self, incoming_block: AttributeDict) -> List[AttributeDict]:
-        ev_loop: asyncio.BaseEventLoop = self._ev_loop
         block_reorganization: List[AttributeDict] = []
         expected_parent_hash: HexBytes = incoming_block.parentHash
         while expected_parent_hash not in self._blocks_window and len(block_reorganization) < len(self._blocks_window):
             replacement_block = None
             while replacement_block is None:
-                replacement_block = await ev_loop.run_in_executor(
-                    hummingbot.get_executor(),
+                replacement_block = await self.call_async(
                     functools.partial(
                         self._w3.eth.getBlock,
                         expected_parent_hash,
-                        full_transactions=True))
+                        full_transactions=True)
+                )
                 if replacement_block is None:
                     await asyncio.sleep(0.5)
 
@@ -170,6 +174,6 @@ class NewBlocksWatcher(BaseWatcher):
             self._blocks_window[replacement_block_hash] = replacement_block
             block_reorganization.append(replacement_block)
             expected_parent_hash = replacement_block_parent_hash
-        
+
         block_reorganization.reverse()
         return block_reorganization
