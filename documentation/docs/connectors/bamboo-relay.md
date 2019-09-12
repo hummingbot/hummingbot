@@ -63,7 +63,7 @@ websockets.exceptions.InvalidStatusCode: Status code not 101: 502
 
 ### Minimum Order Sizes
 
-The minimum acceptable order size is 0.00000001 normalized units of price, amount or total, which ever of these is the lowest.
+The minimum acceptable order size is 0.00000001 normalized units of price, amount or total, whichever of these is the lowest.
 
 ### Transaction Fees
 

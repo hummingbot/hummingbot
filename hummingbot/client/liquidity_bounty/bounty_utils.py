@@ -74,7 +74,9 @@ class LiquidityBounty(NetworkBase):
         return self._status
 
     def formatted_status(self) -> str:
-        df: pd.DataFrame = pd.DataFrame(self._status.items())
+        status_dict = self._status.copy()
+        del status_dict["status_codes"]
+        df: pd.DataFrame = pd.DataFrame(status_dict.items())
         lines = ["", "  Client Status:"] + ["    " + line for line in df.to_string(index=False, header=False).split("\n")]
         return "\n".join(lines)
 
@@ -91,25 +93,9 @@ class LiquidityBounty(NetworkBase):
         ] for bounty in self._active_bounties]
         df: pd.DataFrame = pd.DataFrame(
             rows,
-            columns=["Market", "Asset", "Start (MM/DD/YYYY)", "End (MM/DD/YYYY)", "More Info"]
+            columns=["Market", "Asset", "Start (MM/DD/YYYY)", "End (MM/DD/YYYY)", "Leaderboard link"]
         )
         lines = ["", "  Bounties:"] + ["    " + line for line in df.to_string(index=False).split("\n")]
-        return "\n".join(lines)
-
-    @staticmethod
-    def format_volume_metrics(volume_metrics: List[Dict[str, Any]]) -> str:
-        rows = [[
-            vm["market"],
-            vm["base_asset"],
-            vm["total_filled_volume"],
-            vm["total_filled_volume_in_session"],
-            vm["trades_submitted_count"]
-        ] for vm in volume_metrics]
-        df: pd.DataFrame = pd.DataFrame(
-            rows,
-            columns=["Market", "Asset", "Filled Volume", "Filled volume in current session", "Total trades submitted"]
-        )
-        lines = ["", "  Volume Metrics:"] + ["    " + line for line in df.to_string(index=False).split("\n")]
         return "\n".join(lines)
 
     async def _wait_till_ready(self):
@@ -127,7 +113,7 @@ class LiquidityBounty(NetworkBase):
             and_conditions: BooleanClauseList = [and_(
                 TradeFill.base_asset == ab["base_asset"],
                 TradeFill.market == ab["market"],
-                TradeFill.timestamp >= ab["start_timestamp"], # does not matter if start_timestamp == -1
+                TradeFill.timestamp >= ab["start_timestamp"],  # does not matter if start_timestamp == -1
                 TradeFill.timestamp <= (ab["end_timestamp"] if ab["end_timestamp"] > 0 else 1e14)
             ) for ab in self._active_bounties]
 
@@ -227,13 +213,14 @@ class LiquidityBounty(NetworkBase):
             client = await self._http_client()
             data = {"email": email, "eth_address": eth_address}
             async with client.request("POST", f"{self.LIQUIDITY_BOUNTY_REST_API}/client", json=data) as resp:
-                # registration_status = "success" or <reason_for_failure>
                 if resp.status not in {200, 400}:
                     raise Exception(f"Liquidity bounty server error. Server responded with status {resp.status}")
 
                 results = await resp.json()
-                if results["registration_status"] != "success":
-                    raise Exception(f"Failed to register for liquidity bounty: {results['registration_status']}")
+                status: str = results.get("status") or results.get("registration_status")
+                # registration_status is for backwards compatibility
+                if status != "success":
+                    raise Exception(f"Failed to register for liquidity bounty: {status}")
                 return results
         except AssertionError:
             raise
@@ -287,7 +274,7 @@ class LiquidityBounty(NetworkBase):
 
             async with client.request(request_method, url, headers=headers, **kwargs) as resp:
                 data = await resp.text()
-                self.logger().debug(f"{resp.status} {data}")
+                self.logger().debug(f"{url} {resp.status} {data} {kwargs}")
                 results = json.loads(data)
                 if "error" in results:
                     raise Exception(results.get("error"))
@@ -332,20 +319,6 @@ class LiquidityBounty(NetworkBase):
                     break
                 self.logger().error(f"Error getting bounty status: {e}", exc_info=True)
             await asyncio.sleep(self._update_interval)
-
-    async def fetch_filled_volume_metrics(self, start_time: int) -> List[Dict[str, Any]]:
-        try:
-            url = f"{self.LIQUIDITY_BOUNTY_REST_API}/metrics"
-            data = {"start_time": start_time}
-            results: Dict[str, Any] = await self.authenticated_request("GET", url, json=data)
-            if results["status"] != "success":
-                raise Exception(str(results))
-            return results["metrics"]
-        except Exception as e:
-            if "User not registered" in str(e):
-                self.logger().warning("User not registered. Aborting fetch_filled_volume_metrics.")
-            else:
-                self.logger().error(f"Error fetching filled volume metrics: {str(e)}", exc_info=True)
 
     async def submit_trades(self):
         try:
@@ -412,9 +385,9 @@ class LiquidityBounty(NetworkBase):
                 await self.submit_orders()
                 await self.submit_order_statuses()
             except asyncio.CancelledError:
-                    raise
+                raise
             except asyncio.TimeoutError:
-                    continue
+                continue
             except Exception as e:
                 if "User not registered" in str(e):
                     self.logger().warning("User not registered. Aborting submit_data_loop.")

@@ -1,4 +1,3 @@
-import json
 from typing import Any
 
 from hummingbot.client.config.config_var import ConfigVar
@@ -16,11 +15,12 @@ def discovery_symbol_list_prompt(market_name):
 
 def trading_pair_array_validator(market: str, trading_pair_list: Any):
     try:
-        if type(trading_pair_list) is str:
+        if isinstance(trading_pair_list, str):
             if len(trading_pair_list) == 0:
                 return True
-            trading_pair_list = json.loads(trading_pair_list)
-
+            filtered: filter = filter(lambda x: x not in ['[', ']', '"', "'"], list(trading_pair_list))
+            trading_pair_list = "".join(filtered).split(",")
+            trading_pair_list = [s.strip() for s in trading_pair_list]  # remove leading and trailing whitespaces
         known_symbols = SymbolFetcher.get_instance().symbols.get(market, [])
         if len(known_symbols) == 0:
             return True

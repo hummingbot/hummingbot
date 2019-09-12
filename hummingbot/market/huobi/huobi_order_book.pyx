@@ -1,10 +1,12 @@
 #!/usr/bin/env python
+from decimal import Decimal
 
 from aiokafka import ConsumerRecord
 import bz2
 import logging
 from sqlalchemy.engine import RowProxy
 from typing import (
+    Any,
     Optional,
     Dict
 )
@@ -25,6 +27,56 @@ cdef class HuobiOrderBook(OrderBook):
         if _hob_logger is None:
             _hob_logger = logging.getLogger(__name__)
         return _hob_logger
+
+    @classmethod
+    def snapshot_message_from_exchange(cls,
+                                       msg: Dict[str, Any],
+                                       timestamp: Optional[float] = None,
+                                       metadata: Optional[Dict] = None) -> OrderBookMessage:
+        if metadata:
+            msg.update(metadata)
+        msg_ts = int(msg["ts"] * 1e-3)
+        content = {
+            "symbol": msg["symbol"],
+            "update_id": msg_ts,
+            "bids": msg["tick"]["bids"],
+            "asks": msg["tick"]["asks"]
+        }
+        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, content, timestamp or msg_ts)
+
+    @classmethod
+    def trade_message_from_exchange(cls,
+                                   msg: Dict[str, Any],
+                                   timestamp: Optional[float] = None,
+                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+        if metadata:
+            msg.update(metadata)
+        msg_ts = int(msg["ts"] * 1e-3)
+        content = {
+            "symbol": msg["trading_pair"],
+            "trade_type": float(TradeType.SELL.value) if msg["direction"] == "buy" else float(TradeType.BUY.value),
+            "trade_id": msg["id"],
+            "update_id": msg_ts,
+            "amount": msg["amount"],
+            "price": msg["price"]
+        }
+        return OrderBookMessage(OrderBookMessageType.DIFF, content, timestamp or msg_ts)
+
+    @classmethod
+    def diff_message_from_exchange(cls,
+                                   msg: Dict[str, Any],
+                                   timestamp: Optional[float] = None,
+                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+        if metadata:
+            msg.update(metadata)
+        msg_ts = int(msg["ts"] * 1e-3)
+        content = {
+            "symbol": msg["ch"].split(".")[1],
+            "update_id": msg_ts,
+            "bids": msg["tick"]["bids"],
+            "asks": msg["tick"]["asks"]
+        }
+        return OrderBookMessage(OrderBookMessageType.DIFF, content, timestamp or msg_ts)
 
     @classmethod
     def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
