@@ -5,7 +5,6 @@ from os.path import (
     dirname
 )
 from typing import List
-from hummingbot.client.settings import MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT
 from hummingbot.model.trade_fill import TradeFill
 
 from typing import TYPE_CHECKING
@@ -24,8 +23,8 @@ class ExportTradesCommand:
             fname = f"trades_{pd.Timestamp.now().strftime('%Y-%m-%d-%H-%M-%S')}.csv"
             path = join(dirname(__file__), f"../../../logs/{fname}")
 
-        trades: List[TradeFill] = self._get_trades_from_session(self.init_time,
-                                                                MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT + 1)
+        trades: List[TradeFill] = self._get_trades_from_session(self.init_time)
+        
         if len(trades) > 0:
             try:
                 df: pd.DataFrame = TradeFill.to_pandas(trades)

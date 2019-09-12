@@ -22,6 +22,7 @@ from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.ddex.ddex_market import DDEXMarket
+from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
@@ -64,8 +65,9 @@ MARKET_CLASSES = {
     "bamboo_relay": BambooRelayMarket,
     "binance": BinanceMarket,
     "coinbase_pro": CoinbaseProMarket,
-    "idex": IDEXMarket,
     "ddex": DDEXMarket,
+    "huobi": HuobiMarket,
+    "idex": IDEXMarket,
     "radar_relay": RadarRelayMarket,
 }
 
@@ -235,8 +237,10 @@ class HummingbotApplication(*commands):
                                     trading_required=self._trading_required)
 
             elif market_name == "idex" and self.wallet:
+                idex_api_key: str = global_config_map.get("idex_api_key").value
                 try:
-                    market = IDEXMarket(wallet=self.wallet,
+                    market = IDEXMarket(idex_api_key=idex_api_key,
+                                        wallet=self.wallet,
                                         ethereum_rpc_url=ethereum_rpc_url,
                                         order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                         symbols=symbols,
@@ -279,7 +283,14 @@ class HummingbotApplication(*commands):
                                            coinbase_pro_passphrase,
                                            symbols=symbols,
                                            trading_required=self._trading_required)
-
+            elif market_name == "huobi":
+                huobi_api_key = global_config_map.get("huobi_api_key").value
+                huobi_secret_key = global_config_map.get("huobi_secret_key").value
+                market = HuobiMarket(huobi_api_key,
+                                     huobi_secret_key,
+                                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                     symbols=symbols,
+                                     trading_required=self._trading_required)
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
 

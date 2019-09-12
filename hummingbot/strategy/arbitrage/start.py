@@ -12,8 +12,8 @@ from hummingbot.strategy.arbitrage.arbitrage_config_map import arbitrage_config_
 def start(self):
     primary_market = arbitrage_config_map.get("primary_market").value.lower()
     secondary_market = arbitrage_config_map.get("secondary_market").value.lower()
-    raw_primary_symbol = arbitrage_config_map.get("primary_market_symbol").value.upper()
-    raw_secondary_symbol = arbitrage_config_map.get("secondary_market_symbol").value.upper()
+    raw_primary_symbol = arbitrage_config_map.get("primary_market_symbol").value
+    raw_secondary_symbol = arbitrage_config_map.get("secondary_market_symbol").value
     min_profitability = arbitrage_config_map.get("min_profitability").value
     try:
         primary_assets: Tuple[str, str] = self._initialize_market_assets(primary_market, [raw_primary_symbol])[0]

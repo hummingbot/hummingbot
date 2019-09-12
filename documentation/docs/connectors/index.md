@@ -16,6 +16,7 @@ Connectors are packages of code that link Hummingbot's internal trading algorith
 
 * [Binance](/connectors/binance)
 * [Coinbase Pro](/connectors/coinbase)
+* [Huobi Global](/connectors/huobi)
 
 ### Decentralized Exchanges
 
@@ -30,7 +31,6 @@ Connectors are packages of code that link Hummingbot's internal trading algorith
 
 ## Coming Soon to Hummingbot
 
-* Huobi
 * Bittrex
 * Bitfinex
 * Kraken

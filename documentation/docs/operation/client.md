@@ -6,7 +6,7 @@ Hummingbot uses a command-line interface (CLI) that helps users configure and ru
 
 ### Installed from Docker
 
-Creating a new instance of Hummingbot with `docker run` will automatically start the Hummingbot client (see Docker installation guides for [Windows](/installation/windows) and [MacOS](/installation/macOS)).
+Creating a new instance of Hummingbot with `docker run` will automatically start the Hummingbot client (see Docker installation guides for [Windows](/installation/via-docker/windows), [Linux](/installation/via-docker/linux) and [MacOS](/installation/via-docker/macOS)).
 
 To run a previously created, stopped container where $NAME is the name of your instance of Hummingbot:
 
@@ -24,6 +24,32 @@ For additional information on useful commands, see the [cheatsheet](/cheatsheets
 Open a Terminal window and go to the root of the directory that contains Hummingbot. From there, run:
 ```
 bin/hummingbot.py
+```
+
+### Trading Strategy Autostart
+
+Hummingbot can automatically start the execution of a previously configured trading strategy upon launch without requiring the Hummingbot interface `config` and `start` commands.  Any parameters that are required for `config` can be passed into the Hummingbot launch command.
+
+**Launch command**
+
+```bash tab="Docker command"
+docker run -it \
+-e STRATEGY=${STRATEGY} \
+-e CONFIG_FILE_NAME=${CONFIG_FILENAME} \
+-e WALLET=${WALLET} \
+-e WALLET_PASSWORD=${WALLET_PASSWORD} \
+--name hummingbot-instance \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
+coinalpha/hummingbot:latest
+```
+
+```bash tab="Installed from source"
+bin/hummingbot_quickstart.py \
+--strategy ${STRATEGY} \
+--config-file-name ${CONFIG_FILENAME} \
+--wallet ${WALLET} \
+--wallet-password ${WALLET-PASSWORD}
 ```
 
 ## User Interface
@@ -57,7 +83,7 @@ The CLI is divided into three panes:
 
 | Command | Description |
 |-------- | ----------- |
-| `bounty --register` | Register to participate in for liquidity bounties
+| `bounty --register` | Register to participate in for liquidity bounties.
 | `bounty --list` | See a list of active bounties.
 | `bounty --restore-id` | If you lost your configuration file, this is the command to restore it.
 | `bounty --status` | See your accumulated rewards.
@@ -74,8 +100,12 @@ The CLI is divided into three panes:
 | `Single CTRL + C` | Copy | Copy text [used for text edit in Input pane only].
 | `CTRL + V` | Paste | Paste text [used for text edit in Input pane only].
 
-***Note about search:*** 
+***Note about search:***
+
 1. Press `CTRL + F` to trigger display the search field
+
 2. Enter your search keyword (not case sensitive)
+
 3. Hit `Enter` to jump to the next matching keyword (incremental search)
+
 4. When you are done. Press `CTRL + F` again to go back to reset.

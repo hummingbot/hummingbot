@@ -1,6 +1,6 @@
 # [Quickstart] Run Your First Trading Bot
 
-Now that you have successfully [configured](/quickstart/2-configure-bot) a trading bot, you can start market making by running the `start` command.
+Now that you have successfully [configured](/quickstart/3-configure-bot) a trading bot, you can start market making by running the `start` command.
 
 !!! tip
     You can see your Hummingbot open orders in real-time on the exchange website as you run Hummingbot. Generally, we recommend having the exchange website in a browser alongside the running Hummingbot command line interface.
@@ -47,7 +47,7 @@ This command shows you:
 
 #### a) Stop the bot and exit
 
-Enter `stop` to stop the bot, or `exit` to stop and also exit Hummingbot. 
+Enter `stop` to stop the bot, or `exit` to stop and also exit Hummingbot.
 
 Hummingbot automatically cancels all outstanding orders and notifies you if it believes that there are potentially uncancelled orders.
 
@@ -81,7 +81,7 @@ pure_market_making
 Import previous configs or create a new config file? (import/create) >>>
 import
 
-Enter path to your strategy file (e.g. "conf_pure_market_making_strategy_0.yml") >>> 
+Enter path to your strategy file (e.g. "conf_pure_market_making_strategy_0.yml") >>>
 conf_pure_market_making_strategy_0.yml
 
 # This question appears only if you are trading on a decentralized exchange
@@ -105,8 +105,8 @@ global configs:
 pure_market_making strategy configs:
 ...
 mode                      single
-bid_place_threshold       0.01 
-ask_place_threshold       0.01 
+bid_place_threshold       0.01
+ask_place_threshold       0.01
 cancel_order_wait_time    60
 order_amount              0.2
 ...
@@ -134,7 +134,7 @@ When you are satisfied with your bot parameters, enter `start` to restart your m
 
 
 ---
-Congratulations on successfully completing the Hummingbot quickstart guide! 
+Congratulations on successfully completing the Hummingbot quickstart guide!
 
 To get the most out of Hummingbot, consult the following resources:
 

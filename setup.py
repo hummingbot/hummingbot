@@ -17,7 +17,7 @@ if os.name == "posix":
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20190812"
+    version = "20190909"
     packages = [
         "hummingbot",
         "hummingbot.client",
@@ -136,7 +136,8 @@ def main():
               np.get_include(),
           ],
           scripts=[
-              "bin/hummingbot.py"
+              "bin/hummingbot.py",
+              "bin/hummingbot_quickstart.py"
           ],
           )
 
