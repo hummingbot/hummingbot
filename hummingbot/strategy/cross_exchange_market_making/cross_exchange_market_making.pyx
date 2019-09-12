@@ -383,7 +383,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         if len(tracked_taker_orders.get(market_pair, {})) > 0:
             return
 
-        self.logger().info("about to create new orders")
         # See if it's profitable to place a limit order on maker market.
         self.c_check_and_create_new_orders(market_pair, has_active_bid, has_active_ask)
 
@@ -1082,6 +1081,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         # if there is no active bid, place bid again
         if not has_active_bid:
             bid_size = self.c_get_market_making_size(market_pair, True)
+            if bid_size == s_decimal_zero:
+                if self._logging_options & self.OPTION_LOG_NULL_ORDER_SIZE:
+                    self.log_with_clock(
+                        logging.WARNING,
+                        f"({market_pair.maker.trading_pair}) Attempting to place a limit bid but the "
+                        f"bid size is 0. Skipping."
+                    )
+                return
             bid_price = self.c_get_market_making_price(market_pair, True, bid_size)
 
             if bid_price is not None:
@@ -1119,6 +1126,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         # if there is no active ask, place ask again
         if not has_active_ask:
             ask_size = self.c_get_market_making_size(market_pair, False)
+            if ask_size == s_decimal_zero:
+                if self._logging_options & self.OPTION_LOG_NULL_ORDER_SIZE:
+                    self.log_with_clock(
+                        logging.WARNING,
+                        f"({market_pair.maker.trading_pair}) Attempting to place a limit ask but the "
+                        f"ask size is 0. Skipping."
+                    )
+                return
             ask_price = self.c_get_market_making_price(market_pair, False, ask_size)
 
             if ask_price is not None:
