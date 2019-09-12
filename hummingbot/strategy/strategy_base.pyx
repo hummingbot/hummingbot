@@ -334,7 +334,6 @@ cdef class StrategyBase(TimeIterator):
         elif order_type == OrderType.MARKET:
             self.c_stop_tracking_market_order(market_pair, order_id)
 
-
     cdef c_did_cancel_order_tracker(self, object order_cancelled_event):
         cdef:
             str order_id = order_cancelled_event.order_id
@@ -364,7 +363,9 @@ cdef class StrategyBase(TimeIterator):
 
     # <editor-fold desc="+ Creating and cancelling orders">
     # ----------------------------------------------------------------------------------------------------------
-    cdef str c_buy_with_specific_market(self, object market_symbol_pair, object amount,
+    cdef str c_buy_with_specific_market(self,
+                                        object market_symbol_pair,
+                                        object amount,
                                         object order_type = OrderType.MARKET,
                                         object price = decimal_nan,
                                         double expiration_seconds = NaN):
@@ -379,15 +380,13 @@ cdef class StrategyBase(TimeIterator):
                 "expiration_ts": self._current_timestamp + max(self._sb_limit_order_min_expiration, expiration_seconds)
             }
             MarketBase market = market_symbol_pair.market
-            double native_amount = float(amount)
-            double native_price = float(price)
 
         if market not in self._sb_markets:
             raise ValueError(f"Market object for buy order is not in the whitelisted markets set.")
 
         cdef:
-            str order_id = market.c_buy(market_symbol_pair.trading_pair, native_amount,
-                                        order_type=order_type, price=native_price, kwargs=kwargs)
+            str order_id = market.c_buy(market_symbol_pair.trading_pair, amount,
+                                        order_type=order_type, price=price, kwargs=kwargs)
 
         # Start order tracking
         if order_type == OrderType.LIMIT:
@@ -397,7 +396,9 @@ cdef class StrategyBase(TimeIterator):
 
         return order_id
 
-    cdef str c_sell_with_specific_market(self, object market_symbol_pair, object amount,
+    cdef str c_sell_with_specific_market(self,
+                                         object market_symbol_pair,
+                                         object amount,
                                          object order_type = OrderType.MARKET,
                                          object price = decimal_nan,
                                          double expiration_seconds = NaN):
@@ -412,15 +413,13 @@ cdef class StrategyBase(TimeIterator):
                 "expiration_ts": self._current_timestamp + max(self._sb_limit_order_min_expiration, expiration_seconds)
             }
             MarketBase market = market_symbol_pair.market
-            double native_amount = float(amount)
-            double native_price = float(price)
 
         if market not in self._sb_markets:
             raise ValueError(f"Market object for sell order is not in the whitelisted markets set.")
 
         cdef:
-            str order_id = market.c_sell(market_symbol_pair.trading_pair, native_amount,
-                                         order_type=order_type, price=native_price, kwargs=kwargs)
+            str order_id = market.c_sell(market_symbol_pair.trading_pair, amount,
+                                         order_type=order_type, price=price, kwargs=kwargs)
 
         # Start order tracking
         if order_type == OrderType.LIMIT:
