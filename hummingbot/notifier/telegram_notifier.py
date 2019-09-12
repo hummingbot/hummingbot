@@ -72,7 +72,10 @@ class TelegramNotifier(NotifierBase):
             cls.tn_logger = logging.getLogger(__name__)
         return cls.tn_logger
 
-    def __init__(self, token: str, chat_id: str, hb: "HummingbotApplication") -> None:
+    def __init__(self,
+                 token: str,
+                 chat_id: str,
+                 hb: "hummingbot.client.hummingbot_application.HummingbotApplication") -> None:
         super().__init__()
         self._token = token or global_config_map.get("telegram_token").value
         self._chat_id = chat_id or global_config_map.get("telegram_chat_id").value
@@ -111,6 +114,7 @@ class TelegramNotifier(NotifierBase):
         asyncio.ensure_future(self.handler_loop(bot, update), loop=self._ev_loop)
 
     async def handler_loop(self, bot: Bot, update: Update) -> None:
+        async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()
         try:
             input_text = update.message.text.strip()
             output = f"\n[Telegram Input] {input_text}"
@@ -120,11 +124,7 @@ class TelegramNotifier(NotifierBase):
             if any([input_text.lower().startswith(dc) for dc in DISABLED_COMMANDS]):
                 self.add_msg_to_queue(f"Command {input_text} is disabled from telegram")
             else:
-                await self._ev_loop.run_in_executor(
-                    hummingbot.get_executor(),
-                    self._hb._handle_command,
-                    input_text
-                )
+                await async_scheduler.call_async(self._hb._handle_command, input_text)
         except Exception as e:
             self.add_msg_to_queue(str(e))
 
