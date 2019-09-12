@@ -2,7 +2,8 @@ import pandas as pd
 from typing import (
     Any,
     Dict,
-    Optional,
+    Set,
+    Tuple,
     TYPE_CHECKING,
 )
 from hummingbot.client.performance_analysis import PerformanceAnalysis
@@ -59,6 +60,7 @@ class HistoryCommand:
     def get_performance_analysis_with_updated_balance(self,  # type: HummingbotApplication
                                                       ) -> PerformanceAnalysis:
         performance_analysis = PerformanceAnalysis()
+        dedup_set: Set[Tuple[str, str, bool]] = set()
 
         for market_symbol_pair in self.market_symbol_pairs:
             for is_base in [True, False]:
@@ -73,7 +75,11 @@ class HistoryCommand:
                         amount = self.starting_balances[asset_name][market_name] if is_starting \
                             else self.balance_snapshot()[asset_name][market_name]
                     amount = float(amount)
-                    performance_analysis.add_balances(asset_name, amount, is_base, is_starting)
+
+                    # Adding this check to prevent assets in the same market to be added multiple times
+                    if (market_name, asset_name, is_starting) not in dedup_set:
+                        dedup_set.add((market_name, asset_name, is_starting))
+                        performance_analysis.add_balances(asset_name, amount, is_base, is_starting)
 
         return performance_analysis
 

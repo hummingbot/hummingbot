@@ -8,6 +8,6 @@ The way that log files are structured is contained within `conf/hummingbot_logs.
 
 ## Viewing Individual Log Files
 
-For users who wish to locate and submit log files, they are located in the `/logs` folder. This folder is generally within the main `hummingbot` folder when Hummingbot is installed from source, and in the user-designated instance folder (default `myhummingbot`) when it is installed using Docker.
+For users who wish to locate and submit log files, they are located in the `/logs` folder. This folder is generally within the main `hummingbot` folder when Hummingbot is installed from source, and in the user-designated instance folder (default `hummingbot-instance`) when it is installed using Docker.
 
 If you are looking for support in handling errors or have questions about behavior reported in logs, you can find ways of contacting the team or community in our [support section](/support).
