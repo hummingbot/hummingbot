@@ -90,4 +90,7 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     bounty_parser.add_argument("--restore-id", action="store_true", help="Restore your lost bounty ID")
     bounty_parser.set_defaults(func=hummingbot.bounty)
 
+    paper_trade_parser = subparsers.add_parser("paper_trade", help="Enable / Disable paper trade mode.")
+    paper_trade_parser.set_defaults(func=hummingbot.paper_trade)
+
     return parser
