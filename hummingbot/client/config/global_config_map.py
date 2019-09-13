@@ -20,11 +20,13 @@ def using_strategy(strategy: str) -> Callable:
 
 
 def using_exchange(exchange: str) -> Callable:
-    return lambda: exchange in required_exchanges
+    return lambda: global_config_map.get("paper_trade_enabled").value is False \
+                   and exchange in required_exchanges
 
 
 def using_wallet() -> bool:
-    return any([e in DEXES for e in required_exchanges])
+    return global_config_map.get("paper_trade_enabled").value is False \
+           and any([e in DEXES for e in required_exchanges])
 
 
 # Main global config store
@@ -79,6 +81,23 @@ global_config_map = {
                                                   default=DEFAULT_LOG_FILE_PATH),
 
     # Required by chosen CEXes or DEXes
+    "paper_trade_enabled":              ConfigVar(key="paper_trade_enabled",
+                                                  prompt="Enable paper trading mode (y/n) ? >>> ",
+                                                  type_str="bool",
+                                                  default=False,
+                                                  required_if=lambda: True),
+    "paper_trade_account_balance":      ConfigVar(key="paper_trade_account_balance",
+                                                  prompt="Enter paper trade balance settings [asset, balance] >>> ",
+                                                  required_if=lambda: False,
+                                                  type_str="list",
+                                                  default=[["USDT", 3000],
+                                                           ["ONE", 1000],
+                                                           ["BTC", 1],
+                                                           ["ETH", 10],
+                                                           ["WETH", 10],
+                                                           ["USDC", 3000],
+                                                           ["TUSD", 3000],
+                                                           ["PAX", 3000]]),
     "binance_api_key":                  ConfigVar(key="binance_api_key",
                                                   prompt="Enter your Binance API key >>> ",
                                                   required_if=using_exchange("binance"),
@@ -117,7 +136,8 @@ global_config_map = {
                                                   type_str="bool",
                                                   default=True),
     "bamboo_relay_pre_emptive_soft_cancels":      ConfigVar(key="bamboo_relay_pre_emptive_soft_cancels",
-                                                            prompt="Would you like to pre-emptively soft cancel orders (y/n) >>> ",
+                                                            prompt="Would you like to pre-emptively soft cancel "
+                                                                   "orders (y/n) >>> ",
                                                             required_if=using_exchange("bamboo_relay"),
                                                             type_str="bool",
                                                             default=True),
@@ -179,21 +199,4 @@ global_config_map = {
                                                   prompt="What is your default exchange rate data feed name? >>> ",
                                                   required_if=lambda: False,
                                                   default="coin_gecko_api"),
-    "paper_trade_enabled":              ConfigVar(key="paper_trade_enabled",
-                                                  prompt="Enable paper trading mode? >>> ",
-                                                  type_str="bool",
-                                                  default=False,
-                                                  required_if=lambda: False),
-    "paper_trade_account_balance":      ConfigVar(key="paper_trade_account_balance",
-                                                  prompt="Enter paper trade balance settings [asset, balance] >>> ",
-                                                  required_if=lambda: False,
-                                                  type_str="list",
-                                                  default=[["USDT", 3000],
-                                                           ["ONE", 1000],
-                                                           ["BTC", 1],
-                                                           ["ETH", 10],
-                                                           ["WETH", 10],
-                                                           ["USDC", 3000],
-                                                           ["TUSD", 3000],
-                                                           ["PAX", 3000]])
 }
