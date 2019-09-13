@@ -133,7 +133,7 @@ class TelegramNotifier(NotifierBase):
 
                 await async_scheduler.call_async(self._hb._handle_command, input_text)
 
-                # Reset to normal, so that pandas's default autodetect with still works
+                # Reset to normal, so that pandas's default autodetect width still works
                 pd.set_option('display.max_rows', 0)
                 pd.set_option('display.max_columns', 0)
                 pd.set_option('display.width', 0)
