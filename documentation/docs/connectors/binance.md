@@ -30,18 +30,22 @@ Because Binance is a centralized exchange, you will need to generate and provide
 <br />
 5 - Now you have created an API key. Please note that to trade on Binance using Hummingbot, **Enable Trading** must be selected.
 
+!!! warning "API key permissions"
+    We recommend using only **"trade"** enabled API keys; enabling **"withdraw", "transfer", or the equivalent is unnecessary** for current Hummingbot strategies.
+
 ![binance4](/assets/img/binance4.png)
+
 
 Make sure you store your Secret Key somewhere secure, and do not share it with anyone. Your Secret Key will only be displayed once at the time when you create the API.
 
-!!! tip
+!!! warning
     If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
 
 ## Miscellaneous Info
 
 ### Minimum Order Sizes
 
-See [this page](https://support.binance.com/hc/en-us/articles/115000594711-Trading-Rule) for the minimum order size per trading pair. Typically, the minimum is around $10 equivalent of whichever currency you are trading in.
+See [this page](https://www.binance.com/en/trade-rule) for the minimum order size per trading pair. Typically, the minimum is around $10 equivalent of whichever currency you are trading in.
 
 ## Transaction Fees
 

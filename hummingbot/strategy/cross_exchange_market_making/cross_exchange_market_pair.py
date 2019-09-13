@@ -2,7 +2,6 @@
 
 from typing import NamedTuple
 
-from hummingbot.market.market_base import MarketBase
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 
 
@@ -16,4 +15,3 @@ class CrossExchangeMarketPair(NamedTuple):
     """
     maker: MarketSymbolPair
     taker: MarketSymbolPair
-    top_depth_tolerance: float = 0
