@@ -562,6 +562,43 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.0"), ask_order.quantity)
         self.maker_order_fill_logger.clear()
 
+    def test_replenish_delay_multiple_fills(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(self.delayed_placement_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
+        self.assertEqual(1, len(self.delayed_placement_strategy.active_asks))
+        ask_order: LimitOrder = self.delayed_placement_strategy.active_asks[0][1]
+        bid_order: LimitOrder = self.delayed_placement_strategy.active_bids[0][1]
+
+        self.simulate_limit_order_fill(self.maker_market, ask_order)
+
+        # Ask is filled and due to delay is not replenished immediately
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size)
+        self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+        self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
+        self.assertEqual(0, len(self.delayed_placement_strategy.active_asks))
+        self.simulate_limit_order_fill(self.maker_market, bid_order)
+
+        # Even if both orders are filled, orders are not placed due to delay
+        self.clock.backtest_til(self.start_timestamp + 3 * self.clock_tick_size)
+        self.assertEqual(0, len(self.delayed_placement_strategy.active_bids))
+        self.assertEqual(0, len(self.delayed_placement_strategy.active_asks))
+
+        # Orders are placed after replenish delay
+        self.clock.backtest_til(self.start_timestamp + 4 * self.clock_tick_size)
+        self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
+        self.assertEqual(1, len(self.delayed_placement_strategy.active_asks))
+
+        # Prices are not adjusted according to filled price as per settings
+        bid_order: LimitOrder = self.delayed_placement_strategy.active_bids[0][1]
+        ask_order: LimitOrder = self.delayed_placement_strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), bid_order.price)
+        self.assertEqual(Decimal("101"), ask_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+        self.maker_order_fill_logger.clear()
+
 
 class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
