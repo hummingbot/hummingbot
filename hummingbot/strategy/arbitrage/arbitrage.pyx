@@ -33,6 +33,7 @@ cdef class ArbitrageStrategy(StrategyBase):
     OPTION_LOG_INSUFFICIENT_ASSET = 1 << 5
     OPTION_LOG_ALL = 0xfffffffffffffff
     MARKET_ORDER_MAX_TRACKING_TIME = 60.0 * 10
+    FAILED_ORDER_COOL_OFF_TIME = 60.0 * 30
 
     @classmethod
     def logger(cls):
@@ -46,13 +47,15 @@ cdef class ArbitrageStrategy(StrategyBase):
                  min_profitability: float,
                  logging_options: int = OPTION_LOG_ORDER_COMPLETED,
                  status_report_interval: float = 60.0,
-                 next_trade_delay_interval: float = 15.0):
+                 next_trade_delay_interval: float = 15.0,
+                 failed_order_tolerance: int = 1):
         """
         :param market_pairs: list of arbitrage market pairs
         :param min_profitability: minimum profitability limit, for calculating arbitrage order sizes
         :param logging_options: select the types of logs to output
         :param status_report_interval: how often to report network connection related warnings, if any
         :param next_trade_delay_interval: cool off period between trades
+        :param failed_order_tolerance: number of failed orders to force stop the strategy when exceeded
         """
 
         if len(market_pairs) < 0:
@@ -66,6 +69,11 @@ cdef class ArbitrageStrategy(StrategyBase):
         self._last_timestamp = 0
         self._next_trade_delay = next_trade_delay_interval
         self._last_trade_timestamps = {}
+        self._failed_order_tolerance = failed_order_tolerance
+        self._cool_off_logged = False
+
+        self._failed_market_order_count = 0
+        self._last_failed_market_order_timestamp = 0
 
         cdef:
             set all_markets = {
@@ -197,6 +205,17 @@ cdef class ArbitrageStrategy(StrategyBase):
 
         :param fail_event: Order failure event
         """
+        if fail_event.order_type is OrderType.MARKET:
+            self._failed_market_order_count += 1
+            self._last_failed_market_order_timestamp = fail_event.timestamp
+
+        if self._failed_market_order_count > self._failed_order_tolerance:
+            failed_order_kill_switch_log = f"Strategy is forced stop by failed order kill switch. " \
+                    f"Failed market order count {self._failed_market_order_count} exceeded tolerance lever of " \
+                    f"{self._failed_order_tolerance}. Please check market connectivity before restarting."
+
+            self.logger().network(failed_order_kill_switch_log, app_warning_msg=failed_order_kill_switch_log)
+            self.c_stop(self._clock)
         cdef:
             str order_id = fail_event.order_id
             object market_symbol_pair = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
@@ -256,6 +275,21 @@ cdef class ArbitrageStrategy(StrategyBase):
             double time_left
             dict tracked_taker_orders = self._sb_order_tracker.c_get_taker_orders()
 
+
+        ready_ts_from_failed_order = self._last_failed_market_order_timestamp + \
+                                     self._failed_market_order_count * self.FAILED_ORDER_COOL_OFF_TIME
+        # Wait for FAILED_ORDER_COOL_OFF_TIME * failed_market_order_count before retrying
+        if ready_ts_from_failed_order > self._current_timestamp:
+            time_left = ready_ts_from_failed_order - self._current_timestamp
+            if not self._cool_off_logged:
+                self.log_with_clock(
+                    logging.INFO,
+                    f"Cooling off from failed order. "
+                    f"Resuming in {int(time_left)} seconds."
+                )
+                self._cool_off_logged = True
+            return False
+
         for market_symbol_pair in market_symbol_pairs:
             # Do not continue if there are pending market order
             if len(tracked_taker_orders.get(market_symbol_pair, {})) > 0:
@@ -267,12 +301,23 @@ cdef class ArbitrageStrategy(StrategyBase):
             ready_to_trade_time = self._last_trade_timestamps.get(market_symbol_pair, 0) + self._next_trade_delay
             if market_symbol_pair in self._last_trade_timestamps and ready_to_trade_time > self._current_timestamp:
                 time_left = self._current_timestamp - self._last_trade_timestamps[market_symbol_pair] - self._next_trade_delay
-                self.log_with_clock(
-                    logging.INFO,
-                    f"Cooling off from previous trade on {market_symbol_pair.market.name}. "
-                    f"Resuming in {int(time_left)} seconds."
-                )
+                if not self._cool_off_logged:
+                    self.log_with_clock(
+                        logging.INFO,
+                        f"Cooling off from previous trade on {market_symbol_pair.market.name}. "
+                        f"Resuming in {int(time_left)} seconds."
+                    )
+                    self._cool_off_logged = True
                 return False
+
+        if self._cool_off_logged:
+            self.log_with_clock(
+                logging.INFO,
+                f"Cool off completed. Arbitrage strategy is now ready for new orders."
+            )
+            # reset cool off log tag when strategy is ready for new orders
+            self._cool_off_logged = False
+
         return True
 
     cdef c_process_market_pair(self, object market_pair):
