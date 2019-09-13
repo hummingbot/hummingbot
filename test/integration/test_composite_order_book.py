@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 from os.path import join, realpath
-import sys;
-sys.path.insert(0, realpath(join(__file__, "../../../")))
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 import pandas as pd
 from typing import (
@@ -31,8 +30,8 @@ class CompositeOrderBookTestStrategy(UnitTestStrategy):
     """
 
     class OrderFilledEventLogger(EventListener):
-        def __init__(self, owner: "MarketSimulatorTestStrategy"):
-            self._owner: "MarketSimulatorTestStrategy" = owner
+        def __init__(self, owner: "CompositeOrderBookTestStrategy"):
+            self._owner: "CompositeOrderBookTestStrategy" = owner
 
         def __call__(self, order_filled_event: OrderFilledEvent):
             self._owner.log_order_filled_event(order_filled_event)
@@ -78,11 +77,11 @@ class CompositeOrderBookTestStrategy(UnitTestStrategy):
 
         filled_order_books = []
         for i in range(max(len(filled_bids), len(filled_asks))):
-            if i+1 > len(filled_bids):
+            if i + 1 > len(filled_bids):
                 fb = (None, None, None)
             else:
                 fb = filled_bids[i]
-            if i+1 > len(filled_asks):
+            if i + 1 > len(filled_asks):
                 fa = (None, None, None)
             else:
                 fa = filled_asks[i]
@@ -230,7 +229,7 @@ class CompositeOrderBookTest(unittest.TestCase):
         }
         strategy: CompositeOrderBookTestStrategy = CompositeOrderBookTestStrategy(self.market, trades)
         self.clock.add_iterator(strategy)
-        self.clock.backtest_til(self.start.timestamp()+10)
+        self.clock.backtest_til(self.start.timestamp() + 10)
 
         self.verify_filled_order_recorded(strategy.order_filled_events, self.market.get_order_book("WETH-DAI"))
         self.verify_composite_order_book_correctness(self.market.get_order_book("WETH-DAI"))
@@ -247,8 +246,8 @@ class CompositeOrderBookTest(unittest.TestCase):
         }
         strategy: CompositeOrderBookTestStrategy = CompositeOrderBookTestStrategy(self.market, trades)
         self.clock.add_iterator(strategy)
-        self.clock.backtest_til(self.start.timestamp() + 60*2 + 15)
-        self.clock.backtest_til(self.start.timestamp() + 60*2 + 25)
+        self.clock.backtest_til(self.start.timestamp() + 60 * 2 + 15)
+        self.clock.backtest_til(self.start.timestamp() + 60 * 2 + 25)
         self.verify_composite_order_book_adjustment(self.market.get_order_book("WETH-DAI"))
 
 

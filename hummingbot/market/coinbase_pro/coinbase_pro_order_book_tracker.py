@@ -8,6 +8,7 @@ from collections import (
 )
 import logging
 import time
+from decimal import Decimal
 from typing import (
     Deque,
     Dict,
@@ -16,14 +17,15 @@ from typing import (
     Set
 )
 
+from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.market.coinbase_pro.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessageType,
-    CoinbaseProOrderBookMessage
-)
+    CoinbaseProOrderBookMessage,
+    OrderBookMessage)
 from hummingbot.core.data_type.order_book_tracker_entry import CoinbaseProOrderBookTrackerEntry
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 from hummingbot.market.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
@@ -56,6 +58,11 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
 
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
+        """
+        *required
+        Initializes an order book data source (Either from live API or from historical database)
+        :return: OrderBookTrackerDataSource
+        """
         if not self._data_source:
             if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
                 self._data_source = CoinbaseProAPIOrderBookDataSource(symbols=self._symbols)
@@ -64,10 +71,20 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
         return self._data_source
 
     @property
-    async def exchange_name(self) -> str:
+    def exchange_name(self) -> str:
+        """
+        *required
+        Name of the current exchange
+        """
         return "coinbase_pro"
 
     async def start(self):
+        await super().start()
+        """
+        *required
+        Start all listeners and tasks
+        """
+
         self._order_book_diff_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
@@ -83,12 +100,6 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
         self._order_book_snapshot_router_task = asyncio.ensure_future(
             self._order_book_snapshot_router()
         )
-
-        await asyncio.gather(self._order_book_snapshot_listener_task,
-                             self._order_book_diff_listener_task,
-                             self._order_book_snapshot_router_task,
-                             self._order_book_diff_router_task,
-                             self._refresh_tracking_task)
 
     async def _refresh_tracking_tasks(self):
         """
@@ -143,6 +154,17 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
                     continue
                 await message_queue.put(ob_message)
                 messages_accepted += 1
+                if ob_message.content["type"] == "match":  # put match messages to trade queue
+                    trade_type = float(TradeType.SELL.value) if ob_message.content["side"].upper() == "SELL" \
+                        else float(TradeType.BUY.value)
+                    self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
+                        "symbol": ob_message.symbol ,
+                        "trade_type": trade_type,
+                        "trade_id": ob_message.update_id,
+                        "update_id": ob_message.timestamp,
+                        "price": ob_message.content["price"],
+                        "amount": ob_message.content["size"]
+                    }, timestamp=ob_message.timestamp))
 
                 # Log some statistics.
                 now: float = time.time()
@@ -167,6 +189,9 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
                 await asyncio.sleep(5.0)
 
     async def _track_single_book(self, symbol: str):
+        """
+        Update an order book with changes from the latest batch of received messages
+        """
         past_diffs_window: Deque[CoinbaseProOrderBookMessage] = deque()
         self._past_diffs_windows[symbol] = past_diffs_window
 

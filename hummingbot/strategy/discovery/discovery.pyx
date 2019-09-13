@@ -202,10 +202,10 @@ cdef class DiscoveryStrategy(StrategyBase):
         StrategyBase.c_tick(self, timestamp)
         if not self._fetch_market_info_task_list:
             self._fetch_market_info_task_list = [asyncio.ensure_future(self.fetch_market_info(market_pair))
-                                                for market_pair in self._market_pairs]
+                                                 for market_pair in self._market_pairs]
 
         for market in self._sb_markets:
-            if not market in self._market_info:
+            if market not in self._market_info:
                 self.log_with_clock(logging.INFO, f"Waiting to finish fetching trading pair from {market.name}.")
                 return
 
@@ -223,10 +223,10 @@ cdef class DiscoveryStrategy(StrategyBase):
         self._last_timestamp = timestamp
 
     cdef dict c_calculate_single_arbitrage_profitability(self,
-                                                    object market_pair,
-                                                    tuple matching_pair,
-                                                    double target_amount=float("inf"),
-                                                    double target_profitability=0.0):
+                                                         object market_pair,
+                                                         tuple matching_pair,
+                                                         double target_amount=float("inf"),
+                                                         double target_profitability=0.0):
         """
         Given a matching symbol pair and a discovery market pair, calculate the optimal order size and the buy-sell
         order of the two marktes to make the maximal arbitrage profits out of them.
@@ -240,15 +240,15 @@ cdef class DiscoveryStrategy(StrategyBase):
         :rtype: Dict[Tuple[str, str, str, str], Tuple[float, float, float]]
         """
         cdef:
-            double total_bid_value = 0 # total revenue
-            double total_ask_value = 0 # total cost
+            double total_bid_value = 0                                  # total revenue
+            double total_ask_value = 0                                  # total cost
             double total_bid_value_adjusted = 0
             double total_ask_value_adjusted = 0
             double total_profitable_base_amount = 0
             double step_amount = 0
             double profitability = 0
             double next_profitability = 0
-            object market_1 = (market_pair.market_1, matching_pair[0]) # (symbol, base_token, quote_token)
+            object market_1 = (market_pair.market_1, matching_pair[0])  # (symbol, base_token, quote_token)
             object market_2 = (market_pair.market_2, matching_pair[1])
             str buy_market_name
             str sell_market_name
@@ -264,7 +264,7 @@ cdef class DiscoveryStrategy(StrategyBase):
 
         for buy_market, sell_market in [(market_1, market_2), (market_2, market_1)]:
             try:
-                total_bid_value, total_ask_value  = 0, 0
+                total_bid_value, total_ask_value = 0, 0
                 total_profitable_base_amount = 0
                 profitability, next_profitability = 0, 0
 
@@ -335,11 +335,11 @@ cdef class DiscoveryStrategy(StrategyBase):
                                       target_profitability: float):
         return self.c_calculate_arbitrage_discovery(market_pair, matching_pairs, target_amount, target_profitability)
 
-    cdef dict c_calculate_arbitrage_discovery(self,
-                                              object market_pair,
-                                              set matching_pairs,
-                                              double target_amount,
-                                              double target_profitability):
+    cdef object c_calculate_arbitrage_discovery(self,
+                                                object market_pair,
+                                                set matching_pairs,
+                                                double target_amount,
+                                                double target_profitability):
         """
         Given a set of matching symbol pairs and a discovery market pair, calculate the optimal order sizes and the
         buy-sell orders of all the symbol pairs to make the maximal arbitrage profits out of them.

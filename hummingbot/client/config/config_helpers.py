@@ -1,7 +1,3 @@
-from typing import List
-
-from hummingbot.client.settings import TOKEN_ADDRESSES_FILE_PATH
-
 import logging
 import ruamel.yaml
 from os.path import (
@@ -11,8 +7,10 @@ from os.path import (
 from collections import OrderedDict
 import json
 from typing import (
+    Any,
     Callable,
     Dict,
+    List,
     Optional,
 )
 from os import listdir
@@ -29,20 +27,31 @@ from hummingbot.client.settings import (
     CONF_PREFIX,
     LIQUIDITY_BOUNTY_CONFIG_PATH,
     DEPRECATED_CONFIG_VALUES,
+    TOKEN_ADDRESSES_FILE_PATH,
 )
 
 # Use ruamel.yaml to preserve order and comments in .yml file
 yaml_parser = ruamel.yaml.YAML()
 
 
-def parse_cvar_value(cvar: ConfigVar, value: any):
+def parse_cvar_value(cvar: ConfigVar, value: Any) -> Any:
     if value is None:
         return None
     elif cvar.type == 'str':
         return str(value)
-    elif cvar.type in {"list", "dict"}:
+    elif cvar.type == 'list':
         if isinstance(value, str):
-            return json.loads(value)
+            if len(value) == 0:
+                return []
+            filtered: filter = filter(lambda x: x not in ['[', ']', '"', "'"], list(value))
+            value = "".join(filtered).split(",")  # create csv and generate list
+            return [s.strip() for s in value]  # remove leading and trailing whitespaces
+        else:
+            return value
+    elif cvar.type == 'dict':
+        if isinstance(value, str):
+            value_json = value.replace("'", '"')  # replace single quotes with double quotes for valid JSON
+            return json.loads(value_json)
         else:
             return value
     elif cvar.type == 'float':
