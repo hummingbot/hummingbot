@@ -33,8 +33,8 @@ cdef class ConstantSpreadPricingDelegate(OrderPricingDelegate):
     cdef object c_get_order_price_proposal(self,
                                            PureMarketMakingStrategyV2 strategy,
                                            object market_info,
-                                           list active_orders,
-                                           double filled_price=0):
+                                           list active_orders):
+
         cdef:
             MarketBase maker_market = market_info.market
             OrderBook maker_order_book = maker_market.c_get_order_book(market_info.trading_pair)
@@ -44,11 +44,6 @@ cdef class ConstantSpreadPricingDelegate(OrderPricingDelegate):
             double mid_price = (top_bid_price + top_ask_price) * 0.5
             double bid_price = mid_price * (1.0 - self._bid_spread)
             double ask_price = mid_price * (1.0 + self._ask_spread)
-
-        # If there is an input for filled price, calculate price based on filled price
-        if filled_price !=0:
-            bid_price = filled_price * (1.0 - self._bid_spread)
-            ask_price = filled_price * (1.0 + self._ask_spread)
 
         return PricingProposal([maker_market.c_quantize_order_price(market_info.trading_pair, bid_price)],
                                [maker_market.c_quantize_order_price(market_info.trading_pair, ask_price)])
