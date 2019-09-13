@@ -319,8 +319,8 @@ cdef class BinanceMarket(MarketBase):
                           str quote_currency,
                           object order_type,
                           object order_side,
-                          Decimal amount,
-                          Decimal price):
+                          object amount,
+                          object price):
         cdef:
             double maker_trade_fee = 0.001
             double taker_trade_fee = 0.001

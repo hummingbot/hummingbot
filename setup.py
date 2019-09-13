@@ -66,7 +66,7 @@ def main():
             "templates/*TEMPLATE.yml"
         ],
     }
-    install_requires=[
+    install_requires = [
         "aioconsole",
         "aiokafka",
         "attrdict",
@@ -131,7 +131,14 @@ def main():
           install_requires=install_requires,
           ext_modules=cythonize([
               "hummingbot/**/*.pyx",
-          ], language="c++", language_level=3, nthreads=cpu_count),
+          ], exclude=[
+              "hummingbot/market/paper_trade/*.pyx",
+              "hummingbot/market/bamboo_relay/*.pyx",
+              "hummingbot/market/radar_relay/*.pyx",
+              "hummingbot/market/ddex/*.pyx",
+              "hummingbot/market/idex/*.pyx",
+              "hummingbot/market/coinbase_pro/*.pyx",
+              "hummingbot/market/huobi/*.pyx"], language="c++", language_level=3, nthreads=cpu_count),
           include_dirs=[
               np.get_include(),
           ],
