@@ -15,18 +15,20 @@ def generate_client_id() -> str:
 
 
 # Required conditions
+def paper_trade_disabled():
+    return global_config_map.get("paper_trade_enabled").value is False
+
+
 def using_strategy(strategy: str) -> Callable:
     return lambda: global_config_map.get("strategy").value == strategy
 
 
 def using_exchange(exchange: str) -> Callable:
-    return lambda: global_config_map.get("paper_trade_enabled").value is False \
-                   and exchange in required_exchanges
+    return lambda: paper_trade_disabled() and exchange in required_exchanges
 
 
 def using_wallet() -> bool:
-    return global_config_map.get("paper_trade_enabled").value is False \
-           and any([e in DEXES for e in required_exchanges])
+    return paper_trade_disabled() and any([e in DEXES for e in required_exchanges])
 
 
 # Main global config store
@@ -175,6 +177,7 @@ global_config_map = {
 
     "kill_switch_enabled":              ConfigVar(key="kill_switch_enabled",
                                                   prompt="Would you like to enable the kill switch? (y/n) >>> ",
+                                                  required_if=paper_trade_disabled,
                                                   type_str="bool",
                                                   default=False),
     "kill_switch_rate":                 ConfigVar(key="kill_switch_rate",
