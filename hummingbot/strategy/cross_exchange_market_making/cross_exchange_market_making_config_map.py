@@ -53,12 +53,12 @@ cross_exchange_market_making_config_map = {
     ),
     "min_profitability": ConfigVar(
         key="min_profitability",
-        prompt="What is the minimum profitability for you to make a trade? " "(Enter 0.01 to indicate 1%) >>> ",
+        prompt="What is the minimum profitability for you to make a trade? (Enter 0.01 to indicate 1%) >>> ",
         type_str="float",
     ),
     "order_amount": ConfigVar(
         key="order_amount",
-        prompt="What is your preferred trade size? (denominated in " "the base asset) >>> ",
+        prompt="What is your preferred trade size? (denominated in the base asset) >>> ",
         default=0.0,
         type_str="float",
     ),
