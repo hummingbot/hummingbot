@@ -1124,7 +1124,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     self.log_with_clock(
                         logging.WARNING,
                         f"({market_pair.maker.trading_pair}) Attempting to place a limit bid but the "
-                        f"bid size is 0. Skipping."
+                        f"bid size is 0. Skipping. Check available balance."
                     )
         # if there is no active ask, place ask again
         if not has_active_ask:
@@ -1172,7 +1172,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     self.log_with_clock(
                         logging.WARNING,
                         f"({market_pair.maker.trading_pair}) Attempting to place a limit ask but the "
-                        f"ask size is 0. Skipping."
+                        f"ask size is 0. Skipping. Check available balance."
                     )
 
     # <editor-fold desc="+ Creating and canceling orders">
