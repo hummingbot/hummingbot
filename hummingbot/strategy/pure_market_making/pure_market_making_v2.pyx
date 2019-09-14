@@ -364,6 +364,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
             LimitOrder limit_order_record
 
+        # Remove the order from tracked limit orders when the orders are filled and remove it from time to cancel
         # Adjusting filled orders only for single order mode (identified using name of the delegate)
         if self.sizing_delegate_name in self.SINGLE_ORDER_SIZING_DELEGATES:
             #Set the replenish time as current_timestamp + order replenish time
@@ -394,6 +395,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
             LimitOrder limit_order_record
 
+        # Remove the order from tracked limit orders when the orders are filled and remove it from time to cancel
         # Adjusting filled orders only for single order mode (identified using name of the delegate)
         if self.sizing_delegate_name in self.SINGLE_ORDER_SIZING_DELEGATES:
             #Set the replenish time as current_timestamp + order replenish time
