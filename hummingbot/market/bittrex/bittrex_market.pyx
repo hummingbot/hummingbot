@@ -21,7 +21,7 @@ from hummingbot.core.event.events import (
     TradeType,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent, OrderCancelledEvent, MarketTransactionFailureEvent, MarketWithdrawAssetEvent,
-    MarketOrderFailureEvent, SellOrderCreatedEvent)
+    MarketOrderFailureEvent, SellOrderCreatedEvent, BuyOrderCreatedEvent)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.bittrex.bittrex_api_order_book_data_source import BittrexAPIOrderBookDataSource
@@ -649,21 +649,21 @@ cdef class BittrexMarket(MarketBase):
                           amount: Decimal,
                           is_buy: bool,
                           order_type: OrderType = OrderType.LIMIT, # Bittrex API v1.1 removed placing of market orders
-                          price: Decimal) -> str:
+                          price: Decimal) -> Dict[str, Any]:
         path_url = "/market/buylimit"
         params = {
             "market": symbol,
             "quantity": amount,
             "rate": price
         }
-        exchange_order_id = await self._api_request("get", path_url=path_url, params=params)
-        return str(exchange_order_id)
+        api_response = await self._api_request("get", path_url=path_url, params=params)
+        return api_response
 
     async def execute_buy(self,
                           order_id: str,
                           symbol: str,
                           amount: float,
-                          order_type: OrderType = OrderType.LIMIT, # Bittrex API v1.1 removed placing of market orders
+                          order_type: OrderType = OrderType.LIMIT, # Bittrex API v1.1 disabled placing of market orders
                           price: Optional[float] = NaN):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
@@ -673,27 +673,65 @@ cdef class BittrexMarket(MarketBase):
             str exchange_order_id
             object tracked_order
 
-        # Limit orders only
         decimal_amount = self.c_quantize_order_amount(symbol, amount)
         decimal_price = self.c_quantize_order_price(symbol, price)
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
 
+        # Since Bittrex disabled placing of market orders, placing market orders will be simulated with limit orders
         try:
-            exchange_order_id = await self.place_order(order_id,
-                                                       symbol,
-                                                       decimal_amount,
-                                                       True,
-                                                       order_type,
-                                                       decimal_price)
+            order_result = None
+            if order_type is OrderType.LIMIT:
+
+                api_response = await self.place_order(order_id,
+                                                           symbol,
+                                                           decimal_amount,
+                                                           True,
+                                                           order_type,
+                                                           decimal_price)
+
+                if api_response["success"] is True:
+                    order_result = api_response["result"]
+                    self.c_start_tracking_order(
+                        order_id,
+                        "",
+                        symbol,
+                        TradeType.BUY,
+                        Decimal("NaN"),
+                        decimal_amount,
+                        order_type
+                    )
+            elif order_type is OrderType.MARKET: # TODO: Track best ask price and amount
+                pass
+
+            else:
+                raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
+
+            exchange_order_id = str(order_result["uuid"])
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is not None:
+                self.logger().info(f"Created {order_type} buy order {order_id} for "
+                                   f"{decimal_amount} {symbol}")
+                tracked_order.exchange_order_id = exchange_order_id
+            self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
+                                 BuyOrderCreatedEvent(
+                                     self._current_timestamp,
+                                     order_type,
+                                     symbol,
+                                     float(decimal_amount),
+                                     float(decimal_price),
+                                     order_id
+                                 ))
+
+
         except asyncio.CancelledError:
             raise
         except asyncio.TimeoutError:
             self.logger().network(f"Timeout Error encountered while submitting buy-{order_type} order",exc_info=True)
         except Exception:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "LIMIT" # Bittrex v1.1 API only supports Limit Orders
+            order_type_str = "LIMIT" if order_type is OrderType.LIMIT else "MARKET"
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Bittrex for "
                 f"{decimal_amount} {symbol}"
