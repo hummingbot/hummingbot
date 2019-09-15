@@ -9,11 +9,19 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
+<<<<<<< HEAD
 from hummingbot.market.bitroyal.bitroyal_market import bitroyalMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
 
 cdef class bitroyalInFlightOrder(InFlightOrderBase):
+=======
+from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
+from hummingbot.market.in_flight_order_base import InFlightOrderBase
+
+
+cdef class CoinbaseProInFlightOrder(InFlightOrderBase):
+>>>>>>> Created bitroyal connector folder and files in hummingbot>market
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: Optional[str],
@@ -24,7 +32,11 @@ cdef class bitroyalInFlightOrder(InFlightOrderBase):
                  amount: Decimal,
                  initial_state: str = "open"):
         super().__init__(
+<<<<<<< HEAD
             bitroyalMarket,
+=======
+            CoinbaseProMarket,
+>>>>>>> Created bitroyal connector folder and files in hummingbot>market
             client_order_id,
             exchange_order_id,
             symbol,
@@ -57,7 +69,11 @@ cdef class bitroyalInFlightOrder(InFlightOrderBase):
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         cdef:
+<<<<<<< HEAD
             bitroyalInFlightOrder retval = bitroyalInFlightOrder(
+=======
+            CoinbaseProInFlightOrder retval = CoinbaseProInFlightOrder(
+>>>>>>> Created bitroyal connector folder and files in hummingbot>market
                 data["client_order_id"],
                 data["exchange_order_id"],
                 data["symbol"],

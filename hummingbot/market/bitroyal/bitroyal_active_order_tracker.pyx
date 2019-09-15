@@ -12,7 +12,11 @@ from hummingbot.core.data_type.order_book_row import OrderBookRow
 _cbpaot_logger = None
 s_empty_diff = np.ndarray(shape=(0, 4), dtype="float64")
 
+<<<<<<< HEAD
 bitroyalOrderBookTrackingDictionary = Dict[Decimal, Dict[str, Dict[str, any]]]
+=======
+CoinbaseProOrderBookTrackingDictionary = Dict[Decimal, Dict[str, Dict[str, any]]]
+>>>>>>> Created bitroyal connector folder and files in hummingbot>market
 
 TYPE_OPEN = "open"
 TYPE_CHANGE = "change"
@@ -21,10 +25,17 @@ TYPE_DONE = "done"
 SIDE_BUY = "buy"
 SIDE_SELL = "sell"
 
+<<<<<<< HEAD
 cdef class bitroyalActiveOrderTracker:
     def __init__(self,
                  active_asks: bitroyalOrderBookTrackingDictionary = None,
                  active_bids: bitroyalOrderBookTrackingDictionary = None):
+=======
+cdef class CoinbaseProActiveOrderTracker:
+    def __init__(self,
+                 active_asks: CoinbaseProOrderBookTrackingDictionary = None,
+                 active_bids: CoinbaseProOrderBookTrackingDictionary = None):
+>>>>>>> Created bitroyal connector folder and files in hummingbot>market
         super().__init__()
         self._active_asks = active_asks or {}
         self._active_bids = active_bids or {}
@@ -37,11 +48,19 @@ cdef class bitroyalActiveOrderTracker:
         return _cbpaot_logger
 
     @property
+<<<<<<< HEAD
     def active_asks(self) -> bitroyalOrderBookTrackingDictionary:
         return self._active_asks
 
     @property
     def active_bids(self) -> bitroyalOrderBookTrackingDictionary:
+=======
+    def active_asks(self) -> CoinbaseProOrderBookTrackingDictionary:
+        return self._active_asks
+
+    @property
+    def active_bids(self) -> CoinbaseProOrderBookTrackingDictionary:
+>>>>>>> Created bitroyal connector folder and files in hummingbot>market
         return self._active_bids
 
     def volume_for_ask_price(self, price) -> float:

@@ -1,7 +1,11 @@
 # distutils: language=c++
 cimport numpy as np
 
+<<<<<<< HEAD
 cdef class BitroyalActiveOrderTracker:
+=======
+cdef class CoinbaseProActiveOrderTracker:
+>>>>>>> Created bitroyal connector folder and files in hummingbot>market
     cdef dict _active_bids
     cdef dict _active_asks
 

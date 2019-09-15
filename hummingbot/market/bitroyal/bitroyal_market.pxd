@@ -2,11 +2,19 @@ from hummingbot.market.market_base cimport MarketBase
 from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
 
+<<<<<<< HEAD
 cdef class bitroyalMarket(MarketBase):
     cdef:
         object _order_book_tracker
         object _user_stream_tracker
         object _bitroyal_auth
+=======
+cdef class CoinbaseProMarket(MarketBase):
+    cdef:
+        object _order_book_tracker
+        object _user_stream_tracker
+        object _coinbase_auth
+>>>>>>> Created bitroyal connector folder and files in hummingbot>market
         dict _account_balances
         dict _account_available_balances
         object _ev_loop

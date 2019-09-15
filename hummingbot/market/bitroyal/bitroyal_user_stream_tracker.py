@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+<<<<<<< HEAD
 from typing import Optional, List
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
@@ -11,6 +12,23 @@ from hummingbot.market.bitroyal.bitroyal_auth import bitroyalAuth
 
 
 class bitroyalUserStreamTracker(UserStreamTracker):
+=======
+from typing import (
+    Optional,
+    List,
+)
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.logger import HummingbotLogger
+from hummingbot.core.data_type.user_stream_tracker import (
+    UserStreamTrackerDataSourceType,
+    UserStreamTracker
+)
+from hummingbot.market.coinbase_pro.coinbase_pro_api_user_stream_data_source import CoinbaseProAPIUserStreamDataSource
+from hummingbot.market.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
+
+
+class CoinbaseProUserStreamTracker(UserStreamTracker):
+>>>>>>> Created bitroyal connector folder and files in hummingbot>market
     _cbpust_logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -19,6 +37,7 @@ class bitroyalUserStreamTracker(UserStreamTracker):
             cls._bust_logger = logging.getLogger(__name__)
         return cls._bust_logger
 
+<<<<<<< HEAD
     def __init__(
         self,
         data_source_type: UserStreamTrackerDataSourceType = UserStreamTrackerDataSourceType.EXCHANGE_API,
@@ -27,6 +46,14 @@ class bitroyalUserStreamTracker(UserStreamTracker):
     ):
         super().__init__(data_source_type=data_source_type)
         self._bitroyal_auth: bitroyalAuth = bitroyal_auth
+=======
+    def __init__(self,
+                 data_source_type: UserStreamTrackerDataSourceType = UserStreamTrackerDataSourceType.EXCHANGE_API,
+                 coinbase_pro_auth: Optional[CoinbaseProAuth] = None,
+                 symbols: Optional[List[str]] = []):
+        super().__init__(data_source_type=data_source_type)
+        self._coinbase_pro_auth: CoinbaseProAuth = coinbase_pro_auth
+>>>>>>> Created bitroyal connector folder and files in hummingbot>market
         self._symbols: List[str] = symbols
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
@@ -36,16 +63,25 @@ class bitroyalUserStreamTracker(UserStreamTracker):
     def data_source(self) -> UserStreamTrackerDataSource:
         if not self._data_source:
             if self._data_source_type is UserStreamTrackerDataSourceType.EXCHANGE_API:
+<<<<<<< HEAD
                 self._data_source = bitroyalAPIUserStreamDataSource(
                     bitroyal_auth=self._bitroyal_auth, symbols=self._symbols
                 )
+=======
+                self._data_source = CoinbaseProAPIUserStreamDataSource(coinbase_pro_auth=self._coinbase_pro_auth,
+                                                                       symbols=self._symbols)
+>>>>>>> Created bitroyal connector folder and files in hummingbot>market
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source
 
     @property
     def exchange_name(self) -> str:
+<<<<<<< HEAD
         return "bitroyal"
+=======
+        return "coinbase_pro"
+>>>>>>> Created bitroyal connector folder and files in hummingbot>market
 
     async def start(self):
         self._user_stream_tracking_task = asyncio.ensure_future(
