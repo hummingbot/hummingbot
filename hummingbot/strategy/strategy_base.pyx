@@ -385,8 +385,11 @@ cdef class StrategyBase(TimeIterator):
             raise ValueError(f"Market object for buy order is not in the whitelisted markets set.")
 
         cdef:
-            str order_id = market.c_buy(market_symbol_pair.trading_pair, amount,
-                                        order_type=order_type, price=price, kwargs=kwargs)
+            str order_id = market.c_buy(market_symbol_pair.trading_pair,
+                                        amount=amount,
+                                        order_type=order_type,
+                                        price=price,
+                                        kwargs=kwargs)
 
         # Start order tracking
         if order_type == OrderType.LIMIT:
@@ -418,8 +421,11 @@ cdef class StrategyBase(TimeIterator):
             raise ValueError(f"Market object for sell order is not in the whitelisted markets set.")
 
         cdef:
-            str order_id = market.c_sell(market_symbol_pair.trading_pair, amount,
-                                         order_type=order_type, price=price, kwargs=kwargs)
+            str order_id = market.c_sell(market_symbol_pair.trading_pair,
+                                         amount,
+                                         order_type=order_type,
+                                         price=price,
+                                         kwargs=kwargs)
 
         # Start order tracking
         if order_type == OrderType.LIMIT:

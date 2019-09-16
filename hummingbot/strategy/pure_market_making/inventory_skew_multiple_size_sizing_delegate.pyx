@@ -94,8 +94,8 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
             top_ask_price = Decimal(market.c_get_price(trading_pair, True))
             mid_price = (top_bid_price + top_ask_price) / 2
 
-            total_base_asset_quote_value = Decimal(base_asset_balance) * mid_price
-            total_quote_asset_quote_value = Decimal(quote_asset_balance)
+            total_base_asset_quote_value = base_asset_balance * mid_price
+            total_quote_asset_quote_value = quote_asset_balance
 
             # Calculate percent value of base and quote
             current_base_percent = total_base_asset_quote_value / (total_base_asset_quote_value + total_quote_asset_quote_value)
@@ -142,7 +142,7 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
                     market_info.trading_pair,
                     current_bid_order_size
                 )
-                buy_fees = market.c_get_fee( 
+                buy_fees = market.c_get_fee(
                     market_info.base_asset,
                     market_info.quote_asset,
                     OrderType.MARKET,
@@ -170,7 +170,7 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
             if base_asset_balance < current_base_asset_order_size_total + quantized_ask_order_size:
                 quantized_ask_order_size = market.c_quantize_order_amount(
                     market_info.trading_pair,
-                    float(base_asset_balance - current_base_asset_order_size_total),
+                    base_asset_balance - current_base_asset_order_size_total,
                     pricing_proposal.sell_order_prices[i]
                 )
 
