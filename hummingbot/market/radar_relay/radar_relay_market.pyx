@@ -767,7 +767,6 @@ cdef class RadarRelayMarket(MarketBase):
 
             return order_id
         except Exception as e:
-            self.logger().error(str(e))
             self.c_stop_tracking_order(order_id)
             self.logger().network(
                 f"Error submitting {trade_type_desc} order to Radar Relay for {str(q_amt)} {symbol}.",

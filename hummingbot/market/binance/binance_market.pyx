@@ -948,10 +948,7 @@ cdef class BinanceMarket(MarketBase):
         except asyncio.CancelledError:
             raise
 
-        except asyncio.TimeoutError:
-            self.logger().network(f"Timeout Error encountered while submitting buy ",exc_info=True)
-
-        except Exception:
+        except Exception as e:
             self.c_stop_tracking_order(order_id)
             order_type_str = 'MARKET' if order_type == OrderType.MARKET else 'LIMIT'
             self.logger().network(
@@ -1041,8 +1038,7 @@ cdef class BinanceMarket(MarketBase):
                                      float(decimal_price),
                                      order_id
                                  ))
-        except asyncio.TimeoutError:
-            self.logger().network(f"Timeout Error encountered while submitting sell ",exc_info=True)
+
         except asyncio.CancelledError:
             raise
         except Exception:
