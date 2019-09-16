@@ -26,6 +26,7 @@ from telegram.ext import (
 )
 
 import hummingbot
+import pandas as pd
 from hummingbot.logger import HummingbotLogger
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.client.config.global_config_map import global_config_map
@@ -118,13 +119,24 @@ class TelegramNotifier(NotifierBase):
         try:
             input_text = update.message.text.strip()
             output = f"\n[Telegram Input] {input_text}"
+
             self._hb.app.log(output)
 
             # if the command does starts with any disabled commands
             if any([input_text.lower().startswith(dc) for dc in DISABLED_COMMANDS]):
                 self.add_msg_to_queue(f"Command {input_text} is disabled from telegram")
             else:
+                # Set display options to max, so that telegram does not display truncated data
+                pd.set_option('display.max_rows', 500)
+                pd.set_option('display.max_columns', 500)
+                pd.set_option('display.width', 1000)
+
                 await async_scheduler.call_async(self._hb._handle_command, input_text)
+
+                # Reset to normal, so that pandas's default autodetect width still works
+                pd.set_option('display.max_rows', 0)
+                pd.set_option('display.max_columns', 0)
+                pd.set_option('display.width', 0)
         except Exception as e:
             self.add_msg_to_queue(str(e))
 

@@ -73,4 +73,5 @@ DEPRECATED_CONFIG_VALUES = {
     "stop_loss_pct",
     "stop_loss_price_type",
     "stop_loss_base_token",
+    "trade_size_override",
 }
