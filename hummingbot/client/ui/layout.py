@@ -131,6 +131,14 @@ def get_bounty_status():
     return [(style, f"bounty_status: {bounty_status}")]
 
 
+def get_paper_trade_status():
+    from hummingbot.client.config.global_config_map import global_config_map
+    enabled = global_config_map["paper_trade_enabled"].value is True
+    paper_trade_status = "ON" if enabled else "OFF"
+    style = "class:primary" if enabled else "class:warning"
+    return [(style, f"paper_trade_mode: {paper_trade_status}")]
+
+
 def get_title_bar_right_text():
     copy_key = "CTRL + SHIFT" if is_windows() else "fn"
     return [
@@ -148,6 +156,7 @@ def generate_layout(input_field: TextArea,
         VSplit([
             Window(FormattedTextControl(get_version), style="class:title"),
             Window(FormattedTextControl(get_bounty_status), style="class:title"),
+            Window(FormattedTextControl(get_paper_trade_status), style="class:title"),
             Window(FormattedTextControl(get_title_bar_right_text), align=WindowAlign.RIGHT, style="class:title"),
         ], height=1),
         VSplit([
