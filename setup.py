@@ -129,16 +129,7 @@ def main():
           packages=packages,
           package_data=package_data,
           install_requires=install_requires,
-          ext_modules=cythonize([
-              "hummingbot/**/*.pyx",
-          ], exclude=[
-              "hummingbot/market/paper_trade/*.pyx",
-              "hummingbot/market/bamboo_relay/*.pyx",
-              "hummingbot/market/radar_relay/*.pyx",
-              "hummingbot/market/ddex/*.pyx",
-              "hummingbot/market/idex/*.pyx",
-              "hummingbot/market/coinbase_pro/*.pyx",
-              "hummingbot/market/huobi/*.pyx"], language="c++", language_level=3, nthreads=cpu_count),
+          ext_modules=cythonize(["hummingbot/**/*.pyx"], language="c++", language_level=3, nthreads=cpu_count),
           include_dirs=[
               np.get_include(),
           ],

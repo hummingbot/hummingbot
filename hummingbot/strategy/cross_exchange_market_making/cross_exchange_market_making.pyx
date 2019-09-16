@@ -575,7 +575,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 (taker_market.c_get_available_balance(market_pair.taker.base_asset) *
                  self._order_size_taker_balance_factor)
             )
-            quantized_hedge_amount = taker_market.c_quantize_order_amount(taker_symbol, hedged_order_quantity)
+            quantized_hedge_amount = taker_market.c_quantize_order_amount(taker_symbol, Decimal(hedged_order_quantity))
             taker_top = taker_market.c_get_price(taker_symbol, False)
             avg_fill_price = (sum([r.price * r.amount for _, r in buy_fill_records]) /
                               sum([r.amount for _, r in buy_fill_records]))
@@ -606,7 +606,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                  taker_order_book.c_get_price_for_volume(True, sell_fill_quantity).result_price *
                  self._order_size_taker_balance_factor)
             )
-            quantized_hedge_amount = taker_market.c_quantize_order_amount(taker_symbol, hedged_order_quantity)
+            quantized_hedge_amount = taker_market.c_quantize_order_amount(taker_symbol, Decimal(hedged_order_quantity))
             taker_top = taker_market.c_get_price(taker_symbol, True)
             avg_fill_price = (sum([r.price * r.amount for _, r in sell_fill_records]) /
                               sum([r.amount for _, r in sell_fill_records]))
@@ -649,7 +649,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
         if self._order_amount and self._order_amount > 0:
             base_order_size = self._order_amount
-            return maker_market.c_quantize_order_amount(symbol, base_order_size)
+            return maker_market.c_quantize_order_amount(symbol, Decimal(base_order_size))
         else:
             return self.c_get_order_size_after_portfolio_ratio_limit(market_pair)
 
@@ -674,7 +674,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double maker_portfolio_value = base_balance + quote_balance / current_price
             double adjusted_order_size = maker_portfolio_value * self._order_size_portfolio_ratio_limit
 
-        return maker_market.c_quantize_order_amount(symbol, adjusted_order_size)
+        return maker_market.c_quantize_order_amount(symbol, Decimal(adjusted_order_size))
 
     cdef object c_get_market_making_size(self,
                                          object market_pair,
@@ -714,7 +714,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             maker_balance = maker_balance_in_quote / taker_price
             order_amount = min(maker_balance, taker_balance, user_order)
 
-            return maker_market.c_quantize_order_amount(market_pair.maker.trading_pair, order_amount)
+            return maker_market.c_quantize_order_amount(market_pair.maker.trading_pair, Decimal(order_amount))
 
         else:
 
@@ -734,7 +734,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             taker_balance = taker_balance_in_quote / taker_price
             order_amount = min(maker_balance, taker_balance, user_order)
 
-            return maker_market.c_quantize_order_amount(market_pair.maker.trading_pair, order_amount)
+            return maker_market.c_quantize_order_amount(market_pair.maker.trading_pair, Decimal(order_amount))
 
     cdef object c_get_market_making_price(self,
                                           object market_pair,
@@ -1051,7 +1051,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double order_size_limit
 
         order_size_limit = min(base_asset_amount, quote_asset_amount / order_price)
-        quantized_size_limit = maker_market.c_quantize_order_amount(active_order.symbol, order_size_limit)
+        quantized_size_limit = maker_market.c_quantize_order_amount(active_order.symbol, Decimal(order_size_limit))
 
         if active_order.quantity > quantized_size_limit:
             if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
