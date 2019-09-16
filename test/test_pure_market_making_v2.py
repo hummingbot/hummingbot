@@ -106,7 +106,6 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
             filled_order_replenish_wait_time=self.cancel_order_wait_time,
-            filled_order_adjust_other_side_enabled=False,
             sizing_delegate=self.constant_sizing_delegate,
             pricing_delegate=self.constant_pricing_delegate,
             cancel_order_wait_time=45,
@@ -661,7 +660,6 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
             sizing_delegate=self.inventory_skew_single_size_sizing_delegate,
             pricing_delegate=self.constant_pricing_delegate,
             cancel_order_wait_time=45,
-            filled_order_adjust_other_side_enabled=False,
             filled_order_replenish_wait_time=0,
             logging_options=logging_options
         )
@@ -680,7 +678,6 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
             sizing_delegate=self.inventory_skew_multiple_size_sizing_delegate,
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
             cancel_order_wait_time=45,
-            filled_order_adjust_other_side_enabled=False,
             logging_options=logging_options
         )
 

@@ -13,7 +13,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef:
         dict _market_infos
         bint _all_markets_ready
-        bint _filled_order_adjust_other_side_enabled
 
         double _cancel_order_wait_time
         double _status_report_interval
