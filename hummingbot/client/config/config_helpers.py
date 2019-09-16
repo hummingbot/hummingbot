@@ -144,7 +144,7 @@ def load_required_configs(*args) -> OrderedDict:
     else:
         strategy_config_map = get_strategy_config_map(current_strategy)
         # create an ordered dict where `strategy` is inserted first
-        # so that strategy-specific configs are prompted first and populate required exchanges
+        # so that strategy-specific configs are prompted first and populate required_exchanges
         return _merge_dicts(in_memory_config_map, strategy_config_map, global_config_map)
 
 
@@ -202,11 +202,14 @@ async def write_config_to_yml():
     """
     from hummingbot.client.config.in_memory_config_map import in_memory_config_map
     current_strategy = in_memory_config_map.get("strategy").value
-    strategy_config_map = get_strategy_config_map(current_strategy)
-    strategy_file_path = join(CONF_FILE_PATH, in_memory_config_map.get("strategy_file_path").value)
+    strategy_file_path = in_memory_config_map.get("strategy_file_path").value
+
+    if current_strategy is not None and strategy_file_path is not None:
+        strategy_config_map = get_strategy_config_map(current_strategy)
+        strategy_file_path = join(CONF_FILE_PATH, strategy_file_path)
+        await save_to_yml(strategy_file_path, strategy_config_map)
 
     await save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
-    await save_to_yml(strategy_file_path, strategy_config_map)
 
 
 async def create_yml_files():

@@ -114,7 +114,7 @@ class BountyCommand:
                     self._notify("\nYour wallets:")
                     self.list("wallets")
 
-                value = await self.config_single_variable(cvar)
+                value = await self.prompt_single_variable(cvar)
                 cvar.value = parse_cvar_value(cvar, value)
                 if cvar.type == "bool" and cvar.value is False:
                     raise ValueError(f"{cvar.key} is required.")
