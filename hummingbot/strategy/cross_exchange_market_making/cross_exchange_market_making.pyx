@@ -383,7 +383,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         if len(tracked_taker_orders.get(market_pair, {})) > 0:
             return
 
-        self.logger().info("about to create new orders")
         # See if it's profitable to place a limit order on maker market.
         self.c_check_and_create_new_orders(market_pair, has_active_bid, has_active_ask)
 
@@ -1082,76 +1081,98 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         # if there is no active bid, place bid again
         if not has_active_bid:
             bid_size = self.c_get_market_making_size(market_pair, True)
-            bid_price = self.c_get_market_making_price(market_pair, True, bid_size)
 
-            if bid_price is not None:
-                effective_hedging_price = self.c_calculate_effective_hedging_price(
-                    market_pair,
-                    True,
-                    float(bid_size)
-                )
-                effective_hedging_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
-                    market_pair.taker.quote_asset, effective_hedging_price
-                )
-                if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
-                    self.log_with_clock(
-                        logging.INFO,
-                        f"({market_pair.maker.trading_pair}) Creating limit bid order for "
-                        f"{bid_size} {market_pair.maker.base_asset} at "
-                        f"{bid_price} {market_pair.maker.quote_asset}. "
-                        f"Current hedging price: {effective_hedging_price} {market_pair.taker.quote_asset} "
-                        f"(Rate adjusted: {effective_hedging_price_adjusted:.2f} {market_pair.taker.quote_asset})."
+            # Check if bid size is greater than zero
+            if bid_size > s_decimal_zero:
+
+                bid_price = self.c_get_market_making_price(market_pair, True, bid_size)
+
+                if bid_price is not None:
+                    effective_hedging_price = self.c_calculate_effective_hedging_price(
+                        market_pair,
+                        True,
+                        float(bid_size)
                     )
-                self.c_buy_with_specific_market(
-                    market_pair,
-                    bid_size,
-                    order_type=OrderType.LIMIT,
-                    price=bid_price
-                )
+                    effective_hedging_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
+                        market_pair.taker.quote_asset, effective_hedging_price
+                    )
+                    if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
+                        self.log_with_clock(
+                            logging.INFO,
+                            f"({market_pair.maker.trading_pair}) Creating limit bid order for "
+                            f"{bid_size} {market_pair.maker.base_asset} at "
+                            f"{bid_price} {market_pair.maker.quote_asset}. "
+                            f"Current hedging price: {effective_hedging_price} {market_pair.taker.quote_asset} "
+                            f"(Rate adjusted: {effective_hedging_price_adjusted:.2f} {market_pair.taker.quote_asset})."
+                        )
+                    self.c_buy_with_specific_market(
+                        market_pair,
+                        bid_size,
+                        order_type=OrderType.LIMIT,
+                        price=bid_price
+                    )
+                else:
+                    if self._logging_options & self.OPTION_LOG_NULL_ORDER_SIZE:
+                        self.log_with_clock(
+                            logging.WARNING,
+                            f"({market_pair.maker.trading_pair})"
+                            f"Order book on taker is too thin to place order for size: {bid_size}"
+                            f"Reduce order_size_portfolio_ratio_limit"
+                        )
             else:
                 if self._logging_options & self.OPTION_LOG_NULL_ORDER_SIZE:
                     self.log_with_clock(
                         logging.WARNING,
-                        f"({market_pair.maker.trading_pair})"
-                        f"order book on taker is too thin to place order for size: {bid_size}"
-                        f"Reduce order_size_portfolio_ratio_limit"
+                        f"({market_pair.maker.trading_pair}) Attempting to place a limit bid but the "
+                        f"bid size is 0. Skipping. Check available balance."
                     )
         # if there is no active ask, place ask again
         if not has_active_ask:
             ask_size = self.c_get_market_making_size(market_pair, False)
-            ask_price = self.c_get_market_making_price(market_pair, False, ask_size)
 
-            if ask_price is not None:
-                effective_hedging_price = self.c_calculate_effective_hedging_price(
-                    market_pair,
-                    False,
-                    float(ask_size)
-                )
-                effective_hedging_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
-                    market_pair.maker.quote_asset, effective_hedging_price
-                )
-                if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
-                    self.log_with_clock(
-                        logging.INFO,
-                        f"({market_pair.maker.trading_pair}) Creating limit ask order for "
-                        f"{ask_size} {market_pair.maker.base_asset} at "
-                        f"{ask_price} {market_pair.maker.quote_asset}. "
-                        f"Current hedging price: {effective_hedging_price} {market_pair.maker.quote_asset} "
-                        f"(Rate adjusted: {effective_hedging_price_adjusted:.2f} {market_pair.maker.quote_asset})."
+            # Check if ask size is greater than zero
+            if ask_size > s_decimal_zero:
+
+                ask_price = self.c_get_market_making_price(market_pair, False, ask_size)
+
+                if ask_price is not None:
+                    effective_hedging_price = self.c_calculate_effective_hedging_price(
+                        market_pair,
+                        False,
+                        float(ask_size)
                     )
-                self.c_sell_with_specific_market(
-                    market_pair,
-                    ask_size,
-                    order_type=OrderType.LIMIT,
-                    price=ask_price
-                )
+                    effective_hedging_price_adjusted = self._exchange_rate_conversion.adjust_token_rate(
+                        market_pair.maker.quote_asset, effective_hedging_price
+                    )
+                    if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
+                        self.log_with_clock(
+                            logging.INFO,
+                            f"({market_pair.maker.trading_pair}) Creating limit ask order for "
+                            f"{ask_size} {market_pair.maker.base_asset} at "
+                            f"{ask_price} {market_pair.maker.quote_asset}. "
+                            f"Current hedging price: {effective_hedging_price} {market_pair.maker.quote_asset} "
+                            f"(Rate adjusted: {effective_hedging_price_adjusted:.2f} {market_pair.maker.quote_asset})."
+                        )
+                    self.c_sell_with_specific_market(
+                        market_pair,
+                        ask_size,
+                        order_type=OrderType.LIMIT,
+                        price=ask_price
+                    )
+                else:
+                    if self._logging_options & self.OPTION_LOG_NULL_ORDER_SIZE:
+                        self.log_with_clock(
+                            logging.WARNING,
+                            f"({market_pair.maker.trading_pair})"
+                            f"Order book on taker is too thin to place order for size: {ask_size}"
+                            f"Reduce order_size_portfolio_ratio_limit"
+                        )
             else:
                 if self._logging_options & self.OPTION_LOG_NULL_ORDER_SIZE:
                     self.log_with_clock(
                         logging.WARNING,
-                        f"({market_pair.maker.trading_pair})"
-                        f"order book on taker is too thin to place order for size: {ask_size}"
-                        f"Reduce order_size_portfolio_ratio_limit"
+                        f"({market_pair.maker.trading_pair}) Attempting to place a limit ask but the "
+                        f"ask size is 0. Skipping. Check available balance."
                     )
 
     # <editor-fold desc="+ Creating and canceling orders">
