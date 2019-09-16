@@ -93,8 +93,7 @@ cdef class DolomiteActiveOrderTracker:
                   float(price),
                   sum([float(order_dict["availableAmount"])
                        for order_dict in self._active_bids[price].values()]),
-                  message.update_id,
-                  len(self._active_bids[price].values())]
+                  message.update_id]
                  for price in sorted(self._active_bids.keys(), reverse=True)], dtype="float64", ndmin=2)
             
             
@@ -103,16 +102,15 @@ cdef class DolomiteActiveOrderTracker:
                   float(price),
                   sum([float(order_dict["availableAmount"])
                        for order_dict in self._active_asks[price].values()]),
-                  message.update_id,
-                  len(self._active_asks[price].values())]
+                  message.update_id]
                  for price in sorted(self._active_asks.keys(), reverse=True)], dtype="float64", ndmin=2)
 
         # If there're no rows, the shape would become (1, 0) and not (0, 4).
         # Reshape to fix that.
-        if bids.shape[1] != 5:
-            bids = bids.reshape((0, 5))
-        if asks.shape[1] != 5:
-            asks = asks.reshape((0, 5))
+        if bids.shape[1] != 4:
+            bids = bids.reshape((0, 4))
+        if asks.shape[1] != 4:
+            asks = asks.reshape((0, 4))
 
         return bids, asks
     
@@ -123,7 +121,7 @@ cdef class DolomiteActiveOrderTracker:
 
     def convert_snapshot_message_to_order_book_row(self, message): 
         np_bids, np_asks = self.c_convert_snapshot_message_to_np_arrays(message)
-        bids_row = [OrderBookRow(price, qty, update_id, num) for ts, price, qty, update_id, num in np_bids]
-        asks_row = [OrderBookRow(price, qty, update_id, num) for ts, price, qty, update_id, num in np_asks]
+        bids_row = [OrderBookRow(price, qty, update_id) for ts, price, qty, update_id in np_bids]
+        asks_row = [OrderBookRow(price, qty, update_id) for ts, price, qty, update_id in np_asks]
         return bids_row, asks_row
         

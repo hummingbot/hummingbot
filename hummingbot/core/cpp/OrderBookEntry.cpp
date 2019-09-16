@@ -2,7 +2,7 @@
 #include <iostream>
 
 OrderBookEntry::OrderBookEntry() {
-    this->price = this->amount = this->orderCount = 0;
+    this->price = this->amount = 0;
     this->updateId = 0;
 }
 
@@ -10,28 +10,18 @@ OrderBookEntry::OrderBookEntry(double price, double amount, int64_t updateId) {
     this->price = price;
     this->amount = amount;
     this->updateId = updateId;
-    this->orderCount = 1;
-}
-
-OrderBookEntry::OrderBookEntry(double price, double amount, int64_t updateId, int64_t orderCount) {
-    this->price = price;
-    this->amount = amount;
-    this->updateId = updateId;
-    this->orderCount = orderCount;
 }
 
 OrderBookEntry::OrderBookEntry(const OrderBookEntry &other) {
     this->price = other.price;
     this->amount = other.amount;
     this->updateId = other.updateId;
-    this->orderCount = other.orderCount;
 }
 
 OrderBookEntry &OrderBookEntry::operator=(const OrderBookEntry &other) {
     this->price = other.price;
     this->amount = other.amount;
     this->updateId = other.updateId;
-    this->orderCount = other.orderCount;
     return *this;
 }
 
@@ -69,8 +59,4 @@ double OrderBookEntry::getAmount() {
 
 int64_t OrderBookEntry::getUpdateId() {
     return this->updateId;
-}
-
-int64_t OrderBookEntry::getOrderCount() {
-    return this->orderCount;
 }

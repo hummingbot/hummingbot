@@ -41,9 +41,7 @@ cdef class DolomiteTradingRule(TradingRule):
                  min_order_size: Decimal,
                  max_order_size: Decimal,
                  primary_token: DolomiteToken,
-                 secondary_token: DolomiteToken,
-                 fee_token: DolomiteToken,
-                 network_fee_per_fill: Decimal):
+                 secondary_token: DolomiteToken):
         
         super().__init__(
             symbol=symbol,
@@ -57,8 +55,7 @@ cdef class DolomiteTradingRule(TradingRule):
 
         self.primary_token = primary_token
         self.secondary_token = secondary_token
-        self.fee_token = fee_token
-        self.network_fee_per_fill = network_fee_per_fill
+
 
     @classmethod
     def build(cls, symbol, market, exchange_info, account_info, exchange_rates, token_registry):
@@ -72,17 +69,13 @@ cdef class DolomiteTradingRule(TradingRule):
         
         primary_token = DolomiteToken(token_registry[market["primary_token"]])
         secondary_token = DolomiteToken(token_registry[market["secondary_token"]])
-        fee_token = DolomiteToken(token_registry[market["secondary_token"]])
-        network_fee_per_fill = exchange_info.per_fill_fee_registry[fee_token.ticker]
-
+        
         return DolomiteTradingRule(
             symbol=symbol,
             min_order_size=exchange_rates.from_base(min_order_size_usd, "USD", secondary_token.ticker),
             max_order_size=exchange_rates.from_base(max_order_size_usd, "USD", secondary_token.ticker),
             primary_token=primary_token,
             secondary_token=secondary_token,
-            fee_token=fee_token,
-            network_fee_per_fill=network_fee_per_fill,
         )
 
 
@@ -110,6 +103,7 @@ class DolomiteExchangeInfo:
                  taker_fee_percentage,
                  min_order_size_usd,
                  per_fill_fee_registry,
+                 spot_trading_fee_premium_registry,
                  fee_burn_rates_table):
         self.spender_wallet_address = spender_wallet_address
         self.fee_collecting_wallet_address = fee_collecting_wallet_address
@@ -117,14 +111,19 @@ class DolomiteExchangeInfo:
         self.taker_fee_percentage = taker_fee_percentage
         self.min_order_size_usd = min_order_size_usd
         self.per_fill_fee_registry = per_fill_fee_registry
+        self.spot_trading_fee_premium_registry = spot_trading_fee_premium_registry
         self.fee_burn_rates_table = fee_burn_rates_table
 
 
     @classmethod
     def from_json(cls, exchange_info):
-        registry = exchange_info["base_spot_trading_fee_amounts"]
-        for ticker, padded_amount in registry.iteritems():
-            registry[ticker] = unpad(padded_amount)
+        per_fill_fee_registry = exchange_info["base_spot_trading_fee_amounts"]
+        for ticker, padded_amount in per_fill_fee_registry.iteritems():
+            per_fill_fee_registry[ticker] = unpad(padded_amount)
+
+        spot_trading_fee_premium_registry = exchange_info["spot_trading_fee_premium_amounts"];
+        for ticker, padded_amount in spot_trading_fee_premium_registry.iteritems():
+            spot_trading_fee_premium_registry[ticker] = unpad(padded_amount)
 
         fee_burn_rates_table = {
             "DAI": Decimal(0.15),
@@ -139,7 +138,8 @@ class DolomiteExchangeInfo:
             maker_fee_percentage=Decimal(exchange_info["maker_fee_percentage"]),
             taker_fee_percentage=Decimal(exchange_info["taker_fee_percentage"]),
             min_order_size_usd=unpad(exchange_info["min_usd_maker_trade_amount"]),
-            per_fill_fee_registry=registry,
+            per_fill_fee_registry=per_fill_fee_registry,
+            spot_trading_fee_premium_registry=spot_trading_fee_premium_registry,
             fee_burn_rates_table=fee_burn_rates_table
         )
         

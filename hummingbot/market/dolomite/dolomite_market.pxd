@@ -4,6 +4,8 @@ from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
 cdef class DolomiteMarket(MarketBase):
     cdef:
+        str API_REST_ENDPOINT
+        str WS_ENDPOINT
         object _order_book_tracker
         TransactionTracker _tx_tracker
         object _poll_notifier

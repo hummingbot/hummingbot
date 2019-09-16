@@ -2,7 +2,6 @@
 
 from os.path import join, realpath
 import sys
-sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 import asyncio
 import logging
@@ -11,9 +10,12 @@ from typing import Dict, Optional
 
 from hummingbot.market.dolomite.dolomite_order_book_tracker import DolomiteOrderBookTracker
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_tracker import (
-    OrderBookTrackerDataSourceType
-)
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+
+sys.path.insert(0, realpath(join(__file__, "../../../")))
+
+TESTNET_API_REST_ENDPOINT = "https://exchange-api-test.dolomite.io"
+TESTNET_WS_ENDPOINT = "wss://exchange-api-test.dolomite.io/ws-connect"
 
 
 class DolomiteOrderBookTrackerUnitTest(unittest.TestCase):
@@ -23,7 +25,10 @@ class DolomiteOrderBookTrackerUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.order_book_tracker: DolomiteOrderBookTracker = DolomiteOrderBookTracker(
-            OrderBookTrackerDataSourceType.EXCHANGE_API)
+            data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+            rest_api_url=TESTNET_API_REST_ENDPOINT,
+            websocket_url=TESTNET_WS_ENDPOINT,
+        )
         cls.order_book_tracker_task: asyncio.Task = asyncio.ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
 
@@ -40,8 +45,9 @@ class DolomiteOrderBookTrackerUnitTest(unittest.TestCase):
         self.ev_loop.run_until_complete(asyncio.sleep(5.0))
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
         weth_dai_book: OrderBook = order_books["WETH-DAI"]
-        self.assertGreaterEqual(weth_dai_book.get_price_for_volume(True, 0.1).result_price,
-                                weth_dai_book.get_price(True))
+        self.assertGreaterEqual(
+            weth_dai_book.get_price_for_volume(True, 0.1).result_price, weth_dai_book.get_price(True)
+        )
 
 
 def main():
