@@ -157,33 +157,28 @@ class HummingbotApplication(*commands):
 
     async def _cancel_outstanding_orders(self) -> bool:
         success = True
-        try:
-            on_chain_cancel_on_exit = global_config_map.get("on_chain_cancel_on_exit").value
-            bamboo_relay_use_coordinator = global_config_map.get("bamboo_relay_use_coordinator").value
-            kill_timeout: float = self.KILL_TIMEOUT
-            self._notify("Cancelling outstanding orders...")
+        kill_timeout: float = self.KILL_TIMEOUT
+        self._notify("Cancelling outstanding orders...")
 
-            for market_name, market in self.markets.items():
-                if market_name == "idex":
-                    self._notify(f"IDEX cancellations may take up to {int(self.IDEX_KILL_TIMEOUT)} seconds...")
-                    kill_timeout = self.IDEX_KILL_TIMEOUT
-                # By default, the bot does not cancel orders on exit on Radar Relay or Bamboo Relay,
-                # since all open orders will expire in a short window
-                if not on_chain_cancel_on_exit and (market_name == "radar_relay" or (market_name == "bamboo_relay" and not bamboo_relay_use_coordinator)):
-                    continue
-                cancellation_results = await market.cancel_all(kill_timeout)
-                uncancelled = list(filter(lambda cr: cr.success is False, cancellation_results))
-                if len(uncancelled) > 0:
-                    success = False
-                    uncancelled_order_ids = list(map(lambda cr: cr.order_id, uncancelled))
-                    self._notify("\nFailed to cancel the following orders on %s:\n%s" % (
-                        market_name,
-                        '\n'.join(uncancelled_order_ids)
-                    ))
-        except Exception:
-            self.logger().error(f"Error canceling outstanding orders.", exc_info=True)
-            success = False
-
+        for market_name, market in self.markets.items():
+            if market_name == "idex":
+                self._notify(f"IDEX cancellations may take up to {int(self.IDEX_KILL_TIMEOUT)} seconds...")
+                kill_timeout = self.IDEX_KILL_TIMEOUT
+            # By default, the bot does not cancel orders on exit on Radar Relay or Bamboo Relay,
+            # since all open orders will expire in a short window
+            if not on_chain_cancel_on_exit and (
+                market_name == "radar_relay" or (market_name == "bamboo_relay" and not bamboo_relay_use_coordinator)
+            ):
+                continue
+            cancellation_results = await market.cancel_all(kill_timeout)
+            uncancelled = list(filter(lambda cr: cr.success is False, cancellation_results))
+            if len(uncancelled) > 0:
+                success = False
+                uncancelled_order_ids = list(map(lambda cr: cr.order_id, uncancelled))
+                self._notify(
+                    "\nFailed to cancel the following orders on %s:\n%s"
+                    % (market_name, "\n".join(uncancelled_order_ids))
+                )
         if success:
             self._notify("All outstanding orders cancelled.")
         return success
@@ -214,12 +209,11 @@ class HummingbotApplication(*commands):
         erc20_token_addresses = get_erc20_token_addresses(token_symbols)
 
         if self.acct is not None:
-            chain_name: str = global_config_map.get("ethereum_chain_name").value
             self.wallet: Web3Wallet = Web3Wallet(
                 private_key=self.acct.privateKey,
                 backend_urls=[ethereum_rpc_url],
                 erc20_token_addresses=erc20_token_addresses,
-                chain=getattr(EthereumChain, chain_name),
+                chain=EthereumChain.MAIN_NET,
             )
 
     def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
@@ -236,17 +230,7 @@ class HummingbotApplication(*commands):
                 market_symbols_map[market_name].append(exchange_trading_pair)
 
         for market_name, symbols in market_symbols_map.items():
-            if global_config_map.get("paper_trade_enabled").value:
-                self._notify(f"\nPaper trade is enabled for market {market_name}")
-                try:
-                    market = create_paper_trade_market(market_name, symbols)
-                except Exception:
-                    raise
-                paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
-                for asset, balance in paper_trade_account_balance:
-                    market.set_balance(asset, balance)
-
-            elif market_name == "ddex" and self.wallet:
+            if market_name == "ddex" and self.wallet:
                 market = DDEXMarket(
                     wallet=self.wallet,
                     ethereum_rpc_url=ethereum_rpc_url,
@@ -305,18 +289,23 @@ class HummingbotApplication(*commands):
                 coinbase_pro_secret_key = global_config_map.get("coinbase_pro_secret_key").value
                 coinbase_pro_passphrase = global_config_map.get("coinbase_pro_passphrase").value
 
-                market = CoinbaseProMarket(coinbase_pro_api_key,
-                                           coinbase_pro_secret_key,
-                                           coinbase_pro_passphrase,
-                                           symbols=symbols,
-                                           trading_required=self._trading_required)
+                market = CoinbaseProMarket(
+                    coinbase_pro_api_key,
+                    coinbase_pro_secret_key,
+                    coinbase_pro_passphrase,
+                    symbols=symbols,
+                    trading_required=self._trading_required,
+                )
 
             elif market_name == "dolomite" and self.wallet:
-                market = DolomiteMarket(wallet=self.wallet,
-                                        ethereum_rpc_url=ethereum_rpc_url,
-                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                        symbols=symbols,
-                                        trading_required=self._trading_required)
+                market = DolomiteMarket(
+                    wallet=self.wallet,
+                    ethereum_rpc_url=ethereum_rpc_url,
+                    order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                    symbols=symbols,
+                    isTestNet=True,  # TODO: remove this! Our mainnet API is not up-to-date with the version this integration uses
+                    trading_required=self._trading_required,
+                )
 
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")

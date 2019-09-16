@@ -1,52 +1,34 @@
 #!/usr/bin/env python
 from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
+import sys
 
 import asyncio
 import conf
 import contextlib
-from decimal import Decimal
 import logging
 import os
 import time
-from typing import (
-    List,
-    Optional
-)
+from typing import List
 import unittest
 
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
+from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
     WalletEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    WalletWrappedEthEvent,
-    WalletUnwrappedEthEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
-    OrderFilledEvent,
     OrderCancelledEvent,
     TradeType,
-    TradeFee
+    TradeFee,
 )
 from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 from hummingbot.market.market_base import OrderType
-from hummingbot.market.markets_recorder import MarketsRecorder
-from hummingbot.model.market_state import MarketState
-from hummingbot.model.order import Order
-from hummingbot.model.sql_connection_manager import (
-    SQLConnectionManager,
-    SQLConnectionType
-)
-from hummingbot.model.trade_fill import TradeFill
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
+
+sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 
 class DolomiteMarketUnitTest(unittest.TestCase):
@@ -58,13 +40,10 @@ class DolomiteMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderFilled,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCancelled
+        MarketEvent.OrderCancelled,
     ]
 
-    wallet_events: List[WalletEvent] = [
-        WalletEvent.WrappedEth,
-        WalletEvent.UnwrappedEth
-    ]
+    wallet_events: List[WalletEvent] = [WalletEvent.WrappedEth, WalletEvent.UnwrappedEth]
 
     wallet: Web3Wallet
     market: DolomiteMarket
@@ -75,15 +54,19 @@ class DolomiteMarketUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.wallet = Web3Wallet(private_key=conf.dolomite_test_web3_private_key,
-                                backend_urls=conf.test_web3_provider_list,
-                                erc20_token_addresses=[conf.dolomite_test_web3_address],
-                                chain=EthereumChain.MAIN_NET)
-        cls.market: DolomiteMarket = DolomiteMarket(wallet=cls.wallet,
-                                            ethereum_rpc_url=conf.test_web3_provider_list[0],
-                                            order_book_tracker_data_source_type=
-                                            OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                            symbols=["WETH-DAI"])
+        cls.wallet = Web3Wallet(
+            private_key=conf.dolomite_test_web3_private_key,
+            backend_urls=conf.test_web3_provider_list,
+            erc20_token_addresses=[conf.dolomite_test_web3_address],
+            chain=EthereumChain.MAIN_NET,
+        )
+        cls.market: DolomiteMarket = DolomiteMarket(
+            wallet=cls.wallet,
+            ethereum_rpc_url=conf.test_web3_provider_list[0],
+            order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+            isTestNet=True,
+            symbols=["WETH-DAI"],
+        )
         print("Initializing Dolomite market... ")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.wallet)
@@ -142,9 +125,7 @@ class DolomiteMarketUnitTest(unittest.TestCase):
     def run_parallel(self, *tasks):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
-
     # ====================================================
-
 
     def test_get_fee(self):
         limit_trade_fee: TradeFee = self.market.get_fee("WETH", "DAI", OrderType.LIMIT, TradeType.BUY, 10000, 1)
@@ -206,9 +187,10 @@ class DolomiteMarketUnitTest(unittest.TestCase):
         self.market.cancel(symbol, sell_order_id)
         [_] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
-
-    @unittest.skipUnless(any("test_place_market_buy_and_sell" in arg for arg in sys.argv),
-                         "test_place_market_buy_and_sell test requires manual action.")
+    @unittest.skipUnless(
+        any("test_place_market_buy_and_sell" in arg for arg in sys.argv),
+        "test_place_market_buy_and_sell test requires manual action.",
+    )
     def test_place_market_buy_and_sell(self):
         # Cannot trade between yourself on Dolomite. Testing this is... hard.
         # These orders use the same code as limit orders except for fee calculation
