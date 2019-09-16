@@ -32,7 +32,7 @@ pure_market_making_config_map = {
                                                   validator=is_valid_maker_market_symbol),
     "mode":                             ConfigVar(key="mode",
                                                   prompt="Enter quantity of orders per side [bid/ask] "
-                                                         "(single/multiple) default is single >>> ",
+                                                         "(single/multiple) >>> ",
                                                   type_str="str",
                                                   validator=lambda v: v in {"single", "multiple"},
                                                   default="single"),
