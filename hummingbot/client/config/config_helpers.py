@@ -144,7 +144,7 @@ def load_required_configs(*args) -> OrderedDict:
     else:
         strategy_config_map = get_strategy_config_map(current_strategy)
         # create an ordered dict where `strategy` is inserted first
-        # so that strategy-specific configs are prompted first and populate required exchanges
+        # so that strategy-specific configs are prompted first and populate required_exchanges
         return _merge_dicts(in_memory_config_map, strategy_config_map, global_config_map)
 
 
@@ -168,7 +168,8 @@ def read_configs_from_yml(strategy_file_path: str = None):
                     cvar = cm.get(key)
                     val_in_file = data.get(key)
                     if cvar is None:
-                        raise ValueError(f"Cannot find corresponding config to key {key}.")
+                        logging.getLogger().warning(f"Cannot find corresponding config to key {key}.")
+                        continue
                     cvar.value = val_in_file
                     if val_in_file is not None and not cvar.validate(val_in_file):
                         raise ValueError("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
@@ -201,11 +202,14 @@ async def write_config_to_yml():
     """
     from hummingbot.client.config.in_memory_config_map import in_memory_config_map
     current_strategy = in_memory_config_map.get("strategy").value
-    strategy_config_map = get_strategy_config_map(current_strategy)
-    strategy_file_path = join(CONF_FILE_PATH, in_memory_config_map.get("strategy_file_path").value)
+    strategy_file_path = in_memory_config_map.get("strategy_file_path").value
+
+    if current_strategy is not None and strategy_file_path is not None:
+        strategy_config_map = get_strategy_config_map(current_strategy)
+        strategy_file_path = join(CONF_FILE_PATH, strategy_file_path)
+        await save_to_yml(strategy_file_path, strategy_config_map)
 
     await save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
-    await save_to_yml(strategy_file_path, strategy_config_map)
 
 
 async def create_yml_files():

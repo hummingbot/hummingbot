@@ -300,7 +300,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         #  2. Ask the sizing delegate on what are the order sizes.
         #  3. Set the actions to carry out in the orders proposal to include create orders.
 
-
         pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self,
                                                                              market_info,
                                                                              active_orders)
@@ -313,7 +312,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             actions |= ORDER_PROPOSAL_ACTION_CREATE_ORDERS
 
         if ((market_info.market.name not in self.RADAR_RELAY_TYPE_EXCHANGES) or
-                (market_info.market.name == "bamboo_relay" and market_info.market.use_coordinator)):
+                (market_info.market.display_name == "bamboo_relay" and market_info.market.use_coordinator)):
             for active_order in active_orders:
                 # If there are active orders, and active order cancellation is needed, then do the following:
                 #  1. Check the time to cancel for each order, and see if cancellation should be proposed.
@@ -368,7 +367,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         # Remove the order from tracked limit orders when the orders are filled and remove it from time to cancel
         # Adjusting filled orders only for single order mode (identified using name of the delegate)
         if self.sizing_delegate_name in self.SINGLE_ORDER_SIZING_DELEGATES:
-            #Set the replenish time as current_timestamp + order replenish time
+            # Set the replenish time as current_timestamp + order replenish time
             replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
 
             # if filled order is buy, adjust the cancel time for sell order
@@ -407,7 +406,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         # Remove the order from tracked limit orders when the orders are filled and remove it from time to cancel
         # Adjusting filled orders only for single order mode (identified using name of the delegate)
         if self.sizing_delegate_name in self.SINGLE_ORDER_SIZING_DELEGATES:
-            #Set the replenish time as current_timestamp + order replenish time
+            # Set the replenish time as current_timestamp + order replenish time
             replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
 
             # if filled order is sell, adjust the cancel time for buy order
@@ -456,11 +455,13 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             if orders_proposal.buy_order_sizes[0] > 0:
                 if orders_proposal.buy_order_type is OrderType.LIMIT and orders_proposal.buy_order_prices[0] > 0:
                     if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
+                        order_price_quote = zip(orders_proposal.buy_order_sizes, orders_proposal.buy_order_prices)
+                        price_quote_str = [
+                            f"{s.normalize()} {market_info.base_asset}, {p.normalize()} {market_info.quote_asset}"
+                            for s, p in order_price_quote]
                         self.log_with_clock(
                             logging.INFO,
-                            f"({market_info.trading_pair}) Creating limit bid orders for "
-                            f"  Bids (Size,Price) to be placed at: "
-                            f"{[str(size) + ' ' + market_info.base_asset + ' @ ' + ' ' + str(price) + ' ' + market_info.quote_asset for size,price in zip(orders_proposal.buy_order_sizes, orders_proposal.buy_order_prices)]}"
+                            f"({market_info.trading_pair}) Creating limit bid orders at (Size, Price): {price_quote_str}"
                         )
 
                     for idx in range(len(orders_proposal.buy_order_sizes)):
@@ -479,11 +480,13 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             if orders_proposal.sell_order_sizes[0] > 0:
                 if orders_proposal.sell_order_type is OrderType.LIMIT and orders_proposal.sell_order_prices[0] > 0:
                     if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
+                        order_price_quote = zip(orders_proposal.sell_order_sizes, orders_proposal.sell_order_prices)
+                        price_quote_str = [
+                            f"{s.normalize()} {market_info.base_asset}, {p.normalize()} {market_info.quote_asset}"
+                            for s, p in order_price_quote]
                         self.log_with_clock(
                             logging.INFO,
-                            f"({market_info.trading_pair}) Creating limit ask order for "
-                            f"  Asks (Size,Price) to be placed at: "
-                            f"{[str(size) + ' ' + market_info.base_asset + ' @ ' + ' ' + str(price) + ' ' + market_info.quote_asset for size,price in zip(orders_proposal.sell_order_sizes, orders_proposal.sell_order_prices)]}"
+                            f"({market_info.trading_pair}) Creating limit ask orders at (Size, Price): {price_quote_str}"
                         )
 
                     for idx in range(len(orders_proposal.sell_order_sizes)):

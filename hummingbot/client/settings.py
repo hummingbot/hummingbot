@@ -55,6 +55,7 @@ EXAMPLE_PAIRS = {
     "radar_relay": "ZRX-WETH",
     "bamboo_relay": "ZRX-WETH",
     "coinbase_pro": "ETH-USDC",
+    "huobi": "ethusdt"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
@@ -72,4 +73,5 @@ DEPRECATED_CONFIG_VALUES = {
     "stop_loss_pct",
     "stop_loss_price_type",
     "stop_loss_base_token",
+    "trade_size_override",
 }

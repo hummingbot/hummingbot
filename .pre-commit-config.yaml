@@ -3,3 +3,5 @@ repos:
     rev: v2.3.0
     hooks:
     - id: flake8
+      types: ['file']
+      files: \.(py|pyx|pxd)$

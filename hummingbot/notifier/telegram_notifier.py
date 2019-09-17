@@ -26,6 +26,7 @@ from telegram.ext import (
 )
 
 import hummingbot
+import pandas as pd
 from hummingbot.logger import HummingbotLogger
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.client.config.global_config_map import global_config_map
@@ -72,7 +73,10 @@ class TelegramNotifier(NotifierBase):
             cls.tn_logger = logging.getLogger(__name__)
         return cls.tn_logger
 
-    def __init__(self, token: str, chat_id: str, hb: "HummingbotApplication") -> None:
+    def __init__(self,
+                 token: str,
+                 chat_id: str,
+                 hb: "hummingbot.client.hummingbot_application.HummingbotApplication") -> None:
         super().__init__()
         self._token = token or global_config_map.get("telegram_token").value
         self._chat_id = chat_id or global_config_map.get("telegram_chat_id").value
@@ -111,20 +115,28 @@ class TelegramNotifier(NotifierBase):
         asyncio.ensure_future(self.handler_loop(bot, update), loop=self._ev_loop)
 
     async def handler_loop(self, bot: Bot, update: Update) -> None:
+        async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()
         try:
             input_text = update.message.text.strip()
             output = f"\n[Telegram Input] {input_text}"
+
             self._hb.app.log(output)
 
             # if the command does starts with any disabled commands
             if any([input_text.lower().startswith(dc) for dc in DISABLED_COMMANDS]):
                 self.add_msg_to_queue(f"Command {input_text} is disabled from telegram")
             else:
-                await self._ev_loop.run_in_executor(
-                    hummingbot.get_executor(),
-                    self._hb._handle_command,
-                    input_text
-                )
+                # Set display options to max, so that telegram does not display truncated data
+                pd.set_option('display.max_rows', 500)
+                pd.set_option('display.max_columns', 500)
+                pd.set_option('display.width', 1000)
+
+                await async_scheduler.call_async(self._hb._handle_command, input_text)
+
+                # Reset to normal, so that pandas's default autodetect width still works
+                pd.set_option('display.max_rows', 0)
+                pd.set_option('display.max_columns', 0)
+                pd.set_option('display.width', 0)
         except Exception as e:
             self.add_msg_to_queue(str(e))
 

@@ -188,10 +188,10 @@ cdef class HuobiMarket(MarketBase):
         if self._order_tracker_task is not None:
             self._stop_network()
         self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
+        self._trading_rules_polling_task = asyncio.ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             await self._update_account_id()
             self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
-            self._trading_rules_polling_task = asyncio.ensure_future(self._trading_rules_polling_loop())
 
     def _stop_network(self):
         if self._order_tracker_task is not None:
@@ -497,7 +497,7 @@ cdef class HuobiMarket(MarketBase):
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            "account_id_initialized": self._account_id != "",
+            "account_id_initialized": self._account_id != "" if self._trading_required else True,
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0
@@ -589,8 +589,6 @@ cdef class HuobiMarket(MarketBase):
                                  ))
         except asyncio.CancelledError:
             raise
-        except asyncio.TimeoutError:
-            self.logger().network(f"Timeout Error encountered while submitting buy ",exc_info=True)
         except Exception:
             self.c_stop_tracking_order(order_id)
             order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
@@ -661,8 +659,6 @@ cdef class HuobiMarket(MarketBase):
                                      float(decimal_price),
                                      order_id
                                  ))
-        except asyncio.TimeoutError:
-            self.logger().network(f"Timeout Error encountered while submitting sell ",exc_info=True)
         except asyncio.CancelledError:
             raise
         except Exception:
