@@ -72,32 +72,31 @@ def start(self: "hummingbot.client.hummingbot_application.HummingbotApplication"
         equivalent_token: List[List[str]] = list(discovery_config_map.get("equivalent_tokens").value)
 
         def filter_trading_pair_by_single_token(market_name, single_token_list):
-            matched_trading_pair = []
-            all_trading_pairs = SymbolFetcher.get_instance().symbols.get(market_name, [])
+            matched_trading_pairs = set()
+            all_trading_pairs: List[str] = SymbolFetcher.get_instance().symbols.get(market_name, [])
             for t in all_trading_pairs:
                 base_token, quote_token = MARKET_CLASSES[market_name].split_symbol(t)
                 if base_token in single_token_list or quote_token in single_token_list:
-                    matched_trading_pair.append(t)
-            return matched_trading_pair
+                    matched_trading_pairs.add(t)
+            return list(matched_trading_pairs)
 
-        def process_symbol_list(market_name, symbol_list):
+        def process_symbol_list(market_name, trading_pair_list):
             filtered_trading_pair = []
             single_tokens = []
-            for t in target_symbol_1:
+            for t in trading_pair_list:
                 if t[0] == "<" and t[-1] == ">":
                     single_tokens.append(t[1:-1])
                 else:
                     filtered_trading_pair.append(t)
             return filtered_trading_pair + filter_trading_pair_by_single_token(market_name, single_tokens)
 
-        if not target_symbol_2:
-            target_symbol_2 = SymbolFetcher.get_instance().symbols.get(market_2, [])
         if not target_symbol_1:
             target_symbol_1 = SymbolFetcher.get_instance().symbols.get(market_1, [])
+        if not target_symbol_2:
+            target_symbol_2 = SymbolFetcher.get_instance().symbols.get(market_2, [])
 
         target_symbol_1 = process_symbol_list(market_1, target_symbol_1)
         target_symbol_2 = process_symbol_list(market_2, target_symbol_2)
-
         market_names: List[Tuple[str, List[str]]] = [(market_1, target_symbol_1), (market_2, target_symbol_2)]
 
         target_base_quote_1: List[Tuple[str, str]] = self._initialize_market_assets(market_1, target_symbol_1)
