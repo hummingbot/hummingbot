@@ -41,5 +41,16 @@ For more information on creating or importing an Ethereum wallet, see [Ethereum 
 
 For more information, see [Ethereum node](/installation/node). To get a free node, see [Get a Free Ethereum Node](/installation/node/infura/).
 
+## Cloud Server (Optional)
+
+We recommend that users run trading bots in the cloud, since bots require a stable network connection and can run 24/7.
+
+Follow the guide [Set up a cloud server](/installation/cloud) to set up a cloud server on your preferred cloud platform. Hummingbot is not resource-intensive so the lowest/free tiers should work.
+
+!!! tip
+    Don't know which cloud platform to use? Read our [blog post](https://www.hummingbot.io/blog/2019-06-cloud-providers/) that compares and contrasts the different providers.
+
+If you just want to test out Hummingbot, you can skip this and install locally.
+
 ---
 # Next: [Install Hummingbot](/quickstart/2-install)
