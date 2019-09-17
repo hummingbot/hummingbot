@@ -1,4 +1,7 @@
-from typing import Any, Set
+from typing import (
+    Any,
+    Set,
+)
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import is_exchange
