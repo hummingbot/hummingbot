@@ -67,7 +67,7 @@ class HummingbotCompleter(Completer):
 
     @property
     def _config_completer(self):
-        return WordCompleter(load_required_configs(), ignore_case=True)
+        return WordCompleter(self.hummingbot_application.get_all_available_config_keys(), ignore_case=True)
 
     def _complete_strategies(self, document: Document) -> bool:
         return "strategy" in self.prompt_text
