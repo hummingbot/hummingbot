@@ -108,8 +108,8 @@ def start(self: "hummingbot.client.hummingbot_application.HummingbotApplication"
 
         self.market_pair = DiscoveryMarketPair(
             *(
-                    [self.markets[market_1], self.markets[market_1].get_active_exchange_markets]
-                    + [self.markets[market_2], self.markets[market_2].get_active_exchange_markets]
+                [self.markets[market_1], self.markets[market_1].get_active_exchange_markets]
+                + [self.markets[market_2], self.markets[market_2].get_active_exchange_markets]
             )
         )
 
