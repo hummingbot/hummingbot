@@ -20,7 +20,7 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     TradeType,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent, OrderCancelledEvent, MarketTransactionFailureEvent, MarketWithdrawAssetEvent,
+    SellOrderCompletedEvent, OrderCancelledEvent, MarketTransactionFailureEvent,
     MarketOrderFailureEvent, SellOrderCreatedEvent, BuyOrderCreatedEvent)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
@@ -895,27 +895,32 @@ cdef class BittrexMarket(MarketBase):
     async def _api_request(self,
                            http_method: str,
                            path_url: str = None,
-                           params: Dict[str, any] = None) -> Dict[str, Any]:
+                           params: Dict[str, any] = None,
+                           body: Dict[str, any] = None,
+                           subaccount_id: str = '') -> Dict[str, Any]:
         assert path_url is not None
 
         url = f"{self.BITTREX_API_ENDPOINT}{path_url}"
 
-        auth_dict = self.bittrex_auth.generate_auth_dict(path_url, params)
+        auth_dict = self.bittrex_auth.generate_auth_dict(http_method, url, params, body, subaccount_id)
 
         # Updates the headers and params accordingly
         headers = auth_dict["headers"]
-        params = auth_dict["params"]
+
+        if body:
+            body = auth_dict["body"]
 
         client = await self._http_client()
         async with client.request(http_method,
                                   url=url,
                                   headers=headers,
                                   params=params,
+                                  data=body,
                                   timeout=self.API_CALL_TIMEOUT) as response:
-            data = await response.json()
-            if data["success"] is not True:
-                raise IOError(f"Error fetching data from {http_method}-{url}. {data['message']}")
-            return data["result"]
+            resp = await response.json()
+            if resp["code"]:
+                raise IOError(f"Error fetching resp from {http_method}-{url}. {resp['code']}")
+            return resp
 
     # Bittrex v1.1 API does not have a 'ping' REST API endpoint.
     # Bittrex v3, however, has one

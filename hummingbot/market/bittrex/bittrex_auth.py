@@ -3,28 +3,61 @@ import hmac
 import hashlib
 from typing import Dict, Any
 
+import ujson
+
 
 class BittrexAuth:
     def __init__(self, api_key: str, secret_key: str):
         self.api_key = api_key
         self.secret_key = secret_key
 
-    def generate_auth_dict(self, url: str, params: Dict[str, Any] = None) -> Dict[str, any]:
+    def generate_auth_dict(
+        self,
+        http_method: str,
+        url: str,
+        params: Dict[str, Any] = None,
+        body: Dict[str, Any] = None,
+        subaccount_id: str = "",
+    ) -> Dict[str, any]:
         """
-        Generates the url and the valid signature to authenticate with the API endpoint
-        :param url: String representing the API endpoint
-        :param params: Dictionary of all the url parameters to be included in the api request
-        :return: Dictionary containing the final 'params' and its corresponding 'signature'
+        Generates the url and the valid signature to authenticate with the API endpoint.
+        :param http_method: String representing the HTTP method in use ['GET', 'POST', 'DELETE'].
+        :param url: String representing the API endpoint.
+        :param params: Dictionary of url parameters to be included in the api request. USED ONLY IN SOME CASES
+        :param body: Dictionary representing the values in a request body.
+        :param subaccount_id: String value of subaccount id.
+        :return: Dictionary containing the final 'params' and its corresponding 'signature'.
         """
 
-        # Converts params(dict) into a substring to be appended to final url
-        def convert_url_params_to_str(params: Dict[str, Any]) -> str:
-            param_list = [f"{p}={v}" for (p, v) in params.items()]
-            return "&".join(param_list)
+        # Appends params the url
+        def append_params_to_url(url: str, params: Dict[str, any] = {}) -> str:
+            if params:
+                param_str = "&".join([f"{param}={value}" for (param, value) in params.items()])
+                return f"{url}?{param_str}"
+            return url
 
-        params.update({"apikey": self.api_key, "nonce": int(time.time())})
+        def construct_content_hash(body: Dict[str, any] = {}) -> str:
+            if body:
+                return hashlib.sha512(ujson.dumps(body).encode()).hexdigest()
+            return hashlib.sha512("".encode()).hexdigest()
 
-        url_to_sign = f"{url}&{convert_url_params_to_str(params)}"
-        signature = hmac.new(self.secret_key.encode("utf-8"), url_to_sign.encode("utf8"), hashlib.sha512).hexdigest()
+        timestamp = str(int(time.time() * 1000))
+        url = append_params_to_url(url, params)
+        content_hash = construct_content_hash(body)
+        content_to_sign = "".join([timestamp, url, http_method, content_hash, subaccount_id])
+        signature = hmac.new(self.secret_key.encode(), content_to_sign.encode(), hashlib.sha512).hexdigest()
 
-        return {"params": params, "headers": {"apisign": signature}}
+        # V3 Authentication headers
+        headers = {
+            "Api-Key": self.api_key,
+            "Api-Timestamp": timestamp,
+            "Api-Content-Hash": content_hash,
+            "Api-Signature": signature,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+
+        if subaccount_id:
+            headers.update({"Api-Subaccount-Id": subaccount_id})
+
+        return {"headers": headers, "body": ujson.dumps(body).encode(), "url": url}
