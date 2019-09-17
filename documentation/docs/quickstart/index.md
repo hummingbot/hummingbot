@@ -39,7 +39,7 @@ For more information on creating or importing an Ethereum wallet, see [Ethereum 
 ## Ethereum Node (DEX only)
 **Why this is needed**: When you run a trading bot on a Ethereum-based decentralized exchange, your wallet sends signed transactions to the blockchain via an Ethereum node.
 
-For more information, see [Ethereum node](/installation/node). To get a free node, see [Get a Free Ethereum Node](/installation/node/infura/).
+For more information, see [Ethereum node](/installation/node/node). To get a free node, see [Get a Free Ethereum Node](/installation/node/infura/).
 
 ## Cloud Server (Optional)
 
