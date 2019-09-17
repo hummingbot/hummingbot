@@ -81,9 +81,13 @@ Enter your maker exchange name >>>
 idex
 
 # Change this selection based on what tokens you own
-Enter the token symbol you would like to trade on idex (e.g. ZRXETH) >>>
-DAI_ETH
+Enter the token symbol you would like to trade on idex (e.g. ETH_ZRX) >>>
+ETH_DAI
 ```
+
+!!! note
+    Options available are based on each exchange's methodology for labeling currency pairs. Ensure that the pair is a valid pair for the selected exchange.
+
 
 #### c) Enter market making parameters
 
@@ -169,10 +173,15 @@ Config process complete. Enter "start" to start market making.
 >>> start
 ```
 
-!!! warning "Help! I mis-typed something and need to start over!"
-    Type `config` and reply `y` to the question `Would you like to reconfigure the bot? (y/n) >>>?`
+## Help
 
-    Alternatively, you can exit the bot with `exit` and edit the automatically generated configuration file `conf_pure_market_making_0.yml`. This file is saved in the directory `hummingbot_files/hummingbot_conf/` in your root. For more info, see [Docker Commands](/cheatsheets/docker).
+### I mis-typed something and need to reconfigure!
+
+Type `config` and reply `y` to the question `Would you like to reconfigure the bot? (y/n) >>>?`. This will show the questions from the beginning.
+
+Alternatively, the command `list configs` will show your current configuration. You can specify which parameter you want to configure by doing `config $parameter_name` (e.g. `config bid_place_threshold`, `config cancel_order_wait_time`, `config order_amount`).
+
+You can also exit the bot with `exit` and edit the automatically generated configuration file `conf_pure_market_making_0.yml`. This file is saved in the directory `hummingbot_files/hummingbot_conf/` in your root. For more information, see [Troubleshooting](/support/troubleshooting/#how-do-i-edit-the-conf-files-or-access-the-log-files-used-by-my-docker-instance).
 
 
 
