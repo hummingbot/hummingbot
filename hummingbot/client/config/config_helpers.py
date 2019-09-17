@@ -1,7 +1,3 @@
-from typing import List
-
-from hummingbot.client.settings import TOKEN_ADDRESSES_FILE_PATH
-
 import logging
 import ruamel.yaml
 from os.path import (
@@ -11,8 +7,10 @@ from os.path import (
 from collections import OrderedDict
 import json
 from typing import (
+    Any,
     Callable,
     Dict,
+    List,
     Optional,
 )
 from os import listdir
@@ -29,20 +27,31 @@ from hummingbot.client.settings import (
     CONF_PREFIX,
     LIQUIDITY_BOUNTY_CONFIG_PATH,
     DEPRECATED_CONFIG_VALUES,
+    TOKEN_ADDRESSES_FILE_PATH,
 )
 
 # Use ruamel.yaml to preserve order and comments in .yml file
 yaml_parser = ruamel.yaml.YAML()
 
 
-def parse_cvar_value(cvar: ConfigVar, value: any):
+def parse_cvar_value(cvar: ConfigVar, value: Any) -> Any:
     if value is None:
         return None
     elif cvar.type == 'str':
         return str(value)
-    elif cvar.type in {"list", "dict"}:
+    elif cvar.type == 'list':
         if isinstance(value, str):
-            return json.loads(value)
+            if len(value) == 0:
+                return []
+            filtered: filter = filter(lambda x: x not in ['[', ']', '"', "'"], list(value))
+            value = "".join(filtered).split(",")  # create csv and generate list
+            return [s.strip() for s in value]  # remove leading and trailing whitespaces
+        else:
+            return value
+    elif cvar.type == 'dict':
+        if isinstance(value, str):
+            value_json = value.replace("'", '"')  # replace single quotes with double quotes for valid JSON
+            return json.loads(value_json)
         else:
             return value
     elif cvar.type == 'float':
@@ -135,7 +144,7 @@ def load_required_configs(*args) -> OrderedDict:
     else:
         strategy_config_map = get_strategy_config_map(current_strategy)
         # create an ordered dict where `strategy` is inserted first
-        # so that strategy-specific configs are prompted first and populate required exchanges
+        # so that strategy-specific configs are prompted first and populate required_exchanges
         return _merge_dicts(in_memory_config_map, strategy_config_map, global_config_map)
 
 
@@ -159,7 +168,8 @@ def read_configs_from_yml(strategy_file_path: str = None):
                     cvar = cm.get(key)
                     val_in_file = data.get(key)
                     if cvar is None:
-                        raise ValueError(f"Cannot find corresponding config to key {key}.")
+                        logging.getLogger().warning(f"Cannot find corresponding config to key {key}.")
+                        continue
                     cvar.value = val_in_file
                     if val_in_file is not None and not cvar.validate(val_in_file):
                         raise ValueError("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
@@ -192,11 +202,14 @@ async def write_config_to_yml():
     """
     from hummingbot.client.config.in_memory_config_map import in_memory_config_map
     current_strategy = in_memory_config_map.get("strategy").value
-    strategy_config_map = get_strategy_config_map(current_strategy)
-    strategy_file_path = join(CONF_FILE_PATH, in_memory_config_map.get("strategy_file_path").value)
+    strategy_file_path = in_memory_config_map.get("strategy_file_path").value
+
+    if current_strategy is not None and strategy_file_path is not None:
+        strategy_config_map = get_strategy_config_map(current_strategy)
+        strategy_file_path = join(CONF_FILE_PATH, strategy_file_path)
+        await save_to_yml(strategy_file_path, strategy_config_map)
 
     await save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
-    await save_to_yml(strategy_file_path, strategy_config_map)
 
 
 async def create_yml_files():

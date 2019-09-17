@@ -57,10 +57,8 @@ class BountyCommand:
         else:
             status_table: str = self.liquidity_bounty.formatted_status()
             self._notify(status_table)
-
-            volume_metrics: List[Dict[str, Any]] = \
-                await self.liquidity_bounty.fetch_filled_volume_metrics(start_time=self.start_time or -1)
-            self._notify(self.liquidity_bounty.format_volume_metrics(volume_metrics))
+            self._notify("\n  For more detailed statistics, please visit the bounty leaderboard link below:")
+            self.bounty(list=True)
 
     async def bounty_print_terms(self,  # type: HummingbotApplication
                                  ):
@@ -116,7 +114,7 @@ class BountyCommand:
                     self._notify("\nYour wallets:")
                     self.list("wallets")
 
-                value = await self.config_single_variable(cvar)
+                value = await self.prompt_single_variable(cvar)
                 cvar.value = parse_cvar_value(cvar, value)
                 if cvar.type == "bool" and cvar.value is False:
                     raise ValueError(f"{cvar.key} is required.")

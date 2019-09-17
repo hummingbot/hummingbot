@@ -146,7 +146,7 @@ cdef class RadarRelayMarket(MarketBase):
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
+            "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True,
             "token_approval": len(self._pending_approval_tx_hashes) == 0 if self._trading_required else True
@@ -767,7 +767,6 @@ cdef class RadarRelayMarket(MarketBase):
 
             return order_id
         except Exception as e:
-            self.logger().error(str(e))
             self.c_stop_tracking_order(order_id)
             self.logger().network(
                 f"Error submitting {trade_type_desc} order to Radar Relay for {str(q_amt)} {symbol}.",

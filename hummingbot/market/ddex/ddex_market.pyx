@@ -142,7 +142,7 @@ cdef class DDEXMarket(MarketBase):
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "account_available_balance": len(self._account_available_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
-            "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
+            "order_books_initialized": self._order_book_tracker.ready,
             "token_approval": len(self._pending_approval_tx_hashes) == 0 if self._trading_required else True,
             "maker_trade_fee_initialized": not math.isnan(self._maker_trade_fee),
             "taker_trade_fee_initialized": not math.isnan(self._taker_trade_fee),

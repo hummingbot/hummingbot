@@ -41,8 +41,6 @@ Hummingbot enters into partnerships with token issuers and exchanges to administ
 4. Enter your email address
 5. Confirm information and finalize
 
-Note that in order to accumulate rewards, you need to maintain at least 0.05 ETH in your Ethereum wallet. This prevents spam attacks and ensures that everyone has a fair chance to earn bounties.
-
 ## Step 3: Configure a market making bot
 
 Now, let's walk through the process of configuring a basic market making bot.
@@ -151,11 +149,12 @@ See [Ethereum wallet](/installation/wallet) and [Ethereum node](/installation/no
 
 Hummingbot comes with utilities that help you run the bot, such as:
 
-* **Kill switch**: Automatically stops the bot after a certain performance threshold, which can be either positive or negative
-* **Exchange rates**: Sets exchange rates between stablecoins and other crypto assets so that you can run bots on non-identical trading pairs on different exchanges
-* **Telegram integration**: Control your trading bot from anywhere by hooking up a Telegram bot that can issue commands
+* [**Kill switch**](/utilities/kill-switch/): Automatically stops the bot after a certain performance threshold, which can be either positive or negative
+* [**Exchange rates**](/utilities/exchange-rates/): Sets exchange rates between stablecoins and other crypto assets so that you can run bots on non-identical trading pairs on different exchanges
+* [**Telegram integration**](/utilities/telegram/): Control your trading bot from anywhere by hooking up a Telegram bot that can issue commands
 
 For more information on these utilities, see the Utilities section in the [User Manual](/manual). By default, only the **kill switch** is configured via the walkthrough.
+
 
 Activate the kill switch feature and tell it to stop the bot at a 5% loss:
 ```
@@ -206,6 +205,7 @@ bid_place_threshold: 0.02
 ```
 
 You can also exit the bot with `exit` and edit the automatically generated configuration file `conf_pure_market_making_0.yml`. This file is saved in the directory `hummingbot_files/hummingbot_conf/` in your root. For more information, see [Troubleshooting](/support/troubleshooting/#how-do-i-edit-the-conf-files-or-access-the-log-files-used-by-my-docker-instance).
+
 
 ---
 If you completed the steps above successfully, you should see the message:

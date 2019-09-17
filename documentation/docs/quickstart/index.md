@@ -30,9 +30,7 @@ For more information on how to get the API keys for each exchange, please see [A
 
 ## Ethereum Wallet
 
-**Why this is needed**: In order to earn rewards from Liquidity Bounties, you need an Ethereum wallet. Participants must maintain a balance of at least 0.05 ETH in order to accumulate rewards. This mitigates the risk of spam attacks and ensures that everyone has a fair chances to earn the bounties.
-
-In addition, you'll need to import an Ethereum wallet when you run a trading bot on an Ethereum-based decentralized exchange.
+**Why this is needed**: In order to earn rewards from Liquidity Bounties, you need an Ethereum wallet. In addition, you'll need to import an Ethereum wallet when you run a trading bot on an Ethereum-based decentralized exchange.
 
 For more information on creating or importing an Ethereum wallet, see [Ethereum wallet](/installation/wallet).
 

@@ -17,7 +17,8 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.in_memory_config_map import in_memory_config_map
 from hummingbot.client.config.config_helpers import (
     create_yml_files,
-    read_configs_from_yml
+    load_required_configs,
+    read_configs_from_yml,
 )
 from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.client.ui.parser import ThrowingArgumentParser
@@ -76,7 +77,8 @@ async def quick_start():
             hb.acct = unlock_wallet(public_key=wallet, password=wallet_password)
 
         if not hb.config_complete:
-            empty_configs = hb._get_empty_configs()
+            config_map = load_required_configs()
+            empty_configs = [key for key, config in config_map.items() if config.value is None and config.required]
             empty_config_description: str = "\n- ".join([""] + empty_configs)
             raise ValueError(f"Missing empty configs: {empty_config_description}\n")
 
