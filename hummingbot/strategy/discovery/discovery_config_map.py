@@ -14,20 +14,21 @@ def discovery_symbol_list_prompt(market_name):
 
 
 def trading_pair_array_validator(market: str, trading_pair_list: Any):
-    try:
-        if isinstance(trading_pair_list, str):
-            if len(trading_pair_list) == 0:
-                return True
-            filtered: filter = filter(lambda x: x not in ['[', ']', '"', "'"], list(trading_pair_list))
-            trading_pair_list = "".join(filtered).split(",")
-            trading_pair_list = [s.strip() for s in trading_pair_list]  # remove leading and trailing whitespaces
-        known_symbols = SymbolFetcher.get_instance().symbols.get(market, [])
-        if len(known_symbols) == 0:
-            return True
-        else:
-            return all([trading_pair in known_symbols for trading_pair in trading_pair_list])
-    except Exception:
-        return False
+    return True
+    # try:
+    #     if isinstance(trading_pair_list, str):
+    #         if len(trading_pair_list) == 0:
+    #             return True
+    #         filtered: filter = filter(lambda x: x not in ['[', ']', '"', "'"], list(trading_pair_list))
+    #         trading_pair_list = "".join(filtered).split(",")
+    #         trading_pair_list = [s.strip() for s in trading_pair_list]  # remove leading and trailing whitespaces
+    #     known_symbols = SymbolFetcher.get_instance().symbols.get(market, [])
+    #     if len(known_symbols) == 0:
+    #         return True
+    #     else:
+    #         return all([trading_pair in known_symbols for trading_pair in trading_pair_list])
+    # except Exception:
+    #     return False
 
 
 discovery_config_map = {
