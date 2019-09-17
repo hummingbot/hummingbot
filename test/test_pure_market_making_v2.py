@@ -137,6 +137,16 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             logging_options=logging_options
         )
 
+        self.prevent_cancel_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+            [self.market_info],
+            pricing_delegate=self.constant_pricing_delegate,
+            sizing_delegate=self.constant_sizing_delegate,
+            cancel_order_wait_time=900,
+            filled_order_replenish_wait_time=80,
+            enable_order_filled_stop_cancellation=True,
+            logging_options=logging_options
+        )
+
         self.logging_options = logging_options
         self.clock.add_iterator(self.maker_market)
         self.clock.add_iterator(self.strategy)
@@ -592,6 +602,37 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         # Prices are not adjusted according to filled price as per settings
         bid_order: LimitOrder = self.delayed_placement_strategy.active_bids[0][1]
         ask_order: LimitOrder = self.delayed_placement_strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), bid_order.price)
+        self.assertEqual(Decimal("101"), ask_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+        self.maker_order_fill_logger.clear()
+
+    def test_prevent_cancellation_feature(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(self.prevent_cancel_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(self.prevent_cancel_strategy.active_bids))
+        self.assertEqual(1, len(self.prevent_cancel_strategy.active_asks))
+        ask_order: LimitOrder = self.prevent_cancel_strategy.active_asks[0][1]
+
+        self.simulate_limit_order_fill(self.maker_market, ask_order)
+
+        # Ask is filled and due to delay is not replenished immediately
+        # Bid order is no longer tracked and is not in active bids
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size)
+        self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+        self.assertEqual(0, len(self.prevent_cancel_strategy.active_bids))
+        self.assertEqual(0, len(self.prevent_cancel_strategy.active_asks))
+
+        # Orders are placed after replenish delay
+        self.clock.backtest_til(self.start_timestamp + 4 * self.clock_tick_size)
+        self.assertEqual(1, len(self.prevent_cancel_strategy.active_bids))
+        self.assertEqual(1, len(self.prevent_cancel_strategy.active_asks))
+
+        # Prices are not adjusted according to filled price as per settings
+        bid_order: LimitOrder = self.prevent_cancel_strategy.active_bids[0][1]
+        ask_order: LimitOrder = self.prevent_cancel_strategy.active_asks[0][1]
         self.assertEqual(Decimal("99"), bid_order.price)
         self.assertEqual(Decimal("101"), ask_order.price)
         self.assertEqual(Decimal("1.0"), bid_order.quantity)
