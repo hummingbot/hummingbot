@@ -80,6 +80,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  sizing_delegate: OrderSizingDelegate,
                  cancel_order_wait_time: float = 60,
                  filled_order_replenish_wait_time: float = 10,
+                 enable_order_filled_stop_cancellation: bool = False,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
                  status_report_interval: float = 900):
@@ -108,6 +109,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._filter_delegate = PassThroughFilterDelegate(self._current_timestamp)
         self._pricing_delegate = pricing_delegate
         self._sizing_delegate = sizing_delegate
+        self._enable_order_filled_stop_cancellation = enable_order_filled_stop_cancellation
 
         self.limit_order_min_expiration = limit_order_min_expiration
 
@@ -374,8 +376,16 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             for _, ask_order in self.active_asks:
                 other_order_id = ask_order.client_order_id
                 if other_order_id in self._time_to_cancel:
-                    # cancel time is minimum of current cancel time and replenish time to sync up both
-                    self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
+                    # If you want to stop cancelling orders remove it from the list
+                    if self._enable_order_filled_stop_cancellation:
+                        del self._time_to_cancel[other_order_id]
+                    else:
+                        # cancel time is minimum of current cancel time and replenish time to sync up both
+                        self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
+
+                # Also delete the order from tracked orders
+                if self._enable_order_filled_stop_cancellation:
+                    self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
 
             self.filter_delegate.order_placing_timestamp = replenish_time_stamp
 
@@ -405,8 +415,16 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             for _, bid_order in self.active_bids:
                 other_order_id = bid_order.client_order_id
                 if other_order_id in self._time_to_cancel:
-                    # cancel time is minimum of current cancel time and replenish time to sync up both
-                    self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
+                    # If you want to stop cancelling orders remove it from the list
+                    if self._enable_order_filled_stop_cancellation:
+                        del self._time_to_cancel[other_order_id]
+                    else:
+                        # cancel time is minimum of current cancel time and replenish time to sync up both
+                        self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
+
+                # Also delete the order from tracked orders
+                if self._enable_order_filled_stop_cancellation:
+                    self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
 
             self.filter_delegate.order_placing_timestamp = replenish_time_stamp
 

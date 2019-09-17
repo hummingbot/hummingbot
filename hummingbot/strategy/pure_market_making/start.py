@@ -32,7 +32,8 @@ def start(self):
         inventory_skew_enabled = pure_market_making_config_map.get("inventory_skew_enabled").value
         inventory_target_base_percent = pure_market_making_config_map.get("inventory_target_base_percent").value
         filled_order_replenish_wait_time = pure_market_making_config_map.get("filled_order_replenish_wait_time").value
-        filled_order_adjust_other_side_enabled = pure_market_making_config_map.get("filled_order_adjust_other_side_enabled").value
+        enable_order_filled_stop_cancellation = pure_market_making_config_map.get(
+            "enable_order_filled_stop_cancellation").value
 
         pricing_delegate = None
         sizing_delegate = None
@@ -79,7 +80,7 @@ def start(self):
                                                    pricing_delegate=pricing_delegate,
                                                    sizing_delegate=sizing_delegate,
                                                    filled_order_replenish_wait_time=filled_order_replenish_wait_time,
-                                                   filled_order_adjust_other_side_enabled=filled_order_adjust_other_side_enabled,
+                                                   enable_order_filled_stop_cancellation=enable_order_filled_stop_cancellation,
                                                    cancel_order_wait_time=cancel_order_wait_time,
                                                    logging_options=strategy_logging_options)
     except Exception as e:
