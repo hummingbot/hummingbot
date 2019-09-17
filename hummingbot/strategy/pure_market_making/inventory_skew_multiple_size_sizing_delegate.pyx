@@ -146,7 +146,7 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
                     market_info.trading_pair,
                     current_bid_order_size
                 )
-                buy_fees = market.c_get_fee( 
+                buy_fees = market.c_get_fee(
                     market_info.base_asset,
                     market_info.quote_asset,
                     OrderType.MARKET,
