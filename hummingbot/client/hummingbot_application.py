@@ -22,7 +22,10 @@ from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.ddex.ddex_market import DDEXMarket
+from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.market_base import MarketBase
+from hummingbot.market.paper_trade import create_paper_trade_market
+from hummingbot.market.paper_trade.paper_trade_market import PaperTradeMarket
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
@@ -64,8 +67,9 @@ MARKET_CLASSES = {
     "bamboo_relay": BambooRelayMarket,
     "binance": BinanceMarket,
     "coinbase_pro": CoinbaseProMarket,
-    "idex": IDEXMarket,
     "ddex": DDEXMarket,
+    "huobi": HuobiMarket,
+    "idex": IDEXMarket,
     "radar_relay": RadarRelayMarket,
 }
 
@@ -163,29 +167,34 @@ class HummingbotApplication(*commands):
             self.logger().error(e, exc_info=True)
 
     async def _cancel_outstanding_orders(self) -> bool:
-        on_chain_cancel_on_exit = global_config_map.get("on_chain_cancel_on_exit").value
-        bamboo_relay_use_coordinator = global_config_map.get("bamboo_relay_use_coordinator").value
         success = True
-        kill_timeout: float = self.KILL_TIMEOUT
-        self._notify("Cancelling outstanding orders...")
+        try:
+            on_chain_cancel_on_exit = global_config_map.get("on_chain_cancel_on_exit").value
+            bamboo_relay_use_coordinator = global_config_map.get("bamboo_relay_use_coordinator").value
+            kill_timeout: float = self.KILL_TIMEOUT
+            self._notify("Cancelling outstanding orders...")
 
-        for market_name, market in self.markets.items():
-            if market_name == "idex":
-                self._notify(f"IDEX cancellations may take up to {int(self.IDEX_KILL_TIMEOUT)} seconds...")
-                kill_timeout = self.IDEX_KILL_TIMEOUT
-            # By default, the bot does not cancel orders on exit on Radar Relay or Bamboo Relay,
-            # since all open orders will expire in a short window
-            if not on_chain_cancel_on_exit and (market_name == "radar_relay" or (market_name == "bamboo_relay" and not bamboo_relay_use_coordinator)):
-                continue
-            cancellation_results = await market.cancel_all(kill_timeout)
-            uncancelled = list(filter(lambda cr: cr.success is False, cancellation_results))
-            if len(uncancelled) > 0:
-                success = False
-                uncancelled_order_ids = list(map(lambda cr: cr.order_id, uncancelled))
-                self._notify("\nFailed to cancel the following orders on %s:\n%s" % (
-                    market_name,
-                    '\n'.join(uncancelled_order_ids)
-                ))
+            for market_name, market in self.markets.items():
+                if market_name == "idex":
+                    self._notify(f"IDEX cancellations may take up to {int(self.IDEX_KILL_TIMEOUT)} seconds...")
+                    kill_timeout = self.IDEX_KILL_TIMEOUT
+                # By default, the bot does not cancel orders on exit on Radar Relay or Bamboo Relay,
+                # since all open orders will expire in a short window
+                if not on_chain_cancel_on_exit and (market_name == "radar_relay" or (market_name == "bamboo_relay" and not bamboo_relay_use_coordinator)):
+                    continue
+                cancellation_results = await market.cancel_all(kill_timeout)
+                uncancelled = list(filter(lambda cr: cr.success is False, cancellation_results))
+                if len(uncancelled) > 0:
+                    success = False
+                    uncancelled_order_ids = list(map(lambda cr: cr.order_id, uncancelled))
+                    self._notify("\nFailed to cancel the following orders on %s:\n%s" % (
+                        market_name,
+                        '\n'.join(uncancelled_order_ids)
+                    ))
+        except Exception as err:
+            self.logger().error(f"Error canceling outstanding orders.", exc_info=True)
+            success = False
+
         if success:
             self._notify("All outstanding orders cancelled.")
         return success
@@ -227,7 +236,17 @@ class HummingbotApplication(*commands):
             market_symbols_map[market_name] += symbols
 
         for market_name, symbols in market_symbols_map.items():
-            if market_name == "ddex" and self.wallet:
+            if global_config_map.get("paper_trade_enabled").value:
+                self._notify(f"\nPaper trade is enabled for market {market_name}")
+                try:
+                    market = create_paper_trade_market(market_name, symbols)
+                except Exception as err:
+                    raise
+                paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
+                for asset, balance in paper_trade_account_balance:
+                    market.set_balance(asset, balance)
+
+            elif market_name == "ddex" and self.wallet:
                 market = DDEXMarket(wallet=self.wallet,
                                     ethereum_rpc_url=ethereum_rpc_url,
                                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
@@ -281,7 +300,14 @@ class HummingbotApplication(*commands):
                                            coinbase_pro_passphrase,
                                            symbols=symbols,
                                            trading_required=self._trading_required)
-
+            elif market_name == "huobi":
+                huobi_api_key = global_config_map.get("huobi_api_key").value
+                huobi_secret_key = global_config_map.get("huobi_secret_key").value
+                market = HuobiMarket(huobi_api_key,
+                                     huobi_secret_key,
+                                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                     symbols=symbols,
+                                     trading_required=self._trading_required)
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
 

@@ -6,6 +6,7 @@ from collections import (
 )
 from typing import List
 
+from hummingbot import check_dev_mode
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.market.market_base import MarketBase
 from hummingbot.core.network_iterator import NetworkStatus
@@ -104,7 +105,7 @@ class StatusCommand:
             for market in loading_markets:
                 market_status_df = pd.DataFrame(data=market.status_dict.items(), columns=["description", "status"])
                 self._notify(
-                    f"   x {market.name.capitalize()} market status:\n" +
+                    f"   x {market.display_name.capitalize()} market status:\n" +
                     "\n".join(["     " + line for line in market_status_df.to_string(index=False,).split("\n")]) +
                     "\n"
                 )
@@ -129,7 +130,7 @@ class StatusCommand:
 
         # Application warnings.
         self._expire_old_application_warnings()
-        if len(self._app_warnings) > 0:
+        if check_dev_mode() and len(self._app_warnings) > 0:
             self._notify(self._format_application_warnings())
 
         return True

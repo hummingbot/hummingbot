@@ -32,7 +32,7 @@ pure_market_making_config_map = {
                                                   validator=is_valid_maker_market_symbol),
     "mode":                             ConfigVar(key="mode",
                                                   prompt="Enter quantity of orders per side [bid/ask] "
-                                                         "(single/multiple) default is single >>> ",
+                                                         "(single/multiple) >>> ",
                                                   type_str="str",
                                                   validator=lambda v: v in {"single", "multiple"},
                                                   default="single"),
@@ -92,9 +92,9 @@ pure_market_making_config_map = {
                                                   default=False),
     "inventory_target_base_percent":    ConfigVar(key="inventory_target_base_percent",
                                                   prompt="What is your target base asset inventory percentage "
-                                                         "(Enter 0.01 to indicate 1%)? >>> ",
+                                                         "(Enter 0.01 to indicate 1%). (Default is 0.5 (50%)) ? >>> ",
                                                   required_if=
                                                   lambda: pure_market_making_config_map.get("inventory_skew_enabled").value,
                                                   type_str="float",
-                                                  default=0.01),
+                                                  default=0.5),
 }
