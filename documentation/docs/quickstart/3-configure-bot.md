@@ -165,6 +165,48 @@ y
 At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5% loss) >>>
 -0.05
 ```
+
+## Step 4: Adjusting Parameters
+
+If you want to reconfigure the bot from the beginning, type `config` and reply `y` to the question `Would you like to reconfigure the bot? (y/n) >>>?`. This will prompt all questions during initial set up.
+
+Alternatively, the command `list configs` will show your current bot parameters both global and the strategy configs.
+
+```
+>>> list configs
+
+global configs:
+...
+
+pure_market_making strategy configs:
+...
+mode                      single
+bid_place_threshold       0.01
+ask_place_threshold       0.01
+cancel_order_wait_time    60
+order_amount              0.2
+...
+
+```
+
+You can specify which parameter you want to configure by doing `config $parameter_name`.
+As an example, we want to widen the `bid_place_threshold` to 0.02. This tells the bot to place buy order 2% lower than the mid price, rather than 1%.
+
+```
+>>> config bid_place_threshold
+
+Please follow the prompt to complete configurations:
+
+How far away from the mid price do you want to place the first bid order (Enter 0.01 to indicate 1%)? >>>
+0.02
+
+New config saved:
+bid_place_threshold: 0.02
+
+```
+
+You can also exit the bot with `exit` and edit the automatically generated configuration file `conf_pure_market_making_0.yml`. This file is saved in the directory `hummingbot_files/hummingbot_conf/` in your root. For more information, see [Troubleshooting](/support/troubleshooting/#how-do-i-edit-the-conf-files-or-access-the-log-files-used-by-my-docker-instance).
+
 ---
 If you completed the steps above successfully, you should see the message:
 ```
@@ -172,17 +214,6 @@ Config process complete. Enter "start" to start market making.
 
 >>> start
 ```
-
-## Help
-
-### I mis-typed something and need to reconfigure!
-
-Type `config` and reply `y` to the question `Would you like to reconfigure the bot? (y/n) >>>?`. This will show the questions from the beginning.
-
-Alternatively, the command `list configs` will show your current configuration. You can specify which parameter you want to configure by doing `config $parameter_name` (e.g. `config bid_place_threshold`, `config cancel_order_wait_time`, `config order_amount`).
-
-You can also exit the bot with `exit` and edit the automatically generated configuration file `conf_pure_market_making_0.yml`. This file is saved in the directory `hummingbot_files/hummingbot_conf/` in your root. For more information, see [Troubleshooting](/support/troubleshooting/#how-do-i-edit-the-conf-files-or-access-the-log-files-used-by-my-docker-instance).
-
 
 
 ---
