@@ -436,7 +436,7 @@ cdef class DiscoveryStrategy(StrategyBase):
         if "arbitrage" not in self._discovery_stats or self._discovery_stats["arbitrage"].empty:
             lines.extend(["", "Arbitrage discovery not ready yet."])
             return lines
-        df_lines = self._discovery_stats["arbitrage"].to_string(index=False, float_format='%.6g').split("\n")
+        df_lines = self._discovery_stats["arbitrage"].to_string(index=False).split("\n")
 
         lines.extend(["", "  Arbitrage Opportunity Report:"] +
                      ["    " + line for line in df_lines])
@@ -449,7 +449,7 @@ cdef class DiscoveryStrategy(StrategyBase):
         if "market_stats" not in self._discovery_stats or self._discovery_stats["market_stats"].empty:
             lines.extend(["", "Market stats not ready yet."])
             return lines
-        df_lines = self._discovery_stats["market_stats"].to_string(index=False, float_format='%.6g').split("\n")
+        df_lines = self._discovery_stats["market_stats"].to_string(index=False).split("\n")
 
         lines.extend(["", "  Market Stats:"] +
                      ["    " + line for line in df_lines])
