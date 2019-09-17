@@ -18,6 +18,9 @@ from hummingbot.strategy.discovery.discovery import DiscoveryMarketPair, Discove
 
 
 async def save_discovery_output(self: "hummingbot.client.hummingbot_application.HummingbotApplication"):
+    """
+    Export discovery strategy output dataframes into a csv file
+    """
     fname: str = f"discovery_strategy_output_{pd.Timestamp.now().strftime('%Y-%m-%d-%H-%M-%S')}.csv"
     path = join(dirname(__file__), f"../../../logs/{fname}")
     self.logger().info(f"Saving discovery output...")
@@ -40,6 +43,9 @@ async def save_discovery_output(self: "hummingbot.client.hummingbot_application.
 
 
 async def check_discovery_strategy_ready_loop(self: "hummingbot.client.hummingbot_application.HummingbotApplication"):
+    """
+    Periodically check if the discovery strategy is ready, and notify the user when it is.
+    """
     while True:
         try:
             assert isinstance(self.strategy, DiscoveryStrategy)
