@@ -19,6 +19,14 @@ def is_strategy(value: str) -> bool:
     return value in STRATEGIES
 
 
+def is_valid_percent(value: str) -> bool:
+    try:
+        if 0 <= float(value) <= 1:
+            return True
+    except ValueError:
+        return False
+
+
 def is_path(value: str) -> bool:
     return isfile(join(CONF_FILE_PATH, value)) and value.endswith('.yml')
 

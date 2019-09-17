@@ -2,6 +2,7 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     is_exchange,
     is_valid_market_symbol,
+    is_valid_percent
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -39,11 +40,13 @@ pure_market_making_config_map = {
                                      prompt="How far away from the mid price do you want to place the "
                                             "first bid order (Enter 0.01 to indicate 1%)? >>> ",
                                      type_str="float",
+                                     validator=is_valid_percent,
                                      default=0.01),
     "ask_place_threshold": ConfigVar(key="ask_place_threshold",
                                      prompt="How far away from the mid price do you want to place the "
                                             "first ask order (Enter 0.01 to indicate 1%)? >>> ",
                                      type_str="float",
+                                     validator=is_valid_percent,
                                      default=0.01),
     "cancel_order_wait_time": ConfigVar(key="cancel_order_wait_time",
                                         prompt="How often do you want to cancel and replace bids and asks "
@@ -79,6 +82,7 @@ pure_market_making_config_map = {
                                                "orders (Enter 0.01 to indicate 1%)? >>> ",
                                         required_if=lambda: pure_market_making_config_map.get("mode").value == "multiple",
                                         type_str="float",
+                                        validator=is_valid_percent,
                                         default=0.01),
     "inventory_skew_enabled": ConfigVar(key="inventory_skew_enabled",
                                         prompt="Would you like to enable inventory skew? (y/n) >>> ",
@@ -89,6 +93,7 @@ pure_market_making_config_map = {
                                                       "(Enter 0.01 to indicate 1%). (Default is 0.5 (50%)) ? >>> ",
                                                required_if=lambda: pure_market_making_config_map.get("inventory_skew_enabled").value,
                                                type_str="float",
+                                               validator=is_valid_percent,
                                                default=0.5),
     "filled_order_replenish_wait_time": ConfigVar(key="filled_order_replenish_wait_time",
                                                   prompt="How long do you want to wait before placing the next order "
