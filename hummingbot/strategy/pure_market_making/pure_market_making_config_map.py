@@ -102,7 +102,7 @@ pure_market_making_config_map = {
                                                   type_str="float",
                                                   default=10),
     "enable_order_filled_stop_cancellation": ConfigVar(key="enable_order_filled_stop_cancellation",
-                                                       prompt="Do you want to enable order_filled_stop_cancellation ?."
+                                                       prompt="Do you want to enable order_filled_stop_cancellation."
                                                               "If enabled, when orders are completely filled, the other"
                                                               " side remains uncanceled (Default is False)? >>> ",
                                                        type_str="bool",
