@@ -38,7 +38,10 @@ from hummingbot.core.event.events import (
     OrderBookTradeEvent,
     OrderBookEvent,
 )
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import (
+    asyncio_ensure_future,
+    asyncio_gather,
+)
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker
 from hummingbot.market.paper_trade.paper_trade_market import PaperTradeMarket, QueuedOrder
@@ -200,7 +203,7 @@ class PaperTradeMarketTest(unittest.TestCase):
         self.market_logger = None
 
     async def run_parallel_async(self, *tasks):
-        future: asyncio.Future = asyncio_ensure_future(asyncio.gather(*tasks))
+        future: asyncio.Future = asyncio_ensure_future(asyncio_gather(*tasks))
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1

@@ -39,7 +39,10 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import (
+    asyncio_ensure_future,
+    asyncio_gather,
+)
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.market.idex.idex_active_order_tracker import IDEXActiveOrderTracker
@@ -227,7 +230,7 @@ cdef class IDEXMarket(MarketBase):
             try:
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
-                await asyncio.gather(
+                await asyncio_gather(
                     self._update_balances(),
                     self._update_order_status(),
                     self._update_asset_info(),
@@ -315,7 +318,7 @@ cdef class IDEXMarket(MarketBase):
         tasks = [self.get_order(o.exchange_order_id)
                  for o in tracked_orders
                  if o.exchange_order_id is not None]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        results = await asyncio_gather(*tasks, return_exceptions=True)
 
         for order_update, tracked_limit_order in zip(results, tracked_orders):
             if isinstance(order_update, Exception):
@@ -948,7 +951,7 @@ cdef class IDEXMarket(MarketBase):
 
         try:
             async with timeout(timeout_seconds):
-                cancellation_results = await asyncio.gather(*tasks, return_exceptions=True)
+                cancellation_results = await asyncio_gather(*tasks, return_exceptions=True)
                 for cid, cr in zip(client_order_ids, cancellation_results):
                     if isinstance(cr, Exception):
                         continue

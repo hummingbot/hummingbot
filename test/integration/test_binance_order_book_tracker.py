@@ -12,15 +12,18 @@ import logging
 from typing import (
     Dict,
     Optional,
-    List)
+    List,
+)
 import unittest
 
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTrackerDataSourceType
 )
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
-
+from hummingbot.core.utils.async_utils import (
+    asyncio_ensure_future,
+    asyncio_gather,
+)
 
 class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
     order_book_tracker: Optional[BinanceOrderBookTracker] = None
@@ -49,7 +52,7 @@ class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
             await asyncio.sleep(1)
 
     async def run_parallel_async(self, *tasks):
-        future: asyncio.Future = asyncio_ensure_future(asyncio.gather(*tasks))
+        future: asyncio.Future = asyncio_ensure_future(asyncio_gather(*tasks))
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1

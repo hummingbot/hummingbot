@@ -30,7 +30,10 @@ import hummingbot
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import (
+    asyncio_ensure_future,
+    asyncio_gather,
+)
 from hummingbot.market.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import (
@@ -435,7 +438,7 @@ cdef class BinanceMarket(MarketBase):
             trading_pairs = list(trading_pairs_to_order_map.keys())
             tasks = [self.query_api(self._binance_client.get_my_trades, symbol=trading_pair)
                      for trading_pair in trading_pairs]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+            results = await asyncio_gather(*tasks, return_exceptions=True)
             for trades, trading_pair in zip(results, trading_pairs):
                 order_map = trading_pairs_to_order_map[trading_pair]
                 if isinstance(trades, Exception):
@@ -483,7 +486,7 @@ cdef class BinanceMarket(MarketBase):
             tasks = [self.query_api(self._binance_client.get_order,
                                     symbol=o.symbol, origClientOrderId=o.client_order_id)
                      for o in tracked_orders]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+            results = await asyncio_gather(*tasks, return_exceptions=True)
             for order_update, tracked_order in zip(results, tracked_orders):
                 client_order_id = tracked_order.client_order_id
 
@@ -714,7 +717,7 @@ cdef class BinanceMarket(MarketBase):
             try:
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
-                await asyncio.gather(
+                await asyncio_gather(
                     self._update_balances(),
                     self._update_order_status(),
                     self._update_order_fills_from_trades()
@@ -731,7 +734,7 @@ cdef class BinanceMarket(MarketBase):
     async def _trading_rules_polling_loop(self):
         while True:
             try:
-                await asyncio.gather(
+                await asyncio_gather(
                     self._update_withdraw_rules(),
                     self._update_trading_rules(),
                     self._update_trade_fees()
@@ -1099,7 +1102,7 @@ cdef class BinanceMarket(MarketBase):
 
         try:
             async with timeout(timeout_seconds):
-                cancellation_results = await asyncio.gather(*tasks, return_exceptions=True)
+                cancellation_results = await asyncio_gather(*tasks, return_exceptions=True)
                 for cr in cancellation_results:
                     if isinstance(cr, BinanceAPIException):
                         continue

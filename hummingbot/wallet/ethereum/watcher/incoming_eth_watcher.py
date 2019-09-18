@@ -20,7 +20,10 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.event.event_forwarder import EventForwarder
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import (
+    asyncio_ensure_future,
+    asyncio_gather,
+)
 from hummingbot.logger import HummingbotLogger
 from .base_watcher import BaseWatcher
 from .new_blocks_watcher import NewBlocksWatcher
@@ -63,7 +66,7 @@ class IncomingEthWatcher(BaseWatcher):
             for t in incoming_eth_transactions
         ]
         try:
-            transaction_receipts: List[AttributeDict] = await asyncio.gather(*get_receipt_tasks)
+            transaction_receipts: List[AttributeDict] = await asyncio_gather(*get_receipt_tasks)
         except asyncio.CancelledError:
             raise
         except Exception:

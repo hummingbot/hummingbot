@@ -22,6 +22,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.utils import async_ttl_cache
+from hummingbot.core.utils.async_utils import asyncio_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.huobi.huobi_order_book import HuobiOrderBook
 
@@ -56,7 +57,7 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         async with aiohttp.ClientSession() as client:
 
-            market_response, exchange_response = await asyncio.gather(
+            market_response, exchange_response = await asyncio_gather(
                 client.get(HUOBI_TICKER_URL),
                 client.get(HUOBI_SYMBOLS_URL)
             )

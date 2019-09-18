@@ -4,7 +4,7 @@ import logging
 
 def asyncio_ensure_future(*args, **kwargs):
     try:
-        asyncio_ensure_future(*args, **kwargs)
+        asyncio.ensure_future(*args, **kwargs)
     except Exception as e:
         logging.getLogger().error(f"Unhandled error in background task: {str(e)}", exc_info=True)
 
