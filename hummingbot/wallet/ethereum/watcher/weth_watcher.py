@@ -23,6 +23,7 @@ from hummingbot.core.event.events import (
     WalletEvent
 )
 from hummingbot.core.event.event_forwarder import EventForwarder
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 from .base_watcher import BaseWatcher
 from .new_blocks_watcher import NewBlocksWatcher
 from .contract_event_logs import ContractEventLogger
@@ -60,7 +61,7 @@ class WethWatcher(BaseWatcher):
         if self._poll_weth_logs_task is not None:
             await self.stop_network()
         self._blocks_watcher.add_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
-        self._poll_weth_logs_task = asyncio.ensure_future(self.poll_weth_logs_loop())
+        self._poll_weth_logs_task = asyncio_ensure_future(self.poll_weth_logs_loop())
 
     async def stop_network(self):
         if self._poll_weth_logs_task is not None:

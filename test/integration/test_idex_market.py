@@ -32,6 +32,7 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 from hummingbot.logger import NETWORK
 from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.market.market_base import OrderType
@@ -134,7 +135,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
         self.wallet_logger = None
 
     async def run_parallel_async(self, *tasks):
-        future: asyncio.Future = asyncio.ensure_future(asyncio.gather(*tasks))
+        future: asyncio.Future = asyncio_ensure_future(asyncio.gather(*tasks))
         await self.market.start_network()
         while not future.done():
             now = time.time()

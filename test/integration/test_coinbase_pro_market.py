@@ -34,6 +34,7 @@ from hummingbot.core.event.events import (
     TradeFee,
     TradeType,
 )
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import OrderType
@@ -117,7 +118,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         self.market_logger = None
 
     async def run_parallel_async(self, *tasks):
-        future: asyncio.Future = asyncio.ensure_future(asyncio.gather(*tasks))
+        future: asyncio.Future = asyncio_ensure_future(asyncio.gather(*tasks))
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1

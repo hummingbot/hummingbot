@@ -39,6 +39,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.pubsub import PubSub
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 from hummingbot.wallet.ethereum.watcher import (
     NewBlocksWatcher,
     AccountBalanceWatcher,
@@ -172,14 +173,14 @@ class Web3WalletBackend(PubSub):
         if self.started:
             self.stop()
 
-        self._check_network_task = asyncio.ensure_future(self._check_network_loop())
+        self._check_network_task = asyncio_ensure_future(self._check_network_loop())
         self._network_status = NetworkStatus.NOT_CONNECTED
 
     def stop(self):
         if self._check_network_task is not None:
             self._check_network_task.cancel()
             self._check_network_task = None
-        asyncio.ensure_future(self.stop_network())
+        asyncio_ensure_future(self.stop_network())
         self._network_status = NetworkStatus.STOPPED
 
     async def start_network(self):
@@ -254,8 +255,8 @@ class Web3WalletBackend(PubSub):
                                                 self._unwrapped_eth_event_forwarder)
 
             # Start the transaction processing tasks.
-            self._outgoing_transactions_task = asyncio.ensure_future(self.outgoing_eth_transactions_loop())
-            self._check_transaction_receipts_task = asyncio.ensure_future(self.check_transaction_receipts_loop())
+            self._outgoing_transactions_task = asyncio_ensure_future(self.outgoing_eth_transactions_loop())
+            self._check_transaction_receipts_task = asyncio_ensure_future(self.check_transaction_receipts_loop())
 
             # Start the event watchers.
             await self._new_blocks_watcher.start_network()
@@ -613,7 +614,7 @@ class Web3WalletBackend(PubSub):
 
     def _did_receive_new_blocks(self, new_blocks: List[AttributeDict]):
         self._last_timestamp_received_blocks = time.time()
-        asyncio.ensure_future(self._update_gas_price())
+        asyncio_ensure_future(self._update_gas_price())
 
     async def _update_gas_price(self):
         async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()

@@ -29,8 +29,10 @@ from hummingbot.market.idex.idex_api_order_book_data_source import IDEXAPIOrderB
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessageType,
     IDEXOrderBookMessage,
-    OrderBookMessage)
+    OrderBookMessage,
+)
 from hummingbot.core.data_type.order_book_tracker_entry import IDEXOrderBookTrackerEntry
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 
 
 class IDEXOrderBookTracker(OrderBookTracker):
@@ -73,19 +75,19 @@ class IDEXOrderBookTracker(OrderBookTracker):
 
     async def start(self):
         await super().start()
-        self._order_book_diff_listener_task = asyncio.ensure_future(
+        self._order_book_diff_listener_task = asyncio_ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
-        self._order_book_snapshot_listener_task = asyncio.ensure_future(
+        self._order_book_snapshot_listener_task = asyncio_ensure_future(
             self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
         )
-        self._refresh_tracking_task = asyncio.ensure_future(
+        self._refresh_tracking_task = asyncio_ensure_future(
             self._refresh_tracking_loop()
         )
-        self._order_book_diff_router_task = asyncio.ensure_future(
+        self._order_book_diff_router_task = asyncio_ensure_future(
             self._order_book_diff_router()
         )
-        self._order_book_snapshot_router_task = asyncio.ensure_future(
+        self._order_book_snapshot_router_task = asyncio_ensure_future(
             self._order_book_snapshot_router()
         )
 
@@ -105,7 +107,7 @@ class IDEXOrderBookTracker(OrderBookTracker):
             self._active_order_trackers[symbol] = order_book_tracker_entry.active_order_tracker
             self._order_books[symbol] = order_book_tracker_entry.order_book
             self._tracking_message_queues[symbol] = asyncio.Queue()
-            self._tracking_tasks[symbol] = asyncio.ensure_future(self._track_single_book(symbol))
+            self._tracking_tasks[symbol] = asyncio_ensure_future(self._track_single_book(symbol))
             self.logger().info("Started order book tracking for %s.", symbol)
 
         for symbol in deleted_symbols:

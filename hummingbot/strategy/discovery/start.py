@@ -13,6 +13,7 @@ from typing import (
 import hummingbot
 from hummingbot.client.hummingbot_application import MARKET_CLASSES
 from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 from hummingbot.strategy.discovery.discovery_config_map import discovery_config_map
 from hummingbot.strategy.discovery.discovery import DiscoveryMarketPair, DiscoveryStrategy
 
@@ -121,7 +122,7 @@ def start(self: "hummingbot.client.hummingbot_application.HummingbotApplication"
             target_amount=target_amount,
         )
 
-        asyncio.ensure_future(check_discovery_strategy_ready_loop(self))
+        asyncio_ensure_future(check_discovery_strategy_ready_loop(self))
     except Exception as e:
         self._notify(str(e))
         self.logger().error("Error initializing strategy.", exc_info=True)

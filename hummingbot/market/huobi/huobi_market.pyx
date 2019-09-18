@@ -44,6 +44,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
 from hummingbot.market.huobi.huobi_auth import HuobiAuth
@@ -187,11 +188,11 @@ cdef class HuobiMarket(MarketBase):
     async def start_network(self):
         if self._order_tracker_task is not None:
             self._stop_network()
-        self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
-        self._trading_rules_polling_task = asyncio.ensure_future(self._trading_rules_polling_loop())
+        self._order_tracker_task = asyncio_ensure_future(self._order_book_tracker.start())
+        self._trading_rules_polling_task = asyncio_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             await self._update_account_id()
-            self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
+            self._status_polling_task = asyncio_ensure_future(self._status_polling_loop())
 
     def _stop_network(self):
         if self._order_tracker_task is not None:
@@ -612,7 +613,7 @@ cdef class HuobiMarket(MarketBase):
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = f"buy-{symbol}-{tracking_nonce}"
 
-        asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
+        asyncio_ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
         return order_id
 
     async def execute_sell(self,
@@ -682,7 +683,7 @@ cdef class HuobiMarket(MarketBase):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = f"sell-{symbol}-{tracking_nonce}"
-        asyncio.ensure_future(self.execute_sell(order_id, symbol, amount, order_type, price))
+        asyncio_ensure_future(self.execute_sell(order_id, symbol, amount, order_type, price))
         return order_id
 
     async def execute_cancel(self, symbol: str, order_id: str):
@@ -701,7 +702,7 @@ cdef class HuobiMarket(MarketBase):
             )
 
     cdef c_cancel(self, str symbol, str order_id):
-        asyncio.ensure_future(self.execute_cancel(symbol, order_id))
+        asyncio_ensure_future(self.execute_cancel(symbol, order_id))
         return order_id
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:

@@ -25,6 +25,7 @@ from sqlalchemy.orm import (
 from sqlalchemy.sql.elements import BooleanClauseList
 from hummingbot.client.liquidity_bounty.liquidity_bounty_config_map import liquidity_bounty_config_map
 from hummingbot.core.network_base import NetworkBase, NetworkStatus
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 from hummingbot.logger import HummingbotLogger
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
@@ -398,9 +399,9 @@ class LiquidityBounty(NetworkBase):
 
     async def start_network(self):
         await self.stop_network()
-        self.fetch_active_bounties_task = asyncio.ensure_future(self.fetch_active_bounties(), loop=self._ev_loop)
-        self.status_polling_task = asyncio.ensure_future(self.status_polling_loop(), loop=self._ev_loop)
-        self.submit_data_task = asyncio.ensure_future(self.submit_data_loop(), loop=self._ev_loop)
+        self.fetch_active_bounties_task = asyncio_ensure_future(self.fetch_active_bounties(), loop=self._ev_loop)
+        self.status_polling_task = asyncio_ensure_future(self.status_polling_loop(), loop=self._ev_loop)
+        self.submit_data_task = asyncio_ensure_future(self.submit_data_loop(), loop=self._ev_loop)
 
     async def stop_network(self):
         if self.fetch_active_bounties_task is not None:

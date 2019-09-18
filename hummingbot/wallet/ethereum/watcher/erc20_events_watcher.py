@@ -25,6 +25,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.wallet.ethereum.erc20_token import ERC20Token
 from hummingbot.core.event.event_forwarder import EventForwarder
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 from .base_watcher import BaseWatcher
 from .new_blocks_watcher import NewBlocksWatcher
 from .contract_event_logs import ContractEventLogger
@@ -93,7 +94,7 @@ class ERC20EventsWatcher(BaseWatcher):
             await self.stop_network()
 
         self._blocks_watcher.add_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
-        self._poll_erc20_logs_task = asyncio.ensure_future(self.poll_erc20_logs_loop())
+        self._poll_erc20_logs_task = asyncio_ensure_future(self.poll_erc20_logs_loop())
 
     async def stop_network(self):
 
