@@ -106,7 +106,7 @@ Assume you are running Pure Market making in single order mode, the order size i
 5. With the `enable_order_filled_stop_cancellation` parameter, you can leave this order hanging
 6. After the `cancel_order_wait_time` you will now see two asks and one bid order, which will be the new bid and ask orders created after the wait time, along with the earlier un-canceled ask order.
 
-The `enable_order_filled_stop_cancellation` can be used if there is enough volatility such that the hanging order might eventually get filled. It should also be used with caution, as the user should monitor the bot regularly to manually cancel orders which don't get filled.
+The `enable_order_filled_stop_cancellation` can be used if there is enough volatility such that the hanging order might eventually get filled. It should also be used with caution, as the user should monitor the bot regularly to manually cancel orders which don't get filled. It is recommended to disable inventory skew while running this feature.
 
 As these are experimental features, we are currently rolling them out to only `single order mode` for testing and receiving further feedback from the community.
 
