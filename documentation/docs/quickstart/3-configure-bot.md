@@ -50,7 +50,10 @@ Now, let's walk through the process of configuring a basic market making bot.
 
 #### a) Enter `config` to start the configuration walkthrough
 
-For the purpose of having an example of this walkthrough, we'll create a configuration for the `pure market making` strategy which makes a market on a single trading pair:
+We'll create a configuration for the `pure market making` strategy which makes a market on a single trading pair.
+
+!!! warning
+    Values of parameters from here on are indicative for illustrative purposes only; this is not financial advice.
 
 ```
 What is your market making strategy >>>
@@ -70,7 +73,7 @@ Enter your maker exchange name >>>
 binance
 
 Enter the token symbol you would like to trade on binance (e.g. ZRXETH) >>>
-
+ETHUSDT
 ```
 
 Alternatively, you can select a decentralized exchange like IDEX:
@@ -79,7 +82,7 @@ Enter your maker exchange name >>>
 idex
 
 Enter the token symbol you would like to trade on idex (e.g. ETH_ZRX) >>>
-
+ETH_DAI
 ```
 
 !!! note
@@ -92,10 +95,19 @@ Parameters control the behavior of your bot by setting the spread utilized, the 
 
 ```
 Enter quantity of orders per side [bid/ask] (single/multiple) >>>
+single
+
 How far away from the mid price do you want to place the first bid order (Enter 0.01 to indicate 1%)? >>>
+0.01
+
 How far away from the mid price do you want to place the first ask order (Enter 0.01 to indicate 1%)? >>>
+0.01
+
 How often do you want to cancel and replace bids and asks (in seconds). (Default is 60 seconds) ? >>>
+60
+
 What is your preferred quantity per order (denominated in the base asset, default is 1) ? >>>
+0.2
 ```
 
 #### d) Enable inventory skew
@@ -104,7 +116,10 @@ This function allows you to set a target base/quote inventory ratio. For example
 
 ```
 Would you like to enable inventory skew? (y/n) >>>
+y
+
 What is your target base asset inventory percentage (Enter 0.01 to indicate 1%). Default is 0.5 (50%) ? >>>
+0.5
 ```
 
 Here's an [inventory skew calculator](https://docs.google.com/spreadsheets/d/16oCExZyM8Wo8d0aRPmT_j7oXCzea3knQ5mmm0LlPGbU/edit#gid=690135600) that shows how it adjusts order sizes.
@@ -163,7 +178,7 @@ Would you like to enable the kill switch? (y/n) >>>
 y
 
 At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5% loss) >>>
-
+-0.05
 ```
 
 ## Step 4: Adjusting Parameters
@@ -180,16 +195,16 @@ global configs:
 
 pure_market_making strategy configs:
 ...
-mode                      [value]
-bid_place_threshold       [value]
-ask_place_threshold       [value]
-cancel_order_wait_time    [value]
-order_amount              [value]
+mode                      single
+bid_place_threshold       0.01
+ask_place_threshold       0.01
+cancel_order_wait_time    60
+order_amount              0.2
 ...
 
 ```
 
-You can specify which parameter you want to configure by doing `config $parameter_name`.
+You can specify which parameter you want to configure by doing `config $parameter_name`. As an example, we want to widen the `bid_place_threshold` to 0.02. This tells the bot to place buy order 2% lower than the mid price, rather than 1%.
 
 ```
 >>> config bid_place_threshold
@@ -197,10 +212,10 @@ You can specify which parameter you want to configure by doing `config $paramete
 Please follow the prompt to complete configurations:
 
 How far away from the mid price do you want to place the first bid order (Enter 0.01 to indicate 1%)? >>>
-[enter new value]
+0.02
 
 New config saved:
-bid_place_threshold: [new value]
+bid_place_threshold: 0.02
 
 ```
 
