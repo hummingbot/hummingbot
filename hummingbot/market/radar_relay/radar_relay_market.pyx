@@ -736,7 +736,7 @@ cdef class RadarRelayMarket(MarketBase):
                 avg_price, tx_hash = await self.submit_market_order(symbol=symbol,
                                                                     trade_type=trade_type,
                                                                     amount=q_amt)
-                q_price = str(self.c_quantize_order_price(symbol, avg_price))
+                q_price = str(self.c_quantize_order_price(symbol, Decimal(avg_price)))
                 self.c_start_tracking_market_order(order_id=order_id,
                                                    symbol=symbol,
                                                    order_type=order_type,

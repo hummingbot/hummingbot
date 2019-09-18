@@ -643,7 +643,7 @@ cdef class DDEXMarket(MarketBase):
                 True, amount).result_volume
 
             # Quantize according to price rules, not base token amount rules.
-            q_amt = str(self.c_quantize_order_price(symbol, quote_amount))
+            q_amt = str(self.c_quantize_order_price(symbol, Decimal(quote_amount)))
 
         try:
             if order_type is OrderType.LIMIT:
@@ -939,6 +939,6 @@ cdef class DDEXMarket(MarketBase):
         quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
 
         # Check against min_order_size and. If not passing the check, return 0.
-        if quantized_amount < MarketBase.c_quantize_order_amount(self, symbol, float(trading_rule.min_order_size)):
+        if quantized_amount < MarketBase.c_quantize_order_amount(self, symbol, trading_rule.min_order_size):
             return s_decimal_0
         return quantized_amount

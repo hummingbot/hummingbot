@@ -149,10 +149,10 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        maker_buy_trade_fee: TradeFee = self.market.get_fee("ZRX", "WETH", OrderType.LIMIT, TradeType.BUY, 20, 0.01)
+        maker_buy_trade_fee: TradeFee = self.market.get_fee("ZRX", "WETH", OrderType.LIMIT, TradeType.BUY, Decimal(20), Decimal(0.01))
         self.assertEqual(maker_buy_trade_fee.percent, 0)
         self.assertEqual(len(maker_buy_trade_fee.flat_fees), 0)
-        taker_buy_trade_fee: TradeFee = self.market.get_fee("ZRX", "WETH", OrderType.MARKET, TradeType.BUY, 20)
+        taker_buy_trade_fee: TradeFee = self.market.get_fee("ZRX", "WETH", OrderType.MARKET, TradeType.BUY, Decimal(20))
         self.assertEqual(taker_buy_trade_fee.percent, 0)
         self.assertEqual(len(taker_buy_trade_fee.flat_fees), 1)
         self.assertEqual(taker_buy_trade_fee.flat_fees[0][0], "ETH")
@@ -165,13 +165,13 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
     def test_single_limit_order_cancel(self):
         symbol: str = "ZRX-WETH"
         current_price: float = self.market.get_price(symbol, True)
-        amount: float = 10
+        amount: Decimal = Decimal(10)
         expires = int(time.time() + 60 * 5)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
         buy_order_id = self.market.buy(symbol=symbol,
                                        amount=amount,
                                        order_type=OrderType.LIMIT,
-                                       price=current_price - 0.2 * current_price,
+                                       price=Decimal(current_price - 0.2 * current_price),
                                        expiration_ts=expires)
         [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.assertEqual("ZRX-WETH", buy_order_opened_event.symbol)
@@ -188,13 +188,13 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
     def test_limit_buy_and_sell_and_cancel_all(self):
         symbol: str = "ZRX-WETH"
         current_price: float = self.market.get_price(symbol, True)
-        amount: float = 10
+        amount: Decimal = Decimal(10)
         expires = int(time.time() + 60 * 5)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
         buy_order_id = self.market.buy(symbol=symbol,
                                        amount=amount,
                                        order_type=OrderType.LIMIT,
-                                       price=current_price - 0.2 * current_price,
+                                       price=Decimal(current_price - 0.2 * current_price),
                                        expiration_ts=expires)
         [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.assertEqual(buy_order_id, buy_order_opened_event.order_id)
@@ -208,7 +208,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
         sell_order_id = self.market.sell(symbol=symbol,
                                          amount=amount,
                                          order_type=OrderType.LIMIT,
-                                         price=current_price + 0.2 * current_price,
+                                         price=Decimal(current_price + 0.2 * current_price),
                                          expiration_ts=expires)
         [sell_order_opened_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         self.assertEqual(sell_order_id, sell_order_opened_event.order_id)
@@ -225,14 +225,13 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
     def test_order_expire(self):
         symbol: str = "ZRX-WETH"
         current_price: float = self.market.get_price(symbol, True)
-        amount: float = 10
+        amount: Decimal = Decimal(10)
         expires = int(time.time() + 60 * 2)  # expires in 2 min
-        quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
-        buy_order_id = self.market.buy(symbol=symbol,
-                                       amount=amount,
-                                       order_type=OrderType.LIMIT,
-                                       price=current_price - 0.2 * current_price,
-                                       expiration_ts=expires)
+        self.market.buy(symbol=symbol,
+                        amount=amount,
+                        order_type=OrderType.LIMIT,
+                        price=Decimal(current_price - 0.2 * current_price),
+                        expiration_ts=expires)
         [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
 
         self.assertEqual("ZRX-WETH", buy_order_opened_event.symbol)
@@ -244,7 +243,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_market_buy(self):
-        amount: float = 5
+        amount: Decimal = Decimal(5)
         quantized_amount: Decimal = self.market.quantize_order_amount("ZRX-WETH", amount)
         order_id = self.market.buy("ZRX-WETH", amount, OrderType.MARKET)
 
@@ -261,7 +260,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_market_sell(self):
-        amount: float = 5
+        amount: Decimal = Decimal(5)
         quantized_amount: Decimal = self.market.quantize_order_amount("ZRX-WETH", amount)
         order_id = self.market.sell("ZRX-WETH", amount, OrderType.MARKET)
 
@@ -312,13 +311,13 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
             # Try to put limit buy order for 0.05 ETH worth of ZRX, and watch for order creation event.
             current_bid_price: float = self.market.get_price(symbol, True)
             bid_price: float = current_bid_price * 0.8
-            quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
+            quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, Decimal(bid_price))
 
             amount: float = 0.05 / bid_price
-            quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+            quantized_amount: Decimal = self.market.quantize_order_amount(symbol, Decimal(amount))
 
             expires = int(time.time() + 60 * 5)
-            order_id = self.market.buy(symbol, float(quantized_amount), OrderType.LIMIT, float(quantize_bid_price),
+            order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price,
                                        expiration_ts=expires)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
@@ -391,7 +390,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
         try:
             # Try to buy 0.05 ETH worth of ZRX from the exchange, and watch for completion event.
             current_price: float = self.market.get_price(symbol, True)
-            amount: float = 0.05 / current_price
+            amount: Decimal = Decimal(0.05 / current_price)
             order_id = self.market.buy(symbol, amount)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
@@ -399,7 +398,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
             self.market_logger.clear()
 
             # Try to sell back the same amount of ZRX to the exchange, and watch for completion event.
-            amount = float(buy_order_completed_event.base_asset_amount)
+            amount = Decimal(buy_order_completed_event.base_asset_amount)
             order_id = self.market.sell(symbol, amount)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 

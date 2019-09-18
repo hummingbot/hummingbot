@@ -44,8 +44,8 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
             object buy_fees
             object base_asset_balance = Decimal(market.c_get_available_balance(market_info.base_asset))
             object quote_asset_balance = Decimal(market.c_get_available_balance(market_info.quote_asset))
-            object bid_order_size = self._order_size
-            object ask_order_size = self._order_size
+            object bid_order_size = Decimal(self._order_size)
+            object ask_order_size = Decimal(self._order_size)
             object quantized_bid_order_size
             object quantized_ask_order_size
             bint has_active_bid = False
@@ -82,7 +82,7 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
                                         pricing_proposal.buy_order_prices[0])
 
             required_quote_asset_balance = (pricing_proposal.buy_order_prices[0] *
-                                            (Decimal(1) + buy_fees.percent) *
+                                            Decimal(1 + buy_fees.percent) *
                                             quantized_bid_order_size)
 
         if self._log_warning_order_size:
