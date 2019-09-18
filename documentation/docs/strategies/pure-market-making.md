@@ -97,6 +97,7 @@ There is now an option using `enable_order_filled_stop_cancellation` to leave th
 
 1. You are running Pure Market making in single order mode, the order size is 1 and the mid price is 100
 2. Your bid threshold is 0.01 and the current bid price is 99
+3. Your ask threshold is 0.01 and the current ask price is 101
 4. If your current bid at 99 is fully filled (i.e), your current buy order for the size of 1 is fully completed
 5. Now after the `cancel_order_wait_time` the ask order at 101 would be canceled normally
 6. With the `enable_order_filled_stop_cancellation` parameter, you can leave this order hanging
