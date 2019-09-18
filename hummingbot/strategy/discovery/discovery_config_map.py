@@ -40,9 +40,12 @@ def valid_token_or_trading_pair_array(market: str, input_list: Any):
             market_class = MARKET_CLASSES[market]
             valid_token_set: Set[str] = set()
             for known_trading_pair in known_trading_pairs:
-                base, quote = market_class.split_symbol(known_trading_pair)
-                valid_token_set.update([base, quote])
-
+                try:
+                    base, quote = market_class.split_symbol(known_trading_pair)
+                    valid_token_set.update([base, quote])
+                except Exception:
+                    # Add this catch to prevent trading_pairs with bad format to break the validator
+                    continue
             return all([token[1:-1] in valid_token_set for token in single_token_inputs]) and \
                 all([trading_pair in known_trading_pairs for trading_pair in trading_pair_inputs])
     except Exception:
