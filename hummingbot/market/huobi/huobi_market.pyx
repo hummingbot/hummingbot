@@ -44,7 +44,10 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import (
+    asyncio_ensure_future,
+    asyncio_gather,
+)
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
 from hummingbot.market.huobi.huobi_auth import HuobiAuth
@@ -467,7 +470,7 @@ cdef class HuobiMarket(MarketBase):
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
 
-                await asyncio.gather(
+                await asyncio_gather(
                     self._update_balances(),
                     self._update_order_status(),
                 )

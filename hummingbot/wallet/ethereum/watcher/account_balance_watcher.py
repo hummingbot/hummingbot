@@ -17,7 +17,10 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.wallet.ethereum.erc20_token import ERC20Token
 from hummingbot.core.event.events import NewBlocksWatcherEvent
 from hummingbot.core.event.event_forwarder import EventForwarder
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import (
+    asyncio_ensure_future,
+    asyncio_gather,
+)
 from .base_watcher import BaseWatcher
 from .new_blocks_watcher import NewBlocksWatcher
 
@@ -134,7 +137,7 @@ class AccountBalanceWatcher(BaseWatcher):
         asset_update_tasks.append(self.call_async(self._w3.eth.getBalance, self._account_address))
 
         try:
-            asset_raw_balances: List[int] = await asyncio.gather(*asset_update_tasks)
+            asset_raw_balances: List[int] = await asyncio_gather(*asset_update_tasks)
             for asset_name, raw_balance in zip(asset_symbols, asset_raw_balances):
                 self._raw_account_balances[asset_name] = raw_balance
         except asyncio.CancelledError:

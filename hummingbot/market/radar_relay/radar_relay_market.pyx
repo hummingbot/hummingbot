@@ -40,7 +40,10 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import (
+    asyncio_ensure_future,
+    asyncio_gather,
+)
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import (
@@ -228,7 +231,7 @@ cdef class RadarRelayMarket(MarketBase):
                 await self._poll_notifier.wait()
 
                 self._update_balances()
-                await asyncio.gather(
+                await asyncio_gather(
                     self._update_trading_rules(),
                     self._update_limit_order_status(),
                     self._update_market_order_status()
@@ -322,7 +325,7 @@ cdef class RadarRelayMarket(MarketBase):
                 tasks_index.append(i)
             order_updates.append(order_update)
 
-        res_order_updates = await asyncio.gather(*tasks, return_exceptions=True)
+        res_order_updates = await asyncio_gather(*tasks, return_exceptions=True)
 
         for i, ou in enumerate(res_order_updates):
             order_updates[tasks_index[i]] = ou

@@ -24,7 +24,10 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTrackerDataSourceType
 )
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import (
+    asyncio_ensure_future,
+    asyncio_gather,
+)
 
 
 class RadarRelayOrderBookTrackerUnitTest(unittest.TestCase):
@@ -56,7 +59,7 @@ class RadarRelayOrderBookTrackerUnitTest(unittest.TestCase):
             await asyncio.sleep(1)
 
     async def run_parallel_async(self, *tasks, timeout=None):
-        future: asyncio.Future = asyncio_ensure_future(asyncio.gather(*tasks))
+        future: asyncio.Future = asyncio_ensure_future(asyncio_gather(*tasks))
         timer = 0
         while not future.done():
             if timeout and timer > timeout:

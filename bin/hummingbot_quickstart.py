@@ -24,6 +24,7 @@ from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.client.settings import STRATEGIES
 from hummingbot.core.utils.wallet_setup import unlock_wallet
+from hummingbot.core.utils.async_utils import asyncio_gather
 from hummingbot.core.management.console import start_management_console
 from bin.hummingbot import (
     detect_available_port,
@@ -95,7 +96,7 @@ async def quick_start():
             if global_config_map.get("debug_console").value:
                 management_port: int = detect_available_port(8211)
                 tasks.append(start_management_console(locals(), host="localhost", port=management_port))
-            await asyncio.gather(*tasks)
+            await asyncio_gather(*tasks)
 
     except Exception as e:
         # In case of quick start failure, start the bot normally to allow further configuration

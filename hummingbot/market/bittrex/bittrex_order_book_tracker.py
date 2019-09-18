@@ -10,8 +10,10 @@ from hummingbot.core.data_type.order_book_tracker import (
 )
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
-
+from hummingbot.core.utils.async_utils import (
+    asyncio_ensure_future,
+    asyncio_gather,
+)
 
 class BittrexOrderBookTracker(OrderBookTracker):
     _btobt_logger: Optional[HummingbotLogger] = None
@@ -60,7 +62,7 @@ class BittrexOrderBookTracker(OrderBookTracker):
             self._order_book_snapshot_router()
         )
 
-        await asyncio.gather(self._order_book_snapshot_listener_task,
+        await asyncio_gather(self._order_book_snapshot_listener_task,
                              self._order_book_diff_listener_task,
                              self._order_book_snapshot_router_task,
                              self._order_book_diff_router_task,

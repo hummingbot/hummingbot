@@ -38,7 +38,10 @@ from hummingbot.core.event.events import (
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import (
+    asyncio_ensure_future,
+    asyncio_gather,
+)
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.ddex.ddex_order_book_tracker import DDEXOrderBookTracker
 from hummingbot.market.ddex.ddex_in_flight_order cimport DDEXInFlightOrder
@@ -219,7 +222,7 @@ cdef class DDEXMarket(MarketBase):
                 await self._poll_notifier.wait()
 
                 self._update_balances()
-                await asyncio.gather(
+                await asyncio_gather(
                     self._update_available_balances(),
                     self._update_trading_rules(),
                     self._update_order_status(),
@@ -291,7 +294,7 @@ cdef class DDEXMarket(MarketBase):
         tasks = [self.get_order(o.exchange_order_id)
                  for o in tracked_orders
                  if o.exchange_order_id is not None]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        results = await asyncio_gather(*tasks, return_exceptions=True)
 
         for order_update, tracked_order in zip(results, tracked_orders):
             if isinstance(order_update, Exception):
@@ -775,7 +778,7 @@ cdef class DDEXMarket(MarketBase):
 
         try:
             async with timeout(timeout_seconds):
-                cancellation_results = await asyncio.gather(*tasks, return_exceptions=True)
+                cancellation_results = await asyncio_gather(*tasks, return_exceptions=True)
                 for cr in cancellation_results:
                     if isinstance(cr, Exception):
                         continue

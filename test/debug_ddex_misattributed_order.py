@@ -19,6 +19,7 @@ from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
+from hummingbot.core.utils.async_utils import asyncio_gather
 from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
@@ -63,7 +64,7 @@ async def main():
             try:
                 sample_ids: List[str] = list(order_data.sample(10).OrderID)
                 tasks: List[asyncio.Future] = [market.get_order(order_id) for order_id in sample_ids]
-                response_data: List[Dict[str, any]] = await asyncio.gather(*tasks)
+                response_data: List[Dict[str, any]] = await asyncio_gather(*tasks)
 
                 mismatches: int = 0
                 for expected_id, response in zip(sample_ids, response_data):

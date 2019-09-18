@@ -21,6 +21,7 @@ from hummingbot import (
 )
 from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.core.management.console import start_management_console
+from hummingbot.core.utils.async_utils import asyncio_gather
 
 
 def detect_available_port(starting_port: int) -> int:
@@ -58,7 +59,7 @@ async def main():
         if global_config_map.get("debug_console").value:
             management_port: int = detect_available_port(8211)
             tasks.append(start_management_console(locals(), host="localhost", port=management_port))
-        await asyncio.gather(*tasks)
+        await asyncio_gather(*tasks)
 
 if __name__ == "__main__":
     ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()

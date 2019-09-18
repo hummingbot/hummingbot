@@ -36,7 +36,10 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent
 )
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import (
+    asyncio_ensure_future,
+    asyncio_gather,
+)
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
@@ -873,7 +876,7 @@ cdef class CoinbaseProMarket(MarketBase):
 
         try:
             async with timeout(timeout_seconds):
-                results = await asyncio.gather(*tasks, return_exceptions=True)
+                results = await asyncio_gather(*tasks, return_exceptions=True)
                 for client_order_id in results:
                     if type(client_order_id) is str:
                         order_id_set.remove(client_order_id)
@@ -897,7 +900,7 @@ cdef class CoinbaseProMarket(MarketBase):
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
 
-                await asyncio.gather(
+                await asyncio_gather(
                     self._update_balances(),
                     self._update_order_status(),
                 )
@@ -918,7 +921,7 @@ cdef class CoinbaseProMarket(MarketBase):
         """
         while True:
             try:
-                await asyncio.gather(self._update_trading_rules())
+                await asyncio_gather(self._update_trading_rules())
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
                 raise

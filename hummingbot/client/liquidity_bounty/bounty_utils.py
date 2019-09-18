@@ -25,7 +25,10 @@ from sqlalchemy.orm import (
 from sqlalchemy.sql.elements import BooleanClauseList
 from hummingbot.client.liquidity_bounty.liquidity_bounty_config_map import liquidity_bounty_config_map
 from hummingbot.core.network_base import NetworkBase, NetworkStatus
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import (
+    asyncio_ensure_future,
+    asyncio_gather,
+)
 from hummingbot.logger import HummingbotLogger
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
@@ -308,7 +311,7 @@ class LiquidityBounty(NetworkBase):
     async def status_polling_loop(self):
         while True:
             try:
-                await asyncio.gather(*[
+                await asyncio_gather(*[
                     self.fetch_client_status(),
                     self.fetch_last_timestamp(),
                 ], loop=self._ev_loop, return_exceptions=True)
@@ -381,7 +384,7 @@ class LiquidityBounty(NetworkBase):
         await self._wait_till_ready()
         while True:
             try:
-                # Not using asyncio.gather here because orders need to be submitted before order status
+                # Not using asyncio_gather here because orders need to be submitted before order status
                 await self.submit_trades()
                 await self.submit_orders()
                 await self.submit_order_statuses()
