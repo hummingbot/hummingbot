@@ -15,8 +15,7 @@ from hummingbot.client.settings import (
 )
 from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.core.utils.wallet_setup import list_wallets
-from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
-from hummingbot.client.config.in_memory_config_map import load_required_configs
+from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
 
 class HummingbotCompleter(Completer):
@@ -45,13 +44,13 @@ class HummingbotCompleter(Completer):
 
     @property
     def _symbol_completer(self) -> Completer:
-        symbol_fetcher = SymbolFetcher.get_instance()
+        trading_pair_fetcher = TradingPairFetcher.get_instance()
         market = None
         for exchange in EXCHANGES:
             if exchange in self.prompt_text:
                 market = exchange
                 break
-        symbols = symbol_fetcher.symbols.get(market, []) if symbol_fetcher.ready else []
+        symbols = trading_pair_fetcher.trading_pairs.get(market, []) if trading_pair_fetcher.ready else []
         return WordCompleter(symbols, ignore_case=True)
 
     @property
@@ -60,7 +59,7 @@ class HummingbotCompleter(Completer):
 
     @property
     def _option_completer(self):
-        outer = re.compile("\((.+)\)")
+        outer = re.compile(r"\((.+)\)")
         inner_str = outer.search(self.prompt_text).group(1)
         options = inner_str.split("/") if "/" in inner_str else []
         return WordCompleter(options, ignore_case=True)
@@ -153,7 +152,3 @@ class HummingbotCompleter(Completer):
 
 def load_completer(hummingbot_application):
     return HummingbotCompleter(hummingbot_application)
-
-
-
-
