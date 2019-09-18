@@ -13,9 +13,6 @@ Our official [Discord server](https://discord.hummingbot.io) is the primary gath
 ## Github
 You can submit issues for bugs and/or feature requests in our [Github repo](https://github.com/coinalpha/hummingbot).
 
-## Bug Bounty Program
-We run a [bug bounty program](/support/bug-bounty-program) that rewards users who report new bugs that we fix.
-
 ## Meetup
 We help maintain a regular meetup for people interested in quantitative crypto trading. Meetups physically occur in the Bay Area, but they are also livestreamed for virtual attendees.
 
