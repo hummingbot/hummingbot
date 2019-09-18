@@ -94,6 +94,7 @@ nav:
         - Active Bounties:
           - Harmony $ONE Makers: bounties/active/harmony.md
       - Get Help:
+        - FAQ: support/faq.md
         - Contact and Support: support/index.md
         - Troubleshooting: support/troubleshooting.md
         - Bug Bounty Program: support/bug-bounty-program.md
