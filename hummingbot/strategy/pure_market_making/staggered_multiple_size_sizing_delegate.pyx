@@ -90,7 +90,7 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
             else:
                 buy_order_size = market.c_quantize_order_amount(market_info.trading_pair, current_order_size)
                 # For other exchanges, fees is calculated in quote tokens, so need to ensure you have enough for order + fees
-                required_quote_asset_balance += buy_order_size * pricing_proposal.buy_order_prices[idx] * (1 + buy_fees.percent)
+                required_quote_asset_balance += buy_order_size * pricing_proposal.buy_order_prices[idx] * Decimal(1 + buy_fees.percent)
 
             sell_order_size = market.c_quantize_order_amount(market_info.trading_pair,
                                                              current_order_size,
