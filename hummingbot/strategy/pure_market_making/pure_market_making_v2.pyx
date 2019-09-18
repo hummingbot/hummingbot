@@ -102,7 +102,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         self._logging_options = logging_options
         self._last_timestamp = 0
-        self._filled_price = 0
         self._status_report_interval = status_report_interval
 
         # Create a filter delegate which will create orders after the current timestamp
@@ -364,8 +363,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
             LimitOrder limit_order_record
 
-        # Remove the order from tracked limit orders when the orders are filled and remove it from time to cancel
-        # Adjusting filled orders only for single order mode (identified using name of the delegate)
+        # Replenish Delay and order filled stop cancellation are only for single order mode
+        # (identified using name of the delegate)
         if self.sizing_delegate_name in self.SINGLE_ORDER_SIZING_DELEGATES:
             # Set the replenish time as current_timestamp + order replenish time
             replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
@@ -375,14 +374,15 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             for _, ask_order in self.active_asks:
                 other_order_id = ask_order.client_order_id
                 if other_order_id in self._time_to_cancel:
-                    # If you want to stop cancelling orders remove it from the list
+
+                    # If you want to stop cancelling orders remove it from the cancel list
                     if self._enable_order_filled_stop_cancellation:
                         del self._time_to_cancel[other_order_id]
                     else:
                         # cancel time is minimum of current cancel time and replenish time to sync up both
                         self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
 
-                # Also delete the order from tracked orders
+                # Stop tracking the order
                 if self._enable_order_filled_stop_cancellation:
                     self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
 
@@ -403,8 +403,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
             LimitOrder limit_order_record
 
-        # Remove the order from tracked limit orders when the orders are filled and remove it from time to cancel
-        # Adjusting filled orders only for single order mode (identified using name of the delegate)
+        # Replenish Delay and order filled stop cancellation are only for single order mode
+        # (identified using name of the delegate)
         if self.sizing_delegate_name in self.SINGLE_ORDER_SIZING_DELEGATES:
             # Set the replenish time as current_timestamp + order replenish time
             replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
@@ -414,14 +414,15 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             for _, bid_order in self.active_bids:
                 other_order_id = bid_order.client_order_id
                 if other_order_id in self._time_to_cancel:
-                    # If you want to stop cancelling orders remove it from the list
+
+                    # If you want to stop cancelling orders remove it from the cancel list
                     if self._enable_order_filled_stop_cancellation:
                         del self._time_to_cancel[other_order_id]
                     else:
                         # cancel time is minimum of current cancel time and replenish time to sync up both
                         self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
 
-                # Also delete the order from tracked orders
+                # Stop tracking the order
                 if self._enable_order_filled_stop_cancellation:
                     self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
 

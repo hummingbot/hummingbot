@@ -1,26 +1,15 @@
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import MarketBase
-from hummingbot.logger import HummingbotLogger
-import logging
-
 from .data_types import PricingProposal
 from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
 
-s_logger = None
 
 cdef class ConstantSpreadPricingDelegate(OrderPricingDelegate):
     def __init__(self, bid_spread: float, ask_spread: float):
         super().__init__()
         self._bid_spread = bid_spread
         self._ask_spread = ask_spread
-
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        global s_logger
-        if s_logger is None:
-            s_logger = logging.getLogger(__name__)
-        return s_logger
 
     @property
     def bid_spread(self) -> float:
@@ -34,7 +23,6 @@ cdef class ConstantSpreadPricingDelegate(OrderPricingDelegate):
                                            PureMarketMakingStrategyV2 strategy,
                                            object market_info,
                                            list active_orders):
-
         cdef:
             MarketBase maker_market = market_info.market
             OrderBook maker_order_book = maker_market.c_get_order_book(market_info.trading_pair)
