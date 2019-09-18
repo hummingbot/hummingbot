@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import time
 from decimal import Decimal
@@ -7,6 +6,7 @@ from typing import Optional, List, Dict, Any, AsyncIterable
 
 import aiohttp
 import pandas as pd
+from async_timeout import timeout
 from libc.stdint cimport int64_t
 
 from hummingbot.core.clock cimport Clock
@@ -64,7 +64,7 @@ cdef class BittrexMarket(MarketBase):
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
 
-    BITTREX_API_ENDPOINT = "https://api.bittrex.com/api/v1.1/"
+    BITTREX_API_ENDPOINT = "https://api.bittrex.com/api/v3/"
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -78,16 +78,16 @@ cdef class BittrexMarket(MarketBase):
                  bittrex_secret_key: str,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                    OrderBookTrackerDataSourceType.EXCHANGE_API,
+                 OrderBookTrackerDataSourceType.EXCHANGE_API,
                  symbols: Optional[List[str]] = None,
                  trading_required: bool = True):
         super().__init__()
         self._trading_required = trading_required
         self._bittrex_auth = BittrexAuth(bittrex_api_key, bittrex_secret_key)
         self._order_book_tracker = BittrexOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                               symbols=symbols)
+                                                           symbols=symbols)
         self._user_stream_tracker = BittrexUserStreamTracker(bittrex_auth=self._bittrex_auth,
-                                                                 symbols=symbols)
+                                                             symbols=symbols)
         self._account_balances = {}
         self._account_available_balances = {}
         self._ev_loop = asyncio.get_event_loop()
@@ -151,8 +151,8 @@ cdef class BittrexMarket(MarketBase):
 
     cdef c_tick(self, double timestamp):
         cdef:
-            int64_t last_tick = <int64_t>(self._last_timestamp / self._poll_interval)
-            int64_t current_tick = <int64_t>(timestamp / self._poll_interval)
+            int64_t last_tick = <int64_t> (self._last_timestamp / self._poll_interval)
+            int64_t current_tick = <int64_t> (timestamp / self._poll_interval)
 
         MarketBase.c_tick(self, timestamp)
         if current_tick > last_tick:
@@ -161,12 +161,12 @@ cdef class BittrexMarket(MarketBase):
         self._last_timestamp = timestamp
 
     cdef object c_get_fee(self,
-                           str base_currency,
-                           str quote_currency,
-                           object order_type,
-                           object order_side,
-                           double amount,
-                           double price):
+                          str base_currency,
+                          str quote_currency,
+                          object order_type,
+                          object order_side,
+                          double amount,
+                          double price):
         # There is no API for checking fee
         # Fee info from https://bittrex.zendesk.com/hc/en-us/articles/115003684371
         cdef:
@@ -184,13 +184,13 @@ cdef class BittrexMarket(MarketBase):
             set remote_asset_names = set()
             set asset_names_to_remove
 
-        path_url = "/account/getbalances"
-        account_balances = await self._api_request("get", path_url=path_url)
+        path_url = "/balances"
+        account_balances = await self._api_request("GET", path_url=path_url)
 
         for balance_entry in account_balances:
-            asset_name = balance_entry["Currency"]
-            available_balance = Decimal(balance_entry["Available"])
-            total_balance = Decimal(balance_entry["Balance"])
+            asset_name = balance_entry["currencySymbol"]
+            available_balance = Decimal(balance_entry["available"])
+            total_balance = Decimal(balance_entry["total"])
             self._account_available_balances[asset_name] = available_balance
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
@@ -200,29 +200,34 @@ cdef class BittrexMarket(MarketBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    def _format_trading_rules(self, raw_trading_rules: List[Any]) -> List[TradingRule]:
+    def _format_trading_rules(self, market_list: List[Any]) -> List[TradingRule]:
         cdef:
             list retval = []
-        for rule in raw_trading_rules:
+        for market in market_list:
             try:
-                symbol = rule.get("MarketName")
+                symbol = market.get("symbol")
+                min_trade_size = market.get("minTradeSize")
+                precision = '0.{:0{}}'.format(1, market.get("precision"))
                 # Trading Rules info from
                 # https://bittrex.zendesk.com/hc/en-us/articles/360001473863-Bittrex-Trading-Rules
+                # "No maximum, but the user must have sufficient funds to cover the order at the time it is placed."
                 retval.append(TradingRule(symbol,
-                                          min_order_size=Decimal(rule.get("MinTradeSize"))
+                                          min_order_size=Decimal(min_trade_size),
+                                          min_quote_amount_increment=Decimal(precision)
                                           ))
             except Exception:
-                self.logger().error(f"Error parsing the symbol rule {rule}. Skipping.", exc_info=True)
+                self.logger().error(f"Error parsing the symbol rule {market}. Skipping.", exc_info=True)
         return retval
 
     async def _update_trading_rules(self):
         cdef:
             # The poll interval for withdraw rules is 60 seconds.
-            int64_t last_tick = <int64_t>(self._last_timestamp / 60.0)
-            int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
+            int64_t last_tick = <int64_t> (self._last_timestamp / 60.0)
+            int64_t current_tick = <int64_t> (self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) <= 0:
-            product_info = await self._api_request("get", path_url="/public/getmarkets")
-            trading_rules_list = self._format_trading_rules(product_info)
+            path_url = "/markets"
+            market_list = await self._api_request("GET", path_url=path_url)
+            trading_rules_list = self._format_trading_rules(market_list)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
                 self._trading_rules[trading_rule.symbol] = trading_rule
@@ -232,57 +237,60 @@ cdef class BittrexMarket(MarketBase):
         """
         Example:
         Result = [
-            {
-              "Uuid": "string (uuid)",
-              "OrderUuid": "8925d746-bc9f-4684-b1aa-e507467aaa99",
-              "Exchange": "BTC-LTC",
-              "OrderType": "string",
-              "Quantity": 100000,
-              "QuantityRemaining": 100000,
-              "Limit": 1e-8,
-              "CommissionPaid": 0,
-              "Price": 0,
-              "PricePerUnit": null,
-              "Opened": "2014-07-09T03:55:48.583",
-              "Closed": null,
-              "CancelInitiated": "boolean",
-              "ImmediateOrCancel": "boolean",
-              "IsConditional": "boolean"
-            }
-          ]
+              {
+                "id": "string (uuid)",
+                "marketSymbol": "string",
+                "direction": "string",
+                "type": "string",
+                "quantity": "number (double)",
+                "limit": "number (double)",
+                "ceiling": "number (double)",
+                "timeInForce": "string",
+                "expiresAt": "string (date-time)",
+                "clientOrderId": "string (uuid)",
+                "fillQuantity": "number (double)",
+                "commission": "number (double)",
+                "proceeds": "number (double)",
+                "status": "string",
+                "createdAt": "string (date-time)",
+                "updatedAt": "string (date-time)",
+                "closedAt": "string (date-time)"
+              }
+            ]
 
         """
-        path_url = "/market/getopenorders"
-        result = await self._api_request("get", path_url=path_url)
+        path_url = "/orders/open"
+
+        result = await self._api_request("GET", path_url=path_url)
         return result
 
     async def get_order(self, uuid: str) -> Dict[str, Any]:
         # Used to retrieve a single order by uuid
         """
-        Example:
+        Result:
         {
-          "Uuid": "string (uuid)",
-          "OrderUuid": "8925d746-bc9f-4684-b1aa-e507467aaa99",
-          "Exchange": "BTC-LTC",
-          "OrderType": "string",
-          "Quantity": 100000,
-          "QuantityRemaining": 100000,
-          "Limit": 1e-8,
-          "CommissionPaid": 0,
-          "Price": 0,
-          "PricePerUnit": null,
-          "Opened": "2014-07-09T03:55:48.583",
-          "Closed": null,
-          "CancelInitiated": "boolean",
-          "ImmediateOrCancel": "boolean",
-          "IsConditional": "boolean"
+          "id": "string (uuid)",
+          "marketSymbol": "string",
+          "direction": "string",
+          "type": "string",
+          "quantity": "number (double)",
+          "limit": "number (double)",
+          "ceiling": "number (double)",
+          "timeInForce": "string",
+          "expiresAt": "string (date-time)",
+          "clientOrderId": "string (uuid)",
+          "fillQuantity": "number (double)",
+          "commission": "number (double)",
+          "proceeds": "number (double)",
+          "status": "string",
+          "createdAt": "string (date-time)",
+          "updatedAt": "string (date-time)",
+          "closedAt": "string (date-time)"
         }
         """
-        path_url = "/account/getorder"
-        params = {
-            "uuid": uuid
-        }
-        result = await self._api_request("get", path_url=path_url, params=params)
+        path_url = f"/orders/{uuid}"
+
+        result = await self._api_request("GET", path_url=path_url)
         return result
 
     async def _update_order_status(self):
@@ -294,7 +302,7 @@ cdef class BittrexMarket(MarketBase):
 
         tracked_orders = list(self._in_flight_orders.values())
         current_open_orders = await self.list_orders()
-        order_dict = dict((entry["Exchange"], entry) for entry in current_open_orders)
+        order_dict = dict((entry["marketSymbol"], entry) for entry in current_open_orders)
 
         for tracked_order in tracked_orders:
             exchange_order_id = await tracked_order.get_exchange_order_id()
@@ -335,14 +343,15 @@ cdef class BittrexMarket(MarketBase):
                                                                          float(tracked_order.fee_paid),
                                                                          tracked_order.order_type))
 
-                    else: # Order has been cancelled or partially-cancelled
-                        self.logger().info(f"The market order {tracked_order.client_order_id} has been cancelled according"
-                                           f" to order status API.")
+                    else:  # Order has been cancelled or partially-cancelled
+                        self.logger().info(
+                            f"The market order {tracked_order.client_order_id} has been cancelled according"
+                            f" to order status API.")
                         self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                              OrderCancelledEvent(self._current_timestamp,
                                                                  tracked_order.client_order_id))
 
-                else: # Unable to find order
+                else:  # Unable to find order
                     self.logger().network(
                         f"Error fetching status update for the order{tracked_order.client_order_id}:"
                         f"{order_update}.",
@@ -408,13 +417,13 @@ cdef class BittrexMarket(MarketBase):
                 content = stream_message.content.get("content")
                 event_type = content.get("event_type")
 
-                if event_type == "uB": # Updates total balance and available balance of specified currency
+                if event_type == "uB":  # Updates total balance and available balance of specified currency
                     asset_name = content["C"]
                     total_balance = content["b"]
                     available_balance = content["a"]
                     self._account_available_balances[asset_name] = available_balance
                     self._account_balances[asset_name] = total_balance
-                elif event_type == "uO": # Updates track order status
+                elif event_type == "uO":  # Updates track order status
                     order_id = content["OU"]
 
                     # Order Type Reference:
@@ -434,7 +443,7 @@ cdef class BittrexMarket(MarketBase):
                     execute_amount_diff = s_decimal_0
                     tracked_order.fee_paid = Decimal(content["n"])
 
-                    if order_status in [0, 1]: # OPEN or PARTIAL
+                    if order_status in [0, 1]:  # OPEN or PARTIAL
                         remaining_size = Decimal(content["q"])
                         new_confirmed_amount = tracked_order.amount - remaining_size
                         execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
@@ -464,7 +473,7 @@ cdef class BittrexMarket(MarketBase):
                                                  ))
                             continue
 
-                    elif order_status == 2: # FILL
+                    elif order_status == 2:  # FILL
                         # trade_type = TradeType.BUY if content["OT"] == "LIMIT_BUY" else TradeType.SELL
                         tracked_order.last_state = "done"
                         if tracked_order.trade_type == TradeType.BUY:
@@ -496,16 +505,16 @@ cdef class BittrexMarket(MarketBase):
                                                                          float(tracked_order.executed_amount_quote),
                                                                          float(tracked_order.fee_paid),
                                                                          tracked_order.order_type
-                                                 ))
+                                                                         ))
 
-                    elif order_status == 3: # CANCEL
+                    elif order_status == 3:  # CANCEL
                         tracked_order.last_state = "cancelled"
                         self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                            OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
+                                             OrderCancelledEvent(self._current_timestamp,
+                                                                 tracked_order.client_order_id))
                 else:
                     # Ignores all other user stream message types
                     continue
-
 
             except asyncio.CancelledError:
                 raise
@@ -550,31 +559,23 @@ cdef class BittrexMarket(MarketBase):
     async def get_order(self, client_order_id: str) -> Dict[str, Any]:
         order = self._in_flight_orders.get(client_order_id)
         exchange_order_id = await order.get_exchange_order_id()
-        path_url = f"/account/getorder"
-        params = {
-            "uuid": client_order_id
-        }
-        result = await self._api_request("get", path_url=path_url, params=params)
+        path_url = f"/order/{exchange_order_id}"
+        result = await self._api_request("GET", path_url=path_url)
         return result
 
-    async def get_transfers(self) -> Dict[str, Any]: # TODO: Determine an equivalent
+    async def get_transfers(self) -> Dict[str, Any]:
+        # Bittrex v3(BETA) does support it but only limited to partners
         return NotImplementedError
 
     async def list_bittrex_accounts(self) -> Dict[str, Any]:
-        # TODO: Determine an equivalent
-        # Bittrex v1.1 does not support listing of subaccounts
         # Bittrex v3(BETA) does support it but only limited to partners
         return NotImplementedError
 
     async def get_deposit_address(self, currency: str) -> str:
-        # bittrex_account_id_dict = await self.list_bittrex_accounts()
-        # account_id = bittrex_account_id_dict.get(asset)
-        path_url = f"/account/getdepositaddress"
-        params = {
-            "currency": currency
-        }
-        deposit_result = await self._api_request("get", path_url=path_url, params)
-        return deposit_result.get("Address")
+        path_url = f"/addresses/{currency}"
+
+        deposit_result = await self._api_request("GET", path_url=path_url)
+        return deposit_result.get("cryptoAddress")
 
     async def get_deposit_info(self, asset: str) -> DepositInfo:
         return DepositInfo(await self.get_deposit_address(asset))
@@ -623,10 +624,15 @@ cdef class BittrexMarket(MarketBase):
         self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                              MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
 
-    cdef object c_get_order_size_quantum(self, str symbol, double price):
+    cdef object c_get_order_price_quantum(self, str symbol, double price):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
-        return Decimal(trading_rule.min_base_amount_increment) # TODO: Determine the right way to do this
+        return Decimal(trading_rule.min_price_increment)
+
+    cdef object c_get_order_size_quantum(self, str symbol, double order_size):
+        cdef:
+            TradingRule trading_rule = self._trading_rules[symbol]
+        return Decimal(trading_rule.min_base_amount_increment)
 
     cdef object c_quantize_order_amount(self, str symbol, double amount, double price=0.0):
         cdef:
@@ -648,22 +654,42 @@ cdef class BittrexMarket(MarketBase):
                           symbol: str,
                           amount: Decimal,
                           is_buy: bool,
-                          order_type: OrderType = OrderType.LIMIT, # Bittrex API v1.1 removed placing of market orders
+                          order_type: OrderType,
                           price: Decimal) -> Dict[str, Any]:
-        path_url = "/market/buylimit"
-        params = {
-            "market": symbol,
-            "quantity": amount,
-            "rate": price
-        }
-        api_response = await self._api_request("get", path_url=path_url, params=params)
+
+        path_url = "/orders"
+
+        body = {}
+        if order_type is OrderType.LIMIT:  # Bittrex supports CEILING_LIMIT & CEILING_MARKET
+            body = {
+                "marketSymbol": str(symbol),
+                "direction": "BUY" if is_buy else "SELL",
+                "type": "LIMIT",
+                "quantity": str(amount),
+                "limit": str(price),
+                "timeInForce": "GOOD_TIL_CANCELLED"
+                # Other options [IMMEDIATE_OR_CANCEL, FILL_OR_KILL, POST_ONLY_GOOD_TIL_CANCELLED]
+            }
+        elif order_type is OrderType.MARKET:
+            body = {
+                "marketSymbol": str(symbol),
+                "direction": "BUY" if is_buy else "SELL",
+                "type": "MARKET",
+                "quantity": str(amount),
+                "timeInForce": "GOOD_TIL_CANCELLED"
+                # Other options [IMMEDIATE_OR_CANCEL, FILL_OR_KILL, POST_ONLY_GOOD_TIL_CANCELLED]
+            }
+
+        api_response = await self._api_request("POST", path_url=path_url, body=body)
+        # TODO: Check if order has been placed & return exchange_order_id
+
         return api_response
 
     async def execute_buy(self,
                           order_id: str,
                           symbol: str,
                           amount: float,
-                          order_type: OrderType = OrderType.LIMIT, # Bittrex API v1.1 disabled placing of market orders
+                          order_type: OrderType = OrderType.LIMIT,  # Bittrex API v1.1 disabled placing of market orders
                           price: Optional[float] = NaN):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
@@ -679,20 +705,19 @@ cdef class BittrexMarket(MarketBase):
             raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
 
-        # Since Bittrex disabled placing of market orders, placing market orders will be simulated with limit orders
         try:
             order_result = None
             if order_type is OrderType.LIMIT:
 
                 api_response = await self.place_order(order_id,
-                                                           symbol,
-                                                           decimal_amount,
-                                                           True,
-                                                           order_type,
-                                                           decimal_price)
+                                                      symbol,
+                                                      decimal_amount,
+                                                      True,
+                                                      order_type,
+                                                      decimal_price)
 
-                if api_response["success"] is True:
-                    order_result = api_response["result"]
+                if api_response["results"]:
+                    order_result = api_response
                     self.c_start_tracking_order(
                         order_id,
                         "",
@@ -702,7 +727,7 @@ cdef class BittrexMarket(MarketBase):
                         decimal_amount,
                         order_type
                     )
-            elif order_type is OrderType.MARKET: # TODO: Track best ask price and amount
+            elif order_type is OrderType.MARKET:  # TODO: Track best ask price and amount
                 pass
 
             else:
@@ -724,11 +749,10 @@ cdef class BittrexMarket(MarketBase):
                                      order_id
                                  ))
 
-
         except asyncio.CancelledError:
             raise
         except asyncio.TimeoutError:
-            self.logger().network(f"Timeout Error encountered while submitting buy-{order_type} order",exc_info=True)
+            self.logger().network(f"Timeout Error encountered while submitting buy-{order_type} order", exc_info=True)
         except Exception:
             self.c_stop_tracking_order(order_id)
             order_type_str = "LIMIT" if order_type is OrderType.LIMIT else "MARKET"
@@ -749,21 +773,21 @@ cdef class BittrexMarket(MarketBase):
     cdef str c_buy(self,
                    str symbol,
                    double amount,
-                   object order_type = OrderType.LIMIT,
-                   double price = NaN,
-                   dict kwargs = {}):
+                   object order_type=OrderType.LIMIT,
+                   double price=NaN,
+                   dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> (time.time() * 1e6)
             str order_id = str(f"buy-{symbol}-{tracking_nonce}")
         asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
         return order_id
 
     async def execute_sell(self,
-                            order_id: str,
-                            symbol: str,
-                            amount: float,
-                            order_type: OrderType = OrderType.LIMIT,
-                            price: Optional[float] = NaN):
+                           order_id: str,
+                           symbol: str,
+                           amount: float,
+                           order_type: OrderType = OrderType.LIMIT,
+                           price: Optional[float] = NaN):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
             object decimal_amount
@@ -830,26 +854,41 @@ cdef class BittrexMarket(MarketBase):
     cdef str c_sell(self,
                     str symbol,
                     double, amount,
-                    object order_type = OrderType.MARKET,
-                    double price = NaN,
-                    dict kwargs = {}):
+                    object order_type=OrderType.MARKET,
+                    double price=NaN,
+                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> (time.time() * 1e6)
             str order_id = str(f"sell-{symbol}-{tracking_nonce}")
 
         asyncio.ensure_future(self.execute_sell(order_id, symbol, amount, order_type, price))
         return order_id
 
-    async def execute_cancel(self, symbol:str, order_id: str):
+    async def execute_cancel(self, symbol: str, order_id: str):
         tracked_order = self._in_flight_orders.get(order_id)
         if tracked_order is None:
             raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-        path_url = f"/market/cancel"
-        params = {
-            "uuid": tracked_order.exchange_order_id
-        }
+
+        path_url = f"/orders/{tracked_order.exchange_order_id}"
+
         try:
-            await self._api_request("get", path_url=path_url, params=params)
+            cancel_result = await self._api_request("DELETE", path_url=path_url)
+            if cancel_result["status"] == "CLOSED":
+                self.logger().info(f"Successfully cancelled order {order_id}.")
+                self.c_stop_tracking_order(order_id)
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp, order_id))
+                return order_id
+        except IOError as err:
+            if "NOT_FOUND" in str(err):
+                # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
+                self.logger().info(f"The order {order_id} does not exist on Bittrex. No cancellation needed.")
+                self.c_stop_tracking_order(order_id)
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp, order_id))
+                return order_id
+        except asyncio.CancelledError:
+            raise
         except Exception as err:
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(err)}.",
@@ -857,35 +896,34 @@ cdef class BittrexMarket(MarketBase):
                 app_warning_msg=f"Failed to cancel the order {order_id} on Bittrex. "
                                 f"Check API key and network connection."
             )
+        return None
 
     cdef c_cancel(self, str symbol, str order_id):
         asyncio.ensure_future(self.execute_cancel(symbol, order_id))
         return order_id
 
-    async def cancel_all(self, timeout_secounds: float) -> List[CancellationResult]:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         incomplete_orders = [order for order in self._in_flight_orders.values() if not order.is_done]
-        path_url = f"/market/cancel"
+        tasks = [self.execute_cancel(o.symbol, o.client_order_id) for o in incomplete_orders]
+        order_id_set = set([o.client_order_id for o in incomplete_orders])
+        successful_cancellation = []
 
-        cancellation_results = []
-        for order in incomplete_orders:
-            params = {
-                "uuid": order.exchange_order_id
-            }
+        try:
+            async with timeout(timeout_seconds):
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                for order_id in results:
+                    if order_id:
+                        order_id_set.remove(order_id)
+                        successful_cancellation.append(CancellationResult(order_id["id"], True))
+        except Exception:
+            self.logger().network(
+                f"Unexpected error cancelling orders.",
+                exc_info=True,
+                app_warning_msg="Failed to cancel order on Bittrex. Check API key and network connection."
+            )
 
-            cancellation_result = await self._api_request(path_url=path_url,params=params)
-            oid = cancellation_result["uuid"]
-            if oid is not None:
-                cancellation_results.append(CancellationResult(oid, True))
-            else:
-                cancellation_results.append(CancellationResult(oid, False))
-                self.logger().network(
-                    f"Failed to cancel order - {oid}.",
-                    exc_info=True,
-                    app_warning_msg=f"Failed to cancel orders {oid} on Bittrex. "
-                                    f"Check API key and network"
-                )
-
-        return cancellation_results
+        failed_cancellation = [CancellationResult(oid, False) for oid in order_id_set]
+        return successful_cancellation + failed_cancellation
 
     async def _http_client(self) -> aiohttp.ClientSession:
         if self._shared_client is None:
@@ -908,7 +946,7 @@ cdef class BittrexMarket(MarketBase):
         headers = auth_dict["headers"]
 
         if body:
-            body = auth_dict["body"]
+            body = auth_dict["body"]  # Ensures the body is the same as that signed in Api-Content-Hash
 
         client = await self._http_client()
         async with client.request(http_method,
@@ -917,16 +955,14 @@ cdef class BittrexMarket(MarketBase):
                                   params=params,
                                   data=body,
                                   timeout=self.API_CALL_TIMEOUT) as response:
-            resp = await response.json()
-            if resp["code"]:
-                raise IOError(f"Error fetching resp from {http_method}-{url}. {resp['code']}")
-            return resp
+            data = await response.json()
+            if response.status != 200:
+                raise IOError(f"Error fetching response from {http_method}-{url}. {data}")
+            return data
 
-    # Bittrex v1.1 API does not have a 'ping' REST API endpoint.
-    # Bittrex v3, however, has one
     async def check_network(self) -> NetworkStatus:
         try:
-            await self._api_request("get", path_url="/time") # TODO: Find an equivalent
+            await self._api_request("GET", path_url="/ping")
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -958,4 +994,3 @@ cdef class BittrexMarket(MarketBase):
             self._trading_rules_polling_task = asyncio.ensure_future(self._trading_rules_polling_loop())
             self._user_stream_tracker_task = asyncio.ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = asyncio.ensure_future(self._user_stream_event_listener())
-
