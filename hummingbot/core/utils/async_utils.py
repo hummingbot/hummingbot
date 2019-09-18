@@ -9,8 +9,8 @@ def asyncio_ensure_future(*args, **kwargs):
         logging.getLogger().error(f"Unhandled error in background task: {str(e)}", exc_info=True)
 
 
-def asyncio_gather(*args, **kwargs):
+async def asyncio_gather(*args, **kwargs):
     try:
-        asyncio.gather(*args, **kwargs)
+        await asyncio.gather(*args, **kwargs)
     except Exception as e:
         logging.getLogger().debug(f"Unhandled error in background task: {str(e)}", exc_info=True)
