@@ -28,10 +28,9 @@ def valid_token_or_trading_pair_array(market: str, input_list: Any):
             filtered: filter = filter(lambda x: x not in ['[', ']', '"', "'"], list(input_list))
             input_list = "".join(filtered).split(",")
             input_list = [s.strip() for s in input_list]  # remove leading and trailing whitespaces
-            single_token_inputs = list(filter(is_token, input_list))
-            trading_pair_inputs = list(filter(lambda x: not is_token(x), input_list))
-        else:
-            raise ValueError("Target symbol input is not a string")
+
+        single_token_inputs = list(filter(is_token, input_list))
+        trading_pair_inputs = list(filter(lambda x: not is_token(x), input_list))
 
         known_trading_pairs = SymbolFetcher.get_instance().symbols.get(market, [])
         if len(known_trading_pairs) == 0:
