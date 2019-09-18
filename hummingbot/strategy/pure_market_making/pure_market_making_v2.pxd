@@ -19,9 +19,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         double _status_report_interval
         double _last_timestamp
         double _filled_order_replenish_wait_time
-        double _filled_price
-
-        list _adjust_order_price_after_fill
 
         dict _time_to_cancel
 

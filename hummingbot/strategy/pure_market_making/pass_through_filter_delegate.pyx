@@ -1,9 +1,6 @@
 from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
 from .data_types import (ORDER_PROPOSAL_ACTION_CREATE_ORDERS,
                          OrdersProposal)
-from hummingbot.logger import HummingbotLogger
-import logging
-s_logger = None
 
 cdef class PassThroughFilterDelegate(OrderFilterDelegate):
 
@@ -18,13 +15,6 @@ cdef class PassThroughFilterDelegate(OrderFilterDelegate):
     @order_placing_timestamp.setter
     def order_placing_timestamp(self, double order_placing_timestamp):
         self._order_placing_timestamp = order_placing_timestamp
-
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        global s_logger
-        if s_logger is None:
-            s_logger = logging.getLogger(__name__)
-        return s_logger
 
     cdef bint c_should_proceed_with_processing(self,
                                                PureMarketMakingStrategyV2 strategy,
