@@ -64,7 +64,6 @@ MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT = 100
 
 # Liquidity Bounties:
 LIQUIDITY_BOUNTY_CONFIG_PATH = "conf/conf_liquidity_bounty.yml"
-MIN_ETH_STAKED_REQUIREMENT = 0.05
 
 
 # Values that were once a part of configuration but no longer needed.
