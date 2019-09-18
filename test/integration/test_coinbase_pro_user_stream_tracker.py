@@ -12,6 +12,7 @@ from typing import (
 )
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProAuth
 from hummingbot.market.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 
 
 class CoinbaseProUserStreamTrackerUnitTest(unittest.TestCase):
@@ -26,7 +27,7 @@ class CoinbaseProUserStreamTrackerUnitTest(unittest.TestCase):
         cls.symbols = ["ETH-USDC"]
         cls.user_stream_tracker: CoinbaseProUserStreamTracker = CoinbaseProUserStreamTracker(
             coinbase_pro_auth=cls.coinbase_pro_auth, symbols=cls.symbols)
-        cls.user_stream_tracker_task: asyncio.Task = asyncio.ensure_future(cls.user_stream_tracker.start())
+        cls.user_stream_tracker_task: asyncio.Task = asyncio_ensure_future(cls.user_stream_tracker.start())
 
     def test_user_stream(self):
             # Wait process some msgs.

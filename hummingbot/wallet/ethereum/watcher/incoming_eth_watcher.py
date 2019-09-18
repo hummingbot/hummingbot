@@ -20,6 +20,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.event.event_forwarder import EventForwarder
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 from hummingbot.logger import HummingbotLogger
 from .base_watcher import BaseWatcher
 from .new_blocks_watcher import NewBlocksWatcher
@@ -44,7 +45,7 @@ class IncomingEthWatcher(BaseWatcher):
         self._blocks_watcher.remove_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
 
     def did_receive_new_blocks(self, new_blocks: List[AttributeDict]):
-        asyncio.ensure_future(self.check_incoming_eth(new_blocks))
+        asyncio_ensure_future(self.check_incoming_eth(new_blocks))
 
     async def check_incoming_eth(self, new_blocks: List[AttributeDict]):
         async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()

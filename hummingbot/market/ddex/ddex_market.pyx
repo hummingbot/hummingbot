@@ -38,6 +38,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.ddex.ddex_order_book_tracker import DDEXOrderBookTracker
 from hummingbot.market.ddex.ddex_in_flight_order cimport DDEXInFlightOrder
@@ -623,7 +624,7 @@ cdef class DDEXMarket(MarketBase):
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"buy-{symbol}-{tracking_nonce}")
 
-        asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
+        asyncio_ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
         return order_id
 
     async def execute_buy(self, order_id: str, symbol: str, amount: float, order_type: OrderType, price: float) -> str:
@@ -693,7 +694,7 @@ cdef class DDEXMarket(MarketBase):
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"sell-{symbol}-{tracking_nonce}")
 
-        asyncio.ensure_future(self.execute_sell(order_id, symbol, amount, order_type, price))
+        asyncio_ensure_future(self.execute_sell(order_id, symbol, amount, order_type, price))
         return order_id
 
     async def execute_sell(self, order_id: str, symbol: str, amount: float, order_type: OrderType, price: float) -> str:
@@ -764,7 +765,7 @@ cdef class DDEXMarket(MarketBase):
         self._in_flight_cancels[client_order_id] = self._current_timestamp
 
         # Execute the cancel asynchronously.
-        asyncio.ensure_future(self.cancel_order(client_order_id))
+        asyncio_ensure_future(self.cancel_order(client_order_id))
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         incomplete_orders = [o for o in self.in_flight_orders.values() if not o.is_done]
@@ -825,14 +826,14 @@ cdef class DDEXMarket(MarketBase):
         if self._order_tracker_task is not None:
             self._stop_network()
 
-        self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
-        self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
+        self._order_tracker_task = asyncio_ensure_future(self._order_book_tracker.start())
+        self._status_polling_task = asyncio_ensure_future(self._status_polling_loop())
         if self._trading_required:
             tx_hashes = await self.wallet.current_backend.check_and_fix_approval_amounts(
                 spender=self._wallet_spender_address
             )
             self._pending_approval_tx_hashes.update(tx_hashes)
-            self._approval_tx_polling_task = asyncio.ensure_future(self._approval_tx_polling_loop())
+            self._approval_tx_polling_task = asyncio_ensure_future(self._approval_tx_polling_loop())
 
     def _stop_network(self):
         if self._order_tracker_task is not None:

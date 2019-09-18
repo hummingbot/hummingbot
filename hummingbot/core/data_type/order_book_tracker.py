@@ -19,6 +19,7 @@ from hummingbot.core.event.events import OrderBookTradeEvent, TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 from .order_book_message import (
     OrderBookMessageType,
     OrderBookMessage,
@@ -95,7 +96,7 @@ class OrderBookTracker(ABC):
         }
 
     async def start(self):
-        self._emit_trade_event_task = asyncio.ensure_future(
+        self._emit_trade_event_task = asyncio_ensure_future(
             self._emit_trade_event_loop()
         )
 
@@ -133,7 +134,7 @@ class OrderBookTracker(ABC):
         for symbol in new_symbols:
             self._order_books[symbol] = available_pairs[symbol].order_book
             self._tracking_message_queues[symbol] = asyncio.Queue()
-            self._tracking_tasks[symbol] = asyncio.ensure_future(self._track_single_book(symbol))
+            self._tracking_tasks[symbol] = asyncio_ensure_future(self._track_single_book(symbol))
             self.logger().info("Started order book tracking for %s.", symbol)
 
         for symbol in deleted_symbols:

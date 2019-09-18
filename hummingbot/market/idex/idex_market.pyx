@@ -39,6 +39,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.market.idex.idex_active_order_tracker import IDEXActiveOrderTracker
@@ -706,7 +707,7 @@ cdef class IDEXMarket(MarketBase):
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"buy-{symbol}-{tracking_nonce}")
 
-        asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
+        asyncio_ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
         return order_id
 
     async def execute_buy(self, order_id: str, symbol: str, amount: float, order_type: OrderType, price: float) -> str:
@@ -814,7 +815,7 @@ cdef class IDEXMarket(MarketBase):
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"sell-{symbol}-{tracking_nonce}")
 
-        asyncio.ensure_future(self.execute_sell(order_id, symbol, amount, order_type, price))
+        asyncio_ensure_future(self.execute_sell(order_id, symbol, amount, order_type, price))
         return order_id
 
     async def execute_sell(self, order_id: str, symbol: str, amount: float, order_type: OrderType, price: float) -> str:
@@ -936,7 +937,7 @@ cdef class IDEXMarket(MarketBase):
         self._in_flight_cancels[client_order_id] = self._current_timestamp
 
         # Execute the cancel asynchronously.
-        asyncio.ensure_future(self.cancel_order(client_order_id))
+        asyncio_ensure_future(self.cancel_order(client_order_id))
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         incomplete_orders = [o for o in self.in_flight_orders.values() if not o.is_done and o.client_order_id not in self._order_expiry_set]
@@ -996,8 +997,8 @@ cdef class IDEXMarket(MarketBase):
     async def start_network(self):
         if self._order_tracker_task is not None:
             self._stop_network()
-        self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
-        self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
+        self._order_tracker_task = asyncio_ensure_future(self._order_book_tracker.start())
+        self._status_polling_task = asyncio_ensure_future(self._status_polling_loop())
 
     def _stop_network(self):
         if self._order_tracker_task is not None:

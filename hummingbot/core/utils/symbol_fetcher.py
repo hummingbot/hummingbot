@@ -1,10 +1,11 @@
 import aiohttp
-import asyncio
 from typing import (
     List,
     Dict,
     Any,
 )
+
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 
 
 BINANCE_ENDPOINT = "https://api.binance.com/api/v1/exchangeInfo"
@@ -29,7 +30,7 @@ class SymbolFetcher:
     def __init__(self):
         self.ready = False
         self.symbols: Dict[str, Any] = {}
-        asyncio.ensure_future(self.fetch_all())
+        asyncio_ensure_future(self.fetch_all())
 
     @staticmethod
     async def fetch_binance_symbols() -> List[str]:

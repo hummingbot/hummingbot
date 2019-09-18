@@ -19,6 +19,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTrackerDataSourceType
 )
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 
 
 class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
@@ -36,7 +37,7 @@ class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
         cls.order_book_tracker: BinanceOrderBookTracker = BinanceOrderBookTracker(
             data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             symbols=cls.trading_pairs)
-        cls.order_book_tracker_task: asyncio.Task = asyncio.ensure_future(cls.order_book_tracker.start())
+        cls.order_book_tracker_task: asyncio.Task = asyncio_ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
 
     @classmethod
@@ -48,7 +49,7 @@ class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
             await asyncio.sleep(1)
 
     async def run_parallel_async(self, *tasks):
-        future: asyncio.Future = asyncio.ensure_future(asyncio.gather(*tasks))
+        future: asyncio.Future = asyncio_ensure_future(asyncio.gather(*tasks))
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1

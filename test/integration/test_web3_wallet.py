@@ -27,6 +27,7 @@ from hummingbot.core.event.events import (
 from hummingbot.wallet.ethereum.erc20_token import ERC20Token
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 
 
 class Web3WalletUnitTest(unittest.TestCase):
@@ -78,7 +79,7 @@ class Web3WalletUnitTest(unittest.TestCase):
         self.logger_b = None
 
     async def run_parallel_async(self, *tasks):
-        future: asyncio.Future = asyncio.ensure_future(asyncio.gather(*tasks))
+        future: asyncio.Future = asyncio_ensure_future(asyncio.gather(*tasks))
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1

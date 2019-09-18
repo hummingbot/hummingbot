@@ -42,6 +42,7 @@ from hummingbot.core.event.events import (
     TradeType,
     TradeFee
 )
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
@@ -846,7 +847,7 @@ cdef class BambooRelayMarket(MarketBase):
     cdef c_cancel(self, str symbol, str client_order_id):
         # Skip this logic if we are not using the coordinator
         if not self._use_coordinator:
-            asyncio.ensure_future(self.cancel_order(client_order_id))
+            asyncio_ensure_future(self.cancel_order(client_order_id))
             return
 
         # Limit order is pending has not been created, so it can't be cancelled yet
@@ -874,7 +875,7 @@ cdef class BambooRelayMarket(MarketBase):
         self._in_flight_cancels[client_order_id] = self._current_timestamp
 
         # Execute the cancel asynchronously.
-        asyncio.ensure_future(self.cancel_order(client_order_id))
+        asyncio_ensure_future(self.cancel_order(client_order_id))
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         in_flight_limit_orders = self._in_flight_limit_orders.values()
@@ -1051,7 +1052,7 @@ cdef class BambooRelayMarket(MarketBase):
                 raise
             # Record the in-flight limit order placement.
             self._in_flight_pending_limit_orders[order_id] = self._current_timestamp
-        asyncio.ensure_future(self.execute_trade(order_id=order_id,
+        asyncio_ensure_future(self.execute_trade(order_id=order_id,
                                                  order_type=order_type,
                                                  trade_type=TradeType.BUY,
                                                  symbol=symbol,
@@ -1079,7 +1080,7 @@ cdef class BambooRelayMarket(MarketBase):
                 raise
             # Record the in-flight limit order placement.
             self._in_flight_pending_limit_orders[order_id] = self._current_timestamp
-        asyncio.ensure_future(self.execute_trade(order_id=order_id,
+        asyncio_ensure_future(self.execute_trade(order_id=order_id,
                                                  order_type=order_type,
                                                  trade_type=TradeType.SELL,
                                                  symbol=symbol,
@@ -1160,14 +1161,14 @@ cdef class BambooRelayMarket(MarketBase):
         if self._order_tracker_task is not None:
             self._stop_network()
 
-        self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
-        self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
+        self._order_tracker_task = asyncio_ensure_future(self._order_book_tracker.start())
+        self._status_polling_task = asyncio_ensure_future(self._status_polling_loop())
         if self._trading_required:
             tx_hashes = await self.wallet.current_backend.check_and_fix_approval_amounts(
                 spender=self._wallet_spender_address
             )
             self._pending_approval_tx_hashes.update(tx_hashes)
-            self._approval_tx_polling_task = asyncio.ensure_future(self._approval_tx_polling_loop())
+            self._approval_tx_polling_task = asyncio_ensure_future(self._approval_tx_polling_loop())
 
     def _stop_network(self):
         if self._order_tracker_task is not None:

@@ -17,6 +17,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.wallet.ethereum.erc20_token import ERC20Token
 from hummingbot.core.event.events import NewBlocksWatcherEvent
 from hummingbot.core.event.event_forwarder import EventForwarder
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 from .base_watcher import BaseWatcher
 from .new_blocks_watcher import NewBlocksWatcher
 
@@ -119,7 +120,7 @@ class AccountBalanceWatcher(BaseWatcher):
         return self._erc20_decimals[asset_name]
 
     def did_receive_new_blocks(self, _: List[AttributeDict]):
-        asyncio.ensure_future(self.update_balances())
+        asyncio_ensure_future(self.update_balances())
 
     async def update_balances(self):
         asset_symbols: List[str] = []

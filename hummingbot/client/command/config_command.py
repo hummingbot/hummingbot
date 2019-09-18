@@ -24,6 +24,7 @@ from hummingbot.client.config.config_helpers import (
     parse_cvar_value,
     copy_strategy_template,
 )
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -39,23 +40,23 @@ class ConfigCommand:
         """
         self.app.clear_input()
         if self.strategy or (self.config_complete and key is None):
-            asyncio.ensure_future(self.reset_config_loop(key))
+            asyncio_ensure_future(self.reset_config_loop(key))
             return
 
         if key is not None:
             try:
                 self._get_config_var_with_key(key)
-                asyncio.ensure_future(self._config_single_key(key), loop=self.ev_loop)
+                asyncio_ensure_future(self._config_single_key(key), loop=self.ev_loop)
             except ValueError as e:
                 self.logger().error(e)
                 self._notify("Invalid config variable %s" % (key,))
 
         elif key_list is not None:
             keys = key_list
-            asyncio.ensure_future(self._config_loop(keys), loop=self.ev_loop)
+            asyncio_ensure_future(self._config_loop(keys), loop=self.ev_loop)
         else:
             keys = self._get_empty_configs()
-            asyncio.ensure_future(self._config_loop(keys), loop=self.ev_loop)
+            asyncio_ensure_future(self._config_loop(keys), loop=self.ev_loop)
 
     @property
     def config_complete(self,  # type: HummingbotApplication

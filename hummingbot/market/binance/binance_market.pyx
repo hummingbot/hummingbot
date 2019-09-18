@@ -30,6 +30,7 @@ import hummingbot
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 from hummingbot.market.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import (
@@ -813,7 +814,7 @@ cdef class BinanceMarket(MarketBase):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str tracking_id = str(f"withdraw://{currency}/{tracking_nonce}")
-        asyncio.ensure_future(self.execute_withdraw(tracking_id, address, currency, amount))
+        asyncio_ensure_future(self.execute_withdraw(tracking_id, address, currency, amount))
         return tracking_id
 
     cdef c_start(self, Clock clock, double timestamp):
@@ -827,12 +828,12 @@ cdef class BinanceMarket(MarketBase):
     async def start_network(self):
         if self._order_tracker_task is not None:
             self._stop_network()
-        self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
-        self._trading_rules_polling_task = asyncio.ensure_future(self._trading_rules_polling_loop())
+        self._order_tracker_task = asyncio_ensure_future(self._order_book_tracker.start())
+        self._trading_rules_polling_task = asyncio_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
-            self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
-            self._user_stream_tracker_task = asyncio.ensure_future(self._user_stream_tracker.start())
-            self._user_stream_event_listener_task = asyncio.ensure_future(self._user_stream_event_listener())
+            self._status_polling_task = asyncio_ensure_future(self._status_polling_loop())
+            self._user_stream_tracker_task = asyncio_ensure_future(self._user_stream_tracker.start())
+            self._user_stream_event_listener_task = asyncio_ensure_future(self._user_stream_event_listener())
 
     def _stop_network(self):
         if self._order_tracker_task is not None:
@@ -966,7 +967,7 @@ cdef class BinanceMarket(MarketBase):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"buy-{symbol}-{tracking_nonce}")
-        asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
+        asyncio_ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
         return order_id
 
     async def execute_sell(self,
@@ -1059,7 +1060,7 @@ cdef class BinanceMarket(MarketBase):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"sell-{symbol}-{tracking_nonce}")
-        asyncio.ensure_future(self.execute_sell(order_id, symbol, amount, order_type, price))
+        asyncio_ensure_future(self.execute_sell(order_id, symbol, amount, order_type, price))
         return order_id
 
     async def execute_cancel(self, symbol: str, order_id: str):
@@ -1087,7 +1088,7 @@ cdef class BinanceMarket(MarketBase):
         return cancel_result
 
     cdef c_cancel(self, str symbol, str order_id):
-        asyncio.ensure_future(self.execute_cancel(symbol, order_id))
+        asyncio_ensure_future(self.execute_cancel(symbol, order_id))
         return order_id
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:

@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import asyncio
 from prompt_toolkit.application.current import get_app
 from prompt_toolkit.filters import (
     is_searching,
@@ -14,6 +13,8 @@ from prompt_toolkit.search import (
     SearchDirection,
 )
 
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
+
 
 def load_key_bindings(hb) -> KeyBindings:
     bindings = KeyBindings()
@@ -21,7 +22,7 @@ def load_key_bindings(hb) -> KeyBindings:
     @bindings.add("c-c", "c-c")
     def exit_(event):
         hb.app.log("\n[Double CTRL + C] keyboard exit")
-        asyncio.ensure_future(hb.exit_loop())
+        asyncio_ensure_future(hb.exit_loop())
 
     @bindings.add("c-s")
     def status(event):

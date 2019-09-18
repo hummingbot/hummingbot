@@ -1,13 +1,6 @@
-
-import asyncio
 from os.path import (
     join,
     dirname
-)
-from typing import (
-    List,
-    Dict,
-    Any,
 )
 
 from hummingbot.client.liquidity_bounty.liquidity_bounty_config_map import liquidity_bounty_config_map
@@ -17,6 +10,7 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.liquidity_bounty.bounty_utils import LiquidityBounty
 from hummingbot.client.settings import LIQUIDITY_BOUNTY_CONFIG_PATH
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -32,15 +26,15 @@ class BountyCommand:
                list: bool = False):
         """ Router function for `bounty` command """
         if terms:
-            asyncio.ensure_future(self.bounty_print_terms(), loop=self.ev_loop)
+            asyncio_ensure_future(self.bounty_print_terms(), loop=self.ev_loop)
         elif register:
-            asyncio.ensure_future(self.bounty_registration(), loop=self.ev_loop)
+            asyncio_ensure_future(self.bounty_registration(), loop=self.ev_loop)
         elif list:
-            asyncio.ensure_future(self.bounty_list(), loop=self.ev_loop)
+            asyncio_ensure_future(self.bounty_list(), loop=self.ev_loop)
         elif restore_id:
-            asyncio.ensure_future(self.bounty_restore_id(), loop=self.ev_loop)
+            asyncio_ensure_future(self.bounty_restore_id(), loop=self.ev_loop)
         else:
-            asyncio.ensure_future(self.bounty_show_status(), loop=self.ev_loop)
+            asyncio_ensure_future(self.bounty_show_status(), loop=self.ev_loop)
 
     async def print_doc(self,  # type: HummingbotApplication
                         doc_path: str):

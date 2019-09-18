@@ -1,7 +1,7 @@
-import asyncio
 import platform
 
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.core.utils.async_utils import asyncio_ensure_future
 
 
 from typing import TYPE_CHECKING
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 class StopCommand:
     def stop(self,  # type: HummingbotApplication
              skip_order_cancellation: bool = False):
-        asyncio.ensure_future(self.stop_loop(skip_order_cancellation), loop=self.ev_loop)
+        asyncio_ensure_future(self.stop_loop(skip_order_cancellation), loop=self.ev_loop)
 
     async def stop_loop(self,  # type: HummingbotApplication
                         skip_order_cancellation: bool = False):
