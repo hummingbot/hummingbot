@@ -910,12 +910,14 @@ cdef class PaperTradeMarket(MarketBase):
             return Decimal(f"1e-15")
 
     cdef object c_quantize_order_price(self, str symbol, double price):
-        price = float('%.8g' % price) # hard code to round to 8 significant digits
+        price = float('%.7g' % price) # hard code to round to 8 significant digits
         price_quantum = self.c_get_order_price_quantum(symbol, price)
         return round(Decimal('%s' % price) / price_quantum) * price_quantum
 
     cdef object c_quantize_order_amount(self, str symbol, double amount, double price = 0.0):
-        amount = float('%.8g' % amount)# hard code to round to 8 significant digits
+        amount = float('%.7g' % amount)# hard code to round to 8 significant digits
+        if amount <= 1e-7:
+            amount = 0
         order_size_quantum = self.c_get_order_size_quantum(symbol, amount)
         return (Decimal('%s' % amount) // order_size_quantum) * order_size_quantum
 
