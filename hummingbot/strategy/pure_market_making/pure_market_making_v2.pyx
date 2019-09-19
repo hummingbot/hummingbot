@@ -158,10 +158,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         return self._sizing_delegate
 
     @property
-    def sizing_delegate_name(self) -> str:
-        return self._sizing_delegate.name
-
-    @property
     def order_tracker(self):
         return self._sb_order_tracker
 
