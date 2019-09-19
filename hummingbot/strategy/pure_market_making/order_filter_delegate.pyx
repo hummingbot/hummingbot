@@ -21,9 +21,10 @@ cdef class OrderFilterDelegate:
     def filter_orders_proposal(self,
                                strategy: PureMarketMakingStrategyV2,
                                market_info: MarketSymbolPair,
+                               active_orders: List[LimitOrder],
                                orders_proposal: OrdersProposal
                                ):
-        return self.c_filter_orders_proposal(strategy, market_info, orders_proposal)
+        return self.c_filter_orders_proposal(strategy, market_info, active_orders, orders_proposal)
     # ---------------------------------------------------------------
 
     cdef bint c_should_proceed_with_processing(self,
@@ -35,5 +36,6 @@ cdef class OrderFilterDelegate:
     cdef object c_filter_orders_proposal(self,
                                          PureMarketMakingStrategyV2 strategy,
                                          object market_info,
+                                         list active_orders,
                                          object orders_proposal):
         raise NotImplementedError

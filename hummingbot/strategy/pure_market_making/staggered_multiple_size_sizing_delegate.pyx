@@ -35,10 +35,6 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
         return s_logger
 
     @property
-    def name(self) -> str:
-        return "staggered_size"
-
-    @property
     def order_start_size(self) -> float:
         return self._order_start_size
 

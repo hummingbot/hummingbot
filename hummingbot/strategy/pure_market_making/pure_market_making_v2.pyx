@@ -65,8 +65,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     # These are exchanges where you're expected to expire orders instead of actively cancelling them.
     RADAR_RELAY_TYPE_EXCHANGES = {"radar_relay", "bamboo_relay"}
 
-    SINGLE_ORDER_SIZING_DELEGATES = {"constant_size", "inventory_skew_single_size"}
-
     @classmethod
     def logger(cls):
         global s_logger
@@ -76,6 +74,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
     def __init__(self,
                  market_infos: List[MarketSymbolPair],
+                 mode: str,
                  pricing_delegate: OrderPricingDelegate,
                  sizing_delegate: OrderSizingDelegate,
                  cancel_order_wait_time: float = 60,
@@ -103,6 +102,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._logging_options = logging_options
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
+        self._mode = mode
 
         # Create a filter delegate which will create orders after the current timestamp
         self._filter_delegate = PassThroughFilterDelegate(self._current_timestamp)
@@ -279,6 +279,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     self._sb_delegate_lock = False
                 filtered_proposal = self._filter_delegate.c_filter_orders_proposal(self,
                                                                                    market_info,
+                                                                                   market_info_to_active_orders.get(market_info, []),
                                                                                    orders_proposal)
                 self.c_execute_orders_proposal(market_info, filtered_proposal)
         finally:
@@ -364,8 +365,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             LimitOrder limit_order_record
 
         # Replenish Delay and order filled stop cancellation are only for single order mode
-        # (identified using name of the delegate)
-        if self.sizing_delegate_name in self.SINGLE_ORDER_SIZING_DELEGATES:
+        if self._mode == "single":
             # Set the replenish time as current_timestamp + order replenish time
             replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
 
@@ -404,8 +404,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             LimitOrder limit_order_record
 
         # Replenish Delay and order filled stop cancellation are only for single order mode
-        # (identified using name of the delegate)
-        if self.sizing_delegate_name in self.SINGLE_ORDER_SIZING_DELEGATES:
+        if self._mode == "single":
             # Set the replenish time as current_timestamp + order replenish time
             replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
 

@@ -22,6 +22,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         dict _time_to_cancel
 
+        str _mode
+
         int64_t _logging_options
 
         OrderFilterDelegate _filter_delegate
