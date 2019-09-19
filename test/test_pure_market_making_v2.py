@@ -105,6 +105,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
                                 (~PureMarketMakingStrategyV2.OPTION_LOG_NULL_ORDER_SIZE))
         self.strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
+            "single",
             filled_order_replenish_wait_time=self.cancel_order_wait_time,
             sizing_delegate=self.constant_sizing_delegate,
             pricing_delegate=self.constant_pricing_delegate,
@@ -114,6 +115,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
         self.multi_order_equal_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
+            "multiple",
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
             sizing_delegate=self.equal_strategy_sizing_delegate,
             cancel_order_wait_time=45,
@@ -122,6 +124,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
         self.multi_order_staggered_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
+            "multiple",
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
             sizing_delegate=self.staggered_strategy_sizing_delegate,
             cancel_order_wait_time=45,
@@ -130,6 +133,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
         self.delayed_placement_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
+            "single",
             pricing_delegate=self.constant_pricing_delegate,
             sizing_delegate=self.constant_sizing_delegate,
             cancel_order_wait_time=900,
@@ -139,6 +143,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
         self.prevent_cancel_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
+            "single",
             pricing_delegate=self.constant_pricing_delegate,
             sizing_delegate=self.constant_sizing_delegate,
             cancel_order_wait_time=900,
@@ -698,6 +703,7 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
 
         self.inventory_skew_single_order_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
+            "single",
             sizing_delegate=self.inventory_skew_single_size_sizing_delegate,
             pricing_delegate=self.constant_pricing_delegate,
             cancel_order_wait_time=45,
@@ -707,6 +713,7 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
 
         self.inventory_skew_single_order_strategy_delayed_fill: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
+            "single",
             sizing_delegate=self.inventory_skew_single_size_sizing_delegate,
             pricing_delegate=self.constant_pricing_delegate,
             cancel_order_wait_time=45,
@@ -716,6 +723,7 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
 
         self.inventory_skew_multiple_order_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
+            "multiple",
             sizing_delegate=self.inventory_skew_multiple_size_sizing_delegate,
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
             cancel_order_wait_time=45,

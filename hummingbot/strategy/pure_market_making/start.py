@@ -77,6 +77,7 @@ def start(self):
         strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
 
         self.strategy = PureMarketMakingStrategyV2(market_infos=[MarketSymbolPair(*maker_data)],
+                                                   mode=mode,
                                                    pricing_delegate=pricing_delegate,
                                                    sizing_delegate=sizing_delegate,
                                                    filled_order_replenish_wait_time=filled_order_replenish_wait_time,
