@@ -49,7 +49,11 @@ Now, let's walk through the process of configuring a basic market making bot.
     When going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs.
 
 #### a) Enter `config` to start the configuration walkthrough
-We'll create a configuration for the `pure market making` strategy, which makes a market on a single trading pair:
+
+We'll create a configuration for the `pure market making` strategy which makes a market on a single trading pair.
+
+!!! warning
+    Values of parameters from here on are indicative for illustrative purposes only; this is not financial advice.
 
 ```
 What is your market making strategy >>>
@@ -61,14 +65,13 @@ create
 
 #### b) Select the exchange and trading pair
 
-Next, select which exchange and trading pair you want to use. Note that you may need an exchange account and inventory of crypto assets deposited on the exchange.
+Next, select which exchange and trading pair you want to use. Note that you may need an exchange account and inventory of crypto assets deposited on the exchange. You can view more information [here](/connectors/index) about the exchanges Hummingbot currently supports.
 
 You can select a centralized exchange like Binance:
 ```
 Enter your maker exchange name >>>
 binance
 
-# Change this selection based on what tokens you own
 Enter the token symbol you would like to trade on binance (e.g. ZRXETH) >>>
 ETHUSDT
 ```
@@ -78,7 +81,6 @@ Alternatively, you can select a decentralized exchange like IDEX:
 Enter your maker exchange name >>>
 idex
 
-# Change this selection based on what tokens you own
 Enter the token symbol you would like to trade on idex (e.g. ETH_ZRX) >>>
 ETH_DAI
 ```
@@ -89,27 +91,41 @@ ETH_DAI
 
 #### c) Enter market making parameters
 
-Parameters control the behavior of your bot by setting the spread utilized, the size of each order, how many orders to place, and how often to refresh orders.
+Parameters control the behavior of your bot by setting the spread utilized, the size of each order, how many orders to place, and how often to refresh orders. A more detailed explanation of each prompt for pure market making strategy are explained [here](/strategies/pure-market-making/#configuration-walkthrough) in the User Manual.
 
 ```
-Enter quantity of orders per side [bid/ask] (single/multiple) default is single >>>
+Enter quantity of orders per side [bid/ask] (single/multiple) >>>
 single
 
-How far away from the mid price do you want to place the first bid order (Enter 0.01 to indicate 1%)?| >>>
+How far away from the mid price do you want to place the first bid order (Enter 0.01 to indicate 1%)? >>>
 0.01
 
-How far away from the mid price do you want to place the first ask order (Enter 0.01 to indicate 1%)?| >>>
+How far away from the mid price do you want to place the first ask order (Enter 0.01 to indicate 1%)? >>>
 0.01
 
-How often do you want to cancel and replace bids and asks (in seconds). (Default is 60 seconds) ? >>>|
+How often do you want to cancel and replace bids and asks (in seconds). (Default is 60 seconds) ? >>>
 60
 
-# Enter a quantity based on how many tokens you own
 What is your preferred quantity per order (denominated in the base asset, default is 1) ? >>>
 0.2
 ```
 
-#### d) Enter your exchange API keys OR Ethereum wallet/node info
+#### d) Enable inventory skew
+
+This function allows you to set a target base/quote inventory ratio. For example, you are trading ZRX-WETH pair while your current asset inventory consists of 80% ZRX and 20% WETH. Setting this to 0.5 will allow the bot to automatically adjust the order amount on both sides, selling more and buying less ZRX until you get a 50%-50% ratio.
+
+```
+Would you like to enable inventory skew? (y/n) >>>
+y
+
+What is your target base asset inventory percentage (Enter 0.01 to indicate 1%). Default is 0.5 (50%) ? >>>
+0.5
+```
+
+Here's an [inventory skew calculator](https://docs.google.com/spreadsheets/d/16oCExZyM8Wo8d0aRPmT_j7oXCzea3knQ5mmm0LlPGbU/edit#gid=690135600) that shows how it adjusts order sizes.
+
+
+#### e) Enter your exchange API keys OR Ethereum wallet/node info
 
 Now that you have set up how your market making bot will behave, it's time to provide it with the necessary API keys (for centralized exchanges) or wallet/node info (for decentralized exchanges) that it needs to operate:
 
@@ -145,7 +161,7 @@ Which Ethereum node would you like your client to connect to? >>>
 
 See [Ethereum wallet](/installation/wallet) and [Ethereum node](/installation/node/node) for more information.
 
-#### e) Enter kill switch parameters
+#### f) Enter kill switch parameters
 
 Hummingbot comes with utilities that help you run the bot, such as:
 
@@ -156,7 +172,7 @@ Hummingbot comes with utilities that help you run the bot, such as:
 For more information on these utilities, see the Utilities section in the [User Manual](/manual). By default, only the **kill switch** is configured via the walkthrough.
 
 
-Activate the kill switch feature and tell it to stop the bot at a 5% loss:
+Activate the kill switch feature and tell it to stop the bot when it reaches a specific % loss:
 ```
 Would you like to enable the kill switch? (y/n) >>>  
 y
@@ -188,8 +204,7 @@ order_amount              0.2
 
 ```
 
-You can specify which parameter you want to configure by doing `config $parameter_name`.
-As an example, we want to widen the `bid_place_threshold` to 0.02. This tells the bot to place buy order 2% lower than the mid price, rather than 1%.
+You can specify which parameter you want to configure by doing `config $parameter_name`. As an example, we want to widen the `bid_place_threshold` to 0.02. This tells the bot to place buy order 2% lower than the mid price, rather than 1%.
 
 ```
 >>> config bid_place_threshold
