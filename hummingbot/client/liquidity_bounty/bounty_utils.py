@@ -26,8 +26,8 @@ from sqlalchemy.sql.elements import BooleanClauseList
 from hummingbot.client.liquidity_bounty.liquidity_bounty_config_map import liquidity_bounty_config_map
 from hummingbot.core.network_base import NetworkBase, NetworkStatus
 from hummingbot.core.utils.async_utils import (
-    asyncio_ensure_future,
-    asyncio_gather,
+    safe_ensure_future,
+    safe_gather,
 )
 from hummingbot.logger import HummingbotLogger
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
@@ -311,7 +311,7 @@ class LiquidityBounty(NetworkBase):
     async def status_polling_loop(self):
         while True:
             try:
-                await asyncio_gather(*[
+                await safe_gather(*[
                     self.fetch_client_status(),
                     self.fetch_last_timestamp(),
                 ], loop=self._ev_loop, return_exceptions=True)
@@ -384,7 +384,7 @@ class LiquidityBounty(NetworkBase):
         await self._wait_till_ready()
         while True:
             try:
-                # Not using asyncio_gather here because orders need to be submitted before order status
+                # Not using safe_gather here because orders need to be submitted before order status
                 await self.submit_trades()
                 await self.submit_orders()
                 await self.submit_order_statuses()
@@ -402,9 +402,9 @@ class LiquidityBounty(NetworkBase):
 
     async def start_network(self):
         await self.stop_network()
-        self.fetch_active_bounties_task = asyncio_ensure_future(self.fetch_active_bounties(), loop=self._ev_loop)
-        self.status_polling_task = asyncio_ensure_future(self.status_polling_loop(), loop=self._ev_loop)
-        self.submit_data_task = asyncio_ensure_future(self.submit_data_loop(), loop=self._ev_loop)
+        self.fetch_active_bounties_task = safe_ensure_future(self.fetch_active_bounties(), loop=self._ev_loop)
+        self.status_polling_task = safe_ensure_future(self.status_polling_loop(), loop=self._ev_loop)
+        self.submit_data_task = safe_ensure_future(self.submit_data_loop(), loop=self._ev_loop)
 
     async def stop_network(self):
         if self.fetch_active_bounties_task is not None:

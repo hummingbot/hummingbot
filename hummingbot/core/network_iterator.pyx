@@ -7,7 +7,7 @@ from typing import Optional
 
 from hummingbot.core.clock cimport Clock
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 NaN = float("nan")
 s_logger = None
@@ -116,7 +116,7 @@ cdef class NetworkIterator(TimeIterator):
 
     cdef c_start(self, Clock clock, double timestamp):
         TimeIterator.c_start(self, clock, timestamp)
-        self._check_network_task = asyncio_ensure_future(self._check_network_loop())
+        self._check_network_task = safe_ensure_future(self._check_network_loop())
         self._network_status = NetworkStatus.NOT_CONNECTED
 
     cdef c_stop(self, Clock clock):
@@ -125,4 +125,4 @@ cdef class NetworkIterator(TimeIterator):
             self._check_network_task.cancel()
             self._check_network_task = None
         self._network_status = NetworkStatus.STOPPED
-        asyncio_ensure_future(self.stop_network())
+        safe_ensure_future(self.stop_network())

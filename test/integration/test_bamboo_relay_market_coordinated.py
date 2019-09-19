@@ -39,8 +39,8 @@ from hummingbot.core.event.events import (
     TradeFee,
 )
 from hummingbot.core.utils.async_utils import (
-    asyncio_ensure_future,
-    asyncio_gather,
+    safe_ensure_future,
+    safe_gather,
 )
 from hummingbot.logger import NETWORK
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
@@ -150,7 +150,7 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
         self.wallet_logger = None
 
     async def run_parallel_async(self, *tasks):
-        future: asyncio.Future = asyncio_ensure_future(asyncio_gather(*tasks))
+        future: asyncio.Future = safe_ensure_future(safe_gather(*tasks))
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1

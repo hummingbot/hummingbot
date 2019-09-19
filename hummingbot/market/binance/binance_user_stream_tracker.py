@@ -12,8 +12,8 @@ from hummingbot.core.data_type.user_stream_tracker import (
     UserStreamTracker
 )
 from hummingbot.core.utils.async_utils import (
-    asyncio_ensure_future,
-    asyncio_gather,
+    safe_ensure_future,
+    safe_gather,
 )
 from hummingbot.market.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
 from binance.client import Client as BinanceClient
@@ -51,7 +51,7 @@ class BinanceUserStreamTracker(UserStreamTracker):
         return "binance"
 
     async def start(self):
-        self._user_stream_tracking_task = asyncio_ensure_future(
+        self._user_stream_tracking_task = safe_ensure_future(
             self.data_source.listen_for_user_stream(self._ev_loop, self._user_stream)
         )
-        await asyncio_gather(self._user_stream_tracking_task)
+        await safe_gather(self._user_stream_tracking_task)

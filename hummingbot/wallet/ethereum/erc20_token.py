@@ -17,7 +17,7 @@ from web3.contract import (
 )
 
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
-from hummingbot.core.utils.async_utils import asyncio_gather
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 
@@ -125,7 +125,7 @@ class ERC20Token:
         ]
 
         try:
-            name, symbol, decimals = await asyncio_gather(*tasks)
+            name, symbol, decimals = await safe_gather(*tasks)
             self._name = name
             self._symbol = symbol
             self._decimals = decimals

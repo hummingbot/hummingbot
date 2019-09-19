@@ -18,7 +18,7 @@ from websockets.exceptions import ConnectionClosed
 
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.utils.async_utils import asyncio_gather
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.market.ddex.ddex_active_order_tracker import DDEXActiveOrderTracker
 from hummingbot.market.ddex.ddex_order_book import DDEXOrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -63,7 +63,7 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
         """
         async with aiohttp.ClientSession() as client:
-            market_response, ticker_response = await asyncio_gather(
+            market_response, ticker_response = await safe_gather(
                 client.get(MARKETS_URL),
                 client.get(TICKERS_URL)
             )

@@ -31,7 +31,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 DISABLED_COMMANDS = {
@@ -102,7 +102,7 @@ class TelegramNotifier(NotifierBase):
                 timeout=30,
                 read_latency=60,
             )
-            self._send_msg_task = asyncio_ensure_future(self.send_msg_from_queue(), loop=self._ev_loop)
+            self._send_msg_task = safe_ensure_future(self.send_msg_from_queue(), loop=self._ev_loop)
             self.logger().info("Telegram is listening...")
 
     def stop(self) -> None:
@@ -113,7 +113,7 @@ class TelegramNotifier(NotifierBase):
 
     @authorized_only
     def handler(self, bot: Bot, update: Update) -> None:
-        asyncio_ensure_future(self.handler_loop(bot, update), loop=self._ev_loop)
+        safe_ensure_future(self.handler_loop(bot, update), loop=self._ev_loop)
 
     async def handler_loop(self, bot: Bot, update: Update) -> None:
         async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()

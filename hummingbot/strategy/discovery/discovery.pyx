@@ -18,7 +18,7 @@ from hummingbot.strategy.arbitrage import ArbitrageStrategy
 from hummingbot.strategy.strategy_base cimport StrategyBase
 
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 import itertools
 
@@ -207,7 +207,7 @@ cdef class DiscoveryStrategy(StrategyBase):
         """
         StrategyBase.c_tick(self, timestamp)
         if not self._fetch_market_info_task_list:
-            self._fetch_market_info_task_list = [asyncio_ensure_future(self.fetch_market_info(market_pair))
+            self._fetch_market_info_task_list = [safe_ensure_future(self.fetch_market_info(market_pair))
                                                  for market_pair in self._market_pairs]
 
         for market in self._sb_markets:

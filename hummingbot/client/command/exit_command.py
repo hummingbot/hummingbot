@@ -2,7 +2,7 @@
 
 import asyncio
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 class ExitCommand:
     def exit(self,  # type: HummingbotApplication
              force: bool = False):
-        asyncio_ensure_future(self.exit_loop(force), loop=self.ev_loop)
+        safe_ensure_future(self.exit_loop(force), loop=self.ev_loop)
 
     async def exit_loop(self,  # type: HummingbotApplication
                         force: bool = False):

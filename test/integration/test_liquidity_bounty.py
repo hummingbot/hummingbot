@@ -19,8 +19,8 @@ from hummingbot.client.liquidity_bounty.liquidity_bounty_config_map import liqui
 from hummingbot.client.config.config_helpers import read_configs_from_yml
 from hummingbot.core.utils.wallet_setup import list_wallets
 from hummingbot.core.utils.async_utils import (
-    asyncio_ensure_future,
-    asyncio_gather,
+    safe_ensure_future,
+    safe_gather,
 )
 
 
@@ -39,7 +39,7 @@ class LiquidityBountyUnitTest(unittest.TestCase):
         cls.bounty.start()
 
     async def run_parallel_async(self, *tasks):
-        future: asyncio.Future = asyncio_ensure_future(asyncio_gather(*tasks))
+        future: asyncio.Future = safe_ensure_future(safe_gather(*tasks))
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1

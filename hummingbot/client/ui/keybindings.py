@@ -13,7 +13,7 @@ from prompt_toolkit.search import (
     SearchDirection,
 )
 
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 def load_key_bindings(hb) -> KeyBindings:
@@ -22,7 +22,7 @@ def load_key_bindings(hb) -> KeyBindings:
     @bindings.add("c-c", "c-c")
     def exit_(event):
         hb.app.log("\n[Double CTRL + C] keyboard exit")
-        asyncio_ensure_future(hb.exit_loop())
+        safe_ensure_future(hb.exit_loop())
 
     @bindings.add("c-s")
     def status(event):

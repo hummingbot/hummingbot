@@ -10,7 +10,7 @@ from typing import (
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class CoinGeckoDataFeed(DataFeedBase):
@@ -116,7 +116,7 @@ class CoinGeckoDataFeed(DataFeedBase):
 
     async def start_network(self):
         await self.stop_network()
-        self.fetch_data_loop_task = asyncio_ensure_future(self.fetch_data_loop())
+        self.fetch_data_loop_task = safe_ensure_future(self.fetch_data_loop())
 
     async def stop_network(self):
         if self.fetch_data_loop_task is not None:
