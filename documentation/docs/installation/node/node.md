@@ -18,13 +18,13 @@ Running your own node may require dedicated storage and compute, as well as some
 
 ## Option 2. Third-party providers
 1. [Infura](https://infura.io/) provides free and the most widely used Ethereum nodes.
-2. [Alchemy Insights](https://alchemyinsights.io/) provides professional grade Ethereum nodes. We have partnered with Alchemy to provide a free trial for Hummingbot users - please contact us for more information.
 2. [Quiknode](https://quiknode.io)
 
-!!! tip "Important tip for Infura users"
+!!! note "Important for Infura users"
     If you use an Infura endpoint, make sure to append `https://` to the URL when you use it in Hummingbot. Otherwise, you may see a `Bad ethereum rpc url` error.
 
      ![Infura](/assets/img/infura.png)
+
 ## Option 3. Dedicated blockchain hardware
 Get dedicated hardware for your Ethereum node.  Ethereum nodes are meant to run constantly 24/7 and use up a material amount of computational resources (CPU, RAM, and storage).  For more serious users, it may make sense to use dedicated hardware.
 
