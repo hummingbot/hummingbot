@@ -6,7 +6,7 @@ from typing import (
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import is_exchange
 from hummingbot.client.settings import EXAMPLE_PAIRS, required_exchanges
-from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
+from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
 
 def discovery_symbol_list_prompt(market_name):
@@ -32,7 +32,7 @@ def valid_token_or_trading_pair_array(market: str, input_list: Any):
         single_token_inputs = list(filter(is_token, input_list))
         trading_pair_inputs = list(filter(lambda x: not is_token(x), input_list))
 
-        known_trading_pairs = SymbolFetcher.get_instance().symbols.get(market, [])
+        known_trading_pairs = TradingPairFetcher.get_instance().trading_pairs.get(market, [])
         if len(known_trading_pairs) == 0:
             return True
         else:
