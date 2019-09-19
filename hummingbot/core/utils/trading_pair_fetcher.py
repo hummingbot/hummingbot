@@ -5,7 +5,7 @@ from typing import (
     Any,
 )
 
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 BINANCE_ENDPOINT = "https://api.binance.com/api/v1/exchangeInfo"
@@ -30,7 +30,7 @@ class TradingPairFetcher:
     def __init__(self):
         self.ready = False
         self.trading_pairs: Dict[str, Any] = {}
-        asyncio_ensure_future(self.fetch_all())
+        safe_ensure_future(self.fetch_all())
 
     @staticmethod
     async def fetch_binance_trading_pairs() -> List[str]:

@@ -6,7 +6,7 @@ from hummingbot.logger import REPORT_EVENT_QUEUE
 from hummingbot.logger.struct_logger import StructLogger
 from collections import defaultdict
 from typing import Optional
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.binance.binance_market import BinanceMarket
@@ -163,9 +163,9 @@ class ReportAggregator:
 
     def start(self):
         self.stop()
-        self.get_open_order_stats_task = asyncio_ensure_future(self.get_open_order_stats())
-        self.get_event_task = asyncio_ensure_future(self.get_event())
-        self.log_report_task = asyncio_ensure_future(self.log_report())
+        self.get_open_order_stats_task = safe_ensure_future(self.get_open_order_stats())
+        self.get_event_task = safe_ensure_future(self.get_event())
+        self.log_report_task = safe_ensure_future(self.log_report())
 
     def stop(self):
         if self.log_report_task:

@@ -6,7 +6,7 @@ from typing import (
 )
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class CoinCapDataFeed(DataFeedBase):
@@ -88,7 +88,7 @@ class CoinCapDataFeed(DataFeedBase):
 
     async def start_network(self):
         await self.stop_network()
-        self._fetch_price_task = asyncio_ensure_future(self.fetch_price_loop())
+        self._fetch_price_task = safe_ensure_future(self.fetch_price_loop())
 
     async def stop_network(self):
         if self._fetch_price_task is not None:

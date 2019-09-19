@@ -21,7 +21,7 @@ from hummingbot.core.data_type.order_book_tracker import (
 from hummingbot.market.ddex.ddex_order_book import DDEXOrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.ddex.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
 
 from hummingbot.core.data_type.order_book_message import (
@@ -71,25 +71,25 @@ class DDEXOrderBookTracker(OrderBookTracker):
 
     async def start(self):
         await super().start()
-        self._order_book_trade_listener_task = asyncio_ensure_future(
+        self._order_book_trade_listener_task = safe_ensure_future(
             self.data_source.listen_for_trades(self._ev_loop, self._order_book_trade_stream)
         )
-        self._order_book_diff_listener_task = asyncio_ensure_future(
+        self._order_book_diff_listener_task = safe_ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
-        self._order_book_snapshot_listener_task = asyncio_ensure_future(
+        self._order_book_snapshot_listener_task = safe_ensure_future(
             self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
         )
-        self._emit_trade_event_task = asyncio_ensure_future(
+        self._emit_trade_event_task = safe_ensure_future(
             self._emit_trade_event_loop()
         )
-        self._refresh_tracking_task = asyncio_ensure_future(
+        self._refresh_tracking_task = safe_ensure_future(
             self._refresh_tracking_loop()
         )
-        self._order_book_diff_router_task = asyncio_ensure_future(
+        self._order_book_diff_router_task = safe_ensure_future(
             self._order_book_diff_router()
         )
-        self._order_book_snapshot_router_task = asyncio_ensure_future(
+        self._order_book_snapshot_router_task = safe_ensure_future(
             self._order_book_snapshot_router()
         )
 
@@ -109,7 +109,7 @@ class DDEXOrderBookTracker(OrderBookTracker):
             self._active_order_trackers[symbol] = order_book_tracker_entry.active_order_tracker
             self._order_books[symbol] = order_book_tracker_entry.order_book
             self._tracking_message_queues[symbol] = asyncio.Queue()
-            self._tracking_tasks[symbol] = asyncio_ensure_future(self._track_single_book(symbol))
+            self._tracking_tasks[symbol] = safe_ensure_future(self._track_single_book(symbol))
             self.logger().info("Started order book tracking for %s.", symbol)
 
         for symbol in deleted_symbols:

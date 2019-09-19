@@ -40,8 +40,8 @@ from hummingbot.core.event.events import (
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.pubsub import PubSub
 from hummingbot.core.utils.async_utils import (
-    asyncio_ensure_future,
-    asyncio_gather,
+    safe_ensure_future,
+    safe_gather,
 )
 from hummingbot.wallet.ethereum.watcher import (
     NewBlocksWatcher,
@@ -176,14 +176,14 @@ class Web3WalletBackend(PubSub):
         if self.started:
             self.stop()
 
-        self._check_network_task = asyncio_ensure_future(self._check_network_loop())
+        self._check_network_task = safe_ensure_future(self._check_network_loop())
         self._network_status = NetworkStatus.NOT_CONNECTED
 
     def stop(self):
         if self._check_network_task is not None:
             self._check_network_task.cancel()
             self._check_network_task = None
-        asyncio_ensure_future(self.stop_network())
+        safe_ensure_future(self.stop_network())
         self._network_status = NetworkStatus.STOPPED
 
     async def start_network(self):
@@ -201,8 +201,8 @@ class Web3WalletBackend(PubSub):
                 token.get_decimals()
                 for token in self._erc20_token_list
             ]
-            token_symbols: List[str] = await asyncio_gather(*fetch_symbols_tasks)
-            token_decimals: List[int] = await asyncio_gather(*fetch_decimals_tasks)
+            token_symbols: List[str] = await safe_gather(*fetch_symbols_tasks)
+            token_decimals: List[int] = await safe_gather(*fetch_decimals_tasks)
             for token, symbol, decimals in zip(self._erc20_token_list, token_symbols, token_decimals):
                 self._erc20_tokens[symbol] = token
                 self._asset_decimals[symbol] = decimals
@@ -258,8 +258,8 @@ class Web3WalletBackend(PubSub):
                                                 self._unwrapped_eth_event_forwarder)
 
             # Start the transaction processing tasks.
-            self._outgoing_transactions_task = asyncio_ensure_future(self.outgoing_eth_transactions_loop())
-            self._check_transaction_receipts_task = asyncio_ensure_future(self.check_transaction_receipts_loop())
+            self._outgoing_transactions_task = safe_ensure_future(self.outgoing_eth_transactions_loop())
+            self._check_transaction_receipts_task = safe_ensure_future(self.check_transaction_receipts_loop())
 
             # Start the event watchers.
             await self._new_blocks_watcher.start_network()
@@ -361,14 +361,14 @@ class Web3WalletBackend(PubSub):
         async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()
         tasks = [async_scheduler.call_async(self._w3.eth.getTransactionReceipt, tx_hash)
                  for tx_hash in self._pending_tx_dict.keys()]
-        transaction_receipts: List[AttributeDict] = [tr for tr in await asyncio_gather(*tasks)
+        transaction_receipts: List[AttributeDict] = [tr for tr in await safe_gather(*tasks)
                                                      if (tr is not None and tr.get("blockHash") is not None)]
         block_hash_set: Set[HexBytes] = set(tr.blockHash for tr in transaction_receipts)
         fetch_block_tasks = [async_scheduler.call_async(self._w3.eth.getBlock, block_hash)
                              for block_hash in block_hash_set]
         blocks: Dict[HexBytes, AttributeDict] = dict((block.hash, block)
                                                      for block
-                                                     in await asyncio_gather(*fetch_block_tasks)
+                                                     in await safe_gather(*fetch_block_tasks)
                                                      if block is not None)
 
         for receipt in transaction_receipts:
@@ -581,7 +581,7 @@ class Web3WalletBackend(PubSub):
             async_scheduler.call_async(erc20_token.contract.functions.allowance(self.address, spender).call)
             for erc20_token in self._erc20_token_list
         ]
-        approved_amounts: List[int] = await asyncio_gather(*get_approved_amounts_tasks)
+        approved_amounts: List[int] = await safe_gather(*get_approved_amounts_tasks)
 
         # Check and fix the approved amounts
         tx_hashes: List[str] = []
@@ -617,7 +617,7 @@ class Web3WalletBackend(PubSub):
 
     def _did_receive_new_blocks(self, new_blocks: List[AttributeDict]):
         self._last_timestamp_received_blocks = time.time()
-        asyncio_ensure_future(self._update_gas_price())
+        safe_ensure_future(self._update_gas_price())
 
     async def _update_gas_price(self):
         async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()

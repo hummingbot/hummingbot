@@ -5,7 +5,7 @@ from typing import (
 )
 
 from hummingbot.client.errors import ArgumentParserError
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class ThrowingArgumentParser(argparse.ArgumentParser):
@@ -57,7 +57,7 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     exit_parser.set_defaults(func=hummingbot.exit)
 
     export_private_key_parser = subparsers.add_parser("export_private_key", help="Print your account private key")
-    export_private_key_parser.set_defaults(func=lambda: asyncio_ensure_future(hummingbot.export_private_key()))
+    export_private_key_parser.set_defaults(func=lambda: safe_ensure_future(hummingbot.export_private_key()))
 
     export_trades_parser = subparsers.add_parser("export_trades", help="Export your trades to a csv file")
     export_trades_parser.add_argument("-p", "--path", help="Save csv to specific path")

@@ -26,8 +26,8 @@ from hummingbot.core.event.events import (
 from hummingbot.wallet.ethereum.erc20_token import ERC20Token
 from hummingbot.core.event.event_forwarder import EventForwarder
 from hummingbot.core.utils.async_utils import (
-    asyncio_ensure_future,
-    asyncio_gather,
+    safe_ensure_future,
+    safe_gather,
 )
 from .base_watcher import BaseWatcher
 from .new_blocks_watcher import NewBlocksWatcher
@@ -97,7 +97,7 @@ class ERC20EventsWatcher(BaseWatcher):
             await self.stop_network()
 
         self._blocks_watcher.add_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
-        self._poll_erc20_logs_task = asyncio_ensure_future(self.poll_erc20_logs_loop())
+        self._poll_erc20_logs_task = safe_ensure_future(self.poll_erc20_logs_loop())
 
     async def stop_network(self):
 
@@ -128,8 +128,8 @@ class ERC20EventsWatcher(BaseWatcher):
                                                                         block_hashes)
                     )
 
-                raw_transfer_entries = await asyncio_gather(*transfer_tasks)
-                raw_approval_entries = await asyncio_gather(*approval_tasks)
+                raw_transfer_entries = await safe_gather(*transfer_tasks)
+                raw_approval_entries = await safe_gather(*approval_tasks)
                 transfer_entries = list(cytoolz.concat(raw_transfer_entries))
                 approval_entries = list(cytoolz.concat(raw_approval_entries))
                 for transfer_entry in transfer_entries:

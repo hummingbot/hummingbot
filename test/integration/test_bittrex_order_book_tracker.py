@@ -16,7 +16,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTrackerDataSourceType
 )
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class BittrexOrderBookTrackerUnitTest(unittest.TestCase):
@@ -26,7 +26,7 @@ class BittrexOrderBookTrackerUnitTest(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.order_book_tracker: BittrexOrderBookTracker = BittrexOrderBookTracker(
             OrderBookTrackerDataSourceType.EXCHANGE_API)
-        cls.order_book_tracker_task: asyncio.Task = asyncio_ensure_future(cls.order_book_tracker.start())
+        cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
 
     @classmethod

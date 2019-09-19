@@ -19,7 +19,7 @@ from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.pubsub cimport PubSub
-from hummingbot.core.utils.async_utils import asyncio_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.wallet.wallet_base import WalletBase
 from hummingbot.wallet.ethereum.web3_wallet_backend import Web3WalletBackend
 
@@ -169,7 +169,7 @@ cdef class Web3Wallet(WalletBase):
         return self._best_backend.to_raw(asset_name, nominal_amount)
 
     async def start_network(self):
-        self._select_best_backend_task = asyncio_ensure_future(self._select_best_backend_loop())
+        self._select_best_backend_task = safe_ensure_future(self._select_best_backend_loop())
 
         all_forwarders = [
             self._received_asset_forwarder,
