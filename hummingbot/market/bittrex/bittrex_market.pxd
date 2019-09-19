@@ -27,7 +27,7 @@ cdef class BittrexMarket(MarketBase):
         public object _trading_rules_polling_task
         public object _shared_client
 
-    # cdef c_start_tracking_order(self, str order_id, str symbol, object trade_type, object order_type, object price,
-    #                             object amount)
-    # cdef c_stop_tracking_order(self, str order_id)
-    # cdef c_did_timeout_tx(self, str tracking_id)
+    cdef c_start_tracking_order(self, str order_id, str symbol, object trade_type, object order_type, object price,
+                                object amount)
+    cdef c_stop_tracking_order(self, str order_id)
+    cdef c_did_timeout_tx(self, str tracking_id)

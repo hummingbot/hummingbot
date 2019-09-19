@@ -600,14 +600,14 @@ cdef class BittrexMarket(MarketBase):
         return order_books[symbol]
 
     cdef c_start_tracking_order(self,
-                                str client_order_id,
+                                str order_id,
                                 str symbol,
                                 object order_type,
                                 object trade_type,
                                 object price,
                                 object amount):
-        self._in_flight_orders[client_order_id] = BittrexInFlightOrder(
-            client_order_id,
+        self._in_flight_orders[order_id] = BittrexInFlightOrder(
+            order_id,
             None,
             symbol,
             order_type,
@@ -720,12 +720,11 @@ cdef class BittrexMarket(MarketBase):
                     order_result = api_response
                     self.c_start_tracking_order(
                         order_id,
-                        "",
                         symbol,
+                        order_type,
                         TradeType.BUY,
-                        Decimal("NaN"),
-                        decimal_amount,
-                        order_type
+                        decimal_price,
+                        decimal_amount
                     )
             elif order_type is OrderType.MARKET:  # TODO: Track best ask price and amount
                 pass
@@ -771,7 +770,7 @@ cdef class BittrexMarket(MarketBase):
                                  ))
 
     cdef str c_buy(self,
-                   str symbol,
+                   str symbol,  # TODO: symbol still uses V1.1 convention(i.e. Quote-Base)
                    double amount,
                    object order_type=OrderType.LIMIT,
                    double price=NaN,
@@ -814,8 +813,7 @@ cdef class BittrexMarket(MarketBase):
                 decimal_price
             )
             self.c_start_tracking_order(
-                client_order_id=order_id,
-                exchange_order_id=exchange_order_id,
+                order_id=order_id,
                 symbol=symbol,
                 order_type=order_type,
                 trade_type=TradeType.SELL,
@@ -853,9 +851,9 @@ cdef class BittrexMarket(MarketBase):
 
     cdef str c_sell(self,
                     str symbol,
-                    double, amount,
+                    double amount,
                     object order_type=OrderType.MARKET,
-                    double price=NaN,
+                    double price=0.0,
                     dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t> (time.time() * 1e6)
