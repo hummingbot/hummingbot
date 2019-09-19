@@ -4,11 +4,11 @@ from os.path import (
 )
 from typing import List
 
-from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
+from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
 # Global variables
 required_exchanges: List[str] = []
-symbol_fetcher = SymbolFetcher.get_instance()
+trading_pair_fetcher = TradingPairFetcher.get_instance()
 
 # Global static values
 KEYFILE_PREFIX = "key_file_"

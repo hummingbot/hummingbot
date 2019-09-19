@@ -6,7 +6,7 @@ from typing import (
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import is_exchange
 from hummingbot.client.settings import EXAMPLE_PAIRS, required_exchanges
-from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
+from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
 
 def discovery_symbol_list_prompt(market_name):
@@ -28,12 +28,11 @@ def valid_token_or_trading_pair_array(market: str, input_list: Any):
             filtered: filter = filter(lambda x: x not in ['[', ']', '"', "'"], list(input_list))
             input_list = "".join(filtered).split(",")
             input_list = [s.strip() for s in input_list]  # remove leading and trailing whitespaces
-            single_token_inputs = list(filter(is_token, input_list))
-            trading_pair_inputs = list(filter(lambda x: not is_token(x), input_list))
-        else:
-            raise ValueError("Target symbol input is not a string")
 
-        known_trading_pairs = SymbolFetcher.get_instance().symbols.get(market, [])
+        single_token_inputs = list(filter(is_token, input_list))
+        trading_pair_inputs = list(filter(lambda x: not is_token(x), input_list))
+
+        known_trading_pairs = TradingPairFetcher.get_instance().trading_pairs.get(market, [])
         if len(known_trading_pairs) == 0:
             return True
         else:
@@ -41,9 +40,12 @@ def valid_token_or_trading_pair_array(market: str, input_list: Any):
             market_class = MARKET_CLASSES[market]
             valid_token_set: Set[str] = set()
             for known_trading_pair in known_trading_pairs:
-                base, quote = market_class.split_symbol(known_trading_pair)
-                valid_token_set.update([base, quote])
-
+                try:
+                    base, quote = market_class.split_symbol(known_trading_pair)
+                    valid_token_set.update([base, quote])
+                except Exception:
+                    # Add this catch to prevent trading_pairs with bad format to break the validator
+                    continue
             return all([token[1:-1] in valid_token_set for token in single_token_inputs]) and \
                 all([trading_pair in known_trading_pairs for trading_pair in trading_pair_inputs])
     except Exception:
