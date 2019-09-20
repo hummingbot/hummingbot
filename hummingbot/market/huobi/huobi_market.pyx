@@ -394,7 +394,7 @@ cdef class HuobiMarket(MarketBase):
                     continue
                 if order_update.get("error") is not None:
                     error_code = order_update.get("error").get("error-code")
-                    if (error_code == "base-record-invalid")  # order no longer exists
+                    if error_code == "base-record-invalid":  # order no longer exists
                         self.c_stop_tracking_order(tracked_order.client_order_id)
                         self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled according"
                                             f" to order status API. error code - {error_code}")
