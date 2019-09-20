@@ -22,11 +22,11 @@ from hummingbot.market.bittrex.bittrex_order_book import BittrexOrderBook
 
 EXCHANGE_NAME = "Bittrex"
 
-BITTREX_REST_URL = "https://api.bittrex.com/api/v1.1"
-BITTREX_EXCHANGE_INFO_URL = "https://api.bittrex.com/api/v1.1/public/getmarkets"
-BITTREX_MARKET_SUMMARY_URL = "https://api.bittrex.com/api/v1.1/public/getmarketsummaries"
+BITTREX_REST_URL = "https://api.bittrex.com/v3"
+BITTREX_EXCHANGE_INFO_PATH = "/markets"
+BITTREX_MARKET_SUMMARY_PATH = "/markets/summaries"
+BITTREX_TICKER_PATH = "/markets/tickers"
 BITTREX_WS_FEED = "https://socket.bittrex.com/signalr"
-SNAPSHOT_REST_URL = "https://api.bittrex.com/api/v1.1/public/getorderbook"
 
 MAX_RETRIES = 20
 MESSAGE_TIMEOUT = 30.0
@@ -53,60 +53,76 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         """
-        Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
+        Returned data frame should have symbol as index and include USDVolume, baseAsset and quoteAsset
         """
+        market_path_url = f"{BITTREX_REST_URL}{BITTREX_EXCHANGE_INFO_PATH}"
+        summary_path_url = f"{BITTREX_REST_URL}{BITTREX_MARKET_SUMMARY_PATH}"
+        ticker_path_url = f"{BITTREX_REST_URL}{BITTREX_TICKER_PATH}"
+
         async with aiohttp.ClientSession() as client:
 
-            market_response, summary_response = await asyncio.gather(
-                client.get(BITTREX_EXCHANGE_INFO_URL), client.get(BITTREX_MARKET_SUMMARY_URL)
+            market_response, ticker_response, summary_response = await asyncio.gather(
+                client.get(market_path_url), client.get(ticker_path_url), client.get(summary_path_url)
             )
 
             market_response: aiohttp.ClientResponse = market_response
+            ticker_response: aiohttp.ClientResponse = ticker_response
             summary_response: aiohttp.ClientResponse = summary_response
 
             if market_response.status != 200:
                 raise IOError(
-                    f"Error fetching active Bibttrex markets information. " f"HTTP status is {market_response.status}."
+                    f"Error fetching active Bittrex markets information. " f"HTTP status is {market_response.status}."
+                )
+            if ticker_response.status != 200:
+                raise IOError(
+                    f"Error fetching active Bittrex market tickers. " f"HTTP status is {ticker_response.status}."
                 )
             if summary_response.status != 200:
                 raise IOError(
-                    f"Error fetching active Bibttrex market summaries. " f"HTTP status is {summary_response.status}."
+                    f"Error fetching active Bittrex market summaries. " f"HTTP status is {summary_response.status}."
                 )
 
-            market_data = (await market_response.json())["result"]
-            summary_data = (await summary_response.json())["result"]
+            market_data = await market_response.json()
+            ticker_data = await ticker_response.json()
+            summary_data = await summary_response.json()
 
-            summary_data: Dict[str, any] = {
-                item["MarketName"]: {k: item[k] for k in ["Volume", "Last"]} for item in summary_data
-            }
+            ticker_data: Dict[str, Any] = {item["symbol"]: item for item in ticker_data}
+            summary_data: Dict[str, Any] = {item["symbol"]: item for item in summary_data}
 
-            market_data: List[Dict[str, any]] = [
-                {**item, **summary_data[item["MarketName"]]}
+            market_data: List[Dict[str, Any]] = [
+                {**item, **ticker_data[item["symbol"]], **summary_data[item["symbol"]]}
                 for item in market_data
-                if item["MarketName"] in summary_data
+                if item["symbol"] in ticker_data and item["symbol"] in summary_data
             ]
 
-            all_markets: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index="MarketName")
-            # Bittrex trading pair symbols(BTC-LTC) differs in naming convention
+            all_markets: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index="symbol")
             all_markets.rename(
-                {"BaseCurrency": "quoteAsset", "MarketCurrency": "baseAsset"}, axis="columns", inplace=True
+                {"baseCurrencySymbol": "baseAsset", "quoteCurrencySymbol": "quoteAsset"}, axis="columns", inplace=True
             )
 
-            btc_price: float = float(all_markets.loc["USDT-BTC"].Last)
-            eth_price: float = float(all_markets.loc["USDT-ETH"].Last)
+            btc_usd_price: float = float(all_markets.loc["BTC-USD"].lastTradeRate)
+            eth_usd_price: float = float(all_markets.loc["ETH-USD"].lastTradeRate)
 
-            usd_volume: float = [
+            usd_volume: List[float] = [
                 (
-                    Volume * btc_price
-                    if MarketName.startswith("BTC")
-                    else Volume * eth_price
-                    if MarketName.startswith("ETH")
-                    else Volume
+                    volume * quote_price if symbol.endswith(("USD", "USDT")) else
+                    volume * quote_price * btc_usd_price if symbol.endswith("BTC") else
+                    volume * quote_price * eth_usd_price if symbol.endswith("ETH") else
+                    volume
                 )
-                for MarketName, Volume in zip(all_markets.index, all_markets.Volume.astype("float"))
+                for symbol, volume, quote_price in zip(all_markets.index,
+                                                       all_markets.volume.astype("float"),
+                                                       all_markets.lastTradeRate.astype("float"))
+            ]
+            old_symbols: List[str] = [
+                (
+                    f"{quoteAsset}-{baseAsset}"
+                )
+                for baseAsset, quoteAsset in zip(all_markets.baseAsset, all_markets.quoteAsset)
             ]
 
             all_markets.loc[:, "USDVolume"] = usd_volume
+            all_markets.loc[:, "old_symbol"] = old_symbols
             return all_markets.sort_values("USDVolume", ascending=False)
 
     @property
@@ -150,12 +166,16 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             def _is_snapshot(msg) -> bool:
                 return type(msg.get("R", False)) is not bool
 
-            output: Dict[str, Any] = {"nonce": None, "tick": {}}
+            output: Dict[str, Any] = {"nonce": None, "results": {}}
             msg: Dict[str, Any] = ujson.loads(msg)
 
             if _is_snapshot(msg):
-                output["tick"] = _decode_message(msg["R"])
-                output["nonce"] = output["tick"]["N"]
+                output["results"] = _decode_message(msg["R"])
+                # TODO: Refactor accordingly when V3 WebSocket details are out
+                output["results"].update({
+                    "M": f"{output['results']['M'].split('-')[1]}-{output['results']['M'].split('-')[0]}"
+                })
+                output["nonce"] = output["results"]["N"]
 
             return output
 
@@ -171,7 +191,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             get_snapshot_attempts += 1
             async for raw_message in _get_raw_message(connection):
                 decoded: Dict[str, any] = await _transform_raw_message(raw_message)
-                symbol: str = decoded["tick"].get("M")
+                symbol: str = decoded["results"].get("M")
                 if not symbol:  # Re-attempt to retrieve snapshot from stream
                     continue
 
@@ -186,11 +206,14 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         number_of_pairs: int = len(trading_pairs)
         for index, trading_pair in enumerate(trading_pairs):
+            # TODO: Refactor accordingly when V3 WebSocket is out
+            # trading_pair needs to be converted back to V1.1 convention from "Base-Quote" -> "Quote-Base"
+            temp_trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
             try:
-                snapshot: Dict[str, any] = await self.get_snapshot(trading_pair)
+                snapshot: Dict[str, any] = await self.get_snapshot(temp_trading_pair)
                 snapshot_timestamp: float = snapshot["nonce"]
                 snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
-                    snapshot["tick"], snapshot_timestamp, metadata={"symbol": trading_pair}
+                    snapshot["results"], snapshot_timestamp, metadata={"symbol": trading_pair}
                 )
                 order_book: BittrexOrderBook = BittrexOrderBook()
                 active_order_tracker: BittrexActiveOrderTracker = BittrexActiveOrderTracker()
@@ -214,6 +237,10 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error(f"Error initiailizing order book for {trading_pair}. ", exc_info=True)
                 await asyncio.sleep(5.0)
         return retval
+
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        # Trade messages are received from the order book web socket
+        pass
 
     async def _socket_stream(self, conn: signalr_aio.Connection) -> AsyncIterable[str]:
         try:
@@ -241,18 +268,28 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         def _is_market_delta(msg) -> bool:
             return len(msg.get("M", [])) > 0 and type(msg["M"][0]) == dict and msg["M"][0].get("M", None) == "uE"
 
-        output: Dict[str, Any] = {"nonce": None, "type": None, "tick": {}}
+        output: Dict[str, Any] = {"nonce": None, "type": None, "results": {}}
         msg: Dict[str, Any] = ujson.loads(msg)
 
         if _is_snapshot(msg):
-            output["tick"] = _decode_message(msg["R"])
+            output["results"] = _decode_message(msg["R"])
+
+            # TODO: Refactor accordingly when V3 WebSocket details are out
+            output["results"].update({
+                "M": f"{output['results']['M'].split('-')[1]}-{output['results']['M'].split('-')[0]}"
+            })
+
             output["type"] = "snapshot"
-            output["nonce"] = output["tick"]["N"]
+            output["nonce"] = output["results"]["N"]
 
         elif _is_market_delta(msg):
-            output["tick"] = _decode_message(msg["M"][0]["A"][0])
+            output["results"] = _decode_message(msg["M"][0]["A"][0])
+            # TODO: Refactor accordingly when V3 WebSocket details are out
+            output["results"].update({
+                "M": f"{output['results']['M'].split('-')[1]}-{output['results']['M'].split('-')[0]}"
+            })
             output["type"] = "update"
-            output["nonce"] = output["tick"]["N"]
+            output["nonce"] = output["results"]["N"]
 
         return output
 
@@ -264,6 +301,10 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 hub = connection.register_hub("c2")
                 trading_pairs = await self.get_trading_pairs()
                 for trading_pair in trading_pairs:
+                    # TODO: Refactor accordingly when V3 WebSocket is out
+                    # trading_pair needs to be converted back to WebSocket V1.1 convention from "Base-Quote" -> "Quote-Base"
+                    trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
+
                     self.logger().info(f"Subscribed to {trading_pair}")
                     hub.server.invoke("queryExchangeState", trading_pair)
 
@@ -271,16 +312,20 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                 async for raw_message in self._socket_stream(connection):
                     decoded: Dict[str, Any] = await self._transform_raw_message(raw_message)
-                    symbol: str = decoded["tick"].get("M")
+                    symbol: str = decoded["results"].get("M")
                     if not symbol:  # Ignores initial websocket response messages
                         continue
+
+                    # TODO: Refactor accordingly when V3 WebSocket is out
+                    # symbol needs to be converted back to V3 convention from "Quote-Base" -> "Base-Quote"
+                    # symbol = f"{symbol.split('-')[1]}-{symbol.split('-')[0]}"
 
                     # Only processes snapshot messages
                     if decoded["type"] == "snapshot":
                         snapshot: Dict[str, any] = decoded
                         snapshot_timestamp = snapshot["nonce"]
                         snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
-                            snapshot["tick"], snapshot_timestamp, metadata={"product_id": symbol}
+                            snapshot["results"], snapshot_timestamp, metadata={"product_id": symbol}
                         )
                         output.put_nowait(snapshot_msg)
 
@@ -303,6 +348,9 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 hub = connection.register_hub("c2")
                 trading_pairs = await self.get_trading_pairs()
                 for trading_pair in trading_pairs:
+                    # TODO: Refactor accordingly when V3 WebSocket is out
+                    # trading_pair needs to be converted back to V1.1 convention from "Base-Quote" -> "Quote-Base"
+                    trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
                     self.logger().info(f"Subscribed to {trading_pair} Deltas")
                     hub.server.invoke("SubscribeToExchangeDeltas", trading_pair)
 
@@ -310,18 +358,23 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                 async for raw_message in self._socket_stream(connection):
                     decoded: Dict[str, Any] = await self._transform_raw_message(raw_message)
-                    symbol: str = decoded["tick"].get("M")
+                    symbol: str = decoded["results"].get("M")
+
                     if not symbol:  # Ignores initial websocket response messages
                         continue
 
+                    # TODO: Refactor accordingly when V3 WebSocket is out
+                    # symbol needs to be converted back to V3 convention from "Quote-Base" -> "Base-Quote"
+                    # symbol = f"{symbol.split('-')[1]}-{symbol.split('-')[0]}"
+
                     # Only processes snapshot messages
                     if decoded["type"] == "update":
-                        snapshot: Dict[str, any] = decoded
-                        snapshot_timestamp = snapshot["nonce"]
-                        snapshot_msg: OrderBookMessage = self.order_book_class.diff_message_from_exchange(
-                            snapshot["tick"], snapshot_timestamp, metadata={"product_id": symbol}
+                        diff: Dict[str, any] = decoded
+                        diff_timestamp = diff["nonce"]
+                        diff_msg: OrderBookMessage = self.order_book_class.diff_message_from_exchange(
+                            diff["results"], diff_timestamp, metadata={"product_id": symbol}
                         )
-                        output.put_nowait(snapshot_msg)
+                        output.put_nowait(diff_msg)
 
                 # Waits for delta amount of time before getting new snapshots
                 this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
