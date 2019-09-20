@@ -55,11 +55,15 @@ Achievement | Requirements | Max Spots | Rewards
 2. Configure and run a bot that uses either the [pure market making](/strategies/pure-market-making) or the [cross-exchange market making](/strategies/cross-exchange-market-making) strategy for a $ONE trading pair
 3. Earn rewards based on your filled limit order volume! 😎
 
-## How to Get Updates
+## Updates and Announcements
 
-We send out a bi-weekly update with statistics and performance updates.
+We send out updates and announcements through our [Discord channel](https://discord.hummingbot.io) and [Twitter](https://twitter.com/hummingbot_io).
 
-To get these updates, enter your email address on [this page](https://www.hummingbot.io/liquidity-bounties/harmony/).
+You can also read through the articles in our [blog](https://hummingbot.io/blog/tag/liquidity-bounties#tags) where you can find useful information about liquidity bounties such as statistics, Q&A, interviews from our top bounty hunters, previous month recap, and more.
+
+## Performance
+
+Check your performance in our real-time [leaderboard](https://www.hummingbot.io/liquidity-bounties/harmony/) using your registered wallet address.
 
 ## Evaluation
 
@@ -73,7 +77,7 @@ Payouts occur approximately one week after the end of each period. All rewards w
 - [The Vision and Mission](https://medium.com/harmony-one/one-maker-initiative-stronger-one-by-every-one-429ab7bfcacd)
 - [Quick Start Video Guide](https://www.youtube.com/watch?v=wySYAPbHRwQ&list=PLDwlNkL_4MMczSzZiomX5wFFuF40z-KLl&index=5&t=19s)
 - [Register for Bounties](/quickstart/3-configure-bot/#step-2-register-for-liquidity-bounties-optional)
-- [Bounties FAQs](/bounties/faq/)
+- [Liquidity Bounties FAQs](/bounties/faq/)
 
 ---
 ## Important Disclaimer
