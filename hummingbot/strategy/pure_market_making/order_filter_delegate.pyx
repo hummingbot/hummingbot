@@ -10,6 +10,18 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 
 
 cdef class OrderFilterDelegate:
+
+    def __init__(self, order_placing_timestamp: float = 0):
+        self._order_placing_timestamp = order_placing_timestamp
+
+    @property
+    def order_placing_timestamp(self) -> float:
+        return self._order_placing_timestamp
+
+    @order_placing_timestamp.setter
+    def order_placing_timestamp(self, double order_placing_timestamp):
+        self._order_placing_timestamp = order_placing_timestamp
+
     # The following exposed Python functions are meant for unit tests
     # ---------------------------------------------------------------
     def should_proceed_with_processing(self,

@@ -5,6 +5,7 @@ import statistics
 import time
 from collections import deque
 from hummingbot.logger import HummingbotLogger
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class BinanceTime:
@@ -55,7 +56,7 @@ class BinanceTime:
 
     def start(self):
         if self._set_server_time_offset_task is None:
-            self._set_server_time_offset_task = asyncio.ensure_future(self.set_server_time_offset())
+            self._set_server_time_offset_task = safe_ensure_future(self.set_server_time_offset())
             self._started = True
 
     def stop(self):

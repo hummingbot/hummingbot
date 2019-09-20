@@ -19,6 +19,9 @@ If you don't see messages related to order creation, check that:
 * You have sufficient balance of both tokens in your trading pair
 * You have entered `order_amount` that exceeds the minimum order size for your selected exchange
 
+!!! note "Minimum Order Size"
+    The minimum order size of a trading pair on a specific exchange may vary. You can find more information about this in the **Miscellaneous Info** section for each [Connector](/connectors).
+
 ## Step 2: Get the current bot status
 
 Enter `status` to see the current bot status. You can also use the **Ctrl-S** keyboard shortcut.
@@ -42,6 +45,10 @@ This command shows you:
 * **List of trades**: The trades your bot has performed during this session
 * **Inventory**: How your inventory has changed as a result of these trades
 * **Performance**: How much profit or loss your bot has made as a result of these trades
+
+!!! note "Performance"
+    The value of your starting inventory may change when you check your bot's status. See [this page](/support/faq/#why-does-my-starting-inventory-value-keep-changing) for more information.
+
 
 ## Step 4: Exit and restart Hummingbot
 
@@ -89,48 +96,6 @@ Would you like to unlock your previously saved wallet? (y/n) >>>
 
 Config process complete. Enter "start" to start market making.
 ```
-
-#### b) Adjust parameters
-
-Rather than just starting the bot as-is, let's adjust one of the parameters.
-
-Enter `list configs` to inspect the current bot parameters, which shows both the global and the strategy configs.
-
-```
->>> list configs
-
-global configs:
-...
-
-pure_market_making strategy configs:
-...
-mode                      single
-bid_place_threshold       0.01
-ask_place_threshold       0.01
-cancel_order_wait_time    60
-order_amount              0.2
-...
-
-```
-
-Widen the `bid_place_threshold` to 0.02. This tells the bot to place buy order 2% lower than the mid price, rather than 1%.
-```
->>> config bid_place_threshold
-
-Please follow the prompt to complete configurations:
-
-How far away from the mid price do you want to place the first bid order (Enter 0.01 to indicate 1%)? >>>
-0.02
-
-New config saved:
-bid_place_threshold: 0.02
-
-```
-
-#### c) Restart your market making bot
-Similarly, you can adjust other parameters by using the `config` command and specifying the parameter name afterwards.
-
-When you are satisfied with your bot parameters, enter `start` to restart your market making bot.
 
 
 ---

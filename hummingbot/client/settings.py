@@ -4,11 +4,11 @@ from os.path import (
 )
 from typing import List
 
-from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
+from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
 # Global variables
 required_exchanges: List[str] = []
-symbol_fetcher = SymbolFetcher.get_instance()
+trading_pair_fetcher = TradingPairFetcher.get_instance()
 
 # Global static values
 KEYFILE_PREFIX = "key_file_"
@@ -55,6 +55,7 @@ EXAMPLE_PAIRS = {
     "radar_relay": "ZRX-WETH",
     "bamboo_relay": "ZRX-WETH",
     "coinbase_pro": "ETH-USDC",
+    "huobi": "ethusdt"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
@@ -63,7 +64,6 @@ MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT = 100
 
 # Liquidity Bounties:
 LIQUIDITY_BOUNTY_CONFIG_PATH = "conf/conf_liquidity_bounty.yml"
-MIN_ETH_STAKED_REQUIREMENT = 0.05
 
 
 # Values that were once a part of configuration but no longer needed.
@@ -72,4 +72,5 @@ DEPRECATED_CONFIG_VALUES = {
     "stop_loss_pct",
     "stop_loss_price_type",
     "stop_loss_base_token",
+    "trade_size_override",
 }
