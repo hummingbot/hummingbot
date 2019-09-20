@@ -59,6 +59,8 @@ The following walks through all the steps when running `config` for the first ti
 | `What base token would you like to use to calculate your inventory value? (Default "USD") >>>` | This sets `stop_loss_base_token` (see [definition](#configuration-parameters)) |
 | `Would you like to enable inventory skew? (y/n) >>>` | This sets `inventory_skew_enabled` (see [definition](#configuration-parameters)) |
 | `What is your target base asset inventory percentage (Enter 0.01 to indicate 1%)? >>> ` | This sets `inventory_target_base_percent` (see [definition](#configuration-parameters)) |
+| `How long do you want to wait before placing the next order in case your order gets filled (in seconds). (Default is 10 seconds)? >>> " ` | This sets `filled_order_replenish_wait_time` (see [definition](#configuration-parameters)) |
+| `Do you want to enable order_filled_stop_cancellation. If enabled, when orders are completely filled, the other side remains uncanceled (Default is False)? >>> " ` | This sets `enable_order_filled_stop_cancellation` (see [definition](#configuration-parameters)) |
 
 ### Multiple Order Configuration
 
@@ -82,6 +84,37 @@ For example, if you are targeting a 50/50 base to quote asset ratio but the curr
 | `Would you like to enable inventory skew? (y/n) >>>`: | This sets `inventory_skew_enabled` (see [definition](#configuration-parameters)) |
 | `What is your target base asset inventory percentage (Enter 0.01 to indicate 1%) >>>`: | This sets `inventory_target_base_percent` (see [definition](#configuration-parameters)) |
 
+
+### Order Adjustment based on filled events
+
+Currently, hummingbot places orders as soon as there are no active orders. If there is a sustained movement in the market in any one direction for sometime, there is a risk that you might end up with a lot of base tokens in the case of a downward move or a lot of quote tokens in the case of an upward move.
+
+You can add a delay using `filled_order_replenish_wait_time` for placing the next order immediately after the previous order gets completely filled, which will help address the above scenario.
+
+Example: 
+Assume your buy order gets filled at 1:00:00 and the delay is set to be 10 seconds. The next orders are placed at 1:00:10. The sell order is also cancelled within this delay period and placed at this time (1:00:10) to ensure both buy and sell orders use the same reference mid price and are in sync.
+
+There is now an option using `enable_order_filled_stop_cancellation` to leave the orders on the other side hanging (not canceled) whenever a buy/sell order is completed.
+
+Example:
+Assume you are running Pure Market making in single order mode, the order size is 1 and the mid price is 100. Then,
+
+1. If your bid threshold is 0.01, then your bid is placed at 99
+2. If your ask threshold is 0.01, then your ask is placed at 101
+3. If your current bid at 99 is fully filled (i.e), your current buy order for the size of 1 is fully completed
+4. Now after the `cancel_order_wait_time` the ask order at 101 would be canceled normally
+5. With the `enable_order_filled_stop_cancellation` parameter, you can leave this order hanging
+6. After the `cancel_order_wait_time` you will now see two asks and one bid order, which will be the new bid and ask orders created after the wait time, along with the earlier un-canceled ask order.
+
+The `enable_order_filled_stop_cancellation` can be used if there is enough volatility such that the hanging order might eventually get filled. It should also be used with caution, as the user should monitor the bot regularly to manually cancel orders which don't get filled. It is recommended to disable inventory skew while running this feature.
+
+As these are experimental features, we are currently rolling them out to only `single order mode` for testing and receiving further feedback from the community.
+
+ | Prompt | Description |
+|-----|-----|
+| `How long do you want to wait before placing the next order in case your order gets filled (in seconds). (Default is 10 seconds)? >>> " ` | This sets `filled_order_replenish_wait_time` (see [definition](#configuration-parameters)) |
+| `Do you want to enable order_filled_stop_cancellation. If enabled, when orders are completely filled, the other side remains uncanceled (Default is False)? >>> " ` | This sets `enable_order_filled_stop_cancellation` (see [definition](#configuration-parameters)) |
+
 #### Determining order size
 
 The input `order_amount` is adjusted by the ratio of current base (or quote) percentage versus target percentage:
@@ -104,6 +137,8 @@ The following parameters are fields in Hummingbot configuration files (located i
 | **order_interval_percent**<br /><small>(multiple order strategy only)</small> | The percentage amount increase in price for subsequent orders from the first order. <em>Example:<br /> for a mid price of 100, `ask_place_threshold` of 0.01, and `order_interval_percent` of 0.005,<br />the first, second, and third ask prices would be **101** (= 100 + 0.01 x 100), **101.5** (= 101 + 0.005 x 100), and **102**.</em>
 | **inventory_skew_enabled** | When this is `true`, the bid and ask order sizes are adjusted based on the `inventory_target_base_percent`.
 | **inventory_target_base_percent** | An amount expressed in decimals (i.e. input of `0.01` corresponds to 1%) <br/> The strategy will place bid and ask orders with adjusted sizes (based on `order_amount`, `order_start_size`) and try to maintain this base asset vs. total (base + quote) asset value.<br/><br/>*Example: You are market making ETH / USD with `order_amount: 1` and balances of 10 ETH and 1000 USD. Your current base asset value is ~67% and quote asset value is ~33%. If `inventory_target_base_percent: 0.5`, the order amount will be adjusted from 1 ETH bid, 1 ETH ask to 0.67 ETH bid, 1.33 ETH ask.*
+| **filled_order_replenish_wait_time** | An amount in seconds, which specifies the delay before placing the next order for single order mode. _Default value: 10 seconds_. <br/> See section above on Order Adjustment based on filled events.
+| **enable_order_filled_stop_cancellation** | When this is `true`, the orders on the side opposite to the filled orders remains uncanceled. _Default value: False_. <br/> See section above on Order Adjustment based on filled events.
 
 ## Risks and Trading Mechanics
 
