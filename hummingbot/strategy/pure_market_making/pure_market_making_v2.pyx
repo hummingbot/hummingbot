@@ -19,8 +19,8 @@ from hummingbot.market.market_base import (
 )
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.strategy.strategy_base import StrategyBase
+from math import isnan
 
-from .pass_through_filter_delegate import PassThroughFilterDelegate
 from .data_types import (
     OrdersProposal,
     ORDER_PROPOSAL_ACTION_CANCEL_ORDERS,
@@ -35,6 +35,10 @@ from .order_pricing_delegate cimport OrderPricingDelegate
 from .order_pricing_delegate import OrderPricingDelegate
 from .order_sizing_delegate cimport OrderSizingDelegate
 from .order_sizing_delegate import OrderSizingDelegate
+from .constant_size_sizing_delegate cimport ConstantSizeSizingDelegate
+from .constant_size_sizing_delegate import ConstantSizeSizingDelegate
+from .inventory_skew_single_size_sizing_delegate cimport InventorySkewSingleSizeSizingDelegate
+from .inventory_skew_single_size_sizing_delegate import InventorySkewSingleSizeSizingDelegate
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -65,6 +69,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     # These are exchanges where you're expected to expire orders instead of actively cancelling them.
     RADAR_RELAY_TYPE_EXCHANGES = {"radar_relay", "bamboo_relay"}
 
+    # This is a temporary way to check if the mode of the strategy is of single order type,
+    # for the replenish delay & enable_order_filled_stop_cancellation feature
+    # Eventually this will be removed, as these will be rolled out across all modes
+    SINGLE_ORDER_SIZING_DELEGATES = (ConstantSizeSizingDelegate, InventorySkewSingleSizeSizingDelegate)
+
     @classmethod
     def logger(cls):
         global s_logger
@@ -74,7 +83,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
     def __init__(self,
                  market_infos: List[MarketSymbolPair],
-                 mode: str,
+                 filter_delegate: OrderFilterDelegate,
                  pricing_delegate: OrderPricingDelegate,
                  sizing_delegate: OrderSizingDelegate,
                  cancel_order_wait_time: float = 60,
@@ -102,10 +111,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._logging_options = logging_options
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
-        self._mode = mode
 
-        # Create a filter delegate which will create orders after the current timestamp
-        self._filter_delegate = PassThroughFilterDelegate(self._current_timestamp)
+        self._filter_delegate = filter_delegate
         self._pricing_delegate = pricing_delegate
         self._sizing_delegate = sizing_delegate
         self._enable_order_filled_stop_cancellation = enable_order_filled_stop_cancellation
@@ -360,8 +367,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
             LimitOrder limit_order_record
 
-        # Replenish Delay and order filled stop cancellation are only for single order mode
-        if self._mode == "single":
+        if isinstance(self.sizing_delegate, self.SINGLE_ORDER_SIZING_DELEGATES):
             # Set the replenish time as current_timestamp + order replenish time
             replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
 
@@ -382,7 +388,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 if self._enable_order_filled_stop_cancellation:
                     self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
 
-            self.filter_delegate.order_placing_timestamp = replenish_time_stamp
+            if not isnan(replenish_time_stamp):
+                self.filter_delegate.order_placing_timestamp = replenish_time_stamp
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
@@ -399,8 +406,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
             LimitOrder limit_order_record
 
-        # Replenish Delay and order filled stop cancellation are only for single order mode
-        if self._mode == "single":
+        if isinstance(self.sizing_delegate, self.SINGLE_ORDER_SIZING_DELEGATES):
             # Set the replenish time as current_timestamp + order replenish time
             replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
 
@@ -421,7 +427,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 if self._enable_order_filled_stop_cancellation:
                     self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
 
-            self.filter_delegate.order_placing_timestamp = replenish_time_stamp
+            if not isnan(replenish_time_stamp):
+                self.filter_delegate.order_placing_timestamp = replenish_time_stamp
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)

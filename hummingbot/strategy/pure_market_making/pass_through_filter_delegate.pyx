@@ -4,17 +4,8 @@ from .data_types import (ORDER_PROPOSAL_ACTION_CREATE_ORDERS,
 
 cdef class PassThroughFilterDelegate(OrderFilterDelegate):
 
-    def __init__(self, order_placing_timestamp: float):
+    def __init__(self):
         super().__init__()
-        self._order_placing_timestamp = order_placing_timestamp
-
-    @property
-    def order_placing_timestamp(self) -> float:
-        return self._order_placing_timestamp
-
-    @order_placing_timestamp.setter
-    def order_placing_timestamp(self, double order_placing_timestamp):
-        self._order_placing_timestamp = order_placing_timestamp
 
     cdef bint c_should_proceed_with_processing(self,
                                                PureMarketMakingStrategyV2 strategy,
