@@ -69,7 +69,7 @@ class TradeFill(HummingbotBase):
                               "price",
                               "amount",
                               "order_type",
-                              "trade_type",
+                              "side",
                               "market",
                               "timestamp",
                               "fee_percent",
