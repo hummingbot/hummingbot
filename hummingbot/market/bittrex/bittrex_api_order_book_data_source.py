@@ -171,10 +171,14 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             if _is_snapshot(msg):
                 output["results"] = _decode_message(msg["R"])
-                # TODO: Refactor accordingly when V3 WebSocket details are out
+
+                # TODO: Refactor accordingly when V3 WebSocket API is released
+                # WebSocket API returns market symbols in 'Quote-Base' format
+                # Code below converts 'Quote-Base' -> 'Base-Quote'
                 output["results"].update({
                     "M": f"{output['results']['M'].split('-')[1]}-{output['results']['M'].split('-')[0]}"
                 })
+
                 output["nonce"] = output["results"]["N"]
 
             return output
@@ -206,9 +210,12 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         number_of_pairs: int = len(trading_pairs)
         for index, trading_pair in enumerate(trading_pairs):
-            # TODO: Refactor accordingly when V3 WebSocket is out
-            # trading_pair needs to be converted back to V1.1 convention from "Base-Quote" -> "Quote-Base"
+
+            # TODO: Refactor accordingly when V3 WebSocket API is released
+            # get_snapshot() utilizes WebSocket API. Requires market symbols in 'Quote-Base' format
+            # Code below converts 'Base-Quote' -> 'Quote-Base'
             temp_trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
+
             try:
                 snapshot: Dict[str, any] = await self.get_snapshot(temp_trading_pair)
                 snapshot_timestamp: float = snapshot["nonce"]
@@ -274,7 +281,9 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if _is_snapshot(msg):
             output["results"] = _decode_message(msg["R"])
 
-            # TODO: Refactor accordingly when V3 WebSocket details are out
+            # TODO: Refactor accordingly when V3 WebSocket API is released
+            # WebSocket API returns market symbols in 'Quote-Base' format
+            # Code below converts 'Quote-Base' -> 'Base-Quote'
             output["results"].update({
                 "M": f"{output['results']['M'].split('-')[1]}-{output['results']['M'].split('-')[0]}"
             })
@@ -284,10 +293,14 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         elif _is_market_delta(msg):
             output["results"] = _decode_message(msg["M"][0]["A"][0])
-            # TODO: Refactor accordingly when V3 WebSocket details are out
+
+            # TODO: Refactor accordingly when V3 WebSocket API is released
+            # WebSocket API returns market symbols in 'Quote-Base' format
+            # Code below converts 'Quote-Base' -> 'Base-Quote'
             output["results"].update({
                 "M": f"{output['results']['M'].split('-')[1]}-{output['results']['M'].split('-')[0]}"
             })
+
             output["type"] = "update"
             output["nonce"] = output["results"]["N"]
 
@@ -299,10 +312,10 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
                 hub = connection.register_hub("c2")
-                trading_pairs = await self.get_trading_pairs()
+                trading_pairs = await self.get_trading_pairs()  # Symbols of trading pair in V3 format i.e. 'Base-Quote'
                 for trading_pair in trading_pairs:
-                    # TODO: Refactor accordingly when V3 WebSocket is out
-                    # trading_pair needs to be converted back to WebSocket V1.1 convention from "Base-Quote" -> "Quote-Base"
+                    # TODO: Refactor accordingly when V3 WebSocket API is released
+                    # WebSocket API requires trading_pair to be in 'Quote-Base' format
                     trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
 
                     self.logger().info(f"Subscribed to {trading_pair}")
@@ -315,10 +328,6 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     symbol: str = decoded["results"].get("M")
                     if not symbol:  # Ignores initial websocket response messages
                         continue
-
-                    # TODO: Refactor accordingly when V3 WebSocket is out
-                    # symbol needs to be converted back to V3 convention from "Quote-Base" -> "Base-Quote"
-                    # symbol = f"{symbol.split('-')[1]}-{symbol.split('-')[0]}"
 
                     # Only processes snapshot messages
                     if decoded["type"] == "snapshot":
@@ -346,10 +355,10 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
                 hub = connection.register_hub("c2")
-                trading_pairs = await self.get_trading_pairs()
+                trading_pairs = await self.get_trading_pairs()  # Symbols of trading pair in V3 format i.e. 'Base-Quote'
                 for trading_pair in trading_pairs:
-                    # TODO: Refactor accordingly when V3 WebSocket is out
-                    # trading_pair needs to be converted back to V1.1 convention from "Base-Quote" -> "Quote-Base"
+                    # TODO: Refactor accordingly when V3 WebSocket API is released
+                    # WebSocket API requires trading_pair to be in 'Quote-Base' format
                     trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
                     self.logger().info(f"Subscribed to {trading_pair} Deltas")
                     hub.server.invoke("SubscribeToExchangeDeltas", trading_pair)
