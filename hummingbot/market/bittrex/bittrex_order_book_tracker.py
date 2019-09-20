@@ -10,7 +10,10 @@ from hummingbot.core.data_type.order_book_tracker import (
 )
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
-
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
+    safe_gather,
+)
 
 class BittrexOrderBookTracker(OrderBookTracker):
     _btobt_logger: Optional[HummingbotLogger] = None
@@ -43,23 +46,23 @@ class BittrexOrderBookTracker(OrderBookTracker):
         return "bittrex"
 
     async def start(self):
-        self._order_book_diff_listener_task = asyncio.ensure_future(
+        self._order_book_diff_listener_task = safe_ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
-        self._order_book_snapshot_listener_task = asyncio.ensure_future(
+        self._order_book_snapshot_listener_task = safe_ensure_future(
             self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
         )
-        self._refresh_tracking_task = asyncio.ensure_future(
+        self._refresh_tracking_task = safe_ensure_future(
             self._refresh_tracking_loop()
         )
-        self._order_book_diff_router_task = asyncio.ensure_future(
+        self._order_book_diff_router_task = safe_ensure_future(
             self._order_book_diff_router()
         )
-        self._order_book_snapshot_router_task = asyncio.ensure_future(
+        self._order_book_snapshot_router_task = safe_ensure_future(
             self._order_book_snapshot_router()
         )
 
-        await asyncio.gather(self._order_book_snapshot_listener_task,
+        await safe_gather(self._order_book_snapshot_listener_task,
                              self._order_book_diff_listener_task,
                              self._order_book_snapshot_router_task,
                              self._order_book_diff_router_task,

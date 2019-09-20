@@ -1,12 +1,14 @@
 import asyncio
 import math
-import time
 import unittest
 
 from hummingbot.client.performance_analysis import PerformanceAnalysis
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
-from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
-from hummingbot.data_feed.coin_gecko_data_feed import CoinGeckoDataFeed
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
+    safe_gather,
+)
+
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 
 
@@ -44,7 +46,7 @@ class TestPerformanceAnalysis(unittest.TestCase):
 
     @staticmethod
     async def run_parallel_async(*tasks):
-        future: asyncio.Future = asyncio.ensure_future(asyncio.gather(*tasks))
+        future: asyncio.Future = safe_ensure_future(safe_gather(*tasks))
         while not future.done():
             await asyncio.sleep(1.0)
         return future.result()

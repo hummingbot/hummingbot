@@ -17,6 +17,7 @@ from web3.datastructures import AttributeDict
 
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import NewBlocksWatcherEvent
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from .base_watcher import BaseWatcher
 
 DEFAULT_BLOCK_WINDOW_SIZE = 30
@@ -62,7 +63,7 @@ class NewBlocksWatcher(BaseWatcher):
                                                   "Check Ethereum node connection",
                                   exc_info=True)
         self._block_number_to_fetch = self._current_block_number
-        self._fetch_new_blocks_task: asyncio.Task = asyncio.ensure_future(self.fetch_new_blocks_loop())
+        self._fetch_new_blocks_task: asyncio.Task = safe_ensure_future(self.fetch_new_blocks_loop())
 
     async def stop_network(self):
         if self._fetch_new_blocks_task is not None:
