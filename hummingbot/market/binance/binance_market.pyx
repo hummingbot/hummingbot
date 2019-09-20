@@ -70,7 +70,7 @@ from hummingbot.market.trading_rule cimport TradingRule
 
 s_logger = None
 s_decimal_0 = Decimal(0)
-SYMBOL_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX)$")
+SYMBOL_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD)$")
 
 
 cdef class BinanceMarketTransactionTracker(TransactionTracker):
