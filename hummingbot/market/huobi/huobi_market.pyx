@@ -701,11 +701,11 @@ cdef class HuobiMarket(MarketBase):
         return order_id
 
     async def execute_cancel(self, symbol: str, order_id: str):
-        tracked_order = self._in_flight_orders.get(order_id)
-        if tracked_order is None:
-            raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-        path_url = f"order/orders/{tracked_order.exchange_order_id}/submitcancel"
         try:
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is None:
+                raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
+            path_url = f"order/orders/{tracked_order.exchange_order_id}/submitcancel"
             await self._api_request("post", path_url=path_url, is_auth_required=True)
         except Exception as e:
             self.logger().network(
