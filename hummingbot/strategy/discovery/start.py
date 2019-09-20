@@ -49,7 +49,6 @@ async def check_discovery_strategy_ready_loop(self: "hummingbot.client.hummingbo
     """
     while True:
         try:
-            assert isinstance(self.strategy, DiscoveryStrategy)
             if self.strategy.all_markets_ready:
                 await save_discovery_output(self)
                 self._notify("Discovery completed. Run status [CTRL + S] to see the report")
@@ -76,7 +75,13 @@ def start(self: "hummingbot.client.hummingbot_application.HummingbotApplication"
             matched_trading_pairs = set()
             all_trading_pairs: List[str] = TradingPairFetcher.get_instance().trading_pairs.get(market_name, [])
             for t in all_trading_pairs:
-                base_token, quote_token = MARKET_CLASSES[market_name].split_symbol(t)
+                try:
+                    base_token, quote_token = MARKET_CLASSES[market_name].split_symbol(t)
+                except Exception:
+                    # In case there is an error when parsing trading pairs, ignore that trading pair and continue
+                    # with the rest
+                    self.logger().error(f"error parsing symbol on {market_name}: {t}", exc_info=True)
+                    continue
                 if base_token in single_token_list or quote_token in single_token_list:
                     matched_trading_pairs.add(t)
             return list(matched_trading_pairs)
