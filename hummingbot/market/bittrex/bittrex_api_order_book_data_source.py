@@ -363,10 +363,6 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     if not symbol:  # Ignores initial websocket response messages
                         continue
 
-                    # TODO: Refactor accordingly when V3 WebSocket is out
-                    # symbol needs to be converted back to V3 convention from "Quote-Base" -> "Base-Quote"
-                    # symbol = f"{symbol.split('-')[1]}-{symbol.split('-')[0]}"
-
                     # Only processes snapshot messages
                     if decoded["type"] == "update":
                         diff: Dict[str, any] = decoded
