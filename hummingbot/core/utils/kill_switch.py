@@ -3,6 +3,7 @@ import logging
 from typing import Optional
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.logger import HummingbotLogger
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class KillSwitch:
