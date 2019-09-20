@@ -197,7 +197,6 @@ cdef class BinanceMarket(MarketBase):
             m = SYMBOL_SPLITTER.match(symbol)
             return m.group(1), m.group(2)
         except Exception as e:
-
             raise ValueError(f"Error parsing symbol {symbol}: {str(e)}")
 
     @property

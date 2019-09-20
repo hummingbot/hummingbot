@@ -80,7 +80,7 @@ def start(self: "hummingbot.client.hummingbot_application.HummingbotApplication"
                 except Exception:
                     # In case there is an error when parsing trading pairs, ignore that trading pair and continue
                     # with the rest
-                    self.logger().error(f"error parsing symbol on {market_name}: {t}", exc_info=True)
+                    self.logger().error(f"Error parsing symbol on {market_name}: {t}", exc_info=True)
                     continue
                 if base_token in single_token_list or quote_token in single_token_list:
                     matched_trading_pairs.add(t)
