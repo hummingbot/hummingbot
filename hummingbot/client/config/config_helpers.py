@@ -161,6 +161,9 @@ def read_configs_from_yml(strategy_file_path: str = None):
             with open(yml_path) as stream:
                 data = yaml_parser.load(stream) or {}
                 for key in data:
+                    if current_strategy == "cross_exchange_market_making" and key == "trade_size_override":
+                        logging.getLogger().error("Cross Exchange Strategy cannot be run with old config file due to "
+                                                  "changes in strategy. Please create a new config file.")
                     if key == "wallet":
                         continue
                     if key in DEPRECATED_CONFIG_VALUES:
