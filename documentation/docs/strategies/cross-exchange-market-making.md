@@ -42,10 +42,10 @@ If the user has the following configuration,
 order_amount: 1 ETH <br/>
 min_profitability: 0.05 <br/>
 
-and as per market conditions we have the follwing,
+and as per market conditions we have the following,
 
 Sell price on Taker: 100 USDT (on a volume weighted average basis) <br/>
-Top Bid price on Maker: 90 USDT (existing order on the orderbook, which is not the user's current order) <br/>
+Top Bid price on Maker: 90 USDT (existing order on the order book, which is not the user's current order) <br/>
 
 If adjust_order_enabled is set to True:
 The bid price according to min profitability is 95 (100*(1-0.05)). However as top bid price is 90, the strategy will place the bid order above the existing top bid at 90.01 USDT
