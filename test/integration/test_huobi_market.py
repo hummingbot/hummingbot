@@ -33,6 +33,10 @@ from hummingbot.core.event.events import (
     TradeFee,
     TradeType,
 )
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
+    safe_gather,
+)
 from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.market_base import OrderType
 from hummingbot.market.markets_recorder import MarketsRecorder
@@ -123,7 +127,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
         self.market_2_logger = None
 
     async def run_parallel_async(self, *tasks):
-        future: asyncio.Future = asyncio.ensure_future(asyncio.gather(*tasks))
+        future: asyncio.Future = safe_ensure_future(safe_gather(*tasks))
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1

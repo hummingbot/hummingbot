@@ -35,7 +35,13 @@ from hummingbot.core.event.events import (
     TradeFee,
     TradeType,
     MarketOrderFailureEvent,
-    OrderBookTradeEvent, OrderBookEvent)
+    OrderBookTradeEvent,
+    OrderBookEvent,
+)
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
+    safe_gather,
+)
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker
 from hummingbot.market.paper_trade.paper_trade_market import PaperTradeMarket, QueuedOrder
@@ -197,7 +203,7 @@ class PaperTradeMarketTest(unittest.TestCase):
         self.market_logger = None
 
     async def run_parallel_async(self, *tasks):
-        future: asyncio.Future = asyncio.ensure_future(asyncio.gather(*tasks))
+        future: asyncio.Future = safe_ensure_future(safe_gather(*tasks))
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1
@@ -329,7 +335,7 @@ class PaperTradeMarketTest(unittest.TestCase):
                 amount=1.0)
             self.market.order_books['ETHUSDT'].apply_trade(trade_event1)
 
-        asyncio.ensure_future(delay_trigger_event1())
+        safe_ensure_future(delay_trigger_event1())
         self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
         placed_bid_orders: List[LimitOrder] = [o for o in self.market.limit_orders if o.is_buy]
@@ -409,7 +415,7 @@ class PaperTradeMarketTest(unittest.TestCase):
                 price=best_ask_price-1, amount=base_quantity)
             self.market.order_books[trading_pair.trading_pair].apply_trade(trade_event)
 
-        asyncio.ensure_future(delay_trigger_event2())
+        safe_ensure_future(delay_trigger_event2())
 
         self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 

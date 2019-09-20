@@ -18,6 +18,8 @@ from hummingbot.strategy.arbitrage import ArbitrageStrategy
 from hummingbot.strategy.strategy_base cimport StrategyBase
 
 from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.utils.async_utils import safe_ensure_future
+
 import itertools
 
 NaN = float("nan")
@@ -80,6 +82,10 @@ cdef class DiscoveryStrategy(StrategyBase):
                                    for market_pair in self._market_pairs
                                    for market in [market_pair.market_1, market_pair.market_2]])
         self.c_add_markets(list(all_markets))
+
+    @property
+    def all_markets_ready(self):
+        return self._all_markets_ready
 
     @classmethod
     def parse_equivalent_token(cls, equivalent_token: List[List[str]]) -> Dict[str, Set[str]]:
@@ -201,7 +207,7 @@ cdef class DiscoveryStrategy(StrategyBase):
         """
         StrategyBase.c_tick(self, timestamp)
         if not self._fetch_market_info_task_list:
-            self._fetch_market_info_task_list = [asyncio.ensure_future(self.fetch_market_info(market_pair))
+            self._fetch_market_info_task_list = [safe_ensure_future(self.fetch_market_info(market_pair))
                                                  for market_pair in self._market_pairs]
 
         for market in self._sb_markets:
@@ -429,12 +435,18 @@ cdef class DiscoveryStrategy(StrategyBase):
                                                                                       self._target_amount,
                                                                                       self._target_profitability)
 
+    def get_status_dataframes(self) -> List[pd.DataFrame]:
+        market_stats_df = self._discovery_stats["market_stats"]
+        arbitrage_status_df = self._discovery_stats["arbitrage"]
+        conversion_rate_df = self.get_conversion_rate_df()
+        return [market_stats_df, arbitrage_status_df, conversion_rate_df]
+
     def format_status_arbitrage(self):
         cdef:
             list lines = []
             list df_lines = []
         if "arbitrage" not in self._discovery_stats or self._discovery_stats["arbitrage"].empty:
-            lines.extend(["", "Arbitrage discovery not ready yet."])
+            lines.extend(["", "  Arbitrage discovery not ready yet."])
             return lines
         df_lines = self._discovery_stats["arbitrage"].to_string(index=False).split("\n")
 
@@ -463,9 +475,8 @@ cdef class DiscoveryStrategy(StrategyBase):
                      [f"      {equivalent_token}" for equivalent_token in self._equivalent_token])
         return lines
 
-    def format_conversion_rate(self):
+    def get_conversion_rate_df(self) -> pd.DataFrame:
         cdef:
-            list lines = []
             list data = []
             list columns = ["asset", "conversion_rate"]
 
@@ -483,6 +494,13 @@ cdef class DiscoveryStrategy(StrategyBase):
                 data.append([asset, rate])
 
         assets_df = pd.DataFrame(data=data, columns=columns)
+        return assets_df
+
+    def format_conversion_rate(self):
+        cdef:
+            list lines = []
+
+        assets_df = self.get_conversion_rate_df()
         lines.extend(["", "  Conversion Rates:"] + ["    " + line for line in str(assets_df).split("\n")])
         return lines
 
