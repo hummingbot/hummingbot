@@ -7,4 +7,3 @@ cdef class ConstantMultipleSpreadPricingDelegate(OrderPricingDelegate):
         double _ask_spread
         double _order_interval_size
         int _number_of_orders
-
