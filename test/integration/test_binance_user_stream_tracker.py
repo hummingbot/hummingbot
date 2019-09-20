@@ -8,6 +8,7 @@ sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 from hummingbot.market.binance.binance_user_stream_tracker import BinanceUserStreamTracker
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker
@@ -25,7 +26,7 @@ class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.user_stream_tracker: BinanceUserStreamTracker = BinanceUserStreamTracker(
             UserStreamTrackerDataSourceType.EXCHANGE_API)
-        cls.user_stream_tracker_task: asyncio.Task = asyncio.ensure_future(cls.user_stream_tracker.start())
+        cls.user_stream_tracker_task: asyncio.Task = safe_ensure_future(cls.user_stream_tracker.start())
 
     def test_user_stream(self):
         # Wait process some msgs.

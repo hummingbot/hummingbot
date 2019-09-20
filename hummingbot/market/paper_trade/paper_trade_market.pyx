@@ -61,6 +61,7 @@ from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.paper_trade.trading_pair import TradingPair
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 from .market_config import (
     MarketConfig,
@@ -303,7 +304,7 @@ cdef class PaperTradeMarket(MarketBase):
 
     async def start_network(self):
         await self.stop_network()
-        self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
+        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
 
     async def stop_network(self):
         if self._order_tracker_task is not None:
