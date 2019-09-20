@@ -16,8 +16,3 @@ class PureMarketPair(NamedTuple):
     maker_symbol: str
     maker_base_currency: str
     maker_quote_currency: str
-
-
-
-
-

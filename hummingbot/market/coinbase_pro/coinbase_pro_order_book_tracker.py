@@ -8,7 +8,6 @@ from collections import (
 )
 import logging
 import time
-from decimal import Decimal
 from typing import (
     Deque,
     Dict,
@@ -27,6 +26,7 @@ from hummingbot.core.data_type.order_book_message import (
     CoinbaseProOrderBookMessage,
     OrderBookMessage)
 from hummingbot.core.data_type.order_book_tracker_entry import CoinbaseProOrderBookTrackerEntry
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 from hummingbot.market.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
 
@@ -85,19 +85,19 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
         Start all listeners and tasks
         """
 
-        self._order_book_diff_listener_task = asyncio.ensure_future(
+        self._order_book_diff_listener_task = safe_ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
-        self._order_book_snapshot_listener_task = asyncio.ensure_future(
+        self._order_book_snapshot_listener_task = safe_ensure_future(
             self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
         )
-        self._refresh_tracking_task = asyncio.ensure_future(
+        self._refresh_tracking_task = safe_ensure_future(
             self._refresh_tracking_loop()
         )
-        self._order_book_diff_router_task = asyncio.ensure_future(
+        self._order_book_diff_router_task = safe_ensure_future(
             self._order_book_diff_router()
         )
-        self._order_book_snapshot_router_task = asyncio.ensure_future(
+        self._order_book_snapshot_router_task = safe_ensure_future(
             self._order_book_snapshot_router()
         )
 
@@ -117,7 +117,7 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
             self._active_order_trackers[symbol] = order_book_tracker_entry.active_order_tracker
             self._order_books[symbol] = order_book_tracker_entry.order_book
             self._tracking_message_queues[symbol] = asyncio.Queue()
-            self._tracking_tasks[symbol] = asyncio.ensure_future(self._track_single_book(symbol))
+            self._tracking_tasks[symbol] = safe_ensure_future(self._track_single_book(symbol))
             self.logger().info("Started order book tracking for %s.", symbol)
 
         for symbol in deleted_symbols:
