@@ -12,6 +12,7 @@ from typing import (
 
 import hummingbot
 from hummingbot.logger import HummingbotLogger
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class AsyncCallSchedulerItem(NamedTuple):
@@ -58,7 +59,7 @@ class AsyncCallScheduler:
     def start(self):
         if self._coro_scheduler_task is not None:
             self.stop()
-        self._coro_scheduler_task = asyncio.ensure_future(
+        self._coro_scheduler_task = safe_ensure_future(
             self._coro_scheduler(
                 self._coro_queue,
                 self._call_interval
