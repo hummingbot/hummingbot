@@ -9,10 +9,9 @@ from hummingbot.logger import (
     log_encoder
 )
 from hummingbot.logger.log_server_client import LogServerClient
-from hummingbot.logger.report_aggregator import REPORT_EVENT_QUEUE
 
 
-VERSIONFILE="hummingbot/VERSION"
+VERSIONFILE = "hummingbot/VERSION"
 CLIENT_VERSION = open(VERSIONFILE, "rt").read()
 
 
@@ -37,7 +36,6 @@ class ReportingProxyHandler(logging.Handler):
         self.capacity: int = capacity
         self.proxy_url: str = proxy_url
         self.log_server_client: LogServerClient = LogServerClient.get_instance()
-        self.log_server_client.start()
 
     @property
     def client_id(self):
@@ -46,6 +44,8 @@ class ReportingProxyHandler(logging.Handler):
     def emit(self, record):
         if record.__dict__.get("do_not_send", False):
             return
+        if not self.log_server_client.started:
+            self.log_server_client.start()
         log_type = record.__dict__.get("message_type", "log")
         if log_type == "event":
             self.process_event_log(record)
@@ -66,8 +66,8 @@ class ReportingProxyHandler(logging.Handler):
         sio = io.StringIO()
         tb = ei[2]
         # See issues #9427, #1553375 in python logging. Commented out for now.
-        #if getattr(self, 'fullstack', False):
-        #    traceback.print_stack(tb.tb_frame.f_back, file=sio)
+        # if getattr(self, 'fullstack', False):
+        #     traceback.print_stack(tb.tb_frame.f_back, file=sio)
         traceback.print_exception(ei[0], ei[1], tb, None, sio)
         s = sio.getvalue()
         sio.close()
@@ -97,8 +97,8 @@ class ReportingProxyHandler(logging.Handler):
     def process_metric_log(self, log):
         metric_dict = log.__dict__.get("dict_msg", {})
         if metric_dict:
-            metric_dict["tags"] = metric_dict.get("tags", []) + \
-                                  [f"client_id:{self.client_id}", "source:hummingbot-client"]
+            metric_dict["tags"] = (metric_dict.get("tags", []) +
+                                   [f"client_id:{self.client_id}", "source:hummingbot-client"])
 
             self._metrics_queue.append(metric_dict)
 
