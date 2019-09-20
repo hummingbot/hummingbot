@@ -91,25 +91,24 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
                 self._log_warning_order_size = False
 
             if quantized_ask_order_size == s_decimal_0:
-                 self.logger().network(f"Sell(ask) order size is less than minimum order size. Sell order will not be placed",
-                                       f"The order size is too small for the market for sell order. Check order size in configuration.")
-                 # After warning once, set warning flag to False
-                 self._log_warning_order_size = False
+                self.logger().network(f"Sell(ask) order size is less than minimum order size. Sell order will not be placed",
+                                      f"The order size is too small for the market for sell order. Check order size in configuration.")
+                # After warning once, set warning flag to False
+                self._log_warning_order_size = False
 
         if self._log_warning_balance:
             if quote_asset_balance < required_quote_asset_balance:
                 self.logger().debug(f"Buy(bid) order is not placed because there is not enough Quote asset. "
-                                      f"Quote Asset: {quote_asset_balance}, Price: {pricing_proposal.buy_order_prices[0]},"
-                                      f"Size: {quantized_bid_order_size}")
+                                    f"Quote Asset: {quote_asset_balance}, Price: {pricing_proposal.buy_order_prices[0]},"
+                                    f"Size: {quantized_bid_order_size}")
                 # After warning once, set warning flag to False
                 self._log_warning_balance = False
 
             if base_asset_balance < quantized_ask_order_size:
                 self.logger().debug(f"Sell(ask) order is not placed because there is not enough Base asset. "
-                                      f"Base Asset: {base_asset_balance}, Size: {quantized_ask_order_size}")
+                                    f"Base Asset: {base_asset_balance}, Size: {quantized_ask_order_size}")
                 # After warning once, set warning flag to False
                 self._log_warning_balance = False
-
 
         # Reset warning flag for balances if there is enough balance to place orders
         if (quote_asset_balance >= required_quote_asset_balance) and \

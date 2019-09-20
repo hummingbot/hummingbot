@@ -8,14 +8,16 @@ from typing import (
     Dict,
     List,
     Union,
-    Optional
+    Optional,
+    Coroutine
 )
 from web3 import Web3
 from web3.contract import (
     Contract,
 )
 
-import hummingbot
+from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 
@@ -70,7 +72,7 @@ class ERC20Token:
         elif chain is EthereumChain.RINKEBY:
             if self._address == RINKEBY_WETH_ADDRESS:
                 self._abi = w_abi
-        elif chain is EthereumChain.KOVAN:        
+        elif chain is EthereumChain.KOVAN:
             if self._address == KOVAN_WETH_ADDRESS:
                 self._abi = w_abi
 
@@ -113,9 +115,8 @@ class ERC20Token:
         if self._name is not None and self._symbol is not None and self._decimals is not None:
             return
 
-        ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-        tasks: List[asyncio.Task] = [
-            ev_loop.run_in_executor(hummingbot.get_executor(), func, *args)
+        tasks: List[Coroutine] = [
+            AsyncCallScheduler.shared_instance().call_async(func, *args)
             for func, args in [
                 (self.get_name_from_contract, [self._contract]),
                 (self.get_symbol_from_contract, [self._contract]),
@@ -124,7 +125,7 @@ class ERC20Token:
         ]
 
         try:
-            name, symbol, decimals = await asyncio.gather(*tasks)
+            name, symbol, decimals = await safe_gather(*tasks)
             self._name = name
             self._symbol = symbol
             self._decimals = decimals

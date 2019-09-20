@@ -2,7 +2,7 @@ from os.path import (
     isfile,
     join,
 )
-from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
+from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.client.settings import (
     EXCHANGES,
     STRATEGIES,
@@ -19,6 +19,14 @@ def is_strategy(value: str) -> bool:
     return value in STRATEGIES
 
 
+def is_valid_percent(value: str) -> bool:
+    try:
+        if 0 <= float(value) <= 1:
+            return True
+    except ValueError:
+        return False
+
+
 def is_path(value: str) -> bool:
     return isfile(join(CONF_FILE_PATH, value)) and value.endswith('.yml')
 
@@ -26,9 +34,9 @@ def is_path(value: str) -> bool:
 def is_valid_market_symbol(market: str, value: str) -> bool:
     # Since symbol validation and autocomplete are UI optimizations that do not impact bot performances,
     # in case of network issues or slow wifi, this check returns true and does not prevent users from proceeding,
-    symbol_fetcher: SymbolFetcher = SymbolFetcher.get_instance()
-    if symbol_fetcher.ready:
-        market_symbols = symbol_fetcher.symbols.get(market, [])
-        return value in symbol_fetcher.symbols.get(market) if len(market_symbols) > 0 else True
+    trading_pair_fetcher: TradingPairFetcher = TradingPairFetcher.get_instance()
+    if trading_pair_fetcher.ready:
+        market_symbols = trading_pair_fetcher.trading_pairs.get(market, [])
+        return value in trading_pair_fetcher.trading_pairs.get(market) if len(market_symbols) > 0 else True
     else:
         return True
