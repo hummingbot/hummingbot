@@ -1,16 +1,26 @@
+import logging
+import numpy
+
 import pandas as pd
 import decimal
 
-ctx = decimal.Context()
-ctx.prec = 7
 
-
-def float_to_str(f):
+def format_decimal(n):
     """
     Convert the given float to a string without scientific notation
     """
-    d1 = ctx.create_decimal(repr(f))
-    return format(d1.normalize(), 'f')
+    try:
+        with decimal.localcontext() as ctx:
+            ctx.prec = 7
+            if isinstance(n, float):
+                d = ctx.create_decimal(repr(n))
+                return format(d.normalize(), 'f')
+            elif isinstance(n, decimal.Decimal):
+                return format(n.normalize(), 'f')
+            else:
+                return str(n)
+    except Exception as e:
+        logging.getLogger().error(str(e))
 
 
-pd.options.display.float_format = lambda x: float_to_str(x)
+pd.options.display.float_format = lambda x: format_decimal(x)
