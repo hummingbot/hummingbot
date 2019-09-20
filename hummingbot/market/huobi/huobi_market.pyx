@@ -263,8 +263,8 @@ cdef class HuobiMarket(MarketBase):
 
             data = parsed_response.get("data")
             if data is None:
-                return {"error": parsed_response}
                 self.logger().error(f"Error received from {url}. Response is {parsed_response}.")
+                return {"error": parsed_response}
             return data
 
     async def _update_account_id(self) -> str:
@@ -576,7 +576,6 @@ cdef class HuobiMarket(MarketBase):
         else:
             decimal_amount = self.c_quantize_order_amount(symbol, amount)
             decimal_price = self.c_quantize_order_price(symbol, price)
-
             if decimal_amount < trading_rule.min_order_size:
                 raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
@@ -648,7 +647,6 @@ cdef class HuobiMarket(MarketBase):
         decimal_price = (self.c_quantize_order_price(symbol, price)
                          if order_type is OrderType.LIMIT
                          else s_decimal_0)
-        print('@@@@@@@@123', decimal_amount, trading_rule.min_order_size, trading_rule)
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
