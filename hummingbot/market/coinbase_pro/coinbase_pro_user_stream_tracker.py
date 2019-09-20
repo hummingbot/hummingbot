@@ -12,6 +12,10 @@ from hummingbot.core.data_type.user_stream_tracker import (
     UserStreamTrackerDataSourceType,
     UserStreamTracker
 )
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
+    safe_gather,
+)
 from hummingbot.market.coinbase_pro.coinbase_pro_api_user_stream_data_source import CoinbaseProAPIUserStreamDataSource
 from hummingbot.market.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
 
@@ -64,7 +68,7 @@ class CoinbaseProUserStreamTracker(UserStreamTracker):
         *required
         Start all listeners and tasks
         """
-        self._user_stream_tracking_task = asyncio.ensure_future(
+        self._user_stream_tracking_task = safe_ensure_future(
             self.data_source.listen_for_user_stream(self._ev_loop, self._user_stream)
         )
-        await asyncio.gather(self._user_stream_tracking_task)
+        await safe_gather(self._user_stream_tracking_task)
