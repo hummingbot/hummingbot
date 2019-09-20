@@ -339,7 +339,8 @@ cdef class HuobiMarket(MarketBase):
                                 max_order_size=Decimal(info["max-order-amt"]),
                                 min_price_increment=Decimal(f"1e-{info['price-precision']}"),
                                 min_base_amount_increment=Decimal(f"1e-{info['amount-precision']}"),
-                                min_quote_amount_increment=Decimal(f"1e-{info['value-precision']}"))
+                                min_quote_amount_increment=Decimal(f"1e-{info['value-precision']}"),
+                                min_notional_size=Decimal(info["min-order-value"]))
                 )
             except Exception:
                 self.logger().error(f"Error parsing the symbol rule {info}. Skipping.", exc_info=True)
@@ -565,6 +566,8 @@ cdef class HuobiMarket(MarketBase):
         else:
             decimal_amount = self.c_quantize_order_amount(symbol, amount)
             decimal_price = self.c_quantize_order_price(symbol, price)
+            print('@@@@@@@@123', decimal_amount, trading_rule.min_order_size)
+
             if decimal_amount < trading_rule.min_order_size:
                 raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
@@ -636,6 +639,7 @@ cdef class HuobiMarket(MarketBase):
         decimal_price = (self.c_quantize_order_price(symbol, price)
                          if order_type is OrderType.LIMIT
                          else s_decimal_0)
+        print('@@@@@@@@123', decimal_amount, trading_rule.min_order_size, trading_rule)
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
@@ -797,6 +801,8 @@ cdef class HuobiMarket(MarketBase):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
             object quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
+            double current_price = self.c_get_price(symbol, False)
+            double notional_size
 
         # Check against min_order_size. If not passing check, return 0.
         if quantized_amount < trading_rule.min_order_size:
@@ -805,5 +811,14 @@ cdef class HuobiMarket(MarketBase):
         # Check against max_order_size. If not passing check, return maximum.
         if quantized_amount > trading_rule.max_order_size:
             return trading_rule.max_order_size
+
+        if price == 0:
+            notional_size = current_price * float(quantized_amount)
+        else:
+            notional_size = price * float(quantized_amount)
+        # Add 1% as a safety factor in case the prices changed while making the order.
+        if notional_size < float(trading_rule.min_notional_size * Decimal(1.01)):
+            print('*********##$$@#@$#@$#', notional_size, trading_rule.min_notional_size)
+            return s_decimal_0
 
         return quantized_amount
