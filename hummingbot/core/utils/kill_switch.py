@@ -3,6 +3,7 @@ import logging
 from typing import Optional
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.logger import HummingbotLogger
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class KillSwitch:
@@ -53,11 +54,11 @@ class KillSwitch:
             await asyncio.sleep(self._update_interval)
 
     def start(self):
-        asyncio.ensure_future(self.start_loop())
+        safe_ensure_future(self.start_loop())
 
     async def start_loop(self):
         self.stop()
-        self._check_profitability_task = asyncio.ensure_future(self.check_profitability_loop())
+        self._check_profitability_task = safe_ensure_future(self.check_profitability_loop())
         self._started = True
 
     def stop(self):

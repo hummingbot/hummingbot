@@ -248,6 +248,10 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         }
         await ws.send(ujson.dumps(subscribe_request))
 
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        # Trade messages are received from the order book web socket
+        pass
+
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:

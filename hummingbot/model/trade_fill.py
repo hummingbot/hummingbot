@@ -4,7 +4,7 @@ import pandas as pd
 from typing import (
     Any,
     Dict,
-List,
+    List,
 )
 from hummingbot.core.event.events import (
     TradeType,

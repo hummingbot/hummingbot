@@ -18,6 +18,7 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 
 from hummingbot.core.utils import async_ttl_cache
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -59,7 +60,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         async with aiohttp.ClientSession() as client:
 
-            market_response, exchange_response = await asyncio.gather(
+            market_response, exchange_response = await safe_gather(
                 client.get(TICKER_PRICE_CHANGE_URL),
                 client.get(EXCHANGE_INFO_URL)
             )

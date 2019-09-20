@@ -8,6 +8,7 @@ from typing import (
 )
 
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
 from hummingbot.data_feed.coin_gecko_data_feed import CoinGeckoDataFeed
 from hummingbot.data_feed.data_feed_base import DataFeedBase
@@ -245,7 +246,7 @@ class ExchangeRateConversion:
         for data_feed in self._data_feeds:
             if not data_feed.started:
                 data_feed.start()
-        self._fetch_exchange_rate_task = asyncio.ensure_future(self.request_loop())
+        self._fetch_exchange_rate_task = safe_ensure_future(self.request_loop())
         self._started = True
 
     def stop(self):
