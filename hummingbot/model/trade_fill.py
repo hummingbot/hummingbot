@@ -4,7 +4,7 @@ import pandas as pd
 from typing import (
     Any,
     Dict,
-List,
+    List,
 )
 from hummingbot.core.event.events import (
     TradeType,
@@ -69,7 +69,7 @@ class TradeFill(HummingbotBase):
                               "price",
                               "amount",
                               "order_type",
-                              "trade_type",
+                              "side",
                               "market",
                               "timestamp",
                               "fee_percent",

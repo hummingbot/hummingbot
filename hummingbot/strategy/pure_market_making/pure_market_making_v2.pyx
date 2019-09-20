@@ -19,9 +19,8 @@ from hummingbot.market.market_base import (
 )
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.strategy.strategy_base import StrategyBase
+from math import isnan
 
-from .constant_spread_pricing_delegate import ConstantSpreadPricingDelegate
-from .constant_size_sizing_delegate import ConstantSizeSizingDelegate
 from .data_types import (
     OrdersProposal,
     ORDER_PROPOSAL_ACTION_CANCEL_ORDERS,
@@ -36,6 +35,10 @@ from .order_pricing_delegate cimport OrderPricingDelegate
 from .order_pricing_delegate import OrderPricingDelegate
 from .order_sizing_delegate cimport OrderSizingDelegate
 from .order_sizing_delegate import OrderSizingDelegate
+from .constant_size_sizing_delegate cimport ConstantSizeSizingDelegate
+from .constant_size_sizing_delegate import ConstantSizeSizingDelegate
+from .inventory_skew_single_size_sizing_delegate cimport InventorySkewSingleSizeSizingDelegate
+from .inventory_skew_single_size_sizing_delegate import InventorySkewSingleSizeSizingDelegate
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -66,6 +69,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     # These are exchanges where you're expected to expire orders instead of actively cancelling them.
     RADAR_RELAY_TYPE_EXCHANGES = {"radar_relay", "bamboo_relay"}
 
+    # This is a temporary way to check if the mode of the strategy is of single order type,
+    # for the replenish delay & enable_order_filled_stop_cancellation feature
+    # Eventually this will be removed, as these will be rolled out across all modes
+    SINGLE_ORDER_SIZING_DELEGATES = (ConstantSizeSizingDelegate, InventorySkewSingleSizeSizingDelegate)
+
     @classmethod
     def logger(cls):
         global s_logger
@@ -79,6 +87,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  pricing_delegate: OrderPricingDelegate,
                  sizing_delegate: OrderSizingDelegate,
                  cancel_order_wait_time: float = 60,
+                 filled_order_replenish_wait_time: float = 10,
+                 enable_order_filled_stop_cancellation: bool = False,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
                  status_report_interval: float = 900):
@@ -94,6 +104,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         }
         self._all_markets_ready = False
         self._cancel_order_wait_time = cancel_order_wait_time
+        self._filled_order_replenish_wait_time = filled_order_replenish_wait_time
 
         self._time_to_cancel = {}
 
@@ -104,6 +115,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._filter_delegate = filter_delegate
         self._pricing_delegate = pricing_delegate
         self._sizing_delegate = sizing_delegate
+        self._enable_order_filled_stop_cancellation = enable_order_filled_stop_cancellation
 
         self.limit_order_min_expiration = limit_order_min_expiration
 
@@ -228,6 +240,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
         self._last_timestamp = timestamp
+        self.filter_delegate.order_placing_timestamp = timestamp
 
     cdef c_tick(self, double timestamp):
         StrategyBase.c_tick(self, timestamp)
@@ -267,7 +280,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     self.logger().error("Unknown error while generating order proposals.", exc_info=True)
                 finally:
                     self._sb_delegate_lock = False
-                self.c_execute_orders_proposal(market_info, orders_proposal)
+                filtered_proposal = self._filter_delegate.c_filter_orders_proposal(self,
+                                                                                   market_info,
+                                                                                   market_info_to_active_orders.get(market_info, []),
+                                                                                   orders_proposal)
+                self.c_execute_orders_proposal(market_info, filtered_proposal)
         finally:
             self._last_timestamp = timestamp
 
@@ -285,7 +302,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         #  1. Ask the pricing delegate on what are the order prices.
         #  2. Ask the sizing delegate on what are the order sizes.
         #  3. Set the actions to carry out in the orders proposal to include create orders.
-        pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self, market_info, active_orders)
+
+        pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self,
+                                                                             market_info,
+                                                                             active_orders)
+
         sizing_proposal = self._sizing_delegate.c_get_order_size_proposal(self,
                                                                           market_info,
                                                                           active_orders,
@@ -346,6 +367,30 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
             LimitOrder limit_order_record
 
+        if isinstance(self.sizing_delegate, self.SINGLE_ORDER_SIZING_DELEGATES):
+            # Set the replenish time as current_timestamp + order replenish time
+            replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
+
+            # if filled order is buy, adjust the cancel time for sell order
+            # For syncing buy and sell orders during order completed events
+            for _, ask_order in self.active_asks:
+                other_order_id = ask_order.client_order_id
+                if other_order_id in self._time_to_cancel:
+
+                    # If you want to stop cancelling orders remove it from the cancel list
+                    if self._enable_order_filled_stop_cancellation:
+                        del self._time_to_cancel[other_order_id]
+                    else:
+                        # cancel time is minimum of current cancel time and replenish time to sync up both
+                        self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
+
+                # Stop tracking the order
+                if self._enable_order_filled_stop_cancellation:
+                    self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
+
+            if not isnan(replenish_time_stamp):
+                self.filter_delegate.order_placing_timestamp = replenish_time_stamp
+
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
             self.log_with_clock(
@@ -360,6 +405,30 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             str order_id = order_completed_event.order_id
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
             LimitOrder limit_order_record
+
+        if isinstance(self.sizing_delegate, self.SINGLE_ORDER_SIZING_DELEGATES):
+            # Set the replenish time as current_timestamp + order replenish time
+            replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
+
+            # if filled order is sell, adjust the cancel time for buy order
+            # For syncing buy and sell orders during order completed events
+            for _, bid_order in self.active_bids:
+                other_order_id = bid_order.client_order_id
+                if other_order_id in self._time_to_cancel:
+
+                    # If you want to stop cancelling orders remove it from the cancel list
+                    if self._enable_order_filled_stop_cancellation:
+                        del self._time_to_cancel[other_order_id]
+                    else:
+                        # cancel time is minimum of current cancel time and replenish time to sync up both
+                        self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
+
+                # Stop tracking the order
+                if self._enable_order_filled_stop_cancellation:
+                    self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
+
+            if not isnan(replenish_time_stamp):
+                self.filter_delegate.order_placing_timestamp = replenish_time_stamp
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
@@ -377,7 +446,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                          if ((market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
                                              (market_info.market.name == "bamboo_relay" and not market_info.market.use_coordinator))
                                          else NaN)
-            str bid_order_id
+            str bid_order_id, ask_order_id
 
         # Cancel orders.
         if actions & ORDER_PROPOSAL_ACTION_CANCEL_ORDERS:
@@ -407,6 +476,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                             expiration_seconds=expiration_seconds
                         )
                         self._time_to_cancel[bid_order_id] = self._current_timestamp + self._cancel_order_wait_time
+
                 elif orders_proposal.buy_order_type is OrderType.MARKET:
                     raise RuntimeError("Market buy order in orders proposal is not supported yet.")
 
@@ -431,5 +501,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                             expiration_seconds=expiration_seconds
                         )
                         self._time_to_cancel[ask_order_id] = self._current_timestamp + self._cancel_order_wait_time
+
                 elif orders_proposal.sell_order_type is OrderType.MARKET:
                     raise RuntimeError("Market sell order in orders proposal is not supported yet.")

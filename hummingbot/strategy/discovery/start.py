@@ -12,7 +12,8 @@ from typing import (
 
 import hummingbot
 from hummingbot.client.hummingbot_application import MARKET_CLASSES
-from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.strategy.discovery.discovery_config_map import discovery_config_map
 from hummingbot.strategy.discovery.discovery import DiscoveryMarketPair, DiscoveryStrategy
 
@@ -73,7 +74,7 @@ def start(self: "hummingbot.client.hummingbot_application.HummingbotApplication"
 
         def filter_trading_pair_by_single_token(market_name, single_token_list):
             matched_trading_pairs = set()
-            all_trading_pairs: List[str] = SymbolFetcher.get_instance().symbols.get(market_name, [])
+            all_trading_pairs: List[str] = TradingPairFetcher.get_instance().trading_pairs.get(market_name, [])
             for t in all_trading_pairs:
                 base_token, quote_token = MARKET_CLASSES[market_name].split_symbol(t)
                 if base_token in single_token_list or quote_token in single_token_list:
@@ -91,9 +92,9 @@ def start(self: "hummingbot.client.hummingbot_application.HummingbotApplication"
             return filtered_trading_pair + filter_trading_pair_by_single_token(market_name, single_tokens)
 
         if not target_symbol_1:
-            target_symbol_1 = SymbolFetcher.get_instance().symbols.get(market_1, [])
+            target_symbol_1 = TradingPairFetcher.get_instance().trading_pairs.get(market_1, [])
         if not target_symbol_2:
-            target_symbol_2 = SymbolFetcher.get_instance().symbols.get(market_2, [])
+            target_symbol_2 = TradingPairFetcher.get_instance().trading_pairs.get(market_2, [])
 
         target_symbol_1 = process_symbol_list(market_1, target_symbol_1)
         target_symbol_2 = process_symbol_list(market_2, target_symbol_2)
@@ -121,7 +122,7 @@ def start(self: "hummingbot.client.hummingbot_application.HummingbotApplication"
             target_amount=target_amount,
         )
 
-        asyncio.ensure_future(check_discovery_strategy_ready_loop(self))
+        safe_ensure_future(check_discovery_strategy_ready_loop(self))
     except Exception as e:
         self._notify(str(e))
         self.logger().error("Error initializing strategy.", exc_info=True)
