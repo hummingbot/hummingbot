@@ -91,7 +91,7 @@ nav:
         - Client Commands: cheatsheets/client.md
       - Bounties:
         - Liquidity Bounties FAQ: bounties/faq.md
-        - Active Liquidity Bounties:
+        - Active Bounties:
           - Harmony $ONE Makers: bounties/active/harmony.md
         - Bug Bounty Program: support/bug-bounty-program.md
       - Get Help:
