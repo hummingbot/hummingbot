@@ -11,7 +11,8 @@ from hummingbot.strategy.pure_market_making import (
     ConstantSizeSizingDelegate,
     StaggeredMultipleSizeSizingDelegate,
     InventorySkewSingleSizeSizingDelegate,
-    InventorySkewMultipleSizeSizingDelegate
+    InventorySkewMultipleSizeSizingDelegate,
+    PassThroughFilterDelegate
 )
 from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map
 
@@ -37,6 +38,7 @@ def start(self):
 
         pricing_delegate = None
         sizing_delegate = None
+        filter_delegate = PassThroughFilterDelegate()
 
         if mode == "multiple":
             pricing_delegate = ConstantMultipleSpreadPricingDelegate(bid_place_threshold,
@@ -79,6 +81,7 @@ def start(self):
         self.strategy = PureMarketMakingStrategyV2(market_infos=[MarketSymbolPair(*maker_data)],
                                                    mode=mode,
                                                    pricing_delegate=pricing_delegate,
+                                                   filter_delegate=filter_delegate,
                                                    sizing_delegate=sizing_delegate,
                                                    filled_order_replenish_wait_time=filled_order_replenish_wait_time,
                                                    enable_order_filled_stop_cancellation=enable_order_filled_stop_cancellation,
