@@ -19,8 +19,8 @@ cdef class LimitOrder:
                 limit_order.symbol,
                 limit_order.base_currency,
                 limit_order.quote_currency,
-                limit_order.price.normalize(),
-                limit_order.quantity.normalize()
+                float(limit_order.price),
+                float(limit_order.quantity)
             ] for limit_order in limit_orders]
 
         return pd.DataFrame(data=data, columns=columns)
