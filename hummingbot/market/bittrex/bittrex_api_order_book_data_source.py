@@ -12,9 +12,10 @@ import signalr_aio
 import ujson
 from async_timeout import timeout
 
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry, BittrexOrderBookTrackerEntry
+from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.bittrex.bittrex_active_order_tracker import BittrexActiveOrderTracker
@@ -246,8 +247,45 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return retval
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        # Trade messages are received from the order book web socket
-        pass
+
+        def convert_to_epoch(timestamp: str):
+            pattern = '%Y-%m-%dT%H:%M:%S'
+            if '.' not in timestamp:
+                return float(time.mktime(time.strptime(timestamp[:-1], pattern)))
+
+            return float(time.mktime(time.strptime(timestamp.split('.')[0], pattern)))
+        # Trade messages are received from REST API
+        while True:
+            try:
+                markets = await self.get_trading_pairs()  # Symbols of trading pair in V3 format i.e. 'Base-Quote'
+                for market in markets:
+                    market_trades_path_url = f"{BITTREX_REST_URL}/markets/{market}/trades"
+                    async with aiohttp.ClientSession() as client:
+                        async with client.get(market_trades_path_url) as trade_response:
+                            if trade_response.status != 200:
+                                raise IOError(f"Error fetching Bittrex market trades for {market}. "
+                                              f"HTTP status is {trade_response.status}")
+                            trade_data = await trade_response.json()
+                            for trade in trade_data:
+                                trade_type = float(TradeType.SELL.value) if trade["takerSide"] == "SELL" \
+                                    else float(TradeType.BUY.value)
+                                timestamp = convert_to_epoch(trade["executedAt"])
+                                output.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
+                                    "symbol": market,
+                                    "trade_type": trade_type,
+                                    "trade_id": trade["id"],
+                                    "update_id": timestamp,
+                                    "price": trade["rate"],
+                                    "amount": trade["quantity"]
+                                }, timestamp=timestamp))
+                    await asyncio.sleep(0.4)  # To accommodate Bittrex Call limit
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error with retrieving trade histories from Bittrex. "
+                                    "Retrying after 30 seconds...",
+                                    exc_info=True)
+                await asyncio.sleep(30.0)
 
     async def _socket_stream(self, conn: signalr_aio.Connection) -> AsyncIterable[str]:
         try:
