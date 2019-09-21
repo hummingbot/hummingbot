@@ -79,6 +79,24 @@ You should be able to paste items from your clipboard by doing mouse `right-clic
   ![](/assets/img/putty_3.png)
 
 
+#### How do I use the same email and ETH address for liquidity bounty when running multiple bots?
+
+Run the command `bounty --restore-id` in the other instance(s). Enter the email address you used to register for liquidity bounties where the verification code will be sent.
+
+Alternatively, you can also follow these steps below.
+
+- Installed from Docker:
+
+Create and run multiple Docker instances that use the same file folder location for configs and logs. Each instance will then use the same `conf_liquidity_bounty.yml` file.
+
+- Installed from source:
+
+1. Register for liquidity bounties using your email and ETH address
+2. Exit Hummingbot and open `conf/conf_liquidity_bounty.yml`
+3. Copy the contents of this file
+4. Create another instance of Hummingbot
+5. Paste what you copied in step 3 into `conf/conf_liquidity_bounty.yml` in this new instance
+
 
 #### How do I update Hummingbot after I had previously installed using old instructions?
 
