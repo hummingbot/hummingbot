@@ -1,8 +1,8 @@
 # Troubleshooting
 
-## Common errors with Hummingbot installed via Docker
+## **Common errors with Hummingbot installed via Docker**
 
-##### Error message:
+#### Permission denied after installation
 
 ```
 docker: Got permission denied while trying to connect to the Docker daemon socket at
@@ -14,10 +14,9 @@ dial unix /var/run/docker.sock: connect: permission denied.
 Exit from your virtual machine and restart.
 
 
+## **Common errors with Hummingbot installed from source**
 
-## Common errors with Hummingbot installed from source
-
-#### conda: not found
+#### Conda command not found
 
 ```
 $ conda
@@ -30,7 +29,7 @@ If you use `zshrc` or another shell other than `bash`, see the note at the botto
 
 #### Cannot start Hummingbot
 
-##### Error message:
+##### Syntax error invalid syntax
 
 ```
 File "bin/hummingbot.py", line 40
@@ -41,22 +40,31 @@ SyntaxError: invalid syntax
 
 Make sure you have activated the conda environment: `conda activate hummingbot`.
 
-##### Error message:
+##### Module not found error
 
 ```
 ModuleNotFoundError: No module named 'hummingbot.market.market_base'
+
+root - ERROR - No module named
+‘hummingbot.strategy.pure_market_making.inventory_skew_single_size_sizing_delegate’
+(See log file for stack trace dump)
 ```
 
-Make sure you have compiled Hummingbot in the Hummingbot environment: `conda activate hummingbot && ./compile`.
+Exit Hummingbot to compile and restart using these commands:
 
-## Common Errors with Windows + Docker Toolbox
+```bash
+conda activate hummingbot
+./compile
+bin/hummingbot.py
+```
+
+## **Common Errors with Windows + Docker Toolbox**
 
 Windows users may encounter the following error when running the Docker Toolbox for Windows:
 
 ```
 C:\Program Files\Docker Toolbox\docker.exe:
-Error response from daemon: Get https://registry-1.docker.io/v2/:
-net/http: request canceled while waiting for connection
+Error response from daemon: Get https://registry-1.docker.io/v2/:net/http: request canceled while waiting for connection
 (Client.Timeout exceeded while awaiting headers).
 See 'C:\Program Files\Docker Toolbox\docker.exe run --help'.
 ```
@@ -71,26 +79,47 @@ docker-machine restart default
 eval $(docker-machine env default)
 ```
 
-## Errors while running Hummingbot
+## **Errors while running Hummingbot**
 
-##### Error in running logs after update
+#### Binance errors in logs
+
+These are known issues from the Binance API and Hummingbot will attempt to reconnect afterwards.
 
 ```
-root - ERROR - No module named
-‘hummingbot.strategy.pure_market_making.inventory_skew_single_size_sizing_delegate’
-(See log file for stack trace dump)
+hummingbot.market.binance.binance_market - NETWORK - Unexpected error while fetching account updates.
+
+AttributeError: 'ConnectionError' object has no attribute 'code'
+AttributeError: 'TimeoutError' object has no attribute 'code'
+
+hummingbot.core.utils.async_call_scheduler - WARNING - API call error:
+('Connection aborted.', OSError("(104, 'ECONNRESET')",))
+
+hummingbot.market.binance.binance_market - NETWORK - Error fetching trades update for the order
+[BASE]USDT: ('Connection aborted.', OSError("(104, 'ECONNRESET')",)).
 ```
 
-Exit Hummingbot to compile and restart using these commands:
+!!! note
+    Hummingbot should run normally regardless of these errors. If the bot fails to perform or behave as expected (e.g. placing and cancelling orders, performing trades, stuck orders, orders not showing in exchange, etc.) you can get help through our [support channels](/support/index).
 
-```bash
-conda activate hummingbot
-./compile
-bin/hummingbot.py
+
+#### IDEX errors in logs
+
+You may see any of these errors in logs when trading on IDEX market. These are server-side issues on IDEX's end.
+
+```
+OSError: Error fetching data from https://api.idex.market/order.
+
+HTTP status is 400 - {'error': "Cannot destructure property `tier` of 'undefined' or 'null'."}
+HTTP status is 400 - {'error': 'Unauthorized'}
+HTTP status is 400 - {'error': 'Nonce too low. Please refresh and try again.'}
+HTTP status is 500 - {'error': 'Something went wrong. Try again in a moment.'}
 ```
 
+!!! note
+    Hummingbot should run normally regardless of these errors. If the bot fails to perform or behave as expected (e.g. placing and cancelling orders, performing trades, stuck orders, orders not showing in exchange, etc.) you can get help through our [support channels](/support/index).
 
-## Installed with Docker
+
+## **Common 'How To' Questions**
 
 Frequently asked questions and problems that may arise when using Hummingbot with Docker:
 
