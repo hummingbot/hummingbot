@@ -84,6 +84,8 @@ For example, if you are targeting a 50/50 base to quote asset ratio but the curr
 | `Would you like to enable inventory skew? (y/n) >>>`: | This sets `inventory_skew_enabled` (see [definition](#configuration-parameters)) |
 | `What is your target base asset inventory percentage (Enter 0.01 to indicate 1%) >>>`: | This sets `inventory_target_base_percent` (see [definition](#configuration-parameters)) |
 
+Here's an [inventory skew calculator](https://docs.google.com/spreadsheets/d/16oCExZyM8Wo8d0aRPmT_j7oXCzea3knQ5mmm0LlPGbU/edit#gid=690135600) that shows how it adjusts order sizes.
+
 
 ### Order Adjustment based on filled events
 
@@ -91,7 +93,7 @@ Currently, hummingbot places orders as soon as there are no active orders. If th
 
 You can add a delay using `filled_order_replenish_wait_time` for placing the next order immediately after the previous order gets completely filled, which will help address the above scenario.
 
-Example: 
+Example:
 Assume your buy order gets filled at 1:00:00 and the delay is set to be 10 seconds. The next orders are placed at 1:00:10. The sell order is also cancelled within this delay period and placed at this time (1:00:10) to ensure both buy and sell orders use the same reference mid price and are in sync.
 
 There is now an option using `enable_order_filled_stop_cancellation` to leave the orders on the other side hanging (not canceled) whenever a buy/sell order is completed.

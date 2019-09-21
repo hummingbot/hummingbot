@@ -4,7 +4,12 @@
 
 ##### Error message:
 
-> docker: Got permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock: Post http://%2Fvar%2Frun%2Fdocker.sock/v1.39/containers/create?name=hummingbot_instance: dial unix /var/run/docker.sock: connect: permission denied.
+```
+docker: Got permission denied while trying to connect to the Docker daemon socket at
+unix:///var/run/docker.sock: Post
+http://%2Fvar%2Frun%2Fdocker.sock/v1.39/containers/create?name=hummingbot_instance:
+dial unix /var/run/docker.sock: connect: permission denied.
+```
 
 Exit from your virtual machine and restart.
 
@@ -38,7 +43,9 @@ Make sure you have activated the conda environment: `conda activate hummingbot`.
 
 ##### Error message:
 
-> ModuleNotFoundError: No module named 'hummingbot.market.market_base'
+```
+ModuleNotFoundError: No module named 'hummingbot.market.market_base'
+```
 
 Make sure you have compiled Hummingbot in the Hummingbot environment: `conda activate hummingbot && ./compile`.
 
@@ -47,13 +54,16 @@ Make sure you have compiled Hummingbot in the Hummingbot environment: `conda act
 Windows users may encounter the following error when running the Docker Toolbox for Windows:
 
 ```
-C:\Program Files\Docker Toolbox\docker.exe: Error response from daemon: Get https://registry-1.docker.io/v2/: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers).
+C:\Program Files\Docker Toolbox\docker.exe:
+Error response from daemon: Get https://registry-1.docker.io/v2/:
+net/http: request canceled while waiting for connection
+(Client.Timeout exceeded while awaiting headers).
 See 'C:\Program Files\Docker Toolbox\docker.exe run --help'.
 ```
 
 This appears to be an environment configuration problem. The solution is to refresh the environment settings and restart the environment which can be done with the following commands:
 
-```
+```bash
 # Restart the environment
 docker-machine restart default
 
@@ -65,11 +75,15 @@ eval $(docker-machine env default)
 
 ##### Error in running logs after update
 
-> 2019-08-13 19:26:53,419 - root - ERROR - No module named ‘hummingbot.strategy.pure_market_making.inventory_skew_single_size_sizing_delegate’ (See log file for stack trace dump)
+```
+root - ERROR - No module named
+‘hummingbot.strategy.pure_market_making.inventory_skew_single_size_sizing_delegate’
+(See log file for stack trace dump)
+```
 
 Exit Hummingbot to compile and restart using these commands:
 
-```
+```bash
 conda activate hummingbot
 ./compile
 bin/hummingbot.py
@@ -84,7 +98,7 @@ Frequently asked questions and problems that may arise when using Hummingbot wit
 
 Run the following command to view the details of your instance:
 
-```
+```bash
 docker inspect $instance_name
 ```
 
@@ -124,19 +138,38 @@ You can also use an FTP client software (e.g. WinSCP, FileZila) to copy, move, f
 
 By default, the Docker Toolbox has copy and paste disabled within the command line. This can make it difficult to port long API and wallet keys to Hummingbot. However, there is a simple fix which can be enabled as follows:
 
-* Open up the Docker Toolbox via the Quickstart Terminal
+1. Open up the Docker Toolbox via the Quickstart Terminal
 
 ![](/assets/img/docker_toolbox_startup.PNG)
 
-* Right-click on the title bar of Toolbox and select "Properties"
+2. Right-click on the title bar of Toolbox and select "Properties"
 
 ![](/assets/img/docker_toolbox_properties.png)
 
-* Check the box under the "Options" tab to enable "Ctrl Key Shortcuts"
+3. Check the box under the "Options" tab to enable "Ctrl Key Shortcuts"
 
 ![](/assets/img/docker_toolbox_enable.png)
 
 Close any warnings, and you're done! Just hit enter to move onto the next line and you should be able to copy and paste text using **Ctrl+Shift+C** and **Ctrl+Shift+V**.
+
+
+#### How do I paste items from clipboard in PuTTY?
+
+You should be able to paste items from your clipboard by doing `SHIFT + right-click`. If that doesn't work, follow the steps below.
+
+1. If you are currently logged in a session, do a left-click on the upper left hand corner of the PuTTY window or a right-click anywhere on the title bar then select "Change Settings". If not, proceed to step 2.
+
+![](/assets/img/putty_1.png)
+
+2. In PuTTY configuration under Window category go to "Selection". Select the "Window" radio button for action of mouse buttons.
+
+![](/assets/img/putty_2.img)
+
+3. You can now paste items from clipboard by doing a right-click to bring up the menu and select "Paste".
+
+![](/assets/img/putty_3.img)
+
+
 
 #### How do I update Hummingbot after I had previously installed using old instructions?
 
@@ -146,7 +179,7 @@ Copy the commands below and run from the root folder (i.e. when you type `ls`, m
 
 * If your previous instance was named `my-hummingbot` (check by running `docker ps -a`):
 
-```
+```bash
 # Remove instance
 docker rm my-hummingbot && \
 # Remove old image
@@ -163,7 +196,7 @@ coinalpha/hummingbot:latest
 
 * If your previous instance was named `my-instance-1` (check by running `docker ps -a`):
 
-```
+```bash
 # Remove instance
 docker rm my-instance-1 && \
 # Remove old image
