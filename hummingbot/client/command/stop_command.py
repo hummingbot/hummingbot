@@ -28,7 +28,8 @@ class StopCommand:
             # Remove the strategy from clock before cancelling orders, to
             # prevent race condition where the strategy tries to create more
             # orders during cancellation.
-            self.clock.remove_iterator(self.strategy)
+            if self.clock:
+                self.clock.remove_iterator(self.strategy)
             success = await self._cancel_outstanding_orders()
             if success:
                 # Only erase markets when cancellation has been successful
