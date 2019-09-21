@@ -324,7 +324,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         :param active_orders: list of active limit orders associated with the market pair
         """
         cdef:
-            double current_hedging_price
+            object current_hedging_price
             MarketBase taker_market
             bint is_buy
             bint has_active_bid = False

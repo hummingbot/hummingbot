@@ -28,6 +28,11 @@ def start(self):
     order_size_portfolio_ratio_limit = cross_exchange_market_making_config_map.get("order_size_portfolio_ratio_limit").value
     anti_hysteresis_duration = cross_exchange_market_making_config_map.get("anti_hysteresis_duration").value
 
+    # check if top depth tolerance is a list or if trade size override exists
+    if isinstance(top_depth_tolerance, list) or "trade_size_override" in cross_exchange_market_making_config_map:
+        self._notify("Current config is not compatible with cross exchange market making strategy. Please reconfigure")
+        return
+
     market_names: List[Tuple[str, List[str]]] = [
         (maker_market, [raw_maker_trading_pair]),
         (taker_market, [raw_taker_trading_pair]),

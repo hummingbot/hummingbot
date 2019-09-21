@@ -263,7 +263,8 @@ cdef class HuobiMarket(MarketBase):
 
             data = parsed_response.get("data")
             if data is None:
-                raise IOError(f"Error reading data from {url}. Response is {parsed_response}.")
+                self.logger().error(f"Error received from {url}. Response is {parsed_response}.")
+                return {"error": parsed_response}
             return data
 
     async def _update_account_id(self) -> str:
@@ -339,7 +340,8 @@ cdef class HuobiMarket(MarketBase):
                                 max_order_size=Decimal(info["max-order-amt"]),
                                 min_price_increment=Decimal(f"1e-{info['price-precision']}"),
                                 min_base_amount_increment=Decimal(f"1e-{info['amount-precision']}"),
-                                min_quote_amount_increment=Decimal(f"1e-{info['value-precision']}"))
+                                min_quote_amount_increment=Decimal(f"1e-{info['value-precision']}"),
+                                min_notional_size=Decimal(info["min-order-value"]))
                 )
             except Exception:
                 self.logger().error(f"Error parsing the symbol rule {info}. Skipping.", exc_info=True)
@@ -390,6 +392,16 @@ cdef class HuobiMarket(MarketBase):
                                         f"The order has either been filled or canceled."
                     )
                     continue
+                if order_update.get("error") is not None:
+                    error_code = order_update.get("error").get("error-code")
+                    if error_code == "base-record-invalid":  # order no longer exists
+                        self.c_stop_tracking_order(tracked_order.client_order_id)
+                        self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled according"
+                                            f" to order status API. error code - {error_code}")
+                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                                OrderCancelledEvent(self._current_timestamp,
+                                                                    tracked_order.client_order_id))
+                        continue
 
                 order_state = order_update["state"]
                 # possible order states are "submitted", "partial-filled", "cancelling", "filled", "canceled"
@@ -690,11 +702,11 @@ cdef class HuobiMarket(MarketBase):
         return order_id
 
     async def execute_cancel(self, symbol: str, order_id: str):
-        tracked_order = self._in_flight_orders.get(order_id)
-        if tracked_order is None:
-            raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-        path_url = f"order/orders/{tracked_order.exchange_order_id}/submitcancel"
         try:
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is None:
+                raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
+            path_url = f"order/orders/{tracked_order.exchange_order_id}/submitcancel"
             await self._api_request("post", path_url=path_url, is_auth_required=True)
         except Exception as e:
             self.logger().network(
@@ -727,7 +739,8 @@ cdef class HuobiMarket(MarketBase):
             )
             for oid in cancel_all_results["success"]:
                 cancellation_results.append(CancellationResult(oid, True))
-            for oid in cancel_all_results["failed"]:
+            for cancel_error in cancel_all_results["failed"]:
+                oid = cancel_error["order-id"]
                 cancellation_results.append(CancellationResult(oid, False))
         except Exception as e:
             self.logger().network(
@@ -797,6 +810,8 @@ cdef class HuobiMarket(MarketBase):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
             object quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
+            double current_price = self.c_get_price(symbol, False)
+            double notional_size
 
         # Check against min_order_size. If not passing check, return 0.
         if quantized_amount < trading_rule.min_order_size:
@@ -805,5 +820,13 @@ cdef class HuobiMarket(MarketBase):
         # Check against max_order_size. If not passing check, return maximum.
         if quantized_amount > trading_rule.max_order_size:
             return trading_rule.max_order_size
+
+        if price == 0:
+            notional_size = current_price * float(quantized_amount)
+        else:
+            notional_size = price * float(quantized_amount)
+        # Add 1% as a safety factor in case the prices changed while making the order.
+        if notional_size < float(trading_rule.min_notional_size * Decimal(1.01)):
+            return s_decimal_0
 
         return quantized_amount
