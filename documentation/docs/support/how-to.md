@@ -64,7 +64,7 @@ Close any warnings, and you're done! Just hit enter to move onto the next line a
 
 #### How do I paste items from clipboard in PuTTY?
 
-You should be able to paste items from your clipboard by doing `SHIFT + right-click`. If that doesn't work, follow the steps below.
+You should be able to paste items from your clipboard by doing mouse `right-click`. If that doesn't work, follow the steps below.
 
 1. If you are currently logged in a session, do a left-click on the upper left hand corner of the PuTTY window or a right-click anywhere on the title bar then select "Change Settings". If not, proceed to step 2.
 
