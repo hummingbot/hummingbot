@@ -140,15 +140,16 @@ By default, the Docker Toolbox has copy and paste disabled within the command li
 
 1. Open up the Docker Toolbox via the Quickstart Terminal
 
-![](/assets/img/docker_toolbox_startup.PNG)
+  ![](/assets/img/docker_toolbox_startup.PNG)
 
 2. Right-click on the title bar of Toolbox and select "Properties"
 
-![](/assets/img/docker_toolbox_properties.png)
+  ![](/assets/img/docker_toolbox_properties.png)
 
 3. Check the box under the "Options" tab to enable "Ctrl Key Shortcuts"
 
-![](/assets/img/docker_toolbox_enable.png)
+  ![](/assets/img/docker_toolbox_enable.png)
+
 
 Close any warnings, and you're done! Just hit enter to move onto the next line and you should be able to copy and paste text using **Ctrl+Shift+C** and **Ctrl+Shift+V**.
 
@@ -159,15 +160,15 @@ You should be able to paste items from your clipboard by doing `SHIFT + right-cl
 
 1. If you are currently logged in a session, do a left-click on the upper left hand corner of the PuTTY window or a right-click anywhere on the title bar then select "Change Settings". If not, proceed to step 2.
 
-![](/assets/img/putty_1.png)
+  ![](/assets/img/putty_1.png)
 
 2. In PuTTY configuration under Window category go to "Selection". Select the "Window" radio button for action of mouse buttons.
 
-![](/assets/img/putty_2.img)
+  ![](/assets/img/putty_2.png)
 
 3. You can now paste items from clipboard by doing a right-click to bring up the menu and select "Paste".
 
-![](/assets/img/putty_3.img)
+  ![](/assets/img/putty_3.png)
 
 
 
