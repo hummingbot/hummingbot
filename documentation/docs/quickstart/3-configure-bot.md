@@ -33,12 +33,10 @@ Enable paper trading mode (y/n) ? >>> y
 New config saved:
 paper_trade_enabled: y
 
-Your configuration is incomplete. Would you like to proceed and finish all necessary configurations? (y/n) >>> y
+Your configuration is incomplete. Would you like to proceed and finish all necessary configurations? (y/n) >>> n
 ```
 
-Enabling paper trade mode will skip the prompt to enter your API keys, Ethereum wallet, and Ethereum node during configuration.
-
-For more information about this feature, see [Paper Trading Mode](/utilities/paper-trade.md) in the User Manual. To perform actual trading, proceed to the next step.
+For more information about this feature, see [Paper Trading Mode](/utilities/paper-trade) in the User Manual. To perform actual trading, proceed to the next step.
 
 
 ## Step 3: Register for Liquidity Bounties (Optional)
@@ -90,13 +88,13 @@ Enter the token symbol you would like to trade on binance (e.g. ZRXETH) >>>
 ETHUSDT
 ```
 
-Alternatively, you can select a decentralized exchange like IDEX:
+Alternatively, you can select a decentralized exchange like Radar Relay:
 ```
 Enter your maker exchange name >>>
-idex
+radar_relay
 
-Enter the token symbol you would like to trade on idex (e.g. ETH_ZRX) >>>
-ETH_DAI
+Enter the token symbol you would like to trade on radar_relay (e.g. ZRX-WETH) >>>
+ZRX-WETH
 ```
 
 !!! note
