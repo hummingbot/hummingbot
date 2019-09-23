@@ -162,6 +162,7 @@ nav:
         - Debug Console: developers/debug.md
     - Release Notes:
       - About Releases: release-notes/index.md
+      - 0.15.0: release-notes/0.15.0.md
       - 0.14.0: release-notes/0.14.0.md
       - 0.13.0: release-notes/0.13.0.md
       - 0.12.1: release-notes/0.12.1.md
