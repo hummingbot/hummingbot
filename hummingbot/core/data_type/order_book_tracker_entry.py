@@ -105,6 +105,7 @@ class BambooRelayOrderBookTrackerEntry(OrderBookTrackerEntry):
     def active_order_tracker(self) -> BambooRelayActiveOrderTracker:
         return self._active_order_tracker
 
+
 class CoinbaseProOrderBookTrackerEntry(OrderBookTrackerEntry):
     def __init__(
         self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: CoinbaseProActiveOrderTracker
