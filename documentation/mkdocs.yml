@@ -144,6 +144,7 @@ nav:
       - Data Feeds:
         - Data Feeds Overview: feeds.md
       - Utilities:
+        - Paper Trading Mode: utilities/paper-trade.md
         - Kill Switch: utilities/kill-switch.md
         - Logs and Logging: utilities/logging.md
         - Using Exchange Rates: utilities/exchange-rates.md
