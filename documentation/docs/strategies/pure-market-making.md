@@ -86,42 +86,45 @@ For example, if you are targeting a 50/50 base to quote asset ratio but the curr
 
 Here's an [inventory skew calculator](https://docs.google.com/spreadsheets/d/16oCExZyM8Wo8d0aRPmT_j7oXCzea3knQ5mmm0LlPGbU/edit#gid=690135600) that shows how it adjusts order sizes.
 
-
-### Order Adjustment based on filled events
-
-Currently, hummingbot places orders as soon as there are no active orders. If there is a sustained movement in the market in any one direction for sometime, there is a risk that you might end up with a lot of base tokens in the case of a downward move or a lot of quote tokens in the case of an upward move.
-
-You can add a delay using `filled_order_replenish_wait_time` for placing the next order immediately after the previous order gets completely filled, which will help address the above scenario.
-
-Example:
-Assume your buy order gets filled at 1:00:00 and the delay is set to be 10 seconds. The next orders are placed at 1:00:10. The sell order is also cancelled within this delay period and placed at this time (1:00:10) to ensure both buy and sell orders use the same reference mid price and are in sync.
-
-There is now an option using `enable_order_filled_stop_cancellation` to leave the orders on the other side hanging (not canceled) whenever a buy/sell order is completed.
-
-Example:
-Assume you are running Pure Market making in single order mode, the order size is 1 and the mid price is 100. Then,
-
-1. If your bid threshold is 0.01, then your bid is placed at 99
-2. If your ask threshold is 0.01, then your ask is placed at 101
-3. If your current bid at 99 is fully filled (i.e), your current buy order for the size of 1 is fully completed
-4. Now after the `cancel_order_wait_time` the ask order at 101 would be canceled normally
-5. With the `enable_order_filled_stop_cancellation` parameter, you can leave this order hanging
-6. After the `cancel_order_wait_time` you will now see two asks and one bid order, which will be the new bid and ask orders created after the wait time, along with the earlier un-canceled ask order.
-
-The `enable_order_filled_stop_cancellation` can be used if there is enough volatility such that the hanging order might eventually get filled. It should also be used with caution, as the user should monitor the bot regularly to manually cancel orders which don't get filled. It is recommended to disable inventory skew while running this feature.
-
-As these are experimental features, we are currently rolling them out to only `single order mode` for testing and receiving further feedback from the community.
-
- | Prompt | Description |
-|-----|-----|
-| `How long do you want to wait before placing the next order in case your order gets filled (in seconds). (Default is 10 seconds)? >>> " ` | This sets `filled_order_replenish_wait_time` (see [definition](#configuration-parameters)) |
-| `Do you want to enable order_filled_stop_cancellation. If enabled, when orders are completely filled, the other side remains uncanceled (Default is False)? >>> " ` | This sets `enable_order_filled_stop_cancellation` (see [definition](#configuration-parameters)) |
-
 #### Determining order size
 
 The input `order_amount` is adjusted by the ratio of current base (or quote) percentage versus target percentage:
 
 ![Inventory skew calculations](/assets/img/inventory-skew-calculation.png)
+
+### Order Adjustment Based on Filled Events
+
+By defaults, Hummingbot places orders as soon as there are no active orders; i.e., Hummingbot immediately places a new order to replace a filled order. If there is a sustained movement in the market in any one direction for some time, there is a risk of continued trading in that direction: for example, continuing to buy and accumulate base tokens in the case of a prolonged downward move or continuing to sell in the case of a prolonged upward move.
+
+#### Order Replenish Time
+
+The `filled_order_replenish_wait_time` parameter allows for a delay when placing a new order in the event of an order being filled, which will help mitigate the above scenarios.
+
+> Example:
+If you have a buy order that is filled at 1:00:00 and the delay is set as 10 seconds. The next orders placed wil be at 1:00:10. The sell order is also cancelled within this delay period and placed at 1:00:10 to ensure that both buy and sell orders stay in sync.
+
+#### "Hanging" Orders
+
+Typically, orders are placed as pairs, e.g. 1 buy order + 1 sell order (or multiple of buy/sell, in multiple mode).  There is now an option using `enable_order_filled_stop_cancellation` to leave the orders on the other side hanging (not cancelled) whenever a one side (buy or sell) is filled.
+
+> Example:
+Assume you are running pure parket making in single order mode, the order size is 1 and the mid price is 100. Then,
+<ul><li> Based on bid and ask thresholds of 0.01, your bid/ask orders would be placed at 99 and 101, respectively.
+<li> Your current bid at 99 is fully filled, i.e. someone takes your order and you buy 1.
+<li> By default, after the `cancel_order_wait_time`, the ask order at 101 would be canceled normally
+<li> With the `enable_order_filled_stop_cancellation` parameter:
+<ul><li>the original 101 ask order stays outstanding
+<li> After the `cancel_order_wait_time`, a new pair of bid and ask orders are created, resulting in a total of 1 bid order and 2 ask orders (original and new).  The original ask order stays outstanding until that is filled or manually cancelled.</ul></ul>
+
+The `enable_order_filled_stop_cancellation` can be used if there is enough volatility such that the hanging order might eventually get filled. It should also be used with caution, as the user should monitor the bot regularly to manually cancel orders which don't get filled. It is recommended to disable inventory skew while running this feature.
+
+!!! note "Hanging order feature: currently on `single` trading mode only"
+    Since the "hanging orders" feature is experimental, it is currently only available in `single order mode` for testing and receiving further feedback from the community.
+
+ | Prompt | Description |
+|-----|-----|
+| `How long do you want to wait before placing the next order in case your order gets filled (in seconds). (Default is 10 seconds)? >>> ` | This sets `filled_order_replenish_wait_time` (see [definition](#configuration-parameters)) |
+| `Do you want to enable order_filled_stop_cancellation. If enabled, when orders are completely filled, the other side remains uncanceled (Default is False)? >>> ` | This sets `enable_order_filled_stop_cancellation` (see [definition](#configuration-parameters)) |
 
 ## Configuration Parameters
 
