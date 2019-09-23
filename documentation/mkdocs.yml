@@ -90,14 +90,15 @@ nav:
         - Source Commands: cheatsheets/source.md
         - Client Commands: cheatsheets/client.md
       - Bounties:
-        - FAQ: bounties/faq.md
+        - Liquidity Bounties FAQ: bounties/faq.md
         - Active Bounties:
           - Harmony $ONE Makers: bounties/active/harmony.md
+        - Bug Bounty Program: support/bug-bounty-program.md
       - Get Help:
         - FAQ: support/faq.md
-        - Contact and Support: support/index.md
         - Troubleshooting: support/troubleshooting.md
-        - Bug Bounty Program: support/bug-bounty-program.md
+        - Common 'How To' Questions: support/how-to.md
+        - Contact and Support: support/index.md
         - 中文 Github repo: https://github.com/coinalpha/hummingbot_chinese
     - User Manual:
       - Intro: manual.md
@@ -143,6 +144,7 @@ nav:
       - Data Feeds:
         - Data Feeds Overview: feeds.md
       - Utilities:
+        - Paper Trading Mode: utilities/paper-trade.md
         - Kill Switch: utilities/kill-switch.md
         - Logs and Logging: utilities/logging.md
         - Using Exchange Rates: utilities/exchange-rates.md
@@ -161,6 +163,7 @@ nav:
         - Debug Console: developers/debug.md
     - Release Notes:
       - About Releases: release-notes/index.md
+      - 0.15.0: release-notes/0.15.0.md
       - 0.14.0: release-notes/0.14.0.md
       - 0.13.0: release-notes/0.13.0.md
       - 0.12.1: release-notes/0.12.1.md

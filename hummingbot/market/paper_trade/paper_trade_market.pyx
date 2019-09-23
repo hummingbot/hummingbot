@@ -61,6 +61,7 @@ from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.paper_trade.trading_pair import TradingPair
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 from .market_config import (
     MarketConfig,
@@ -303,7 +304,7 @@ cdef class PaperTradeMarket(MarketBase):
 
     async def start_network(self):
         await self.stop_network()
-        self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
+        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
 
     async def stop_network(self):
         if self._order_tracker_task is not None:
@@ -923,12 +924,14 @@ cdef class PaperTradeMarket(MarketBase):
             return Decimal(f"1e-15")
 
     cdef object c_quantize_order_price(self, str symbol, object price):
-        price = float('%.8g' % price)  # hard code to round to 8 significant digits
+        price = float('%.7g' % price)  # hard code to round to 7 significant digits
         price_quantum = self.c_get_order_price_quantum(symbol, price)
         return round(Decimal('%s' % price) / price_quantum) * price_quantum
 
     cdef object c_quantize_order_amount(self, str symbol, object amount, object price = s_decimal_0):
-        amount = float('%.8g' % amount)  # hard code to round to 8 significant digits
+        amount = float('%.7g' % amount)  # hard code to round to 7 significant digits
+        if amount <= 1e-7:
+            amount = 0
         order_size_quantum = self.c_get_order_size_quantum(symbol, amount)
         return (Decimal('%s' % amount) // order_size_quantum) * order_size_quantum
 

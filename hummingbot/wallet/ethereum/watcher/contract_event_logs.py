@@ -17,6 +17,7 @@ from web3.utils.events import get_event_data
 from web3.utils.filters import construct_event_filter_params
 
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 
 DEFAULT_WINDOW_SIZE = 100
@@ -70,7 +71,7 @@ class ContractEventLogger:
             event_filter_params["blockHash"] = block_hash.hex()
             tasks.append(self._get_logs(event_filter_params))
 
-        raw_logs = await asyncio.gather(*tasks, return_exceptions=True)
+        raw_logs = await safe_gather(*tasks, return_exceptions=True)
         logs: List[any] = list(cytoolz.concat(raw_logs))
         new_entries = []
         for log in logs:

@@ -219,7 +219,6 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.simulate_maker_market_trade(False, 10.0, float(bid_order.price) * 0.99)
 
         self.clock.backtest_til(self.start_timestamp + 10)
-        print(self.maker_order_fill_logger.event_log)
         self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
         self.assertEqual(1, len(self.taker_order_fill_logger.event_log))
 
@@ -237,8 +236,6 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_asks[0][1]
-        print(bid_order)
-        print(ask_order)
         self.assertEqual(Decimal("0.99452"), bid_order.price)
         self.assertEqual(Decimal("1.0056"), ask_order.price)
         self.assertEqual(Decimal("3.0"), bid_order.quantity)
@@ -314,6 +311,15 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             self.maker_market.get_balance(self.maker_symbols[2]) + self.taker_market.get_balance(self.taker_symbols[2]),
             10,
         )
+        self.assertEqual(2, len(self.taker_order_fill_logger.event_log))
+        taker_fill1: OrderFilledEvent = self.taker_order_fill_logger.event_log[0]
+        self.assertEqual(TradeType.SELL, taker_fill1.trade_type)
+        self.assertAlmostEqual(0.9895, taker_fill1.price)
+        self.assertAlmostEqual(3.0, taker_fill1.amount)
+        taker_fill2: OrderFilledEvent = self.taker_order_fill_logger.event_log[1]
+        self.assertEqual(TradeType.BUY, taker_fill2.trade_type)
+        self.assertAlmostEqual(1.0105, taker_fill2.price)
+        self.assertAlmostEqual(3.0, taker_fill2.amount)
 
     def test_with_conversion(self):
         self.clock.remove_iterator(self.strategy)
