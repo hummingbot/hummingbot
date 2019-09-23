@@ -7,6 +7,14 @@ Our official [Discord server](https://discord.hummingbot.io) is the primary gath
 
 **When you sign up for our Discord, please check that the link you are accessing is `https://discord.hummingbot.io`.**
 
+For users reporting issues, these 3 items will help us triage your issue:
+
+1. **Screenshot**: In the Hummingbot client, run the `status` command and take a screenshot that includes the full terminal/bash window. Make sure to include both the left pane and the right log pane of Hummingbot.
+
+2. **Strategy config file**: This is the file with the parameters associated with your strategy. It does not contain API keys, wallet private keys, or other confidential data. It is located in the `conf/` folder. For example, if you have configured a pure market making strategy for the first time, the file's default name is `conf_pure_market_making_0.yml`.
+
+3. **Log file**: This is the file that contains a detailed log output and error stack trace. It is located in the `logs/` folder. If you are sending logs related to your most recent Hummingbot session, sort the folder for the most recently updated file. It should have a name similar to `hummingbot_logs_2019-07-31-19-51-36.log`.
+
 !!! warning
     Currently, our Discord server is the only officially-supported online Hummingbot community. We do not maintain any other communities on Telegram, WeChat, Slack, or other applications. Please beware that any such communities (except for the official Hummingbot Discord) may be scams.
 

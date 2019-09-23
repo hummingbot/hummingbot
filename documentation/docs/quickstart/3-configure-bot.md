@@ -1,8 +1,5 @@
 # [Quickstart] Configure Your First Trading Bot
 
-!!! note "Paper trading mode [in progress]"
-    We are currently working on a paper trading mode that will allow you to test out Hummingbot without risking real crypto. For now, you still need to run a live trading bot.
-
 If you have successfully installed Hummingbot using our install scripts, you should see the command line-based Hummingbot interface below.
 
 ![](/assets/img/hummingbot-cli.png)
@@ -26,8 +23,23 @@ bounty  Participate in hummingbot's liquidity bounty programs
 
 etc...
 ```
+## Step 2: Enable Paper Trading Mode (Optional)
 
-## Step 2: Register for Liquidity Bounties (Optional)
+You can run Hummingbot and simulate trading strategies without executing and placing actual trades. Run command `paper_trade` at the beginning to enable this feature.
+
+```
+Enable paper trading mode (y/n) ? >>> y
+
+New config saved:
+paper_trade_enabled: y
+
+Your configuration is incomplete. Would you like to proceed and finish all necessary configurations? (y/n) >>> n
+```
+
+For more information about this feature, see [Paper Trading Mode](/utilities/paper-trade) in the User Manual. To perform actual trading, proceed to the next step.
+
+
+## Step 3: Register for Liquidity Bounties (Optional)
 
 Liquidity Bounties allow you to earn rewards by running market making bots for specific tokens and/or exchanges.
 
@@ -41,7 +53,7 @@ Hummingbot enters into partnerships with token issuers and exchanges to administ
 4. Enter your email address
 5. Confirm information and finalize
 
-## Step 3: Configure a market making bot
+## Step 4: Configure a market making bot
 
 Now, let's walk through the process of configuring a basic market making bot.
 
@@ -76,13 +88,13 @@ Enter the token symbol you would like to trade on binance (e.g. ZRXETH) >>>
 ETHUSDT
 ```
 
-Alternatively, you can select a decentralized exchange like IDEX:
+Alternatively, you can select a decentralized exchange like Radar Relay:
 ```
 Enter your maker exchange name >>>
-idex
+radar_relay
 
-Enter the token symbol you would like to trade on idex (e.g. ETH_ZRX) >>>
-ETH_DAI
+Enter the token symbol you would like to trade on radar_relay (e.g. ZRX-WETH) >>>
+ZRX-WETH
 ```
 
 !!! note
@@ -130,7 +142,7 @@ Here's an [inventory skew calculator](https://docs.google.com/spreadsheets/d/16o
 Now that you have set up how your market making bot will behave, it's time to provide it with the necessary API keys (for centralized exchanges) or wallet/node info (for decentralized exchanges) that it needs to operate:
 
 !!! note "Copying and pasting in Windows"
-    If you are using a Windows machine, you may need to activate copying and pasting on Docker Toolbox. Please see [this page](/support/troubleshooting/#how-do-i-copy-and-paste-in-docker-toolbox-windows) for instructions on how to activate this.
+    If you are using a Windows machine, you may need to activate copying and pasting on Docker Toolbox. Please see [this page](/support/how-to/#how-do-i-copy-and-paste-in-docker-toolbox-windows) for instructions on how to activate this.
 
 If you selected a centralized exchange like Binance in Step 3(b), you will need to :
 ```
@@ -181,7 +193,7 @@ At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5% l
 -0.05
 ```
 
-## Step 4: Adjusting Parameters
+## Step 5: Adjusting Parameters
 
 If you want to reconfigure the bot from the beginning, type `config` and reply `y` to the question `Would you like to reconfigure the bot? (y/n) >>>?`. This will prompt all questions during initial set up.
 
@@ -219,7 +231,7 @@ bid_place_threshold: 0.02
 
 ```
 
-You can also exit the bot with `exit` and edit the automatically generated configuration file `conf_pure_market_making_0.yml`. This file is saved in the directory `hummingbot_files/hummingbot_conf/` in your root. For more information, see [Troubleshooting](/support/troubleshooting/#how-do-i-edit-the-conf-files-or-access-the-log-files-used-by-my-docker-instance).
+You can also exit the bot with `exit` and edit the automatically generated configuration file `conf_pure_market_making_0.yml`. This file is saved in the directory `hummingbot_files/hummingbot_conf/` in your root. For more information, see [Troubleshooting](/support/how-to/#how-do-i-edit-the-conf-files-or-access-the-log-files-used-by-my-docker-instance).
 
 
 ---
