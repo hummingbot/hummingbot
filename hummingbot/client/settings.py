@@ -1,7 +1,4 @@
-from os.path import (
-    realpath,
-    join,
-)
+from os.path import realpath, join
 from typing import List
 
 from hummingbot import get_strategy_list
@@ -32,15 +29,11 @@ EXCHANGES = {
     "huobi",
     "idex",
     "radar_relay",
-    "bittrex"
+    "bittrex",
+    "bitroyal"
 }
 
-DEXES = {
-    "bamboo_relay",
-    "ddex",
-    "idex",
-    "radar_relay",
-}
+DEXES = {"bamboo_relay", "ddex", "idex", "radar_relay"}
 
 STRATEGIES: List[str] = get_strategy_list()
 
