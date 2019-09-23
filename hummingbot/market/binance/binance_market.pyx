@@ -490,7 +490,7 @@ cdef class BinanceMarket(MarketBase):
             for order_update, tracked_order in zip(results, tracked_orders):
                 client_order_id = tracked_order.client_order_id
 
-                # If the order has already been cancelled or has failed do nothing
+                # If the order has already been cancelled or has failed, do nothing
                 if client_order_id not in self._in_flight_orders:
                     continue
 
@@ -546,8 +546,8 @@ cdef class BinanceMarket(MarketBase):
                                                                          float(tracked_order.fee_paid),
                                                                          order_type))
                     else:
-                        # check if its a cancelled order
-                        # if its a cancelled order, issue cancel and stop tracking order
+                        # check if it is a cancelled order
+                        # if it is a cancelled order, issue cancel and stop tracking order
                         if tracked_order.last_state == "CANCELED":
                             self.logger().info(f"Successfully cancelled order {client_order_id}.")
                             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
