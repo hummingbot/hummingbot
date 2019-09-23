@@ -39,18 +39,24 @@ Currently, we split all the configuration variables into three different types.
 ## ConfigVar Class
 The ConfigVar Class is located in `hummingbot/client/config/config_var.py`. It standardizes each config setting with a set of attributes.
 
-| Config type   | In-memory location | Saved to local yml | Description                 |
-|-------------- | ------------------ | ------------------ | --------------------------- |
-| `in_memory`   | `hummingbot/client/config/in_memory_config_map.py` | No | Configs that are never saved and prompted every time (currently, only the `strategy` and `strategy_config_path` are in this config map.
-| `global`      | `hummingbot/client/config/global_config_map.py` | Yes | Strategy-agnostic configs such as exchange API keys, wallet selection, etc.
-| `strategy`    | `hummingbot/strategy/{STRATEGY_NAME}/{STRATEGY_NAME}_strategy_config_map.py` | Yes | Strategy-specific configs.
+| Attribute     | Attribute Type  | Use | 
+|-------------- | --------------- | --- |
+| `key`         | str             | Unique key that identifies a config variable. |
+| `prompt`      | str or callable | Question displayed in the client when the bot collects user input for this config setting. You can modify the string in run time by passing a function rather than a static string. |
+| `is_secure`   | bool            | Whether the user input needs to be masked with "***". |
+| `default`     | any             | Default value for this variable if user input is None. |
+| `type-str`    | str             | One of {"str", "list", "dict", "float", "int", "bool"}. Defaults to "str". This is used by `parse_cvar_value` to parse user input into correct data type. |
+| `required_if` | callable        | A condition check for whether this config setting needs to be prompted during the configuration flow. |
+| `validator`   | callable        | A condition check for whether an input is a valid value for this config setting. |
+| `on_validated`| callable        | A function hook that gets activated if an input passes the validation check (e.g. set wallet requirement to True when a valid DEX name is entered.) |
 
-## Altering a single config
+Check `hummingbot/client/config/config_var.py` for more details.
 
-
-## Resetting all configs
-
-
-## Development Tips
+### Config definition conventions
 1. Always place configs that will alters requirement state first. 
    Example: `telegram_token` should only be required if `telegram_enabled` is set to True. Therefore `telegram_enabled` should be listed before `telegram_token`.
+2. For exchange-specific configurations, use `using_exchange("exchange_name")` as the `required_if` condition.
+3. When writing prompt questions, be sure to add examples for a better user experience.
+4. When prompting for a boolean value, add `(y/n)` as options so that the user knows what to enter.
+5. When prompting a question with a few choices as answers e.g. `["import", "create", etc]`, make sure to include all options in the format of `(OPTION_1/OPTION_2/OPTION_3)`. 
+   This pattern is recognized by our autocomplete system, and the user can hit `Tab` to have the option autofilled. 
