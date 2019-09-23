@@ -89,7 +89,6 @@ class RadarRelayOrderBookTrackerEntry(OrderBookTrackerEntry):
     def active_order_tracker(self) -> RadarRelayActiveOrderTracker:
         return self._active_order_tracker
 
-
 class BambooRelayOrderBookTrackerEntry(OrderBookTrackerEntry):
     def __init__(
         self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: BambooRelayActiveOrderTracker
@@ -106,7 +105,6 @@ class BambooRelayOrderBookTrackerEntry(OrderBookTrackerEntry):
     @property
     def active_order_tracker(self) -> BambooRelayActiveOrderTracker:
         return self._active_order_tracker
-
 
 class CoinbaseProOrderBookTrackerEntry(OrderBookTrackerEntry):
     def __init__(
@@ -161,14 +159,17 @@ class BittrexOrderBookTrackerEntry(OrderBookTrackerEntry):
 
 
 class BitroyalOrderBookTrackerEntry(OrderBookTrackerEntry):
-    def __init__(self, symbol: str, timestamp: float, order_book: OrderBook,
-                 active_order_tracker: BitroyalActiveOrderTracker):
+    def __init__(
+        self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: BitroyalActiveOrderTracker
+    ):
         self._active_order_tracker = active_order_tracker
         super(BitroyalOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
 
     def __repr__(self) -> str:
-        return f"BitroyalOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', " \
+        return (
+            f"BitroyalOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', "
             f"order_book='{self._order_book}')"
+        )
 
     @property
     def active_order_tracker(self) -> BitroyalActiveOrderTracker:
