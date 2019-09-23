@@ -159,6 +159,7 @@ nav:
           - Adding Connectors: developers/connectors/index.md
           - Adding Connectors to Other Blockchains: developers/connectors/new-blockchain.md
         - Debug Console: developers/debug.md
+        - Configuration: developers/config.md
     - Release Notes:
       - About Releases: release-notes/index.md
       - 0.14.0: release-notes/0.14.0.md
