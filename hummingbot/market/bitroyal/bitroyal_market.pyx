@@ -94,7 +94,7 @@ cdef class InFlightDeposit:
         f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
 
 
-cdef class bitroyalMarket(MarketBase):
+cdef class BitroyalMarket(MarketBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
