@@ -45,7 +45,7 @@ The following walks through all the steps when running `config` for the first ti
 | `Import previous configs or create a new config file? (import/create) >>>`: | When running the bot for the first time, enter `create`.<br/>If you have previously initialized, enter `import`, which will then ask you to specify the config file location. |
 | `Enter your maker exchange name >>>`: | The exchange where the bot will place bid and ask orders.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, or `bamboo_relay` *(case sensitive)* |
 | `Enter quantity of orders per side (bid/ask) (single/multiple, default is single)>>> `: | `single` or `multiple`<br />Specify if you would like a single order per side (i.e. one bid and one ask), or multiple orders each side.<br /><br />Multiple allows for different prices and sizes for each side. See [additional configuration for multiple orders](#multiple-order-configuration). |
-| `Enter the token symbol you would like to trade on [maker exchange name] >>>`: | Enter the token symbol for the *maker exchange*.<br/>Example input: `ETH-USD`<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: options available are based on each exchange's methodology for labeling currency pairs. Ensure that the pair is a valid pair for the selected exchange.</td></tr></tbody></table> |
+| `Enter the token symbol you would like to trade on [maker exchange name] >>>`: | Enter the token symbol for the *maker exchange*.<br/>Example input: `ETH-USD`<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Options available are based on each exchange's methodology for labeling currency pairs. Ensure that the pair is a valid pair for the selected exchange.</td></tr></tbody></table> |
 | `How far away from the mid price do you want to place the first bid (Enter 0.01 to indicate 1%)? >>>`: | This sets `bid_place_threshold` (see [definition](#configuration-parameters)). |
 | `How far away from the mid price do you want to place the first ask (Enter 0.01 to indicate 1%)? >>>`: | This sets `ask_place_threshold` (see [definition](#configuration-parameters)). |
 | `How often do you want to cancel and replace bids and asks (in seconds)? >>>`: | This sets the `cancel_order_wait_time` (see [definition](#configuration-parameters)). |
@@ -59,6 +59,8 @@ The following walks through all the steps when running `config` for the first ti
 | `What base token would you like to use to calculate your inventory value? (Default "USD") >>>` | This sets `stop_loss_base_token` (see [definition](#configuration-parameters)) |
 | `Would you like to enable inventory skew? (y/n) >>>` | This sets `inventory_skew_enabled` (see [definition](#configuration-parameters)) |
 | `What is your target base asset inventory percentage (Enter 0.01 to indicate 1%)? >>> ` | This sets `inventory_target_base_percent` (see [definition](#configuration-parameters)) |
+| `How long do you want to wait before placing the next order in case your order gets filled (in seconds). (Default is 10 seconds)? >>> " ` | This sets `filled_order_replenish_wait_time` (see [definition](#configuration-parameters)) |
+| `Do you want to enable order_filled_stop_cancellation. If enabled, when orders are completely filled, the other side remains uncanceled (Default is False)? >>> " ` | This sets `enable_order_filled_stop_cancellation` (see [definition](#configuration-parameters)) |
 
 ### Multiple Order Configuration
 
@@ -82,11 +84,47 @@ For example, if you are targeting a 50/50 base to quote asset ratio but the curr
 | `Would you like to enable inventory skew? (y/n) >>>`: | This sets `inventory_skew_enabled` (see [definition](#configuration-parameters)) |
 | `What is your target base asset inventory percentage (Enter 0.01 to indicate 1%) >>>`: | This sets `inventory_target_base_percent` (see [definition](#configuration-parameters)) |
 
+Here's an [inventory skew calculator](https://docs.google.com/spreadsheets/d/16oCExZyM8Wo8d0aRPmT_j7oXCzea3knQ5mmm0LlPGbU/edit#gid=690135600) that shows how it adjusts order sizes.
+
 #### Determining order size
 
 The input `order_amount` is adjusted by the ratio of current base (or quote) percentage versus target percentage:
 
 ![Inventory skew calculations](/assets/img/inventory-skew-calculation.png)
+
+### Order Adjustment Based on Filled Events
+
+By defaults, Hummingbot places orders as soon as there are no active orders; i.e., Hummingbot immediately places a new order to replace a filled order. If there is a sustained movement in the market in any one direction for some time, there is a risk of continued trading in that direction: for example, continuing to buy and accumulate base tokens in the case of a prolonged downward move or continuing to sell in the case of a prolonged upward move.
+
+#### Order Replenish Time
+
+The `filled_order_replenish_wait_time` parameter allows for a delay when placing a new order in the event of an order being filled, which will help mitigate the above scenarios.
+
+> Example:
+If you have a buy order that is filled at 1:00:00 and the delay is set as 10 seconds. The next orders placed wil be at 1:00:10. The sell order is also cancelled within this delay period and placed at 1:00:10 to ensure that both buy and sell orders stay in sync.
+
+#### "Hanging" Orders
+
+Typically, orders are placed as pairs, e.g. 1 buy order + 1 sell order (or multiple of buy/sell, in multiple mode).  There is now an option using `enable_order_filled_stop_cancellation` to leave the orders on the other side hanging (not cancelled) whenever a one side (buy or sell) is filled.
+
+> Example:
+Assume you are running pure parket making in single order mode, the order size is 1 and the mid price is 100. Then,
+<ul><li> Based on bid and ask thresholds of 0.01, your bid/ask orders would be placed at 99 and 101, respectively.
+<li> Your current bid at 99 is fully filled, i.e. someone takes your order and you buy 1.
+<li> By default, after the `cancel_order_wait_time`, the ask order at 101 would be canceled normally
+<li> With the `enable_order_filled_stop_cancellation` parameter:
+<ul><li>the original 101 ask order stays outstanding
+<li> After the `cancel_order_wait_time`, a new pair of bid and ask orders are created, resulting in a total of 1 bid order and 2 ask orders (original and new).  The original ask order stays outstanding until that is filled or manually cancelled.</ul></ul>
+
+The `enable_order_filled_stop_cancellation` can be used if there is enough volatility such that the hanging order might eventually get filled. It should also be used with caution, as the user should monitor the bot regularly to manually cancel orders which don't get filled. It is recommended to disable inventory skew while running this feature.
+
+!!! note "Hanging order feature: currently on `single` trading mode only"
+    Since the "hanging orders" feature is experimental, it is currently only available in `single order mode` for testing and receiving further feedback from the community.
+
+ | Prompt | Description |
+|-----|-----|
+| `How long do you want to wait before placing the next order in case your order gets filled (in seconds). (Default is 10 seconds)? >>> ` | This sets `filled_order_replenish_wait_time` (see [definition](#configuration-parameters)) |
+| `Do you want to enable order_filled_stop_cancellation. If enabled, when orders are completely filled, the other side remains uncanceled (Default is False)? >>> ` | This sets `enable_order_filled_stop_cancellation` (see [definition](#configuration-parameters)) |
 
 ## Configuration Parameters
 
@@ -102,11 +140,10 @@ The following parameters are fields in Hummingbot configuration files (located i
 | **order_start_size**<br /><small>(multiple order strategy)</small> | The size of the `first` order, which is the order closest to the mid price (i.e. best bid and best ask).
 | **order_step_size**<br /><small>(multiple order strategy)</small> | The magnitude of incremental size increases for orders subsequent orders from the first order.<br />*Example: entering `1` when the first order size is `10` results in bid sizes of `11` and `12` for the second and third orders, respectively, for a `3` order strategy.*
 | **order_interval_percent**<br /><small>(multiple order strategy only)</small> | The percentage amount increase in price for subsequent orders from the first order. <em>Example:<br /> for a mid price of 100, `ask_place_threshold` of 0.01, and `order_interval_percent` of 0.005,<br />the first, second, and third ask prices would be **101** (= 100 + 0.01 x 100), **101.5** (= 101 + 0.005 x 100), and **102**.</em>
-| **stop_loss_pct** | The threshold amount upon which `hummingbot` will cease placing orders if the value of inventory has fallen.
-| **stop_loss_price_type** | The pricing methdology used by `hummingbot` uses when calculating inventory value when evaluating the stop loss feature.<ul><li>`fixed`: uses the assets prices from when the strategy was first started.<li>`dynamic`: uses current prevailing prices for assets.</ul>
-| **stop_loss_base_token** | The base currency into which inventory is valued for purposes of evaluating stop loss.
 | **inventory_skew_enabled** | When this is `true`, the bid and ask order sizes are adjusted based on the `inventory_target_base_percent`.
 | **inventory_target_base_percent** | An amount expressed in decimals (i.e. input of `0.01` corresponds to 1%) <br/> The strategy will place bid and ask orders with adjusted sizes (based on `order_amount`, `order_start_size`) and try to maintain this base asset vs. total (base + quote) asset value.<br/><br/>*Example: You are market making ETH / USD with `order_amount: 1` and balances of 10 ETH and 1000 USD. Your current base asset value is ~67% and quote asset value is ~33%. If `inventory_target_base_percent: 0.5`, the order amount will be adjusted from 1 ETH bid, 1 ETH ask to 0.67 ETH bid, 1.33 ETH ask.*
+| **filled_order_replenish_wait_time** | An amount in seconds, which specifies the delay before placing the next order for single order mode. _Default value: 10 seconds_. <br/> See section above on Order Adjustment based on filled events.
+| **enable_order_filled_stop_cancellation** | When this is `true`, the orders on the side opposite to the filled orders remains uncanceled. _Default value: False_. <br/> See section above on Order Adjustment based on filled events.
 
 ## Risks and Trading Mechanics
 

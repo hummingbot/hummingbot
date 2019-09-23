@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from decimal import Decimal
 
 from aiokafka import ConsumerRecord
 import bz2
@@ -42,6 +43,24 @@ cdef class HuobiOrderBook(OrderBook):
             "asks": msg["tick"]["asks"]
         }
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, content, timestamp or msg_ts)
+
+    @classmethod
+    def trade_message_from_exchange(cls,
+                                   msg: Dict[str, Any],
+                                   timestamp: Optional[float] = None,
+                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+        if metadata:
+            msg.update(metadata)
+        msg_ts = int(msg["ts"] * 1e-3)
+        content = {
+            "symbol": msg["trading_pair"],
+            "trade_type": float(TradeType.SELL.value) if msg["direction"] == "buy" else float(TradeType.BUY.value),
+            "trade_id": msg["id"],
+            "update_id": msg_ts,
+            "amount": msg["amount"],
+            "price": msg["price"]
+        }
+        return OrderBookMessage(OrderBookMessageType.DIFF, content, timestamp or msg_ts)
 
     @classmethod
     def diff_message_from_exchange(cls,

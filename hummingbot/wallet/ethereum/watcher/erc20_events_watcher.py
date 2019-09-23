@@ -25,6 +25,10 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.wallet.ethereum.erc20_token import ERC20Token
 from hummingbot.core.event.event_forwarder import EventForwarder
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
+    safe_gather,
+)
 from .base_watcher import BaseWatcher
 from .new_blocks_watcher import NewBlocksWatcher
 from .contract_event_logs import ContractEventLogger
@@ -75,8 +79,16 @@ class ERC20EventsWatcher(BaseWatcher):
         if len(self._address_to_asset_name_map) < len(self._addresses_to_contracts):
             for address, contract in self._addresses_to_contracts.items():
                 contract: Contract = contract
-                asset_name: str = await self.call_async(ERC20Token.get_symbol_from_contract, contract)
-                decimals: int = await self.call_async(contract.functions.decimals().call)
+                try:
+                    asset_name: str = await self.call_async(ERC20Token.get_symbol_from_contract, contract)
+                    decimals: int = await self.call_async(contract.functions.decimals().call)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    self.logger().network("Error fetching ERC20 token information.",
+                                          app_warning_msg="Could not fetch ERC20 token information. Check Ethereum "
+                                                          "node connection.",
+                                          exc_info=True)
                 self._address_to_asset_name_map[address] = asset_name
                 self._asset_decimals[asset_name] = decimals
                 self._contract_event_loggers[address] = ContractEventLogger(self._w3, address, contract.abi)
@@ -85,7 +97,7 @@ class ERC20EventsWatcher(BaseWatcher):
             await self.stop_network()
 
         self._blocks_watcher.add_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
-        self._poll_erc20_logs_task = asyncio.ensure_future(self.poll_erc20_logs_loop())
+        self._poll_erc20_logs_task = safe_ensure_future(self.poll_erc20_logs_loop())
 
     async def stop_network(self):
 
@@ -116,8 +128,8 @@ class ERC20EventsWatcher(BaseWatcher):
                                                                         block_hashes)
                     )
 
-                raw_transfer_entries = await asyncio.gather(*transfer_tasks)
-                raw_approval_entries = await asyncio.gather(*approval_tasks)
+                raw_transfer_entries = await safe_gather(*transfer_tasks)
+                raw_approval_entries = await safe_gather(*approval_tasks)
                 transfer_entries = list(cytoolz.concat(raw_transfer_entries))
                 approval_entries = list(cytoolz.concat(raw_approval_entries))
                 for transfer_entry in transfer_entries:

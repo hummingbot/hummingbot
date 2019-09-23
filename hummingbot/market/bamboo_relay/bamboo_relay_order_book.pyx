@@ -9,6 +9,7 @@ from typing import (
 
 from sqlalchemy.engine import RowProxy
 
+from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
