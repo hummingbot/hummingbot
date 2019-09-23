@@ -495,13 +495,13 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
     cdef bint c_check_if_price_has_drifted(self, object market_pair, LimitOrder active_order):
         """
-        Given a currently active limit order on maker side, check if its current price is still correct - given the
-        current hedging price on taker market, depth tolerance and transient orders on the maker market captured by
+        Given a currently active limit order on maker side, check if its current price is still valid, based on the
+        current hedging price on taker market, depth tolerance, and transient orders on the maker market captured by
         recent suggested price samples.
 
-        If the active order's price is no longer the right price, the order will be cancelled.
+        If the active order's price is no longer valid, the order will be cancelled.
 
-        This function is only used when active order cancelled is enabled.
+        This function is only used when active order cancellation is enabled.
 
         :param market_pair: cross exchange market pair
         :param active_order: a current active limit order in the market pair
