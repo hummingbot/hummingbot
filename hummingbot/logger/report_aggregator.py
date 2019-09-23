@@ -12,6 +12,7 @@ from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.bittrex.bittrex_market import BittrexMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
+from hummingbot.market.bitroyal.bitroyal_market import BitroyalMarket
 from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
@@ -20,6 +21,7 @@ from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 MARKETS = {
     "ddex": DDEXMarket,
     "coinbase_pro": CoinbaseProMarket,
+    "bitroyal": BitroyalMarket,
     "binance": BinanceMarket,
     "bamboo_relay": BambooRelayMarket,
     "radar_relay": RadarRelayMarket,
