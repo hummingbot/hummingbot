@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import hmac
 import logging
+import time
 from base64 import b64decode
 from typing import AsyncIterable, Dict, Optional, List, Any
 from zlib import decompress, MAX_WBITS
@@ -56,6 +57,9 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             self.logger().warning(f"Message recv() timed out. Reconnecting to Bittrex SignalR WebSocket... ")
 
     async def _transform_raw_message(self, msg) -> Dict[str, Any]:
+
+        timestamp_patten = "%Y-%m-%dT%H:%M:%S"
+
         def _decode_message(raw_message: bytes) -> Dict[str, Any]:
             try:
                 decode_msg: bytes = decompress(b64decode(raw_message, validate=True), -MAX_WBITS)
@@ -85,20 +89,21 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         if _is_auth_context(msg):
             output["event_type"] = "auth"
             output["content"] = {"signature": _get_signed_challenge(self._bittrex_auth.secret_key, msg["R"])}
-        else:
+        elif _is_balance_delta(msg):
+            output["event_type"] = "uB"
             output["content"] = _decode_message(msg["M"][0]["A"][0])
+
+        elif _is_order_delta(msg):
+            output["event_type"] = "uO"
+            output["content"] = _decode_message(msg["M"][0]["A"][0])
+            output["time"] = time.strftime(timestamp_patten, time.gmtime(output["content"]['o']['u'] / 1000))
 
             # TODO: Refactor accordingly when V3 WebSocket API is released
             # WebSocket API returns market symbols in 'Quote-Base' format
             # Code below converts 'Quote-Base' -> 'Base-Quote'
-            output["content"]["o"]["E"].update({
-                "M": f"{output['content']['o']['E']['M'].split('-')[1]}-{output['content']['o']['E']['M'].split('-')[0]}"
+            output["content"].update({
+                "M": f"{output['content']['o']['E'].split('-')[1]}-{output['content']['o']['E'].split('-')[0]}"
             })
-            if _is_balance_delta(msg):
-                output["event_type"] = "uB"
-
-            elif _is_order_delta(msg):
-                output["event_type"] = "uO"
 
         return output
 
@@ -126,7 +131,7 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                             hub.server.invoke("Authenticate", self._bittrex_auth.api_key, signature)
                             continue
 
-                        if content_type in ["uB", "uO"]:  # uB: Balance Delta, uO: Order Delta
+                        if content_type in ["uO"]:  # uB: Balance Delta, uO: Order Delta
                             order_delta: OrderBookMessage = self.order_book_class.diff_message_from_exchange(decode)
                             output.put_nowait(order_delta)
 
