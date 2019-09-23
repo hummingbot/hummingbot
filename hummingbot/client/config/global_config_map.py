@@ -29,7 +29,6 @@ def using_wallet() -> bool:
 # Main global config store
 global_config_map = {
     # The variables below are usually not prompted during setup process
-<<<<<<< HEAD
     "client_id":
         ConfigVar(key="client_id",
                   prompt=None,

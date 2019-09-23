@@ -17,6 +17,7 @@ IDEX_REST_ENDPOINT = "https://api.idex.market/returnTicker"
 HUOBI_ENDPOINT = "https://api.huobi.pro/v1/common/symbols"
 BITTREX_ENDPOINT = "https://api.bittrex.com/v3/markets"
 DOLOMITE_ENDPOINT = "https://exchange-api.dolomite.io/v1/markets"
+BITROYAL_ENDPOINT = "https://apicoinmartprod.alphapoint.com:8443/API"
 
 API_CALL_TIMEOUT = 5
 
@@ -71,8 +72,9 @@ class TradingPairFetcher:
         page_count = 1
         while True:
             async with aiohttp.ClientSession() as client:
-                async with client.get(f"{RADAR_RELAY_ENDPOINT}?perPage=100&page={page_count}", timeout=API_CALL_TIMEOUT) \
-                        as response:
+                async with client.get(
+                    f"{RADAR_RELAY_ENDPOINT}?perPage=100&page={page_count}", timeout=API_CALL_TIMEOUT
+                ) as response:
                     if response.status == 200:
                         try:
                             markets = await response.json()
@@ -99,7 +101,6 @@ class TradingPairFetcher:
                         try:
                             markets = await response.json()
                             new_trading_pairs = set(map(lambda details: details.get('id'), markets))
-                            if len(new_trading_pairs) == 0:
                                 break
                             else:
                                 trading_pairs = trading_pairs.union(new_trading_pairs)
@@ -183,6 +184,19 @@ class TradingPairFetcher:
                         # Do nothing if the request fails -- there will be no autocomplete for dolomite trading pairs
                 return []
 
+    @staticmethod
+    async def fetch_bitroyal_trading_pairs() -> List[str]:
+        async with aiohttp.ClientSession() as client:
+            async with client.get(BITROYAL_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                if response.status == 200:
+                    try:
+                        markets = await response.json()
+                        return list(map(lambda details: details.get('id'), markets))
+                    except Exception:
+                        pass
+                        # Do nothing if the request fails -- there will be no autocomplete for bitroyal trading pairs
+                return []
+
     async def fetch_all(self):
         binance_trading_pairs = await self.fetch_binance_trading_pairs()
         ddex_trading_pairs = await self.fetch_ddex_trading_pairs()
@@ -193,6 +207,7 @@ class TradingPairFetcher:
         huobi_trading_pairs = await self.fetch_huobi_trading_pairs()
         idex_trading_pairs = await self.fetch_idex_trading_pairs()
         bittrex_trading_pairs = await self.fetch_bittrex_trading_pairs()
+        bitroyal_trading_pairs = await self.fetch_bittrex_trading_pairs()
         self.trading_pairs = {
             "binance": binance_trading_pairs,
             "dolomite": dolomite_trading_pairs,
@@ -203,5 +218,6 @@ class TradingPairFetcher:
             "coinbase_pro": coinbase_pro_trading_pairs,
             "huobi": huobi_trading_pairs,
             "bittrex": bittrex_trading_pairs,
+            "bitroyal": bitroyal_trading_pairs,
         }
         self.ready = True
