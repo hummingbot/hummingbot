@@ -33,7 +33,7 @@ Enable paper trading mode (y/n) ? >>> y
 New config saved:
 paper_trade_enabled: y
 
-Your configuration is incomplete. Would you like to proceed and finish all necessary configurations? (y/n) >>> y
+Your configuration is incomplete. Would you like to proceed and finish all necessary configurations? (y/n) >>> n
 ```
 
 Enabling paper trade mode will skip the prompt to enter your API keys, Ethereum wallet, and Ethereum node during configuration.
