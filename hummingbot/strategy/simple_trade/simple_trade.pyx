@@ -20,7 +20,7 @@ from hummingbot.market.market_base import (
     TradeType
 )
 
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
 
 from libc.stdint cimport int64_t
@@ -50,7 +50,7 @@ cdef class SimpleTradeStrategy(StrategyBase):
         return ds_logger
 
     def __init__(self,
-                 market_infos: List[MarketSymbolPair],
+                 market_infos: List[MarketTradingPairTuple],
                  order_type: str = "limit",
                  order_price: Optional[float] = None,
                  cancel_order_wait_time: Optional[float] = 60.0,
@@ -104,7 +104,7 @@ cdef class SimpleTradeStrategy(StrategyBase):
         return self._sb_order_tracker.in_flight_cancels
 
     @property
-    def market_info_to_active_orders(self) -> Dict[MarketSymbolPair, List[LimitOrder]]:
+    def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         return self._sb_order_tracker.market_pair_to_active_orders
 
     @property
@@ -139,7 +139,7 @@ cdef class SimpleTradeStrategy(StrategyBase):
             warning_lines.extend(self.network_warning([market_info]))
 
             markets_df = self.market_status_data_frame([market_info])
-            lines.extend(["", "  Markets:"]  + ["    " + line for line in str(markets_df).split("\n")])
+            lines.extend(["", "  Markets:"] + ["    " + line for line in str(markets_df).split("\n")])
 
             assets_df = self.wallet_balance_data_frame([market_info])
             lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
@@ -193,7 +193,7 @@ cdef class SimpleTradeStrategy(StrategyBase):
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
-            #If its not market order
+            # If its not market order
             if limit_order_record is not None:
                 self.log_with_clock(
                     logging.INFO,
@@ -217,7 +217,7 @@ cdef class SimpleTradeStrategy(StrategyBase):
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
-            #If its not market order
+            # If its not market order
             if limit_order_record is not None:
                 self.log_with_clock(
                     logging.INFO,
@@ -275,13 +275,12 @@ cdef class SimpleTradeStrategy(StrategyBase):
 
         self.logger().info(f"Checking to see if the user has enough balance to place orders")
 
-
         if self.c_has_enough_balance(market_info):
 
             if self._order_type == "market":
                 if self._is_buy:
                     order_id = self.c_buy_with_specific_market(market_info,
-                                                               amount =  quantized_amount)
+                                                               amount = quantized_amount)
                     self.logger().info("Market buy order has been executed")
                 else:
                     order_id = self.c_sell_with_specific_market(market_info,
@@ -306,7 +305,6 @@ cdef class SimpleTradeStrategy(StrategyBase):
         else:
             self.logger().info(f"Not enough balance to run the strategy. Please check balances and try again.")
 
-
     cdef c_has_enough_balance(self, object market_info):
         cdef:
             MarketBase market = market_info.market
@@ -317,15 +315,13 @@ cdef class SimpleTradeStrategy(StrategyBase):
 
         return quote_asset_balance >= self._order_amount * price if self._is_buy else base_asset_balance >= self._order_amount
 
-
     cdef c_process_market(self, object market_info):
         cdef:
             MarketBase maker_market = market_info.market
             set cancel_order_ids = set()
 
         if self._place_orders:
-
-            #If current timestamp is greater than the start timestamp + time delay place orders
+            # If current timestamp is greater than the start timestamp + time delay place orders
             if self._current_timestamp > self._start_timestamp + self._time_delay:
 
                 self._place_orders = False
@@ -339,7 +335,7 @@ cdef class SimpleTradeStrategy(StrategyBase):
 
         active_orders = self.market_info_to_active_orders.get(market_info, [])
 
-        if len(active_orders) >0 :
+        if len(active_orders) >0:
             for active_order in active_orders:
                 if self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
                     cancel_order_ids.add(active_order.client_order_id)
@@ -348,5 +344,3 @@ cdef class SimpleTradeStrategy(StrategyBase):
 
             for order in cancel_order_ids:
                 self.c_cancel_order(market_info, order)
-
-

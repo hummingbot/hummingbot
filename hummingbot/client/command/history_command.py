@@ -61,11 +61,11 @@ class HistoryCommand:
         performance_analysis = PerformanceAnalysis()
         dedup_set: Set[Tuple[str, str, bool]] = set()
 
-        for market_symbol_pair in self.market_symbol_pairs:
+        for market_trading_pair_tuple in self.market_trading_pair_tuples:
             for is_base in [True, False]:
                 for is_starting in [True, False]:
-                    market_name = market_symbol_pair.market.name
-                    asset_name = market_symbol_pair.base_asset if is_base else market_symbol_pair.quote_asset
+                    market_name = market_trading_pair_tuple.market.name
+                    asset_name = market_trading_pair_tuple.base_asset if is_base else market_trading_pair_tuple.quote_asset
                     asset_name = asset_name.upper()
                     if len(self.assets) == 0 or len(self.markets) == 0:
                         # Prevent KeyError '***SYMBOL***'
@@ -83,11 +83,11 @@ class HistoryCommand:
         return performance_analysis
 
     def get_market_mid_price(self,  # type: HummingbotApplication
-                            ) -> float:
-        # Compute the current exchange rate. We use the first market_symbol_pair because
+                             ) -> float:
+        # Compute the current exchange rate. We use the first market_trading_pair_tuple because
         # if the trading pairs are different, such as WETH-DAI and ETH-USD, the currency
         # pairs above will contain the information in terms of the first trading pair.
-        market_pair_info = self.market_symbol_pairs[0]
+        market_pair_info = self.market_trading_pair_tuples[0]
         market = market_pair_info.market
         buy_price = market.get_price(market_pair_info.trading_pair, True)
         sell_price = market.get_price(market_pair_info.trading_pair, False)
@@ -128,4 +128,3 @@ class HistoryCommand:
         price: float = self.get_market_mid_price()
         return_performance = performance_analysis.compute_return(price)
         return return_performance
-

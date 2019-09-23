@@ -3,7 +3,7 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from decimal import Decimal
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
@@ -97,7 +97,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             )
         )
 
-        self.market_info: MarketSymbolPair = MarketSymbolPair(
+        self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             *(
                 [self.maker_market] + self.maker_symbols
             )
@@ -694,7 +694,7 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
             )
         )
 
-        self.market_info: MarketSymbolPair = MarketSymbolPair(
+        self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             *(
                 [self.maker_market] + self.maker_symbols
             )
