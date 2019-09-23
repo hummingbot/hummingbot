@@ -84,13 +84,21 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         if _is_auth_context(msg):
             output["event_type"] = "auth"
-            output["content"] = {"signature": _get_signed_challenge(msg["R"])}
-        elif _is_balance_delta(msg):
-            output["event_type"] = "uB"
+            output["content"] = {"signature": _get_signed_challenge(self._bittrex_auth.secret_key, msg["R"])}
+        else:
             output["content"] = _decode_message(msg["M"][0]["A"][0])
-        elif _is_order_delta(msg):
-            output["event_type"] = "uO"
-            output["content"] = _decode_message(msg["M"][0]["A"][0])
+
+            # TODO: Refactor accordingly when V3 WebSocket API is released
+            # WebSocket API returns market symbols in 'Quote-Base' format
+            # Code below converts 'Quote-Base' -> 'Base-Quote'
+            output["content"]["o"]["E"].update({
+                "M": f"{output['content']['o']['E']['M'].split('-')[1]}-{output['content']['o']['E']['M'].split('-')[0]}"
+            })
+            if _is_balance_delta(msg):
+                output["event_type"] = "uB"
+
+            elif _is_order_delta(msg):
+                output["event_type"] = "uO"
 
         return output
 
@@ -107,7 +115,6 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
                 async for raw_message in self._socket_user_stream(connection):
                     decode: Dict[str, Any] = await self._transform_raw_message(raw_message)
-
                     if decode["error"]:
                         self.logger().error(decode["error"])
                         continue
