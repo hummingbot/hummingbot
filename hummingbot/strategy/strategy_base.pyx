@@ -9,7 +9,7 @@ from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.core.time_iterator cimport TimeIterator
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.core.data_type.trade import Trade
@@ -150,7 +150,7 @@ cdef class StrategyBase(TimeIterator):
 
         return sorted(past_trades, key=lambda x: x.timestamp)
 
-    def market_status_data_frame(self, market_symbol_pairs: List[MarketSymbolPair]) -> pd.DataFrame:
+    def market_status_data_frame(self, market_trading_pair_tuples: List[MarketTradingPairTuple]) -> pd.DataFrame:
         cdef:
             MarketBase market
             double market_1_ask_price
@@ -164,8 +164,8 @@ cdef class StrategyBase(TimeIterator):
             list markets_data = []
             list markets_columns = ["Market", "Symbol", "Bid Price", "Ask Price", "Adjusted Bid", "Adjusted Ask"]
         try:
-            for market_symbol_pair in market_symbol_pairs:
-                market, trading_pair, base_asset, quote_asset = market_symbol_pair
+            for market_trading_pair_tuple in market_trading_pair_tuples:
+                market, trading_pair, base_asset, quote_asset = market_trading_pair_tuple
                 order_book = market.get_order_book(trading_pair)
                 bid_price = order_book.get_price(False)
                 ask_price = order_book.get_price(True)
@@ -184,7 +184,7 @@ cdef class StrategyBase(TimeIterator):
         except Exception:
             self.logger().error("Error formatting market stats.", exc_info=True)
 
-    def wallet_balance_data_frame(self, market_symbol_pairs: List[MarketSymbolPair]) -> pd.DataFrame:
+    def wallet_balance_data_frame(self, market_trading_pair_tuples: List[MarketTradingPairTuple]) -> pd.DataFrame:
         cdef:
             MarketBase market
             str base_asset
@@ -196,8 +196,8 @@ cdef class StrategyBase(TimeIterator):
             list assets_data = []
             list assets_columns = ["Market", "Asset", "Total Balance", "Available Balance", "Conversion Rate"]
         try:
-            for market_symbol_pair in market_symbol_pairs:
-                market, trading_pair, base_asset, quote_asset = market_symbol_pair
+            for market_trading_pair_tuple in market_trading_pair_tuples:
+                market, trading_pair, base_asset, quote_asset = market_trading_pair_tuple
                 base_balance = market.get_balance(base_asset)
                 quote_balance = market.get_balance(quote_asset)
                 available_base_balance = market.get_available_balance(base_asset)
@@ -214,31 +214,31 @@ cdef class StrategyBase(TimeIterator):
         except Exception:
             self.logger().error("Error formatting wallet balance stats.", exc_info=True)
 
-    def balance_warning(self, market_symbol_pairs: List[MarketSymbolPair]) -> List[str]:
+    def balance_warning(self, market_trading_pair_tuples: List[MarketTradingPairTuple]) -> List[str]:
         cdef:
             double base_balance
             double quote_balance
             list warning_lines = []
         # Add warning lines on null balances.
         # TO-DO: $Use min order size logic to replace the hard-coded 0.0001 value for each asset.
-        for market_symbol_pair in market_symbol_pairs:
-            base_balance = market_symbol_pair.market.get_balance(market_symbol_pair.base_asset)
-            quote_balance = market_symbol_pair.market.get_balance(market_symbol_pair.quote_asset)
+        for market_trading_pair_tuple in market_trading_pair_tuples:
+            base_balance = market_trading_pair_tuple.market.get_balance(market_trading_pair_tuple.base_asset)
+            quote_balance = market_trading_pair_tuple.market.get_balance(market_trading_pair_tuple.quote_asset)
             if base_balance <= 0.0001:
-                warning_lines.append(f"  {market_symbol_pair.market.name} market "
-                                     f"{market_symbol_pair.base_asset} balance is too low. Cannot place order.")
+                warning_lines.append(f"  {market_trading_pair_tuple.market.name} market "
+                                     f"{market_trading_pair_tuple.base_asset} balance is too low. Cannot place order.")
             if quote_balance <= 0.0001:
-                warning_lines.append(f"  {market_symbol_pair.market.name} market "
-                                     f"{market_symbol_pair.quote_asset} balance is too low. Cannot place order.")
+                warning_lines.append(f"  {market_trading_pair_tuple.market.name} market "
+                                     f"{market_trading_pair_tuple.quote_asset} balance is too low. Cannot place order.")
         return warning_lines
 
-    def network_warning(self, market_symbol_pairs: List[MarketSymbolPair]) -> List[str]:
+    def network_warning(self, market_trading_pair_tuples: List[MarketTradingPairTuple]) -> List[str]:
         cdef:
             list warning_lines = []
             str trading_pairs
-        if not all([market_symbol_pair.market.network_status is NetworkStatus.CONNECTED for
-                    market_symbol_pair in market_symbol_pairs]):
-            trading_pairs = " // ".join([market_symbol_pair.trading_pair for market_symbol_pair in market_symbol_pairs])
+        if not all([market_trading_pair_tuple.market.network_status is NetworkStatus.CONNECTED for
+                    market_trading_pair_tuple in market_trading_pair_tuples]):
+            trading_pairs = " // ".join([market_trading_pair_tuple.trading_pair for market_trading_pair_tuple in market_trading_pair_tuples])
             warning_lines.extend([
                 f"  Markets are offline for the {trading_pairs} pair. Continued trading "
                 f"with these markets may be dangerous.",
@@ -334,7 +334,6 @@ cdef class StrategyBase(TimeIterator):
         elif order_type == OrderType.MARKET:
             self.c_stop_tracking_market_order(market_pair, order_id)
 
-
     cdef c_did_cancel_order_tracker(self, object order_cancelled_event):
         cdef:
             str order_id = order_cancelled_event.order_id
@@ -364,7 +363,7 @@ cdef class StrategyBase(TimeIterator):
 
     # <editor-fold desc="+ Creating and cancelling orders">
     # ----------------------------------------------------------------------------------------------------------
-    cdef str c_buy_with_specific_market(self, object market_symbol_pair, object amount,
+    cdef str c_buy_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                         object order_type = OrderType.MARKET,
                                         object price = decimal_nan,
                                         double expiration_seconds = NaN):
@@ -378,7 +377,7 @@ cdef class StrategyBase(TimeIterator):
             dict kwargs = {
                 "expiration_ts": self._current_timestamp + max(self._sb_limit_order_min_expiration, expiration_seconds)
             }
-            MarketBase market = market_symbol_pair.market
+            MarketBase market = market_trading_pair_tuple.market
             double native_amount = float(amount)
             double native_price = float(price)
 
@@ -386,18 +385,18 @@ cdef class StrategyBase(TimeIterator):
             raise ValueError(f"Market object for buy order is not in the whitelisted markets set.")
 
         cdef:
-            str order_id = market.c_buy(market_symbol_pair.trading_pair, native_amount,
+            str order_id = market.c_buy(market_trading_pair_tuple.trading_pair, native_amount,
                                         order_type=order_type, price=native_price, kwargs=kwargs)
 
         # Start order tracking
         if order_type == OrderType.LIMIT:
-            self.c_start_tracking_limit_order(market_symbol_pair, order_id, True, price, amount)
+            self.c_start_tracking_limit_order(market_trading_pair_tuple, order_id, True, price, amount)
         elif order_type == OrderType.MARKET:
-            self.c_start_tracking_market_order(market_symbol_pair, order_id, True, amount)
+            self.c_start_tracking_market_order(market_trading_pair_tuple, order_id, True, amount)
 
         return order_id
 
-    cdef str c_sell_with_specific_market(self, object market_symbol_pair, object amount,
+    cdef str c_sell_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                          object order_type = OrderType.MARKET,
                                          object price = decimal_nan,
                                          double expiration_seconds = NaN):
@@ -411,7 +410,7 @@ cdef class StrategyBase(TimeIterator):
             dict kwargs = {
                 "expiration_ts": self._current_timestamp + max(self._sb_limit_order_min_expiration, expiration_seconds)
             }
-            MarketBase market = market_symbol_pair.market
+            MarketBase market = market_trading_pair_tuple.market
             double native_amount = float(amount)
             double native_price = float(price)
 
@@ -419,27 +418,27 @@ cdef class StrategyBase(TimeIterator):
             raise ValueError(f"Market object for sell order is not in the whitelisted markets set.")
 
         cdef:
-            str order_id = market.c_sell(market_symbol_pair.trading_pair, native_amount,
+            str order_id = market.c_sell(market_trading_pair_tuple.trading_pair, native_amount,
                                          order_type=order_type, price=native_price, kwargs=kwargs)
 
         # Start order tracking
         if order_type == OrderType.LIMIT:
-            self.c_start_tracking_limit_order(market_symbol_pair, order_id, False, price, amount)
+            self.c_start_tracking_limit_order(market_trading_pair_tuple, order_id, False, price, amount)
         elif order_type == OrderType.MARKET:
-            self.c_start_tracking_market_order(market_symbol_pair, order_id, False, amount)
+            self.c_start_tracking_market_order(market_trading_pair_tuple, order_id, False, amount)
 
         return order_id
 
-    cdef c_cancel_order(self, object market_symbol_pair, str order_id):
+    cdef c_cancel_order(self, object market_trading_pair_tuple, str order_id):
         cdef:
-            MarketBase market = market_symbol_pair.market
+            MarketBase market = market_trading_pair_tuple.market
 
         if self._sb_order_tracker.c_check_and_track_cancel(order_id):
             self.log_with_clock(
                 logging.INFO,
-                f"({market_symbol_pair.trading_pair}) Cancelling the limit order {order_id}."
+                f"({market_trading_pair_tuple.trading_pair}) Cancelling the limit order {order_id}."
             )
-            market.c_cancel(market_symbol_pair.trading_pair, order_id)
+            market.c_cancel(market_trading_pair_tuple.trading_pair, order_id)
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 

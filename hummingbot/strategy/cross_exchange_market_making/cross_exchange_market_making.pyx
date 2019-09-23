@@ -1186,13 +1186,13 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         if not isinstance(market_pair, CrossExchangeMarketPair):
             raise TypeError("market_pair must be a CrossExchangeMarketPair.")
 
-        market_symbol_pair = market_pair.maker if order_type is OrderType.LIMIT else market_pair.taker
+        market_trading_pair_tuple = market_pair.maker if order_type is OrderType.LIMIT else market_pair.taker
 
         if not self._active_order_canceling:
             expiration_seconds = self._limit_order_min_expiration
 
         cdef:
-            str order_id = StrategyBase.c_buy_with_specific_market(self, market_symbol_pair, amount,
+            str order_id = StrategyBase.c_buy_with_specific_market(self, market_trading_pair_tuple, amount,
                                                                    order_type=order_type, price=price,
                                                                    expiration_seconds=expiration_seconds)
         self._market_pair_tracker.c_start_tracking_order_id(order_id, market_pair)
@@ -1205,33 +1205,33 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         if not isinstance(market_pair, CrossExchangeMarketPair):
             raise TypeError("market_pair must be a CrossExchangeMarketPair.")
 
-        market_symbol_pair = market_pair.maker if order_type is OrderType.LIMIT else market_pair.taker
+        market_trading_pair_tuple = market_pair.maker if order_type is OrderType.LIMIT else market_pair.taker
 
         if not self._active_order_canceling:
             expiration_seconds = self._limit_order_min_expiration
 
         cdef:
-            str order_id = StrategyBase.c_sell_with_specific_market(self, market_symbol_pair, amount,
+            str order_id = StrategyBase.c_sell_with_specific_market(self, market_trading_pair_tuple, amount,
                                                                     order_type=order_type, price=price,
                                                                     expiration_seconds=expiration_seconds)
         self._market_pair_tracker.c_start_tracking_order_id(order_id, market_pair)
         return order_id
 
     cdef c_cancel_order(self, object market_pair, str order_id):
-        market_symbol_pair = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
-        StrategyBase.c_cancel_order(self, market_symbol_pair, order_id)
+        market_trading_pair_tuple = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
+        StrategyBase.c_cancel_order(self, market_trading_pair_tuple, order_id)
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 
     # <editor-fold desc="+ Order tracking entry points">
     # Override the stop tracking entry points to include the market pair tracker as well.
     # ----------------------------------------------------------------------------------------------------------
-    cdef c_stop_tracking_limit_order(self, object market_symbol_pair, str order_id):
+    cdef c_stop_tracking_limit_order(self, object market_trading_pair_tuple, str order_id):
         self._market_pair_tracker.c_stop_tracking_order_id(order_id)
-        StrategyBase.c_stop_tracking_limit_order(self, market_symbol_pair, order_id)
+        StrategyBase.c_stop_tracking_limit_order(self, market_trading_pair_tuple, order_id)
 
-    cdef c_stop_tracking_market_order(self, object market_symbol_pair, str order_id):
+    cdef c_stop_tracking_market_order(self, object market_trading_pair_tuple, str order_id):
         self._market_pair_tracker.c_stop_tracking_order_id(order_id)
-        StrategyBase.c_stop_tracking_market_order(self, market_symbol_pair, order_id)
+        StrategyBase.c_stop_tracking_market_order(self, market_trading_pair_tuple, order_id)
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>

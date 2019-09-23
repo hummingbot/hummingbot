@@ -17,7 +17,7 @@ from hummingbot.market.market_base import (
     MarketBase,
     OrderType
 )
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
 from math import isnan
 
@@ -82,7 +82,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         return s_logger
 
     def __init__(self,
-                 market_infos: List[MarketSymbolPair],
+                 market_infos: List[MarketTradingPairTuple],
                  filter_delegate: OrderFilterDelegate,
                  pricing_delegate: OrderPricingDelegate,
                  sizing_delegate: OrderSizingDelegate,
@@ -129,7 +129,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         return self._sb_order_tracker.active_maker_orders
 
     @property
-    def market_info_to_active_orders(self) -> Dict[MarketSymbolPair, List[LimitOrder]]:
+    def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         return self._sb_order_tracker.market_pair_to_active_orders
 
     @property
@@ -203,13 +203,13 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
     # The following exposed Python functions are meant for unit tests
     # ---------------------------------------------------------------
-    def execute_orders_proposal(self, market_info: MarketSymbolPair, orders_proposal: OrdersProposal):
+    def execute_orders_proposal(self, market_info: MarketTradingPairTuple, orders_proposal: OrdersProposal):
         return self.c_execute_orders_proposal(market_info, orders_proposal)
 
-    def cancel_order(self, market_info: MarketSymbolPair, order_id: str):
+    def cancel_order(self, market_info: MarketTradingPairTuple, order_id: str):
         return self.c_cancel_order(market_info, order_id)
 
-    def get_order_price_proposal(self, market_info: MarketSymbolPair) -> PricingProposal:
+    def get_order_price_proposal(self, market_info: MarketTradingPairTuple) -> PricingProposal:
         active_orders = []
         for limit_order in self._sb_order_tracker.c_get_maker_orders().get(market_info, {}).values():
             if self._sb_order_tracker.c_has_in_flight_cancel(limit_order.client_order_id):
@@ -220,7 +220,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             self, market_info, active_orders
         )
 
-    def get_order_size_proposal(self, market_info: MarketSymbolPair, pricing_proposal: PricingProposal) -> SizingProposal:
+    def get_order_size_proposal(self, market_info: MarketTradingPairTuple, pricing_proposal: PricingProposal) -> SizingProposal:
         active_orders = []
         for limit_order in self._sb_order_tracker.c_get_maker_orders().get(market_info, {}).values():
             if self._sb_order_tracker.c_has_in_flight_cancel(limit_order.client_order_id):
@@ -232,7 +232,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         )
 
     def get_orders_proposal_for_market_info(self,
-                                            market_info: MarketSymbolPair,
+                                            market_info: MarketTradingPairTuple,
                                             active_orders: List[LimitOrder]) -> OrdersProposal:
         return self.c_get_orders_proposal_for_market_info(market_info, active_orders)
     # ---------------------------------------------------------------
