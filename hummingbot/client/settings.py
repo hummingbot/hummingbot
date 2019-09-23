@@ -1,7 +1,4 @@
-from os.path import (
-    realpath,
-    join,
-)
+from os.path import realpath, join
 from typing import List
 
 from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
@@ -23,30 +20,11 @@ CONF_FILE_PATH = "conf/"
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
 
-EXCHANGES = {
-    "bamboo_relay",
-    "binance",
-    "coinbase_pro",
-    "ddex",
-    "huobi",
-    "idex",
-    "radar_relay",
-}
+EXCHANGES = {"bamboo_relay", "binance", "coinbase_pro", "ddex", "huobi", "idex", "radar_relay", "bitroyal"}
 
-DEXES = {
-    "bamboo_relay",
-    "ddex",
-    "idex",
-    "radar_relay",
-}
+DEXES = {"bamboo_relay", "ddex", "idex", "radar_relay"}
 
-STRATEGIES = {
-    "cross_exchange_market_making",
-    "arbitrage",
-    "discovery",
-    "pure_market_making",
-    "simple_trade"
-}
+STRATEGIES = {"cross_exchange_market_making", "arbitrage", "discovery", "pure_market_making", "simple_trade"}
 
 EXAMPLE_PAIRS = {
     "binance": "ZRXETH",
@@ -68,8 +46,4 @@ MIN_ETH_STAKED_REQUIREMENT = 0.05
 
 # Values that were once a part of configuration but no longer needed.
 # Keep them for reference in case a user is using outdated config files
-DEPRECATED_CONFIG_VALUES = {
-    "stop_loss_pct",
-    "stop_loss_price_type",
-    "stop_loss_base_token",
-}
+DEPRECATED_CONFIG_VALUES = {"stop_loss_pct", "stop_loss_price_type", "stop_loss_base_token"}
