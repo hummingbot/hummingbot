@@ -12,8 +12,8 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.market.bitroyal.bitroyal_order_book import bitroyalOrderBook
 
-bitroyal_REST_URL = "https://api.pro.bitroyal.com"
-bitroyal_WS_FEED = "wss://ws-feed.pro.bitroyal.com"
+bitroyal_REST_URL = "https://apicoinmartprod.alphapoint.com:8443/API"
+bitroyal_WS_FEED = "wss://apicoinmartprod.alphapoint.com/WSGateway"
 MAX_RETRIES = 20
 NaN = float("nan")
 

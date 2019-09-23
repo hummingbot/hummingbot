@@ -1,7 +1,7 @@
 # distutils: language=c++
 cimport numpy as np
 
-cdef class CoinbaseProActiveOrderTracker:
+cdef class bitroyalActiveOrderTracker:
     cdef dict _active_bids
     cdef dict _active_asks
 
