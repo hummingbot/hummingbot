@@ -22,7 +22,6 @@ _cbpob_logger = None
 
 
 cdef class BitroyalOrderBook(OrderBook):
-
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global _cbpob_logger
