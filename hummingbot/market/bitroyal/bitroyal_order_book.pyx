@@ -13,7 +13,7 @@ import pandas as pd
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
-    CoinbaseProOrderBookMessage,
+    bitroyalOrderBookMessage,
     OrderBookMessage,
     OrderBookMessageType
 )
@@ -21,7 +21,7 @@ from hummingbot.core.data_type.order_book_message import (
 _cbpob_logger = None
 
 
-cdef class CoinbaseProOrderBook(OrderBook):
+cdef class bitroyalOrderBook(OrderBook):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -37,7 +37,7 @@ cdef class CoinbaseProOrderBook(OrderBook):
                                        metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-        return CoinbaseProOrderBookMessage(
+        return bitroyalOrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
             content=msg,
             timestamp=timestamp
@@ -52,7 +52,7 @@ cdef class CoinbaseProOrderBook(OrderBook):
             msg.update(metadata)
         if "time" in msg:
             msg_time = pd.Timestamp(msg["time"]).timestamp()
-        return CoinbaseProOrderBookMessage(
+        return bitroyalOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=msg,
             timestamp=timestamp or msg_time)
@@ -60,7 +60,7 @@ cdef class CoinbaseProOrderBook(OrderBook):
     @classmethod
     def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
         msg = record.json if type(record.json)==dict else ujson.loads(record.json)
-        return CoinbaseProOrderBookMessage(
+        return bitroyalOrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
             content=msg,
             timestamp=record.timestamp * 1e-3
@@ -68,7 +68,7 @@ cdef class CoinbaseProOrderBook(OrderBook):
 
     @classmethod
     def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        return CoinbaseProOrderBookMessage(
+        return bitroyalOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=record.json,
             timestamp=record.timestamp * 1e-3
@@ -76,7 +76,7 @@ cdef class CoinbaseProOrderBook(OrderBook):
 
     @classmethod
     def trade_receive_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-        return CoinbaseProOrderBookMessage(
+        return bitroyalOrderBookMessage(
             OrderBookMessageType.TRADE,
             record.json,
             timestamp=record.timestamp * 1e-3
@@ -84,8 +84,8 @@ cdef class CoinbaseProOrderBook(OrderBook):
 
     @classmethod
     def from_snapshot(cls, snapshot: OrderBookMessage):
-        raise NotImplementedError("Coinbase Pro order book needs to retain individual order data.")
+        raise NotImplementedError("Bitroyal order book needs to retain individual order data.")
 
     @classmethod
     def restore_from_snapshot_and_diffs(self, snapshot: OrderBookMessage, diffs: List[OrderBookMessage]):
-        raise NotImplementedError("Coinbase Pro order book needs to retain individual order data.")
+        raise NotImplementedError("Bitroyal order book needs to retain individual order data.")

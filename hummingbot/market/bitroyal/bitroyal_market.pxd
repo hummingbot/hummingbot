@@ -2,11 +2,11 @@ from hummingbot.market.market_base cimport MarketBase
 from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
 
-cdef class CoinbaseProMarket(MarketBase):
+cdef class bitroyalMarket(MarketBase):
     cdef:
         object _order_book_tracker
         object _user_stream_tracker
-        object _coinbase_auth
+        object _bitroyal_auth
         dict _account_balances
         dict _account_available_balances
         object _ev_loop

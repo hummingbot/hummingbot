@@ -33,6 +33,7 @@ EXAMPLE_PAIRS = {
     "radar_relay": "ZRX-WETH",
     "bamboo_relay": "ZRX-WETH",
     "coinbase_pro": "ETH-USDC",
+    "bitroyal": "ETH-USDC",
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
