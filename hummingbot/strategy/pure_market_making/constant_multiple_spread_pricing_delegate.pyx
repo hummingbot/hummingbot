@@ -3,7 +3,6 @@ from decimal import Decimal
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import MarketBase
-
 from .data_types import PricingProposal
 from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
 
@@ -51,7 +50,7 @@ cdef class ConstantMultipleSpreadPricingDelegate(OrderPricingDelegate):
             list ask_prices = [maker_market.c_quantize_order_price(market_info.trading_pair,
                                                                    Decimal(mid_price * (1.0 + self.ask_spread)))]
 
-        for _ in range(self.number_of_orders -1):
+        for _ in range(self.number_of_orders - 1):
             last_bid_price = bid_prices[-1]
             current_bid_price = maker_market.c_quantize_order_price(market_info.trading_pair,
                                                                     last_bid_price * Decimal(1 - self.order_interval_size))

@@ -37,6 +37,10 @@ from hummingbot.core.event.events import (
     TradeType,
 )
 from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
+    safe_gather,
+)
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.market.binance.binance_market import (
     BinanceMarket,
@@ -126,7 +130,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
         self.market_logger = None
 
     async def run_parallel_async(self, *tasks):
-        future: asyncio.Future = asyncio.ensure_future(asyncio.gather(*tasks))
+        future: asyncio.Future = safe_ensure_future(safe_gather(*tasks))
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1

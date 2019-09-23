@@ -36,6 +36,10 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent
 )
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
+    safe_gather,
+)
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
@@ -264,12 +268,12 @@ cdef class CoinbaseProMarket(MarketBase):
         if self._order_tracker_task is not None:
             self._stop_network()
 
-        self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
+        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
         if self._trading_required:
-            self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
-            self._trading_rules_polling_task = asyncio.ensure_future(self._trading_rules_polling_loop())
-            self._user_stream_tracker_task = asyncio.ensure_future(self._user_stream_tracker.start())
-            self._user_stream_event_listener_task = asyncio.ensure_future(self._user_stream_event_listener())
+            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
+            self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
+            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
+            self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
     def _stop_network(self):
         """
@@ -755,7 +759,7 @@ cdef class CoinbaseProMarket(MarketBase):
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"buy-{symbol}-{tracking_nonce}")
 
-        asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
+        safe_ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
         return order_id
 
     async def execute_sell(self,
@@ -822,7 +826,7 @@ cdef class CoinbaseProMarket(MarketBase):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"sell-{symbol}-{tracking_nonce}")
-        asyncio.ensure_future(self.execute_sell(order_id, symbol, amount, order_type, price))
+        safe_ensure_future(self.execute_sell(order_id, symbol, amount, order_type, price))
         return order_id
 
     async def execute_cancel(self, symbol: str, order_id: str):
@@ -863,7 +867,7 @@ cdef class CoinbaseProMarket(MarketBase):
         *required
         Synchronous wrapper that schedules cancelling an order.
         """
-        asyncio.ensure_future(self.execute_cancel(symbol, order_id))
+        safe_ensure_future(self.execute_cancel(symbol, order_id))
         return order_id
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
@@ -880,7 +884,7 @@ cdef class CoinbaseProMarket(MarketBase):
 
         try:
             async with timeout(timeout_seconds):
-                results = await asyncio.gather(*tasks, return_exceptions=True)
+                results = await safe_gather(*tasks, return_exceptions=True)
                 for client_order_id in results:
                     if type(client_order_id) is str:
                         order_id_set.remove(client_order_id)
@@ -904,7 +908,7 @@ cdef class CoinbaseProMarket(MarketBase):
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
 
-                await asyncio.gather(
+                await safe_gather(
                     self._update_balances(),
                     self._update_order_status(),
                 )
@@ -925,7 +929,7 @@ cdef class CoinbaseProMarket(MarketBase):
         """
         while True:
             try:
-                await asyncio.gather(self._update_trading_rules())
+                await safe_gather(self._update_trading_rules())
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
                 raise
@@ -1039,7 +1043,7 @@ cdef class CoinbaseProMarket(MarketBase):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str tracking_id = str(f"withdraw://{currency}/{tracking_nonce}")
-        asyncio.ensure_future(self.execute_withdraw(tracking_id, to_address, currency, amount))
+        safe_ensure_future(self.execute_withdraw(tracking_id, to_address, currency, amount))
         return tracking_id
 
     cdef double c_get_balance(self, str currency) except? -1:
