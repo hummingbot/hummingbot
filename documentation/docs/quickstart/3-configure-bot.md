@@ -1,8 +1,5 @@
 # [Quickstart] Configure Your First Trading Bot
 
-!!! note "Paper trading mode [in progress]"
-    We are currently working on a paper trading mode that will allow you to test out Hummingbot without risking real crypto. For now, you still need to run a live trading bot.
-
 If you have successfully installed Hummingbot using our install scripts, you should see the command line-based Hummingbot interface below.
 
 ![](/assets/img/hummingbot-cli.png)
@@ -26,8 +23,25 @@ bounty  Participate in hummingbot's liquidity bounty programs
 
 etc...
 ```
+## Step 2: Enable Paper Trading Mode (Optional)
 
-## Step 2: Register for Liquidity Bounties (Optional)
+You can run Hummingbot and simulate trading strategies without executing and placing actual trades. Run command `paper_trade` at the beginning to enable this feature.
+
+```
+Enable paper trading mode (y/n) ? >>> y
+
+New config saved:
+paper_trade_enabled: y
+
+Your configuration is incomplete. Would you like to proceed and finish all necessary configurations? (y/n) >>> n
+```
+
+Enabling paper trade mode will skip the prompt to enter your API keys, Ethereum wallet, and Ethereum node during configuration.
+
+For more information about this feature, see [Paper Trading Mode](/utilities/paper-trade.md) in the User Manual. To perform actual trading, proceed to the next step.
+
+
+## Step 3: Register for Liquidity Bounties (Optional)
 
 Liquidity Bounties allow you to earn rewards by running market making bots for specific tokens and/or exchanges.
 
@@ -41,7 +55,7 @@ Hummingbot enters into partnerships with token issuers and exchanges to administ
 4. Enter your email address
 5. Confirm information and finalize
 
-## Step 3: Configure a market making bot
+## Step 4: Configure a market making bot
 
 Now, let's walk through the process of configuring a basic market making bot.
 
@@ -181,7 +195,7 @@ At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5% l
 -0.05
 ```
 
-## Step 4: Adjusting Parameters
+## Step 5: Adjusting Parameters
 
 If you want to reconfigure the bot from the beginning, type `config` and reply `y` to the question `Would you like to reconfigure the bot? (y/n) >>>?`. This will prompt all questions during initial set up.
 
