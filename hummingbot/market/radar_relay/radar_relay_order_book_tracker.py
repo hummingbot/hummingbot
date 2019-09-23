@@ -13,12 +13,18 @@ from typing import (
     Set
 )
 
+from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.market.radar_relay.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType, RadarRelayOrderBookMessage
+from hummingbot.core.data_type.order_book_message import (
+    OrderBookMessageType,
+    RadarRelayOrderBookMessage,
+    OrderBookMessage,
+)
 from hummingbot.core.data_type.order_book_tracker_entry import RadarRelayOrderBookTrackerEntry
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.radar_relay.radar_relay_order_book import RadarRelayOrderBook
 from hummingbot.market.radar_relay.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
 
@@ -58,31 +64,26 @@ class RadarRelayOrderBookTracker(OrderBookTracker):
         return self._data_source
 
     @property
-    async def exchange_name(self) -> str:
+    def exchange_name(self) -> str:
         return "radar_relay"
 
     async def start(self):
-        self._order_book_diff_listener_task = asyncio.ensure_future(
+        await super().start()
+        self._order_book_diff_listener_task = safe_ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
-        self._order_book_snapshot_listener_task = asyncio.ensure_future(
+        self._order_book_snapshot_listener_task = safe_ensure_future(
             self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
         )
-        self._refresh_tracking_task = asyncio.ensure_future(
+        self._refresh_tracking_task = safe_ensure_future(
             self._refresh_tracking_loop()
         )
-        self._order_book_diff_router_task = asyncio.ensure_future(
+        self._order_book_diff_router_task = safe_ensure_future(
             self._order_book_diff_router()
         )
-        self._order_book_snapshot_router_task = asyncio.ensure_future(
+        self._order_book_snapshot_router_task = safe_ensure_future(
             self._order_book_snapshot_router()
         )
-
-        await asyncio.gather(self._order_book_snapshot_listener_task,
-                             self._order_book_diff_listener_task,
-                             self._order_book_snapshot_router_task,
-                             self._order_book_diff_router_task,
-                             self._refresh_tracking_task)
 
     async def _refresh_tracking_tasks(self):
         """
@@ -100,7 +101,7 @@ class RadarRelayOrderBookTracker(OrderBookTracker):
             self._active_order_trackers[symbol] = order_book_tracker_entry.active_order_tracker
             self._order_books[symbol] = order_book_tracker_entry.order_book
             self._tracking_message_queues[symbol] = asyncio.Queue()
-            self._tracking_tasks[symbol] = asyncio.ensure_future(self._track_single_book(symbol))
+            self._tracking_tasks[symbol] = safe_ensure_future(self._track_single_book(symbol))
             self.logger().info("Started order book tracking for %s.", symbol)
 
         for symbol in deleted_symbols:
@@ -142,6 +143,19 @@ class RadarRelayOrderBookTracker(OrderBookTracker):
                     messages_rejected += 1
                     continue
                 await message_queue.put(ob_message)
+
+                if ob_message.content["action"] == "FILL":  # put FILL messages to trade queue
+                    trade_type = float(TradeType.BUY.value) if ob_message.content["event"]["type"] == "BUY" \
+                        else float(TradeType.SELL.value)
+                    self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
+                        "symbol": trading_pair_symbol,
+                        "trade_type": trade_type,
+                        "trade_id": ob_message.update_id,
+                        "update_id": ob_message.timestamp,
+                        "price": ob_message.content["event"]["order"]["price"],
+                        "amount": ob_message.content["event"]["filledBaseTokenAmount"]
+                    }, timestamp=ob_message.timestamp))
+
                 messages_accepted += 1
 
                 # Log some statistics.

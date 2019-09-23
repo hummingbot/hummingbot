@@ -84,7 +84,7 @@ cdef class OrderTracker(TimeIterator):
 
     @property
     def tracked_taker_orders_data_frame(self) -> List[pd.DataFrame]:
-        market_orders = [[market_symbol_pair.market.name, market_symbol_pair.trading_pair, order_id, order.amount,
+        market_orders = [[market_symbol_pair.market.display_name, market_symbol_pair.trading_pair, order_id, order.amount,
                           pd.Timestamp(order.timestamp, unit='s', tz='UTC').strftime('%Y-%m-%d %H:%M:%S')
                           ]
                          for market_symbol_pair, order_map in self._tracked_taker_orders.items()

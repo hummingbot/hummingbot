@@ -25,6 +25,7 @@ class HistoryCommand:
         for market_name in self.markets:
             balance_dict = self.markets[market_name].get_all_balances()
             for asset in self.assets:
+                asset = asset.upper()
                 if asset not in snapshot:
                     snapshot[asset] = {}
                 if asset in balance_dict:
@@ -38,18 +39,16 @@ class HistoryCommand:
         if len(self.starting_balances) == 0:
             self._notify("  Balance snapshots are not available before bot starts")
             return
-
         rows = []
-        for market_name in self.markets:
-            for asset in self.assets:
+        for market_name, market in self.markets.items():
+            for asset in set(a.upper() for a in self.assets):
                 starting_balance = self.starting_balances.get(asset).get(market_name)
                 current_balance = self.balance_snapshot().get(asset).get(market_name)
-                rows.append([market_name,
+                rows.append([market.display_name,
                              asset,
-                             starting_balance,
-                             current_balance,
-                             current_balance - starting_balance])
-
+                             float(starting_balance),
+                             float(current_balance),
+                             float(current_balance - starting_balance)])
         df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Delta"])
         if len(df) > 0:
             lines = ["", "  Inventory:"] + ["    " + line for line in str(df).split("\n")]
@@ -67,7 +66,7 @@ class HistoryCommand:
                 for is_starting in [True, False]:
                     market_name = market_symbol_pair.market.name
                     asset_name = market_symbol_pair.base_asset if is_base else market_symbol_pair.quote_asset
-
+                    asset_name = asset_name.upper()
                     if len(self.assets) == 0 or len(self.markets) == 0:
                         # Prevent KeyError '***SYMBOL***'
                         amount = self.starting_balances[asset_name][market_name]

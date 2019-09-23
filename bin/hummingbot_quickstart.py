@@ -17,12 +17,14 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.in_memory_config_map import in_memory_config_map
 from hummingbot.client.config.config_helpers import (
     create_yml_files,
-    read_configs_from_yml
+    load_required_configs,
+    read_configs_from_yml,
 )
 from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.client.settings import STRATEGIES
 from hummingbot.core.utils.wallet_setup import unlock_wallet
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.management.console import start_management_console
 from bin.hummingbot import (
     detect_available_port,
@@ -76,7 +78,8 @@ async def quick_start():
             hb.acct = unlock_wallet(public_key=wallet, password=wallet_password)
 
         if not hb.config_complete:
-            empty_configs = hb._get_empty_configs()
+            config_map = load_required_configs()
+            empty_configs = [key for key, config in config_map.items() if config.value is None and config.required]
             empty_config_description: str = "\n- ".join([""] + empty_configs)
             raise ValueError(f"Missing empty configs: {empty_config_description}\n")
 
@@ -93,7 +96,7 @@ async def quick_start():
             if global_config_map.get("debug_console").value:
                 management_port: int = detect_available_port(8211)
                 tasks.append(start_management_console(locals(), host="localhost", port=management_port))
-            await asyncio.gather(*tasks)
+            await safe_gather(*tasks)
 
     except Exception as e:
         # In case of quick start failure, start the bot normally to allow further configuration

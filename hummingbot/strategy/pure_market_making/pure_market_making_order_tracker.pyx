@@ -54,4 +54,3 @@ cdef class PureMarketMakingOrderTracker(OrderTracker):
                 maker_orders.append(limit_order)
             market_pair_to_orders[market_pair] = maker_orders
         return market_pair_to_orders
-

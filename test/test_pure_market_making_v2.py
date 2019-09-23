@@ -38,8 +38,8 @@ from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.pure_market_making.pure_market_making_v2 import PureMarketMakingStrategyV2
 from hummingbot.strategy.pure_market_making import (
-    PassThroughFilterDelegate,
     ConstantSpreadPricingDelegate,
+    PassThroughFilterDelegate,
     ConstantMultipleSpreadPricingDelegate,
     ConstantSizeSizingDelegate,
     StaggeredMultipleSizeSizingDelegate,
@@ -66,9 +66,10 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.cancel_order_wait_time = 45
         self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
                                                 max_price=200, price_step_size=1, volume_step_size=10)
-        self.filter_delegate = PassThroughFilterDelegate()
+
         self.constant_pricing_delegate = ConstantSpreadPricingDelegate(self.bid_threshold, self.ask_threshold)
         self.constant_sizing_delegate = ConstantSizeSizingDelegate(1.0)
+        self.filter_delegate = PassThroughFilterDelegate()
         self.equal_strategy_sizing_delegate = StaggeredMultipleSizeSizingDelegate(
             order_start_size=1.0,
             order_step_size=0,
@@ -106,6 +107,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
                                 (~PureMarketMakingStrategyV2.OPTION_LOG_NULL_ORDER_SIZE))
         self.strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
+            filled_order_replenish_wait_time=self.cancel_order_wait_time,
             filter_delegate=self.filter_delegate,
             sizing_delegate=self.constant_sizing_delegate,
             pricing_delegate=self.constant_pricing_delegate,
@@ -128,6 +130,27 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
             sizing_delegate=self.staggered_strategy_sizing_delegate,
             cancel_order_wait_time=45,
+            logging_options=logging_options
+        )
+
+        self.delayed_placement_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+            [self.market_info],
+            filter_delegate=self.filter_delegate,
+            pricing_delegate=self.constant_pricing_delegate,
+            sizing_delegate=self.constant_sizing_delegate,
+            cancel_order_wait_time=900,
+            filled_order_replenish_wait_time=80,
+            logging_options=logging_options
+        )
+
+        self.prevent_cancel_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+            [self.market_info],
+            filter_delegate=self.filter_delegate,
+            pricing_delegate=self.constant_pricing_delegate,
+            sizing_delegate=self.constant_sizing_delegate,
+            cancel_order_wait_time=900,
+            filled_order_replenish_wait_time=80,
+            enable_order_filled_stop_cancellation=True,
             logging_options=logging_options
         )
 
@@ -298,6 +321,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.assertEqual(TradeType.SELL, maker_fill.trade_type)
         self.assertAlmostEqual(101, maker_fill.price)
         self.assertAlmostEqual(1.0, maker_fill.amount)
+        self.maker_order_fill_logger.clear()
 
     def test_market_become_wider(self):
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
@@ -372,6 +396,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         ask_fills: List[OrderFilledEvent] = [evt for evt in fill_events if evt.trade_type is TradeType.BUY]
         self.assertEqual(1, len(bid_fills))
         self.assertEqual(1, len(ask_fills))
+        self.maker_order_fill_logger.clear()
 
     def test_strategy_after_user_cancels_orders(self):
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
@@ -475,6 +500,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
         self.assertEqual(0, len(self.strategy.active_bids))
         self.assertEqual(0, len(self.strategy.active_asks))
+        self.maker_order_fill_logger.clear()
 
     def test_balance_for_multiple_equal_orders(self):
         self.clock.remove_iterator(self.strategy)
@@ -521,6 +547,104 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.clock.backtest_til(end_ts)
         self.assertEqual(5, len(self.multi_order_staggered_strategy.active_bids))
         self.assertEqual(5, len(self.multi_order_staggered_strategy.active_asks))
+
+    def test_replenish_delay(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(self.delayed_placement_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
+        self.assertEqual(1, len(self.delayed_placement_strategy.active_asks))
+        ask_order: LimitOrder = self.delayed_placement_strategy.active_asks[0][1]
+
+        self.simulate_limit_order_fill(self.maker_market, ask_order)
+
+        # Ask is filled and due to delay is not replenished immediately
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size)
+        self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+        self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
+        self.assertEqual(0, len(self.delayed_placement_strategy.active_asks))
+
+        # Orders are placed after replenish delay
+        self.clock.backtest_til(self.start_timestamp + 4 * self.clock_tick_size)
+        self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
+        self.assertEqual(1, len(self.delayed_placement_strategy.active_asks))
+
+        # Prices are not adjusted according to filled price as per settings
+        bid_order: LimitOrder = self.delayed_placement_strategy.active_bids[0][1]
+        ask_order: LimitOrder = self.delayed_placement_strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), bid_order.price)
+        self.assertEqual(Decimal("101"), ask_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+        self.maker_order_fill_logger.clear()
+
+    def test_replenish_delay_multiple_fills(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(self.delayed_placement_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
+        self.assertEqual(1, len(self.delayed_placement_strategy.active_asks))
+        ask_order: LimitOrder = self.delayed_placement_strategy.active_asks[0][1]
+        bid_order: LimitOrder = self.delayed_placement_strategy.active_bids[0][1]
+
+        self.simulate_limit_order_fill(self.maker_market, ask_order)
+
+        # Ask is filled and due to delay is not replenished immediately
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size)
+        self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+        self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
+        self.assertEqual(0, len(self.delayed_placement_strategy.active_asks))
+        self.simulate_limit_order_fill(self.maker_market, bid_order)
+
+        # Even if both orders are filled, orders are not placed due to delay
+        self.clock.backtest_til(self.start_timestamp + 3 * self.clock_tick_size)
+        self.assertEqual(0, len(self.delayed_placement_strategy.active_bids))
+        self.assertEqual(0, len(self.delayed_placement_strategy.active_asks))
+
+        # Orders are placed after replenish delay
+        self.clock.backtest_til(self.start_timestamp + 4 * self.clock_tick_size)
+        self.assertEqual(1, len(self.delayed_placement_strategy.active_bids))
+        self.assertEqual(1, len(self.delayed_placement_strategy.active_asks))
+
+        # Prices are not adjusted according to filled price as per settings
+        bid_order: LimitOrder = self.delayed_placement_strategy.active_bids[0][1]
+        ask_order: LimitOrder = self.delayed_placement_strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), bid_order.price)
+        self.assertEqual(Decimal("101"), ask_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+        self.maker_order_fill_logger.clear()
+
+    def test_prevent_cancellation_feature(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(self.prevent_cancel_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(self.prevent_cancel_strategy.active_bids))
+        self.assertEqual(1, len(self.prevent_cancel_strategy.active_asks))
+        ask_order: LimitOrder = self.prevent_cancel_strategy.active_asks[0][1]
+
+        self.simulate_limit_order_fill(self.maker_market, ask_order)
+
+        # Ask is filled and due to delay is not replenished immediately
+        # Bid order is no longer tracked and is not in active bids
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size)
+        self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+        self.assertEqual(0, len(self.prevent_cancel_strategy.active_bids))
+        self.assertEqual(0, len(self.prevent_cancel_strategy.active_asks))
+
+        # Orders are placed after replenish delay
+        self.clock.backtest_til(self.start_timestamp + 4 * self.clock_tick_size)
+        self.assertEqual(1, len(self.prevent_cancel_strategy.active_bids))
+        self.assertEqual(1, len(self.prevent_cancel_strategy.active_asks))
+
+        # Prices are not adjusted according to filled price as per settings
+        bid_order: LimitOrder = self.prevent_cancel_strategy.active_bids[0][1]
+        ask_order: LimitOrder = self.prevent_cancel_strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), bid_order.price)
+        self.assertEqual(Decimal("101"), ask_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+        self.maker_order_fill_logger.clear()
 
 
 class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
@@ -585,6 +709,17 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
             sizing_delegate=self.inventory_skew_single_size_sizing_delegate,
             pricing_delegate=self.constant_pricing_delegate,
             cancel_order_wait_time=45,
+            filled_order_replenish_wait_time=0,
+            logging_options=logging_options
+        )
+
+        self.inventory_skew_single_order_strategy_delayed_fill: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+            [self.market_info],
+            filter_delegate=self.filter_delegate,
+            sizing_delegate=self.inventory_skew_single_size_sizing_delegate,
+            pricing_delegate=self.constant_pricing_delegate,
+            cancel_order_wait_time=45,
+            filled_order_replenish_wait_time=15,
             logging_options=logging_options
         )
 
@@ -649,14 +784,47 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
         first_ask_order: LimitOrder = self.inventory_skew_single_order_strategy.active_asks[0][1]
         self.assertEqual(Decimal("99"), first_bid_order.price)
         self.assertEqual(Decimal("101"), first_ask_order.price)
-        self.assertEqual(Decimal("0.181818"), first_bid_order.quantity)
+        self.assertEqual(Decimal("0.188489"), first_bid_order.quantity)
         self.assertEqual(Decimal("1.81151"), first_ask_order.quantity)
 
+    def test_inventory_skew_single_order_strategy_delayed_fill(self):
+        self.clock.add_iterator(self.inventory_skew_single_order_strategy_delayed_fill)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size + 1)
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy_delayed_fill.active_bids))
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy_delayed_fill.active_asks))
+        first_bid_order: LimitOrder = self.inventory_skew_single_order_strategy_delayed_fill.active_bids[0][1]
+        first_ask_order: LimitOrder = self.inventory_skew_single_order_strategy_delayed_fill.active_asks[0][1]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("101"), first_ask_order.price)
+        self.assertEqual(Decimal("0.181818"), first_bid_order.quantity)
+        self.assertEqual(Decimal("1.81818"), first_ask_order.quantity)
+
+        self.simulate_maker_market_trade(True, 5.0)
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy_delayed_fill.active_bids))
+        self.assertEqual(0, len(self.inventory_skew_single_order_strategy_delayed_fill.active_asks))
+
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+
+        maker_fill: OrderFilledEvent = self.maker_order_fill_logger.event_log[0]
+        self.assertEqual(TradeType.SELL, maker_fill.trade_type)
+        self.assertAlmostEqual(101, maker_fill.price)
+        self.assertAlmostEqual(Decimal("1.81818"), Decimal(str(maker_fill.amount)), places=4)
+
+        self.clock.backtest_til(self.start_timestamp + 3 * self.clock_tick_size + 1)
+        # Order is not replenished till replenish time
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy_delayed_fill.active_bids))
+        self.assertEqual(0, len(self.inventory_skew_single_order_strategy_delayed_fill.active_asks))
+        first_bid_order: LimitOrder = self.inventory_skew_single_order_strategy_delayed_fill.active_bids[0][1]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("0.181818"), first_bid_order.quantity)
+
         self.clock.backtest_til(self.start_timestamp + 60 * self.clock_tick_size + 1)
-        self.assertEqual(1, len(self.inventory_skew_single_order_strategy.active_bids))
-        self.assertEqual(1, len(self.inventory_skew_single_order_strategy.active_asks))
-        first_bid_order: LimitOrder = self.inventory_skew_single_order_strategy.active_bids[0][1]
-        first_ask_order: LimitOrder = self.inventory_skew_single_order_strategy.active_asks[0][1]
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy_delayed_fill.active_bids))
+        self.assertEqual(1, len(self.inventory_skew_single_order_strategy_delayed_fill.active_asks))
+        first_bid_order: LimitOrder = self.inventory_skew_single_order_strategy_delayed_fill.active_bids[0][1]
+        first_ask_order: LimitOrder = self.inventory_skew_single_order_strategy_delayed_fill.active_asks[0][1]
+        # Price does not change based on filled price
         self.assertEqual(Decimal("99"), first_bid_order.price)
         self.assertEqual(Decimal("101"), first_ask_order.price)
         self.assertEqual(Decimal("0.188489"), first_bid_order.quantity)

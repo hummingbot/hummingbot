@@ -1,7 +1,6 @@
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import MarketBase
-
 from .data_types import PricingProposal
 from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
 
