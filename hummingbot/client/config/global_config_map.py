@@ -1,12 +1,7 @@
 import random
 from typing import Callable
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.settings import (
-    required_exchanges,
-    DEXES,
-    DEFAULT_KEY_FILE_PATH,
-    DEFAULT_LOG_FILE_PATH,
-)
+from hummingbot.client.settings import required_exchanges, DEXES, DEFAULT_KEY_FILE_PATH, DEFAULT_LOG_FILE_PATH
 
 
 def generate_client_id() -> str:
@@ -237,4 +232,14 @@ global_config_map = {
                                     prompt="Enter your Bittrex secret key >>> ",
                                     required_if=using_exchange("bittrex"),
                                     is_secure=True),
+    "bitroyal_api_key": ConfigVar(
+        key="bitroyal_key",
+        prompt="Enter your Bitroyal API key >>> ",
+        required_if=using_exchange("bitroyal"),
+        is_secure=True),
+    "bitroyal_secret_key": ConfigVar(
+        key="bitroyal_secret_key",
+        prompt="Enter your Bitroyal secret key >>> ",
+        required_if=using_exchange("bitroyal"),
+        is_secure=True),
 }

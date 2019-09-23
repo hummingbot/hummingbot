@@ -44,7 +44,8 @@ EXAMPLE_PAIRS = {
     "radar_relay": "ZRX-WETH",
     "bamboo_relay": "ZRX-WETH",
     "coinbase_pro": "ETH-USDC",
-    "huobi": "ethusdt"
+    "huobi": "ethusdt",
+    "bitroyal": "ETHUSD"
 }
 
 EXAMPLE_ASSETS = {
@@ -55,6 +56,7 @@ EXAMPLE_ASSETS = {
     "bamboo_relay": "ZRX",
     "coinbase_pro": "ETH",
     "huobi": "eth"
+    "bitroyal": "ETH"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
