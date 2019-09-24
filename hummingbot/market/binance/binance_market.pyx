@@ -53,8 +53,8 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.market.market_base import (
     MarketBase,
-    NaN
-)
+    NaN,
+    NaN_decimal)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -111,8 +111,8 @@ cdef class InFlightDeposit:
 cdef class WithdrawRule:
     cdef:
         public str asset_name
-        public double min_withdraw_amount
-        public double withdraw_fee
+        public object min_withdraw_amount
+        public object withdraw_fee
 
     def __init__(self, asset_name: str, min_withdraw_amount: float, withdraw_fee: float):
         self.asset_name = asset_name
@@ -308,7 +308,7 @@ cdef class BinanceMarket(MarketBase):
             try:
                 res = await self.query_api(self._binance_client.get_trade_fee)
                 for fee in res["tradeFee"]:
-                    self._trade_fees[fee["symbol"]] = (fee["maker"], fee["taker"])
+                    self._trade_fees[fee["symbol"]] = (Decimal(fee["maker"]), Decimal(fee["taker"]))
                 self._last_update_trade_fees_timestamp = current_timestamp
             except asyncio.CancelledError:
                 raise
@@ -323,11 +323,11 @@ cdef class BinanceMarket(MarketBase):
                           str quote_currency,
                           object order_type,
                           object order_side,
-                          double amount,
-                          double price):
+                          object amount,
+                          object price):
         cdef:
-            double maker_trade_fee = 0.001
-            double taker_trade_fee = 0.001
+            object maker_trade_fee = Decimal(0.001)
+            object taker_trade_fee = Decimal(0.001)
             str symbol = base_currency + quote_currency
 
         if symbol not in self._trade_fees:
@@ -346,8 +346,8 @@ cdef class BinanceMarket(MarketBase):
             asset_rules = await self.query_url("https://www.binance.com/assetWithdraw/getAllAsset.html")
             for asset_rule in asset_rules:
                 asset_name = asset_rule["assetCode"]
-                min_withdraw_amount = float(asset_rule["minProductWithdraw"])
-                withdraw_fee = float(asset_rule["transactionFee"])
+                min_withdraw_amount = Decimal(asset_rule["minProductWithdraw"])
+                withdraw_fee = Decimal(asset_rule["transactionFee"])
                 if asset_name not in self._withdraw_rules:
                     self._withdraw_rules[asset_name] = WithdrawRule(asset_name, min_withdraw_amount, withdraw_fee)
                 else:
@@ -461,15 +461,15 @@ cdef class BinanceMarket(MarketBase):
                                                     tracked_order.symbol,
                                                     tracked_order.trade_type,
                                                     order_type,
-                                                    float(trade["price"]),
-                                                    float(trade["qty"]),
+                                                    Decimal(trade["price"]), #refactor Decimal
+                                                    Decimal(trade["qty"]), #refactor Decimal
                                                     self.c_get_fee(
                                                         tracked_order.base_asset,
                                                         tracked_order.quote_asset,
                                                         order_type,
                                                         tracked_order.trade_type,
-                                                        float(trade["price"]),
-                                                        float(trade["qty"])),
+                                                        Decimal(trade["price"]), #refactor Decimal
+                                                        Decimal(trade["qty"])), #refactor Decimal
                                                     exchange_trade_id=trade["id"]
                                                  ))
 
@@ -490,7 +490,7 @@ cdef class BinanceMarket(MarketBase):
             for order_update, tracked_order in zip(results, tracked_orders):
                 client_order_id = tracked_order.client_order_id
 
-                # If the order has already been cancelled or has failed, do nothing
+                # If the order has already been cancelled or has failed do nothing
                 if client_order_id not in self._in_flight_orders:
                     continue
 
@@ -527,9 +527,9 @@ cdef class BinanceMarket(MarketBase):
                                                                         tracked_order.quote_asset,
                                                                         (tracked_order.fee_asset
                                                                          or tracked_order.base_asset),
-                                                                        float(tracked_order.executed_amount_base),
-                                                                        float(tracked_order.executed_amount_quote),
-                                                                        float(tracked_order.fee_paid),
+                                                                        tracked_order.executed_amount_base, #refactor Decimal
+                                                                        tracked_order.executed_amount_quote, #refactor Decimal
+                                                                        tracked_order.fee_paid, #refactor Decimal
                                                                         order_type))
                         else:
                             self.logger().info(f"The market sell order {client_order_id} has completed "
@@ -541,13 +541,13 @@ cdef class BinanceMarket(MarketBase):
                                                                          tracked_order.quote_asset,
                                                                          (tracked_order.fee_asset
                                                                           or tracked_order.quote_asset),
-                                                                         float(tracked_order.executed_amount_base),
-                                                                         float(tracked_order.executed_amount_quote),
-                                                                         float(tracked_order.fee_paid),
+                                                                         tracked_order.executed_amount_base, #refactor Decimal
+                                                                         tracked_order.executed_amount_quote, #refactor Decimal
+                                                                         tracked_order.fee_paid, #refactor Decimal
                                                                          order_type))
                     else:
-                        # check if it is a cancelled order
-                        # if it is a cancelled order, issue cancel and stop tracking order
+                        # check if its a cancelled order
+                        # if its a cancelled order, issue cancel and stop tracking order
                         if tracked_order.last_state == "CANCELED":
                             self.logger().info(f"Successfully cancelled order {client_order_id}.")
                             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
@@ -632,8 +632,8 @@ cdef class BinanceMarket(MarketBase):
                             tracked_order.quote_asset,
                             OrderType.LIMIT if event_message["o"] == "LIMIT" else OrderType.MARKET,
                             TradeType.BUY if event_message["S"] == "BUY" else TradeType.SELL,
-                            float(event_message["l"]),
-                            float(event_message["L"])
+                            Decimal(event_message["l"]), #refactor Decimal
+                            Decimal(event_message["L"]) #refactor Decimal
                         ))
                         self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
@@ -649,9 +649,9 @@ cdef class BinanceMarket(MarketBase):
                                                                             tracked_order.quote_asset,
                                                                             (tracked_order.fee_asset
                                                                             or tracked_order.base_asset),
-                                                                            float(tracked_order.executed_amount_base),
-                                                                            float(tracked_order.executed_amount_quote),
-                                                                            float(tracked_order.fee_paid),
+                                                                            tracked_order.executed_amount_base, #refactor Decimal
+                                                                            tracked_order.executed_amount_quote, #refactor Decimal
+                                                                            tracked_order.fee_paid, #refactor Decimal
                                                                             tracked_order.order_type))
                             else:
                                 self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
@@ -663,9 +663,9 @@ cdef class BinanceMarket(MarketBase):
                                                                             tracked_order.quote_asset,
                                                                             (tracked_order.fee_asset
                                                                             or tracked_order.quote_asset),
-                                                                            float(tracked_order.executed_amount_base),
-                                                                            float(tracked_order.executed_amount_quote),
-                                                                            float(tracked_order.fee_paid),
+                                                                            tracked_order.executed_amount_base, #refactor Decimal
+                                                                            tracked_order.executed_amount_quote, #refactor Decimal
+                                                                            tracked_order.fee_paid, #refactor Decimal
                                                                             tracked_order.order_type))
                         else:
                             # check if its a cancelled order
@@ -811,7 +811,7 @@ cdef class BinanceMarket(MarketBase):
         withdraw_fee = self._withdraw_rules[currency].withdraw_fee if currency in self._withdraw_rules else 0.0
         self.c_trigger_event(self.MARKET_WITHDRAW_ASSET_EVENT_TAG,
                              MarketWithdrawAssetEvent(self._current_timestamp, tracking_id, to_address, currency,
-                                                      float(amount), float(withdraw_fee)))
+                                                      decimal_amount, withdraw_fee)) #refactor Decimal
 
     cdef str c_withdraw(self, str address, str currency, double amount):
         cdef:
@@ -878,9 +878,9 @@ cdef class BinanceMarket(MarketBase):
     async def execute_buy(self,
                           order_id: str,
                           symbol: str,
-                          amount: float,
+                          amount: Decimal,
                           order_type: OrderType,
-                          price: Optional[float] = NaN):
+                          price: Optional[Decimal] = NaN):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
             object m = SYMBOL_SPLITTER.match(symbol)
@@ -944,8 +944,8 @@ cdef class BinanceMarket(MarketBase):
                                      self._current_timestamp,
                                      order_type,
                                      symbol,
-                                     float(decimal_amount),
-                                     float(decimal_price),
+                                     decimal_amount, #refactor Decimal
+                                     decimal_price, #refactor Decimal
                                      order_id
                                  ))
 
@@ -965,7 +965,7 @@ cdef class BinanceMarket(MarketBase):
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = NaN,
+    cdef str c_buy(self, str symbol, object amount, object order_type = OrderType.MARKET, object price = NaN_decimal,
                    dict kwargs = {}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
@@ -976,9 +976,9 @@ cdef class BinanceMarket(MarketBase):
     async def execute_sell(self,
                            order_id: str,
                            symbol: str,
-                           amount: float,
+                           amount: Decimal,
                            order_type: OrderType,
-                           price: Optional[float] = NaN):
+                           price: Optional[Decimal] = NaN):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
 
@@ -1038,8 +1038,8 @@ cdef class BinanceMarket(MarketBase):
                                      self._current_timestamp,
                                      order_type,
                                      symbol,
-                                     float(decimal_amount),
-                                     float(decimal_price),
+                                     decimal_amount,
+                                     decimal_price,
                                      order_id
                                  ))
 
@@ -1058,7 +1058,7 @@ cdef class BinanceMarket(MarketBase):
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    cdef str c_sell(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = NaN,
+    cdef str c_sell(self, str symbol, object amount, object order_type = OrderType.MARKET, object price = NaN_decimal,
                     dict kwargs = {}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
@@ -1168,21 +1168,21 @@ cdef class BinanceMarket(MarketBase):
         if order_id in self._order_not_found_records:
             del self._order_not_found_records[order_id]
 
-    cdef object c_get_order_price_quantum(self, str symbol, double price):
+    cdef object c_get_order_price_quantum(self, str symbol, object price):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
         return trading_rule.min_price_increment
 
-    cdef object c_get_order_size_quantum(self, str symbol, double order_size):
+    cdef object c_get_order_size_quantum(self, str symbol, object order_size):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
         return Decimal(trading_rule.min_base_amount_increment)
 
-    cdef object c_quantize_order_amount(self, str symbol, double amount, double price = 0.0):
+    cdef object c_quantize_order_amount(self, str symbol, object amount, object price = Decimal(0.0)):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
-            double current_price = self.c_get_price(symbol, False)
-            double notional_size
+            object current_price = Decimal(self.c_get_price(symbol, False))
+            object notional_size
         global s_decimal_0
         quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
 
@@ -1190,12 +1190,12 @@ cdef class BinanceMarket(MarketBase):
         if quantized_amount < trading_rule.min_order_size:
             return s_decimal_0
         if price == 0:
-            notional_size = current_price * float(quantized_amount)
+            notional_size = current_price * quantized_amount
         else:
-            notional_size = price * float(quantized_amount)
+            notional_size = price * quantized_amount
 
         # Add 1% as a safety factor in case the prices changed while making the order.
-        if notional_size < float(trading_rule.min_notional_size * Decimal(1.01)):
+        if notional_size < trading_rule.min_notional_size * Decimal(1.01):
             return s_decimal_0
 
         return quantized_amount
