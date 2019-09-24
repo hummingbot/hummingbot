@@ -11,6 +11,7 @@ from libc.stdint cimport int64_t
 
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.event.events import (
@@ -33,7 +34,7 @@ from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import NaN
 from hummingbot.market.trading_rule cimport TradingRule
 
-s_logger = None
+bm_logger = None
 s_decimal_0 = Decimal(0)
 
 cdef class BittrexMarketTransactionTracker(TransactionTracker):
@@ -68,10 +69,10 @@ cdef class BittrexMarket(MarketBase):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global s_logger
-        if s_logger is None:
-            s_logger = logging.getLogger(__name__)
-        return s_logger
+        global bm_logger
+        if bm_logger is None:
+            bm_logger = logging.getLogger(__name__)
+        return bm_logger
 
     def __init__(self,
                  bittrex_api_key: str,
@@ -82,29 +83,30 @@ cdef class BittrexMarket(MarketBase):
                  symbols: Optional[List[str]] = None,
                  trading_required: bool = True):
         super().__init__()
-        self._trading_required = trading_required
+        self._account_available_balances = {}
+        self._account_balances = {}
+        self._account_id = ""
         self._bittrex_auth = BittrexAuth(bittrex_api_key, bittrex_secret_key)
+        self._data_source_type = order_book_tracker_data_source_type
+        self._ev_loop = asyncio.get_event_loop()
+        self._in_flight_orders = {}
+        self._last_order_update_timestamp = 0
+        self._last_timestamp = 0
         self._order_book_tracker = BittrexOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
                                                            symbols=symbols)
+        self._order_tracker_task = None
+        self._poll_notifier = asyncio.Event()
+        self._poll_interval = poll_interval
+        self._shared_client = None
+        self._status_polling_task = None
+        self._trading_required = trading_required
+        self._trading_rules = {}
+        self._trading_rules_polling_task = None
+        self._tx_tracker = BittrexMarketTransactionTracker(self)
+        self._user_stream_event_listener_task = None
         self._user_stream_tracker = BittrexUserStreamTracker(bittrex_auth=self._bittrex_auth,
                                                              symbols=symbols)
-        self._account_balances = {}
-        self._account_available_balances = {}
-        self._ev_loop = asyncio.get_event_loop()
-        self._poll_notifier = asyncio.Event()
-        self._last_timestamp = 0
-        self._last_order_update_timestamp = 0
-        self._poll_interval = poll_interval
-        self._in_flight_orders = {}
-        self._tx_tracker = BittrexMarketTransactionTracker(self)
-        self._trading_rules = {}
-        self._data_source_type = order_book_tracker_data_source_type
-        self._status_polling_task = None
-        self._order_tracker_task = None
         self._user_stream_tracker_task = None
-        self._user_stream_event_listener_task = None
-        self._trading_rules_polling_task = None
-        self._shared_client = None
 
     @property
     def name(self) -> str:
@@ -116,15 +118,30 @@ cdef class BittrexMarket(MarketBase):
 
     @property
     def bittrex_auth(self) -> BittrexAuth:
-        return self.bittrex_auth
+        return self._bittrex_auth
 
     @property
     def status_dict(self) -> Dict[str, bool]:
+        # print(f"OrderBookTracker: {self._order_book_tracker.order_books.values()}")
+        # print(f"Account Balance: {self._account_balances.values()}")
+        # print(f"Tracking Rules: {self._trading_rules}")
         return {
-            "order_book_initialized": len(self.order_books) > 0,
+            "order_book_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True
         }
+
+    @property
+    def ready(self) -> bool:
+        print(self.status_dict.values())
+        return all(self.status_dict.values())
+
+    @property
+    def limit_orders(self) -> List[LimitOrder]:
+        return [
+            in_flight_order.to_limit_order()
+            for in_flight_order in self._in_flight_orders.values()
+        ]
 
     @property
     def tracking_states(self) -> Dict[str, any]:
@@ -562,14 +579,6 @@ cdef class BittrexMarket(MarketBase):
         path_url = f"/order/{exchange_order_id}"
         result = await self._api_request("GET", path_url=path_url)
         return result
-
-    async def get_transfers(self) -> Dict[str, Any]:
-        # Bittrex v3(BETA) does support it but only limited to partners
-        return NotImplementedError
-
-    async def list_bittrex_accounts(self) -> Dict[str, Any]:
-        # Bittrex v3(BETA) does support it but only limited to partners
-        return NotImplementedError
 
     async def get_deposit_address(self, currency: str) -> str:
         path_url = f"/addresses/{currency}"
