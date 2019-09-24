@@ -27,7 +27,8 @@ class BittrexOrderBookTrackerUnitTest(unittest.TestCase):
         OrderBookEvent.TradeEvent
     ]
     trading_pairs: List[str] = [
-        "LTC-BTC"
+        "LTC-BTC",
+        "LTC-ETH"
     ]
 
     @classmethod
@@ -80,7 +81,8 @@ class BittrexOrderBookTrackerUnitTest(unittest.TestCase):
             self.assertTrue(type(ob_trade_event.amount) == float)
             self.assertTrue(type(ob_trade_event.price) == float)
             self.assertTrue(type(ob_trade_event.type) == TradeType)
-            self.assertTrue(math.ceil(math.log10(ob_trade_event.timestamp)) == 10)
+            # Bittrex datetime is in epoch milliseconds
+            self.assertTrue(math.ceil(math.log10(ob_trade_event.timestamp)) == 13)
             self.assertTrue(ob_trade_event.amount > 0)
             self.assertTrue(ob_trade_event.price > 0)
 

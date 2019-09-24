@@ -6,8 +6,9 @@ import time
 from collections import defaultdict, deque
 from typing import Optional, Dict, List, Set, Deque
 
-from hummingbot.core.data_type.order_book_message import BittrexOrderBookMessage, OrderBookMessageType
+from hummingbot.core.data_type.order_book_message import BittrexOrderBookMessage, OrderBookMessageType, OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_entry import BittrexOrderBookTrackerEntry
+from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -114,6 +115,19 @@ class BittrexOrderBookTracker(OrderBookTracker):
                     continue
                 await message_queue.put(ob_message)
                 message_accepted += 1
+
+                if len(ob_message.content["f"]) != 0:
+                    for trade in ob_message.content["f"]:
+                        trade_type = float(TradeType.SELL.value) if trade["OT"].upper() == "SELL" \
+                            else float(TradeType.BUY.value)
+                        self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
+                            "symbol": ob_message.symbol,
+                            "trade_type": trade_type,
+                            "trade_id": trade["FI"],
+                            "update_id": trade["T"],
+                            "price": trade["R"],
+                            "amount": trade["Q"]
+                        }, timestamp=trade["T"]))
 
                 # Log some statistics
                 now: float = time.time()
