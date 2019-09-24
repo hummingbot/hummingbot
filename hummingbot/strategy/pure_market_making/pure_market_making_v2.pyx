@@ -11,6 +11,7 @@ from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import (
@@ -89,6 +90,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  cancel_order_wait_time: float = 60,
                  filled_order_replenish_wait_time: float = 10,
                  enable_order_filled_stop_cancellation: bool = False,
+                 jump_orders_mode_enabled: bool = False,
+                 jump_orders_depth: float = 0,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
                  status_report_interval: float = 900):
@@ -116,6 +119,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._pricing_delegate = pricing_delegate
         self._sizing_delegate = sizing_delegate
         self._enable_order_filled_stop_cancellation = enable_order_filled_stop_cancellation
+        self._jump_orders_mode_enabled = jump_orders_mode_enabled
+        self._jump_orders_depth = jump_orders_depth
 
         self.limit_order_min_expiration = limit_order_min_expiration
 
@@ -288,6 +293,30 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         finally:
             self._last_timestamp = timestamp
 
+    # check if penny jumping is required here in this function with bool, true if required, false if not required
+    # call to modify the prices at which these things are executed
+    cdef bool c_check_if_penny_jumping_is_required(self,
+                                                   market_info,
+                                                   pricing_proposal):
+        cdef:
+            OrderBook maker_orderbook = market_info.orderbook
+
+        buy_order_prices, sell_order_prices = pricing_proposal
+
+        # Don't jump if there are multiple orders
+        if len(buy_order_prices) > 1 and len(sell_order_prices) > 1:
+            return False
+
+        if len(buy_order_prices) == 1:
+            # get the top bid price compare for jump_orders_depth
+            top_bid_price = maker_orderbook.c_get_price_for_volume(False, self._jump_orders_depth)
+            pass
+
+        if len(sell_order_prices) == 1:
+            # get the top ask price compare for jump_orders_depth
+            top_bid_price = maker_orderbook.c_get_price_for_volume(True, self._jump_orders_depth)
+            pass
+
     cdef object c_get_orders_proposal_for_market_info(self, object market_info, list active_orders):
         cdef:
             double last_trade_price
@@ -306,6 +335,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self,
                                                                              market_info,
                                                                              active_orders)
+
+        # Check if the number of active orders is 1 at the start
+        if self._jump_orders_mode_enabled:
+            pass
 
         sizing_proposal = self._sizing_delegate.c_get_order_size_proposal(self,
                                                                           market_info,
