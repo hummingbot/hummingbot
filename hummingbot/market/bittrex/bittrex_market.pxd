@@ -15,7 +15,7 @@ cdef class BittrexMarket(MarketBase):
         object _ev_loop
         dict _in_flight_orders
         double _last_timestamp
-        double _last_order_update_timestamp
+        double _last_poll_timestamp
         object _order_book_tracker
         object _user_stream_tracker
         object _poll_notifier
