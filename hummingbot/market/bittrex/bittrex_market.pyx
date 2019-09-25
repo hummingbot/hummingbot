@@ -24,6 +24,7 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent, OrderCancelledEvent, MarketTransactionFailureEvent,
     MarketOrderFailureEvent, SellOrderCreatedEvent, BuyOrderCreatedEvent)
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.bittrex.bittrex_api_order_book_data_source import BittrexAPIOrderBookDataSource
 from hummingbot.market.bittrex.bittrex_auth import BittrexAuth
@@ -65,7 +66,7 @@ cdef class BittrexMarket(MarketBase):
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
 
-    BITTREX_API_ENDPOINT = "https://api.bittrex.com/api/v3/"
+    BITTREX_API_ENDPOINT = "https://api.bittrex.com/v3"
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -172,6 +173,7 @@ cdef class BittrexMarket(MarketBase):
             int64_t current_tick = <int64_t> (timestamp / self._poll_interval)
 
         MarketBase.c_tick(self, timestamp)
+        self._tx_tracker.c_tick(timestamp)
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
                 self._poll_notifier.set()
@@ -545,7 +547,7 @@ cdef class BittrexMarket(MarketBase):
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
 
-                await asyncio.gather(
+                await safe_gather(
                     self._update_balances(),
                     self._update_order_status()
                 )
@@ -787,7 +789,7 @@ cdef class BittrexMarket(MarketBase):
         cdef:
             int64_t tracking_nonce = <int64_t> (time.time() * 1e6)
             str order_id = str(f"buy-{symbol}-{tracking_nonce}")
-        asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
+        safe_ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
         return order_id
 
     async def execute_sell(self,
@@ -868,7 +870,7 @@ cdef class BittrexMarket(MarketBase):
             int64_t tracking_nonce = <int64_t> (time.time() * 1e6)
             str order_id = str(f"sell-{symbol}-{tracking_nonce}")
 
-        asyncio.ensure_future(self.execute_sell(order_id, symbol, amount, order_type, price))
+        safe_ensure_future(self.execute_sell(order_id, symbol, amount, order_type, price))
         return order_id
 
     async def execute_cancel(self, symbol: str, order_id: str):
@@ -906,7 +908,7 @@ cdef class BittrexMarket(MarketBase):
         return None
 
     cdef c_cancel(self, str symbol, str order_id):
-        asyncio.ensure_future(self.execute_cancel(symbol, order_id))
+        safe_ensure_future(self.execute_cancel(symbol, order_id))
         return order_id
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
@@ -969,7 +971,7 @@ cdef class BittrexMarket(MarketBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            await self._api_request("GET", path_url="/ping")
+            print(await self._api_request("GET", path_url="/ping"))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -995,9 +997,9 @@ cdef class BittrexMarket(MarketBase):
         if self._order_tracker_task is not None:
             self._stop_network()
 
-        self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
+        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
         if self._trading_required:
-            self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
-            self._trading_rules_polling_task = asyncio.ensure_future(self._trading_rules_polling_loop())
-            self._user_stream_tracker_task = asyncio.ensure_future(self._user_stream_tracker.start())
-            self._user_stream_event_listener_task = asyncio.ensure_future(self._user_stream_event_listener())
+            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
+            self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
+            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
+            self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
