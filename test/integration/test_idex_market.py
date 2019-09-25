@@ -22,14 +22,9 @@ from hummingbot.core.event.events import (
     WalletEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
-    WalletWrappedEthEvent,
-    WalletUnwrappedEthEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
-    TradeType,
-    TradeFee
+    OrderCancelledEvent
 )
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.utils.async_utils import (
@@ -79,15 +74,15 @@ class IDEXMarketUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.wallet = Web3Wallet(private_key=conf.web3_test_private_key_ddex,
-                                backend_urls=conf.test_ddex_web3_provider_list,
-                                erc20_token_addresses=[conf.test_ddex_erc20_token_address_1,
-                                                       conf.test_ddex_erc20_token_address_2],
+        cls.wallet = Web3Wallet(private_key=conf.web3_test_private_key_idex,
+                                backend_urls=conf.test_web3_provider_list,
+                                erc20_token_addresses=[conf.test_idex_erc20_token_address_1,
+                                                       conf.test_idex_erc20_token_address_2],
                                 chain=EthereumChain.MAIN_NET)
         cls.market: IDEXMarket = IDEXMarket(
             idex_api_key=conf.idex_api_key,
             wallet=cls.wallet,
-            ethereum_rpc_url=conf.test_ddex_web3_provider_list[0],
+            ethereum_rpc_url=conf.test_web3_provider_list[0],
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             symbols=[ETH_FXC]
         )
@@ -167,7 +162,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
         buy_order_id: str = self.market.buy(symbol, buy_amount, OrderType.LIMIT, buy_price)
         [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.assertEqual(buy_order_id, buy_order_opened_event.order_id)
-        self.assertEqual(buy_amount, float(buy_order_opened_event.amount))        
+        self.assertEqual(buy_amount, float(buy_order_opened_event.amount))
         self.assertEqual(ETH_FXC, buy_order_opened_event.symbol)
         self.assertEqual(OrderType.LIMIT, buy_order_opened_event.type)
 
@@ -182,7 +177,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
         sell_order_id: str = self.market.sell(symbol, sell_amount, OrderType.LIMIT, sell_price)
         [sell_order_opened_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         self.assertEqual(sell_order_id, sell_order_opened_event.order_id)
-        self.assertEqual(sell_amount, float(sell_order_opened_event.amount))        
+        self.assertEqual(sell_amount, float(sell_order_opened_event.amount))
         self.assertEqual(ETH_FXC, sell_order_opened_event.symbol)
         self.assertEqual(OrderType.LIMIT, sell_order_opened_event.type)
 
@@ -197,7 +192,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
         buy_order_id: str = self.market.buy(symbol, buy_amount, OrderType.LIMIT, buy_price)
         [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.assertEqual(buy_order_id, buy_order_opened_event.order_id)
-        self.assertEqual(buy_amount, float(buy_order_opened_event.amount))        
+        self.assertEqual(buy_amount, float(buy_order_opened_event.amount))
         self.assertEqual(ETH_FXC, buy_order_opened_event.symbol)
         self.assertEqual(OrderType.LIMIT, buy_order_opened_event.type)
         symbol = ETH_FXC
@@ -206,7 +201,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
         sell_order_id: str = self.market.sell(symbol, sell_amount, OrderType.LIMIT, sell_price)
         [sell_order_opened_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         self.assertEqual(sell_order_id, sell_order_opened_event.order_id)
-        self.assertEqual(sell_amount, float(sell_order_opened_event.amount))        
+        self.assertEqual(sell_amount, float(sell_order_opened_event.amount))
         self.assertEqual(ETH_FXC, sell_order_opened_event.symbol)
         self.assertEqual(OrderType.LIMIT, sell_order_opened_event.type)
 
@@ -280,7 +275,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
                 self.market.remove_listener(event_tag, self.market_logger)
             self.market: IDEXMarket = IDEXMarket(
                 wallet=self.wallet,
-                ethereum_rpc_url=conf.test_ddex_web3_provider_list[0],
+                ethereum_rpc_url=conf.test_web3_provider_list[0],
                 order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                 symbols=[ETH_FXC]
             )
