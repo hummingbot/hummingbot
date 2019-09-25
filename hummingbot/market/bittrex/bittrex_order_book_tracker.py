@@ -12,10 +12,7 @@ from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.bittrex.bittrex_active_order_tracker import BittrexActiveOrderTracker
 from hummingbot.market.bittrex.bittrex_api_order_book_data_source import BittrexAPIOrderBookDataSource
 from hummingbot.market.bittrex.bittrex_order_book import BittrexOrderBook
@@ -220,6 +217,10 @@ class BittrexOrderBookTracker(OrderBookTracker):
                 await asyncio.sleep(5.0)
 
     async def start(self):
+        await super().start()
+        self._order_book_trade_listener_task = safe_ensure_future(
+            self.data_source.listen_for_trades(self._ev_loop, self._order_book_trade_stream)
+        )
         self._order_book_diff_listener_task = safe_ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
@@ -235,8 +236,3 @@ class BittrexOrderBookTracker(OrderBookTracker):
         self._order_book_snapshot_router_task = safe_ensure_future(
             self._order_book_snapshot_router()
         )
-
-        await safe_gather(self._order_book_snapshot_listener_task,
-                          self._order_book_diff_listener_task,
-                          self._refresh_tracking_task
-                          )
