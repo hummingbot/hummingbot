@@ -91,7 +91,7 @@ cdef class BittrexMarket(MarketBase):
         self._data_source_type = order_book_tracker_data_source_type
         self._ev_loop = asyncio.get_event_loop()
         self._in_flight_orders = {}
-        self._last_order_update_timestamp = 0
+        self._last_poll_timestamp = 0
         self._last_timestamp = 0
         self._order_book_tracker = BittrexOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
                                                            symbols=symbols)
@@ -123,9 +123,6 @@ cdef class BittrexMarket(MarketBase):
 
     @property
     def status_dict(self) -> Dict[str, bool]:
-        # print(f"OrderBookTracker: {self._order_book_tracker.order_books.values()}")
-        # print(f"Account Balance: {self._account_balances.values()}")
-        # print(f"Tracking Rules: {self._trading_rules}")
         return {
             "order_book_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
@@ -134,7 +131,6 @@ cdef class BittrexMarket(MarketBase):
 
     @property
     def ready(self) -> bool:
-        print(self.status_dict.values())
         return all(self.status_dict.values())
 
     @property
@@ -316,7 +312,7 @@ cdef class BittrexMarket(MarketBase):
         cdef:
             double current_timestamp = self._current_timestamp
 
-        if current_timestamp - self._last_order_update_timestamp <= self.UPDATE_ORDERS_INTERVAL:
+        if current_timestamp - self._last_poll_timestamp <= self.UPDATE_ORDERS_INTERVAL:
             return
 
         tracked_orders = list(self._in_flight_orders.values())
@@ -418,7 +414,7 @@ cdef class BittrexMarket(MarketBase):
             tracked_order.executed_amount_base = new_confirmed_amount
             tracked_order.fee_paid = Decimal(order_update["CommissionPaid"])
 
-        self._last_order_update_timestamp = current_timestamp
+        self._last_poll_timestamp = current_timestamp
 
     async def _iter_user_stream_queue(self) -> AsyncIterable[Dict[str, Any]]:
         while True:
@@ -551,7 +547,7 @@ cdef class BittrexMarket(MarketBase):
                     self._update_balances(),
                     self._update_order_status()
                 )
-                self._last_pull_timestamp = self._current_timestamp
+                self._last_poll_timestamp = self._current_timestamp
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -971,7 +967,7 @@ cdef class BittrexMarket(MarketBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            print(await self._api_request("GET", path_url="/ping"))
+            await self._api_request("GET", path_url="/ping")
         except asyncio.CancelledError:
             raise
         except Exception:
