@@ -6,6 +6,10 @@ from typing import (
     Optional,
     Dict
 )
+from math import (
+    floor,
+    ceil
+)
 
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.events import TradeType
@@ -90,7 +94,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  cancel_order_wait_time: float = 60,
                  filled_order_replenish_wait_time: float = 10,
                  enable_order_filled_stop_cancellation: bool = False,
-                 jump_orders_mode_enabled: bool = False,
+                 jump_orders_enabled: bool = False,
                  jump_orders_depth: float = 0,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
@@ -119,7 +123,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._pricing_delegate = pricing_delegate
         self._sizing_delegate = sizing_delegate
         self._enable_order_filled_stop_cancellation = enable_order_filled_stop_cancellation
-        self._jump_orders_mode_enabled = jump_orders_mode_enabled
+        self._jump_orders_enabled = jump_orders_enabled
         self._jump_orders_depth = jump_orders_depth
 
         self.limit_order_min_expiration = limit_order_min_expiration
@@ -293,29 +297,53 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         finally:
             self._last_timestamp = timestamp
 
-    # check if penny jumping is required here in this function with bool, true if required, false if not required
-    # call to modify the prices at which these things are executed
-    cdef bool c_check_if_penny_jumping_is_required(self,
-                                                   market_info,
-                                                   pricing_proposal):
+    # Compare the market price with the top bid and top ask price
+    cdef object c_get_penny_jumped_pricing_proposal(self,
+                                                    object market_info,
+                                                    object pricing_proposal):
         cdef:
-            OrderBook maker_orderbook = market_info.orderbook
+            MarketBase maker_market = market_info.market
+            OrderBook maker_orderbook = market_info.order_book
+            object updated_buy_order_prices = pricing_proposal.buy_order_prices
+            object updated_sell_order_prices = pricing_proposal.sell_order_prices
 
-        buy_order_prices, sell_order_prices = pricing_proposal
+        # If there are multiple orders, do not jump prices
+        if len(updated_buy_order_prices) > 1 and len(updated_sell_order_prices) > 1:
+            return pricing_proposal
 
-        # Don't jump if there are multiple orders
-        if len(buy_order_prices) > 1 and len(sell_order_prices) > 1:
-            return False
+        if len(updated_buy_order_prices) == 1:
+            # Get the top bid price in the market using jump_orders_depth
+            top_bid_price = maker_orderbook.c_get_price_for_volume(False, self._jump_orders_depth).result_price
+            self.logger().info(f"top bid: {top_bid_price}")
+            price_quantum = maker_market.c_get_order_price_quantum(
+                market_info.trading_pair,
+                top_bid_price
+            )
+            # Get the price above the top bid
+            price_above_bid = (ceil(Decimal(top_bid_price) / price_quantum) + 1) * price_quantum
+            # If the price above bid is lower than the price suggested by the pricing proposal,
+            # make it the price above bid
+            lower_buy_price = min(updated_buy_order_prices[0], price_above_bid)
+            updated_buy_order_prices[0] = maker_market.c_quantize_order_price(market_info.trading_pair,
+                                                                              lower_buy_price)
 
-        if len(buy_order_prices) == 1:
-            # get the top bid price compare for jump_orders_depth
-            top_bid_price = maker_orderbook.c_get_price_for_volume(False, self._jump_orders_depth)
-            pass
+        if len(updated_sell_order_prices) == 1:
+            # Get the top ask price in the market using jump_orders_depth
+            top_ask_price = maker_orderbook.c_get_price_for_volume(True, self._jump_orders_depth).result_price
+            self.logger().info(f"top ask: {top_ask_price}")
+            price_quantum = maker_market.c_get_order_price_quantum(
+                market_info.trading_pair,
+                top_ask_price
+            )
+            # Get the price below the top ask
+            price_below_ask = (floor(Decimal(top_ask_price) / price_quantum) - 1) * price_quantum
+            # If the price below ask is higher than the price suggested by the pricing proposal,
+            # make it the price below ask
+            higher_sell_price = max(updated_sell_order_prices[0], price_below_ask)
+            updated_sell_order_prices[0] = maker_market.c_quantize_order_price(market_info.trading_pair,
+                                                                               higher_sell_price)
 
-        if len(sell_order_prices) == 1:
-            # get the top ask price compare for jump_orders_depth
-            top_bid_price = maker_orderbook.c_get_price_for_volume(True, self._jump_orders_depth)
-            pass
+        return PricingProposal(updated_buy_order_prices, updated_sell_order_prices)
 
     cdef object c_get_orders_proposal_for_market_info(self, object market_info, list active_orders):
         cdef:
@@ -337,8 +365,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                              active_orders)
 
         # Check if the number of active orders is 1 at the start
-        if self._jump_orders_mode_enabled:
-            pass
+        if self._jump_orders_enabled:
+            pricing_proposal = self.c_get_penny_jumped_pricing_proposal(market_info,
+                                                                        pricing_proposal)
 
         sizing_proposal = self._sizing_delegate.c_get_order_size_proposal(self,
                                                                           market_info,
