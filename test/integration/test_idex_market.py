@@ -45,7 +45,7 @@ from hummingbot.model.trade_fill import TradeFill
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 
-ETH_FXC = "ETH_FXC"
+ETH_ZRX = "ETH_ZRX"
 
 
 class IDEXMarketUnitTest(unittest.TestCase):
@@ -84,7 +84,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
             wallet=cls.wallet,
             ethereum_rpc_url=conf.test_web3_provider_list[0],
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-            symbols=[ETH_FXC]
+            symbols=[ETH_ZRX]
         )
         print("Initializing IDEX market... ")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -150,20 +150,20 @@ class IDEXMarketUnitTest(unittest.TestCase):
         self.assertGreaterEqual((balances["ETH"]), 0)
 
     def test_quantize_order_amount(self):
-        amount = self.market.quantize_order_amount("ETH_FXC", 100)
+        amount = self.market.quantize_order_amount("ETH_ZRX", 100)
         self.assertEqual(amount, 0)
-        amount = self.market.quantize_order_amount("ETH_FXC", 100000)
+        amount = self.market.quantize_order_amount("ETH_ZRX", 100000)
         self.assertEqual(amount, 100000)
 
     def test_place_limit_buy_and_cancel(self):
-        symbol = ETH_FXC
+        symbol = ETH_ZRX
         buy_amount: float = 16000000
         buy_price = 0.00000001
         buy_order_id: str = self.market.buy(symbol, buy_amount, OrderType.LIMIT, buy_price)
         [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.assertEqual(buy_order_id, buy_order_opened_event.order_id)
         self.assertEqual(buy_amount, float(buy_order_opened_event.amount))
-        self.assertEqual(ETH_FXC, buy_order_opened_event.symbol)
+        self.assertEqual(ETH_ZRX, buy_order_opened_event.symbol)
         self.assertEqual(OrderType.LIMIT, buy_order_opened_event.type)
 
         self.run_parallel(self.market.cancel_order(buy_order_id))
@@ -171,14 +171,14 @@ class IDEXMarketUnitTest(unittest.TestCase):
         self.assertEqual(buy_order_opened_event.order_id, buy_order_cancelled_event.order_id)
 
     def test_place_limit_sell_and_cancel(self):
-        symbol = ETH_FXC
+        symbol = ETH_ZRX
         sell_amount: float = 5
         sell_price = 1
         sell_order_id: str = self.market.sell(symbol, sell_amount, OrderType.LIMIT, sell_price)
         [sell_order_opened_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         self.assertEqual(sell_order_id, sell_order_opened_event.order_id)
         self.assertEqual(sell_amount, float(sell_order_opened_event.amount))
-        self.assertEqual(ETH_FXC, sell_order_opened_event.symbol)
+        self.assertEqual(ETH_ZRX, sell_order_opened_event.symbol)
         self.assertEqual(OrderType.LIMIT, sell_order_opened_event.type)
 
         self.run_parallel(self.market.cancel_order(sell_order_id))
@@ -186,23 +186,23 @@ class IDEXMarketUnitTest(unittest.TestCase):
         self.assertEqual(sell_order_opened_event.order_id, sell_order_cancelled_event.order_id)
 
     def test_cancel_all_happy_case(self):
-        symbol = ETH_FXC
+        symbol = ETH_ZRX
         buy_amount: float = 16000000
         buy_price = 0.00000001
         buy_order_id: str = self.market.buy(symbol, buy_amount, OrderType.LIMIT, buy_price)
         [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.assertEqual(buy_order_id, buy_order_opened_event.order_id)
         self.assertEqual(buy_amount, float(buy_order_opened_event.amount))
-        self.assertEqual(ETH_FXC, buy_order_opened_event.symbol)
+        self.assertEqual(ETH_ZRX, buy_order_opened_event.symbol)
         self.assertEqual(OrderType.LIMIT, buy_order_opened_event.type)
-        symbol = ETH_FXC
+        symbol = ETH_ZRX
         sell_amount: float = 5
         sell_price = 1
         sell_order_id: str = self.market.sell(symbol, sell_amount, OrderType.LIMIT, sell_price)
         [sell_order_opened_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         self.assertEqual(sell_order_id, sell_order_opened_event.order_id)
         self.assertEqual(sell_amount, float(sell_order_opened_event.amount))
-        self.assertEqual(ETH_FXC, sell_order_opened_event.symbol)
+        self.assertEqual(ETH_ZRX, sell_order_opened_event.symbol)
         self.assertEqual(OrderType.LIMIT, sell_order_opened_event.type)
 
         [cancellation_results] = self.run_parallel(self.market.cancel_all(30))
@@ -211,16 +211,16 @@ class IDEXMarketUnitTest(unittest.TestCase):
             self.assertEqual(cr.success, True)
 
     def test_market_buy(self):
-        symbol = ETH_FXC
-        buy_amount: float = 4000
+        symbol = ETH_ZRX
+        buy_amount: float = 150
         buy_order_id: str = self.market.buy(symbol, buy_amount, OrderType.MARKET)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         self.assertEqual(buy_order_id, order_completed_event.order_id)
 
     def test_market_sell(self):
-        symbol = ETH_FXC
-        sell_amount: float = 3600
+        symbol = ETH_ZRX
+        sell_amount: float = 135
         sell_order_id: str = self.market.sell(symbol, sell_amount, OrderType.MARKET)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
@@ -229,7 +229,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
     def test_orders_saving_and_restoration(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        symbol: str = ETH_FXC
+        symbol: str = ETH_ZRX
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
@@ -238,7 +238,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
         try:
             self.assertEqual(0, len(self.market.tracking_states))
 
-            # Try to put limit buy order for 0.05 ETH worth of FXC, and watch for order creation event.
+            # Try to put limit buy order for 0.05 ETH worth of ZRX, and watch for order creation event.
             current_bid_price: float = self.market.get_price(symbol, True)
             bid_price: float = current_bid_price * 0.9
             quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
@@ -277,7 +277,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
                 wallet=self.wallet,
                 ethereum_rpc_url=conf.test_web3_provider_list[0],
                 order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                symbols=[ETH_FXC]
+                symbols=[ETH_ZRX]
             )
             for event_tag in self.market_events:
                 self.market.add_listener(event_tag, self.market_logger)
@@ -311,14 +311,14 @@ class IDEXMarketUnitTest(unittest.TestCase):
     def test_order_fill_record(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        symbol: str = ETH_FXC
+        symbol: str = ETH_ZRX
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
         recorder.start()
 
         try:
-            # Try to buy 0.07 ETH worth of FXC from the exchange, and watch for completion event.
+            # Try to buy 0.07 ETH worth of ZRX from the exchange, and watch for completion event.
             current_price: float = self.market.get_price(symbol, True)
             amount: float = 0.07 / current_price
             order_id = self.market.buy(symbol, amount)
@@ -327,7 +327,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
             # Reset the logs
             self.market_logger.clear()
 
-            # Try to sell back the same amount of FXC to the exchange, and watch for completion event.
+            # Try to sell back the same amount of ZRX to the exchange, and watch for completion event.
             amount = float(buy_order_completed_event.base_asset_amount)
             order_id = self.market.sell(symbol, amount)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
