@@ -322,7 +322,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             else:
                 own_sell_order_depth = order.quantity
 
-        # Get the top bid price in the market using jump_orders_depth
+        # Get the top bid price in the market using jump_orders_depth and your buy order volume
         top_bid_price = maker_orderbook.c_get_price_for_volume(False,
                                                                self._jump_orders_depth + own_buy_order_depth).result_price
         price_quantum = maker_market.c_get_order_price_quantum(
@@ -332,13 +332,13 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         # Get the price above the top bid
         price_above_bid = (ceil(Decimal(top_bid_price) / price_quantum) + 1) * price_quantum
 
-        # If the price above bid is lower than the price suggested by the pricing proposal,
-        # make it the price above bid
+        # If the price_above_bid is lower than the price suggested by the pricing proposal,
+        # lower your price to this
         lower_buy_price = min(updated_buy_order_prices[0], price_above_bid)
         updated_buy_order_prices[0] = maker_market.c_quantize_order_price(market_info.trading_pair,
                                                                           lower_buy_price)
 
-        # Get the top ask price in the market using jump_orders_depth
+        # Get the top ask price in the market using jump_orders_depth and your sell order volume
         top_ask_price = maker_orderbook.c_get_price_for_volume(True,
                                                                self._jump_orders_depth + own_sell_order_depth).result_price
         price_quantum = maker_market.c_get_order_price_quantum(
@@ -347,8 +347,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         )
         # Get the price below the top ask
         price_below_ask = (floor(Decimal(top_ask_price) / price_quantum) - 1) * price_quantum
-        # If the price below ask is higher than the price suggested by the pricing proposal,
-        # make it the price below ask
+
+        # If the price_below_ask is higher than the price suggested by the pricing proposal,
+        # increase your price to this
         higher_sell_price = max(updated_sell_order_prices[0], price_below_ask)
         updated_sell_order_prices[0] = maker_market.c_quantize_order_price(market_info.trading_pair,
                                                                            higher_sell_price)
@@ -374,8 +375,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                              market_info,
                                                                              active_orders)
 
-        # If jump orders is enabled and current timestamp is greater than anti_hysteresis_timer,
-        # then adjust order to one tick above bid / one tick below ask
+        # If jump orders is enabled, run the penny jumped pricing proposal
         if self._jump_orders_enabled:
             pricing_proposal = self.c_get_penny_jumped_pricing_proposal(market_info,
                                                                         pricing_proposal,

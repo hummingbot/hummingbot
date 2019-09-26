@@ -701,7 +701,11 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.penny_jumping_strategy.active_asks))
         bid_order: LimitOrder = self.penny_jumping_strategy.active_bids[0][1]
         ask_order: LimitOrder = self.penny_jumping_strategy.active_asks[0][1]
+        # Top bid is 98 and suggested price is 99 from pricing proposal
+        # With penny jumping, bid price is just one above top bid
         self.assertEqual(Decimal("98.0001"), bid_order.price)
+        # Top ask is 102 and suggested price is 101 from pricing proposal
+        # With penny jumping, ask price is just one below top ask
         self.assertEqual(Decimal("101.999"), ask_order.price)
         self.assertEqual(Decimal("1.0"), bid_order.quantity)
         self.assertEqual(Decimal("1.0"), ask_order.quantity)
