@@ -128,7 +128,7 @@ The `enable_order_filled_stop_cancellation` can be used if there is enough volat
 
 #### Penny Jumping mode
 
-Users now have the option to automatically adjust the prices to just above top bid and just below top ask using `jump_orders_enabled`. The user can specify how deep to go into the orderbook for calculating this price using `jump_orders_depth`. This is available in single order mode.
+Users now have the option to automatically adjust the prices to just above top bid and just below top ask using `jump_orders_enabled`. The user can specify how deep to go into the orderbook for calculating the top bid and top ask price using `jump_orders_depth`. This is available in single order mode.
 
 > Example:
 Assume you are running pure parket making in single order mode, the order size is 1 and the mid price is 100. Then if you set jump_order_depth to 0,
