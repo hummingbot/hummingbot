@@ -116,7 +116,7 @@ pure_market_making_config_map = {
                                      default=False),
     "jump_orders_depth": ConfigVar(key="jump_orders_depth",
                                    prompt="How deep do you want to go into the order book for calculating"
-                                          "the top bid and ask for ignoring dust orders on the top."
+                                          "the top bid and ask, ignoring dust orders on the top."
                                           "(expressed in base currency). (Default is 0) ? >>> ",
                                    required_if=lambda: pure_market_making_config_map.get("jump_orders_enabled").value,
                                    type_str="float",
