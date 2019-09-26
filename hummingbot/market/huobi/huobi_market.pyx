@@ -1,4 +1,5 @@
 import aiohttp
+from aiohttp.test_utils import TestClient
 import asyncio
 from async_timeout import timeout
 import conf
@@ -177,6 +178,15 @@ cdef class HuobiMarket(MarketBase):
             for key, value in saved_states.items()
         })
 
+    @property
+    def shared_client(self) -> str:
+        return self._shared_client
+
+    @shared_client.setter
+    def shared_client(self, client: aiohttp.ClientSession):
+        self._shared_client = client
+
+
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         return await HuobiAPIOrderBookDataSource.get_active_exchange_markets()
 
@@ -242,30 +252,36 @@ cdef class HuobiMarket(MarketBase):
                            params: Optional[Dict[str, Any]] = None,
                            data = None,
                            is_auth_required: bool = False) -> Dict[str, Any]:
-        content_type = "application/json" if method == "post" else "application/x-www-form-urlencoded"
-        headers = {"Content-Type": content_type}
-        url = HUOBI_ROOT_API + path_url
-        client = await self._http_client()
-        if is_auth_required:
-            params = self._huobi_auth.add_auth_to_params(method, path_url, params)
-        async with client.request(method=method,
-                                  url=url,
-                                  headers=headers,
-                                  params=params,
-                                  data=ujson.dumps(data),
-                                  timeout=self.API_CALL_TIMEOUT) as response:
-            if response.status != 200:
-                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
-            try:
-                parsed_response = await response.json()
-            except Exception:
-                raise IOError(f"Error parsing data from {url}.")
+        try:
+            content_type = "application/json" if method == "post" else "application/x-www-form-urlencoded"
+            headers = {"Content-Type": content_type}
+            url = HUOBI_ROOT_API + path_url
+            client = await self._http_client()
+            if is_auth_required:
+                params = self._huobi_auth.add_auth_to_params(method, path_url, params)
+            async with client.request(method=method,
+                                    url=url,
+                                    # path=f"/{path_url}",
+                                    headers=headers,
+                                    params=params,
+                                    data=ujson.dumps(data),
+                                    timeout=self.API_CALL_TIMEOUT)  as response:
+                # async with as response:
+                if response.status != 200:
+                    raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
+                try:
+                    parsed_response = await response.json()
+                except Exception:
+                    raise IOError(f"Error parsing data from {url}.")
 
-            data = parsed_response.get("data")
-            if data is None:
-                self.logger().error(f"Error received from {url}. Response is {parsed_response}.")
-                return {"error": parsed_response}
-            return data
+                print('@@@@@@@@@@@', path_url)
+                data = parsed_response.get("data")
+                if data is None:
+                    self.logger().error(f"Error received from {url}. Response is {parsed_response}.")
+                    return {"error": parsed_response}
+                return data
+        except Exception as e:
+            self.logger().error('ERRRORRR', e)
 
     async def _update_account_id(self) -> str:
         accounts = await self._api_request("get", path_url="account/accounts", is_auth_required=True)
@@ -279,13 +295,15 @@ cdef class HuobiMarket(MarketBase):
     async def _update_balances(self):
         cdef:
             str path_url = f"account/accounts/{self._account_id}/balance"
-            dict data = await self._api_request("get", path_url=path_url, is_auth_required=True)
-            list balances = data.get("list", [])
+            dict data
+            list balances
             dict new_available_balances = {}
             dict new_balances = {}
             str asset_name
             object balance
 
+        data = await self._api_request("get", path_url=path_url, is_auth_required=True)
+        balances = data.get("list", [])
         if len(balances) > 0:
             for balance_entry in balances:
                 asset_name = balance_entry["currency"]
@@ -521,6 +539,7 @@ cdef class HuobiMarket(MarketBase):
 
     @property
     def ready(self) -> bool:
+        print(self.status_dict)
         return all(self.status_dict.values())
 
     def get_all_balances(self) -> Dict[str, Decimal]:
@@ -545,6 +564,7 @@ cdef class HuobiMarket(MarketBase):
         }
         if order_type is OrderType.LIMIT:
             params["price"] = str(price)
+        print('PLACE ORDERRRR', params)
         exchange_order_id = await self._api_request(
             "post",
             path_url=path_url,
@@ -560,6 +580,7 @@ cdef class HuobiMarket(MarketBase):
                           amount: Decimal,
                           order_type: OrderType,
                           price: Decimal):
+        print('buy0')
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
             double quote_amount
@@ -567,7 +588,7 @@ cdef class HuobiMarket(MarketBase):
             object decimal_price
             str exchange_order_id
             object tracked_order
-
+        print('buy1')
         if order_type is OrderType.MARKET:
             quote_amount = (<OrderBook>self.c_get_order_book(symbol)).c_get_quote_volume_for_base_amount(
                 True, float(amount)).result_volume
@@ -581,6 +602,8 @@ cdef class HuobiMarket(MarketBase):
                 raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
         try:
+            print('buy2')
+
             exchange_order_id = await self.place_order(order_id, symbol, decimal_amount, True, order_type, decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,
@@ -591,6 +614,7 @@ cdef class HuobiMarket(MarketBase):
                 price=decimal_price,
                 amount=decimal_amount
             )
+            print('buy3')
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type} buy order {order_id} for {decimal_amount} {symbol}.")
@@ -627,8 +651,8 @@ cdef class HuobiMarket(MarketBase):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = f"buy-{symbol}-{tracking_nonce}"
-
-        safe_ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
+        print('c-buy')
+        asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
         return order_id
 
     async def execute_sell(self,
