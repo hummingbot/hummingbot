@@ -39,4 +39,5 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                    object orders_proposal)
     cdef object c_get_penny_jumped_pricing_proposal(self,
                                                     object market_info,
-                                                    object pricing_proposal)
+                                                    object pricing_proposal,
+                                                    list active_orders)
