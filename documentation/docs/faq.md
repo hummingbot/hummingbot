@@ -12,7 +12,7 @@ For more detailed information, please read the [Hummingbot whitepaper](https://w
 
 ### How can I keep up to date on Hummingbot?
 
-You can sign up for our [mailing list](https://hummingbot.io) or join the official [Hummingbot Discord server](https://discord.hummingbot.io).
+We send out updates and announcements through our [Discord channel](https://discord.hummingbot.io) and [Twitter](https://twitter.com/hummingbot_io). You can also read articles in our [blog](https://hummingbot.io/blog/) or join our [developer forum](https://forum.hummingbot.io/). 
 
 ### Why are you making Hummingbot available to the general public rather than just running it in-house?
 
