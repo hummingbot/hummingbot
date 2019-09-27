@@ -6,11 +6,16 @@ from typing import (
     Optional,
     Dict
 )
+from math import (
+    floor,
+    ceil
+)
 
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import (
@@ -89,6 +94,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  cancel_order_wait_time: float = 60,
                  filled_order_replenish_wait_time: float = 10,
                  enable_order_filled_stop_cancellation: bool = False,
+                 jump_orders_enabled: bool = False,
+                 jump_orders_depth: float = 0,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
                  status_report_interval: float = 900):
@@ -116,6 +123,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._pricing_delegate = pricing_delegate
         self._sizing_delegate = sizing_delegate
         self._enable_order_filled_stop_cancellation = enable_order_filled_stop_cancellation
+        self._jump_orders_enabled = jump_orders_enabled
+        self._jump_orders_depth = jump_orders_depth
 
         self.limit_order_min_expiration = limit_order_min_expiration
 
@@ -288,6 +297,65 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         finally:
             self._last_timestamp = timestamp
 
+    # Compare the market price with the top bid and top ask price
+    cdef object c_get_penny_jumped_pricing_proposal(self,
+                                                    object market_info,
+                                                    object pricing_proposal,
+                                                    list active_orders):
+        cdef:
+            MarketBase maker_market = market_info.market
+            OrderBook maker_orderbook = market_info.order_book
+            object updated_buy_order_prices = pricing_proposal.buy_order_prices
+            object updated_sell_order_prices = pricing_proposal.sell_order_prices
+            double own_buy_order_depth = 0
+            double own_sell_order_depth = 0
+
+        active_orders = self.market_info_to_active_orders.get(market_info, [])
+
+        # If there are multiple orders, do not jump prices
+        if len(active_orders) > 2 or len(updated_buy_order_prices) > 1 or len(updated_sell_order_prices) > 1:
+            return pricing_proposal
+
+        for order in active_orders:
+            if order.is_buy:
+                own_buy_order_depth = order.quantity
+            else:
+                own_sell_order_depth = order.quantity
+
+        # Get the top bid price in the market using jump_orders_depth and your buy order volume
+        top_bid_price = maker_orderbook.c_get_price_for_volume(False,
+                                                               self._jump_orders_depth + own_buy_order_depth).result_price
+        price_quantum = maker_market.c_get_order_price_quantum(
+            market_info.trading_pair,
+            top_bid_price
+        )
+        # Get the price above the top bid
+        price_above_bid = (ceil(Decimal(top_bid_price) / price_quantum) + 1) * price_quantum
+
+        # If the price_above_bid is lower than the price suggested by the pricing proposal,
+        # lower your price to this
+        lower_buy_price = min(updated_buy_order_prices[0], price_above_bid)
+        updated_buy_order_prices[0] = maker_market.c_quantize_order_price(market_info.trading_pair,
+                                                                          lower_buy_price)
+
+        # Get the top ask price in the market using jump_orders_depth and your sell order volume
+        top_ask_price = maker_orderbook.c_get_price_for_volume(True,
+                                                               self._jump_orders_depth + own_sell_order_depth).result_price
+        price_quantum = maker_market.c_get_order_price_quantum(
+            market_info.trading_pair,
+            top_ask_price
+        )
+        # Get the price below the top ask
+        price_below_ask = (floor(Decimal(top_ask_price) / price_quantum) - 1) * price_quantum
+
+        # If the price_below_ask is higher than the price suggested by the pricing proposal,
+        # increase your price to this
+        higher_sell_price = max(updated_sell_order_prices[0], price_below_ask)
+        updated_sell_order_prices[0] = maker_market.c_quantize_order_price(market_info.trading_pair,
+                                                                           higher_sell_price)
+
+        return PricingProposal(updated_buy_order_prices, updated_sell_order_prices)
+
     cdef object c_get_orders_proposal_for_market_info(self, object market_info, list active_orders):
         cdef:
             double last_trade_price
@@ -306,6 +374,12 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self,
                                                                              market_info,
                                                                              active_orders)
+
+        # If jump orders is enabled, run the penny jumped pricing proposal
+        if self._jump_orders_enabled:
+            pricing_proposal = self.c_get_penny_jumped_pricing_proposal(market_info,
+                                                                        pricing_proposal,
+                                                                        active_orders)
 
         sizing_proposal = self._sizing_delegate.c_get_order_size_proposal(self,
                                                                           market_info,
