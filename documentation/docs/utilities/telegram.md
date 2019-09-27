@@ -6,6 +6,9 @@ Integrating Hummingbot with [Telegram Messenger](https://telegram.org/) allows y
 
 Whether you are running Hummingbot in the cloud or on your local machine, you can use Telegram to monitor and control bots from wherever you are!
 
+!!! note
+    Make sure to install Telegram on your system before setting up your Telegram Bot. If not, you can download Telegram for [Windows/MAC/Linux](https://desktop.telegram.org/) and install.
+
 ## Set up your Telegram Bot
 
 Below, we show how to create a Telegram bot that integrates with your Hummingbot deployment.
