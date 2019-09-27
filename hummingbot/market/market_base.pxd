@@ -2,7 +2,10 @@ from hummingbot.core.event.event_reporter cimport EventReporter
 from hummingbot.core.event.event_logger cimport EventLogger
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.network_iterator cimport NetworkIterator
-
+from hummingbot.core.data_type.order_book_query_result cimport (
+    OrderBookQueryResult,
+    ClientOrderBookQueryResult
+)
 
 cdef class MarketBase(NetworkIterator):
     cdef:
@@ -25,6 +28,8 @@ cdef class MarketBase(NetworkIterator):
     cdef object c_get_order_size_quantum(self, str symbol, object order_size)
     cdef object c_quantize_order_price(self, str symbol, object price)
     cdef object c_quantize_order_amount(self, str symbol, object amount, object price=*)
+    cdef ClientOrderBookQueryResult c_get_vwap_for_volume(self, str symbol, bint is_buy, object volume)
+    cdef ClientOrderBookQueryResult c_get_price_for_volume(self, str symbol, bint is_buy, object volume)
     cdef object c_get_fee(self,
                           str base_currency,
                           str quote_currency,

@@ -7,7 +7,10 @@ from typing import (
     Iterable)
 
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.order_book_query_result_client import ClientOrderBookQueryResult
+from hummingbot.core.data_type.order_book_query_result import (
+    OrderBookQueryResult,
+    ClientOrderBookQueryResult
+)
 from hummingbot.core.data_type.order_book_row import ClientOrderBookRow
 from hummingbot.core.event.events import (
     MarketEvent,
@@ -178,13 +181,35 @@ cdef class MarketBase(NetworkIterator):
         """
         cdef:
             OrderBook order_book = self.c_get_order_book(symbol)
-        return Decimal(order_book.c_get_price(is_buy))
+        return self.c_quantize_order_price(symbol, Decimal(order_book.c_get_price(is_buy)))
 
+    cdef ClientOrderBookQueryResult c_get_vwap_for_volume(self, str symbol, bint is_buy, object volume):
+        cdef:
+            OrderBook order_book = self.c_get_order_book(symbol)
+            OrderBookQueryResult result = order_book.c_get_vwap_for_volume(is_buy, float(volume))
+        return ClientOrderBookQueryResult(Decimal(result.query_price),
+                                          Decimal(result.query_volume),
+                                          Decimal(result.result_price),
+                                          Decimal(result.result_volume))
+
+    cdef ClientOrderBookQueryResult c_get_price_for_volume(self, str symbol, bint is_buy, object volume):
+        cdef:
+            OrderBook order_book = self.c_get_order_book(symbol)
+            OrderBookQueryResult result = order_book.c_get_price_for_volume(is_buy, float(volume))
+        return ClientOrderBookQueryResult(Decimal(result.query_price),
+                                          Decimal(result.query_volume),
+                                          Decimal(result.result_price),
+                                          Decimal(result.result_volume))
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 
     # <editor-fold desc="+ Wrapper for cython functions">
     # ----------------------------------------------------------------------------------------------------------
+    def get_vwap_for_volume(self, symbol: str, is_buy: bool, volume: Decimal):
+        return self.c_get_vwap_for_volume(symbol, is_buy, volume)
+
+    def get_price_for_volume(self, symbol: str, is_buy: bool, volume: Decimal):
+        return self.c_get_price_for_volume(symbol, is_buy, volume)
 
     def get_balance(self, currency: str) -> Decimal:
         return self.c_get_balance(currency)
