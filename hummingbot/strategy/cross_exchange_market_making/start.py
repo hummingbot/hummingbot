@@ -4,7 +4,7 @@ from typing import (
 )
 
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making import CrossExchangeMarketMakingStrategy
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map import cross_exchange_market_making_config_map
@@ -48,10 +48,10 @@ def start(self):
     self.assets = set(maker_assets + taker_assets)
     maker_data = [self.markets[maker_market], raw_maker_trading_pair] + list(maker_assets)
     taker_data = [self.markets[taker_market], raw_taker_trading_pair] + list(taker_assets)
-    maker_market_symbol_pair = MarketSymbolPair(*maker_data)
-    taker_market_symbol_pair = MarketSymbolPair(*taker_data)
-    self.market_symbol_pairs = [maker_market_symbol_pair, taker_market_symbol_pair]
-    self.market_pair = CrossExchangeMarketPair(maker=maker_market_symbol_pair, taker=taker_market_symbol_pair)
+    maker_market_trading_pair_tuple = MarketTradingPairTuple(*maker_data)
+    taker_market_trading_pair_tuple = MarketTradingPairTuple(*taker_data)
+    self.market_trading_pair_tuples = [maker_market_trading_pair_tuple, taker_market_trading_pair_tuple]
+    self.market_pair = CrossExchangeMarketPair(maker=maker_market_trading_pair_tuple, taker=taker_market_trading_pair_tuple)
 
     strategy_logging_options = (
         CrossExchangeMarketMakingStrategy.OPTION_LOG_CREATE_ORDER
