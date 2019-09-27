@@ -1,5 +1,5 @@
 node {
-    def testName = "binance exchange connector"
+    def testName = "idex exchange connector"
     def path = "/root/miniconda/bin"
     def envPath = "/root/miniconda/envs/hummingbot/bin"
 
@@ -25,7 +25,7 @@ node {
       }
 
       stage("Run tests") {
-        sh "${envPath}/nosetests -v test/test_binance_market.py"
+        sh "${envPath}/nosetests -v test/integration/test_idex_market.py"
       }
 
     } catch (c) {

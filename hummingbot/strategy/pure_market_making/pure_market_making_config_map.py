@@ -107,4 +107,18 @@ pure_market_making_config_map = {
                                                               " side remains uncanceled (Default is False)? >>> ",
                                                        type_str="bool",
                                                        default=False),
+    "jump_orders_enabled": ConfigVar(key="jump_orders_enabled",
+                                     prompt="Do you want to enable jump_orders. If enabled, "
+                                            "if the top bid price is lesser than your order price, "
+                                            "buy order will jump to one tick above top bid price & vice versa for sell."
+                                            "(Default is False)? >>> ",
+                                     type_str="bool",
+                                     default=False),
+    "jump_orders_depth": ConfigVar(key="jump_orders_depth",
+                                   prompt="How deep do you want to go into the order book for calculating"
+                                          "the top bid and ask, ignoring dust orders on the top."
+                                          "(expressed in base currency). (Default is 0) ? >>> ",
+                                   required_if=lambda: pure_market_making_config_map.get("jump_orders_enabled").value,
+                                   type_str="float",
+                                   default=0)
 }
