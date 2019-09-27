@@ -361,8 +361,8 @@ cdef class ArbitrageStrategy(StrategyBase):
         best_amount, best_profitability = self.c_find_best_profitable_amount(
             buy_market_trading_pair_tuple, sell_market_trading_pair_tuple
         )
-        quantized_buy_amount = buy_market.c_quantize_order_amount(buy_market_trading_pair_tuple.trading_pair, best_amount)
-        quantized_sell_amount = sell_market.c_quantize_order_amount(sell_market_trading_pair_tuple.trading_pair, best_amount)
+        quantized_buy_amount = buy_market.c_quantize_order_amount(buy_market_trading_pair_tuple.trading_pair, Decimal(best_amount))
+        quantized_sell_amount = sell_market.c_quantize_order_amount(sell_market_trading_pair_tuple.trading_pair, Decimal(best_amount))
         quantized_order_amount = min(quantized_buy_amount, quantized_sell_amount)
 
         if quantized_order_amount:
