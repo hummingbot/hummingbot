@@ -55,5 +55,11 @@ filled_order_replenish_wait_time: null
 # Do you want to stop cancellations of orders on the other side when one side is filled
 enable_order_filled_stop_cancellation: null
 
+# Do you want to enable penny jumping mode
+jump_orders_enabled: null
+
+# If jump_orders_enabled is True, what is the depth in base currency to be used for finding top bid and ask
+jump_orders_depth: null
+
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parameters

@@ -2,13 +2,12 @@
 
 from typing import NamedTuple
 
-from hummingbot.market.market_base import MarketBase
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
 class ArbitrageMarketPair(NamedTuple):
     """
     Specifies a pair of markets for arbitrage
     """
-    first: MarketSymbolPair
-    second: MarketSymbolPair
+    first: MarketTradingPairTuple
+    second: MarketTradingPairTuple
