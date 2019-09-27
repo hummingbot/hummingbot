@@ -37,6 +37,7 @@ def start(self):
             "enable_order_filled_stop_cancellation").value
         jump_orders_enabled = pure_market_making_config_map.get("jump_orders_enabled").value
         jump_orders_depth = pure_market_making_config_map.get("jump_orders_depth").value
+        add_transaction_cost_to_orders: bool = True
 
         pricing_delegate = None
         sizing_delegate = None
@@ -89,6 +90,7 @@ def start(self):
                                                    cancel_order_wait_time=cancel_order_wait_time,
                                                    jump_orders_enabled=jump_orders_enabled,
                                                    jump_orders_depth=jump_orders_depth,
+                                                   add_transaction_cost_to_orders=add_transaction_cost_to_orders,
                                                    logging_options=strategy_logging_options)
     except Exception as e:
         self._notify(str(e))
