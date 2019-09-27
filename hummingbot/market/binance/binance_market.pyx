@@ -54,7 +54,7 @@ from hummingbot.core.event.events import (
 from hummingbot.market.market_base import (
     MarketBase,
     NaN,
-    NaN_decimal)
+    s_decimal_NaN)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -169,18 +169,16 @@ cdef class BinanceMarket(MarketBase):
         self._binance_client = BinanceClient(binance_api_key, binance_api_secret)
         self._user_stream_tracker = BinanceUserStreamTracker(
             data_source_type=user_stream_tracker_data_source_type, binance_client=self._binance_client)
-        self._account_balances = {}
-        self._account_available_balances = {}
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._poll_interval = poll_interval
-        self._in_flight_orders = {}
-        self._order_not_found_records = {}
+        self._in_flight_orders = {} # Dict[client_order_id:str, BinanceInFlightOrder]
+        self._order_not_found_records = {} # Dict[client_order_id:str, count:int]
         self._tx_tracker = BinanceMarketTransactionTracker(self)
-        self._withdraw_rules = {}
-        self._trading_rules = {}
-        self._trade_fees = {}
+        self._withdraw_rules = {} # Dict[trading_pair:str, WithdrawRule]
+        self._trading_rules = {} # Dict[trading_pair:str, TradingRule]
+        self._trade_fees = {} # Dict[trading_pair:str, (maker_fee_percent:Decimal, taken_fee_percent:Decimal)]
         self._last_update_trade_fees_timestamp = 0
         self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
@@ -769,9 +767,6 @@ cdef class BinanceMarket(MarketBase):
         result = await self.query_api(self._binance_client.get_server_time)
         return result["serverTime"]
 
-    def get_all_balances(self) -> Dict[str, float]:
-        return self._account_balances.copy()
-
     async def get_deposit_info(self, asset: str) -> DepositInfo:
         cdef:
             dict deposit_reply
@@ -965,7 +960,7 @@ cdef class BinanceMarket(MarketBase):
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    cdef str c_buy(self, str symbol, object amount, object order_type = OrderType.MARKET, object price = NaN_decimal,
+    cdef str c_buy(self, str symbol, object amount, object order_type = OrderType.MARKET, object price = s_decimal_NaN,
                    dict kwargs = {}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
@@ -1058,7 +1053,7 @@ cdef class BinanceMarket(MarketBase):
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    cdef str c_sell(self, str symbol, object amount, object order_type = OrderType.MARKET, object price = NaN_decimal,
+    cdef str c_sell(self, str symbol, object amount, object order_type = OrderType.MARKET, object price = s_decimal_NaN,
                     dict kwargs = {}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
@@ -1120,18 +1115,6 @@ cdef class BinanceMarket(MarketBase):
         failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
         return successful_cancellations + failed_cancellations
 
-    cdef double c_get_balance(self, str currency) except? -1:
-        return float(self._account_balances.get(currency, 0.0))
-
-    cdef double c_get_available_balance(self, str currency) except? -1:
-        return float(self._account_available_balances.get(currency, 0.0))
-
-    cdef double c_get_price(self, str symbol, bint is_buy) except? -1:
-        cdef:
-            OrderBook order_book = self.c_get_order_book(symbol)
-
-        return order_book.c_get_price(is_buy)
-
     cdef OrderBook c_get_order_book(self, str symbol):
         cdef:
             dict order_books = self._order_book_tracker.order_books
@@ -1181,7 +1164,7 @@ cdef class BinanceMarket(MarketBase):
     cdef object c_quantize_order_amount(self, str symbol, object amount, object price = Decimal(0.0)):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
-            object current_price = Decimal(self.c_get_price(symbol, False))
+            object current_price = self.c_get_price(symbol, False)
             object notional_size
         global s_decimal_0
         quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
