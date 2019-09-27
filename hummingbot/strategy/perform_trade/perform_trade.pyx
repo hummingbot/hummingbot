@@ -18,7 +18,7 @@ from hummingbot.market.market_base import (
     OrderType
 )
 
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
 
 from libc.stdint cimport int64_t
@@ -47,7 +47,7 @@ cdef class PerformTradeStrategy(StrategyBase):
         return pt_logger
 
     def __init__(self,
-                 market_infos: List[MarketSymbolPair],
+                 market_infos: List[MarketTradingPairTuple],
                  order_type: str = "limit",
                  order_price: Optional[float] = None,
                  is_buy: bool = True,
@@ -94,7 +94,7 @@ cdef class PerformTradeStrategy(StrategyBase):
         return self._sb_order_tracker.in_flight_cancels
 
     @property
-    def market_info_to_active_orders(self) -> Dict[MarketSymbolPair, List[LimitOrder]]:
+    def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         return self._sb_order_tracker.market_pair_to_active_orders
 
     @property
