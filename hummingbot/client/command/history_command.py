@@ -24,6 +24,8 @@ class HistoryCommand:
         snapshot: Dict[str, Any] = {}
         for market_name in self.markets:
             balance_dict = self.markets[market_name].get_all_balances()
+            balance_dict = {k.upper(): v for k, v in balance_dict.items()}
+
             for asset in self.assets:
                 asset = asset.upper()
                 if asset not in snapshot:

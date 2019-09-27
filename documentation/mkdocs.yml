@@ -160,7 +160,9 @@ nav:
         - Connectors:
           - Adding Connectors: developers/connectors/index.md
           - Adding Connectors to Other Blockchains: developers/connectors/new-blockchain.md
+          - Order Lifecycle: developers/connectors/order-lifecycle.md
         - Debug Console: developers/debug.md
+        - Configuration: developers/config.md
     - Release Notes:
       - About Releases: release-notes/index.md
       - 0.15.0: release-notes/0.15.0.md
