@@ -35,6 +35,8 @@ def start(self):
         filled_order_replenish_wait_time = pure_market_making_config_map.get("filled_order_replenish_wait_time").value
         enable_order_filled_stop_cancellation = pure_market_making_config_map.get(
             "enable_order_filled_stop_cancellation").value
+        jump_orders_enabled = pure_market_making_config_map.get("jump_orders_enabled").value
+        jump_orders_depth = pure_market_making_config_map.get("jump_orders_depth").value
 
         pricing_delegate = None
         sizing_delegate = None
@@ -85,6 +87,8 @@ def start(self):
                                                    filled_order_replenish_wait_time=filled_order_replenish_wait_time,
                                                    enable_order_filled_stop_cancellation=enable_order_filled_stop_cancellation,
                                                    cancel_order_wait_time=cancel_order_wait_time,
+                                                   jump_orders_enabled=jump_orders_enabled,
+                                                   jump_orders_depth=jump_orders_depth,
                                                    logging_options=strategy_logging_options)
     except Exception as e:
         self._notify(str(e))
