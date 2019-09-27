@@ -19,7 +19,7 @@ s_decimal_0 = Decimal(0)
 
 cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
 
-    def __init__(self, order_size: float, inventory_target_base_percent: Optional[float] = None):
+    def __init__(self, order_size: Decimal, inventory_target_base_percent: Optional[Decimal] = None):
         super().__init__()
         self._order_size = order_size
         self._inventory_target_base_percent = inventory_target_base_percent
@@ -32,7 +32,7 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
         return s_logger
 
     @property
-    def order_size(self) -> float:
+    def order_size(self) -> Decimal:
         return self._order_size
 
     cdef object c_get_order_size_proposal(self,
@@ -77,18 +77,18 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
             return SizingProposal([s_decimal_0], [s_decimal_0])
 
         if self._inventory_target_base_percent is not None:
-            top_bid_price = Decimal(market.c_get_price(trading_pair, False))
-            top_ask_price = Decimal(market.c_get_price(trading_pair, True))
+            top_bid_price = market.c_get_price(trading_pair, False)
+            top_ask_price = market.c_get_price(trading_pair, True)
             mid_price = (top_bid_price + top_ask_price) / 2
 
-            total_base_asset_quote_value = Decimal(base_asset_balance) * mid_price
-            total_quote_asset_quote_value = Decimal(quote_asset_balance)
+            total_base_asset_quote_value = base_asset_balance * mid_price
+            total_quote_asset_quote_value = quote_asset_balance
 
             # Calculate percent value of base and quote
             current_base_percent = total_base_asset_quote_value / (total_base_asset_quote_value + total_quote_asset_quote_value)
             current_quote_percent = total_quote_asset_quote_value / (total_base_asset_quote_value + total_quote_asset_quote_value)
 
-            target_base_percent = Decimal(str(self._inventory_target_base_percent))
+            target_base_percent = self._inventory_target_base_percent
             target_quote_percent = 1 - target_base_percent
 
             # Calculate target ratio based on current percent vs. target percent
@@ -108,18 +108,18 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
 
         if market.name == "binance":
             quantized_bid_order_size = market.c_quantize_order_amount(market_info.trading_pair,
-                                                                      float(bid_order_size),
+                                                                      bid_order_size,
                                                                       pricing_proposal.buy_order_prices[0])
             quantized_ask_order_size = market.c_quantize_order_amount(market_info.trading_pair,
-                                                                      float(ask_order_size),
+                                                                      ask_order_size,
                                                                       pricing_proposal.sell_order_prices[0])
             required_quote_asset_balance = pricing_proposal.buy_order_prices[0] * quantized_bid_order_size
 
         else:
             quantized_bid_order_size = market.c_quantize_order_amount(market_info.trading_pair,
-                                                                      float(bid_order_size))
+                                                                      bid_order_size)
             quantized_ask_order_size = market.c_quantize_order_amount(market_info.trading_pair,
-                                                                      float(ask_order_size))
+                                                                      ask_order_size)
 
             buy_fees = market.c_get_fee(market_info.base_asset, market_info.quote_asset,
                                         OrderType.MARKET, TradeType.BUY,
@@ -132,12 +132,12 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
         if quote_asset_balance < required_quote_asset_balance:
             bid_order_size = quote_asset_balance / pricing_proposal.buy_order_prices[0]
             quantized_bid_order_size = market.c_quantize_order_amount(market_info.trading_pair,
-                                                                      float(bid_order_size),
+                                                                      bid_order_size,
                                                                       pricing_proposal.buy_order_prices[0])
 
         if base_asset_balance < quantized_ask_order_size:
             quantized_ask_order_size = market.c_quantize_order_amount(market_info.trading_pair,
-                                                                      float(base_asset_balance),
+                                                                      base_asset_balance,
                                                                       pricing_proposal.sell_order_prices[0])
 
         return SizingProposal(
