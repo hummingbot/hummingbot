@@ -98,7 +98,7 @@ cdef class DDEXMarket(MarketBase):
                  ethereum_rpc_url: str,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                    OrderBookTrackerDataSourceType.EXCHANGE_API,
+                 OrderBookTrackerDataSourceType.EXCHANGE_API,
                  wallet_spender_address: str = HYDRO_MAINNET_PROXY,
                  symbols: Optional[List[str]] = None,
                  trading_required: bool = True):
@@ -249,7 +249,7 @@ cdef class DDEXMarket(MarketBase):
             total_balances = self.get_all_balances()
             for currency, balance in total_balances.items():
                 self._account_available_balances[currency] = Decimal(total_balances[currency]) - \
-                                                             locked_balances.get(currency, s_decimal_0)
+                    locked_balances.get(currency, s_decimal_0)
             self._last_update_available_balance_timestamp = current_timestamp
 
     async def _update_trading_rules(self):
@@ -366,8 +366,8 @@ cdef class DDEXMarket(MarketBase):
                         tracked_order.quote_asset,
                         order_type,
                         tracked_order.trade_type,
-                        fill_size,
-                        execute_price)
+                        Decimal(fill_size),
+                        Decimal(execute_price))
                 )
                 self.logger().info(f"Filled {fill_size} out of {tracked_order.amount} of the "
                                    f"{order_type_description} order {client_order_id}.")
@@ -425,7 +425,7 @@ cdef class DDEXMarket(MarketBase):
                         # This cancel was originated externally.
                         self.logger().info(f"The {order_type_description} order {client_order_id} has been cancelled.")
                         self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                     OrderCancelledEvent(self._current_timestamp, client_order_id))
+                                             OrderCancelledEvent(self._current_timestamp, client_order_id))
                 self.c_expire_order(tracked_order.client_order_id)
 
         self._last_update_order_timestamp = current_timestamp
@@ -512,8 +512,8 @@ cdef class DDEXMarket(MarketBase):
                           str quote_currency,
                           object order_type,
                           object order_side,
-                          double amount,
-                          double price):
+                          object amount,
+                          object price):
         cdef:
             double gas_fee = 0.0
             double percent
@@ -621,7 +621,11 @@ cdef class DDEXMarket(MarketBase):
         response_data = await self._api_request('get', url=url)
         return response_data["data"]["ticker"]
 
-    cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0,
+    cdef str c_buy(self,
+                   str symbol,
+                   object amount,
+                   object order_type = OrderType.MARKET,
+                   object price = s_decimal_0,
                    dict kwargs = {}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
@@ -630,7 +634,7 @@ cdef class DDEXMarket(MarketBase):
         safe_ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
         return order_id
 
-    async def execute_buy(self, order_id: str, symbol: str, amount: float, order_type: OrderType, price: float) -> str:
+    async def execute_buy(self, order_id: str, symbol: str, amount: Decimal, order_type: OrderType, price: Decimal) -> str:
         cdef:
             str q_price = str(self.c_quantize_order_price(symbol, price))
             str q_amt = str(self.c_quantize_order_amount(symbol, amount))
@@ -643,14 +647,14 @@ cdef class DDEXMarket(MarketBase):
                 True, amount).result_volume
 
             # Quantize according to price rules, not base token amount rules.
-            q_amt = str(self.c_quantize_order_price(symbol, quote_amount))
+            q_amt = str(self.c_quantize_order_price(symbol, Decimal(quote_amount)))
 
         try:
             if order_type is OrderType.LIMIT:
                 if Decimal(q_amt) < trading_rule.min_order_size:
                     raise ValueError(f"Buy order amount {amount} is lower than the minimum order size")
             else:
-                if Decimal(amount) < trading_rule.min_order_size:
+                if amount < trading_rule.min_order_size:
                     raise ValueError(f"Buy order amount {amount} is lower than the minimum order size")
 
             if order_type is OrderType.LIMIT and trading_rule.supports_limit_orders is False:
@@ -691,7 +695,11 @@ cdef class DDEXMarket(MarketBase):
                                                          order_type)
                                  )
 
-    cdef str c_sell(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0,
+    cdef str c_sell(self,
+                    str symbol,
+                    object amount,
+                    object order_type = OrderType.MARKET,
+                    object price = s_decimal_0,
                     dict kwargs = {}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
@@ -700,7 +708,7 @@ cdef class DDEXMarket(MarketBase):
         safe_ensure_future(self.execute_sell(order_id, symbol, amount, order_type, price))
         return order_id
 
-    async def execute_sell(self, order_id: str, symbol: str, amount: float, order_type: OrderType, price: float) -> str:
+    async def execute_sell(self, order_id: str, symbol: str, amount: Decimal, order_type: OrderType, price: Decimal) -> str:
         cdef:
             str q_price = str(self.c_quantize_order_price(symbol, price))
             str q_amt = str(self.c_quantize_order_amount(symbol, amount))
@@ -911,31 +919,30 @@ cdef class DDEXMarket(MarketBase):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
-    cdef object c_get_order_price_quantum(self, str symbol, double price):
+    cdef object c_get_order_price_quantum(self, str symbol, object price):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
         decimals_quantum = trading_rule.min_price_increment
-        if price > 0:
+        if price > s_decimal_0:
             precision_quantum = Decimal(f"1e{math.ceil(math.log10(price)) - trading_rule.max_price_significant_digits}")
         else:
             precision_quantum = s_decimal_0
         return max(decimals_quantum, precision_quantum)
 
-    cdef object c_get_order_size_quantum(self, str symbol, double amount):
+    cdef object c_get_order_size_quantum(self, str symbol, object amount):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
         decimals_quantum = trading_rule.min_base_amount_increment
         return decimals_quantum
 
-    cdef object c_quantize_order_amount(self, str symbol, double amount, double price=0):
+    cdef object c_quantize_order_amount(self, str symbol, object amount, object price = s_decimal_0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
         global s_decimal_0
 
-
         quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
-        
+
         # Check against min_order_size and. If not passing the check, return 0.
-        if quantized_amount < MarketBase.c_quantize_order_amount(self, symbol, float(trading_rule.min_order_size)):
+        if quantized_amount < MarketBase.c_quantize_order_amount(self, symbol, trading_rule.min_order_size):
             return s_decimal_0
         return quantized_amount

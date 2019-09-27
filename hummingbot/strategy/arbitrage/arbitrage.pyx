@@ -1,5 +1,6 @@
 # distutils: language=c++
-
+from decimal import Decimal
+import logging
 import pandas as pd
 from typing import (
     List,
@@ -18,7 +19,6 @@ from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
-import logging
 
 NaN = float("nan")
 as_logger = None
@@ -211,8 +211,8 @@ cdef class ArbitrageStrategy(StrategyBase):
 
         if self._failed_market_order_count > self._failed_order_tolerance:
             failed_order_kill_switch_log = f"Strategy is forced stop by failed order kill switch. " \
-                    f"Failed market order count {self._failed_market_order_count} exceeded tolerance lever of " \
-                    f"{self._failed_order_tolerance}. Please check market connectivity before restarting."
+                                           f"Failed market order count {self._failed_market_order_count} exceeded tolerance lever of " \
+                                           f"{self._failed_order_tolerance}. Please check market connectivity before restarting."
 
             self.logger().network(failed_order_kill_switch_log, app_warning_msg=failed_order_kill_switch_log)
             self.c_stop(self._clock)
@@ -275,9 +275,8 @@ cdef class ArbitrageStrategy(StrategyBase):
             double time_left
             dict tracked_taker_orders = self._sb_order_tracker.c_get_taker_orders()
 
-
         ready_ts_from_failed_order = self._last_failed_market_order_timestamp + \
-                                     self._failed_market_order_count * self.FAILED_ORDER_COOL_OFF_TIME
+            self._failed_market_order_count * self.FAILED_ORDER_COOL_OFF_TIME
         # Wait for FAILED_ORDER_COOL_OFF_TIME * failed_market_order_count before retrying
         if ready_ts_from_failed_order > self._current_timestamp:
             time_left = ready_ts_from_failed_order - self._current_timestamp
@@ -354,16 +353,16 @@ cdef class ArbitrageStrategy(StrategyBase):
             object quantized_buy_amount
             object quantized_sell_amount
             object quantized_order_amount
-            double best_amount = 0.0 # best profitable order amount
-            double best_profitability = 0.0 # best profitable order amount
+            double best_amount = 0.0  # best profitable order amount
+            double best_profitability = 0.0  # best profitable order amount
             MarketBase buy_market = buy_market_symbol_pair.market
             MarketBase sell_market = sell_market_symbol_pair.market
 
         best_amount, best_profitability = self.c_find_best_profitable_amount(
             buy_market_symbol_pair, sell_market_symbol_pair
         )
-        quantized_buy_amount = buy_market.c_quantize_order_amount(buy_market_symbol_pair.trading_pair, best_amount)
-        quantized_sell_amount = sell_market.c_quantize_order_amount(sell_market_symbol_pair.trading_pair, best_amount)
+        quantized_buy_amount = buy_market.c_quantize_order_amount(buy_market_symbol_pair.trading_pair, Decimal(best_amount))
+        quantized_sell_amount = sell_market.c_quantize_order_amount(sell_market_symbol_pair.trading_pair, Decimal(best_amount))
         quantized_order_amount = min(quantized_buy_amount, quantized_sell_amount)
 
         if quantized_order_amount:
@@ -398,7 +397,6 @@ cdef class ArbitrageStrategy(StrategyBase):
                                                   buy_market_quote_asset,
                                                   sell_market_quote_asset)
 
-
     cdef double c_sum_flat_fees(self, str quote_asset, list flat_fees):
         """
         Converts flat fees to quote token and sums up all flat fees
@@ -430,10 +428,10 @@ cdef class ArbitrageStrategy(StrategyBase):
         :rtype: Tuple[float, float]
         """
         cdef:
-            double total_bid_value = 0 # total revenue
-            double total_ask_value = 0 # total cost
-            double total_bid_value_adjusted = 0 # total revenue adjusted with exchange rate conversion
-            double total_ask_value_adjusted = 0 # total cost adjusted with exchange rate conversion
+            double total_bid_value = 0  # total revenue
+            double total_ask_value = 0  # total cost
+            double total_bid_value_adjusted = 0  # total revenue adjusted with exchange rate conversion
+            double total_ask_value_adjusted = 0  # total cost adjusted with exchange rate conversion
             double total_previous_step_base_amount = 0
             double profitability
             double best_profitable_order_amount = 0.0
@@ -470,16 +468,16 @@ cdef class ArbitrageStrategy(StrategyBase):
                 buy_market_symbol_pair.quote_asset,
                 OrderType.MARKET,
                 TradeType.BUY,
-                total_previous_step_base_amount + amount,
-                ask_price
+                Decimal(total_previous_step_base_amount + amount),
+                Decimal(ask_price)
             )
             sell_fee = sell_market.c_get_fee(
                 sell_market_symbol_pair.base_asset,
                 sell_market_symbol_pair.quote_asset,
                 OrderType.MARKET,
                 TradeType.SELL,
-                total_previous_step_base_amount + amount,
-                bid_price
+                Decimal(total_previous_step_base_amount + amount),
+                Decimal(bid_price)
             )
             # accumulated flat fees of exchange
             total_buy_flat_fees = self.c_sum_flat_fees(buy_market_symbol_pair.quote_asset, buy_fee.flat_fees)
@@ -512,11 +510,11 @@ cdef class ArbitrageStrategy(StrategyBase):
                     break
                 if self._logging_options & self.OPTION_LOG_INSUFFICIENT_ASSET:
                     self.log_with_clock(logging.DEBUG,
-                                    f"Not enough asset to complete this step. "
-                                    f"Quote asset needed: {total_ask_value + ask_price * amount}. "
-                                    f"Quote asset available balance: {buy_market_quote_balance}. "
-                                    f"Base asset needed: {total_bid_value + bid_price * amount}. "
-                                    f"Base asset available balance: {sell_market_base_balance}. ")
+                                        f"Not enough asset to complete this step. "
+                                        f"Quote asset needed: {total_ask_value + ask_price * amount}. "
+                                        f"Quote asset available balance: {buy_market_quote_balance}. "
+                                        f"Base asset needed: {total_bid_value + bid_price * amount}. "
+                                        f"Base asset available balance: {sell_market_base_balance}. ")
 
                 # market buys need to be adjusted to account for additional fees
                 buy_market_adjusted_order_size = ((buy_market_quote_balance / ask_price - total_buy_flat_fees) /
@@ -531,7 +529,8 @@ cdef class ArbitrageStrategy(StrategyBase):
             total_previous_step_base_amount += amount
 
         if self._logging_options & self.OPTION_LOG_FULL_PROFITABILITY_STEP:
-            self.log_with_clock(logging.DEBUG,
+            self.log_with_clock(
+                logging.DEBUG,
                 "\n" + pd.DataFrame(
                     data=[
                         [b_price_adjusted/a_price_adjusted,
@@ -548,14 +547,17 @@ cdef class ArbitrageStrategy(StrategyBase):
     # ---------------------------------------------------------------
     def find_best_profitable_amount(self, buy_market: MarketSymbolPair, sell_market: MarketSymbolPair):
         return self.c_find_best_profitable_amount(buy_market, sell_market)
+
     def ready_for_new_orders(self, market_pair):
         return self.c_ready_for_new_orders(market_pair)
     # ---------------------------------------------------------------
+
 
 def find_profitable_arbitrage_orders(min_profitability: float, buy_order_book: OrderBook, sell_order_book: OrderBook,
                                      buy_market_quote_asset: str, sell_market_quote_asset: str):
     return c_find_profitable_arbitrage_orders(min_profitability, buy_order_book, sell_order_book,
                                               buy_market_quote_asset, sell_market_quote_asset)
+
 
 cdef list c_find_profitable_arbitrage_orders(double min_profitability,
                                              OrderBook buy_order_book,
@@ -617,7 +619,7 @@ cdef list c_find_profitable_arbitrage_orders(double min_profitability,
             current_bid_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(
                 sell_market_quote_asset, current_bid.price)
             current_ask_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(
-                buy_market_quote_asset,  current_ask.price)
+                buy_market_quote_asset, current_ask.price)
             # arbitrage not possible
             if current_bid_price_adjusted < current_ask_price_adjusted:
                 break
