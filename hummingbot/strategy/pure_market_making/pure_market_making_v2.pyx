@@ -94,6 +94,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  cancel_order_wait_time: float = 60,
                  filled_order_replenish_wait_time: float = 10,
                  enable_order_filled_stop_cancellation: bool = False,
+                 add_transaction_costs_to_orders: bool = True,
                  jump_orders_enabled: bool = False,
                  jump_orders_depth: float = 0,
                  logging_options: int = OPTION_LOG_ALL,
@@ -112,6 +113,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._all_markets_ready = False
         self._cancel_order_wait_time = cancel_order_wait_time
         self._filled_order_replenish_wait_time = filled_order_replenish_wait_time
+        self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
 
         self._time_to_cancel = {}
 
