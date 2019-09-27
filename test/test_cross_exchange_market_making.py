@@ -103,6 +103,13 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             min_profitability=self.min_profitbality,
             logging_options=logging_options,
         )
+        self.strategy_with_top_depth_tolerance: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
+            [self.market_pair],
+            order_size_portfolio_ratio_limit=0.3,
+            min_profitability=self.min_profitbality,
+            logging_options=logging_options,
+            top_depth_tolerance=1
+        )
         self.logging_options = logging_options
         self.clock.add_iterator(self.maker_market)
         self.clock.add_iterator(self.taker_market)
@@ -235,6 +242,30 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertAlmostEqual(0.9995, taker_fill.price)
         self.assertAlmostEqual(3.0, maker_fill.amount)
         self.assertAlmostEqual(3.0, taker_fill.amount)
+
+    def test_top_depth_tolerance(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(self.strategy_with_top_depth_tolerance)
+        self.clock.backtest_til(self.start_timestamp + 5)
+        bid_order: LimitOrder = self.strategy_with_top_depth_tolerance.active_bids[0][1]
+        ask_order: LimitOrder = self.strategy_with_top_depth_tolerance.active_asks[0][1]
+        self.assertEqual(Decimal("0.99452"), bid_order.price)
+        self.assertEqual(Decimal("1.0056"), ask_order.price)
+        self.assertEqual(Decimal("3.0"), bid_order.quantity)
+        self.assertEqual(Decimal("3.0"), ask_order.quantity)
+
+        self.simulate_order_book_widening(self.taker_data.order_book, 0.99, 1.01)
+
+        self.clock.backtest_til(self.start_timestamp + 100)
+
+        self.assertEqual(2, len(self.cancel_order_logger.event_log))
+        self.assertEqual(1, len(self.strategy_with_top_depth_tolerance.active_bids))
+        self.assertEqual(1, len(self.strategy_with_top_depth_tolerance.active_asks))
+
+        bid_order = self.strategy_with_top_depth_tolerance.active_bids[0][1]
+        ask_order = self.strategy_with_top_depth_tolerance.active_asks[0][1]
+        self.assertEqual(Decimal("0.98457"), bid_order.price)
+        self.assertEqual(Decimal("1.0156"), ask_order.price)
 
     def test_market_became_wider(self):
         self.clock.backtest_til(self.start_timestamp + 5)
