@@ -42,3 +42,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                     object market_info,
                                                     object pricing_proposal,
                                                     list active_orders)
+    cdef double c_sum_flat_fees(self,
+                                str quote_currency,
+                                list flat_fees)
+    cdef object c_add_transaction_costs_to_pricing_proposal(self,
+                                                            object market_info,
+                                                            object pricing_proposal,
+                                                            object sizing_proposal)

@@ -24,6 +24,7 @@ from hummingbot.market.market_base import (
 )
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.strategy.strategy_base import StrategyBase
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from math import isnan
 
 from .data_types import (
@@ -358,6 +359,58 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         return PricingProposal(updated_buy_order_prices, updated_sell_order_prices)
 
+    cdef double c_sum_flat_fees(self, str quote_asset, list flat_fees):
+        """
+        Converts flat fees to quote token and sums up all flat fees
+        """
+        cdef:
+            double total_flat_fees = 0.0
+
+        for flat_fee_currency, flat_fee_amount in flat_fees:
+            if flat_fee_currency == quote_asset:
+                total_flat_fees += flat_fee_amount
+            else:
+                # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
+                total_flat_fees += ExchangeRateConversion.get_instance().convert_token_value(
+                    amount=flat_fee_amount,
+                    from_currency=flat_fee_currency,
+                    to_currency=quote_asset
+                )
+        return total_flat_fees
+
+    cdef object c_add_transaction_costs_to_pricing_proposal(self,
+                                                            object market_info,
+                                                            object pricing_proposal,
+                                                            object sizing_proposal):
+        cdef:
+            MarketBase maker_market = market_info.market
+            OrderBook maker_orderbook = market_info.order_book
+            object pricing_proposal_with_tx_costs = pricing_proposal
+
+        # If both buy order and sell order sizes are zero, no need to add transaction costs
+        # as no new orders are created
+        if sizing_proposal.buy_order_sizes[0] == s_decimal_zero and \
+                sizing_proposal.sell_order_sizes[0] == s_decimal_zero:
+            return pricing_proposal
+
+        buy_index = 0
+        for price, amount in zip(pricing_proposal.buy_order_prices, sizing_proposal.buy_order_sizes):
+            fee_object = maker_market.c_get_fee(
+                market_info.base_asset,
+                market_info.quote_asset,
+                OrderType.LIMIT,
+                TradeType.BUY,
+                amount,
+                price
+            )
+            # accumulated flat fees of exchange
+            total_flat_fees = self.c_sum_flat_fees(market_info.quote_asset,
+                                                   fee_object.flat_fees)
+            price_with_tx_cost = price * (1-fee_object.percent)
+            pricing_proposal_with_tx_costs[buy_index] = 1
+
+        return
+
     cdef object c_get_orders_proposal_for_market_info(self, object market_info, list active_orders):
         cdef:
             double last_trade_price
@@ -387,6 +440,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                           market_info,
                                                                           active_orders,
                                                                           pricing_proposal)
+        if self._add_transaction_costs_to_orders:
+            pricing_proposal = self.c_add_transaction_costs_to_pricing_proposal(market_info,
+                                                                                pricing_proposal,
+                                                                                sizing_proposal)
+
         if sizing_proposal.buy_order_sizes[0] > 0 or sizing_proposal.sell_order_sizes[0] > 0:
             actions |= ORDER_PROPOSAL_ACTION_CREATE_ORDERS
 
