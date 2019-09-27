@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from os.path import join, realpath
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from decimal import Decimal
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
@@ -63,7 +63,7 @@ class PerformTradeUnitTest(unittest.TestCase):
             )
         )
 
-        self.market_info: MarketSymbolPair = MarketSymbolPair(
+        self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             *(
                 [self.market] + self.maker_symbols
             )

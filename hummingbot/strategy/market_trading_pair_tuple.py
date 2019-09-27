@@ -3,7 +3,7 @@ from typing import NamedTuple
 from hummingbot.market.market_base import MarketBase
 
 
-class MarketSymbolPair(NamedTuple):
+class MarketTradingPairTuple(NamedTuple):
     market: MarketBase
     trading_pair: str
     base_asset: str
