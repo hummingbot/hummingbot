@@ -120,10 +120,10 @@ cdef class MarketBase(NetworkIterator):
     def get_order_book(self, symbol: str) -> OrderBook:
         return self.c_get_order_book(symbol)
 
-    def buy(self, symbol: str, amount: float, order_type = OrderType.MARKET, price: float = 0.0, **kwargs) -> str:
+    def buy(self, symbol: str, amount: Decimal, order_type = OrderType.MARKET, price: Decimal = Decimal(0), **kwargs) -> str:
         return self.c_buy(symbol, amount, order_type, price, kwargs)
 
-    def sell(self, symbol: str, amount: float, order_type = OrderType.MARKET, price: float = 0.0, **kwargs) -> str:
+    def sell(self, symbol: str, amount: Decimal, order_type = OrderType.MARKET, price: Decimal = Decimal(0), **kwargs) -> str:
         return self.c_sell(symbol, amount, order_type, price, kwargs)
 
     def cancel(self, symbol: str, client_order_id: str):
@@ -137,26 +137,26 @@ cdef class MarketBase(NetworkIterator):
                 quote_currency: str,
                 order_type: OrderType,
                 order_side: TradeType,
-                amount: float,
-                price: float = NaN) -> TradeFee:
+                amount: Decimal,
+                price: Decimal = Decimal("NaN")) -> TradeFee:
         return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
 
-    def get_order_price_quantum(self, symbol: str, price: float) -> Decimal:
+    def get_order_price_quantum(self, symbol: str, price: Decimal) -> Decimal:
         return self.c_get_order_price_quantum(symbol, price)
 
     def get_order_size_quantum(self, symbol: str, order_size: float) -> Decimal:
         return self.c_get_order_size_quantum(symbol, order_size)
 
-    def quantize_order_price(self, symbol: str, price: float) -> Decimal:
+    def quantize_order_price(self, symbol: str, price: Decimal) -> Decimal:
         return self.c_quantize_order_price(symbol, price)
 
-    def quantize_order_amount(self, symbol: str, amount: float) -> Decimal:
+    def quantize_order_amount(self, symbol: str, amount: Decimal) -> Decimal:
         return self.c_quantize_order_amount(symbol, amount)
 
-    cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0, dict kwargs = {}):
+    cdef str c_buy(self, str symbol, object amount, object order_type = OrderType.MARKET, object price = Decimal(0), dict kwargs = {}):
         raise NotImplementedError
 
-    cdef str c_sell(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0, dict kwargs = {}):
+    cdef str c_sell(self, str symbol, object amount, object order_type = OrderType.MARKET, object price = Decimal(0), dict kwargs = {}):
         raise NotImplementedError
 
     cdef c_cancel(self, str symbol, str client_order_id):
@@ -167,8 +167,8 @@ cdef class MarketBase(NetworkIterator):
                           str quote_currency,
                           object order_type,
                           object order_side,
-                          double amount,
-                          double price):
+                          object amount,
+                          object price):
         raise NotImplementedError
 
     cdef double c_get_balance(self, str currency) except? -1:
@@ -186,16 +186,16 @@ cdef class MarketBase(NetworkIterator):
     cdef double c_get_price(self, str symbol, bint is_buy) except? -1:
         raise NotImplementedError
 
-    cdef object c_get_order_price_quantum(self, str symbol, double price):
+    cdef object c_get_order_price_quantum(self, str symbol, object price):
         raise NotImplementedError
 
-    cdef object c_get_order_size_quantum(self, str symbol, double order_size):
+    cdef object c_get_order_size_quantum(self, str symbol, object order_size):
         raise NotImplementedError
 
-    cdef object c_quantize_order_price(self, str symbol, double price):
+    cdef object c_quantize_order_price(self, str symbol, object price):
         price_quantum = self.c_get_order_price_quantum(symbol, price)
-        return round(Decimal(price) / price_quantum) * price_quantum
+        return round(price / price_quantum) * price_quantum
 
-    cdef object c_quantize_order_amount(self, str symbol, double amount, double price = 0.0):
+    cdef object c_quantize_order_amount(self, str symbol, object amount, object price = Decimal(0.0)):
         order_size_quantum = self.c_get_order_size_quantum(symbol, amount)
-        return (Decimal(amount) // order_size_quantum) * order_size_quantum
+        return (amount // order_size_quantum) * order_size_quantum

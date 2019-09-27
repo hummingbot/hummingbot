@@ -24,9 +24,9 @@ from hummingbot.strategy.strategy_base import StrategyBase
 from libc.stdint cimport int64_t
 from hummingbot.core.data_type.order_book cimport OrderBook
 
-NaN = float("nan")
+s_decimal_NaN = Decimal("nan")
 s_decimal_zero = Decimal(0)
-ds_logger = None
+pt_logger = None
 
 cdef class PerformTradeStrategy(StrategyBase):
     OPTION_LOG_NULL_ORDER_SIZE = 1 << 0
@@ -41,10 +41,10 @@ cdef class PerformTradeStrategy(StrategyBase):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global ds_logger
-        if ds_logger is None:
-            ds_logger = logging.getLogger(__name__)
-        return ds_logger
+        global pt_logger
+        if pt_logger is None:
+            pt_logger = logging.getLogger(__name__)
+        return pt_logger
 
     def __init__(self,
                  market_infos: List[MarketTradingPairTuple],
@@ -69,9 +69,8 @@ cdef class PerformTradeStrategy(StrategyBase):
         self._status_report_interval = status_report_interval
         self._order_type = order_type
         self._is_buy = is_buy
-        self._order_amount = order_amount
-        if order_price is not None:
-            self._order_price = order_price
+        self._order_amount = Decimal(order_amount)
+        self._order_price = s_decimal_NaN if order_price is None else Decimal(order_price)
 
         cdef:
             set all_markets = set([market_info.market for market_info in market_infos])
@@ -185,12 +184,11 @@ cdef class PerformTradeStrategy(StrategyBase):
         cdef:
             MarketBase market = market_info.market
             object quantized_amount = market.c_quantize_order_amount(market_info.trading_pair, self._order_amount)
-            object quantized_price = market.c_quantize_order_price(market_info.trading_pair, self._order_price)
+            object quantized_price
 
         self.logger().info(f"Checking to see if the user has enough balance to place orders")
 
         if self.c_has_enough_balance(market_info):
-
             if self._order_type == "market":
                 if self._is_buy:
                     order_id = self.c_buy_with_specific_market(market_info,
@@ -201,6 +199,7 @@ cdef class PerformTradeStrategy(StrategyBase):
                                                                 amount=quantized_amount)
                     self.logger().info("Market sell order has been executed")
             else:
+                quantized_price = market.c_quantize_order_price(market_info.trading_pair, self._order_price)
                 if self._is_buy:
                     order_id = self.c_buy_with_specific_market(market_info,
                                                                amount=quantized_amount,
@@ -221,10 +220,10 @@ cdef class PerformTradeStrategy(StrategyBase):
     cdef c_has_enough_balance(self, object market_info):
         cdef:
             MarketBase market = market_info.market
-            double base_asset_balance = market.c_get_balance(market_info.base_asset)
-            double quote_asset_balance = market.c_get_balance(market_info.quote_asset)
+            object base_asset_balance = Decimal(market.c_get_balance(market_info.base_asset))
+            object quote_asset_balance = Decimal(market.c_get_balance(market_info.quote_asset))
             OrderBook order_book = market_info.order_book
-            double price = order_book.c_get_price_for_volume(True, self._order_amount).result_price
+            object price = Decimal(order_book.c_get_price_for_volume(True, float(self._order_amount)).result_price)
 
         return quote_asset_balance >= self._order_amount * price if self._is_buy else base_asset_balance >= self._order_amount
 

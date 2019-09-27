@@ -270,8 +270,8 @@ cdef class SimpleTradeStrategy(StrategyBase):
     cdef c_place_orders(self, object market_info):
         cdef:
             MarketBase market = market_info.market
-            object quantized_amount = market.c_quantize_order_amount(market_info.trading_pair, self._order_amount)
-            object quantized_price = market.c_quantize_order_price(market_info.trading_pair, self._order_price)
+            object quantized_amount = market.c_quantize_order_amount(market_info.trading_pair, Decimal(self._order_amount))
+            object quantized_price = market.c_quantize_order_price(market_info.trading_pair, Decimal(self._order_price))
 
         self.logger().info(f"Checking to see if the user has enough balance to place orders")
 
@@ -335,7 +335,7 @@ cdef class SimpleTradeStrategy(StrategyBase):
 
         active_orders = self.market_info_to_active_orders.get(market_info, [])
 
-        if len(active_orders) >0:
+        if len(active_orders) > 0:
             for active_order in active_orders:
                 if self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
                     cancel_order_ids.add(active_order.client_order_id)

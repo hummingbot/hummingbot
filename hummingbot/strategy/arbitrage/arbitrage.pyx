@@ -1,5 +1,6 @@
 # distutils: language=c++
-
+from decimal import Decimal
+import logging
 import pandas as pd
 from typing import (
     List,
@@ -18,7 +19,6 @@ from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
-import logging
 
 NaN = float("nan")
 as_logger = None
@@ -211,8 +211,8 @@ cdef class ArbitrageStrategy(StrategyBase):
 
         if self._failed_market_order_count > self._failed_order_tolerance:
             failed_order_kill_switch_log = f"Strategy is forced stop by failed order kill switch. " \
-                f"Failed market order count {self._failed_market_order_count} exceeded tolerance lever of " \
-                f"{self._failed_order_tolerance}. Please check market connectivity before restarting."
+                                           f"Failed market order count {self._failed_market_order_count} exceeded tolerance lever of " \
+                                           f"{self._failed_order_tolerance}. Please check market connectivity before restarting."
 
             self.logger().network(failed_order_kill_switch_log, app_warning_msg=failed_order_kill_switch_log)
             self.c_stop(self._clock)
@@ -468,16 +468,16 @@ cdef class ArbitrageStrategy(StrategyBase):
                 buy_market_trading_pair_tuple.quote_asset,
                 OrderType.MARKET,
                 TradeType.BUY,
-                total_previous_step_base_amount + amount,
-                ask_price
+                Decimal(total_previous_step_base_amount + amount),
+                Decimal(ask_price)
             )
             sell_fee = sell_market.c_get_fee(
                 sell_market_trading_pair_tuple.base_asset,
                 sell_market_trading_pair_tuple.quote_asset,
                 OrderType.MARKET,
                 TradeType.SELL,
-                total_previous_step_base_amount + amount,
-                bid_price
+                Decimal(total_previous_step_base_amount + amount),
+                Decimal(bid_price)
             )
             # accumulated flat fees of exchange
             total_buy_flat_fees = self.c_sum_flat_fees(buy_market_trading_pair_tuple.quote_asset, buy_fee.flat_fees)
