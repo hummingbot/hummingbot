@@ -22,7 +22,6 @@ from hummingbot.core.clock import (
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
-    OrderCancelledEvent,
     TradeType,
     OrderType,
     OrderFilledEvent,
@@ -31,12 +30,12 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.strategy.simple_trade.simple_trade import SimpleTradeStrategy
+from hummingbot.strategy.perform_trade import PerformTradeStrategy
 import sys
 sys.path.insert(0, realpath(join(__file__, "../../")))
 
 
-class SimpleTradeUnitTest(unittest.TestCase):
+class PerformTradeUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
@@ -70,47 +69,39 @@ class SimpleTradeUnitTest(unittest.TestCase):
             )
         )
 
-        logging_options: int = (SimpleTradeStrategy.OPTION_LOG_ALL &
-                                (~SimpleTradeStrategy.OPTION_LOG_NULL_ORDER_SIZE))
+        logging_options: int = (PerformTradeStrategy.OPTION_LOG_ALL &
+                                (~PerformTradeStrategy.OPTION_LOG_NULL_ORDER_SIZE))
 
         # Define strategies to test
-        self.limit_buy_strategy: SimpleTradeStrategy = SimpleTradeStrategy(
+        self.limit_buy_strategy: PerformTradeStrategy = PerformTradeStrategy(
             [self.market_info],
             order_type="limit",
             order_price=99,
-            cancel_order_wait_time=self.cancel_order_wait_time,
             is_buy=True,
-            time_delay=self.time_delay,
             order_amount=1.0,
             logging_options=logging_options
         )
-        self.limit_sell_strategy: SimpleTradeStrategy = SimpleTradeStrategy(
+        self.limit_sell_strategy: PerformTradeStrategy = PerformTradeStrategy(
             [self.market_info],
             order_type="limit",
             order_price=101,
-            cancel_order_wait_time=self.cancel_order_wait_time,
             is_buy=False,
-            time_delay=self.time_delay,
             order_amount=1.0,
             logging_options=logging_options
         )
-        self.market_buy_strategy: SimpleTradeStrategy = SimpleTradeStrategy(
+        self.market_buy_strategy: PerformTradeStrategy = PerformTradeStrategy(
             [self.market_info],
             order_type="market",
             order_price=None,
-            cancel_order_wait_time=self.cancel_order_wait_time,
             is_buy=True,
-            time_delay=self.time_delay,
             order_amount=1.0,
             logging_options=logging_options
         )
-        self.market_sell_strategy: SimpleTradeStrategy = SimpleTradeStrategy(
+        self.market_sell_strategy: PerformTradeStrategy = PerformTradeStrategy(
             [self.market_info],
             order_type="market",
             order_price=None,
-            cancel_order_wait_time=self.cancel_order_wait_time,
             is_buy=False,
-            time_delay=self.time_delay,
             order_amount=1.0,
             logging_options=logging_options
         )
@@ -185,9 +176,6 @@ class SimpleTradeUnitTest(unittest.TestCase):
 
     def test_limit_buy_order(self):
         self.clock.add_iterator(self.limit_buy_strategy)
-        # check no orders are placed before time delay
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
-        self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
 
         # test whether number of orders is one after time delay
         # check whether the order is buy
@@ -199,20 +187,8 @@ class SimpleTradeUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("99"), bid_order.price)
         self.assertEqual(1, bid_order.quantity)
 
-        # Check whether order is cancelled after cancel_order_wait_time
-        self.clock.backtest_til(self.start_timestamp
-                                + self.clock_tick_size + self.time_delay + self.cancel_order_wait_time)
-        self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
-        order_cancelled_events: List[OrderCancelledEvent] = [t for t in self.cancel_order_logger.event_log
-                                                             if isinstance(t, OrderCancelledEvent)]
-        self.assertEqual(1, len(order_cancelled_events))
-        self.cancel_order_logger.clear()
-
     def test_limit_sell_order(self):
         self.clock.add_iterator(self.limit_sell_strategy)
-        # check no orders are placed before time delay
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
-        self.assertEqual(0, len(self.limit_buy_strategy.active_asks))
 
         # test whether number of orders is one
         # check whether the order is sell
@@ -224,22 +200,8 @@ class SimpleTradeUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("101"), ask_order.price)
         self.assertEqual(1, ask_order.quantity)
 
-        # Check whether order is cancelled after cancel_order_wait_time
-        self.clock.backtest_til(
-            self.start_timestamp + self.clock_tick_size + self.time_delay + self.cancel_order_wait_time)
-        self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
-        order_cancelled_events: List[OrderCancelledEvent] = [t for t in self.cancel_order_logger.event_log
-                                                             if isinstance(t, OrderCancelledEvent)]
-        self.assertEqual(1, len(order_cancelled_events))
-        self.cancel_order_logger.clear()
-
     def test_market_buy_order(self):
         self.clock.add_iterator(self.market_buy_strategy)
-        # check no orders are placed before time delay
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
-        market_buy_events: List[BuyOrderCompletedEvent] = [t for t in self.buy_order_completed_logger.event_log
-                                                           if isinstance(t, BuyOrderCompletedEvent)]
-        self.assertEqual(0, len(market_buy_events))
 
         # test whether number of orders is one
         # check whether the order is buy
@@ -254,11 +216,6 @@ class SimpleTradeUnitTest(unittest.TestCase):
 
     def test_market_sell_order(self):
         self.clock.add_iterator(self.market_sell_strategy)
-        # check no orders are placed before time delay
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
-        market_buy_events: List[BuyOrderCompletedEvent] = [t for t in self.buy_order_completed_logger.event_log
-                                                           if isinstance(t, BuyOrderCompletedEvent)]
-        self.assertEqual(0, len(market_buy_events))
 
         # test whether number of orders is one
         # check whether the order is sell
@@ -274,9 +231,6 @@ class SimpleTradeUnitTest(unittest.TestCase):
     def test_order_filled_events(self):
         self.clock.add_iterator(self.limit_buy_strategy)
         self.clock.add_iterator(self.limit_sell_strategy)
-        # check no orders are placed before time delay
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
-        self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
 
         # test whether number of orders is one
         # check whether the order is sell
