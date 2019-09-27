@@ -3,6 +3,7 @@
 
 import bisect
 import logging
+from decimal import Decimal
 
 from cython.operator cimport (
     postincrement as inc,
@@ -29,7 +30,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.logger import HummingbotLogger
 from .order_book_message import OrderBookMessage
-from .order_book_row import OrderBookRow
+from .order_book_row import OrderBookRow, ClientOrderBookRow
 from .order_book_query_result import OrderBookQueryResult
 
 ob_logger = None
@@ -235,6 +236,28 @@ cdef class OrderBook(PubSub):
         while it != self._ask_book.end():
             entry = deref(it)
             yield OrderBookRow(entry.getPrice(), entry.getAmount(), entry.getUpdateId())
+            inc(it)
+
+    def client_bid_entries(self) -> Iterator[OrderBookRow]:
+        cdef:
+            set[OrderBookEntry].reverse_iterator it = self._bid_book.rbegin()
+            OrderBookEntry entry
+        while it != self._bid_book.rend():
+            entry = deref(it)
+            yield ClientOrderBookRow(Decimal(entry.getPrice()),
+                                     Decimal(entry.getAmount()),
+                                     Decimal(entry.getUpdateId()))
+            inc(it)
+
+    def client_ask_entries(self) -> Iterator[OrderBookRow]:
+        cdef:
+            set[OrderBookEntry].iterator it = self._ask_book.begin()
+            OrderBookEntry entry
+        while it != self._ask_book.end():
+            entry = deref(it)
+            yield ClientOrderBookRow(Decimal(entry.getPrice()),
+                                     Decimal(entry.getAmount()),
+                                     Decimal(entry.getUpdateId()))
             inc(it)
 
     def simulate_buy(self, amount: float) -> List[OrderBookRow]:
