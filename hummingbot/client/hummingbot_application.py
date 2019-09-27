@@ -25,7 +25,6 @@ from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.paper_trade import create_paper_trade_market
-from hummingbot.market.paper_trade.paper_trade_market import PaperTradeMarket
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
@@ -56,7 +55,7 @@ from hummingbot.core.utils.kill_switch import KillSwitch
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.client.liquidity_bounty.bounty_utils import LiquidityBounty
 from hummingbot.market.markets_recorder import MarketsRecorder
 
@@ -109,7 +108,7 @@ class HummingbotApplication(*commands):
         self.strategy_task: Optional[asyncio.Task] = None
         self.strategy: Optional[StrategyBase] = None
         self.market_pair: Optional[CrossExchangeMarketPair] = None
-        self.market_symbol_pairs: List[MarketSymbolPair] = []
+        self.market_trading_pair_tuples: List[MarketTradingPairTuple] = []
         self.clock: Optional[Clock] = None
 
         self.init_time: int = int(time.time() * 1e3)
@@ -191,7 +190,7 @@ class HummingbotApplication(*commands):
                         market_name,
                         '\n'.join(uncancelled_order_ids)
                     ))
-        except Exception as err:
+        except Exception:
             self.logger().error(f"Error canceling outstanding orders.", exc_info=True)
             success = False
 
@@ -240,7 +239,7 @@ class HummingbotApplication(*commands):
                 self._notify(f"\nPaper trade is enabled for market {market_name}")
                 try:
                     market = create_paper_trade_market(market_name, symbols)
-                except Exception as err:
+                except Exception:
                     raise
                 paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
                 for asset, balance in paper_trade_account_balance:

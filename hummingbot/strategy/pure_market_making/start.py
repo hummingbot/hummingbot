@@ -3,7 +3,7 @@ from typing import (
     Tuple,
 )
 
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.pure_market_making import (
     PureMarketMakingStrategyV2,
     ConstantSpreadPricingDelegate,
@@ -76,11 +76,11 @@ def start(self):
         self.assets = set(maker_assets)
 
         maker_data = [self.markets[maker_market], raw_maker_symbol] + list(maker_assets)
-        self.market_symbol_pairs = [MarketSymbolPair(*maker_data)]
+        self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
 
         strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
 
-        self.strategy = PureMarketMakingStrategyV2(market_infos=[MarketSymbolPair(*maker_data)],
+        self.strategy = PureMarketMakingStrategyV2(market_infos=[MarketTradingPairTuple(*maker_data)],
                                                    pricing_delegate=pricing_delegate,
                                                    filter_delegate=filter_delegate,
                                                    sizing_delegate=sizing_delegate,
