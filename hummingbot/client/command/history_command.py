@@ -85,7 +85,7 @@ class HistoryCommand:
         return performance_analysis
 
     def get_market_mid_price(self,  # type: HummingbotApplication
-                            ) -> float:
+                             ) -> float:
         # Compute the current exchange rate. We use the first market_symbol_pair because
         # if the trading pairs are different, such as WETH-DAI and ETH-USD, the currency
         # pairs above will contain the information in terms of the first trading pair.
@@ -93,7 +93,7 @@ class HistoryCommand:
         market = market_pair_info.market
         buy_price = market.get_price(market_pair_info.trading_pair, True)
         sell_price = market.get_price(market_pair_info.trading_pair, False)
-        price = (buy_price + sell_price) / 2.0
+        price = float((buy_price + sell_price) / 2)
         return price
 
     def analyze_performance(self,  # type: HummingbotApplication
@@ -130,4 +130,3 @@ class HistoryCommand:
         price: float = self.get_market_mid_price()
         return_performance = performance_analysis.compute_return(price)
         return return_performance
-
