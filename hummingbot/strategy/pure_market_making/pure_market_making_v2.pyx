@@ -387,6 +387,14 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             OrderBook maker_orderbook = market_info.order_book
             object buy_prices_with_tx_costs = pricing_proposal.buy_order_prices
             object sell_prices_with_tx_costs = pricing_proposal.sell_order_prices
+            int64_t current_tick = <int64_t>(self._current_timestamp // self._status_report_interval)
+            int64_t last_tick = <int64_t>(self._last_timestamp // self._status_report_interval)
+            bint should_report_warnings = ((current_tick > last_tick) and
+                                           (self._logging_options & self.OPTION_LOG_STATUS_REPORT))
+            # Current warning report threshold is 10%
+            # If the adjusted price with transaction cost is 10% away from the suggested price,
+            # warnings will be displayed
+            double warning_report_threshold = 0.1
 
         # If both buy order and sell order sizes are zero, no need to add transaction costs
         # as no new orders are created
@@ -417,8 +425,17 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             else:
                 buy_price_with_tx_cost = buy_price
 
-            buy_prices_with_tx_costs[buy_index] = maker_market.c_quantize_order_price(market_info.trading_pair,
-                                                                                      buy_price_with_tx_cost)
+            buy_price_with_tx_cost = maker_market.c_quantize_order_price(market_info.trading_pair,
+                                                                         buy_price_with_tx_cost)
+
+            # If the buy price with the transaction cost is 10% below the buy price due to price adjustment,
+            # Display warning
+            if (buy_price_with_tx_cost / buy_price) < (1 - warning_report_threshold):
+                if should_report_warnings:
+                    self.logger().warning(f"Buy price with transaction cost is "
+                                          f"{warning_report_threshold * 100} % below the buy price ")
+
+            buy_prices_with_tx_costs[buy_index] = buy_price_with_tx_cost
             buy_index += 1
 
         sell_index = 0
@@ -444,8 +461,15 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             else:
                 sell_price_with_tx_cost = sell_price
 
-            sell_prices_with_tx_costs[sell_index] = maker_market.c_quantize_order_price(market_info.trading_pair,
-                                                                                        sell_price_with_tx_cost)
+            sell_price_with_tx_cost = maker_market.c_quantize_order_price(market_info.trading_pair,
+                                                                          sell_price_with_tx_cost)
+
+            if (sell_price_with_tx_cost / sell_price) > (1 + warning_report_threshold):
+                if should_report_warnings:
+                    self.logger().warning(f"Sell price with transaction cost is "
+                                          f"{warning_report_threshold * 100} % above the sell price")
+
+            sell_prices_with_tx_costs[sell_index] = sell_price_with_tx_cost
             sell_index += 1
 
         return PricingProposal(buy_prices_with_tx_costs, sell_prices_with_tx_costs)
