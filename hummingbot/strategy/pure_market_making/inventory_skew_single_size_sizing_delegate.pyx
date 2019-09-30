@@ -57,8 +57,8 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
             object target_quote_percent
             object current_target_base_ratio
             object current_target_quote_ratio
-            object bid_order_size = Decimal(self._order_size)
-            object ask_order_size = Decimal(self._order_size)
+            object bid_order_size = self._order_size
+            object ask_order_size = self._order_size
             object quantized_bid_order_size
             object quantized_ask_order_size
             bint has_active_bid = False
@@ -126,7 +126,7 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
                                         quantized_bid_order_size, pricing_proposal.buy_order_prices[0])
 
             required_quote_asset_balance = (pricing_proposal.buy_order_prices[0] *
-                                            (1 + Decimal(buy_fees.percent)) *
+                                            (1 + buy_fees.percent) *
                                             quantized_bid_order_size)
 
         if quote_asset_balance < required_quote_asset_balance:

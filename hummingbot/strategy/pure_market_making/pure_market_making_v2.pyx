@@ -290,7 +290,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
     cdef object c_get_orders_proposal_for_market_info(self, object market_info, list active_orders):
         cdef:
-            double last_trade_price
             int actions = 0
             list cancel_order_ids = []
 
