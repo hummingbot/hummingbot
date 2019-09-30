@@ -96,8 +96,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         )
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
             [self.market_pair],
-            order_size_portfolio_ratio_limit=0.3,
-            min_profitability=self.min_profitbality,
+            order_size_portfolio_ratio_limit=Decimal("0.3"),
+            min_profitability=Decimal(self.min_profitbality),
             logging_options=logging_options,
         )
         self.logging_options = logging_options
@@ -333,7 +333,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.maker_data.set_balanced_order_book(1.05, 0.55, 1.55, 0.01, 10)
         self.maker_market.add_data(self.maker_data)
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
-            [self.market_pair], 0.01, order_size_portfolio_ratio_limit=0.3, logging_options=self.logging_options
+            [self.market_pair], Decimal("0.01"), order_size_portfolio_ratio_limit=Decimal("0.3"),
+            logging_options=self.logging_options
         )
         self.clock.add_iterator(self.strategy)
         self.clock.backtest_til(self.start_timestamp + 5)
@@ -378,8 +379,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         )
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
             [self.market_pair],
-            order_size_portfolio_ratio_limit=0.3,
-            min_profitability=0.005,
+            order_size_portfolio_ratio_limit=Decimal("0.3"),
+            min_profitability=Decimal("0.005"),
             logging_options=self.logging_options,
         )
         self.maker_market.set_balance("COINALPHA", 5)
@@ -415,8 +416,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         )
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
             [self.market_pair],
-            order_size_portfolio_ratio_limit=0.3,
-            min_profitability=0.005,
+            order_size_portfolio_ratio_limit=Decimal("0.3"),
+            min_profitability=Decimal("0.005"),
             logging_options=self.logging_options,
             adjust_order_enabled=False
         )
