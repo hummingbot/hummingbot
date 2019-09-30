@@ -397,10 +397,10 @@ cdef class HuobiMarket(MarketBase):
                     if error_code == "base-record-invalid":  # order no longer exists
                         self.c_stop_tracking_order(tracked_order.client_order_id)
                         self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled according"
-                                            f" to order status API. error code - {error_code}")
+                                           f" to order status API. error code - {error_code}")
                         self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                                OrderCancelledEvent(self._current_timestamp,
-                                                                    tracked_order.client_order_id))
+                                             OrderCancelledEvent(self._current_timestamp,
+                                                                 tracked_order.client_order_id))
                         continue
 
                 order_state = order_update["state"]
@@ -811,8 +811,8 @@ cdef class HuobiMarket(MarketBase):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
             object quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
-            double current_price = self.c_get_price(symbol, False)
-            double notional_size
+            object current_price = Decimal(self.c_get_price(symbol, False))
+            object notional_size
 
         # Check against min_order_size. If not passing check, return 0.
         if quantized_amount < trading_rule.min_order_size:
@@ -822,12 +822,12 @@ cdef class HuobiMarket(MarketBase):
         if quantized_amount > trading_rule.max_order_size:
             return trading_rule.max_order_size
 
-        if price == 0:
-            notional_size = current_price * float(quantized_amount)
+        if price == s_decimal_0:
+            notional_size = current_price * quantized_amount
         else:
-            notional_size = price * float(quantized_amount)
+            notional_size = price * quantized_amount
         # Add 1% as a safety factor in case the prices changed while making the order.
-        if notional_size < float(trading_rule.min_notional_size * Decimal(1.01)):
+        if notional_size < trading_rule.min_notional_size * Decimal("1.01"):
             return s_decimal_0
 
         return quantized_amount
