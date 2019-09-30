@@ -34,7 +34,7 @@ class PerformanceAnalysis:
         performed using the SAME conversion rate - that is, the current conversion rate.
 
         So for example, let's say we are trading WETH/DAI and ETH/USD. Let's also assume that in  the
-        hummingbot_application class, the first MarketSymbolPair in the market_symbol_pair list is WETH/DAI. This means
+        hummingbot_application class, the first MarketTradingPairTuple in the market_trading_pair_tuple list is WETH/DAI. This means
         that in theory, the base and quote balances will be computed in terms of WETH and DAI, respectively. When the
         ETH and USD balances are added to those of WETH and DAI, the token conversion method - see
         erc.convert_token_value() will be called to convert the currencies using the CURRENT conversion rate. The
