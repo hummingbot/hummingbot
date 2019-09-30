@@ -7,9 +7,6 @@ cdef class IDEXMarket(MarketBase):
         object _shared_client
         str _idex_api_key
         object _wallet
-        object _order_book_tracker
-        dict _account_balances
-        dict _account_available_balances
         object _ev_loop
         object _poll_notifier
         double _last_timestamp

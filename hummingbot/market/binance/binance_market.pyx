@@ -105,7 +105,7 @@ cdef class InFlightDeposit:
 
     def __repr__(self) -> str:
         return f"InFlightDeposit(tracking_id='{self.tracking_id}', timestamp_ms={self.timestamp_ms}, " \
-        f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
+               f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
 
 
 cdef class WithdrawRule:
@@ -155,9 +155,9 @@ cdef class BinanceMarket(MarketBase):
                  binance_api_secret: str,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                    OrderBookTrackerDataSourceType.EXCHANGE_API,
+                 OrderBookTrackerDataSourceType.EXCHANGE_API,
                  user_stream_tracker_data_source_type: UserStreamTrackerDataSourceType =
-                    UserStreamTrackerDataSourceType.EXCHANGE_API,
+                 UserStreamTrackerDataSourceType.EXCHANGE_API,
                  symbols: Optional[List[str]] = None,
                  trading_required: bool = True):
 
@@ -173,12 +173,12 @@ cdef class BinanceMarket(MarketBase):
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._poll_interval = poll_interval
-        self._in_flight_orders = {} # Dict[client_order_id:str, BinanceInFlightOrder]
-        self._order_not_found_records = {} # Dict[client_order_id:str, count:int]
+        self._in_flight_orders = {}  # Dict[client_order_id:str, BinanceInFlightOrder]
+        self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._tx_tracker = BinanceMarketTransactionTracker(self)
-        self._withdraw_rules = {} # Dict[trading_pair:str, WithdrawRule]
-        self._trading_rules = {} # Dict[trading_pair:str, TradingRule]
-        self._trade_fees = {} # Dict[trading_pair:str, (maker_fee_percent:Decimal, taken_fee_percent:Decimal)]
+        self._withdraw_rules = {}  # Dict[trading_pair:str, WithdrawRule]
+        self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
+        self._trade_fees = {}  # Dict[trading_pair:str, (maker_fee_percent:Decimal, taken_fee_percent:Decimal)]
         self._last_update_trade_fees_timestamp = 0
         self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
@@ -324,8 +324,8 @@ cdef class BinanceMarket(MarketBase):
                           object amount,
                           object price):
         cdef:
-            object maker_trade_fee = Decimal(0.001)
-            object taker_trade_fee = Decimal(0.001)
+            object maker_trade_fee = Decimal("0.001")
+            object taker_trade_fee = Decimal("0.001")
             str symbol = base_currency + quote_currency
 
         if symbol not in self._trade_fees:
@@ -454,21 +454,21 @@ cdef class BinanceMarket(MarketBase):
                         if applied_trade:
                             self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                                  OrderFilledEvent(
-                                                    self._current_timestamp,
-                                                    tracked_order.client_order_id,
-                                                    tracked_order.symbol,
-                                                    tracked_order.trade_type,
-                                                    order_type,
-                                                    Decimal(trade["price"]), #refactor Decimal
-                                                    Decimal(trade["qty"]), #refactor Decimal
-                                                    self.c_get_fee(
-                                                        tracked_order.base_asset,
-                                                        tracked_order.quote_asset,
-                                                        order_type,
-                                                        tracked_order.trade_type,
-                                                        Decimal(trade["price"]), #refactor Decimal
-                                                        Decimal(trade["qty"])), #refactor Decimal
-                                                    exchange_trade_id=trade["id"]
+                                                     self._current_timestamp,
+                                                     tracked_order.client_order_id,
+                                                     tracked_order.symbol,
+                                                     tracked_order.trade_type,
+                                                     order_type,
+                                                     Decimal(trade["price"]),
+                                                     Decimal(trade["qty"]),
+                                                     self.c_get_fee(
+                                                         tracked_order.base_asset,
+                                                         tracked_order.quote_asset,
+                                                         order_type,
+                                                         tracked_order.trade_type,
+                                                         Decimal(trade["price"]),
+                                                         Decimal(trade["qty"])),
+                                                     exchange_trade_id=trade["id"]
                                                  ))
 
     async def _update_order_status(self):
@@ -503,7 +503,7 @@ cdef class BinanceMarket(MarketBase):
                         self.c_trigger_event(
                             self.MARKET_ORDER_FAILURE_EVENT_TAG,
                             MarketOrderFailureEvent(self._current_timestamp, client_order_id, tracked_order.order_type)
-                         )
+                        )
                         self.c_stop_tracking_order(client_order_id)
                     else:
                         self.logger().network(
@@ -525,9 +525,9 @@ cdef class BinanceMarket(MarketBase):
                                                                         tracked_order.quote_asset,
                                                                         (tracked_order.fee_asset
                                                                          or tracked_order.base_asset),
-                                                                        tracked_order.executed_amount_base, #refactor Decimal
-                                                                        tracked_order.executed_amount_quote, #refactor Decimal
-                                                                        tracked_order.fee_paid, #refactor Decimal
+                                                                        tracked_order.executed_amount_base,
+                                                                        tracked_order.executed_amount_quote,
+                                                                        tracked_order.fee_paid,
                                                                         order_type))
                         else:
                             self.logger().info(f"The market sell order {client_order_id} has completed "
@@ -539,9 +539,9 @@ cdef class BinanceMarket(MarketBase):
                                                                          tracked_order.quote_asset,
                                                                          (tracked_order.fee_asset
                                                                           or tracked_order.quote_asset),
-                                                                         tracked_order.executed_amount_base, #refactor Decimal
-                                                                         tracked_order.executed_amount_quote, #refactor Decimal
-                                                                         tracked_order.fee_paid, #refactor Decimal
+                                                                         tracked_order.executed_amount_base,
+                                                                         tracked_order.executed_amount_quote,
+                                                                         tracked_order.fee_paid,
                                                                          order_type))
                     else:
                         # check if its a cancelled order
@@ -560,7 +560,7 @@ cdef class BinanceMarket(MarketBase):
                                                      self._current_timestamp,
                                                      client_order_id,
                                                      order_type
-                                             ))
+                                                 ))
                     self.c_stop_tracking_order(client_order_id)
 
     async def _iter_kafka_messages(self, topic: str) -> AsyncIterable[ConsumerRecord]:
@@ -604,8 +604,8 @@ cdef class BinanceMarket(MarketBase):
         async for event_message in self._iter_user_event_queue():
             try:
                 event_type = event_message.get("e")
-                #Refer to https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md
-                #As per the order update section in Binance the ID of the order being cancelled is under the "C" key
+                # Refer to https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md
+                # As per the order update section in Binance the ID of the order being cancelled is under the "C" key
                 if event_type == "executionReport":
                     execution_type = event_message.get("x")
                     if execution_type != "CANCELED":
@@ -630,8 +630,8 @@ cdef class BinanceMarket(MarketBase):
                             tracked_order.quote_asset,
                             OrderType.LIMIT if event_message["o"] == "LIMIT" else OrderType.MARKET,
                             TradeType.BUY if event_message["S"] == "BUY" else TradeType.SELL,
-                            Decimal(event_message["l"]), #refactor Decimal
-                            Decimal(event_message["L"]) #refactor Decimal
+                            Decimal(event_message["l"]),
+                            Decimal(event_message["L"])
                         ))
                         self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
@@ -639,32 +639,32 @@ cdef class BinanceMarket(MarketBase):
                         if not tracked_order.is_failure:
                             if tracked_order.trade_type is TradeType.BUY:
                                 self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
-                                                f"according to user stream.")
+                                                   f"according to user stream.")
                                 self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                                    BuyOrderCompletedEvent(self._current_timestamp,
+                                                     BuyOrderCompletedEvent(self._current_timestamp,
                                                                             tracked_order.client_order_id,
                                                                             tracked_order.base_asset,
                                                                             tracked_order.quote_asset,
                                                                             (tracked_order.fee_asset
-                                                                            or tracked_order.base_asset),
-                                                                            tracked_order.executed_amount_base, #refactor Decimal
-                                                                            tracked_order.executed_amount_quote, #refactor Decimal
-                                                                            tracked_order.fee_paid, #refactor Decimal
+                                                                             or tracked_order.base_asset),
+                                                                            tracked_order.executed_amount_base,
+                                                                            tracked_order.executed_amount_quote,
+                                                                            tracked_order.fee_paid,
                                                                             tracked_order.order_type))
                             else:
                                 self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
-                                                f"according to user stream.")
+                                                   f"according to user stream.")
                                 self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                                    SellOrderCompletedEvent(self._current_timestamp,
-                                                                            tracked_order.client_order_id,
-                                                                            tracked_order.base_asset,
-                                                                            tracked_order.quote_asset,
-                                                                            (tracked_order.fee_asset
-                                                                            or tracked_order.quote_asset),
-                                                                            tracked_order.executed_amount_base, #refactor Decimal
-                                                                            tracked_order.executed_amount_quote, #refactor Decimal
-                                                                            tracked_order.fee_paid, #refactor Decimal
-                                                                            tracked_order.order_type))
+                                                     SellOrderCompletedEvent(self._current_timestamp,
+                                                                             tracked_order.client_order_id,
+                                                                             tracked_order.base_asset,
+                                                                             tracked_order.quote_asset,
+                                                                             (tracked_order.fee_asset
+                                                                              or tracked_order.quote_asset),
+                                                                             tracked_order.executed_amount_base,
+                                                                             tracked_order.executed_amount_quote,
+                                                                             tracked_order.fee_paid,
+                                                                             tracked_order.order_type))
                         else:
                             # check if its a cancelled order
                             # if its a cancelled order, check in flight orders
@@ -684,9 +684,9 @@ cdef class BinanceMarket(MarketBase):
                                                          self._current_timestamp,
                                                          tracked_order.client_order_id,
                                                          tracked_order.order_type
-                                                 ))
+                                                     ))
                         self.c_stop_tracking_order(tracked_order.client_order_id)
-                
+
                 elif event_type == "outboundAccountInfo":
                     local_asset_names = set(self._account_balances.keys())
                     remote_asset_names = set()
@@ -806,7 +806,7 @@ cdef class BinanceMarket(MarketBase):
         withdraw_fee = self._withdraw_rules[currency].withdraw_fee if currency in self._withdraw_rules else 0.0
         self.c_trigger_event(self.MARKET_WITHDRAW_ASSET_EVENT_TAG,
                              MarketWithdrawAssetEvent(self._current_timestamp, tracking_id, to_address, currency,
-                                                      decimal_amount, withdraw_fee)) #refactor Decimal
+                                                      decimal_amount, withdraw_fee))
 
     cdef str c_withdraw(self, str address, str currency, double amount):
         cdef:
@@ -939,8 +939,8 @@ cdef class BinanceMarket(MarketBase):
                                      self._current_timestamp,
                                      order_type,
                                      symbol,
-                                     decimal_amount, #refactor Decimal
-                                     decimal_price, #refactor Decimal
+                                     decimal_amount,
+                                     decimal_price,
                                      order_id
                                  ))
 
@@ -960,8 +960,8 @@ cdef class BinanceMarket(MarketBase):
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    cdef str c_buy(self, str symbol, object amount, object order_type = OrderType.MARKET, object price = s_decimal_NaN,
-                   dict kwargs = {}):
+    cdef str c_buy(self, str symbol, object amount, object order_type=OrderType.MARKET, object price=s_decimal_NaN,
+                   dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"buy-{symbol}-{tracking_nonce}")
@@ -1053,8 +1053,8 @@ cdef class BinanceMarket(MarketBase):
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    cdef str c_sell(self, str symbol, object amount, object order_type = OrderType.MARKET, object price = s_decimal_NaN,
-                    dict kwargs = {}):
+    cdef str c_sell(self, str symbol, object amount, object order_type=OrderType.MARKET, object price=s_decimal_NaN,
+                    dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = str(f"sell-{symbol}-{tracking_nonce}")
@@ -1161,7 +1161,7 @@ cdef class BinanceMarket(MarketBase):
             TradingRule trading_rule = self._trading_rules[symbol]
         return Decimal(trading_rule.min_base_amount_increment)
 
-    cdef object c_quantize_order_amount(self, str symbol, object amount, object price = Decimal(0.0)):
+    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=Decimal(0.0)):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
             object current_price = self.c_get_price(symbol, False)
