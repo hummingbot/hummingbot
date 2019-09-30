@@ -406,11 +406,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     buy_amount,
                     buy_price
                 )
-                # accumulated flat fees of exchange
+                # Total flat fees charged by the exchange
                 total_flat_fees = self.c_sum_flat_fees(market_info.quote_asset,
                                                        fee_object.flat_fees)
                 # Find the fixed cost per unit size for the total amount
-                # Fees is in Float units
+                # Fees is in Float
                 fixed_cost_per_unit = total_flat_fees / float(buy_amount)
                 # New Price = Price * (1 - maker_fees) - Fixed_fees_per_unit
                 buy_price_with_tx_cost = float(buy_price) * (1 - fee_object.percent) - fixed_cost_per_unit
@@ -433,11 +433,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     sell_amount,
                     sell_price
                 )
-                # accumulated flat fees of exchange
+                # Total flat fees charged by the exchange
                 total_flat_fees = self.c_sum_flat_fees(market_info.quote_asset,
                                                        fee_object.flat_fees)
                 # Find the fixed cost per unit size for the total amount
-                # Fees is in Float units
+                # Fees is in Float
                 fixed_cost_per_unit = total_flat_fees / float(sell_amount)
                 # New Price = Price * (1 + maker_fees) + Fixed_fees_per_unit
                 sell_price_with_tx_cost = float(sell_price) * (1 + fee_object.percent) + fixed_cost_per_unit
