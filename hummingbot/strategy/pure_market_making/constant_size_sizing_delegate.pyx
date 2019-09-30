@@ -17,7 +17,7 @@ s_decimal_0 = Decimal(0)
 
 cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
 
-    def __init__(self, order_size: float):
+    def __init__(self, order_size: Decimal):
         super().__init__()
         self._order_size = order_size
         self._log_warning_order_size = True
@@ -31,7 +31,7 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
         return s_logger
 
     @property
-    def order_size(self) -> float:
+    def order_size(self) -> Decimal:
         return self._order_size
 
     cdef object c_get_order_size_proposal(self,
@@ -42,46 +42,44 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
         cdef:
             MarketBase market = market_info.market
             object buy_fees
-            double base_asset_balance = market.c_get_available_balance(market_info.base_asset)
-            double quote_asset_balance = market.c_get_available_balance(market_info.quote_asset)
+            object base_asset_balance = market.c_get_available_balance(market_info.base_asset)
+            object quote_asset_balance = market.c_get_available_balance(market_info.quote_asset)
             object bid_order_size = self._order_size
             object ask_order_size = self._order_size
             object quantized_bid_order_size
             object quantized_ask_order_size
             bint has_active_bid = False
             bint has_active_ask = False
-            double required_quote_asset_balance
+            object required_quote_asset_balance
 
         for active_order in active_orders:
             if active_order.is_buy:
                 has_active_bid = True
-                quote_asset_balance += float(active_order.quantity) * float(active_order.price)
+                quote_asset_balance += active_order.quantity * active_order.price
             else:
                 has_active_ask = True
-                base_asset_balance += float(active_order.quantity)
+                base_asset_balance += active_order.quantity
 
         if market.name == "binance":
             quantized_bid_order_size = market.c_quantize_order_amount(market_info.trading_pair,
-                                                                      float(bid_order_size),
+                                                                      bid_order_size,
                                                                       pricing_proposal.buy_order_prices[0])
             quantized_ask_order_size = market.c_quantize_order_amount(market_info.trading_pair,
-                                                                      float(ask_order_size),
+                                                                      ask_order_size,
                                                                       pricing_proposal.sell_order_prices[0])
-            required_quote_asset_balance = float(pricing_proposal.buy_order_prices[0]) * float(quantized_bid_order_size)
+            required_quote_asset_balance = pricing_proposal.buy_order_prices[0] * quantized_bid_order_size
 
         else:
             quantized_bid_order_size = market.c_quantize_order_amount(market_info.trading_pair,
-                                                                      float(bid_order_size))
+                                                                      bid_order_size)
             quantized_ask_order_size = market.c_quantize_order_amount(market_info.trading_pair,
-                                                                      float(ask_order_size))
+                                                                      ask_order_size)
 
             buy_fees = market.c_get_fee(market_info.base_asset, market_info.quote_asset,
                                         OrderType.MARKET, TradeType.BUY,
                                         quantized_bid_order_size, pricing_proposal.buy_order_prices[0])
 
-            required_quote_asset_balance = (float(pricing_proposal.buy_order_prices[0]) *
-                                            (1.0 + float(buy_fees.percent)) *
-                                            float(quantized_bid_order_size))
+            required_quote_asset_balance = pricing_proposal.buy_order_prices[0] * (1 + buy_fees.percent) * quantized_bid_order_size
 
         if self._log_warning_order_size:
             if quantized_bid_order_size == s_decimal_0:
