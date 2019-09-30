@@ -65,6 +65,7 @@ cdef class BittrexMarket(MarketBase):
     DEPOSIT_TIMEOUT = 1800.0
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
+    ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
 
     BITTREX_API_ENDPOINT = "https://api.bittrex.com/v3"
 
@@ -95,6 +96,7 @@ cdef class BittrexMarket(MarketBase):
         self._last_timestamp = 0
         self._order_book_tracker = BittrexOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
                                                            symbols=symbols)
+        self._order_not_found_records = {}
         self._order_tracker_task = None
         self._poll_notifier = asyncio.Event()
         self._poll_interval = poll_interval
@@ -108,6 +110,7 @@ cdef class BittrexMarket(MarketBase):
         self._user_stream_tracker = BittrexUserStreamTracker(bittrex_auth=self._bittrex_auth,
                                                              symbols=symbols)
         self._user_stream_tracker_task = None
+        self._check_network_interval = 60.0
 
     @property
     def name(self) -> str:
@@ -222,14 +225,16 @@ cdef class BittrexMarket(MarketBase):
             try:
                 symbol = market.get("symbol")
                 min_trade_size = market.get("minTradeSize")
-                precision = '0.{:0{}}'.format(1, market.get("precision"))
+                precision = market.get("precision")
                 # Trading Rules info from
-                # https://bittrex.zendesk.com/hc/en-us/articles/360001473863-Bittrex-Trading-Rules
-                # "No maximum, but the user must have sufficient funds to cover the order at the time it is placed."
                 retval.append(TradingRule(symbol,
                                           min_order_size=Decimal(min_trade_size),
-                                          min_quote_amount_increment=Decimal(precision)
+                                          min_price_increment=Decimal(f"1e-{precision}"),
+                                          min_base_amount_increment=Decimal(f"1e-{precision}"),
+                                          min_quote_amount_increment=Decimal(f"1e-{precision}"),
                                           ))
+                # https://bittrex.zendesk.com/hc/en-us/articles/360001473863-Bittrex-Trading-Rules
+                # "No maximum, but the user must have sufficient funds to cover the order at the time it is placed."
             except Exception:
                 self.logger().error(f"Error parsing the symbol rule {market}. Skipping.", exc_info=True)
         return retval
@@ -248,9 +253,10 @@ cdef class BittrexMarket(MarketBase):
                 self._trading_rules[trading_rule.symbol] = trading_rule
 
     async def list_orders(self) -> List[Any]:
-        # Only lists all currently open orders(does not include filled orders)
         """
-        Example:
+        Only a list of all currently open orders(does not include filled orders)
+        :returns json response
+        i.e.
         Result = [
               {
                 "id": "string (uuid)",
@@ -271,6 +277,7 @@ cdef class BittrexMarket(MarketBase):
                 "updatedAt": "string (date-time)",
                 "closedAt": "string (date-time)"
               }
+              ...
             ]
 
         """
@@ -308,32 +315,154 @@ cdef class BittrexMarket(MarketBase):
         result = await self._api_request("GET", path_url=path_url)
         return result
 
+    async def _update_order_fills_from_trades(self):
+        cdef:
+            # This is intended to be a backup measure to get filled events with trade ID for orders,
+            # in case Binance's user stream events are not working.
+            # This is separated from _update_order_status which only updates the order status without producing filled
+            # events, since Binance's get order endpoint does not return trade IDs.
+            # The poll interval for order status is 10 seconds.
+            int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
+            int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDERS_INTERVAL)
+
+        if current_tick > last_tick and len(self._in_flight_orders) > 0:
+
+            tracked_orders = list(self._in_flight_orders.values())
+            open_orders = await self.list_orders()
+            open_orders = dict((entry["id"], entry) for entry in open_orders)
+
+            for tracked_order in tracked_orders:
+                exchange_order_id = await tracked_order.get_exchange_order_id()
+                client_order_id = tracked_order.client_order_id
+                order = await self.get_order(exchange_order_id)
+
+                if order is None:  # Handles order that are currently tracked but no longer open in exchange
+                    self._order_not_found_records[client_order_id] = \
+                        self._order_not_found_records.get(client_order_id, 0) + 1
+
+                    if self._order_not_found_records[client_order_id] < self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
+                        # Wait until the order not found error have repeated for a few times before actually treating
+                        # it as a fail. See: https://github.com/CoinAlpha/hummingbot/issues/601
+                        continue
+                    tracked_order.last_state = "CLOSED"
+                    self.c_trigger_event(
+                        self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                        MarketOrderFailureEvent(self._current_timestamp,
+                                                client_order_id,
+                                                tracked_order.order_type)
+                    )
+                    self.c_stop_tracking_order(client_order_id)
+                    self.logger().network(
+                        f"Error fetching status update for the order {client_order_id}: "
+                        f"{order}",
+                        app_warning_msg=f"Could not fetch updates for the order {client_order_id}. "
+                                        f"Check API key and network connection."
+                    )
+                    continue
+
+                order_state = order["status"]
+                order_type_description = tracked_order.order_type_description
+                tracked_order.last_state = order_state
+                if order_state == "OPEN":
+
+                    executed_price = Decimal(order["limit"])
+                    executed_amount_diff = s_decimal_0
+
+                    remaining_size = Decimal(order["quantity"]) - Decimal(order["fillQuantity"])
+                    new_confirmed_amount = tracked_order.amount - remaining_size
+                    executed_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
+                    tracked_order.executed_amount_base = new_confirmed_amount
+                    tracked_order.executed_amount_quote += executed_amount_diff * executed_price
+
+                    if executed_amount_diff > s_decimal_0:
+                        self.logger().info(f"Filled {executed_amount_diff} out of {tracked_order.amount} of the "
+                                           f"{order_type_description} order {tracked_order.client_order_id}.")
+                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                             OrderFilledEvent(
+                                                 self._current_timestamp,
+                                                 tracked_order.client_order_id,
+                                                 tracked_order.symbol,
+                                                 tracked_order.trade_type,
+                                                 tracked_order.order_type,
+                                                 float(executed_price),
+                                                 float(executed_amount_diff),
+                                                 self.c_get_fee(
+                                                     tracked_order.base_asset,
+                                                     tracked_order.quote_asset,
+                                                     tracked_order.order_type,
+                                                     tracked_order.trade_type,
+                                                     float(executed_price),
+                                                     float(executed_amount_diff)
+                                                 )
+                                             ))
+
     async def _update_order_status(self):
         cdef:
-            double current_timestamp = self._current_timestamp
+            # This is intended to be a backup measure to close straggler orders, in case Bittrex's user stream events
+            # are not capturing the updates as intended.
+            # The poll interval for order status is 10 seconds.
+            int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
+            int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDERS_INTERVAL)
 
-        if current_timestamp - self._last_poll_timestamp <= self.UPDATE_ORDERS_INTERVAL:
-            return
+        if current_tick > last_tick and len(self._in_flight_orders) > 0:
 
-        tracked_orders = list(self._in_flight_orders.values())
-        current_open_orders = await self.list_orders()
-        order_dict = dict((entry["marketSymbol"], entry) for entry in current_open_orders)
+            tracked_orders = list(self._in_flight_orders.values())
+            open_orders = await self.list_orders()
+            open_orders = dict((entry["id"], entry) for entry in open_orders)
 
-        for tracked_order in tracked_orders:
-            exchange_order_id = await tracked_order.get_exchange_order_id()
-            order_update = order_dict.get(exchange_order_id)
-            if order_update is None:
-                # Checks if order has been filled/cancelled
+            for tracked_order in tracked_orders:
+                exchange_order_id = await tracked_order.get_exchange_order_id()
+                client_order_id = tracked_order.client_order_id
                 order = await self.get_order(exchange_order_id)
-                if order is not None:
-                    order_type = order["OrderType"]
-                    if order["QuantityRemaining"] == 0:  # Order has been filled completely
+
+                if order is None:  # Handles order that are currently tracked but no longer open in exchange
+                    self._order_not_found_records[client_order_id] = \
+                        self._order_not_found_records.get(client_order_id, 0) + 1
+
+                    if self._order_not_found_records[client_order_id] < self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
+                        # Wait until the order not found error have repeated for a few times before actually treating
+                        # it as a fail. See: https://github.com/CoinAlpha/hummingbot/issues/601
+                        continue
+                    self.c_trigger_event(
+                        self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                        MarketOrderFailureEvent(self._current_timestamp,
+                                                client_order_id,
+                                                tracked_order.order_type)
+                    )
+                    self.c_stop_tracking_order(client_order_id)
+                    self.logger().network(
+                        f"Error fetching status update for the order {client_order_id}: "
+                        f"{order}",
+                        app_warning_msg=f"Could not fetch updates for the order {client_order_id}. "
+                                        f"Check API key and network connection."
+                    )
+                    continue
+
+                order_state = order["status"]
+                order_type = "LIMIT" if tracked_order.order_type is OrderType.LIMIT else "MARKET"
+                trade_type = "BUY" if tracked_order.trade_type is TradeType.BUY else "SELL"
+                tracked_order.last_state = order_state
+                if order_state == "CLOSED":
+                    if order["quantity"] == order["fillQuantity"]:  # Order COMPLETED
+                        self.logger().info(f"The {order_type}-{trade_type} "
+                                           f"{client_order_id} has completed according to Bittrex order status API.")
 
                         if tracked_order.trade_type is TradeType.BUY:
-                            self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
-                                               f"according to order status API")
                             self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                                 BuyOrderCompletedEvent(
+                                                 BuyOrderCompletedEvent(self._current_timestamp,
+                                                                        tracked_order.client_order_id,
+                                                                        tracked_order.base_asset,
+                                                                        tracked_order.quote_asset,
+                                                                        (tracked_order.fee_asset
+                                                                         or tracked_order.base_asset),
+                                                                        float(tracked_order.executed_amount_base),
+                                                                        float(tracked_order.executed_amount_quote),
+                                                                        float(tracked_order.fee_paid),
+                                                                        tracked_order.order_type))
+                        elif tracked_order.trade_type is TradeType.SELL:
+                            self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
+                                                 SellOrderCompletedEvent(
+                                                     self._current_timestamp,
                                                      tracked_order.client_order_id,
                                                      tracked_order.base_asset,
                                                      tracked_order.quote_asset,
@@ -343,78 +472,16 @@ cdef class BittrexMarket(MarketBase):
                                                      float(tracked_order.executed_amount_quote),
                                                      float(tracked_order.fee_paid),
                                                      tracked_order.order_type))
-                        else:
-                            self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
-                                               f"according to order status API.")
-                            self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                                 SellOrderCompletedEvent(self._current_timestamp,
-                                                                         tracked_order.client_order_id,
-                                                                         tracked_order.base_asset,
-                                                                         tracked_order.quote_asset,
-                                                                         (tracked_order.fee_asset
-                                                                          or tracked_order.quote_asset),
-                                                                         float(tracked_order.executed_amount_base),
-                                                                         float(tracked_order.executed_amount_quote),
-                                                                         float(tracked_order.fee_paid),
-                                                                         tracked_order.order_type))
-
-                    else:  # Order has been cancelled or partially-cancelled
-                        self.logger().info(
-                            f"The market order {tracked_order.client_order_id} has been cancelled according"
-                            f" to order status API.")
+                    else:  # Order PARTIAL-CANCEL or CANCEL
+                        self.logger().info(f"The {tracked_order.order_type}-{tracked_order.trade_type} "
+                                           f"{client_order_id} has been cancelled according to Bittrex order status API.")
                         self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                             OrderCancelledEvent(self._current_timestamp,
-                                                                 tracked_order.client_order_id))
+                                             OrderCancelledEvent(
+                                                 self._current_timestamp,
+                                                 client_order_id
+                                             ))
 
-                else:  # Unable to find order
-                    self.logger().network(
-                        f"Error fetching status update for the order{tracked_order.client_order_id}:"
-                        f"{order_update}.",
-                        app_warning_msg=f"Could not fetch update for the order {tracked_order.client_order_id}. "
-                                        f"Check API key and network connection."
-                    )
-                self.c_stop_tracking_order(tracked_order.client_order_id)
-                continue
-
-            # Calculate the newly executed amount for this update.
-            new_confirmed_amount = Decimal(order_update["QuantityRemaining"])
-            execute_amount_diff = Decimal(order_update["Quantity"]) - Decimal(order_update["QuantityRemaining"])
-            execute_price = s_decimal_0 if new_confirmed_amount == Decimal(order_update["Quantity"]) \
-                else Decimal(order_update["PricePerUnit"])
-
-            client_order_id = tracked_order.client_order_id
-            order_type_description = tracked_order.order_type_description
-            order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
-
-            # Order has been partially filled
-            if execute_amount_diff > s_decimal_0:
-                order_filled_event = OrderFilledEvent(
-                    self._current_timestamp,
-                    tracked_order.client_order_id,
-                    tracked_order.symbol,
-                    tracked_order.trade_type,
-                    order_type,
-                    float(execute_price),
-                    float(execute_amount_diff),
-                    self.c_get_fee(
-                        tracked_order.base_asset,
-                        tracked_order.quote_asset,
-                        order_type,
-                        tracked_order.trade_type,
-                        float(execute_price),
-                        float(execute_amount_diff)
-                    )
-                )
-                self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
-                                   f"{order_type_description} order {client_order_id}.")
-                self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
-
-            # Update the tracked order
-            tracked_order.last_state = "open"
-            tracked_order.executed_amount_base = new_confirmed_amount
-            tracked_order.fee_paid = Decimal(order_update["CommissionPaid"])
-
-        self._last_poll_timestamp = current_timestamp
+                    self.c_stop_tracking_order(client_order_id)
 
     async def _iter_user_stream_queue(self) -> AsyncIterable[Dict[str, Any]]:
         while True:
@@ -423,14 +490,14 @@ cdef class BittrexMarket(MarketBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unkown error. Retrying after 1 second.", exc_info=True)
+                self.logger().error("Unknown error. Retrying after 1 second.", exc_info=True)
                 await asyncio.sleep(1.0)
 
     async def _user_stream_event_listener(self):
         async for stream_message in self._iter_user_stream_queue():
             try:
                 content = stream_message.content.get("content")
-                event_type = content.get("event_type")
+                event_type = stream_message.content.get("event_type")
 
                 if event_type == "uB":  # Updates total balance and available balance of specified currency
                     asset_name = content["C"]
@@ -439,59 +506,59 @@ cdef class BittrexMarket(MarketBase):
                     self._account_available_balances[asset_name] = available_balance
                     self._account_balances[asset_name] = total_balance
                 elif event_type == "uO":  # Updates track order status
-                    order_id = content["OU"]
-
-                    # Order Type Reference:
-                    # https://bittrex.github.io/api/v1-1#/definitions/Order%20Delta%20-%20uO
+                    order = content["o"]
                     order_status = content["TY"]
+                    order_id = order["OU"]
 
                     tracked_order = None
-                    for order in self._in_flight_orders.values():
-                        if order.exchange_order_id == order_id:
-                            tracked_order = order
+                    for o in self._in_flight_orders.values():
+                        if o.exchange_order_id == order_id:
+                            tracked_order = o
+                            break
 
                     if tracked_order is None:
                         continue
 
                     order_type_description = tracked_order.order_type_description
-                    execute_price = Decimal(content["PU"])
+                    execute_price = Decimal(order["PU"])
                     execute_amount_diff = s_decimal_0
-                    tracked_order.fee_paid = Decimal(content["n"])
+                    tracked_order.fee_paid = Decimal(order["n"])
 
-                    if order_status in [0, 1]:  # OPEN or PARTIAL
-                        remaining_size = Decimal(content["q"])
-                        new_confirmed_amount = tracked_order.amount - remaining_size
-                        execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-                        tracked_order.execute_amount_base = new_confirmed_amount
-                        tracked_order.execute_amount_quote += execute_amount_diff * execute_price
+                    precision = str(self.c_get_order_size_quantum(tracked_order.symbol, Decimal(order['q'])))[-1]
 
-                        if execute_amount_diff > s_decimal_0:
-                            self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
-                                               f"{order_type_description} order {tracked_order.client_order_id}.")
-                            self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                                 OrderFilledEvent(
-                                                     self._current_timestamp,
-                                                     tracked_order.client_order_id,
-                                                     tracked_order.symbol,
-                                                     tracked_order.trade_type,
+                    remaining_size = Decimal(str(round(order["q"], int(precision))))
+
+                    new_confirmed_amount = Decimal(tracked_order.amount - remaining_size)
+                    execute_amount_diff = Decimal(new_confirmed_amount - tracked_order.executed_amount_base)
+                    tracked_order.executed_amount_base = new_confirmed_amount
+                    tracked_order.executed_amount_quote += Decimal(execute_amount_diff * execute_price)
+
+                    if execute_amount_diff > s_decimal_0:
+                        self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
+                                           f"{order_type_description} order {tracked_order.client_order_id}.")
+                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                             OrderFilledEvent(
+                                                 self._current_timestamp,
+                                                 tracked_order.client_order_id,
+                                                 tracked_order.symbol,
+                                                 tracked_order.trade_type,
+                                                 tracked_order.order_type,
+                                                 float(execute_price),
+                                                 float(execute_amount_diff),
+                                                 self.c_get_fee(
+                                                     tracked_order.base_asset,
+                                                     tracked_order.quote_asset,
                                                      tracked_order.order_type,
+                                                     tracked_order.trade_type,
                                                      float(execute_price),
-                                                     float(execute_amount_diff),
-                                                     self.c_get_fee(
-                                                         tracked_order.base_asset,
-                                                         tracked_order.quote_asset,
-                                                         tracked_order.order_type,
-                                                         tracked_order.trade_type,
-                                                         float(execute_price),
-                                                         float(execute_amount_diff)
-                                                     )
-                                                 ))
-                            continue
+                                                     float(execute_amount_diff)
+                                                 )
+                                             ))
 
-                    elif order_status == 2:  # FILL
+                    if order_status == 2:  # FILL(COMPLETE)
                         # trade_type = TradeType.BUY if content["OT"] == "LIMIT_BUY" else TradeType.SELL
                         tracked_order.last_state = "done"
-                        if tracked_order.trade_type == TradeType.BUY:
+                        if tracked_order.trade_type is TradeType.BUY:
                             self.logger().info(f"The LIMIT_BUY order {tracked_order.client_order_id} has completed "
                                                f"according to order delta websocket API.")
                             self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
@@ -501,12 +568,13 @@ cdef class BittrexMarket(MarketBase):
                                                      tracked_order.base_asset,
                                                      tracked_order.quote_asset,
                                                      (tracked_order.fee_asset
-                                                      or tracked_order.base_asset),
+                                                      or tracked_order.quote_asset),
                                                      float(tracked_order.executed_amount_base),
                                                      float(tracked_order.executed_amount_quote),
-                                                     float(tracked_order.fee_paid)
+                                                     float(tracked_order.fee_paid),
+                                                     tracked_order.order_type
                                                  ))
-                        elif tracked_order.trade_type == TradeType.SELL:
+                        elif tracked_order.trade_type is TradeType.SELL:
                             self.logger().info(f"The LIMIT_SELL order {tracked_order.client_order_id} has completed "
                                                f"according to Order Delta WebSocket API.")
                             self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
@@ -521,12 +589,15 @@ cdef class BittrexMarket(MarketBase):
                                                                          float(tracked_order.fee_paid),
                                                                          tracked_order.order_type
                                                                          ))
+                        self.c_stop_tracking_order(tracked_order.client_order_id)
+                        continue
 
-                    elif order_status == 3:  # CANCEL
+                    if order_status == 3:  # CANCEL
                         tracked_order.last_state = "cancelled"
                         self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                              OrderCancelledEvent(self._current_timestamp,
                                                                  tracked_order.client_order_id))
+                        self.c_stop_tracking_order(tracked_order.client_order_id)
                 else:
                     # Ignores all other user stream message types
                     continue
@@ -545,7 +616,9 @@ cdef class BittrexMarket(MarketBase):
 
                 await safe_gather(
                     self._update_balances(),
-                    self._update_order_status()
+                    self._update_order_status(),
+                    # Currently Fills are handled by _user_stream_event_listener(...)
+                    self._update_order_fills_from_trades()
                 )
                 self._last_poll_timestamp = self._current_timestamp
             except asyncio.CancelledError:
@@ -644,14 +717,10 @@ cdef class BittrexMarket(MarketBase):
     cdef object c_quantize_order_amount(self, str symbol, double amount, double price=0.0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
+            object quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
 
         global s_decimal_0
-        quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
-
         if quantized_amount < trading_rule.min_order_size:
-            return s_decimal_0
-
-        if quantized_amount > trading_rule.max_order_size:
             return s_decimal_0
 
         return quantized_amount
@@ -675,7 +744,8 @@ cdef class BittrexMarket(MarketBase):
                 "quantity": str(amount),
                 "limit": str(price),
                 "timeInForce": "GOOD_TIL_CANCELLED"
-                # Other options [IMMEDIATE_OR_CANCEL, FILL_OR_KILL, POST_ONLY_GOOD_TIL_CANCELLED]
+                # Available options [GOOD_TIL_CANCELLED, IMMEDIATE_OR_CANCEL,
+                # FILL_OR_KILL, POST_ONLY_GOOD_TIL_CANCELLED]
             }
         elif order_type is OrderType.MARKET:
             body = {
@@ -683,12 +753,11 @@ cdef class BittrexMarket(MarketBase):
                 "direction": "BUY" if is_buy else "SELL",
                 "type": "MARKET",
                 "quantity": str(amount),
-                "timeInForce": "GOOD_TIL_CANCELLED"
-                # Other options [IMMEDIATE_OR_CANCEL, FILL_OR_KILL, POST_ONLY_GOOD_TIL_CANCELLED]
+                "timeInForce": "IMMEDIATE_OR_CANCEL"
+                # Available options [IMMEDIATE_OR_CANCEL, FILL_OR_KILL]
             }
 
         api_response = await self._api_request("POST", path_url=path_url, body=body)
-        # TODO: Check if order has been placed & return exchange_order_id
 
         return api_response
 
@@ -696,7 +765,7 @@ cdef class BittrexMarket(MarketBase):
                           order_id: str,
                           symbol: str,
                           amount: float,
-                          order_type: OrderType = OrderType.LIMIT,  # Bittrex API v1.1 disabled placing of market orders
+                          order_type: OrderType,
                           price: Optional[float] = NaN):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
@@ -707,44 +776,44 @@ cdef class BittrexMarket(MarketBase):
             object tracked_order
 
         decimal_amount = self.c_quantize_order_amount(symbol, amount)
-        decimal_price = self.c_quantize_order_price(symbol, price)
+        decimal_price = (self.c_quantize_order_price(symbol, price)
+                         if order_type is OrderType.LIMIT
+                         else s_decimal_0)
+
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
 
         try:
+            self.c_start_tracking_order(order_id, symbol, order_type, TradeType.BUY, decimal_price, decimal_amount)
             order_result = None
             if order_type is OrderType.LIMIT:
 
-                api_response = await self.place_order(order_id,
+                order_result = await self.place_order(order_id,
                                                       symbol,
                                                       decimal_amount,
                                                       True,
                                                       order_type,
                                                       decimal_price)
 
-                if api_response["results"]:
-                    order_result = api_response
-                    self.c_start_tracking_order(
-                        order_id,
-                        symbol,
-                        order_type,
-                        TradeType.BUY,
-                        decimal_price,
-                        decimal_amount
-                    )
-            elif order_type is OrderType.MARKET:  # TODO: Track best ask price and amount
-                pass
+            elif order_type is OrderType.MARKET:
+                decimal_price = self.c_get_price(symbol, True)
+                order_result = await self.place_order(order_id,
+                                                      symbol,
+                                                      decimal_amount,
+                                                      True,
+                                                      order_type,
+                                                      decimal_price)
 
             else:
                 raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
 
-            exchange_order_id = str(order_result["uuid"])
+            exchange_order_id = order_result["id"]
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type} buy order {order_id} for "
                                    f"{decimal_amount} {symbol}")
-                tracked_order.exchange_order_id = exchange_order_id
+                tracked_order.update_exchange_order_id(exchange_order_id)
             self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
                                  BuyOrderCreatedEvent(
                                      self._current_timestamp,
@@ -796,12 +865,8 @@ cdef class BittrexMarket(MarketBase):
                            price: Optional[float] = NaN):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
-            object decimal_amount
-            object decimal_price
-            str exchange_order_id
-            object tracked_order
 
-        decimal_amount = self.quantize_order_amount(symbol, amount)
+        decimal_amount = self.c_quantize_order_amount(symbol, amount)
         decimal_price = (self.c_quantize_order_price(symbol, price)
                          if order_type is OrderType.LIMIT
                          else s_decimal_0)
@@ -811,25 +876,32 @@ cdef class BittrexMarket(MarketBase):
                              f"{trading_rule.min_order_size}")
 
         try:
-            exchange_order_id = await self.place_order(
-                order_id,
-                symbol,
-                decimal_amount,
-                False,
-                order_type,
-                decimal_price
-            )
-            self.c_start_tracking_order(
-                order_id=order_id,
-                symbol=symbol,
-                order_type=order_type,
-                trade_type=TradeType.SELL,
-                price=decimal_price,
-                amount=decimal_amount
-            )
+            self.c_start_tracking_order(order_id, symbol, order_type, TradeType.SELL, decimal_price, decimal_amount)
+            order_result = None
+            if order_type is OrderType.LIMIT:
+                order_result = await self.place_order(order_id,
+                                                      symbol,
+                                                      decimal_amount,
+                                                      False,
+                                                      order_type,
+                                                      decimal_price)
+            elif order_type is OrderType.MARKET:
+                decimal_price = self.c_get_price(symbol, False)
+                order_result = await self.place_order(order_id,
+                                                      symbol,
+                                                      decimal_amount,
+                                                      False,
+                                                      order_type,
+                                                      decimal_price)
+            else:
+                raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
+
+            exchange_order_id = order_result["id"]
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
-                self.logger().info(f"Created {order_type} sell order {order_id} for {decimal_amount} {symbol}.")
+                self.logger().info(f"Created {order_type} sell order {order_id} for "
+                                   f"{decimal_amount} {symbol}.")
+                tracked_order.update_exchange_order_id(exchange_order_id)
             self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
                                  SellOrderCreatedEvent(
                                      self._current_timestamp,
@@ -872,6 +944,7 @@ cdef class BittrexMarket(MarketBase):
     async def execute_cancel(self, symbol: str, order_id: str):
         tracked_order = self._in_flight_orders.get(order_id)
         if tracked_order is None:
+            self.logger().error(f"The order {order_id} is not tracked. ")
             raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
 
         path_url = f"/orders/{tracked_order.exchange_order_id}"
@@ -915,11 +988,11 @@ cdef class BittrexMarket(MarketBase):
 
         try:
             async with timeout(timeout_seconds):
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-                for order_id in results:
+                api_responses = await asyncio.gather(*tasks, return_exceptions=True)
+                for order_id in api_responses:
                     if order_id:
                         order_id_set.remove(order_id)
-                        successful_cancellation.append(CancellationResult(order_id["id"], True))
+                        successful_cancellation.append(CancellationResult(order_id, True))
         except Exception:
             self.logger().network(
                 f"Unexpected error cancelling orders.",
@@ -961,8 +1034,9 @@ cdef class BittrexMarket(MarketBase):
                                   data=body,
                                   timeout=self.API_CALL_TIMEOUT) as response:
             data = await response.json()
-            if response.status != 200:
-                raise IOError(f"Error fetching response from {http_method}-{url}. {data}")
+            if response.status not in [200, 201]:  # HTTP Response code of 20X generally means it is successful
+                raise IOError(f"Error fetching response from {http_method}-{url}. HTTP Status Code {response.status}: "
+                              f"{data}")
             return data
 
     async def check_network(self) -> NetworkStatus:
@@ -994,8 +1068,8 @@ cdef class BittrexMarket(MarketBase):
             self._stop_network()
 
         self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
