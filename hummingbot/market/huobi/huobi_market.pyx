@@ -266,7 +266,6 @@ cdef class HuobiMarket(MarketBase):
                                     params=params,
                                     data=ujson.dumps(data),
                                     timeout=self.API_CALL_TIMEOUT)  as response:
-                # async with as response:
                 if response.status != 200:
                     raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
                 try:
@@ -274,7 +273,6 @@ cdef class HuobiMarket(MarketBase):
                 except Exception:
                     raise IOError(f"Error parsing data from {url}.")
 
-                print('@@@@@@@@@@@', path_url)
                 data = parsed_response.get("data")
                 if data is None:
                     self.logger().error(f"Error received from {url}. Response is {parsed_response}.")
