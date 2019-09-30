@@ -6,8 +6,6 @@ from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
 cdef class HuobiMarket(MarketBase):
     cdef:
-        dict _account_available_balances
-        dict _account_balances
         str _account_id
         object _async_scheduler
         object _data_source_type
@@ -16,7 +14,6 @@ cdef class HuobiMarket(MarketBase):
         dict _in_flight_orders
         double _last_poll_timestamp
         double _last_timestamp
-        object _order_book_tracker
         public object _order_tracker_task
         object _poll_notifier
         double _poll_interval
