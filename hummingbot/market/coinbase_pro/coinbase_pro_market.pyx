@@ -95,7 +95,7 @@ cdef class InFlightDeposit:
 
     def __repr__(self) -> str:
         return f"InFlightDeposit(tracking_id='{self.tracking_id}', timestamp_ms={self.timestamp_ms}, " \
-        f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
+               f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
 
 
 cdef class CoinbaseProMarket(MarketBase):
@@ -129,7 +129,7 @@ cdef class CoinbaseProMarket(MarketBase):
                  coinbase_pro_passphrase: str,
                  poll_interval: float = 5.0,    # interval which the class periodically pulls status from the rest API
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                    OrderBookTrackerDataSourceType.EXCHANGE_API,
+                 OrderBookTrackerDataSourceType.EXCHANGE_API,
                  symbols: Optional[List[str]] = None,
                  trading_required: bool = True):
         super().__init__()
@@ -139,8 +139,6 @@ cdef class CoinbaseProMarket(MarketBase):
                                                                symbols=symbols)
         self._user_stream_tracker = CoinbaseProUserStreamTracker(coinbase_pro_auth=self._coinbase_auth,
                                                                  symbols=symbols)
-        self._account_balances = {}
-        self._account_available_balances = {}
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
@@ -245,13 +243,6 @@ cdef class CoinbaseProMarket(MarketBase):
         """
         return await CoinbaseProAPIOrderBookDataSource.get_active_exchange_markets()
 
-    def get_all_balances(self) -> Dict[str, float]:
-        """
-        *required
-        :return: Dict[asset_name: asst_balance]: Balances of all assets being traded
-        """
-        return self._account_balances.copy()
-
     cdef c_start(self, Clock clock, double timestamp):
         """
         *required
@@ -313,7 +304,7 @@ cdef class CoinbaseProMarket(MarketBase):
     cdef c_tick(self, double timestamp):
         """
         *required
-        Used by top level Clock to orchestrate components of the bot. 
+        Used by top level Clock to orchestrate components of the bot.
         This function is called frequently with every clock tick
         """
         cdef:
@@ -362,8 +353,8 @@ cdef class CoinbaseProMarket(MarketBase):
                           str quote_currency,
                           object order_type,
                           object order_side,
-                          double amount,
-                          double price):
+                          object amount,
+                          object price):
         """
         *required
         function to calculate fees for a particular order
@@ -372,8 +363,8 @@ cdef class CoinbaseProMarket(MarketBase):
         # There is no API for checking user's fee tier
         # Fee info from https://pro.coinbase.com/fees
         cdef:
-            double maker_fee = 0.0015
-            double taker_fee = 0.0025
+            object maker_fee = Decimal(0.0015)
+            object taker_fee = Decimal(0.0025)
 
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
 
@@ -470,7 +461,7 @@ cdef class CoinbaseProMarket(MarketBase):
             new_confirmed_amount = Decimal(order_update["filled_size"])
             execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
             execute_price = s_decimal_0 if new_confirmed_amount == s_decimal_0 \
-                            else Decimal(order_update["executed_value"]) / new_confirmed_amount
+                else Decimal(order_update["executed_value"]) / new_confirmed_amount
 
             client_order_id = tracked_order.client_order_id
             order_type_description = tracked_order.order_type_description
@@ -483,15 +474,15 @@ cdef class CoinbaseProMarket(MarketBase):
                     tracked_order.symbol,
                     tracked_order.trade_type,
                     order_type,
-                    float(execute_price),
-                    float(execute_amount_diff),
+                    execute_price,
+                    execute_amount_diff,
                     self.c_get_fee(
-                          tracked_order.base_asset,
-                          tracked_order.quote_asset,
-                          order_type,
-                          tracked_order.trade_type,
-                          float(execute_price),
-                          float(execute_amount_diff),
+                        tracked_order.base_asset,
+                        tracked_order.quote_asset,
+                        order_type,
+                        tracked_order.trade_type,
+                        execute_price,
+                        execute_amount_diff,
                     )
                 )
                 self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
@@ -515,9 +506,9 @@ cdef class CoinbaseProMarket(MarketBase):
                                                                     tracked_order.quote_asset,
                                                                     (tracked_order.fee_asset
                                                                      or tracked_order.base_asset),
-                                                                    float(tracked_order.executed_amount_base),
-                                                                    float(tracked_order.executed_amount_quote),
-                                                                    float(tracked_order.fee_paid),
+                                                                    tracked_order.executed_amount_base,
+                                                                    tracked_order.executed_amount_quote,
+                                                                    tracked_order.fee_paid,
                                                                     order_type))
                     else:
                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
@@ -529,9 +520,9 @@ cdef class CoinbaseProMarket(MarketBase):
                                                                      tracked_order.quote_asset,
                                                                      (tracked_order.fee_asset
                                                                       or tracked_order.quote_asset),
-                                                                     float(tracked_order.executed_amount_base),
-                                                                     float(tracked_order.executed_amount_quote),
-                                                                     float(tracked_order.fee_paid),
+                                                                     tracked_order.executed_amount_base,
+                                                                     tracked_order.executed_amount_quote,
+                                                                     tracked_order.fee_paid,
                                                                      order_type))
                 else:
                     self.logger().info(f"The market order {tracked_order.client_order_id} has failed according to "
@@ -609,9 +600,9 @@ cdef class CoinbaseProMarket(MarketBase):
                                                                         tracked_order.quote_asset,
                                                                         (tracked_order.fee_asset
                                                                          or tracked_order.base_asset),
-                                                                        float(tracked_order.executed_amount_base),
-                                                                        float(tracked_order.executed_amount_quote),
-                                                                        float(tracked_order.fee_paid),
+                                                                        tracked_order.executed_amount_base,
+                                                                        tracked_order.executed_amount_quote,
+                                                                        tracked_order.fee_paid,
                                                                         tracked_order.order_type))
                         else:
                             self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
@@ -623,15 +614,15 @@ cdef class CoinbaseProMarket(MarketBase):
                                                                          tracked_order.quote_asset,
                                                                          (tracked_order.fee_asset
                                                                           or tracked_order.quote_asset),
-                                                                         float(tracked_order.executed_amount_base),
-                                                                         float(tracked_order.executed_amount_quote),
-                                                                         float(tracked_order.fee_paid),
+                                                                         tracked_order.executed_amount_base,
+                                                                         tracked_order.executed_amount_quote,
+                                                                         tracked_order.fee_paid,
                                                                          tracked_order.order_type))
-                    else: # reason == "canceled":
+                    else:  # reason == "canceled":
                         execute_amount_diff = 0
                         tracked_order.last_state = "canceled"
                         self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                            OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
+                                             OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
                         execute_amount_diff = 0
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                 elif event_type == "match":
@@ -655,15 +646,15 @@ cdef class CoinbaseProMarket(MarketBase):
                         tracked_order.symbol,
                         tracked_order.trade_type,
                         tracked_order.order_type,
-                        float(execute_price),
-                        float(execute_amount_diff),
+                        execute_price,
+                        execute_amount_diff,
                         self.c_get_fee(
-                          tracked_order.base_asset,
-                          tracked_order.quote_asset,
-                          tracked_order.order_type,
-                          tracked_order.trade_type,
-                          float(execute_price),
-                          float(execute_amount_diff),
+                            tracked_order.base_asset,
+                            tracked_order.quote_asset,
+                            tracked_order.order_type,
+                            tracked_order.trade_type,
+                            execute_price,
+                            execute_amount_diff,
                         )
                     )
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
@@ -677,14 +668,14 @@ cdef class CoinbaseProMarket(MarketBase):
                 await asyncio.sleep(5.0)
 
     async def place_order(self, order_id: str, symbol: str, amount: Decimal, is_buy: bool, order_type: OrderType,
-                          price: float):
+                          price: Decimal):
         """
         Async wrapper for placing orders through the rest API.
         :returns: json response from the API
         """
         path_url = "/orders"
         data = {
-            "price": price,
+            "price": float(price),
             "size": float(amount),
             "product_id": symbol,
             "side": "buy" if is_buy else "sell",
@@ -697,9 +688,9 @@ cdef class CoinbaseProMarket(MarketBase):
     async def execute_buy(self,
                           order_id: str,
                           symbol: str,
-                          amount: float,
+                          amount: Decimal,
                           order_type: OrderType,
-                          price: Optional[float] = None):
+                          price: Optional[Decimal] = None):
         """
         Function that takes strategy inputs, auto corrects itself with trading rule,
         and submit an API request to place a buy order
@@ -727,8 +718,8 @@ cdef class CoinbaseProMarket(MarketBase):
                                  BuyOrderCreatedEvent(self._current_timestamp,
                                                       order_type,
                                                       symbol,
-                                                      float(decimal_amount),
-                                                      float(decimal_price),
+                                                      decimal_amount,
+                                                      decimal_price,
                                                       order_id))
         except asyncio.CancelledError:
             raise
@@ -745,8 +736,8 @@ cdef class CoinbaseProMarket(MarketBase):
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0,
-                   dict kwargs = {}):
+    cdef str c_buy(self, str symbol, object amount, object order_type=OrderType.MARKET, object price=0.0,
+                   dict kwargs={}):
         """
         *required
         Synchronous wrapper that generates a client-side order ID and schedules the buy order.
@@ -761,9 +752,9 @@ cdef class CoinbaseProMarket(MarketBase):
     async def execute_sell(self,
                            order_id: str,
                            symbol: str,
-                           amount: float,
+                           amount: Decimal,
                            order_type: OrderType,
-                           price: Optional[float] = None):
+                           price: Optional[Decimal] = None):
         """
         Function that takes strategy inputs, auto corrects itself with trading rule,
         and submit an API request to place a sell order
@@ -791,8 +782,8 @@ cdef class CoinbaseProMarket(MarketBase):
                                  SellOrderCreatedEvent(self._current_timestamp,
                                                        order_type,
                                                        symbol,
-                                                       float(decimal_amount),
-                                                       float(decimal_price),
+                                                       decimal_amount,
+                                                       decimal_price,
                                                        order_id))
         except asyncio.CancelledError:
             raise
@@ -809,8 +800,8 @@ cdef class CoinbaseProMarket(MarketBase):
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    cdef str c_sell(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0,
-                    dict kwargs = {}):
+    cdef str c_sell(self, str symbol, object amount, object order_type=OrderType.MARKET, object price=Decimal(0.0),
+                    dict kwargs={}):
         """
         *required
         Synchronous wrapper that generates a client-side order ID and schedules the sell order.
@@ -1038,27 +1029,6 @@ cdef class CoinbaseProMarket(MarketBase):
         safe_ensure_future(self.execute_withdraw(tracking_id, to_address, currency, amount))
         return tracking_id
 
-    cdef double c_get_balance(self, str currency) except? -1:
-        """
-        :returns: Total balance for a specific asset
-        """
-        return float(self._account_balances.get(currency, 0.0))
-    
-    cdef double c_get_available_balance(self, str currency) except? -1:
-        """
-        :returns: Balance available for trading for a specific asset 
-        (balances used to place open orders are not available for trading)
-        """
-        return float(self._account_available_balances.get(currency, 0.0))
-
-    cdef double c_get_price(self, str symbol, bint is_buy) except? -1:
-        """
-        :returns: Top bid/ask price for a specific trading pair
-        """
-        cdef:
-            OrderBook order_book = self.c_get_order_book(symbol)
-        return order_book.c_get_price(is_buy)
-
     cdef OrderBook c_get_order_book(self, str symbol):
         """
         :returns: OrderBook for a specific trading pair
@@ -1104,17 +1074,17 @@ cdef class CoinbaseProMarket(MarketBase):
         self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                              MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
 
-    cdef object c_get_order_price_quantum(self, str symbol, double price):
+    cdef object c_get_order_price_quantum(self, str symbol, object price):
         """
         *required
-        Get the minimum increment interval for price  
+        Get the minimum increment interval for price
         :return: Min order price increment in Decimal format
         """
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
         return trading_rule.min_price_increment
 
-    cdef object c_get_order_size_quantum(self, str symbol, double order_size):
+    cdef object c_get_order_size_quantum(self, str symbol, object order_size):
         """
         *required
         Get the minimum increment interval for order size (e.g. 0.01 USD)
@@ -1127,10 +1097,10 @@ cdef class CoinbaseProMarket(MarketBase):
         # Order size must be a multiple of the min_order_size
         return trading_rule.min_order_size
 
-    cdef object c_quantize_order_amount(self, str symbol, double amount, double price=0.0):
+    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=0.0):
         """
         *required
-        Check current order amount against trading rule, and correct any rule violations 
+        Check current order amount against trading rule, and correct any rule violations
         :return: Valid order amount in Decimal format
         """
         cdef:
