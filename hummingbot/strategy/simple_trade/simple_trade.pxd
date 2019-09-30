@@ -12,14 +12,13 @@ cdef class SimpleTradeStrategy(StrategyBase):
         bint _is_buy
         str _order_type
 
-
         double _cancel_order_wait_time
         double _status_report_interval
         double _last_timestamp
         double _start_timestamp
         double _time_delay
-        double _order_price
-        double _order_amount
+        object _order_price
+        object _order_amount
 
         dict _tracked_orders
         dict _time_to_cancel
@@ -27,7 +26,6 @@ cdef class SimpleTradeStrategy(StrategyBase):
         dict _in_flight_cancels
 
         int64_t _logging_options
-
 
     cdef c_process_market(self, object market_info)
     cdef c_place_orders(self, object market_info)
