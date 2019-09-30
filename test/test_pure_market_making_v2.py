@@ -67,24 +67,25 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
                                                 max_price=200, price_step_size=1, volume_step_size=10)
 
-        self.constant_pricing_delegate = ConstantSpreadPricingDelegate(self.bid_threshold, self.ask_threshold)
-        self.constant_sizing_delegate = ConstantSizeSizingDelegate(1.0)
+        self.constant_pricing_delegate = ConstantSpreadPricingDelegate(Decimal(self.bid_threshold),
+                                                                       Decimal(self.ask_threshold))
+        self.constant_sizing_delegate = ConstantSizeSizingDelegate(Decimal("1.0"))
         self.filter_delegate = PassThroughFilterDelegate()
         self.equal_strategy_sizing_delegate = StaggeredMultipleSizeSizingDelegate(
-            order_start_size=1.0,
-            order_step_size=0,
-            number_of_orders=5
+            order_start_size=Decimal("1.0"),
+            order_step_size=Decimal("0"),
+            number_of_orders=Decimal("5")
         )
         self.staggered_strategy_sizing_delegate = StaggeredMultipleSizeSizingDelegate(
-            order_start_size=1.0,
-            order_step_size=0.5,
-            number_of_orders=5
+            order_start_size=Decimal("1.0"),
+            order_step_size=Decimal("0.5"),
+            number_of_orders=Decimal("5")
         )
         self.multiple_order_strategy_pricing_delegate = ConstantMultipleSpreadPricingDelegate(
-            bid_spread=self.bid_threshold,
-            ask_spread=self.ask_threshold,
-            order_interval_size=0.01,
-            number_of_orders=5
+            bid_spread=Decimal(self.bid_threshold),
+            ask_spread=Decimal(self.ask_threshold),
+            order_interval_size=Decimal("0.01"),
+            number_of_orders=Decimal("5")
         )
 
         self.maker_market.add_data(self.maker_data)
@@ -197,8 +198,8 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
     @staticmethod
     def simulate_limit_order_fill(market: Market, limit_order: LimitOrder):
-        quote_currency_traded: float = float(float(limit_order.price) * float(limit_order.quantity))
-        base_currency_traded: float = float(limit_order.quantity)
+        quote_currency_traded: Decimal = limit_order.price * limit_order.quantity
+        base_currency_traded: Decimal = limit_order.quantity
         quote_currency: str = limit_order.quote_currency
         base_currency: str = limit_order.base_currency
         config: MarketConfig = market.config
@@ -212,9 +213,9 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
                 limit_order.symbol,
                 TradeType.BUY,
                 OrderType.LIMIT,
-                float(limit_order.price),
-                float(limit_order.quantity),
-                TradeFee(0.0)
+                limit_order.price,
+                limit_order.quantity,
+                TradeFee(Decimal("0.0"))
             ))
             market.trigger_event(MarketEvent.BuyOrderCompleted, BuyOrderCompletedEvent(
                 market.current_timestamp,
@@ -224,7 +225,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
                 base_currency if config.buy_fees_asset is AssetType.BASE_CURRENCY else quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                0.0,
+                Decimal("0.0"),
                 OrderType.LIMIT
             ))
         else:
@@ -236,9 +237,9 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
                 limit_order.symbol,
                 TradeType.SELL,
                 OrderType.LIMIT,
-                float(limit_order.price),
-                float(limit_order.quantity),
-                TradeFee(0.0)
+                limit_order.price,
+                limit_order.quantity,
+                TradeFee(Decimal("0.0"))
             ))
             market.trigger_event(MarketEvent.SellOrderCompleted, SellOrderCompletedEvent(
                 market.current_timestamp,
@@ -248,7 +249,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
                 base_currency if config.sell_fees_asset is AssetType.BASE_CURRENCY else quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                0.0,
+                Decimal("0.0"),
                 OrderType.LIMIT
             ))
 
@@ -666,22 +667,23 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
         self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
                                                 max_price=200, price_step_size=1, volume_step_size=10)
         self.filter_delegate = PassThroughFilterDelegate()
-        self.constant_pricing_delegate = ConstantSpreadPricingDelegate(self.bid_threshold, self.ask_threshold)
+        self.constant_pricing_delegate = ConstantSpreadPricingDelegate(Decimal(self.bid_threshold),
+                                                                       Decimal(self.ask_threshold))
         self.multiple_order_strategy_pricing_delegate = ConstantMultipleSpreadPricingDelegate(
-            bid_spread=self.bid_threshold,
-            ask_spread=self.ask_threshold,
-            order_interval_size=0.01,
+            bid_spread=Decimal(self.bid_threshold),
+            ask_spread=Decimal(self.ask_threshold),
+            order_interval_size=Decimal("0.01"),
             number_of_orders=5
         )
         self.inventory_skew_single_size_sizing_delegate = InventorySkewSingleSizeSizingDelegate(
             order_size=1,
-            inventory_target_base_percent=0.5
+            inventory_target_base_percent=Decimal("0.5")
         )
         self.inventory_skew_multiple_size_sizing_delegate = InventorySkewMultipleSizeSizingDelegate(
-            order_start_size=1.0,
-            order_step_size=0.5,
+            order_start_size=Decimal("1.0"),
+            order_step_size=Decimal("0.5"),
             number_of_orders=5,
-            inventory_target_base_percent=0.5
+            inventory_target_base_percent=Decimal("0.5")
         )
 
         self.maker_market.add_data(self.maker_data)
