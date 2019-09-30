@@ -95,7 +95,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  cancel_order_wait_time: float = 60,
                  filled_order_replenish_wait_time: float = 10,
                  enable_order_filled_stop_cancellation: bool = False,
-                 add_transaction_costs_to_orders: bool = True,
+                 add_transaction_costs_to_orders: bool = False,
                  jump_orders_enabled: bool = False,
                  jump_orders_depth: float = 0,
                  logging_options: int = OPTION_LOG_ALL,
@@ -385,7 +385,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         cdef:
             MarketBase maker_market = market_info.market
             OrderBook maker_orderbook = market_info.order_book
-            object pricing_proposal_with_tx_costs = pricing_proposal
+            object buy_prices_with_tx_costs = pricing_proposal.buy_order_prices
+            object sell_prices_with_tx_costs = pricing_proposal.sell_order_prices
 
         # If both buy order and sell order sizes are zero, no need to add transaction costs
         # as no new orders are created
@@ -394,22 +395,60 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             return pricing_proposal
 
         buy_index = 0
-        for price, amount in zip(pricing_proposal.buy_order_prices, sizing_proposal.buy_order_sizes):
-            fee_object = maker_market.c_get_fee(
-                market_info.base_asset,
-                market_info.quote_asset,
-                OrderType.LIMIT,
-                TradeType.BUY,
-                amount,
-                price
-            )
-            # accumulated flat fees of exchange
-            total_flat_fees = self.c_sum_flat_fees(market_info.quote_asset,
-                                                   fee_object.flat_fees)
-            price_with_tx_cost = price * (1-fee_object.percent)
-            pricing_proposal_with_tx_costs[buy_index] = 1
+        for buy_price, buy_amount in zip(pricing_proposal.buy_order_prices,
+                                         sizing_proposal.buy_order_sizes):
+            if buy_amount > s_decimal_zero:
+                fee_object = maker_market.c_get_fee(
+                    market_info.base_asset,
+                    market_info.quote_asset,
+                    OrderType.LIMIT,
+                    TradeType.BUY,
+                    buy_amount,
+                    buy_price
+                )
+                # accumulated flat fees of exchange
+                total_flat_fees = self.c_sum_flat_fees(market_info.quote_asset,
+                                                       fee_object.flat_fees)
+                # Find the fixed cost per unit size for the total amount
+                # Fees is in Float units
+                fixed_cost_per_unit = total_flat_fees / float(buy_amount)
+                # New Price = Price * (1 - maker_fees) - Fixed_fees_per_unit
+                buy_price_with_tx_cost = float(buy_price) * (1 - fee_object.percent) - fixed_cost_per_unit
+            else:
+                buy_price_with_tx_cost = buy_price
 
-        return
+            buy_prices_with_tx_costs[buy_index] = maker_market.c_quantize_order_price(market_info.trading_pair,
+                                                                                      buy_price_with_tx_cost)
+            buy_index += 1
+
+        sell_index = 0
+        for sell_price, sell_amount in zip(pricing_proposal.sell_order_prices,
+                                           sizing_proposal.sell_order_sizes):
+            if sell_amount > s_decimal_zero:
+                fee_object = maker_market.c_get_fee(
+                    market_info.base_asset,
+                    market_info.quote_asset,
+                    OrderType.LIMIT,
+                    TradeType.SELL,
+                    sell_amount,
+                    sell_price
+                )
+                # accumulated flat fees of exchange
+                total_flat_fees = self.c_sum_flat_fees(market_info.quote_asset,
+                                                       fee_object.flat_fees)
+                # Find the fixed cost per unit size for the total amount
+                # Fees is in Float units
+                fixed_cost_per_unit = total_flat_fees / float(sell_amount)
+                # New Price = Price * (1 + maker_fees) + Fixed_fees_per_unit
+                sell_price_with_tx_cost = float(sell_price) * (1 + fee_object.percent) + fixed_cost_per_unit
+            else:
+                sell_price_with_tx_cost = sell_price
+
+            sell_prices_with_tx_costs[sell_index] = maker_market.c_quantize_order_price(market_info.trading_pair,
+                                                                                        sell_price_with_tx_cost)
+            sell_index += 1
+
+        return PricingProposal(buy_prices_with_tx_costs, sell_prices_with_tx_costs)
 
     cdef object c_get_orders_proposal_for_market_info(self, object market_info, list active_orders):
         cdef:
