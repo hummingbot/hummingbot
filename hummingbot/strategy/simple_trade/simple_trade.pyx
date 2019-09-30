@@ -7,10 +7,8 @@ from typing import (
     Optional,
     Dict
 )
-
 from hummingbot.core.clock cimport Clock
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
@@ -19,10 +17,8 @@ from hummingbot.market.market_base import (
     OrderType,
     TradeType
 )
-
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from hummingbot.strategy.strategy_base import StrategyBase
-
 from libc.stdint cimport int64_t
 from hummingbot.core.data_type.order_book cimport OrderBook
 from datetime import datetime
@@ -30,6 +26,7 @@ from datetime import datetime
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
 ds_logger = None
+
 
 cdef class SimpleTradeStrategy(StrategyBase):
     OPTION_LOG_NULL_ORDER_SIZE = 1 << 0
@@ -52,11 +49,11 @@ cdef class SimpleTradeStrategy(StrategyBase):
     def __init__(self,
                  market_infos: List[MarketSymbolPair],
                  order_type: str = "limit",
-                 order_price: Optional[float] = None,
+                 order_price: Optional[Decimal] = None,
                  cancel_order_wait_time: Optional[float] = 60.0,
                  is_buy: bool = True,
                  time_delay: float = 10.0,
-                 order_amount: float = 1.0,
+                 order_amount: Decimal = Decimal("1.0"),
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900):
 
@@ -77,6 +74,8 @@ cdef class SimpleTradeStrategy(StrategyBase):
         self._order_type = order_type
         self._is_buy = is_buy
         self._order_amount = order_amount
+        self._start_timestamp = 0
+        self._last_timestamp = 0
         if order_price is not None:
             self._order_price = order_price
         if cancel_order_wait_time is not None:
@@ -139,7 +138,7 @@ cdef class SimpleTradeStrategy(StrategyBase):
             warning_lines.extend(self.network_warning([market_info]))
 
             markets_df = self.market_status_data_frame([market_info])
-            lines.extend(["", "  Markets:"]  + ["    " + line for line in str(markets_df).split("\n")])
+            lines.extend(["", "  Markets:"] + ["    " + line for line in str(markets_df).split("\n")])
 
             assets_df = self.wallet_balance_data_frame([market_info])
             lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
@@ -193,7 +192,7 @@ cdef class SimpleTradeStrategy(StrategyBase):
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
-            #If its not market order
+            # If its not market order
             if limit_order_record is not None:
                 self.log_with_clock(
                     logging.INFO,
@@ -217,7 +216,7 @@ cdef class SimpleTradeStrategy(StrategyBase):
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
-            #If its not market order
+            # If its not market order
             if limit_order_record is not None:
                 self.log_with_clock(
                     logging.INFO,
@@ -271,52 +270,50 @@ cdef class SimpleTradeStrategy(StrategyBase):
         cdef:
             MarketBase market = market_info.market
             object quantized_amount = market.c_quantize_order_amount(market_info.trading_pair, self._order_amount)
-            object quantized_price = market.c_quantize_order_price(market_info.trading_pair, self._order_price)
+            object quantized_price
 
         self.logger().info(f"Checking to see if the user has enough balance to place orders")
-
 
         if self.c_has_enough_balance(market_info):
 
             if self._order_type == "market":
                 if self._is_buy:
                     order_id = self.c_buy_with_specific_market(market_info,
-                                                               amount =  quantized_amount)
+                                                               amount=quantized_amount)
                     self.logger().info("Market buy order has been executed")
                 else:
                     order_id = self.c_sell_with_specific_market(market_info,
-                                                                amount = quantized_amount)
+                                                                amount=quantized_amount)
                     self.logger().info("Market sell order has been executed")
             else:
+                quantized_price = market.c_quantize_order_price(market_info.trading_pair, self._order_price)
                 if self._is_buy:
                     order_id = self.c_buy_with_specific_market(market_info,
-                                                               amount = quantized_amount,
-                                                               order_type = OrderType.LIMIT,
-                                                               price = quantized_price)
+                                                               amount=quantized_amount,
+                                                               order_type=OrderType.LIMIT,
+                                                               price=quantized_price)
                     self.logger().info("Limit buy order has been placed")
 
                 else:
                     order_id = self.c_sell_with_specific_market(market_info,
-                                                                amount = quantized_amount,
-                                                                order_type = OrderType.LIMIT,
-                                                                price = quantized_price)
+                                                                amount=quantized_amount,
+                                                                order_type=OrderType.LIMIT,
+                                                                price=quantized_price)
                     self.logger().info("Limit sell order has been placed")
 
                 self._time_to_cancel[order_id] = self._current_timestamp + self._cancel_order_wait_time
         else:
             self.logger().info(f"Not enough balance to run the strategy. Please check balances and try again.")
 
-
     cdef c_has_enough_balance(self, object market_info):
         cdef:
             MarketBase market = market_info.market
-            double base_asset_balance = market.c_get_balance(market_info.base_asset)
-            double quote_asset_balance = market.c_get_balance(market_info.quote_asset)
+            object base_asset_balance = market.c_get_balance(market_info.base_asset)
+            object quote_asset_balance = market.c_get_balance(market_info.quote_asset)
             OrderBook order_book = market_info.order_book
-            double price = order_book.c_get_price_for_volume(True, self._order_amount).result_price
+            object price = market_info.get_price_for_volume(True, self._order_amount).result_price
 
         return quote_asset_balance >= self._order_amount * price if self._is_buy else base_asset_balance >= self._order_amount
-
 
     cdef c_process_market(self, object market_info):
         cdef:
@@ -325,7 +322,7 @@ cdef class SimpleTradeStrategy(StrategyBase):
 
         if self._place_orders:
 
-            #If current timestamp is greater than the start timestamp + time delay place orders
+            # If current timestamp is greater than the start timestamp + time delay place orders
             if self._current_timestamp > self._start_timestamp + self._time_delay:
 
                 self._place_orders = False
@@ -339,7 +336,7 @@ cdef class SimpleTradeStrategy(StrategyBase):
 
         active_orders = self.market_info_to_active_orders.get(market_info, [])
 
-        if len(active_orders) >0 :
+        if len(active_orders) > 0:
             for active_order in active_orders:
                 if self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
                     cancel_order_ids.add(active_order.client_order_id)
@@ -348,5 +345,3 @@ cdef class SimpleTradeStrategy(StrategyBase):
 
             for order in cancel_order_ids:
                 self.c_cancel_order(market_info, order)
-
-
