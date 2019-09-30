@@ -123,6 +123,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             all_markets.loc[:, "USDVolume"] = usd_volume
             all_markets.loc[:, "old_symbol"] = old_symbols
+            await client.close()
             return all_markets.sort_values("USDVolume", ascending=False)
 
     @property

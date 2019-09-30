@@ -17,6 +17,7 @@ cdef class BittrexMarket(MarketBase):
         double _last_timestamp
         double _last_poll_timestamp
         object _order_book_tracker
+        dict _order_not_found_records
         object _user_stream_tracker
         object _poll_notifier
         double _poll_interval

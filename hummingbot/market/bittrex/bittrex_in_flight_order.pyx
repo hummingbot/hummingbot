@@ -8,14 +8,14 @@ from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
 cdef class BittrexInFlightOrder(InFlightOrderBase):
     def __init__(self,
-                  client_order_id: str,
-                  exchange_order_id: Optional[str],
-                  symbol: str,
-                  order_type: OrderType,
-                  trade_type: TradeType,
-                  price: Decimal,
-                  amount: Decimal,
-                  initial_state: str = "open"):
+                 client_order_id: str,
+                 exchange_order_id: Optional[str],
+                 symbol: str,
+                 order_type: OrderType,
+                 trade_type: TradeType,
+                 price: Decimal,
+                 amount: Decimal,
+                 initial_state: str = "OPEN"):
         super().__init__(
             BittrexMarket,
             client_order_id,
@@ -30,7 +30,7 @@ cdef class BittrexInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return NotImplementedError
+        return self.last_state in {"CLOSED"}
 
     @property
     def is_failure(self) -> bool:
@@ -38,7 +38,7 @@ cdef class BittrexInFlightOrder(InFlightOrderBase):
 
     @property
     def is_cancelled(self) -> bool:
-        return NotImplementedError
+        return self.last_state in {"CLOSED"}
 
     @property
     def order_type_description(self) -> str:

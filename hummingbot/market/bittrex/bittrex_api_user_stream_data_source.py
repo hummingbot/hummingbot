@@ -101,8 +101,8 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             # TODO: Refactor accordingly when V3 WebSocket API is released
             # WebSocket API returns market symbols in 'Quote-Base' format
             # Code below converts 'Quote-Base' -> 'Base-Quote'
-            output["content"].update({
-                "M": f"{output['content']['o']['E'].split('-')[1]}-{output['content']['o']['E'].split('-')[0]}"
+            output["content"]["o"].update({
+                "E": f"{output['content']['o']['E'].split('-')[1]}-{output['content']['o']['E'].split('-')[0]}"
             })
 
         return output
