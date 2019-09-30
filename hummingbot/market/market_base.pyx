@@ -4,14 +4,16 @@ from typing import (
     Dict,
     List,
     Tuple,
-    Iterable)
+    Iterable, Iterator)
 
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book_query_result import (
     OrderBookQueryResult,
     ClientOrderBookQueryResult
 )
-from hummingbot.core.data_type.order_book_row import ClientOrderBookRow
+from hummingbot.core.data_type.order_book_row import (
+    ClientOrderBookRow
+)
 from hummingbot.core.event.events import (
     MarketEvent,
     OrderType,
@@ -51,8 +53,8 @@ cdef class MarketBase(NetworkIterator):
             self.c_add_listener(event_tag.value, self.event_reporter)
             self.c_add_listener(event_tag.value, self.event_logger)
 
-        self._account_balances = {} # Dict[asset_name:str, Decimal]
-        self._account_available_balances = {} # Dict[asset_name:str, Decimal]
+        self._account_balances = {}  # Dict[asset_name:str, Decimal]
+        self._account_available_balances = {}  # Dict[asset_name:str, Decimal]
         self._order_book_tracker = None
 
     @staticmethod
@@ -115,12 +117,12 @@ cdef class MarketBase(NetworkIterator):
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         raise NotImplementedError
 
-    cdef str c_buy(self, str symbol, object amount, object order_type = OrderType.MARKET,
-                   object price = s_decimal_NaN, dict kwargs = {}):
+    cdef str c_buy(self, str symbol, object amount, object order_type=OrderType.MARKET,
+                   object price=s_decimal_NaN, dict kwargs={}):
         raise NotImplementedError
 
-    cdef str c_sell(self, str symbol, object amount, object order_type = OrderType.MARKET,
-                    object price = s_decimal_NaN, dict kwargs = {}):
+    cdef str c_sell(self, str symbol, object amount, object order_type=OrderType.MARKET,
+                    object price=s_decimal_NaN, dict kwargs={}):
         raise NotImplementedError
 
     cdef c_cancel(self, str symbol, str client_order_id):
@@ -150,7 +152,7 @@ cdef class MarketBase(NetworkIterator):
 
     cdef object c_get_available_balance(self, str currency):
         """
-        :returns: Balance available for trading for a specific asset 
+        :returns: Balance available for trading for a specific asset
         (balances used to place open orders are not available for trading)
         """
         return self._account_available_balances.get(currency, s_decimal_0)
@@ -169,12 +171,17 @@ cdef class MarketBase(NetworkIterator):
 
     cdef object c_quantize_order_price(self, str symbol, object price):
         price_quantum = self.c_get_order_price_quantum(symbol, price)
-        return round(Decimal(price) / price_quantum) * price_quantum
+        return round(price / price_quantum) * price_quantum
 
-    cdef object c_quantize_order_amount(self, str symbol, object amount, object price = s_decimal_NaN):
+    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=s_decimal_NaN):
         order_size_quantum = self.c_get_order_size_quantum(symbol, amount)
-        return (Decimal(amount) // order_size_quantum) * order_size_quantum
+        return (amount // order_size_quantum) * order_size_quantum
 
+    # ----------------------------------------------------------------------------------------------------------
+    # </editor-fold>
+
+    # <editor-fold desc="+ Decimal interface to OrderBook">
+    # ----------------------------------------------------------------------------------------------------------
     cdef object c_get_price(self, str symbol, bint is_buy):
         """
         :returns: Top bid/ask price for a specific trading pair
@@ -187,19 +194,76 @@ cdef class MarketBase(NetworkIterator):
         cdef:
             OrderBook order_book = self.c_get_order_book(symbol)
             OrderBookQueryResult result = order_book.c_get_vwap_for_volume(is_buy, float(volume))
-        return ClientOrderBookQueryResult(Decimal(result.query_price),
-                                          Decimal(result.query_volume),
-                                          Decimal(result.result_price),
-                                          Decimal(result.result_volume))
+            object query_volume = self.c_quantize_order_amount(symbol, Decimal(result.query_volume))
+            object result_price = self.c_quantize_order_price(symbol, Decimal(result.result_price))
+            object result_volume = self.c_quantize_order_amount(symbol, Decimal(result.result_volume))
+        return ClientOrderBookQueryResult(s_decimal_NaN,
+                                          query_volume,
+                                          result_price,
+                                          result_volume)
 
     cdef ClientOrderBookQueryResult c_get_price_for_volume(self, str symbol, bint is_buy, object volume):
         cdef:
             OrderBook order_book = self.c_get_order_book(symbol)
             OrderBookQueryResult result = order_book.c_get_price_for_volume(is_buy, float(volume))
-        return ClientOrderBookQueryResult(Decimal(result.query_price),
-                                          Decimal(result.query_volume),
-                                          Decimal(result.result_price),
-                                          Decimal(result.result_volume))
+            object query_volume = self.c_quantize_order_amount(symbol, Decimal(result.query_volume))
+            object result_price = self.c_quantize_order_price(symbol, Decimal(result.result_price))
+            object result_volume = self.c_quantize_order_amount(symbol, Decimal(result.result_volume))
+        return ClientOrderBookQueryResult(s_decimal_NaN,
+                                          query_volume,
+                                          result_price,
+                                          result_volume)
+
+    cdef ClientOrderBookQueryResult c_get_quote_volume_for_base_amount(self, str symbol, bint is_buy, object base_amount):
+        cdef:
+            OrderBook order_book = self.c_get_order_book(symbol)
+            OrderBookQueryResult result = order_book.c_get_quote_volume_for_base_amount(is_buy, float(base_amount))
+            object query_volume = self.c_quantize_order_amount(symbol, Decimal(result.query_volume))
+            object result_volume = self.c_quantize_order_amount(symbol, Decimal(result.result_volume))
+        return ClientOrderBookQueryResult(s_decimal_NaN,
+                                          query_volume,
+                                          s_decimal_NaN,
+                                          result_volume)
+
+    cdef ClientOrderBookQueryResult c_get_volume_for_price(self, str symbol, bint is_buy, object price):
+        cdef:
+            OrderBook order_book = self.c_get_order_book(symbol)
+            OrderBookQueryResult result = order_book.c_get_volume_for_price(is_buy, float(price))
+            object query_price = self.c_quantize_order_price(symbol, Decimal(result.query_price))
+            object result_price = self.c_quantize_order_price(symbol, Decimal(result.result_price))
+            object result_volume = self.c_quantize_order_amount(symbol, Decimal(result.result_volume))
+        return ClientOrderBookQueryResult(query_price,
+                                          s_decimal_NaN,
+                                          result_price,
+                                          result_volume)
+
+    cdef ClientOrderBookQueryResult c_get_quote_volume_for_price(self, str symbol, bint is_buy, object price):
+        cdef:
+            OrderBook order_book = self.c_get_order_book(symbol)
+            OrderBookQueryResult result = order_book.c_get_volume_for_price(is_buy, float(price))
+            object query_price = self.c_quantize_order_price(symbol, Decimal(result.query_price))
+            object result_price = self.c_quantize_order_price(symbol, Decimal(result.result_price))
+            object result_volume = self.c_quantize_order_amount(symbol, Decimal(result.result_volume))
+        return ClientOrderBookQueryResult(query_price,
+                                          s_decimal_NaN,
+                                          result_price,
+                                          result_volume)
+
+    def order_book_bid_entries(self, symbol) -> Iterator[ClientOrderBookRow]:
+        cdef:
+            OrderBook order_book = self.c_get_order_book(symbol)
+        for entry in order_book.bid_entries():
+            yield ClientOrderBookRow(self.c_quantize_order_price(symbol, Decimal(entry.price)),
+                                     self.c_quantize_order_amount(symbol, Decimal(entry.amount)),
+                                     entry.update_id)
+
+    def order_book_ask_entries(self, symbol) -> Iterator[ClientOrderBookRow]:
+        cdef:
+            OrderBook order_book = self.c_get_order_book(symbol)
+        for entry in order_book.ask_entries():
+            yield ClientOrderBookRow(self.c_quantize_order_price(symbol, Decimal(entry.price)),
+                                     self.c_quantize_order_amount(symbol, Decimal(entry.amount)),
+                                     entry.update_id)
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 
@@ -211,17 +275,27 @@ cdef class MarketBase(NetworkIterator):
     def get_price_for_volume(self, symbol: str, is_buy: bool, volume: Decimal):
         return self.c_get_price_for_volume(symbol, is_buy, volume)
 
+    def get_quote_volume_for_base_amount(self, symbol: str, is_buy: bool,
+                                         base_amount: Decimal) -> ClientOrderBookQueryResult:
+        return self.c_get_quote_volume_for_base_amount(symbol, is_buy, base_amount)
+
+    def get_volume_for_price(self, symbol: str, is_buy: bool, price: Decimal) -> ClientOrderBookQueryResult:
+        return self.c_get_volume_for_price(symbol, is_buy, price)
+
+    def get_quote_volume_for_price(self, symbol: str, is_buy: bool, price: Decimal) -> ClientOrderBookQueryResult:
+        return self.c_get_quote_volume_for_price(symbol, is_buy, price)
+
     def get_balance(self, currency: str) -> Decimal:
         return self.c_get_balance(currency)
 
     def get_price(self, symbol: str, is_buy: bool) -> Decimal:
         return self.c_get_price(symbol, is_buy)
 
-    def buy(self, symbol: str, amount: Decimal, order_type = OrderType.MARKET,
+    def buy(self, symbol: str, amount: Decimal, order_type=OrderType.MARKET,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
         return self.c_buy(symbol, amount, order_type, price, kwargs)
 
-    def sell(self, symbol: str, amount: Decimal, order_type = OrderType.MARKET,
+    def sell(self, symbol: str, amount: Decimal, order_type=OrderType.MARKET,
              price: Decimal = s_decimal_NaN, **kwargs) -> str:
         return self.c_sell(symbol, amount, order_type, price, kwargs)
 
