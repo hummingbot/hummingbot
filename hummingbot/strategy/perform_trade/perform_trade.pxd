@@ -13,8 +13,8 @@ cdef class PerformTradeStrategy(StrategyBase):
         str _order_type
 
         double _status_report_interval
-        double _order_price
-        double _order_amount
+        object _order_price
+        object _order_amount
 
         dict _tracked_orders
         dict _order_id_to_market_info
