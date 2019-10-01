@@ -121,9 +121,11 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
             quantized_ask_order_size = market.c_quantize_order_amount(market_info.trading_pair,
                                                                       ask_order_size)
 
-            buy_fees = market.c_get_fee(market_info.base_asset, market_info.quote_asset,
+            buy_fees = market.c_get_fee(market_info.base_asset,
+                                        market_info.quote_asset,
                                         OrderType.MARKET, TradeType.BUY,
-                                        quantized_bid_order_size, pricing_proposal.buy_order_prices[0])
+                                        quantized_bid_order_size,
+                                        pricing_proposal.buy_order_prices[0])
 
             required_quote_asset_balance = (pricing_proposal.buy_order_prices[0] *
                                             (1 + buy_fees.percent) *

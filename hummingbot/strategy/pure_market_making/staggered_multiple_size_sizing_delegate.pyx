@@ -71,14 +71,19 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
                 base_asset_balance += active_order.quantity
 
         for idx in range(self.number_of_orders):
-            current_order_size = self.order_start_size + self.order_step_size * idx
-            buy_fees = market.c_get_fee(market_info.base_asset, market_info.quote_asset,
-                                        OrderType.MARKET, TradeType.BUY,
-                                        current_order_size, pricing_proposal.buy_order_prices[idx])
+            current_order_size = Decimal(self.order_start_size + self.order_step_size * idx)
+            buy_fees = market.c_get_fee(market_info.base_asset,
+                                        market_info.quote_asset,
+                                        OrderType.MARKET,
+                                        TradeType.BUY,
+                                        current_order_size,
+                                        pricing_proposal.buy_order_prices[idx])
 
             if market.name == "binance":
                 # For binance fees is calculated in base token, so need to adjust for that
-                buy_order_size = market.c_quantize_order_amount(market_info.trading_pair, current_order_size, pricing_proposal.buy_order_prices[idx])
+                buy_order_size = market.c_quantize_order_amount(market_info.trading_pair,
+                                                                current_order_size,
+                                                                pricing_proposal.buy_order_prices[idx])
                 # Check whether you have enough quote tokens
                 required_quote_asset_balance += (buy_order_size * pricing_proposal.buy_order_prices[idx])
 
@@ -90,14 +95,14 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
             sell_order_size = market.c_quantize_order_amount(market_info.trading_pair, current_order_size, pricing_proposal.sell_order_prices[idx])
             required_base_asset_balance += sell_order_size
             if self._log_warning_order_size:
-                if buy_order_size == 0:
+                if buy_order_size == s_decimal_0:
                     self.logger().network(f"Buy Order size is less than minimum order size for Price: {pricing_proposal.buy_order_prices[idx]} ",
                                           f"The orders for price of {pricing_proposal.buy_order_prices[idx]} are too small for the market. Check configuration")
 
                     # After warning once, set warning flag to False
                     self._log_warning_order_size = False
 
-                if sell_order_size == 0:
+                if sell_order_size == s_decimal_0:
                     self.logger().network(f"Sell Order size is less than minimum order size for Price: {pricing_proposal.sell_order_prices[idx]} ",
                                           f"The orders for price of {pricing_proposal.sell_order_prices[idx]} are too small for the market. Check configuration")
 
@@ -121,12 +126,11 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
                 self._log_warning_balance = False
 
         # Reset warnings for balance if there is enough balance to place both orders
-        if (quote_asset_balance >= required_quote_asset_balance) and \
-                (base_asset_balance >= required_base_asset_balance):
+        if quote_asset_balance >= required_quote_asset_balance and base_asset_balance >= required_base_asset_balance:
             self._log_warning_balance = True
 
         # Reset warnings for order size if there are no zero sized orders in buy and sell
-        if 0 not in buy_orders and 0 not in sell_orders:
+        if s_decimal_0 not in buy_orders and s_decimal_0 not in sell_orders:
             self._log_warning_order_size = True
 
         return SizingProposal(

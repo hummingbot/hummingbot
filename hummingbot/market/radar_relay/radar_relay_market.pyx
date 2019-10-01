@@ -643,13 +643,13 @@ cdef class RadarRelayMarket(MarketBase):
                                  symbol: str,
                                  trade_type: TradeType,
                                  amount: Decimal,
-                                 price: str,
+                                 price: Decimal,
                                  expires: int) -> Tuple[str, ZeroExOrder]:
         url = f"{RADAR_RELAY_REST_ENDPOINT}/orders"
         unsigned_limit_order = await self.request_unsigned_limit_order(symbol=symbol,
                                                                        trade_type=trade_type,
                                                                        amount=str(amount),
-                                                                       price=price,
+                                                                       price=str(price),
                                                                        expires=expires)
         unsigned_limit_order["makerAddress"] = self._wallet.address.lower()
         order_hash_hex = self.get_order_hash_hex(unsigned_limit_order)
@@ -701,7 +701,7 @@ cdef class RadarRelayMarket(MarketBase):
                             price: Decimal,
                             expires: int) -> str:
         cdef:
-            str q_price
+            object q_price
             object q_amt = self.c_quantize_order_amount(symbol, amount)
             TradingRule trading_rule = self._trading_rules[symbol]
             str trade_type_desc = "buy" if trade_type is TradeType.BUY else "sell"
@@ -721,11 +721,11 @@ cdef class RadarRelayMarket(MarketBase):
                 elif expires < time.time():
                     raise ValueError(f"expiration time {expires} must be greater than current time {time.time()}")
                 else:
-                    q_price = str(self.c_quantize_order_price(symbol, price))
+                    q_price = self.c_quantize_order_price(symbol, price)
                     exchange_order_id, zero_ex_order = await self.submit_limit_order(symbol=symbol,
                                                                                      trade_type=trade_type,
-                                                                                     amount=q_amt,
-                                                                                     price=q_price,
+                                                                                     amount=str(q_amt),
+                                                                                     price=str(q_price),
                                                                                      expires=expires)
                     self.c_start_tracking_limit_order(order_id=order_id,
                                                       exchange_order_id=exchange_order_id,
@@ -739,7 +739,7 @@ cdef class RadarRelayMarket(MarketBase):
                 avg_price, tx_hash = await self.submit_market_order(symbol=symbol,
                                                                     trade_type=trade_type,
                                                                     amount=q_amt)
-                q_price = str(self.c_quantize_order_price(symbol, avg_price))
+                q_price = str(self.c_quantize_order_price(symbol, Decimal(avg_price)))
                 self.c_start_tracking_market_order(order_id=order_id,
                                                    symbol=symbol,
                                                    order_type=order_type,
@@ -807,7 +807,7 @@ cdef class RadarRelayMarket(MarketBase):
                     str symbol,
                     object amount,
                     object order_type=OrderType.MARKET,
-                    object price=NaN,
+                    object price=s_decimal_NaN,
                     dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
@@ -990,7 +990,7 @@ cdef class RadarRelayMarket(MarketBase):
             precision_quantum = s_decimal_0
         return max(decimals_quantum, precision_quantum)
 
-    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=s_decimal_NaN):
+    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=s_decimal_0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
         global s_decimal_0

@@ -6,14 +6,14 @@ from hummingbot.core.data_type.order_book_row import ClientOrderBookRow
 from hummingbot.market.market_base import MarketBase
 
 
-class MarketSymbolPair(NamedTuple):
+class MarketTradingPairTuple(NamedTuple):
     market: MarketBase
     trading_pair: str
     base_asset: str
     quote_asset: str
 
     def __repr__(self) -> str:
-        return f"MarketSymbolPair({self.market.name}, {self.trading_pair}, {self.base_asset}, {self.quote_asset})"
+        return f"MarketTradingPairTuple({self.market.name}, {self.trading_pair}, {self.base_asset}, {self.quote_asset})"
 
     @property
     def order_book(self):

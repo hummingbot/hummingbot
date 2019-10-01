@@ -150,7 +150,6 @@ class HuobiMarketUnitTest(unittest.TestCase):
         self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
     def test_limit_buy(self):
-        self.assertGreater(self.market.get_balance("eth"), 0.1)
         symbol = "ethusdt"
         amount: Decimal = Decimal("0.02")
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)

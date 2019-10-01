@@ -875,7 +875,7 @@ cdef class BinanceMarket(MarketBase):
                           symbol: str,
                           amount: Decimal,
                           order_type: OrderType,
-                          price: Optional[Decimal] = NaN):
+                          price: Optional[Decimal] = s_decimal_NaN):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
             object m = SYMBOL_SPLITTER.match(symbol)
@@ -973,7 +973,7 @@ cdef class BinanceMarket(MarketBase):
                            symbol: str,
                            amount: Decimal,
                            order_type: OrderType,
-                           price: Optional[Decimal] = NaN):
+                           price: Optional[Decimal] = Decimal("NaN")):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
 
@@ -1037,7 +1037,6 @@ cdef class BinanceMarket(MarketBase):
                                      decimal_price,
                                      order_id
                                  ))
-
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -1172,13 +1171,14 @@ cdef class BinanceMarket(MarketBase):
         # Check against min_order_size and min_notional_size. If not passing either check, return 0.
         if quantized_amount < trading_rule.min_order_size:
             return s_decimal_0
-        if price == 0:
+
+        if price == s_decimal_0:
             notional_size = current_price * quantized_amount
         else:
             notional_size = price * quantized_amount
 
         # Add 1% as a safety factor in case the prices changed while making the order.
-        if notional_size < trading_rule.min_notional_size * Decimal(1.01):
+        if notional_size < trading_rule.min_notional_size * Decimal("1.01"):
             return s_decimal_0
 
         return quantized_amount

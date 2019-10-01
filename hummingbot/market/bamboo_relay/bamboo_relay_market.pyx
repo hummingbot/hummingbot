@@ -540,7 +540,7 @@ cdef class BambooRelayMarket(MarketBase):
                     else:
                         self.logger().info(f"The limit sell order {tracked_limit_order.client_order_id} "
                                            f"will be pre-emptively soft cancelled.")
-                        self.c_cancel("", tracked_limit_order.client_order_id)
+                    self.c_cancel("", tracked_limit_order.client_order_id)
         self._last_update_limit_order_timestamp = current_timestamp
 
     async def _update_market_order_status(self):
@@ -997,7 +997,7 @@ cdef class BambooRelayMarket(MarketBase):
                 avg_price, tx_hash, is_coordinated = await self.submit_market_order(symbol=symbol,
                                                                                     trade_type=trade_type,
                                                                                     amount=q_amt)
-                q_price = str(self.c_quantize_order_price(symbol, avg_price))
+                q_price = str(self.c_quantize_order_price(symbol, Decimal(avg_price)))
                 self.c_start_tracking_market_order(order_id=order_id,
                                                    symbol=symbol,
                                                    order_type=order_type,
@@ -1265,7 +1265,7 @@ cdef class BambooRelayMarket(MarketBase):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
         decimals_quantum = trading_rule.min_quote_amount_increment
-        if price > 0:
+        if price > s_decimal_0:
             precision_quantum = Decimal(f"1e{math.ceil(math.log10(price)) - trading_rule.max_price_significant_digits}")
         else:
             precision_quantum = s_decimal_0
@@ -1276,13 +1276,13 @@ cdef class BambooRelayMarket(MarketBase):
             TradingRule trading_rule = self._trading_rules[symbol]
         decimals_quantum = trading_rule.min_base_amount_increment
 
-        if amount > 0:
+        if amount > s_decimal_0:
             precision_quantum = Decimal(f"1e{math.ceil(math.log10(amount)) - trading_rule.max_price_significant_digits}")
         else:
             precision_quantum = s_decimal_0
         return max(decimals_quantum, precision_quantum)
 
-    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=0):
+    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=s_decimal_0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
         global s_decimal_0
