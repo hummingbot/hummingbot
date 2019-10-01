@@ -426,7 +426,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 buy_price_with_tx_cost = buy_price
 
             buy_price_with_tx_cost = maker_market.c_quantize_order_price(market_info.trading_pair,
-                                                                         buy_price_with_tx_cost)
+                                                                         Decimal(buy_price_with_tx_cost))
 
             # If the buy price with the transaction cost is 10% below the buy price due to price adjustment,
             # Display warning
@@ -462,7 +462,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 sell_price_with_tx_cost = sell_price
 
             sell_price_with_tx_cost = maker_market.c_quantize_order_price(market_info.trading_pair,
-                                                                          sell_price_with_tx_cost)
+                                                                          Decimal(sell_price_with_tx_cost))
 
             if (sell_price_with_tx_cost / sell_price) > (1 + warning_report_threshold):
                 if should_report_warnings:
