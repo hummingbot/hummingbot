@@ -287,7 +287,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
         current_bid_price: float = self.market.get_price(symbol, True)
-        bid_price: Decimal = Decimal(current_bid_price + 0.05 * current_bid_price)
+        bid_price: Decimal = Decimal(0.7 * current_bid_price)
         quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
         self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
