@@ -76,8 +76,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
             bittrex_secret_key=conf.bittrex_secret_key,
             symbols=["LTC-ETH", "XRP-ETH"]
         )
-        print(f"Initializing Bittrex market... this will take about a minute. "
-              f"{conf.bittrex_api_key}: {conf.bittrex_secret_key}")
+        print("Initializing Bittrex market... this will take about a minute. ")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.market)
         cls.stack = contextlib.ExitStack()
@@ -279,7 +278,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
 
-    @unittest.skipUnless(any("test_list_orders" in arg for arg in sys.argv), "List order test requires manual action.")
+    # @unittest.skipUnless(any("test_list_orders" in arg for arg in sys.argv), "List order test requires manual action.")
     def test_list_orders(self):
         self.assertGreater(self.market.get_balance("ETH"), 0.1)
         symbol = "LTC-ETH"
