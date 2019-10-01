@@ -142,13 +142,13 @@ class BinanceMarketUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        maker_buy_trade_fee: TradeFee = self.market.get_fee("BTC", "USDT", OrderType.LIMIT, TradeType.BUY, 1, 4000)
+        maker_buy_trade_fee: TradeFee = self.market.get_fee("BTC", "USDT", OrderType.LIMIT, TradeType.BUY, Decimal(1), Decimal(4000))
         self.assertGreater(maker_buy_trade_fee.percent, 0)
         self.assertEqual(len(maker_buy_trade_fee.flat_fees), 0)
-        taker_buy_trade_fee: TradeFee = self.market.get_fee("BTC", "USDT", OrderType.MARKET, TradeType.BUY, 1)
+        taker_buy_trade_fee: TradeFee = self.market.get_fee("BTC", "USDT", OrderType.MARKET, TradeType.BUY, Decimal(1))
         self.assertGreater(taker_buy_trade_fee.percent, 0)
         self.assertEqual(len(taker_buy_trade_fee.flat_fees), 0)
-        sell_trade_fee: TradeFee = self.market.get_fee("BTC", "USDT", OrderType.LIMIT, TradeType.SELL, 1, 4000)
+        sell_trade_fee: TradeFee = self.market.get_fee("BTC", "USDT", OrderType.LIMIT, TradeType.SELL, Decimal(1), Decimal(4000))
         self.assertGreater(sell_trade_fee.percent, 0)
         self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
@@ -244,7 +244,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
         amount = order_completed_event.base_asset_amount
         quantized_amount = order_completed_event.base_asset_amount
 
-        order_id = self.market.sell("ZRXETH", amount, OrderType.LIMIT, quantize_ask_price)
+        order_id = self.market.sell("ZRXETH", quantized_amount, OrderType.LIMIT, quantize_ask_price)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events = [t for t in self.market_logger.event_log
@@ -342,9 +342,9 @@ class BinanceMarketUnitTest(unittest.TestCase):
         # Test bid order
         bid_order_id: str = self.market.buy(
             symbol,
-            bid_amount,
+            Decimal(bid_amount),
             OrderType.LIMIT,
-            bid_price
+            Decimal(bid_price)
         )
 
         # Wait for the order created event and examine the order made
@@ -355,17 +355,17 @@ class BinanceMarketUnitTest(unittest.TestCase):
             symbol=symbol,
             origClientOrderId=bid_order_id
         )
-        quantized_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
-        bid_size_quantum: Decimal = self.market.get_order_size_quantum(symbol, bid_amount)
+        quantized_bid_price: Decimal = self.market.quantize_order_price(symbol, Decimal(bid_price))
+        bid_size_quantum: Decimal = self.market.get_order_size_quantum(symbol, Decimal(bid_amount))
         self.assertEqual(quantized_bid_price, Decimal(order_data["price"]))
         self.assertTrue(Decimal(order_data["origQty"]) % bid_size_quantum == 0)
 
         # Test ask order
         ask_order_id: str = self.market.sell(
             symbol,
-            amount,
+            Decimal(amount),
             OrderType.LIMIT,
-            ask_price
+            Decimal(ask_price)
         )
 
         # Wait for the order created event and examine and order made
@@ -376,8 +376,8 @@ class BinanceMarketUnitTest(unittest.TestCase):
             symbol=symbol,
             origClientOrderId=ask_order_id
         )
-        quantized_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price)
-        quantized_ask_size: Decimal = self.market.quantize_order_amount(symbol, amount)
+        quantized_ask_price: Decimal = self.market.quantize_order_price(symbol, Decimal(ask_price))
+        quantized_ask_size: Decimal = self.market.quantize_order_amount(symbol, Decimal(amount))
         self.assertEqual(quantized_ask_price, Decimal(order_data["price"]))
         self.assertEqual(quantized_ask_size, Decimal(order_data["origQty"]))
 

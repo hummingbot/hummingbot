@@ -357,8 +357,8 @@ cdef class IDEXMarket(MarketBase):
                             tracked_limit_order.quote_asset,
                             OrderType.LIMIT,
                             tracked_limit_order.trade_type,
-                            order_executed_amount,
-                            tracked_limit_order.price
+                            Decimal(order_executed_amount),
+                            Decimal(tracked_limit_order.price)
                         )
                     )
                 )
@@ -705,7 +705,11 @@ cdef class IDEXMarket(MarketBase):
         response_data = await self._api_request("get", url=url, params={"address": self._wallet.address})
         return response_data["nonce"]
 
-    cdef str c_buy(self, str symbol, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
+    cdef str c_buy(self,
+                   str symbol,
+                   object amount,
+                   object order_type=OrderType.MARKET,
+                   object price=s_decimal_0,
                    dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
@@ -714,7 +718,12 @@ cdef class IDEXMarket(MarketBase):
         safe_ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
         return order_id
 
-    async def execute_buy(self, order_id: str, symbol: str, amount: Decimal, order_type: OrderType, price: Decimal) -> str:
+    async def execute_buy(self,
+                          order_id: str,
+                          symbol: str,
+                          amount: Decimal,
+                          order_type: OrderType,
+                          price: Decimal) -> str:
         cdef:
             object q_amt = self.c_quantize_order_amount(symbol, amount)
             object q_price = (self.c_quantize_order_price(symbol, price)
@@ -783,8 +792,8 @@ cdef class IDEXMarket(MarketBase):
                                 tracked_order.quote_asset,
                                 OrderType.MARKET,
                                 TradeType.BUY,
-                                fill_base_amount,
-                                tracked_order.price
+                                Decimal(fill_base_amount),
+                                Decimal(tracked_order.price)
                             )
                         )
                     )
@@ -811,7 +820,11 @@ cdef class IDEXMarket(MarketBase):
                                                          order_type)
                                  )
 
-    cdef str c_sell(self, str symbol, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
+    cdef str c_sell(self,
+                    str symbol,
+                    object amount,
+                    object order_type=OrderType.MARKET,
+                    object price=s_decimal_0,
                     dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
@@ -820,7 +833,11 @@ cdef class IDEXMarket(MarketBase):
         safe_ensure_future(self.execute_sell(order_id, symbol, amount, order_type, price))
         return order_id
 
-    async def execute_sell(self, order_id: str, symbol: str, amount: Decimal, order_type: OrderType,
+    async def execute_sell(self,
+                           order_id: str,
+                           symbol: str,
+                           amount: Decimal,
+                           order_type: OrderType,
                            price: Decimal) -> str:
         cdef:
             object q_amt = self.c_quantize_order_amount(symbol, amount)
@@ -889,8 +906,8 @@ cdef class IDEXMarket(MarketBase):
                                 tracked_order.quote_asset,
                                 OrderType.MARKET,
                                 TradeType.SELL,
-                                fill_base_amount,
-                                tracked_order.price
+                                Decimal(fill_base_amount),
+                                Decimal(tracked_order.price)
                             )
                         )
                     )
@@ -1071,7 +1088,7 @@ cdef class IDEXMarket(MarketBase):
     def quantize_order_amount(self, symbol: str, amount: Decimal, price: Decimal = s_decimal_NaN) -> Decimal:
         return self.c_quantize_order_amount(symbol, amount, price)
 
-    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=s_decimal_NaN):
+    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=s_decimal_0):
         quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
         base_asset, quote_asset = self.split_symbol(symbol)
 

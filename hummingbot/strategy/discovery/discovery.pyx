@@ -16,7 +16,7 @@ from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversio
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.discovery.discovery_market_pair import DiscoveryMarketPair
 from hummingbot.strategy.arbitrage import ArbitrageStrategy
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base cimport StrategyBase
 
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -260,8 +260,8 @@ cdef class DiscoveryStrategy(StrategyBase):
             OrderBook buy_market_order_book
             OrderBook sell_market_order_book
             dict ret = {}
-            object market_symbol_pair_1 = MarketSymbolPair(market_pair.market_1, *matching_pair[0])
-            object market_symbol_pair_2 = MarketSymbolPair(market_pair.market_2, *matching_pair[1])
+            object market_symbol_pair_1 = MarketTradingPairTuple(market_pair.market_1, *matching_pair[0])
+            object market_symbol_pair_2 = MarketTradingPairTuple(market_pair.market_2, *matching_pair[1])
 
         for buy_market_symbol_pair, sell_market_symbol_pair in [(market_symbol_pair_1, market_symbol_pair_2),
                                                                 (market_symbol_pair_2, market_symbol_pair_1)]:

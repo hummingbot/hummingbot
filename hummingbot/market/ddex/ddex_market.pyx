@@ -366,8 +366,8 @@ cdef class DDEXMarket(MarketBase):
                         tracked_order.quote_asset,
                         order_type,
                         tracked_order.trade_type,
-                        fill_size,
-                        execute_price)
+                        Decimal(fill_size),
+                        Decimal(execute_price))
                 )
                 self.logger().info(f"Filled {fill_size} out of {tracked_order.amount} of the "
                                    f"{order_type_description} order {client_order_id}.")
@@ -904,7 +904,7 @@ cdef class DDEXMarket(MarketBase):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
         decimals_quantum = trading_rule.min_price_increment
-        if price > 0:
+        if price > s_decimal_0:
             precision_quantum = Decimal(f"1e{math.ceil(math.log10(price)) - trading_rule.max_price_significant_digits}")
         else:
             precision_quantum = s_decimal_0

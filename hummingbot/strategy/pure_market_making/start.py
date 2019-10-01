@@ -4,7 +4,7 @@ from typing import (
     Tuple,
 )
 
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.pure_market_making import (
     PureMarketMakingStrategyV2,
     ConstantSpreadPricingDelegate,
@@ -36,6 +36,8 @@ def start(self):
         filled_order_replenish_wait_time = pure_market_making_config_map.get("filled_order_replenish_wait_time").value
         enable_order_filled_stop_cancellation = pure_market_making_config_map.get(
             "enable_order_filled_stop_cancellation").value
+        jump_orders_enabled = pure_market_making_config_map.get("jump_orders_enabled").value
+        jump_orders_depth = pure_market_making_config_map.get("jump_orders_depth").value
 
         pricing_delegate = None
         sizing_delegate = None
@@ -50,7 +52,7 @@ def start(self):
                 sizing_delegate = InventorySkewMultipleSizeSizingDelegate(Decimal(order_start_size),
                                                                           Decimal(order_step_size),
                                                                           Decimal(number_of_orders),
-                                                                          inventory_target_base_percent)
+                                                                          Decimal(inventory_target_base_percent))
             else:
                 sizing_delegate = StaggeredMultipleSizeSizingDelegate(Decimal(order_start_size),
                                                                       Decimal(order_step_size),
@@ -77,17 +79,19 @@ def start(self):
         self.assets = set(maker_assets)
 
         maker_data = [self.markets[maker_market], raw_maker_symbol] + list(maker_assets)
-        self.market_symbol_pairs = [MarketSymbolPair(*maker_data)]
+        self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
 
         strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
 
-        self.strategy = PureMarketMakingStrategyV2(market_infos=[MarketSymbolPair(*maker_data)],
+        self.strategy = PureMarketMakingStrategyV2(market_infos=[MarketTradingPairTuple(*maker_data)],
                                                    pricing_delegate=pricing_delegate,
                                                    filter_delegate=filter_delegate,
                                                    sizing_delegate=sizing_delegate,
                                                    filled_order_replenish_wait_time=filled_order_replenish_wait_time,
                                                    enable_order_filled_stop_cancellation=enable_order_filled_stop_cancellation,
                                                    cancel_order_wait_time=cancel_order_wait_time,
+                                                   jump_orders_enabled=jump_orders_enabled,
+                                                   jump_orders_depth=Decimal(jump_orders_depth),
                                                    logging_options=strategy_logging_options)
     except Exception as e:
         self._notify(str(e))

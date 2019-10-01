@@ -57,7 +57,7 @@ from hummingbot.market.coinbase_pro.coinbase_pro_in_flight_order cimport Coinbas
 
 s_logger = None
 s_decimal_0 = Decimal(0)
-
+s_decimal_nan = Decimal("nan")
 
 cdef class CoinbaseProMarketTransactionTracker(TransactionTracker):
     cdef:
@@ -690,7 +690,7 @@ cdef class CoinbaseProMarket(MarketBase):
                           symbol: str,
                           amount: Decimal,
                           order_type: OrderType,
-                          price: Optional[Decimal] = None):
+                          price: Optional[Decimal] = s_decimal_0):
         """
         Function that takes strategy inputs, auto corrects itself with trading rule,
         and submit an API request to place a buy order
@@ -736,7 +736,7 @@ cdef class CoinbaseProMarket(MarketBase):
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    cdef str c_buy(self, str symbol, object amount, object order_type=OrderType.MARKET, object price=0.0,
+    cdef str c_buy(self, str symbol, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
                    dict kwargs={}):
         """
         *required
@@ -754,7 +754,7 @@ cdef class CoinbaseProMarket(MarketBase):
                            symbol: str,
                            amount: Decimal,
                            order_type: OrderType,
-                           price: Optional[Decimal] = None):
+                           price: Optional[Decimal] = s_decimal_0):
         """
         Function that takes strategy inputs, auto corrects itself with trading rule,
         and submit an API request to place a sell order
@@ -800,7 +800,7 @@ cdef class CoinbaseProMarket(MarketBase):
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    cdef str c_sell(self, str symbol, object amount, object order_type=OrderType.MARKET, object price=Decimal(0.0),
+    cdef str c_sell(self, str symbol, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
                     dict kwargs={}):
         """
         *required
@@ -1097,7 +1097,7 @@ cdef class CoinbaseProMarket(MarketBase):
         # Order size must be a multiple of the min_order_size
         return trading_rule.min_order_size
 
-    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=0.0):
+    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=s_decimal_0):
         """
         *required
         Check current order amount against trading rule, and correct any rule violations

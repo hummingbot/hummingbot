@@ -558,7 +558,7 @@ cdef class HuobiMarket(MarketBase):
                           symbol: str,
                           amount: Decimal,
                           order_type: OrderType,
-                          price: Optional[Decimal] = NaN):
+                          price: Optional[Decimal] = s_decimal_0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
             object quote_amount
@@ -570,7 +570,7 @@ cdef class HuobiMarket(MarketBase):
         if order_type is OrderType.MARKET:
             quote_amount = self.c_get_quote_volume_for_base_amount(symbol, True, amount).result_volume
             # Quantize according to price rules, not base token amount rules.
-            decimal_amount = self.c_quantize_order_price(symbol, quote_amount)
+            decimal_amount = self.c_quantize_order_price(symbol, Decimal(quote_amount))
             decimal_price = s_decimal_0
         else:
             decimal_amount = self.c_quantize_order_amount(symbol, amount)
@@ -620,7 +620,7 @@ cdef class HuobiMarket(MarketBase):
                    str symbol,
                    object amount,
                    object order_type=OrderType.MARKET,
-                   object price=s_decimal_NaN,
+                   object price=s_decimal_0,
                    dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
@@ -634,7 +634,7 @@ cdef class HuobiMarket(MarketBase):
                            symbol: str,
                            amount: Decimal,
                            order_type: OrderType,
-                           price: Optional[Decimal] = NaN):
+                           price: Optional[Decimal] = s_decimal_0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
             object decimal_amount
@@ -691,7 +691,7 @@ cdef class HuobiMarket(MarketBase):
     cdef str c_sell(self,
                     str symbol,
                     object amount,
-                    object order_type=OrderType.MARKET, object price=s_decimal_NaN,
+                    object order_type=OrderType.MARKET, object price=s_decimal_0,
                     dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
@@ -794,7 +794,7 @@ cdef class HuobiMarket(MarketBase):
             TradingRule trading_rule = self._trading_rules[symbol]
         return Decimal(trading_rule.min_base_amount_increment)
 
-    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=Decimal(0)):
+    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=s_decimal_0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
             object quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
@@ -809,7 +809,7 @@ cdef class HuobiMarket(MarketBase):
         if quantized_amount > trading_rule.max_order_size:
             return trading_rule.max_order_size
 
-        if price == 0:
+        if price == s_decimal_0:
             notional_size = current_price * quantized_amount
         else:
             notional_size = price * quantized_amount

@@ -148,11 +148,11 @@ class DDEXMarketUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        weth_trade_fee: TradeFee = self.market.get_fee("ZRX", "WETH", OrderType.LIMIT, TradeType.BUY, 10000, 1)
+        weth_trade_fee: TradeFee = self.market.get_fee("ZRX", "WETH", OrderType.LIMIT, TradeType.BUY, Decimal(10000), Decimal(1))
         self.assertGreater(weth_trade_fee.percent, 0)
         self.assertEqual(len(weth_trade_fee.flat_fees), 1)
         self.assertEqual(weth_trade_fee.flat_fees[0][0], "WETH")
-        dai_trade_fee: TradeFee = self.market.get_fee("WETH", "DAI", OrderType.MARKET, TradeType.BUY, 10000)
+        dai_trade_fee: TradeFee = self.market.get_fee("WETH", "DAI", OrderType.MARKET, TradeType.BUY, Decimal(10000))
         self.assertGreater(dai_trade_fee.percent, 0)
         self.assertEqual(len(dai_trade_fee.flat_fees), 1)
         self.assertEqual(dai_trade_fee.flat_fees[0][0], "DAI")
@@ -233,7 +233,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
         current_price: Decimal = self.market.get_price("HOT-WETH", True)
         amount: Decimal = 2000
         quantized_amount: Decimal = self.market.quantize_order_amount("HOT-WETH", amount)
-        order_id = self.market.buy("HOT-WETH", amount, OrderType.LIMIT, current_price)
+        order_id = self.market.buy("HOT-WETH", amount, OrderType.LIMIT, Decimal(current_price))
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         order_filled_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -351,7 +351,6 @@ class DDEXMarketUnitTest(unittest.TestCase):
         self.market.sell(symbol, amount, OrderType.LIMIT, ask_price * Decimal("1.5"))
 
         [cancellation_results] = self.run_parallel(self.market.cancel_all(10))
-        print(cancellation_results)
         self.assertGreater(len(cancellation_results), 0)
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
@@ -361,7 +360,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
         bid_price: Decimal = self.market.get_price(symbol, True)
         ask_price: Decimal = self.market.get_price(symbol, False)
         # order submission should fail due to insufficient balance
-        amount = 200000
+        amount = Decimal(200000)
 
         self.assertLess(self.market.get_balance("WETH"), 100)
         self.assertLess(self.market.get_balance("HOT"), amount)
@@ -370,7 +369,6 @@ class DDEXMarketUnitTest(unittest.TestCase):
         self.market.sell(symbol, amount, OrderType.LIMIT, ask_price * Decimal("1.5"))
 
         [cancellation_results] = self.run_parallel(self.market.cancel_all(10))
-        print(cancellation_results)
         self.assertGreater(len(cancellation_results), 0)
         for cr in cancellation_results:
             self.assertEqual(cr.success, False)
@@ -472,7 +470,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
             # Reset the logs
             self.market_logger.clear()
-            print(buy_order_completed_event)
+
             # Try to sell back the same amount of HOT to the exchange, and watch for completion event.
             amount = buy_order_completed_event.base_asset_amount
             order_id = self.market.sell(symbol, amount)

@@ -249,11 +249,11 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_cancel_order(self):
-        self.assertGreater(self.market.get_balance("ETH"), 10)
         symbol = "ETH-USDC"
 
         current_bid_price: Decimal = self.market.get_price(symbol, True)
         amount: Decimal = 10 / current_bid_price
+        self.assertGreater(self.market.get_balance("ETH"), amount)
 
         bid_price: Decimal = current_bid_price - Decimal("0.1") * current_bid_price
         quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)

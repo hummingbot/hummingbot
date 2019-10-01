@@ -75,5 +75,8 @@ cdef class PaperTradeMarket(MarketBase):
                                                    LimitOrdersIterator *map_it_ptr)
     cdef c_process_crossed_limit_orders(self)
     cdef c_match_trade_to_limit_orders(self, object order_book_trade_event)
-    cdef object c_cancel_order_from_orders_map(self, LimitOrders *orders_map, str trading_pair_str, bint cancel_all=*,
+    cdef object c_cancel_order_from_orders_map(self,
+                                               LimitOrders *orders_map,
+                                               str trading_pair_str,
+                                               bint cancel_all=*,
                                                str client_order_id=*)
