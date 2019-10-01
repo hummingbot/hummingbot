@@ -159,7 +159,7 @@ cdef class BittrexMarket(MarketBase):
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         return await BittrexAPIOrderBookDataSource.get_active_exchange_markets()
 
-    def get_all_balance(self) -> Dict[str, float]:
+    def get_all_balances(self) -> Dict[str, float]:
         return self._account_balances.copy()
 
     cdef c_start(self, Clock clock, double timestamp):
