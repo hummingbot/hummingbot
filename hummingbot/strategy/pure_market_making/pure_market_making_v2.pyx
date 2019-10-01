@@ -378,10 +378,19 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 )
         return total_flat_fees
 
-    cdef object c_add_transaction_costs_to_pricing_proposal(self,
-                                                            object market_info,
-                                                            object pricing_proposal,
-                                                            object sizing_proposal):
+    cdef tuple c_check_and_add_transaction_costs_to_pricing_proposal(self,
+                                                                     object market_info,
+                                                                     object pricing_proposal,
+                                                                     object sizing_proposal):
+        """
+        1. Adds transaction costs to prices
+        2. If the prices are negative, sets the do_not_place_order_flag to True, which stops order placement
+        3. Returns the pricing proposal with transaction cost along with do_not_place_order
+        :param market_info: Pure Market making Pair object
+        :param pricing_proposal: Pricing Proposal
+        :param sizing_proposal: Sizing Proposal
+        :return: (do_not_place_order, Pricing_proposal_with_tx_costs)
+        """
         cdef:
             MarketBase maker_market = market_info.market
             OrderBook maker_orderbook = market_info.order_book
@@ -389,6 +398,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             object sell_prices_with_tx_costs = pricing_proposal.sell_order_prices
             int64_t current_tick = <int64_t>(self._current_timestamp // self._status_report_interval)
             int64_t last_tick = <int64_t>(self._last_timestamp // self._status_report_interval)
+            bint do_not_place_order = False
             bint should_report_warnings = ((current_tick > last_tick) and
                                            (self._logging_options & self.OPTION_LOG_STATUS_REPORT))
             # Current warning report threshold is 10%
@@ -400,7 +410,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         # as no new orders are created
         if sizing_proposal.buy_order_sizes[0] == s_decimal_zero and \
                 sizing_proposal.sell_order_sizes[0] == s_decimal_zero:
-            return pricing_proposal
+            return do_not_place_order, pricing_proposal
 
         buy_index = 0
         for buy_price, buy_amount in zip(pricing_proposal.buy_order_prices,
@@ -428,6 +438,15 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             buy_price_with_tx_cost = maker_market.c_quantize_order_price(market_info.trading_pair,
                                                                          Decimal(buy_price_with_tx_cost))
 
+            # If the buy price with transaction cost is less than or equal to zero
+            # do not place orders
+            if buy_price_with_tx_cost <= s_decimal_zero:
+                if should_report_warnings:
+                    self.logger().warning(f"Buy price with transaction cost is "
+                                          f"less than or equal to zero. Stopping Order placements. ")
+                do_not_place_order = True
+                break
+
             # If the buy price with the transaction cost is 10% below the buy price due to price adjustment,
             # Display warning
             if (buy_price_with_tx_cost / buy_price) < (1 - warning_report_threshold):
@@ -437,6 +456,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
             buy_prices_with_tx_costs[buy_index] = buy_price_with_tx_cost
             buy_index += 1
+
+        if do_not_place_order:
+            return do_not_place_order, pricing_proposal
 
         sell_index = 0
         for sell_price, sell_amount in zip(pricing_proposal.sell_order_prices,
@@ -472,13 +494,15 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             sell_prices_with_tx_costs[sell_index] = sell_price_with_tx_cost
             sell_index += 1
 
-        return PricingProposal(buy_prices_with_tx_costs, sell_prices_with_tx_costs)
+        return (do_not_place_order,
+                PricingProposal(buy_prices_with_tx_costs, sell_prices_with_tx_costs))
 
     cdef object c_get_orders_proposal_for_market_info(self, object market_info, list active_orders):
         cdef:
             double last_trade_price
             int actions = 0
             list cancel_order_ids = []
+            bint no_order_placement = False
 
         # Before doing anything, ask the filter delegate whether to proceed or not.
         if not self._filter_delegate.c_should_proceed_with_processing(self, market_info, active_orders):
@@ -504,12 +528,17 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                           active_orders,
                                                                           pricing_proposal)
         if self._add_transaction_costs_to_orders:
-            pricing_proposal = self.c_add_transaction_costs_to_pricing_proposal(market_info,
-                                                                                pricing_proposal,
-                                                                                sizing_proposal)
+            no_order_placement, pricing_proposal = self.c_check_and_add_transaction_costs_to_pricing_proposal(
+                market_info,
+                pricing_proposal,
+                sizing_proposal)
 
         if sizing_proposal.buy_order_sizes[0] > 0 or sizing_proposal.sell_order_sizes[0] > 0:
             actions |= ORDER_PROPOSAL_ACTION_CREATE_ORDERS
+
+        if no_order_placement:
+            # Order creation bit is set to zero
+            actions = actions & (1 << 1)
 
         if ((market_info.market.name not in self.RADAR_RELAY_TYPE_EXCHANGES) or
                 (market_info.market.display_name == "bamboo_relay" and market_info.market.use_coordinator)):
