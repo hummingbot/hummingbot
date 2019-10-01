@@ -764,7 +764,7 @@ cdef class BittrexMarket(MarketBase):
     async def execute_buy(self,
                           order_id: str,
                           symbol: str,
-                          amount: float,
+                          amount: Decimal,
                           order_type: OrderType,
                           price: Optional[float] = NaN):
         cdef:
@@ -846,7 +846,7 @@ cdef class BittrexMarket(MarketBase):
                                  ))
 
     cdef str c_buy(self,
-                   str symbol,  # TODO: symbol still uses V1.1 convention(i.e. Quote-Base)
+                   str symbol,
                    object amount,
                    object order_type=OrderType.LIMIT,
                    object price=NaN,
@@ -860,9 +860,9 @@ cdef class BittrexMarket(MarketBase):
     async def execute_sell(self,
                            order_id: str,
                            symbol: str,
-                           amount: float,
+                           amount: Decimal,
                            order_type: OrderType = OrderType.LIMIT,
-                           price: Optional[float] = NaN):
+                           price: Optional[Decimal] = NaN):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
 
