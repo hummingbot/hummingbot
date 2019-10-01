@@ -7,7 +7,12 @@ from typing import List
 import unittest
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingsim.backtest.backtest_market import BacktestMarket
-from hummingsim.backtest.market import AssetType, Market, MarketConfig, QuantizationParams
+from hummingsim.backtest.market import (
+    AssetType,
+    Market,
+    MarketConfig,
+    QuantizationParams,
+)
 from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
@@ -29,7 +34,7 @@ from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarket
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair
 from nose.plugins.attrib import attr
 
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from decimal import Decimal
 import logging
 
@@ -84,8 +89,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.taker_market.set_quantization_param(QuantizationParams(self.taker_symbols[0], 5, 5, 5, 5))
 
         self.market_pair: CrossExchangeMarketPair = CrossExchangeMarketPair(
-            MarketSymbolPair(self.maker_market, *self.maker_symbols),
-            MarketSymbolPair(self.taker_market, *self.taker_symbols),
+            MarketTradingPairTuple(self.maker_market, *self.maker_symbols),
+            MarketTradingPairTuple(self.taker_market, *self.taker_symbols),
         )
 
         logging_options: int = (
@@ -97,6 +102,13 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             order_size_portfolio_ratio_limit=0.3,
             min_profitability=self.min_profitbality,
             logging_options=logging_options,
+        )
+        self.strategy_with_top_depth_tolerance: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
+            [self.market_pair],
+            order_size_portfolio_ratio_limit=0.3,
+            min_profitability=self.min_profitbality,
+            logging_options=logging_options,
+            top_depth_tolerance=1
         )
         self.logging_options = logging_options
         self.clock.add_iterator(self.maker_market)
@@ -231,6 +243,30 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertAlmostEqual(3.0, maker_fill.amount)
         self.assertAlmostEqual(3.0, taker_fill.amount)
 
+    def test_top_depth_tolerance(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(self.strategy_with_top_depth_tolerance)
+        self.clock.backtest_til(self.start_timestamp + 5)
+        bid_order: LimitOrder = self.strategy_with_top_depth_tolerance.active_bids[0][1]
+        ask_order: LimitOrder = self.strategy_with_top_depth_tolerance.active_asks[0][1]
+        self.assertEqual(Decimal("0.99452"), bid_order.price)
+        self.assertEqual(Decimal("1.0056"), ask_order.price)
+        self.assertEqual(Decimal("3.0"), bid_order.quantity)
+        self.assertEqual(Decimal("3.0"), ask_order.quantity)
+
+        self.simulate_order_book_widening(self.taker_data.order_book, 0.99, 1.01)
+
+        self.clock.backtest_til(self.start_timestamp + 100)
+
+        self.assertEqual(2, len(self.cancel_order_logger.event_log))
+        self.assertEqual(1, len(self.strategy_with_top_depth_tolerance.active_bids))
+        self.assertEqual(1, len(self.strategy_with_top_depth_tolerance.active_asks))
+
+        bid_order = self.strategy_with_top_depth_tolerance.active_bids[0][1]
+        ask_order = self.strategy_with_top_depth_tolerance.active_asks[0][1]
+        self.assertEqual(Decimal("0.98457"), bid_order.price)
+        self.assertEqual(Decimal("1.0156"), ask_order.price)
+
     def test_market_became_wider(self):
         self.clock.backtest_til(self.start_timestamp + 5)
 
@@ -324,8 +360,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
     def test_with_conversion(self):
         self.clock.remove_iterator(self.strategy)
         self.market_pair: CrossExchangeMarketPair = CrossExchangeMarketPair(
-            MarketSymbolPair(self.maker_market, *["COINALPHA-QETH", "COINALPHA", "QETH"]),
-            MarketSymbolPair(self.taker_market, *self.taker_symbols),
+            MarketTradingPairTuple(self.maker_market, *["COINALPHA-QETH", "COINALPHA", "QETH"]),
+            MarketTradingPairTuple(self.taker_market, *self.taker_symbols),
         )
         self.maker_data: MockOrderBookLoader = MockOrderBookLoader("COINALPHA-QETH", "COINALPHA", "QETH")
         self.maker_data.set_balanced_order_book(1.05, 0.55, 1.55, 0.01, 10)
@@ -373,8 +409,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.maker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.1, 10)
         self.maker_market.add_data(self.maker_data)
         self.market_pair: CrossExchangeMarketPair = CrossExchangeMarketPair(
-            MarketSymbolPair(self.maker_market, *self.maker_symbols),
-            MarketSymbolPair(self.taker_market, *self.taker_symbols),
+            MarketTradingPairTuple(self.maker_market, *self.maker_symbols),
+            MarketTradingPairTuple(self.taker_market, *self.taker_symbols),
         )
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
             [self.market_pair],
@@ -410,8 +446,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.taker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.001, 20)
         self.maker_market.add_data(self.maker_data)
         self.market_pair: CrossExchangeMarketPair = CrossExchangeMarketPair(
-            MarketSymbolPair(self.maker_market, *self.maker_symbols),
-            MarketSymbolPair(self.taker_market, *self.taker_symbols),
+            MarketTradingPairTuple(self.maker_market, *self.maker_symbols),
+            MarketTradingPairTuple(self.taker_market, *self.taker_symbols),
         )
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
             [self.market_pair],

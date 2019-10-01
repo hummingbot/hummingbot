@@ -3,7 +3,7 @@ from typing import (
     Tuple,
 )
 
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.perform_trade import (
     PerformTradeStrategy
 )
@@ -16,7 +16,7 @@ def start(self):
         order_type = perform_trade_config_map.get("order_type").value
         is_buy = perform_trade_config_map.get("is_buy").value
         market = perform_trade_config_map.get("market").value.lower()
-        raw_market_symbol = perform_trade_config_map.get("market_symbol_pair").value
+        raw_market_symbol = perform_trade_config_map.get("market_trading_pair_tuple").value
         order_price = None
 
         if order_type == "limit":
@@ -35,11 +35,11 @@ def start(self):
         self.assets = set(assets)
 
         maker_data = [self.markets[market], raw_market_symbol] + list(assets)
-        self.market_symbol_pairs = [MarketSymbolPair(*maker_data)]
+        self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
 
         strategy_logging_options = PerformTradeStrategy.OPTION_LOG_ALL
 
-        self.strategy = PerformTradeStrategy(market_infos=[MarketSymbolPair(*maker_data)],
+        self.strategy = PerformTradeStrategy(market_infos=[MarketTradingPairTuple(*maker_data)],
                                              order_type=order_type,
                                              order_price=order_price,
                                              is_buy=is_buy,
