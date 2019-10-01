@@ -183,7 +183,7 @@ cdef class IDEXMarket(MarketBase):
 
     @property
     def in_flight_orders(self) -> Dict[str, IDEXInFlightOrder]:
-        return self._in_flight_orders
+        return self._in_flight_orders.copy()
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
@@ -356,7 +356,8 @@ cdef class IDEXMarket(MarketBase):
                             tracked_limit_order.trade_type,
                             Decimal(order_executed_amount),
                             Decimal(tracked_limit_order.price)
-                        )
+                        ),
+                        exchange_trade_id=tracked_limit_order.exchange_order_id,
                     )
                 )
 
@@ -781,7 +782,8 @@ cdef class IDEXMarket(MarketBase):
                                 TradeType.BUY,
                                 Decimal(fill_base_amount),
                                 Decimal(tracked_order.price)
-                            )
+                            ),
+                            tracked_order.exchange_order_id,
                         )
                     )
                     self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
@@ -897,7 +899,8 @@ cdef class IDEXMarket(MarketBase):
                                 TradeType.SELL,
                                 Decimal(fill_base_amount),
                                 Decimal(tracked_order.price)
-                            )
+                            ),
+                            tracked_order.exchange_order_id,
                         )
                     )
                     self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
