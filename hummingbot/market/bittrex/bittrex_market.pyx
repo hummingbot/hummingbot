@@ -183,8 +183,8 @@ cdef class BittrexMarket(MarketBase):
                           str quote_currency,
                           object order_type,
                           object order_side,
-                          double amount,
-                          double price):
+                          object amount,
+                          object price):
         # There is no API for checking fee
         # Fee info from https://bittrex.zendesk.com/hc/en-us/articles/115003684371
         cdef:
@@ -704,17 +704,17 @@ cdef class BittrexMarket(MarketBase):
         self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                              MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
 
-    cdef object c_get_order_price_quantum(self, str symbol, double price):
+    cdef object c_get_order_price_quantum(self, str symbol, object price):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
         return Decimal(trading_rule.min_price_increment)
 
-    cdef object c_get_order_size_quantum(self, str symbol, double order_size):
+    cdef object c_get_order_size_quantum(self, str symbol, object order_size):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
         return Decimal(trading_rule.min_base_amount_increment)
 
-    cdef object c_quantize_order_amount(self, str symbol, double amount, double price=0.0):
+    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=0.0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
             object quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
@@ -847,9 +847,9 @@ cdef class BittrexMarket(MarketBase):
 
     cdef str c_buy(self,
                    str symbol,  # TODO: symbol still uses V1.1 convention(i.e. Quote-Base)
-                   double amount,
+                   object amount,
                    object order_type=OrderType.LIMIT,
-                   double price=NaN,
+                   object price=NaN,
                    dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t> (time.time() * 1e6)
@@ -930,9 +930,9 @@ cdef class BittrexMarket(MarketBase):
 
     cdef str c_sell(self,
                     str symbol,
-                    double amount,
+                    object amount,
                     object order_type=OrderType.MARKET,
-                    double price=0.0,
+                    object price=0.0,
                     dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t> (time.time() * 1e6)
