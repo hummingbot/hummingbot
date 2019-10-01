@@ -79,6 +79,30 @@ The `execute_buy` and `execute_sell` methods verify that the trades would be leg
     - Code commenting (particularly for any code that is materially different from the templates/examples)
     - Any specific instructions for the use of that exchange connector ([example](https://docs.hummingbot.io/connectors/binance/))
 
+## Requirements for community-developed connectors
+
+Introducing an exchange connector into the Hummingbot code base requires a mutual commitment from the Hummingbot team and community developers to maintaining a high standard of code quality and software reliability.
+
+We encourage and welcome contributions from the community, subject to the guidelines and expectations outlined below.
+
+### Guidelines for community developers
+1. Provide a point of contact to the Hummingbot team.
+1. Commitment to connector maintenance and keeping it up to date with Hummingbot releases. <br/>*Any connectors that are not kept up to date or have unaddressed bugs will be removed from subsequent releases of Hummingbot unless such issues are resolved.*
+1. Adhere to [contributing guide](https://github.com/CoinAlpha/hummingbot/blob/master/CONTRIBUTING.md), code conventions used in the Hummingbot repo, and these guidelines outlined here.
+1. Complete all of the work listed in [Exchange connector requirements](#exchange-connector-requirements).
+1. Address any comments or issues raised by the Hummingbot development team during the code review process.
+1. Notify the Hummingbot team and community of any known issues are bugs that are discovered.
+
+### Expectations for the Hummingbot team
+1. Make available a dedicated channel on discord (https://discord.hummingbot.io) during the initial development process.
+1. Provide a main point of contact for the developer.
+1. Notify developer of code changes that may affect the connector.
+1. Notify the developer of any bug reports or issues reported by Hummingbot users.
+1. Code review.
+1. Testing and QA.
+
+The Hummingbot team reserves the right to withhold community code contributions and excluding them from the Hummingbot code base should any such contributions fail to meet the above requirements.
+
 ## Required skills
 - Python
 - Prior Cython experience is a plus

@@ -3,7 +3,7 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from decimal import Decimal
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
@@ -97,7 +97,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             )
         )
 
-        self.market_info: MarketSymbolPair = MarketSymbolPair(
+        self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             *(
                 [self.maker_market] + self.maker_symbols
             )
@@ -148,6 +148,18 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             filter_delegate=self.filter_delegate,
             pricing_delegate=self.constant_pricing_delegate,
             sizing_delegate=self.constant_sizing_delegate,
+            cancel_order_wait_time=900,
+            filled_order_replenish_wait_time=80,
+            enable_order_filled_stop_cancellation=True,
+            logging_options=logging_options
+        )
+
+        self.penny_jumping_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+            [self.market_info],
+            filter_delegate=self.filter_delegate,
+            pricing_delegate=self.constant_pricing_delegate,
+            sizing_delegate=self.constant_sizing_delegate,
+            jump_orders_enabled=True,
             cancel_order_wait_time=900,
             filled_order_replenish_wait_time=80,
             enable_order_filled_stop_cancellation=True,
@@ -646,6 +658,58 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.0"), ask_order.quantity)
         self.maker_order_fill_logger.clear()
 
+    def test_penny_jumping_feature(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.remove_iterator(self.maker_market)
+        self.maker_market_2: BacktestMarket = BacktestMarket()
+        self.maker_data_2: MockOrderBookLoader = MockOrderBookLoader(*self.maker_symbols)
+        self.maker_data_2.set_balanced_order_book(mid_price=self.mid_price,
+                                                  min_price=1,
+                                                  max_price=200,
+                                                  price_step_size=4,
+                                                  volume_step_size=10)
+        self.maker_market_2.add_data(self.maker_data_2)
+        self.maker_market_2.set_balance("COINALPHA", 500)
+        self.maker_market_2.set_balance("WETH", 5000)
+        self.maker_market_2.set_balance("QETH", 500)
+        self.maker_market_2.set_quantization_param(
+            QuantizationParams(
+                self.maker_symbols[0], 6, 6, 6, 6
+            )
+        )
+
+        self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
+            *([self.maker_market_2] + self.maker_symbols)
+        )
+        logging_options: int = (PureMarketMakingStrategyV2.OPTION_LOG_ALL &
+                                (~PureMarketMakingStrategyV2.OPTION_LOG_NULL_ORDER_SIZE))
+        self.penny_jumping_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+            [self.market_info],
+            filter_delegate=self.filter_delegate,
+            pricing_delegate=self.constant_pricing_delegate,
+            sizing_delegate=self.constant_sizing_delegate,
+            jump_orders_enabled=True,
+            cancel_order_wait_time=900,
+            filled_order_replenish_wait_time=80,
+            enable_order_filled_stop_cancellation=True,
+            logging_options=logging_options
+        )
+        self.clock.add_iterator(self.penny_jumping_strategy)
+        self.clock.add_iterator(self.maker_market_2)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(self.penny_jumping_strategy.active_bids))
+        self.assertEqual(1, len(self.penny_jumping_strategy.active_asks))
+        bid_order: LimitOrder = self.penny_jumping_strategy.active_bids[0][1]
+        ask_order: LimitOrder = self.penny_jumping_strategy.active_asks[0][1]
+        # Top bid is 98 and suggested price is 99 from pricing proposal
+        # With penny jumping, bid price is just one above top bid
+        self.assertEqual(Decimal("98.0001"), bid_order.price)
+        # Top ask is 102 and suggested price is 101 from pricing proposal
+        # With penny jumping, ask price is just one below top ask
+        self.assertEqual(Decimal("101.999"), ask_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+
 
 class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
@@ -694,7 +758,7 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
             )
         )
 
-        self.market_info: MarketSymbolPair = MarketSymbolPair(
+        self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             *(
                 [self.maker_market] + self.maker_symbols
             )
