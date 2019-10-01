@@ -74,6 +74,8 @@ Adding the transaction cost will reduce the bid order price and increase the ask
 
 We currently display warnings if the adjusted price post adding the transaction costs is 10% away from the original price. This setting can be modified by changing `warning_report_threshold` in the c_add_transaction_costs_to_pricing_proposal function inside hummingbot/strategy/pure_market_making/pure_market_making_v2.pyx.
 
+If the Buy price with the transaction cost is zero or negative, it is not profitable to place orders and orders will not be placed.
+
 ### Multiple Order Configuration
 
 Multiple orders allow you to create multiple orders for each bid and ask side, e.g. multiple bid orders with different prices and different sizes.
