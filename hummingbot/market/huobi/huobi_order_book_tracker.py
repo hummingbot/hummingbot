@@ -50,10 +50,6 @@ class HuobiOrderBookTracker(OrderBookTracker):
         self._symbols: Optional[List[str]] = symbols
 
     @property
-    async def exchange_name(self) -> str:
-        return "huobi"
-
-    @property
     def data_source(self) -> OrderBookTrackerDataSource:
         if not self._data_source:
             if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
