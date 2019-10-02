@@ -3,7 +3,7 @@ from typing import (
     Tuple,
 )
 
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.execution2 import (
     Execution2Strategy
 )
@@ -28,11 +28,11 @@ def start(self):
         self.assets = set(assets)
 
         maker_data = [self.markets[market], raw_market_symbol] + list(assets)
-        self.market_symbol_pairs = [MarketSymbolPair(*maker_data)]
+        self.market_symbol_pairs = [MarketTradingPairTuple(*maker_data)]
 
         strategy_logging_options = Execution2Strategy.OPTION_LOG_ALL
 
-        self.strategy = Execution2Strategy(market_infos=[MarketSymbolPair(*maker_data)],
+        self.strategy = Execution2Strategy(market_infos=[MarketTradingPairTuple(*maker_data)],
                                            logging_options=strategy_logging_options)
     except Exception as e:
         self._notify(str(e))
