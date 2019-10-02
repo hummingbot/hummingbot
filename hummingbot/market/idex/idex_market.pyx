@@ -183,7 +183,7 @@ cdef class IDEXMarket(MarketBase):
 
     @property
     def in_flight_orders(self) -> Dict[str, IDEXInFlightOrder]:
-        return self._in_flight_orders.copy()
+        return self._in_flight_orders
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
