@@ -359,25 +359,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         return PricingProposal(updated_buy_order_prices, updated_sell_order_prices)
 
-    cdef double c_sum_flat_fees(self, str quote_asset, list flat_fees):
-        """
-        Converts flat fees to quote token and sums up all flat fees
-        """
-        cdef:
-            double total_flat_fees = 0.0
-
-        for flat_fee_currency, flat_fee_amount in flat_fees:
-            if flat_fee_currency == quote_asset:
-                total_flat_fees += flat_fee_amount
-            else:
-                # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
-                total_flat_fees += ExchangeRateConversion.get_instance().convert_token_value(
-                    amount=flat_fee_amount,
-                    from_currency=flat_fee_currency,
-                    to_currency=quote_asset
-                )
-        return total_flat_fees
-
     cdef tuple c_check_and_add_transaction_costs_to_pricing_proposal(self,
                                                                      object market_info,
                                                                      object pricing_proposal,
@@ -404,7 +385,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             # Current warning report threshold is 10%
             # If the adjusted price with transaction cost is 10% away from the suggested price,
             # warnings will be displayed
-            double warning_report_threshold = 0.1
+            object warning_report_threshold = Decimal("0.1")
 
         # If both buy order and sell order sizes are zero, no need to add transaction costs
         # as no new orders are created
@@ -429,14 +410,14 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                        fee_object.flat_fees)
                 # Find the fixed cost per unit size for the total amount
                 # Fees is in Float
-                fixed_cost_per_unit = total_flat_fees / float(buy_amount)
+                fixed_cost_per_unit = total_flat_fees / buy_amount
                 # New Price = Price * (1 - maker_fees) - Fixed_fees_per_unit
-                buy_price_with_tx_cost = float(buy_price) * (1 - fee_object.percent) - fixed_cost_per_unit
+                buy_price_with_tx_cost = buy_price * (Decimal(1) - fee_object.percent) - fixed_cost_per_unit
             else:
                 buy_price_with_tx_cost = buy_price
 
             buy_price_with_tx_cost = maker_market.c_quantize_order_price(market_info.trading_pair,
-                                                                         Decimal(buy_price_with_tx_cost))
+                                                                         buy_price_with_tx_cost)
 
             # If the buy price with transaction cost is less than or equal to zero
             # do not place orders
@@ -449,7 +430,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
             # If the buy price with the transaction cost is 10% below the buy price due to price adjustment,
             # Display warning
-            if (buy_price_with_tx_cost / buy_price) < (1 - warning_report_threshold):
+            if (buy_price_with_tx_cost / buy_price) < (Decimal(1) - warning_report_threshold):
                 if should_report_warnings:
                     self.logger().warning(f"Buy price with transaction cost is "
                                           f"{warning_report_threshold * 100} % below the buy price ")
@@ -477,16 +458,16 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                        fee_object.flat_fees)
                 # Find the fixed cost per unit size for the total amount
                 # Fees is in Float
-                fixed_cost_per_unit = total_flat_fees / float(sell_amount)
+                fixed_cost_per_unit = total_flat_fees / sell_amount
                 # New Price = Price * (1 + maker_fees) + Fixed_fees_per_unit
-                sell_price_with_tx_cost = float(sell_price) * (1 + fee_object.percent) + fixed_cost_per_unit
+                sell_price_with_tx_cost = sell_price * (Decimal(1) + fee_object.percent) + fixed_cost_per_unit
             else:
                 sell_price_with_tx_cost = sell_price
 
             sell_price_with_tx_cost = maker_market.c_quantize_order_price(market_info.trading_pair,
                                                                           Decimal(sell_price_with_tx_cost))
 
-            if (sell_price_with_tx_cost / sell_price) > (1 + warning_report_threshold):
+            if (sell_price_with_tx_cost / sell_price) > (Decimal(1) + warning_report_threshold):
                 if should_report_warnings:
                     self.logger().warning(f"Sell price with transaction cost is "
                                           f"{warning_report_threshold * 100} % above the sell price")

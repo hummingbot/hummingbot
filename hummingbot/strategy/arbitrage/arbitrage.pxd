@@ -31,7 +31,6 @@ cdef class ArbitrageStrategy(StrategyBase):
     cdef c_process_market_pair_inner(self, object buy_market_symbol_pair, object sell_market_symbol_pair)
     cdef tuple c_find_best_profitable_amount(self, object buy_market_symbol_pair, object sell_market_symbol_pair)
     cdef bint c_ready_for_new_orders(self, list market_symbol_pairs)
-    cdef object c_sum_flat_fees(self, str quote_currency, list flat_fees)
 
 cdef list c_find_profitable_arbitrage_orders(object min_profitability,
                                              object buy_market_symbol_pair,
