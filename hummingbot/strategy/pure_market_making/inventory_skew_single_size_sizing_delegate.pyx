@@ -79,7 +79,7 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
         if self._inventory_target_base_percent is not None:
             top_bid_price = market.c_get_price(trading_pair, False)
             top_ask_price = market.c_get_price(trading_pair, True)
-            mid_price = (top_bid_price + top_ask_price) / 2
+            mid_price = (top_bid_price + top_ask_price) / Decimal(2)
 
             total_base_asset_quote_value = base_asset_balance * mid_price
             total_quote_asset_quote_value = quote_asset_balance
@@ -89,19 +89,21 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
             current_quote_percent = total_quote_asset_quote_value / (total_base_asset_quote_value + total_quote_asset_quote_value)
 
             target_base_percent = self._inventory_target_base_percent
-            target_quote_percent = 1 - target_base_percent
+            target_quote_percent = Decimal(1) - target_base_percent
 
             # Calculate target ratio based on current percent vs. target percent
-            current_target_base_ratio = current_base_percent / target_base_percent if target_base_percent > 0 else 0
-            current_target_quote_ratio = current_quote_percent / target_quote_percent if target_quote_percent > 0 else 0
+            current_target_base_ratio = current_base_percent / target_base_percent \
+                if target_base_percent > s_decimal_0 else s_decimal_0
+            current_target_quote_ratio = current_quote_percent / target_quote_percent \
+                if target_quote_percent > s_decimal_0 else s_decimal_0
 
             # By default 100% of order size is on both sides, therefore adjusted ratios should be 2 (100% + 100%).
             # If target base percent is 0 (0%) target quote ratio is 200%.
             # If target base percent is 1 (100%) target base ratio is 200%.
-            if current_target_base_ratio > 1 or current_target_quote_ratio == 0:
-                current_target_base_ratio = 2 - current_target_quote_ratio
+            if current_target_base_ratio > Decimal(1) or current_target_quote_ratio == s_decimal_0:
+                current_target_base_ratio = Decimal(2) - current_target_quote_ratio
             else:
-                current_target_quote_ratio = 2 - current_target_base_ratio
+                current_target_quote_ratio = Decimal(2) - current_target_base_ratio
 
             bid_order_size *= current_target_quote_ratio
             ask_order_size *= current_target_base_ratio
@@ -128,7 +130,7 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
                                         pricing_proposal.buy_order_prices[0])
 
             required_quote_asset_balance = (pricing_proposal.buy_order_prices[0] *
-                                            (1 + buy_fees.percent) *
+                                            (Decimal(1) + buy_fees.percent) *
                                             quantized_bid_order_size)
 
         if quote_asset_balance < required_quote_asset_balance:

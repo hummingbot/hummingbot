@@ -57,9 +57,9 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
             str trading_pair = market_info.trading_pair
             object base_asset_balance = market.c_get_available_balance(market_info.base_asset)
             object quote_asset_balance = market.c_get_available_balance(market_info.quote_asset)
-            object current_quote_asset_order_size_total = 0
+            object current_quote_asset_order_size_total = s_decimal_0
             object quote_asset_order_size
-            object current_base_asset_order_size_total = 0
+            object current_base_asset_order_size_total = s_decimal_0
             object top_bid_price
             object top_ask_price
             object mid_price
@@ -92,7 +92,7 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
         if self._inventory_target_base_percent is not None:
             top_bid_price = market.c_get_price(trading_pair, False)
             top_ask_price = market.c_get_price(trading_pair, True)
-            mid_price = (top_bid_price + top_ask_price) / 2
+            mid_price = (top_bid_price + top_ask_price) / Decimal(2)
 
             total_base_asset_quote_value = base_asset_balance * mid_price
             total_quote_asset_quote_value = quote_asset_balance
@@ -102,19 +102,21 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
             current_quote_percent = total_quote_asset_quote_value / (total_base_asset_quote_value + total_quote_asset_quote_value)
 
             target_base_percent = self._inventory_target_base_percent
-            target_quote_percent = 1 - target_base_percent
+            target_quote_percent = Decimal(1) - target_base_percent
 
             # Calculate target ratio based on current percent vs. target percent
-            current_target_base_ratio = current_base_percent / target_base_percent if target_base_percent > 0 else 0
-            current_target_quote_ratio = current_quote_percent / target_quote_percent if target_quote_percent > 0 else 0
+            current_target_base_ratio = current_base_percent / target_base_percent \
+                if target_base_percent > s_decimal_0 else s_decimal_0
+            current_target_quote_ratio = current_quote_percent / target_quote_percent \
+                if target_quote_percent > s_decimal_0 else s_decimal_0
 
             # By default 100% of order size is on both sides, therefore adjusted ratios should be 2 (100% + 100%).
             # If target base percent is 0 (0%) target quote ratio is 200%.
             # If target base percent is 1 (100%) target base ratio is 200%.
-            if current_target_base_ratio > 1 or current_target_quote_ratio == 0:
-                current_target_base_ratio = 2 - current_target_quote_ratio
+            if current_target_base_ratio > Decimal(1) or current_target_quote_ratio == s_decimal_0:
+                current_target_base_ratio = Decimal(2) - current_target_quote_ratio
             else:
-                current_target_quote_ratio = 2 - current_target_base_ratio
+                current_target_quote_ratio = Decimal(2) - current_target_base_ratio
 
         for i in range(self.number_of_orders):
             current_bid_order_size = (self.order_start_size + self.order_step_size * i) * current_target_quote_ratio
@@ -151,10 +153,10 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
                     pricing_proposal.buy_order_prices[i]
                 )
                 # For other exchanges, fees is calculated in quote tokens, so need to ensure you have enough for order + fees
-                quote_asset_order_size = quantized_bid_order_size * pricing_proposal.buy_order_prices[i] * (1 + buy_fees.percent)
+                quote_asset_order_size = quantized_bid_order_size * pricing_proposal.buy_order_prices[i] * (Decimal(1) + buy_fees.percent)
                 if quote_asset_balance < current_quote_asset_order_size_total + quote_asset_order_size:
                     quote_asset_order_size = quote_asset_balance - current_quote_asset_order_size_total
-                    bid_order_size = quote_asset_order_size / pricing_proposal.buy_order_prices[i] * (1 - buy_fees.percent)
+                    bid_order_size = quote_asset_order_size / pricing_proposal.buy_order_prices[i] * (Decimal(1) - buy_fees.percent)
                     quantized_bid_order_size = market.c_quantize_order_amount(
                         market_info.trading_pair,
                         bid_order_size,

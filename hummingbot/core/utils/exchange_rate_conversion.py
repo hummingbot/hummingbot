@@ -118,14 +118,14 @@ class ExchangeRateConversion:
             cls.logger().error("Error initiating config for exchange rate conversion.", exc_info=True)
 
     @property
-    def all_exchange_rate(self) -> Dict[str, Dict[str, Decimal]]:
+    def all_exchange_rate(self) -> Dict[str, Dict[str, float]]:
         return self._all_data_feed_exchange_rate.copy()
 
     @property
-    def exchange_rate(self) -> Dict[str, Decimal]:
+    def exchange_rate(self) -> Dict[str, float]:
         return self._exchange_rate.copy()
 
-    def get_exchange_rate(self, source: str = None):
+    def get_exchange_rate(self, source: str = None) -> Dict[str, float]:
         if source == "default":
             if self._default_data_feed not in self.all_exchange_rate:
                 self.logger().error(f"{self._default_data_feed} is not in one of the data feeds: "
@@ -169,10 +169,18 @@ class ExchangeRateConversion:
         else:
             return Decimal(price)
 
-    def convert_token_value_decimal(self, amount: Decimal, from_currency: str, to_currency: str, source: str = None):
+    def convert_token_value_decimal(self,
+                                    amount: Decimal,
+                                    from_currency: str,
+                                    to_currency: str,
+                                    source: str = None) -> Decimal:
         return Decimal(repr(self.convert_token_value(float(amount), from_currency, to_currency, source)))
 
-    def convert_token_value(self, amount: float, from_currency: str, to_currency: str, source: str = None):
+    def convert_token_value(self,
+                            amount: float,
+                            from_currency: str,
+                            to_currency: str,
+                            source: str = None) -> float:
         """
         Converts a token amount to the amount of another token with equivalent worth
         :param source:

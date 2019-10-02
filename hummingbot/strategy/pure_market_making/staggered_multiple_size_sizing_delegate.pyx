@@ -55,8 +55,8 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
             MarketBase market = market_info.market
             object base_asset_balance = market.c_get_available_balance(market_info.base_asset)
             object quote_asset_balance = market.c_get_available_balance(market_info.quote_asset)
-            object required_quote_asset_balance = 0
-            object required_base_asset_balance = 0
+            object required_quote_asset_balance = s_decimal_0
+            object required_base_asset_balance = s_decimal_0
             list buy_orders = []
             list sell_orders = []
             bint has_active_bid = False
@@ -90,7 +90,7 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
             else:
                 buy_order_size = market.c_quantize_order_amount(market_info.trading_pair, current_order_size)
                 # For other exchanges, fees is calculated in quote tokens, so need to ensure you have enough for order + fees
-                required_quote_asset_balance += (buy_order_size * pricing_proposal.buy_order_prices[idx] * (1 + buy_fees.percent))
+                required_quote_asset_balance += (buy_order_size * pricing_proposal.buy_order_prices[idx] * (Decimal(1) + buy_fees.percent))
 
             sell_order_size = market.c_quantize_order_amount(market_info.trading_pair, current_order_size, pricing_proposal.sell_order_prices[idx])
             required_base_asset_balance += sell_order_size

@@ -518,7 +518,7 @@ cdef class DDEXMarket(MarketBase):
                           object amount,
                           object price):
         cdef:
-            object gas_fee = Decimal(0.0)
+            object gas_fee = Decimal(0)
             object percent
 
         # DDEX only quotes with WETH or stable coins

@@ -1,4 +1,3 @@
-from decimal import Decimal
 from typing import (
     List,
     Tuple,
@@ -44,27 +43,27 @@ def start(self):
         filter_delegate = PassThroughFilterDelegate()
 
         if mode == "multiple":
-            pricing_delegate = ConstantMultipleSpreadPricingDelegate(Decimal(bid_place_threshold),
-                                                                     Decimal(ask_place_threshold),
-                                                                     Decimal(order_interval_percent),
+            pricing_delegate = ConstantMultipleSpreadPricingDelegate(bid_place_threshold,
+                                                                     ask_place_threshold,
+                                                                     order_interval_percent,
                                                                      number_of_orders)
             if inventory_skew_enabled:
-                sizing_delegate = InventorySkewMultipleSizeSizingDelegate(Decimal(order_start_size),
-                                                                          Decimal(order_step_size),
-                                                                          Decimal(number_of_orders),
-                                                                          Decimal(inventory_target_base_percent))
+                sizing_delegate = InventorySkewMultipleSizeSizingDelegate(order_start_size,
+                                                                          order_step_size,
+                                                                          number_of_orders,
+                                                                          inventory_target_base_percent)
             else:
-                sizing_delegate = StaggeredMultipleSizeSizingDelegate(Decimal(order_start_size),
-                                                                      Decimal(order_step_size),
+                sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size,
+                                                                      order_step_size,
                                                                       number_of_orders)
         else:  # mode == "single"
-            pricing_delegate = ConstantSpreadPricingDelegate(Decimal(bid_place_threshold),
-                                                             Decimal(ask_place_threshold))
+            pricing_delegate = ConstantSpreadPricingDelegate(bid_place_threshold,
+                                                             ask_place_threshold)
             if inventory_skew_enabled:
-                sizing_delegate = InventorySkewSingleSizeSizingDelegate(Decimal(order_size),
-                                                                        Decimal(inventory_target_base_percent))
+                sizing_delegate = InventorySkewSingleSizeSizingDelegate(order_size,
+                                                                        inventory_target_base_percent)
             else:
-                sizing_delegate = ConstantSizeSizingDelegate(Decimal(order_size))
+                sizing_delegate = ConstantSizeSizingDelegate(order_size)
 
         try:
             maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_symbol])[0]
@@ -91,7 +90,7 @@ def start(self):
                                                    enable_order_filled_stop_cancellation=enable_order_filled_stop_cancellation,
                                                    cancel_order_wait_time=cancel_order_wait_time,
                                                    jump_orders_enabled=jump_orders_enabled,
-                                                   jump_orders_depth=Decimal(jump_orders_depth),
+                                                   jump_orders_depth=jump_orders_depth,
                                                    logging_options=strategy_logging_options)
     except Exception as e:
         self._notify(str(e))

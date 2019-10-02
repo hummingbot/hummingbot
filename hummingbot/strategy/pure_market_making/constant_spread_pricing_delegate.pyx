@@ -31,8 +31,8 @@ cdef class ConstantSpreadPricingDelegate(OrderPricingDelegate):
             object top_ask_price = market_info.get_price(True)
             str market_name = maker_market.name
             object mid_price = (top_bid_price + top_ask_price) * Decimal("0.5")
-            object bid_price = mid_price * (1 - self._bid_spread)
-            object ask_price = mid_price * (1 + self._ask_spread)
+            object bid_price = mid_price * (Decimal(1) - self._bid_spread)
+            object ask_price = mid_price * (Decimal(1) + self._ask_spread)
 
         return PricingProposal([maker_market.c_quantize_order_price(market_info.trading_pair, bid_price)],
                                [maker_market.c_quantize_order_price(market_info.trading_pair, ask_price)])
