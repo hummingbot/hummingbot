@@ -219,6 +219,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
     def test_market_sell(self):
         symbol = "LTC-ETH"
+        self.assertGreater(self.market.get_balance("LTC"), 0.01)
         amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
