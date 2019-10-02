@@ -23,7 +23,7 @@ s_decimal_zero = Decimal(0)
 ds_logger = None
 
 
-cdef class Execution1Strategy(StrategyBase):
+cdef class HelloWorldStrategy(StrategyBase):
     OPTION_LOG_NULL_ORDER_SIZE = 1 << 0
     OPTION_LOG_REMOVING_ORDER = 1 << 1
     OPTION_LOG_ADJUST_ORDER = 1 << 2
