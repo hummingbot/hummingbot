@@ -45,7 +45,10 @@ STRATEGIES = {
     "arbitrage",
     "discovery",
     "pure_market_making",
-    "simple_trade"
+    "simple_trade",
+    "execution1",
+    "execution2",
+    "perform_trade"
 }
 
 EXAMPLE_PAIRS = {
@@ -56,6 +59,16 @@ EXAMPLE_PAIRS = {
     "bamboo_relay": "ZRX-WETH",
     "coinbase_pro": "ETH-USDC",
     "huobi": "ethusdt"
+}
+
+EXAMPLE_ASSETS = {
+    "binance": "ZRX",
+    "ddex": "ZRX",
+    "idex": "ETH=",
+    "radar_relay": "ZRX",
+    "bamboo_relay": "ZRX",
+    "coinbase_pro": "ETH",
+    "huobi": "eth"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
