@@ -92,8 +92,11 @@ cdef class IDEXMarket(MarketBase):
     ORDER_EXPIRY_TIME = 15 * 60.0
     CANCEL_EXPIRY_TIME = 60.0
     MINIMUM_LIMIT_ORDER_LIFESPAN = 15
+
     MINIMUM_MAKER_ORDER_SIZE_ETH = Decimal("0.15")
     MINIMUM_TAKER_ORDER_SIZE_ETH = Decimal("0.05")
+    # MINIMUM_TAKER_ORDER_SIZE_ETH is currently not used;
+    # Hummingbot's architecture makes it difficult to implement different maker/taker min sizes
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -123,7 +126,6 @@ cdef class IDEXMarket(MarketBase):
         self._last_update_balances_timestamp = 0
         self._last_update_order_timestamp = 0
         self._last_update_asset_info_timestamp = 0
-        self._last_update_next_nonce_timestamp = 0
         self._last_update_contract_address_timestamp = 0
         self._poll_interval = poll_interval
         self._in_flight_orders = {}
@@ -138,9 +140,9 @@ cdef class IDEXMarket(MarketBase):
         self._shared_client = None
         self._api_response_records = TTLCache(60000, ttl=600.0)
         self._assets_info = {}
-        self._next_nonce = None
         self._contract_address = None
-        self._async_scheduler = AsyncCallScheduler(call_interval=0.0)
+        self._async_scheduler = AsyncCallScheduler(call_interval=1.0)
+        self._last_nonce = 0
 
     @staticmethod
     def split_symbol(symbol: str) -> Tuple[str, str]:
@@ -156,7 +158,6 @@ cdef class IDEXMarket(MarketBase):
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "order_books_initialized": self._order_book_tracker.ready,
             "asset_info": len(self._assets_info) > 0,
-            "next_nonce": self._next_nonce is not None,
             "contract_address": self._contract_address is not None
         }
 
@@ -215,6 +216,16 @@ cdef class IDEXMarket(MarketBase):
             for key, value in self._in_flight_orders.items()
         }
 
+    @property
+    def nonce(self) -> int:
+        next_nonce = int(time.time() * 1e3)
+
+        if self._last_nonce >= next_nonce:
+            next_nonce = self._last_nonce + 1
+
+        self._last_nonce = next_nonce
+        return next_nonce
+
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self._in_flight_orders.update({
             key: IDEXInFlightOrder.from_json(value)
@@ -233,7 +244,6 @@ cdef class IDEXMarket(MarketBase):
                     self._update_balances(),
                     self._update_order_status(),
                     self._update_asset_info(),
-                    self._update_next_nonce(),
                     self._update_contract_address()
                 )
             except asyncio.CancelledError:
@@ -279,18 +289,6 @@ cdef class IDEXMarket(MarketBase):
             currencies = await self.get_currencies()
             self._assets_info = currencies
             self._last_update_asset_info_timestamp = current_timestamp
-
-    async def _update_next_nonce(self):
-        """
-        next nonce is the lowest nonce that you can use for creating/cancelling/filling orders
-        """
-        cdef:
-            double current_timestamp = self._current_timestamp
-
-        if current_timestamp - self._last_update_next_nonce_timestamp > self.UPDATE_HOURLY_INTERVAL or self._next_nonce is None:
-            next_nonce = await self.get_next_nonce()
-            self._next_nonce = next_nonce
-            self._last_update_next_nonce_timestamp = current_timestamp
 
     async def _update_contract_address(self):
         """
@@ -488,8 +486,7 @@ cdef class IDEXMarket(MarketBase):
         quote_asset_info = self._assets_info[quote_asset]
         amount_base_with_decimals = int(amount_base * Decimal(f"1e{base_asset_info['decimals']}"))
         amount_quote_with_decimals = int(amount_quote * Decimal(f"1e{quote_asset_info['decimals']}"))
-        nonce = self._next_nonce  # use this nonce value for this order
-        self._next_nonce += 1  # increment nonce for future orders
+        nonce = self.nonce
 
         if (quote_asset == "ETH" and amount_quote < self.MINIMUM_MAKER_ORDER_SIZE_ETH) or \
                 (base_asset == "ETH" and amount_base < self.MINIMUM_MAKER_ORDER_SIZE_ETH):
@@ -532,9 +529,7 @@ cdef class IDEXMarket(MarketBase):
         }
 
     def _generate_cancel_order(self, order_hash: str) -> Dict[str, Any]:
-        nonce = self._next_nonce  # use this nonce value for this order
-        self._next_nonce += 1  # increment nonce for future orders
-
+        nonce = self.nonce
         hash_data = [
             ["orderHash", order_hash, "address"],
             ["nonce", nonce, "uint256"]
@@ -558,6 +553,7 @@ cdef class IDEXMarket(MarketBase):
         base_asset_decimals = self._assets_info[base_asset]["decimals"]
         desired_amount_base = Decimal(amount) * Decimal(f"1e{base_asset_decimals}")
         total_amount_quote = s_decimal_0
+        nonce = self.nonce
 
         for o in limit_orders_to_fill:
             o_available_amount_base_sell = Decimal(o["amountSell"])
@@ -574,21 +570,21 @@ cdef class IDEXMarket(MarketBase):
                 ["orderHash", o["orderHash"], "address"],
                 ["amount", int(amount_quote), "uint256"],
                 ["address", self._wallet.address, "address"],
-                ["nonce", self._next_nonce, "uint256"]
+                ["nonce", nonce, "uint256"]
             ]
             vrs = generate_vrs(hash_data, self.wallet.private_key)
             market_orders.append({
                 "amount": str(int(amount_quote)),  # amount is required to be a string (IDEX API bug)
                 "orderHash": o["orderHash"],
                 "address": self._wallet.address,
-                "nonce": self._next_nonce,
+                "nonce": nonce,
                 "v": vrs["v"],
                 "r": vrs["r"],
                 "s": vrs["s"]
             })
-            self._next_nonce += 1
-        if quote_asset == "ETH" and total_amount_quote < self.MINIMUM_TAKER_ORDER_SIZE_ETH:
-            raise ValueError(f"Buy market order amount {amount} is lower than the minimum order size value ({self.MINIMUM_TAKER_ORDER_SIZE_ETH} ETH)")
+
+        if quote_asset == "ETH" and total_amount_quote < self.MINIMUM_MAKER_ORDER_SIZE_ETH:
+            raise ValueError(f"Buy market order amount {amount} is lower than the minimum order size value ({self.MINIMUM_MAKER_ORDER_SIZE_ETH} ETH)")
 
         return market_orders
 
@@ -600,8 +596,9 @@ cdef class IDEXMarket(MarketBase):
         base_asset, quote_asset = self.split_symbol(symbol)
         base_asset_decimals = self._assets_info[base_asset]["decimals"]
         quote_asset_decimals = self._assets_info[quote_asset]["decimals"]
-        desired_amount_base = Decimal(amount) * Decimal(f"1e{base_asset_decimals}")
+        desired_amount_base = amount * Decimal(f"1e{base_asset_decimals}")
         total_amount_quote = s_decimal_0
+        nonce = self.nonce
 
         for o in limit_orders_to_fill:
             o_amount_buy = Decimal(o["amountBuy"])
@@ -618,21 +615,21 @@ cdef class IDEXMarket(MarketBase):
                 ["orderHash", o["orderHash"], "address"],
                 ["amount", int(amount_base), "uint256"],
                 ["address", self._wallet.address, "address"],
-                ["nonce", self._next_nonce, "uint256"]
+                ["nonce", nonce, "uint256"]
             ]
             vrs = generate_vrs(hash_data, self.wallet.private_key)
             market_orders.append({
                 "amount": str(int(amount_base)),  # amount is required to be a string; IDEX API bug
                 "orderHash": o["orderHash"],
                 "address": self._wallet.address,
-                "nonce": self._next_nonce,
+                "nonce": nonce,
                 "v": vrs["v"],
                 "r": vrs["r"],
                 "s": vrs["s"]
             })
-            self._next_nonce += 1
-        if quote_asset == "ETH" and total_amount_quote / Decimal(f"1e{quote_asset_decimals}") < self.MINIMUM_TAKER_ORDER_SIZE_ETH:
-            raise ValueError(f"Sell market order amount {amount} is lower than the minimum order size value ({self.MINIMUM_TAKER_ORDER_SIZE_ETH} ETH)")
+
+        if quote_asset == "ETH" and total_amount_quote / Decimal(f"1e{quote_asset_decimals}") < self.MINIMUM_MAKER_ORDER_SIZE_ETH:
+            raise ValueError(f"Sell market order amount {amount} is lower than the minimum order size value ({self.MINIMUM_MAKER_ORDER_SIZE_ETH} ETH)")
 
         return market_orders
 
@@ -697,11 +694,6 @@ cdef class IDEXMarket(MarketBase):
             available_balances[asset] = Decimal(value["available"])
             total_balances[asset] = Decimal(value["available"]) + Decimal(value["onOrders"])
         return available_balances, total_balances
-
-    async def get_next_nonce(self) -> str:
-        url = f"{self.IDEX_REST_ENDPOINT}/returnNextNonce"
-        response_data = await self._api_request("get", url=url, params={"address": self._wallet.address})
-        return response_data["nonce"]
 
     cdef str c_buy(self,
                    str symbol,
