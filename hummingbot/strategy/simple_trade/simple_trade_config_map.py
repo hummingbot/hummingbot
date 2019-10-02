@@ -47,7 +47,7 @@ simple_trade_config_map = {
                   prompt="What is your preferred quantity per order (denominated in the base asset, default is 1)? "
                          ">>> ",
                   default=1.0,
-                  type_str="float"),
+                  type_str="decimal"),
     "is_buy":
         ConfigVar(key="is_buy",
                   prompt="Enter True for Buy order and False for Sell order (default is Buy Order) >>> ",
@@ -63,7 +63,7 @@ simple_trade_config_map = {
         ConfigVar(key="order_price",
                   prompt="What is the price of the limit order ? >>> ",
                   required_if=lambda: simple_trade_config_map.get("order_type").value == "limit",
-                  type_str="float"),
+                  type_str="decimal"),
     "cancel_order_wait_time":
         ConfigVar(key="cancel_order_wait_time",
                   prompt="How long do you want to wait before cancelling your limit order (in seconds). "

@@ -1,4 +1,3 @@
-from decimal import Decimal
 from typing import (
     List,
     Tuple,
@@ -35,5 +34,5 @@ def start(self):
     self.market_trading_pair_tuples = [MarketTradingPairTuple(*primary_data), MarketTradingPairTuple(*secondary_data)]
     self.market_pair = ArbitrageMarketPair(*self.market_trading_pair_tuples)
     self.strategy = ArbitrageStrategy(market_pairs=[self.market_pair],
-                                      min_profitability=Decimal(repr(min_profitability)),
+                                      min_profitability=min_profitability,
                                       logging_options=ArbitrageStrategy.OPTION_LOG_ALL)

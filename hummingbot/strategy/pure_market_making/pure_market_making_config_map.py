@@ -39,13 +39,13 @@ pure_market_making_config_map = {
     "bid_place_threshold": ConfigVar(key="bid_place_threshold",
                                      prompt="How far away from the mid price do you want to place the "
                                             "first bid order (Enter 0.01 to indicate 1%)? >>> ",
-                                     type_str="float",
+                                     type_str="decimal",
                                      validator=is_valid_percent,
                                      default=0.01),
     "ask_place_threshold": ConfigVar(key="ask_place_threshold",
                                      prompt="How far away from the mid price do you want to place the "
                                             "first ask order (Enter 0.01 to indicate 1%)? >>> ",
-                                     type_str="float",
+                                     type_str="decimal",
                                      validator=is_valid_percent,
                                      default=0.01),
     "cancel_order_wait_time": ConfigVar(key="cancel_order_wait_time",
@@ -58,7 +58,7 @@ pure_market_making_config_map = {
                                      "the base asset, default is 1) ? >>> ",
                               default=1.0,
                               required_if=lambda: pure_market_making_config_map.get("mode").value == "single",
-                              type_str="float"),
+                              type_str="decimal"),
     "number_of_orders": ConfigVar(key="number_of_orders",
                                   prompt="How many orders do you want to place on both sides,"
                                          " (default is 1) ? >>> ",
@@ -69,19 +69,19 @@ pure_market_making_config_map = {
                                   prompt="What is the size of the first bid and ask order"
                                   " (default is 1) ? >>> ",
                                   required_if=lambda: pure_market_making_config_map.get("mode").value == "multiple",
-                                  type_str="float",
+                                  type_str="decimal",
                                   default=1),
     "order_step_size": ConfigVar(key="order_step_size",
                                  prompt="How much do you want to increase the order size for each "
                                         "additional order (default is 0) ? >>> ",
                                  required_if=lambda: pure_market_making_config_map.get("mode").value == "multiple",
-                                 type_str="float",
+                                 type_str="decimal",
                                  default=0),
     "order_interval_percent": ConfigVar(key="order_interval_percent",
                                         prompt="Enter the price increments (as percentage) for subsequent "
                                                "orders (Enter 0.01 to indicate 1%)? >>> ",
                                         required_if=lambda: pure_market_making_config_map.get("mode").value == "multiple",
-                                        type_str="float",
+                                        type_str="decimal",
                                         validator=is_valid_percent,
                                         default=0.01),
     "inventory_skew_enabled": ConfigVar(key="inventory_skew_enabled",
@@ -92,7 +92,7 @@ pure_market_making_config_map = {
                                                prompt="What is your target base asset inventory percentage "
                                                       "(Enter 0.01 to indicate 1%). (Default is 0.5 (50%)) ? >>> ",
                                                required_if=lambda: pure_market_making_config_map.get("inventory_skew_enabled").value,
-                                               type_str="float",
+                                               type_str="decimal",
                                                validator=is_valid_percent,
                                                default=0.5),
     "filled_order_replenish_wait_time": ConfigVar(key="filled_order_replenish_wait_time",
@@ -119,6 +119,6 @@ pure_market_making_config_map = {
                                           "the top bid and ask, ignoring dust orders on the top."
                                           "(expressed in base currency). (Default is 0) ? >>> ",
                                    required_if=lambda: pure_market_making_config_map.get("jump_orders_enabled").value,
-                                   type_str="float",
+                                   type_str="decimal",
                                    default=0)
 }

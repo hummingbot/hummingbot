@@ -1160,7 +1160,7 @@ cdef class BinanceMarket(MarketBase):
             TradingRule trading_rule = self._trading_rules[symbol]
         return Decimal(trading_rule.min_base_amount_increment)
 
-    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=Decimal(0.0)):
+    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=s_decimal_0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
             object current_price = self.c_get_price(symbol, False)

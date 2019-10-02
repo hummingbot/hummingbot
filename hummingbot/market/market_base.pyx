@@ -4,7 +4,7 @@ from typing import (
     Dict,
     List,
     Tuple,
-    Iterable, Iterator)
+    Iterator)
 
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book_query_result import (
@@ -301,9 +301,6 @@ cdef class MarketBase(NetworkIterator):
 
     def cancel(self, symbol: str, client_order_id: str):
         return self.c_cancel(symbol, client_order_id)
-
-    def get_balance(self, currency: str) -> Decimal:
-        return self.c_get_balance(currency)
 
     def get_available_balance(self, currency: str) -> Decimal:
         return self.c_get_available_balance(currency)

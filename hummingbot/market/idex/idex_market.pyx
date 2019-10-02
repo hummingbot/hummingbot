@@ -249,10 +249,8 @@ cdef class IDEXMarket(MarketBase):
     async def _update_balances(self):
         cdef:
             double current_timestamp = self._current_timestamp
-        self.logger().error(f"0update_balance {current_timestamp - self._last_update_balances_timestamp} {self.UPDATE_BALANCES_INTERVAL}")
         if current_timestamp - self._last_update_balances_timestamp > self.UPDATE_BALANCES_INTERVAL or len(self._account_balances) > 0:
             available_balances, total_balances = await self.get_idex_balances()
-            self.logger().error(f"update_balance {available_balances} {total_balances}")
             self._account_available_balances = available_balances
             self._account_balances = total_balances
             self._last_update_balances_timestamp = current_timestamp
@@ -341,7 +339,7 @@ cdef class IDEXMarket(MarketBase):
             tracked_limit_order.executed_amount_quote = Decimal(order_update["total"])
             if order_executed_amount > s_decimal_0:
                 self.logger().info(f"Filled {order_executed_amount} out of {tracked_limit_order.amount} of the "
-                                   f"imit order {tracked_limit_order.client_order_id}.")
+                                   f"limit order {tracked_limit_order.client_order_id}.")
                 self.c_trigger_event(
                     self.MARKET_ORDER_FILLED_EVENT_TAG,
                     OrderFilledEvent(

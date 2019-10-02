@@ -1,4 +1,3 @@
-from decimal import Decimal
 from typing import (
     List,
     Tuple
@@ -64,17 +63,17 @@ def start(self):
     )
     self.strategy = CrossExchangeMarketMakingStrategy(
         market_pairs=[self.market_pair],
-        min_profitability=Decimal(repr(min_profitability)),
+        min_profitability=min_profitability,
         status_report_interval=strategy_report_interval,
         logging_options=strategy_logging_options,
-        order_amount=Decimal(repr(order_amount)),
+        order_amount=order_amount,
         limit_order_min_expiration=limit_order_min_expiration,
-        cancel_order_threshold=Decimal(repr(cancel_order_threshold)),
+        cancel_order_threshold=cancel_order_threshold,
         active_order_canceling=active_order_canceling,
         adjust_order_enabled=adjust_order_enabled,
-        top_depth_tolerance=Decimal(repr(top_depth_tolerance)),
-        order_size_taker_volume_factor=Decimal(repr(order_size_taker_volume_factor)),
-        order_size_taker_balance_factor=Decimal(repr(order_size_taker_balance_factor)),
-        order_size_portfolio_ratio_limit=Decimal(repr(order_size_portfolio_ratio_limit)),
+        top_depth_tolerance=top_depth_tolerance,
+        order_size_taker_volume_factor=order_size_taker_volume_factor,
+        order_size_taker_balance_factor=order_size_taker_balance_factor,
+        order_size_portfolio_ratio_limit=order_size_portfolio_ratio_limit,
         anti_hysteresis_duration=anti_hysteresis_duration
     )
