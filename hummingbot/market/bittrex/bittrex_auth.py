@@ -1,6 +1,7 @@
 import time
 import hmac
 import hashlib
+import urllib
 from typing import Dict, Any
 
 import ujson
@@ -32,7 +33,7 @@ class BittrexAuth:
         # Appends params the url
         def append_params_to_url(url: str, params: Dict[str, any] = {}) -> str:
             if params:
-                param_str = "&".join([f"{param}={value}" for (param, value) in params.items()])
+                param_str = urllib.parse.urlencode(params)
                 return f"{url}?{param_str}"
             return url
 
