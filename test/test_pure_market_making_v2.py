@@ -430,6 +430,55 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.assertEqual(0, len(self.strategy.active_bids))
         self.assertEqual(0, len(self.strategy.active_asks))
 
+    def test_strategy_with_transaction_costs(self):
+        self.clock.remove_iterator(self.strategy)
+        logging_options: int = (PureMarketMakingStrategyV2.OPTION_LOG_ALL &
+                                (~PureMarketMakingStrategyV2.OPTION_LOG_NULL_ORDER_SIZE))
+        self.strategy_with_tx_costs: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+            [self.market_info],
+            filled_order_replenish_wait_time=self.cancel_order_wait_time,
+            add_transaction_costs_to_orders=True,
+            filter_delegate=self.filter_delegate,
+            sizing_delegate=self.constant_sizing_delegate,
+            pricing_delegate=self.constant_pricing_delegate,
+            cancel_order_wait_time=45,
+            logging_options=logging_options
+        )
+        self.clock.add_iterator(self.strategy_with_tx_costs)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(self.strategy_with_tx_costs.active_bids))
+        self.assertEqual(1, len(self.strategy_with_tx_costs.active_asks))
+
+        # Fees are zero here, check whether order placements are working
+        bid_order: LimitOrder = self.strategy_with_tx_costs.active_bids[0][1]
+        ask_order: LimitOrder = self.strategy_with_tx_costs.active_asks[0][1]
+        self.assertEqual(Decimal("99"), bid_order.price)
+        self.assertEqual(Decimal("101"), ask_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+
+        # Check if orders are placed after cancel_order_wait_time
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        self.assertEqual(2, len(self.cancel_order_logger.event_log))
+        bid_order: LimitOrder = self.strategy_with_tx_costs.active_bids[0][1]
+        ask_order: LimitOrder = self.strategy_with_tx_costs.active_asks[0][1]
+        self.assertEqual(Decimal("99"), bid_order.price)
+        self.assertEqual(Decimal("101"), ask_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+
+        # Check if order fills are working
+        self.simulate_limit_order_fill(self.maker_market, bid_order)
+        self.simulate_limit_order_fill(self.maker_market, ask_order)
+
+        fill_events = self.maker_order_fill_logger.event_log
+        self.assertEqual(2, len(fill_events))
+        bid_fills: List[OrderFilledEvent] = [evt for evt in fill_events if evt.trade_type is TradeType.SELL]
+        ask_fills: List[OrderFilledEvent] = [evt for evt in fill_events if evt.trade_type is TradeType.BUY]
+        self.assertEqual(1, len(bid_fills))
+        self.assertEqual(1, len(ask_fills))
+        self.maker_order_fill_logger.clear()
+
     def test_multiple_orders_equal_sizes(self):
         self.clock.remove_iterator(self.strategy)
         self.clock.add_iterator(self.multi_order_equal_strategy)
