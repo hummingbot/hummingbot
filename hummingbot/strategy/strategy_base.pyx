@@ -176,8 +176,15 @@ cdef class StrategyBase(TimeIterator):
                     ask_price = order_book.get_price(True)
                 except EnvironmentError:
                     ask_price = NaN
-                bid_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, bid_price)
-                ask_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, ask_price)
+
+                if bid_price is NaN:
+                    bid_price_adjusted = NaN
+                else:
+                    bid_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, bid_price)
+                if ask_price is NaN:
+                    ask_price_adjusted = NaN
+                else:
+                    ask_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, ask_price)
                 markets_data.append([
                     market.display_name,
                     trading_pair,
