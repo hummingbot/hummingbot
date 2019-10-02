@@ -134,7 +134,7 @@ class HuobiOrderBookTracker(OrderBookTracker):
             try:
                 message: OrderBookMessage = await message_queue.get()
                 if message.type is OrderBookMessageType.DIFF:
-                    # Huobi websocket messages return the entire order book state so they should be treated as snapshots
+                    # Huobi websocket messages contain the entire order book state so they should be treated as snapshots
                     order_book.apply_snapshot(message.bids, message.asks, message.update_id)
                     diff_messages_accepted += 1
 
