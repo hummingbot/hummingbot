@@ -291,6 +291,26 @@ cdef class StrategyBase(TimeIterator):
             typed_market.c_remove_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
             self._sb_markets.remove(typed_market)
 
+    cdef object c_sum_flat_fees(self, str quote_asset, list flat_fees):
+
+        """
+        Converts flat fees to quote token and sums up all flat fees
+        """
+        cdef:
+            object total_flat_fees = s_decimal_0
+
+        for flat_fee_currency, flat_fee_amount in flat_fees:
+            if flat_fee_currency == quote_asset:
+                total_flat_fees += flat_fee_amount
+            else:
+                # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
+                total_flat_fees += ExchangeRateConversion.get_instance().convert_token_value_decimal(
+                    amount=flat_fee_amount,
+                    from_currency=flat_fee_currency,
+                    to_currency=quote_asset
+                )
+        return total_flat_fees
+
     # <editor-fold desc="+ Event handling functions">
     # ----------------------------------------------------------------------------------------------------------
     cdef c_did_create_buy_order(self, object order_created_event):

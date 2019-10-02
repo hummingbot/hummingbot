@@ -396,26 +396,6 @@ cdef class ArbitrageStrategy(StrategyBase):
                                                   buy_market_symbol_pair,
                                                   sell_market_symbol_pair)
 
-    cdef object c_sum_flat_fees(self, str quote_asset, list flat_fees):
-
-        """
-        Converts flat fees to quote token and sums up all flat fees
-        """
-        cdef:
-            object total_flat_fees = s_decimal_0
-
-        for flat_fee_currency, flat_fee_amount in flat_fees:
-            if flat_fee_currency == quote_asset:
-                total_flat_fees += flat_fee_amount
-            else:
-                # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
-                total_flat_fees += ExchangeRateConversion.get_instance().convert_token_value_decimal(
-                    amount=flat_fee_amount,
-                    from_currency=flat_fee_currency,
-                    to_currency=quote_asset
-                )
-        return total_flat_fees
-
     cdef tuple c_find_best_profitable_amount(self, object buy_market_trading_pair_tuple, object sell_market_trading_pair_tuple):
         """
         Given a buy market and a sell market, calculate the optimal order size for the buy and sell orders on both
