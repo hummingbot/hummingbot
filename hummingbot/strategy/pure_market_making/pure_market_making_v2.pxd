@@ -16,6 +16,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         bint _all_markets_ready
         bint _enable_order_filled_stop_cancellation
         bint _jump_orders_enabled
+        bint _add_transaction_costs_to_orders
 
         double _cancel_order_wait_time
         double _status_report_interval
@@ -41,3 +42,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                     object market_info,
                                                     object pricing_proposal,
                                                     list active_orders)
+    cdef double c_sum_flat_fees(self,
+                                str quote_currency,
+                                list flat_fees)
+    cdef tuple c_check_and_add_transaction_costs_to_pricing_proposal(self,
+                                                                     object market_info,
+                                                                     object pricing_proposal,
+                                                                     object sizing_proposal)
