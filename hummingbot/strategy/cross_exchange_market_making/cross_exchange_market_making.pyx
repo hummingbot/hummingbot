@@ -928,25 +928,25 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             try:
                 top_bid_price = maker_order_book.c_get_price(False)
-            except OSError:
+            except EnvironmentError:
                 top_bid_price = NaN
 
             try:
                 top_ask_price = maker_order_book.c_get_price(True)
-            except OSError:
+            except EnvironmentError:
                 top_ask_price = NaN
 
         else:
             try:
                 # Use bid entries in maker order book
                 top_bid_price = maker_order_book.c_get_price_for_volume(False, self._top_depth_tolerance).result_price
-            except OSError:
+            except EnvironmentError:
                 top_bid_price = NaN
 
             try:
                 # Use ask entries in maker order book
                 top_ask_price = maker_order_book.c_get_price_for_volume(True, self._top_depth_tolerance).result_price
-            except OSError:
+            except EnvironmentError:
                 top_ask_price = NaN
 
         return top_bid_price, top_ask_price
