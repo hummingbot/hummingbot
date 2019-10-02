@@ -113,6 +113,7 @@ cdef class DDEXMarket(MarketBase):
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._last_update_order_timestamp = 0
+        self._last_update_trade_fills_timestamp = 0
         self._last_update_available_balance_timestamp = 0
         self._last_update_trading_rules_timestamp = 0
         self._last_update_trade_fees_timestamp = 0
@@ -289,16 +290,15 @@ cdef class DDEXMarket(MarketBase):
         cdef:
             double current_timestamp = self._current_timestamp
 
-        if not (current_timestamp - self._last_update_order_timestamp > 10.0 and len(self._in_flight_orders) > 0):
+        if not (current_timestamp - self._last_update_trade_fills_timestamp > 10.0 and len(self._in_flight_orders) > 0):
             return
 
         trading_pairs_to_order_map = defaultdict(lambda: {})
         for o in self._in_flight_orders.values():
             trading_pairs_to_order_map[o.symbol][o.exchange_order_id] = o
         trading_pairs = list(trading_pairs_to_order_map.keys())
-        tasks = [self.list_account_trades(symbol=trading_pair) for trading_pair in trading_pairs]
+        tasks = [self.list_account_trades(trading_pair) for trading_pair in trading_pairs]
         results = await safe_gather(*tasks, return_exceptions=True)
-
         for trades, trading_pair in zip(results, trading_pairs):
             order_map = trading_pairs_to_order_map[trading_pair]
             if isinstance(trades, Exception):
@@ -339,6 +339,7 @@ cdef class DDEXMarket(MarketBase):
                         self.logger().info(f"Filled {fill_size} out of {tracked_order.amount} of the "
                                            f"{order_type_description} order {client_order_id}.")
                         self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
+        self._last_update_trade_fills_timestamp = current_timestamp
 
     async def _update_order_status(self):
         cdef:
@@ -637,7 +638,7 @@ cdef class DDEXMarket(MarketBase):
                     decimals = await self.wallet.erc20_tokens[symbol].get_decimals()
                     locked_balance_dict[symbol] = Decimal(locked_balance["amount"]) / Decimal(f"1e{decimals}")
                 except Exception as e:
-                    self.logger().error(f"Error getting decimals value for ERC20 token '{symbol}'.")
+                    self.logger().error(f"Error getting decimals value for ERC20 token '{symbol}'.", exc_info=True)
         return locked_balance_dict
 
     async def get_market(self, symbol: str) -> Dict[str, Any]:
