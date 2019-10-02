@@ -1,7 +1,9 @@
 #!/usr/bin/env python
-from os.path import join, realpath
+from os.path import (
+    join,
+    realpath
+)
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
-
 import asyncio
 import conf
 import contextlib
@@ -150,7 +152,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
         self.assertGreaterEqual((balances["ETH"]), 0)
 
     def test_quantize_order_amount(self):
-        amount = self.market.quantize_order_amount("ETH_QNT", Decimal(100))
+        amount = self.market.quantize_order_amount("ETH_QNT", Decimal(0.01))
         self.assertEqual(amount, 0)
         amount = self.market.quantize_order_amount("ETH_QNT", Decimal(100000))
         self.assertEqual(amount, 100000)
@@ -173,7 +175,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
     def test_place_limit_sell_and_cancel(self):
         symbol = ETH_QNT
         sell_amount: Decimal = Decimal(5)
-        sell_price = Decimal(1)
+        sell_price = Decimal(100000000)
         sell_order_id: str = self.market.sell(symbol, sell_amount, OrderType.LIMIT, sell_price)
         [sell_order_opened_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         self.assertEqual(sell_order_id, sell_order_opened_event.order_id)
@@ -187,7 +189,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
 
     def test_cancel_all_happy_case(self):
         symbol = ETH_QNT
-        buy_amount: Decimal = Decimal(16000000)
+        buy_amount: Decimal = Decimal(17000000)
         buy_price = Decimal("0.00000001")
         buy_order_id: str = self.market.buy(symbol, buy_amount, OrderType.LIMIT, buy_price)
         [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
@@ -197,7 +199,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
         self.assertEqual(OrderType.LIMIT, buy_order_opened_event.type)
         symbol = ETH_QNT
         sell_amount: Decimal = Decimal(5)
-        sell_price = Decimal(1)
+        sell_price = Decimal(110000000)
         sell_order_id: str = self.market.sell(symbol, sell_amount, OrderType.LIMIT, sell_price)
         [sell_order_opened_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         self.assertEqual(sell_order_id, sell_order_opened_event.order_id)
@@ -212,7 +214,8 @@ class IDEXMarketUnitTest(unittest.TestCase):
 
     def test_market_buy(self):
         symbol = ETH_QNT
-        buy_amount: Decimal = Decimal(5)
+        current_price: Decimal = Decimal(self.market.get_price(symbol, True))
+        buy_amount: Decimal = Decimal(0.16) / current_price
         buy_order_id: str = self.market.buy(symbol, buy_amount, OrderType.MARKET)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
@@ -220,7 +223,8 @@ class IDEXMarketUnitTest(unittest.TestCase):
 
     def test_market_sell(self):
         symbol = ETH_QNT
-        sell_amount: Decimal = Decimal(5)
+        current_price: Decimal = Decimal(self.market.get_price(symbol, False))
+        sell_amount: Decimal = Decimal(0.155) / current_price
         sell_order_id: str = self.market.sell(symbol, sell_amount, OrderType.MARKET)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
@@ -239,11 +243,10 @@ class IDEXMarketUnitTest(unittest.TestCase):
             self.assertEqual(0, len(self.market.tracking_states))
 
             # Try to put limit buy order for 0.05 ETH worth of QNT, and watch for order creation event.
-            current_bid_price: Decimal = self.market.get_price(symbol, True)
-            bid_price: Decimal = current_bid_price * Decimal("0.9")
+            bid_price = Decimal("0.00000002")
             quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
-            amount: Decimal = Decimal("0.18") / bid_price
+            amount: Decimal = Decimal("18000000")
             quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
             expires = int(time.time() + 60 * 5)
@@ -274,6 +277,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
             for event_tag in self.market_events:
                 self.market.remove_listener(event_tag, self.market_logger)
             self.market: IDEXMarket = IDEXMarket(
+                idex_api_key=conf.idex_api_key,
                 wallet=self.wallet,
                 ethereum_rpc_url=conf.test_web3_provider_list[0],
                 order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
@@ -318,9 +322,9 @@ class IDEXMarketUnitTest(unittest.TestCase):
         recorder.start()
 
         try:
-            # Try to buy 0.07 ETH worth of QNT from the exchange, and watch for completion event.
-            current_price: float = self.market.get_price(symbol, True)
-            amount: Decimal = (0.07 / current_price)
+            # Try to buy 0.16 ETH worth of QNT from the exchange, and watch for completion event.
+            current_price: Decimal = Decimal(self.market.get_price(symbol, True))
+            amount: Decimal = Decimal(0.16) / current_price
             order_id = self.market.buy(symbol, amount)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
@@ -328,7 +332,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
             self.market_logger.clear()
 
             # Try to sell back the same amount of QNT to the exchange, and watch for completion event.
-            amount = float(buy_order_completed_event.base_asset_amount)
+            amount = Decimal(buy_order_completed_event.base_asset_amount)
             order_id = self.market.sell(symbol, amount)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 

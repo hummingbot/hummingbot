@@ -605,9 +605,15 @@ cdef class DDEXMarket(MarketBase):
         response_data = await self._api_request('get', url=url, headers=self._generate_auth_headers())
         self.logger().debug(f"list locked balances: {response_data}")
         locked_balance_list = response_data["data"]["lockedBalances"]
-        locked_balance_dict = {
-            locked_balance["symbol"]: Decimal(locked_balance["amount"]) for locked_balance in locked_balance_list
-        }
+        locked_balance_dict = {}
+        for locked_balance in locked_balance_list:
+            symbol = locked_balance["symbol"]
+            if self.wallet.erc20_tokens.get(symbol):
+                try:
+                    decimals = await self.wallet.erc20_tokens[symbol].get_decimals()
+                    locked_balance_dict[symbol] = Decimal(locked_balance["amount"]) / Decimal(f"1e{decimals}")
+                except Exception as e:
+                    self.logger().error(f"Error getting decimals value for ERC20 token '{symbol}'.")
         return locked_balance_dict
 
     async def get_market(self, symbol: str) -> Dict[str, Any]:
