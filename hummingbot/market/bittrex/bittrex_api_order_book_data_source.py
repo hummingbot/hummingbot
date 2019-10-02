@@ -319,7 +319,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     # WebSocket API requires trading_pair to be in 'Quote-Base' format
                     trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
 
-                    self.logger().info(f"Subscribed to {trading_pair}")
+                    self.logger().info(f"Subscribed to {trading_pair} snapshots.")
                     hub.server.invoke("queryExchangeState", trading_pair)
 
                 connection.start()
