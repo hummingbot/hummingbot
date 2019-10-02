@@ -10,7 +10,7 @@ from hummingbot.client.settings import (
 
 
 def symbol_prompt():
-    market = execution2_config_map.get("market").value
+    market = dev_1_get_order_book_config_map.get("market").value
     example = EXAMPLE_PAIRS.get(market)
     return "Enter the token symbol to fetch its order book on %s%s >>> " \
            % (market, f" (e.g. {example})" if example else "")
@@ -22,11 +22,11 @@ def str2bool(value: str):
 
 # checks if the symbol pair is valid
 def is_valid_market_symbol_pair(value: str) -> bool:
-    market = execution2_config_map.get("market").value
+    market = dev_1_get_order_book_config_map.get("market").value
     return is_valid_market_symbol(market, value)
 
 
-execution2_config_map = {
+dev_1_get_order_book_config_map = {
     "market":
         ConfigVar(key="market",
                   prompt="Enter the name of the exchange >>> ",
