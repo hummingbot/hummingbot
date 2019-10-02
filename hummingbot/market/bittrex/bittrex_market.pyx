@@ -624,9 +624,9 @@ cdef class BittrexMarket(MarketBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().network("Unexpected error while fetching account updates.",
+                self.logger().network("Unexpected error while polling updates.",
                                       exc_info=True,
-                                      app_warning_msg=f"Could not fetch account updates from Bittrex. "
+                                      app_warning_msg=f"Could not fetch updates from Bittrex. "
                                                       f"Check API key and network connection.")
                 await asyncio.sleep(5.0)
 
@@ -638,9 +638,9 @@ cdef class BittrexMarket(MarketBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().network("Unexpected error while fetching account updates.",
+                self.logger().network("Unexpected error while fetching trading rule updates.",
                                       exc_info=True,
-                                      app_warning_msg=f"Could not fetch account updates from Bitrrex. "
+                                      app_warning_msg=f"Could not fetch updates from Bitrrex. "
                                                       f"Check API key and network connection.")
                 await asyncio.sleep(0.5)
 
