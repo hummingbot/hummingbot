@@ -61,7 +61,7 @@ class CoinGeckoDataFeed(DataFeedBase):
                 raise
             except Exception:
                 self.logger().network(f"Error getting data from {self.name}", exc_info=True,
-                                      app_warning_msg="Couldn't fetch newest prices from Coin Metrics. "
+                                      app_warning_msg="Couldn't fetch newest prices from Coin Gecko. "
                                                       "Check network connection.")
 
             await asyncio.sleep(self._update_interval)

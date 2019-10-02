@@ -186,15 +186,20 @@ cdef class DiscoveryStrategy(StrategyBase):
         for base_1, quote_1 in market_1_base_quote:
             # check for all equivalent base and quote token from market1 in market2
             for equivalent_base_1, equivalent_quote_1 in itertools.product(
-                    self._equivalent_token_dict.get(base_1.upper(), {base_1}),
-                    self._equivalent_token_dict.get(quote_1.upper(), {quote_1})):
-
-                if (equivalent_base_1.upper(), equivalent_quote_1.upper()) in set((b.upper(), q.upper())
-                                                                                  for b, q in market_2_base_quote):
+                self._equivalent_token_dict.get(base_1.upper(), {base_1}),
+                self._equivalent_token_dict.get(quote_1.upper(), {quote_1})
+            ):
+                if (equivalent_base_1.upper(), equivalent_quote_1.upper()) in market_2_base_quote:
                     matching_pair.add((
                         self._market_info[market_1]["base_quote_to_symbol"][(base_1, quote_1)],
-                        self._market_info[market_2]["base_quote_to_symbol"][(equivalent_base_1,
-                                                                             equivalent_quote_1)]
+                        self._market_info[market_2]["base_quote_to_symbol"][(equivalent_base_1.upper(),
+                                                                            equivalent_quote_1.upper())]
+                    ))
+                elif (equivalent_base_1.lower(), equivalent_quote_1.lower()) in market_2_base_quote:
+                    matching_pair.add((
+                        self._market_info[market_1]["base_quote_to_symbol"][(base_1, quote_1)],
+                        self._market_info[market_2]["base_quote_to_symbol"][(equivalent_base_1.lower(),
+                                                                            equivalent_quote_1.lower())]
                     ))
         return matching_pair
 
