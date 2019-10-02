@@ -1,33 +1,27 @@
 # distutils: language=c++
 from decimal import Decimal
+from libc.stdint cimport int64_t
 import logging
 from typing import (
     List,
     Tuple,
-    Optional,
     Dict
 )
 
 from hummingbot.core.clock cimport Clock
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.market.market_base import (
-    MarketBase
-)
-
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
-from hummingbot.strategy.strategy_base import StrategyBase
-
-from libc.stdint cimport int64_t
 from hummingbot.core.data_type.order_book cimport OrderBook
-from datetime import datetime
+from hummingbot.market.market_base import MarketBase
+from hummingbot.market.market_base cimport MarketBase
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.strategy_base import StrategyBase
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
 ds_logger = None
+
 
 cdef class Execution1Strategy(StrategyBase):
     OPTION_LOG_NULL_ORDER_SIZE = 1 << 0
@@ -48,7 +42,7 @@ cdef class Execution1Strategy(StrategyBase):
         return ds_logger
 
     def __init__(self,
-                 market_infos: List[MarketSymbolPair],
+                 market_infos: List[MarketTradingPairTuple],
                  asset_symbol: str,
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900):
@@ -89,7 +83,7 @@ cdef class Execution1Strategy(StrategyBase):
         return self._sb_order_tracker.in_flight_cancels
 
     @property
-    def market_info_to_active_orders(self) -> Dict[MarketSymbolPair, List[LimitOrder]]:
+    def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         return self._sb_order_tracker.market_pair_to_active_orders
 
     @property
@@ -122,7 +116,7 @@ cdef class Execution1Strategy(StrategyBase):
             warning_lines.extend(self.network_warning([market_info]))
 
             lines.extend(["", "  Assets:"] + ["    " + str(self._asset_symbol) + "    " +
-             str((market_info.market).get_balance(self._asset_symbol))])
+                         str((market_info.market).get_balance(self._asset_symbol))])
 
             warning_lines.extend(self.balance_warning([market_info]))
 
@@ -133,6 +127,3 @@ cdef class Execution1Strategy(StrategyBase):
 
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
-
-
-
