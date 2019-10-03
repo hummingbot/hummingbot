@@ -17,6 +17,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 |:---:|:---:|:---:|:---:|:---:|
 | [![binance](https://i.ibb.co/m0YDQLd/Screen-Shot-2019-03-14-at-10-53-42-AM.png)](https://www.binance.com/?ref=10205187) | binance | [Binance](https://www.binance.com/) | * | [API](https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-exchange_binance&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-exchange_binance/) |
 | [![COINBASE](https://i.ibb.co/h9JdGDW/cbp.jpg)](https://pro.coinbase.com/) | coinbase_pro | [Coinbase Pro](https://pro.coinbase.com/) | * | [API](https://docs.pro.coinbase.com/) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-exchange_coinbase&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-exchange_coinbase/) |
+|<img src="https://www.usenix.org/sites/default/files/sponsor_images/huobi_600x240.png" alt="Huobi Global" width="80" height="30" />| huobi | [Huobi Global](https://www.hbg.com) | 1 | [API](https://huobiapi.github.io/docs/spot/v1/en/) | [![Build Status](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb_test-exchange_huobi&subject=test)](https://jenkins-hb.coinalpha.com/job/hb_test-exchange_huobi/) |
 
 ## Supported decentralized exchanges
 
