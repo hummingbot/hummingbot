@@ -84,6 +84,9 @@ cdef class MarketBase(NetworkIterator):
     def tracking_states(self) -> Dict[str, any]:
         return {}
 
+    def get_mid_price(self, symbol: str) -> float:
+        return (self.get_price(symbol, True) + self.get_price(symbol, False)) / 2
+
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
         Restores the tracking states from a previously saved state.
