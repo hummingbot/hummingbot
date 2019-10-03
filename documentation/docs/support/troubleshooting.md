@@ -15,6 +15,24 @@ dial unix /var/run/docker.sock: connect: permission denied.
 
 Exit from your virtual machine and restart.
 
+#### Package 'docker.io' has no installation candidate
+
+![](/assets/img/package-docker-io.png)
+
+Install Docker using get.docker.com script as an alternative. Install `curl` tool then download and run get.docker.com script.
+
+```bash
+apt-get install curl
+curl -sSL https://get.docker.com/ | sh
+```
+
+Allow docker commands without requiring `sudo` prefix (optional).
+
+```bash
+sudo usermod -a -G docker $USER
+```
+
+Exit and restart terminal.
 
 ## Installed from source
 
@@ -79,7 +97,7 @@ docker-machine restart default
 eval $(docker-machine env default)
 ```
 
-## Errors while running Hummingbot
+## Running Hummingbot
 
 #### Binance errors in logs
 
