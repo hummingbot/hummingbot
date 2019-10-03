@@ -167,10 +167,24 @@ cdef class StrategyBase(TimeIterator):
             for market_trading_pair_tuple in market_trading_pair_tuples:
                 market, trading_pair, base_asset, quote_asset = market_trading_pair_tuple
                 order_book = market.get_order_book(trading_pair)
-                bid_price = order_book.get_price(False)
-                ask_price = order_book.get_price(True)
-                bid_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, bid_price)
-                ask_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, ask_price)
+                # If orderbook is empty set price to NaN for display purposes
+                try:
+                    bid_price = order_book.get_price(False)
+                except EnvironmentError:
+                    bid_price = NaN
+                try:
+                    ask_price = order_book.get_price(True)
+                except EnvironmentError:
+                    ask_price = NaN
+
+                if bid_price is NaN:
+                    bid_price_adjusted = NaN
+                else:
+                    bid_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, bid_price)
+                if ask_price is NaN:
+                    ask_price_adjusted = NaN
+                else:
+                    ask_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, ask_price)
                 markets_data.append([
                     market.display_name,
                     trading_pair,
