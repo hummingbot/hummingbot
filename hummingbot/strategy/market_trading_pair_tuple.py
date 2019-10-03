@@ -20,3 +20,6 @@ class MarketTradingPairTuple(NamedTuple):
     @property
     def base_balance(self):
         return self.market.get_balance(self.base_asset)
+
+    def get_mid_price(self):
+        return self.market.get_mid_price(self.trading_pair)

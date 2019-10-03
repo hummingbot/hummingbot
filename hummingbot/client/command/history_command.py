@@ -4,9 +4,10 @@ from typing import (
     Dict,
     Set,
     Tuple,
-    TYPE_CHECKING,
-)
+    TYPE_CHECKING)
 from hummingbot.client.performance_analysis import PerformanceAnalysis
+s_float_0 = float(0)
+
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -17,6 +18,7 @@ class HistoryCommand:
                 ):
         self.list_trades()
         self.compare_balance_snapshots()
+        self.trade_performance_report()
         self.analyze_performance()
 
     def balance_snapshot(self,  # type: HummingbotApplication
@@ -56,7 +58,7 @@ class HistoryCommand:
             lines = ["", "  Inventory:"] + ["    " + line for line in str(df).split("\n")]
         else:
             lines = []
-        self._notify("\n".join(lines))
+        self._notify("\n".join(lines) + "\n")
 
     def get_performance_analysis_with_updated_balance(self,  # type: HummingbotApplication
                                                       ) -> PerformanceAnalysis:
@@ -130,3 +132,58 @@ class HistoryCommand:
         price: float = self.get_market_mid_price()
         return_performance = performance_analysis.compute_return(price)
         return return_performance
+
+    def trade_performance_report(self,  # type: HummingbotApplication
+                                 ) -> pd.DataFrame:
+
+        if len(self.market_trading_pair_tuples) == 0:
+            self._notify("  Performance analysis is not available before bot starts")
+            return
+        try:
+            current_strategy_name: str = self.markets_recorder.strategy_name
+            analysis_start_time: int = self.init_time
+            primary_quote_asset: str = self.market_trading_pair_tuples[0].quote_asset
+            trade_performance_stats, market_trading_pair_stats = PerformanceAnalysis.calculate_trade_performance(
+                analysis_start_time,
+                current_strategy_name,
+                self.market_trading_pair_tuples
+            )
+            trade_performance_status_line = []
+            market_df_data = []
+            market_df_columns = ["Market", "Trading_Pair", "Start_Price", "End_Price",
+                                 "Base_Asset_Delta", "Quote_Asset_Delta", "Total_Value_Delta", "Profit"]
+
+            for market_trading_pair_tuple, trading_pair_stats in market_trading_pair_stats.items():
+                asset_stats = trading_pair_stats["asset"]
+                base_asset: str = market_trading_pair_tuple.base_asset
+                quote_asset: str = market_trading_pair_tuple.quote_asset
+                market_df_data.append([
+                    market_trading_pair_tuple.market.display_name,
+                    market_trading_pair_tuple.trading_pair.upper(),
+                    trading_pair_stats["starting_quote_rate"],
+                    trading_pair_stats["end_quote_rate"],
+                    f"{asset_stats[base_asset]['delta']:.8f} {base_asset.upper()}",
+                    f"{asset_stats[quote_asset]['delta']:.8f} {quote_asset.upper()}",
+                    f"{trading_pair_stats['trading_pair_delta']:.8f} {primary_quote_asset.upper()}",
+                    trading_pair_stats["trading_pair_delta_percentage"]
+                ])
+
+            market_df: pd.DataFrame = pd.DataFrame(data=market_df_data, columns=market_df_columns)
+            portfolio_delta: float = trade_performance_stats["portfolio_delta"]
+            portfolio_delta_percentage: float = trade_performance_stats["portfolio_delta_percentage"]
+
+            trade_performance_status_line.extend(["", "  Market Trading Pair Performance:"] +
+                                                 ["    " + line for line in market_df.to_string(formatters={
+                                                     "Profit": "{:,.2f} %".format,
+                                                 }).split("\n")])
+
+            trade_performance_status_line.extend(
+                ["", "  Portfolio Performance:"] +
+                [f"    Quote Value Delta: {portfolio_delta:7g} {primary_quote_asset}"] +
+                [f"    Delta Percentage: {portfolio_delta_percentage:2f} %"])
+
+            self._notify("\n".join(trade_performance_status_line))
+
+        except Exception:
+            self.logger().error("Unexpected error running performance analysis.", exc_info=True)
+            self._notify("Error running performance analysis")
