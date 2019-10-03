@@ -433,7 +433,11 @@ cdef class HuobiMarket(MarketBase):
                             tracked_order.trade_type,
                             float(execute_price),
                             float(execute_amount_diff),
-                        )
+                        ),
+                        # Unique exchange trade ID not available in client order status
+                        # But can use validate an order using exchange order ID:
+                        # https://huobiapi.github.io/docs/spot/v1/en/#query-order-by-order-id
+                        exchange_trade_id=exchange_order_id,
                     )
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"order {tracked_order.client_order_id}.")
