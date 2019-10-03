@@ -34,14 +34,21 @@ class StopCommand:
             if success:
                 # Only erase markets when cancellation has been successful
                 self.markets = {}
+
         if self.reporting_module:
             self.reporting_module.stop()
+
         if self.strategy_task is not None and not self.strategy_task.cancelled():
             self.strategy_task.cancel()
+
         ExchangeRateConversion.get_instance().stop()
-        self.markets_recorder.stop()
+
+        if self.markets_recorder is not None:
+            self.markets_recorder.stop()
+
         if self.kill_switch is not None:
             self.kill_switch.stop()
+
         self.wallet = None
         self.strategy_task = None
         self.strategy = None
