@@ -1,6 +1,8 @@
 # Troubleshooting
 
-## **Common errors with Hummingbot installed via Docker**
+Some of the common error messages found when using Hummingbot and how to resolve.
+
+## Installed via Docker
 
 #### Permission denied after installation
 
@@ -13,8 +15,26 @@ dial unix /var/run/docker.sock: connect: permission denied.
 
 Exit from your virtual machine and restart.
 
+#### Package 'docker.io' has no installation candidate
 
-## **Common errors with Hummingbot installed from source**
+![](/assets/img/package-docker-io.png)
+
+Install Docker using get.docker.com script as an alternative. Install `curl` tool then download and run get.docker.com script.
+
+```bash
+apt-get install curl
+curl -sSL https://get.docker.com/ | sh
+```
+
+Allow docker commands without requiring `sudo` prefix (optional).
+
+```bash
+sudo usermod -a -G docker $USER
+```
+
+Exit and restart terminal.
+
+## Installed from source
 
 #### Conda command not found
 
@@ -27,9 +47,7 @@ If you have just installed conda, close terminal and reopen a new terminal to up
 
 If you use `zshrc` or another shell other than `bash`, see the note at the bottom of this section: [install dependencies](/installation/from-source/macos/#part-1-install-dependencies).
 
-#### Cannot start Hummingbot
-
-##### Syntax error invalid syntax
+#### Syntax error invalid syntax
 
 ```
 File "bin/hummingbot.py", line 40
@@ -40,7 +58,7 @@ SyntaxError: invalid syntax
 
 Make sure you have activated the conda environment: `conda activate hummingbot`.
 
-##### Module not found error
+#### Module not found error
 
 ```
 ModuleNotFoundError: No module named 'hummingbot.market.market_base'
@@ -58,7 +76,7 @@ conda activate hummingbot
 bin/hummingbot.py
 ```
 
-## **Common Errors with Windows + Docker Toolbox**
+## Installed in Windows (Docker Toolbox)
 
 Windows users may encounter the following error when running the Docker Toolbox for Windows:
 
@@ -79,7 +97,7 @@ docker-machine restart default
 eval $(docker-machine env default)
 ```
 
-## **Errors while running Hummingbot**
+## Running Hummingbot
 
 #### Binance errors in logs
 
