@@ -6,6 +6,11 @@ from typing import (
     Tuple,
     TYPE_CHECKING)
 from hummingbot.client.performance_analysis import PerformanceAnalysis
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.market.market_base import MarketBase
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+
+ERC = ExchangeRateConversion.get_instance()
 s_float_0 = float(0)
 
 
@@ -17,9 +22,7 @@ class HistoryCommand:
     def history(self,  # type: HummingbotApplication
                 ):
         self.list_trades()
-        self.compare_balance_snapshots()
         self.trade_performance_report()
-        self.analyze_performance()
 
     def balance_snapshot(self,  # type: HummingbotApplication
                          ) -> Dict[str, Dict[str, float]]:
@@ -38,27 +41,30 @@ class HistoryCommand:
                     snapshot[asset][market_name] = 0.0
         return snapshot
 
-    def compare_balance_snapshots(self,  # type: HummingbotApplication
-                                  ):
+    def balance_comparison_data_frame(self,  # type: HummingbotApplication
+                                      market_trading_pair_stats: Dict[MarketTradingPairTuple, any],
+                                      ) -> pd.DataFrame:
         if len(self.starting_balances) == 0:
             self._notify("  Balance snapshots are not available before bot starts")
             return
         rows = []
-        for market_name, market in self.markets.items():
+        for market_trading_pair_tuple in self.market_trading_pair_tuples:
+            market: MarketBase = market_trading_pair_tuple.market
             for asset in set(a.upper() for a in self.assets):
-                starting_balance = self.starting_balances.get(asset).get(market_name)
-                current_balance = self.balance_snapshot().get(asset).get(market_name)
+                asset_delta: Dict[str, float] = market_trading_pair_stats[market_trading_pair_tuple]["asset"].get(
+                    asset, {"delta": s_float_0})
+                starting_balance = self.starting_balances.get(asset).get(market.name)
+                current_balance = self.balance_snapshot().get(asset).get(market.name)
                 rows.append([market.display_name,
                              asset,
                              float(starting_balance),
                              float(current_balance),
-                             float(current_balance - starting_balance)])
-        df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Delta"])
-        if len(df) > 0:
-            lines = ["", "  Inventory:"] + ["    " + line for line in str(df).split("\n")]
-        else:
-            lines = []
-        self._notify("\n".join(lines) + "\n")
+                             float(current_balance - starting_balance),
+                             float(asset_delta["delta"]),
+                             ERC.adjust_token_rate(asset, 1, source="default")])
+        df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Net_Delta",
+                                                     "Trade_Delta", "Conversion_Rate"])
+        return df
 
     def get_performance_analysis_with_updated_balance(self,  # type: HummingbotApplication
                                                       ) -> PerformanceAnalysis:
@@ -142,8 +148,8 @@ class HistoryCommand:
         try:
             current_strategy_name: str = self.markets_recorder.strategy_name
             analysis_start_time: int = self.init_time
-            primary_quote_asset: str = self.market_trading_pair_tuples[0].quote_asset
-            trade_performance_stats, market_trading_pair_stats = PerformanceAnalysis.calculate_trade_performance(
+            primary_quote_asset: str = self.market_trading_pair_tuples[0].quote_asset.upper()
+            trade_performance_stats, market_trading_pair_stats = self.calculate_trade_performance(
                 analysis_start_time,
                 current_strategy_name,
                 self.market_trading_pair_tuples
@@ -151,27 +157,25 @@ class HistoryCommand:
             trade_performance_status_line = []
             market_df_data = []
             market_df_columns = ["Market", "Trading_Pair", "Start_Price", "End_Price",
-                                 "Base_Asset_Delta", "Quote_Asset_Delta", "Total_Value_Delta", "Profit"]
+                                 "Total_Value_Delta", "Profit"]
 
             for market_trading_pair_tuple, trading_pair_stats in market_trading_pair_stats.items():
-                asset_stats = trading_pair_stats["asset"]
-                base_asset: str = market_trading_pair_tuple.base_asset
-                quote_asset: str = market_trading_pair_tuple.quote_asset
                 market_df_data.append([
                     market_trading_pair_tuple.market.display_name,
                     market_trading_pair_tuple.trading_pair.upper(),
                     trading_pair_stats["starting_quote_rate"],
                     trading_pair_stats["end_quote_rate"],
-                    f"{asset_stats[base_asset]['delta']:.8f} {base_asset.upper()}",
-                    f"{asset_stats[quote_asset]['delta']:.8f} {quote_asset.upper()}",
-                    f"{trading_pair_stats['trading_pair_delta']:.8f} {primary_quote_asset.upper()}",
+                    f"{trading_pair_stats['trading_pair_delta']:.8f} {primary_quote_asset}",
                     trading_pair_stats["trading_pair_delta_percentage"]
                 ])
 
+            inventory_df: pd.DataFrame = self.balance_comparison_data_frame(market_trading_pair_stats)
             market_df: pd.DataFrame = pd.DataFrame(data=market_df_data, columns=market_df_columns)
             portfolio_delta: float = trade_performance_stats["portfolio_delta"]
             portfolio_delta_percentage: float = trade_performance_stats["portfolio_delta_percentage"]
 
+            trade_performance_status_line.extend(["", "  Inventory:"] +
+                                                 ["    " + line for line in inventory_df.to_string().split("\n")])
             trade_performance_status_line.extend(["", "  Market Trading Pair Performance:"] +
                                                  ["    " + line for line in market_df.to_string(formatters={
                                                      "Profit": "{:,.2f} %".format,
