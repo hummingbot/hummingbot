@@ -17,18 +17,18 @@ In the file `conf/conf_global.yml` you will find the following listed:
 exchange_rate_conversion:
 - - DAI
   - 1.0
-  - COINCAP_API
+  - coin_gecko_api
 - - USDT
   - 1.0
-  - COINCAP_API
+  - coin_gecko_api
 - - USDC
   - 1.0
-  - COINCAP_API
+  - coin_gecko_api
 - - TUSD
   - 1.0
-  - COINCAP_API
+  - coin_gecko_api
 ```
-By default, Hummingbot uses the [CoinCap API](https://docs.coincap.io/) to set the USD exchange rate for the stablecoins listed above.
+By default, Hummingbot uses the [CoinGecko API](https://www.coingecko.com/en/api) to set the USD exchange rate for the stablecoins listed above.
 
 When you run Hummingbot using DAI and/or USDT, the exchange rates are displayed in the client window when running the `status` command:
 
@@ -48,18 +48,18 @@ exchange_rate_conversion:
   - OVERRIDE
 - - USDC
   - 1.0
-  - COINCAP_API
+  - coin_gecko_api
 - - TUSD
   - 1.0
-  - COINCAP_API
+  - coin_gecko_api
 - - PAX
   - 1.0
-  - COINCAP_API
+  - coin_gecko_api
 ```
 
-In the example above, 1 DAI is assumed to equal $0.97 USD, and 1 USDT is assumed to equal $1.00. We set a **fixed exchange rate** by replacing `COINCAP_API` with `OVERRIDE` and setting the desired exchange rate.
+In the example above, 1 DAI is assumed to equal $0.97 USD, and 1 USDT is assumed to equal $1.00. We set a **fixed exchange rate** by replacing `coin_gecko_api` with `OVERRIDE` and setting the desired exchange rate.
 
-You can also add new crypto-assets. As shown in the exchange rate class above, PAX has been added which allows Hummingbot to use the PAX/USD exchange rate from CoinCap.
+You can also add new crypto-assets. As shown in the exchange rate class above, PAX has been added which allows Hummingbot to use the PAX/USD exchange rate from CoinGecko.
 
 You can see these custom exchange rates in the `status` command:
 ![Exchange rate custom](/assets/img/exchange-rate-custom.png)
