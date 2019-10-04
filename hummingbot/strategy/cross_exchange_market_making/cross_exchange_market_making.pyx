@@ -8,6 +8,7 @@ from math import (
     floor,
     ceil
 )
+from numpy import isnan
 from typing import (
     List,
     Tuple,
@@ -335,6 +336,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
         global s_decimal_zero
 
+        self.c_take_suggested_price_sample(market_pair)
+
         for active_order in active_orders:
             # Mark the has_active_bid and has_active_ask flags
             is_buy = active_order.is_buy
@@ -575,7 +578,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 (taker_market.c_get_available_balance(market_pair.taker.base_asset) *
                  self._order_size_taker_balance_factor)
             )
-            quantized_hedge_amount = taker_market.c_quantize_order_amount(taker_symbol, hedged_order_quantity)
+            quantized_hedge_amount = taker_market.c_quantize_order_amount(taker_symbol, Decimal(hedged_order_quantity))
             taker_top = taker_market.c_get_price(taker_symbol, False)
             avg_fill_price = (sum([r.price * r.amount for _, r in buy_fill_records]) /
                               sum([r.amount for _, r in buy_fill_records]))
@@ -606,7 +609,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                  taker_order_book.c_get_price_for_volume(True, sell_fill_quantity).result_price *
                  self._order_size_taker_balance_factor)
             )
-            quantized_hedge_amount = taker_market.c_quantize_order_amount(taker_symbol, hedged_order_quantity)
+            quantized_hedge_amount = taker_market.c_quantize_order_amount(taker_symbol, Decimal(hedged_order_quantity))
             taker_top = taker_market.c_get_price(taker_symbol, True)
             avg_fill_price = (sum([r.price * r.amount for _, r in sell_fill_records]) /
                               sum([r.amount for _, r in sell_fill_records]))
@@ -649,7 +652,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
         if self._order_amount and self._order_amount > 0:
             base_order_size = self._order_amount
-            return maker_market.c_quantize_order_amount(symbol, base_order_size)
+            return maker_market.c_quantize_order_amount(symbol, Decimal(base_order_size))
         else:
             return self.c_get_order_size_after_portfolio_ratio_limit(market_pair)
 
@@ -674,7 +677,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double maker_portfolio_value = base_balance + quote_balance / current_price
             double adjusted_order_size = maker_portfolio_value * self._order_size_portfolio_ratio_limit
 
-        return maker_market.c_quantize_order_amount(symbol, adjusted_order_size)
+        return maker_market.c_quantize_order_amount(symbol, Decimal(adjusted_order_size))
 
     cdef object c_get_market_making_size(self,
                                          object market_pair,
@@ -714,7 +717,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             maker_balance = maker_balance_in_quote / taker_price
             order_amount = min(maker_balance, taker_balance, user_order)
 
-            return maker_market.c_quantize_order_amount(market_pair.maker.trading_pair, order_amount)
+            return maker_market.c_quantize_order_amount(market_pair.maker.trading_pair, Decimal(order_amount))
 
         else:
 
@@ -734,7 +737,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             taker_balance = taker_balance_in_quote / taker_price
             order_amount = min(maker_balance, taker_balance, user_order)
 
-            return maker_market.c_quantize_order_amount(market_pair.maker.trading_pair, order_amount)
+            return maker_market.c_quantize_order_amount(market_pair.maker.trading_pair, Decimal(order_amount))
 
     cdef object c_get_market_making_price(self,
                                           object market_pair,
@@ -763,12 +766,16 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         top_bid_price, top_ask_price = self.c_get_top_bid_ask_from_price_samples(market_pair)
 
         if is_bid:
-            # Calculate the next price above top bid
-            price_quantum = maker_market.c_get_order_price_quantum(
-                market_pair.maker.trading_pair,
-                top_bid_price
-            )
-            price_above_bid = (ceil(Decimal(top_bid_price) / price_quantum) + 1) * price_quantum
+
+            if not isnan(top_bid_price):
+                # Calculate the next price above top bid
+                price_quantum = maker_market.c_get_order_price_quantum(
+                    market_pair.maker.trading_pair,
+                    top_bid_price
+                )
+                price_above_bid = (ceil(Decimal(top_bid_price) / price_quantum) + 1) * price_quantum
+            else:
+                price_above_bid = None
 
             try:
                 taker_price = taker_order_book.c_get_vwap_for_volume(False,
@@ -785,9 +792,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             # you are buying on the maker market and selling on the taker market
             maker_price = taker_price / (1 + self._min_profitability)
 
+            # # If your bid is higher than highest bid price, reduce it to one tick above the top bid price
             if self._adjust_orders_enabled:
-                # If your bid is higher than highest bid price, reduce it to one tick above the top bid price
-                maker_price = min(maker_price, price_above_bid)
+                # If maker bid order book is not empty
+                if price_above_bid is not None:
+                    maker_price = min(maker_price, price_above_bid)
 
             price_quantum = maker_market.c_get_order_price_quantum(
                 market_pair.maker.trading_pair,
@@ -799,12 +808,15 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             return maker_price
         else:
-            # Calculate the next price below top ask
-            price_quantum = maker_market.c_get_order_price_quantum(
-                market_pair.maker.trading_pair,
-                top_ask_price
-            )
-            next_price_below_top_ask = (floor(Decimal(top_ask_price) / price_quantum) - 1) * price_quantum
+            if not isnan(top_ask_price):
+                # Calculate the next price below top ask
+                price_quantum = maker_market.c_get_order_price_quantum(
+                    market_pair.maker.trading_pair,
+                    top_ask_price
+                )
+                next_price_below_top_ask = (floor(Decimal(top_ask_price) / price_quantum) - 1) * price_quantum
+            else:
+                next_price_below_top_ask = None
 
             try:
                 taker_price = taker_order_book.c_get_vwap_for_volume(True,
@@ -820,9 +832,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             # You are buying on the taker market and selling on the maker market
             maker_price = taker_price * (1 + self._min_profitability)
 
+            # If your ask is lower than the the top ask, increase it to just one tick below top ask
             if self._adjust_orders_enabled:
-                # If your ask is lower than the the top ask, increase it to just one tick below top ask
-                maker_price = max(maker_price, next_price_below_top_ask)
+                # If maker ask order book is not empty
+                if next_price_below_top_ask is not None:
+                    maker_price = max(maker_price, next_price_below_top_ask)
 
             price_quantum = maker_market.c_get_order_price_quantum(
                 market_pair.maker.trading_pair,
@@ -912,16 +926,28 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
         if self._top_depth_tolerance == 0:
 
-            top_bid_price = maker_order_book.c_get_price(False)
+            try:
+                top_bid_price = maker_order_book.c_get_price(False)
+            except EnvironmentError:
+                top_bid_price = NaN
 
-            top_ask_price = maker_order_book.c_get_price(True)
+            try:
+                top_ask_price = maker_order_book.c_get_price(True)
+            except EnvironmentError:
+                top_ask_price = NaN
 
         else:
-            # Use bid entries in maker order book
-            top_bid_price = maker_order_book.c_get_price_for_volume(False, self._top_depth_tolerance)
+            try:
+                # Use bid entries in maker order book
+                top_bid_price = maker_order_book.c_get_price_for_volume(False, self._top_depth_tolerance).result_price
+            except EnvironmentError:
+                top_bid_price = NaN
 
-            # Use ask entries in maker order book
-            top_ask_price = maker_order_book.c_get_price_for_volume(True, self._top_depth_tolerance)
+            try:
+                # Use ask entries in maker order book
+                top_ask_price = maker_order_book.c_get_price_for_volume(True, self._top_depth_tolerance).result_price
+            except EnvironmentError:
+                top_ask_price = NaN
 
         return top_bid_price, top_ask_price
 
@@ -960,15 +986,20 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         :param market_pair: cross exchange market pair
         :return: (top bid, top ask)
         """
-        # Incorporate the past bid price samples.
+        # Incorporate the past bid & ask price samples.
         current_top_bid_price, current_top_ask_price = self.c_get_top_bid_ask(market_pair)
 
         bid_price_samples, ask_price_samples = self.c_get_suggested_price_samples(market_pair)
 
-        top_bid_price = max(list(bid_price_samples) + [current_top_bid_price])
+        if not isnan(bid_price_samples).any():
+            top_bid_price = max(list(bid_price_samples) + [current_top_bid_price])
+        else:
+            top_bid_price = current_top_ask_price
 
-        # Incorporate the past ask price samples.
-        top_ask_price = min(list(ask_price_samples) + [current_top_ask_price])
+        if not isnan(ask_price_samples).any():
+            top_ask_price = min(list(ask_price_samples) + [current_top_ask_price])
+        else:
+            top_ask_price = current_top_ask_price
 
         return top_bid_price, top_ask_price
 
@@ -1051,7 +1082,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             double order_size_limit
 
         order_size_limit = min(base_asset_amount, quote_asset_amount / order_price)
-        quantized_size_limit = maker_market.c_quantize_order_amount(active_order.symbol, order_size_limit)
+        quantized_size_limit = maker_market.c_quantize_order_amount(active_order.symbol, Decimal(order_size_limit))
 
         if active_order.quantity > quantized_size_limit:
             if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
@@ -1186,13 +1217,13 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         if not isinstance(market_pair, CrossExchangeMarketPair):
             raise TypeError("market_pair must be a CrossExchangeMarketPair.")
 
-        market_symbol_pair = market_pair.maker if order_type is OrderType.LIMIT else market_pair.taker
+        market_trading_pair_tuple = market_pair.maker if order_type is OrderType.LIMIT else market_pair.taker
 
         if not self._active_order_canceling:
             expiration_seconds = self._limit_order_min_expiration
 
         cdef:
-            str order_id = StrategyBase.c_buy_with_specific_market(self, market_symbol_pair, amount,
+            str order_id = StrategyBase.c_buy_with_specific_market(self, market_trading_pair_tuple, amount,
                                                                    order_type=order_type, price=price,
                                                                    expiration_seconds=expiration_seconds)
         self._market_pair_tracker.c_start_tracking_order_id(order_id, market_pair)
@@ -1205,33 +1236,33 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         if not isinstance(market_pair, CrossExchangeMarketPair):
             raise TypeError("market_pair must be a CrossExchangeMarketPair.")
 
-        market_symbol_pair = market_pair.maker if order_type is OrderType.LIMIT else market_pair.taker
+        market_trading_pair_tuple = market_pair.maker if order_type is OrderType.LIMIT else market_pair.taker
 
         if not self._active_order_canceling:
             expiration_seconds = self._limit_order_min_expiration
 
         cdef:
-            str order_id = StrategyBase.c_sell_with_specific_market(self, market_symbol_pair, amount,
+            str order_id = StrategyBase.c_sell_with_specific_market(self, market_trading_pair_tuple, amount,
                                                                     order_type=order_type, price=price,
                                                                     expiration_seconds=expiration_seconds)
         self._market_pair_tracker.c_start_tracking_order_id(order_id, market_pair)
         return order_id
 
     cdef c_cancel_order(self, object market_pair, str order_id):
-        market_symbol_pair = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
-        StrategyBase.c_cancel_order(self, market_symbol_pair, order_id)
+        market_trading_pair_tuple = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
+        StrategyBase.c_cancel_order(self, market_trading_pair_tuple, order_id)
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 
     # <editor-fold desc="+ Order tracking entry points">
     # Override the stop tracking entry points to include the market pair tracker as well.
     # ----------------------------------------------------------------------------------------------------------
-    cdef c_stop_tracking_limit_order(self, object market_symbol_pair, str order_id):
+    cdef c_stop_tracking_limit_order(self, object market_trading_pair_tuple, str order_id):
         self._market_pair_tracker.c_stop_tracking_order_id(order_id)
-        StrategyBase.c_stop_tracking_limit_order(self, market_symbol_pair, order_id)
+        StrategyBase.c_stop_tracking_limit_order(self, market_trading_pair_tuple, order_id)
 
-    cdef c_stop_tracking_market_order(self, object market_symbol_pair, str order_id):
+    cdef c_stop_tracking_market_order(self, object market_trading_pair_tuple, str order_id):
         self._market_pair_tracker.c_stop_tracking_order_id(order_id)
-        StrategyBase.c_stop_tracking_market_order(self, market_symbol_pair, order_id)
+        StrategyBase.c_stop_tracking_market_order(self, market_trading_pair_tuple, order_id)
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>

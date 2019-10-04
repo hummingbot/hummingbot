@@ -11,7 +11,6 @@ from typing import (
     List,
     Optional
 )
-import re
 import time
 import ujson
 import websockets
@@ -135,7 +134,7 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         base_asset: str = trading_pair.split("_")[1]
         params: Dict[str, str] = {
             "selectedMarket": quote_asset,
-            "tradeForMarket": base_asset 
+            "tradeForMarket": base_asset
         }
         orders: List[Dict[str, Any]] = []
         try:
@@ -149,7 +148,7 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         except asyncio.CancelledError:
             raise
-        except:
+        except Exception:
             self.logger().network(
                 f"Error getting snapshot for {trading_pair}.",
                 exc_info=True,
@@ -237,9 +236,9 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         # Send subscribe message for all active market to the connection
         sid: str = decoded["sid"]
         subscribe_payload: Dict[str, Any] = {
-        "action": "subscribe",
-        "topics": markets,
-        "events": ["market_orders", "market_cancels", "market_trades"]
+            "action": "subscribe",
+            "topics": markets,
+            "events": ["market_orders", "market_cancels", "market_trades"]
         }
         subscribe_request: Dict[str, Any] = {
             "sid": sid,
@@ -257,7 +256,7 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 trading_pairs_full_list: List[str] = await self.get_trading_pairs()
                 trading_pairs_partial_lists: List[List[str]] = [
-                    trading_pairs_full_list[m : m + IDEX_WS_TRADING_PAIRS_SUBSCRIPTION_LIMIT] for m in
+                    trading_pairs_full_list[m: m + IDEX_WS_TRADING_PAIRS_SUBSCRIPTION_LIMIT] for m in
                     range(0, len(trading_pairs_full_list), IDEX_WS_TRADING_PAIRS_SUBSCRIPTION_LIMIT)]
                 for trading_pairs in trading_pairs_partial_lists:
                     async with websockets.connect(IDEX_WS_URL) as ws:
