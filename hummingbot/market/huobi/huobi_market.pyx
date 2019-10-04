@@ -393,7 +393,7 @@ cdef class HuobiMarket(MarketBase):
                     )
                     continue
                 if order_update.get("error") is not None:
-                    error_code = order_update.get("error").get("error-code")
+                    error_code = order_update.get("error").get("err-code")
                     if error_code == "base-record-invalid" or error_code == "order-orderstate-error":
                         # 'base-record-invalid' - order no longer exists
                         # 'order-orderstate-error' - order is either partial-canceled, filled, canceled, or cancelling
