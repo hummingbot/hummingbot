@@ -2,9 +2,6 @@ import logging
 from typing import (
     Tuple, Dict, List
 )
-
-from sqlalchemy.orm import Session
-
 from hummingbot.client.data_type.currency_amount import CurrencyAmount
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
@@ -18,7 +15,12 @@ s_float_0 = float(0)
 
 
 class PerformanceAnalysis:
-    def __init__(self):
+    def __init__(self, sql: SQLConnectionManager = None):
+        if sql:
+            self.sql_manager = sql
+        else:
+            self.sql_manager = SQLConnectionManager.get_trade_fills_instance()
+
         self._starting_base = CurrencyAmount()
         self._starting_quote = CurrencyAmount()
         self._current_base = CurrencyAmount()
@@ -124,19 +126,18 @@ class PerformanceAnalysis:
             raise Exception(f"Unsupported trade type {trade.trade-type}")
         return net_base_delta, net_quote_delta
 
-    @staticmethod
-    def calculate_asset_delta_from_trades(analysis_start_time: int,
+    def calculate_asset_delta_from_trades(self,
+                                          analysis_start_time: int,
                                           current_startegy_name: str,
                                           market_trading_pair_tuples: List[MarketTradingPairTuple]
-                                          ) -> Dict[str, Dict[str, float]]:
-        session: Session = SQLConnectionManager.get_trade_fills_instance().get_shared_session()
+                                          ) -> Dict[MarketTradingPairTuple, Dict[str, float]]:
         market_trading_pair_stats: Dict[MarketTradingPairTuple, Dict[str, float]] = {}
         for market_trading_pair_tuple in market_trading_pair_tuples:
             asset_stats: Dict[str, float] = {
-                market_trading_pair_tuple.base_asset: {"spent": s_float_0, "acquired": s_float_0},
-                market_trading_pair_tuple.quote_asset: {"spent": s_float_0, "acquired": s_float_0}
+                market_trading_pair_tuple.base_asset.upper(): {"spent": s_float_0, "acquired": s_float_0},
+                market_trading_pair_tuple.quote_asset.upper(): {"spent": s_float_0, "acquired": s_float_0}
             }
-            queried_trades: List[TradeFill] = TradeFill.get_trades(session,
+            queried_trades: List[TradeFill] = TradeFill.get_trades(self.sql_manager.get_shared_session(),
                                                                    start_time=analysis_start_time,
                                                                    market=market_trading_pair_tuple.market.display_name,
                                                                    strategy=current_startegy_name)
@@ -149,14 +150,15 @@ class PerformanceAnalysis:
 
             for trade in queried_trades:
                 trade_side: str = trade.trade_type
-
+                base_asset: str = trade.base_asset.upper()
+                quote_asset: str = trade.quote_asset.upper()
                 base_delta, quote_delta = PerformanceAnalysis.calculate_trade_asset_delta_with_fees(trade)
                 if trade_side == TradeType.SELL.name:
-                    asset_stats[trade.base_asset]["spent"] += base_delta
-                    asset_stats[trade.quote_asset]["acquired"] += quote_delta
+                    asset_stats[base_asset]["spent"] += base_delta
+                    asset_stats[quote_asset]["acquired"] += quote_delta
                 elif trade_side == TradeType.BUY.name:
-                    asset_stats[trade.base_asset]["acquired"] += base_delta
-                    asset_stats[trade.quote_asset]["spent"] += quote_delta
+                    asset_stats[base_asset]["acquired"] += base_delta
+                    asset_stats[quote_asset]["spent"] += quote_delta
 
             market_trading_pair_stats[market_trading_pair_tuple] = {
                 "starting_quote_rate": queried_trades[0].price,
@@ -165,21 +167,21 @@ class PerformanceAnalysis:
 
         return market_trading_pair_stats
 
-    @staticmethod
-    def calculate_trade_performance(analysis_start_time: int,
+    def calculate_trade_performance(self,
+                                    analysis_start_time: int,
                                     current_startegy_name: str,
                                     market_trading_pair_tuples: List[MarketTradingPairTuple]) -> Tuple[Dict, Dict]:
         trade_performance_stats: Dict[str, float] = {}
         primary_quote_asset: str = market_trading_pair_tuples[0].quote_asset
-        market_trading_pair_stats: Dict[str, Dict[str, float]] = PerformanceAnalysis.calculate_asset_delta_from_trades(
+        market_trading_pair_stats: Dict[str, Dict[str, float]] = self.calculate_asset_delta_from_trades(
             analysis_start_time,
             current_startegy_name,
             market_trading_pair_tuples)
 
         for market_trading_pair_tuple, trading_pair_stats in market_trading_pair_stats.items():
             market_trading_pair_tuple: MarketTradingPairTuple
-            base_asset = market_trading_pair_tuple.base_asset
-            quote_asset = market_trading_pair_tuple.quote_asset
+            base_asset = market_trading_pair_tuple.base_asset.upper()
+            quote_asset = market_trading_pair_tuple.quote_asset.upper()
             quote_rate: float = market_trading_pair_tuple.get_mid_price()
             trading_pair_stats["end_quote_rate"] = quote_rate
             asset_stats = trading_pair_stats["asset"]

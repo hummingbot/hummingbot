@@ -91,8 +91,7 @@ class ExchangeRateConversion:
             # Set default rate and source for token rates globally
             fetcher_global_config: List[List[str, str]] = global_config_map["exchange_rate_fetcher"].value or []
             # Set rate and source for tokens that needs conversion, overwrites global config
-            rate_conversion_config: List[List[str, str, str]] = global_config_map[
-                                                                    "exchange_rate_conversion"].value or []
+            rate_conversion_config: List[List[str, str, str]] = global_config_map["exchange_rate_conversion"].value or []
             if cls._exchange_rate_config_override is None:
                 conversion_required = {e[0]: {"default": e[1], "source": e[2]} for e in rate_conversion_config}
                 global_config = {e[0]: {"default": NaN, "source": e[1]} for e in fetcher_global_config}
@@ -184,8 +183,8 @@ class ExchangeRateConversion:
         # assume WETH and ETH are equal value
         if from_currency == "ETH" and to_currency == "WETH" or from_currency == "WETH" and to_currency == "ETH":
             return amount
-        from_currency_usd_rate = exchange_rate.get(from_currency, NaN)
-        to_currency_usd_rate = exchange_rate.get(to_currency, NaN)
+        from_currency_usd_rate = exchange_rate.get(from_currency.upper(), NaN)
+        to_currency_usd_rate = exchange_rate.get(to_currency.upper(), NaN)
         if math.isnan(from_currency_usd_rate) or math.isnan(to_currency_usd_rate):
             raise ValueError(f"Unable to convert '{from_currency}' to '{to_currency}'. Aborting.")
         return amount * from_currency_usd_rate / to_currency_usd_rate
