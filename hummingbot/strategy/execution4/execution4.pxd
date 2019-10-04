@@ -12,6 +12,13 @@ cdef class Execution4Strategy(StrategyBase):
         bint _is_buy
         str _order_type
 
+        double _cancel_order_wait_time
+        double _last_timestamp
+        double _start_timestamp
+        double _time_delay
+        dict _time_to_cancel
+        dict _in_flight_cancels
+
         double _status_report_interval
         object _order_price
         object _order_amount
@@ -22,5 +29,8 @@ cdef class Execution4Strategy(StrategyBase):
         int64_t _logging_options
 
         cdef c_process_market(self, object market_info)
-        cdef c_place_order(self, object market_info)
+        cdef c_place_orders(self, object market_info)
         cdef c_has_enough_balance(self, object market_info)
+
+       
+        

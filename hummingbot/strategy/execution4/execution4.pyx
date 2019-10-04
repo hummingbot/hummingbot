@@ -15,14 +15,19 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.market.market_base import (
     MarketBase,
-    OrderType
+    OrderType,
+
+    TradeType
 )
+from hummingbot.core.event.event_listener cimport EventListener
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
 
 from libc.stdint cimport int64_t
 from hummingbot.core.data_type.order_book cimport OrderBook
+
+from datetime import datetime
 
 s_decimal_NaN = Decimal("nan")
 s_decimal_zero = Decimal(0)
@@ -50,7 +55,9 @@ cdef class Execution4Strategy(StrategyBase):
                  market_infos: List[MarketTradingPairTuple],
                  order_type: str = "limit",
                  order_price: Optional[float] = None,
+                 cancel_order_wait_time: Optional[float] = 60.0,
                  is_buy: bool = True,
+                 time_delay: float = 10.0,
                  order_amount: float = 1.0,
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900):
@@ -67,6 +74,10 @@ cdef class Execution4Strategy(StrategyBase):
         self._place_orders = True
         self._logging_options = logging_options
         self._status_report_interval = status_report_interval
+
+        self._time_delay = time_delay
+        self._time_to_cancel = {}
+
         self._order_type = order_type
         self._is_buy = is_buy
         self._order_amount = Decimal(order_amount)
@@ -155,9 +166,16 @@ cdef class Execution4Strategy(StrategyBase):
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
 
+        self.logger().info(f"Waiting for {self._time_delay} to place orders")
+        self._start_timestamp = timestamp
+        self._last_timestamp = timestamp
+
     cdef c_tick(self, double timestamp):
         StrategyBase.c_tick(self, timestamp)
         cdef:
+            int64_t current_tick = <int64_t>(timestamp // self._status_report_interval)
+            int64_t last_tick = <int64_t>(self._last_timestamp // self._status_report_interval)
+
             bint should_report_warnings = self._logging_options & self.OPTION_LOG_STATUS_REPORT
             list active_maker_orders = self.active_maker_orders
 
@@ -178,9 +196,9 @@ cdef class Execution4Strategy(StrategyBase):
             for market_info in self._market_infos.values():
                 self.c_process_market(market_info)
         finally:
-            return
+            self._last_timestamp = timestamp
 
-    cdef c_place_order(self, object market_info):
+    cdef c_place_orders(self, object market_info):
         cdef:
             MarketBase market = market_info.market
             object quantized_amount = market.c_quantize_order_amount(market_info.trading_pair, self._order_amount)
@@ -214,6 +232,8 @@ cdef class Execution4Strategy(StrategyBase):
                                                                 price=quantized_price)
                     self.logger().info("Limit sell order has been placed")
 
+                self._time_to_cancel[order_id] = self._current_timestamp + self._cancel_order_wait_time
+
         else:
             self.logger().info(f"Not enough balance to run the strategy. Please check balances and try again.")
 
@@ -231,6 +251,31 @@ cdef class Execution4Strategy(StrategyBase):
         cdef:
             MarketBase maker_market = market_info.market
 
+            set cancel_order_ids = set()
+
         if self._place_orders:
-            self._place_orders = False
-            self.c_place_order(market_info)
+            # If current timestamp is greater than the start timestamp + time delay place orders
+
+            if self._current_timestamp > self._start_timestamp + self._time_delay:
+
+                self._place_orders = False
+                self.logger().info(f"Current time: "
+                                   f"{datetime.fromtimestamp(self._current_timestamp).strftime('%Y-%m-%d %H:%M:%S')} "
+                                   f"is now greater than "
+                                   f"Starting time: "
+                                   f"{datetime.fromtimestamp(self._start_timestamp).strftime('%Y-%m-%d %H:%M:%S')} "
+                                   f" with time delay: {self._time_delay}. Trying to place orders now. ")
+                self.c_place_orders(market_info)
+
+        active_orders = self.market_info_to_active_orders.get(market_info, [])
+
+        if len(active_orders) > 0:
+            for active_order in active_orders:
+                if self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
+                    cancel_order_ids.add(active_order.client_order_id)
+
+        if len(cancel_order_ids) > 0:
+
+            for order in cancel_order_ids:
+                self.c_cancel_order(market_info, order)
+

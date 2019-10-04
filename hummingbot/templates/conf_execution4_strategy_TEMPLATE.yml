@@ -20,5 +20,14 @@ order_price: null
 # Specify buy/sell. Set to True for Buy and False for Sell
 is_buy: null
 
+
+# Time in seconds before cancelling the limit order
+# If cancel_order wait time is 60 and the order is still open after 60 seconds since placing the order,
+# it will cancel the limit order.
+cancel_order_wait_time: null
+
+# How long to wait before placing the order (in seconds)
+time_delay: null
+
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/simple-trade/#configuration-parameters

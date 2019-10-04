@@ -53,9 +53,22 @@ execution4_config_map = {
                          "(denominated in the base asset, default is 1) ? >>> ",
                   default=1.0,
                   type_str="float"),
+    "time_delay":
+        ConfigVar(key="time_delay",
+                  prompt="How much do you want to wait to place the order (Enter 10 to indicate 10 seconds. "
+                         "Default is 0)? >>> ",
+                  type_str="float",
+                  default=0),
     "order_price":
         ConfigVar(key="order_price",
                   prompt="What is the price of the limit order ? >>> ",
                   required_if=lambda: execution4_config_map.get("order_type").value == "limit",
                   type_str="float"),
+    "cancel_order_wait_time":
+        ConfigVar(key="cancel_order_wait_time",
+                  prompt="How long do you want to wait before cancelling your limit order (in seconds). "
+                         "(Default is 60 seconds) ? >>> ",
+                  required_if=lambda: execution4_config_map.get("order_type").value == "limit",
+                  type_str="float",
+                  default=60),
 }
