@@ -10,6 +10,8 @@ import aiohttp
 import pandas as pd
 import signalr_aio
 import ujson
+from signalr_aio import Connection
+from signalr_aio.hubs import Hub
 from async_timeout import timeout
 
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -48,6 +50,8 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(self, symbols: Optional[List[str]] = None):
         super().__init__()
         self._symbols: Optional[List[str]] = symbols
+        self._websocket_connection: Optional[Connection] = None
+        self._websocket_hub: Optional[Hub] = None
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
@@ -143,6 +147,14 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     app_warning_msg=f"Error getting active exchange information. Check network connection.",
                 )
         return self._symbols
+
+    async def websocket_connection(self) -> (signalr_aio.Connection, signalr_aio.hubs.Hub):
+        if not self._websocket_connection or not self._websocket_hub:
+            self._websocket_connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
+            self._websocket_hub = self._websocket_connection.register_hub("c2")
+            self._websocket_connection.start()
+
+        return self._websocket_connection, self._websocket_hub
 
     @staticmethod
     async def get_snapshot(trading_pair: str) -> Dict[str, any]:
@@ -308,47 +320,25 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return output
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        # Technically this does not listen for snapshot, Instead it periodically queries for snapshots.
         while True:
-            connection: Optional[signalr_aio.Connection] = None
             try:
-                connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
-                hub = connection.register_hub("c2")
+                connection, hub = self.websocket_connection()
                 trading_pairs = await self.get_trading_pairs()  # Symbols of trading pair in V3 format i.e. 'Base-Quote'
                 for trading_pair in trading_pairs:
                     # TODO: Refactor accordingly when V3 WebSocket API is released
                     # WebSocket API requires trading_pair to be in 'Quote-Base' format
                     trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
-
-                    self.logger().info(f"Subscribed to {trading_pair} snapshots.")
                     hub.server.invoke("queryExchangeState", trading_pair)
-
-                connection.start()
-
-                async for raw_message in self._socket_stream(connection):
-                    decoded: Dict[str, Any] = await self._transform_raw_message(raw_message)
-                    symbol: str = decoded["results"].get("M")
-                    if not symbol:  # Ignores initial websocket response messages
-                        continue
-
-                    # Only processes snapshot messages
-                    if decoded["type"] == "snapshot":
-                        snapshot: Dict[str, any] = decoded
-                        snapshot_timestamp = snapshot["nonce"]
-                        snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
-                            snapshot["results"], snapshot_timestamp, metadata={"product_id": symbol}
-                        )
-                        output.put_nowait(snapshot_msg)
+                    self.logger().info(f"Query {trading_pair} snapshots.")
 
                 # Waits for delta amount of time before getting new snapshots
                 this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
                 next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
                 delta: float = next_hour.timestamp() - time.time()
                 await asyncio.sleep(delta)
-
             except Exception:
-                self.logger().error("Unexpected error.", exc_info=True)
-            finally:
-                connection.close()
+                self.logger().error("Unexpected error occurred invoking queryExchangeState", exc_info=True)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
@@ -373,7 +363,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     if not symbol:  # Ignores initial websocket response messages
                         continue
 
-                    # Only processes snapshot messages
+                    # Only processes diff messages
                     if decoded["type"] == "update":
                         diff: Dict[str, any] = decoded
                         diff_timestamp = diff["nonce"]
@@ -382,13 +372,54 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         )
                         output.put_nowait(diff_msg)
 
-                # Waits for delta amount of time before getting new snapshots
-                this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
-                next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
-                delta: float = next_hour.timestamp() - time.time()
-                await asyncio.sleep(delta)
-
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
             finally:
                 connection.close()
+
+    async def listen_for_order_book_stream(self,
+                                           ev_loop: asyncio.BaseEventLoop,
+                                           snapshot_queue: asyncio.Queue,
+                                           diff_queue: asyncio.Queue):
+        while True:
+            try:
+                connection, hub = await self.websocket_connection()
+
+                trading_pairs = await self.get_trading_pairs()
+                for trading_pair in trading_pairs:
+                    # TODO: Refactor accordingly when V3 WebSocket API is released
+                    # WebSocket API requires trading_pair to be in 'Quote-Base' format
+                    trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
+                    self.logger().info(f"Subscribed to {trading_pair} deltas")
+                    hub.server.invoke("SubscribeToExchangeDeltas", trading_pair)
+
+                    self.logger().info(f"Query {trading_pair} snapshot")
+                    hub.server.invoke("queryExchangeState", trading_pair)
+
+                async for raw_message in self._socket_stream(connection):
+                    decoded: Dict[str, Any] = await self._transform_raw_message(raw_message)
+                    symbol: str = decoded["results"].get("M")
+
+                    if not symbol:  # Ignores initial websocket response messages
+                        continue
+
+                    # Processes snapshot messages
+                    if decoded["type"] == "snapshot":
+                        snapshot: Dict[str, any] = decoded
+                        snapshot_timestamp = snapshot["nonce"]
+                        snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                            snapshot["results"], snapshot_timestamp, metadata={"product_id": symbol}
+                        )
+                        snapshot_queue.put_nowait(snapshot_msg)
+
+                    # Processes diff messages
+                    if decoded["type"] == "update":
+                        diff: Dict[str, any] = decoded
+                        diff_timestamp = diff["nonce"]
+                        diff_msg: OrderBookMessage = self.order_book_class.diff_message_from_exchange(
+                            diff["results"], diff_timestamp, metadata={"product_id": symbol}
+                        )
+                        diff_queue.put_nowait(diff_msg)
+
+            except Exception:
+                self.logger().error("Unexpected error when listening on socket stream.", exc_info=True)
