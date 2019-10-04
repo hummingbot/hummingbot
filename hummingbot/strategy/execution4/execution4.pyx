@@ -164,6 +164,11 @@ cdef class Execution4Strategy(StrategyBase):
         return "\n".join(lines)
 
     cdef c_start(self, Clock clock, double timestamp):
+        """
+        Initializes _start_timestamp and _last_timestamp to a given value.
+        
+        :param clock: Clock object, timestamp: current tick timestamp
+        """
         StrategyBase.c_start(self, clock, timestamp)
 
         self.logger().info(f"Waiting for {self._time_delay} to place orders")
@@ -171,6 +176,15 @@ cdef class Execution4Strategy(StrategyBase):
         self._last_timestamp = timestamp
 
     cdef c_tick(self, double timestamp):
+        """
+        Clock tick entry point.
+
+        This function simply checks for the readiness and connection status of markets, and
+        then delegates the processing of each market pair to c_process_market().
+
+        :param timestamp: current tick timestamp
+
+        """
         StrategyBase.c_tick(self, timestamp)
         cdef:
             int64_t current_tick = <int64_t>(timestamp // self._status_report_interval)
@@ -199,6 +213,10 @@ cdef class Execution4Strategy(StrategyBase):
             self._last_timestamp = timestamp
 
     cdef c_place_orders(self, object market_info):
+        """
+        Places the specified order based on order type and whether it is buy/sell
+        :param market_info: Information about current market
+        """
         cdef:
             MarketBase market = market_info.market
             object quantized_amount = market.c_quantize_order_amount(market_info.trading_pair, self._order_amount)
@@ -238,6 +256,12 @@ cdef class Execution4Strategy(StrategyBase):
             self.logger().info(f"Not enough balance to run the strategy. Please check balances and try again.")
 
     cdef c_has_enough_balance(self, object market_info):
+        """
+        Check that user has enough balance to place order
+        :param market_info: Information about current market
+        :return: Wether or not user has enough balance
+        :rtype: Boolean
+        """
         cdef:
             MarketBase market = market_info.market
             object base_asset_balance = Decimal(market.c_get_balance(market_info.base_asset))
@@ -248,6 +272,9 @@ cdef class Execution4Strategy(StrategyBase):
         return quote_asset_balance >= self._order_amount * price if self._is_buy else base_asset_balance >= self._order_amount
 
     cdef c_process_market(self, object market_info):
+        """
+        Executes actions on the market (ex. place order)
+        """
         cdef:
             MarketBase maker_market = market_info.market
 
