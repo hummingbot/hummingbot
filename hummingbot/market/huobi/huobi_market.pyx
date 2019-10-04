@@ -396,7 +396,7 @@ cdef class HuobiMarket(MarketBase):
                     error_code = order_update.get("error").get("error-code")
                     if error_code == "base-record-invalid" or error_code == "order-orderstate-error":
                         # 'base-record-invalid' - order no longer exists
-                        # 'order-orderstate-error' - order is either partial-canceled, filled, canceled, or canceling
+                        # 'order-orderstate-error' - order is either partial-canceled, filled, canceled, or cancelling
                         # Huobi seems to return error if an order has been "partial-canceled"
                         self.c_stop_tracking_order(tracked_order.client_order_id)
                         self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled according"
