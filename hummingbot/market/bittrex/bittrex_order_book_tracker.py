@@ -44,6 +44,7 @@ class BittrexOrderBookTracker(OrderBookTracker):
         self._saved_message_queues: Dict[str, Deque[BittrexOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
         self._active_order_trackers: Dict[str, BittrexActiveOrderTracker] = defaultdict(BittrexActiveOrderTracker)
         self._symbols: Optional[List[str]] = symbols
+        self._order_book_stream_listener_task: Optional[asyncio.Task] = None
 
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
@@ -221,11 +222,16 @@ class BittrexOrderBookTracker(OrderBookTracker):
         self._order_book_trade_listener_task = safe_ensure_future(
             self.data_source.listen_for_trades(self._ev_loop, self._order_book_trade_stream)
         )
-        self._order_book_diff_listener_task = safe_ensure_future(
-            self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
-        )
-        self._order_book_snapshot_listener_task = safe_ensure_future(
-            self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
+        # self._order_book_diff_listener_task = safe_ensure_future(
+        #     self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
+        # )
+        # self._order_book_snapshot_listener_task = safe_ensure_future(
+        #     self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
+        # )
+        self._order_book_stream_listener_task = safe_ensure_future(
+            self.data_source.listen_for_order_book_stream(self._ev_loop,
+                                                          self._order_book_snapshot_stream,
+                                                          self._order_book_diff_stream)
         )
         self._refresh_tracking_task = safe_ensure_future(
             self._refresh_tracking_loop()
