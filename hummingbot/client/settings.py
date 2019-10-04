@@ -48,7 +48,8 @@ STRATEGIES = {
     "simple_trade",
     "execution1",
     "execution2",
-    "perform_trade"
+    "perform_trade",
+    "execution4"
 }
 
 EXAMPLE_PAIRS = {
