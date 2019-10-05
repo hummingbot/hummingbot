@@ -108,7 +108,8 @@ cdef class DDEXInFlightOrder(InFlightOrderBase):
             # trade already recorded
             return
         self.trade_id_set.add(trade_id)
-        self.executed_amount_quote += Decimal(trade_update["amount"])
+        self.executed_amount_base += Decimal(trade_update["amount"])
+        self.available_amount_base -= Decimal(trade_update["amount"])
+        self.executed_amount_quote += Decimal(trade_update["amount"]) * Decimal(trade_update["price"])
         self.fee_paid += Decimal(trade_update["feeAmount"])
-        self.executed_amount_quote += Decimal(trade_update["price"]) * Decimal(trade_update["amount"])
         return trade_update
