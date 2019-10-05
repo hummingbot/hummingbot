@@ -227,8 +227,8 @@ cdef class DDEXMarket(MarketBase):
                 await safe_gather(
                     self._update_available_balances(),
                     self._update_trading_rules(),
-                    self._update_order_status(),
                     self._update_order_fills_from_trades(),
+                    self._update_order_status(),
                     self._update_trade_fees()
                 )
             except asyncio.CancelledError:
@@ -440,8 +440,7 @@ cdef class DDEXMarket(MarketBase):
                                                                      float(tracked_order.gas_fee_amount),
                                                                      order_type))
                 else:
-                    if (self._in_flight_cancels.get(client_order_id, 0) >
-                            self._current_timestamp - self.CANCEL_EXPIRY_TIME):
+                    if (self._in_flight_cancels.get(client_order_id, 0) > self._current_timestamp - self.CANCEL_EXPIRY_TIME):
                         # This cancel was originated from this connector, and the cancel event should have been
                         # emitted in the cancel_order() call already.
                         del self._in_flight_cancels[client_order_id]
