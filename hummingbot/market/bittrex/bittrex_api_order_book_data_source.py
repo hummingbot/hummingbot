@@ -37,7 +37,6 @@ NaN = float("nan")
 
 
 class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
-    MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
     _bittrexaobds_logger: Optional[HummingbotLogger] = None
@@ -246,13 +245,17 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return retval
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        # Trade messages are received from the order book web socket
+        # Trade messages are received as Orderbook Deltas and handled by listen_for_order_book_stream()
+        pass
+
+    async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        # Orderbooks Deltas and Snapshots are handled by listen_for_order_book_stream()
         pass
 
     async def _socket_stream(self, conn: signalr_aio.Connection) -> AsyncIterable[str]:
         try:
             while True:
-                async with timeout(MESSAGE_TIMEOUT):
+                async with timeout(MESSAGE_TIMEOUT):  # Timeouts if not receiving any messages for 10 seconds(ping)
                     yield await conn.msg_queue.get()
         except asyncio.TimeoutError:
             self.logger().warning("Message recv() timed out. Going to reconnect...")
@@ -327,43 +330,6 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error occurred invoking queryExchangeState", exc_info=True)
 
-    async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        while True:
-            connection: Optional[signalr_aio.Connection] = None
-            try:
-                connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
-                hub = connection.register_hub("c2")
-                trading_pairs = await self.get_trading_pairs()  # Symbols of trading pair in V3 format i.e. 'Base-Quote'
-                for trading_pair in trading_pairs:
-                    # TODO: Refactor accordingly when V3 WebSocket API is released
-                    # WebSocket API requires trading_pair to be in 'Quote-Base' format
-                    trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
-                    self.logger().info(f"Subscribed to {trading_pair} Deltas")
-                    hub.server.invoke("SubscribeToExchangeDeltas", trading_pair)
-
-                connection.start()
-
-                async for raw_message in self._socket_stream(connection):
-                    decoded: Dict[str, Any] = await self._transform_raw_message(raw_message)
-                    symbol: str = decoded["results"].get("M")
-
-                    if not symbol:  # Ignores initial websocket response messages
-                        continue
-
-                    # Only processes diff messages
-                    if decoded["type"] == "update":
-                        diff: Dict[str, any] = decoded
-                        diff_timestamp = diff["nonce"]
-                        diff_msg: OrderBookMessage = self.order_book_class.diff_message_from_exchange(
-                            diff["results"], diff_timestamp, metadata={"product_id": symbol}
-                        )
-                        output.put_nowait(diff_msg)
-
-            except Exception:
-                self.logger().error("Unexpected error.", exc_info=True)
-            finally:
-                connection.close()
-
     async def listen_for_order_book_stream(self,
                                            ev_loop: asyncio.BaseEventLoop,
                                            snapshot_queue: asyncio.Queue,
@@ -376,7 +342,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     decoded: Dict[str, Any] = await self._transform_raw_message(raw_message)
                     symbol: str = decoded["results"].get("M")
 
-                    if not symbol:  # Ignores initial websocket response messages
+                    if not symbol:  # Ignores any other websocket response messages
                         continue
 
                     # Processes snapshot messages
