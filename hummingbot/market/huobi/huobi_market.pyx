@@ -261,16 +261,15 @@ cdef class HuobiMarket(MarketBase):
             client = await self._http_client()
             if is_auth_required:
                 params = self._huobi_auth.add_auth_to_params(method, path_url, params)
-            print('************_api_request', path_url, method, headers, params, ujson.dumps(data))
+            print('************_api_request', path_url, method, params)
             
             async with client.request(method=method.upper(),
-                                    url=url,
-                                    # path=f"/{path_url}",
+                                    # url=url,
+                                    path=f"/{path_url}",
                                     headers=headers,
                                     params=params,
                                     data=ujson.dumps(data),
                                     timeout=100) as response:
-                print('_____________________________________*****************************************_________________-', response)
                 if response.status != 200:
                     raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
                 try:
@@ -284,7 +283,7 @@ cdef class HuobiMarket(MarketBase):
                     return {"error": parsed_response}
                 return data
         except Exception as e:
-            print('ERRRORRR', e)
+            print('*************!!!!!!! ERROR !!!!!!!!!!!***********', e)
 
     async def _update_account_id(self) -> str:
         accounts = await self._api_request("get", path_url="account/accounts", is_auth_required=True)
@@ -425,7 +424,7 @@ cdef class HuobiMarket(MarketBase):
                         self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                              OrderCancelledEvent(self._current_timestamp,
                                                                  tracked_order.client_order_id))
-                        continue
+                    continue
 
                 order_state = order_update["state"]
                 # possible order states are "submitted", "partial-filled", "cancelling", "filled", "canceled"
@@ -574,7 +573,6 @@ cdef class HuobiMarket(MarketBase):
         }
         if order_type is OrderType.LIMIT:
             params["price"] = str(price)
-        print('PLACE ORDERRRR', params)
         exchange_order_id = await self._api_request(
             "post",
             path_url=path_url,
@@ -590,7 +588,6 @@ cdef class HuobiMarket(MarketBase):
                           amount: Decimal,
                           order_type: OrderType,
                           price: Decimal):
-        print('buy0')
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
             double quote_amount
@@ -598,7 +595,6 @@ cdef class HuobiMarket(MarketBase):
             object decimal_price
             str exchange_order_id
             object tracked_order
-        print('buy1')
         if order_type is OrderType.MARKET:
             quote_amount = (<OrderBook>self.c_get_order_book(symbol)).c_get_quote_volume_for_base_amount(
                 True, float(amount)).result_volume
@@ -612,8 +608,6 @@ cdef class HuobiMarket(MarketBase):
                 raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
         try:
-            print('buy2')
-
             exchange_order_id = await self.place_order(order_id, symbol, decimal_amount, True, order_type, decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,
@@ -624,7 +618,6 @@ cdef class HuobiMarket(MarketBase):
                 price=decimal_price,
                 amount=decimal_amount
             )
-            print('buy3')
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type} buy order {order_id} for {decimal_amount} {symbol}.")
@@ -661,13 +654,10 @@ cdef class HuobiMarket(MarketBase):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = f"buy-{symbol}-{tracking_nonce}"
-        print('c-buy', order_id, symbol, amount, order_type, price)
-        print('exceute, ', self.execute_buy)
         try:
             asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
         except Exception as e:
             print('EEEEEEEEE', e)
-        print('ORDER ID', order_id)
         return order_id
 
     async def execute_sell(self,
