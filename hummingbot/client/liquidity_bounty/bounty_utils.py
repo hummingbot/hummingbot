@@ -55,9 +55,13 @@ class LiquidityBounty(NetworkBase):
             cls.lb_logger = logging.getLogger(__name__)
         return cls.lb_logger
 
-    def __init__(self, update_interval: int = 60):
+    def __init__(self,
+                 update_interval: int = 60,
+                 active_bounties_update_interval: int = 3600  # Fetch for active bounties every hour
+                 ):
         super().__init__()
         self._update_interval = update_interval
+        self._active_bounties_update_interval = active_bounties_update_interval
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client: Optional[aiohttp.ClientSession] = None
         self._status: Dict[str, Any] = {}
@@ -187,7 +191,7 @@ class LiquidityBounty(NetworkBase):
         return self._shared_client
 
     async def fetch_active_bounties(self):
-        """ fetch a list of active bounties from server. Only executed once. """
+        """ fetch a list of active bounties from server. """
         try:
             client: aiohttp.ClientSession = await self._http_client()
             async with client.request("GET", f"{self.LIQUIDITY_BOUNTY_REST_API}/list") as resp:
@@ -197,10 +201,21 @@ class LiquidityBounty(NetworkBase):
                 self.logger().debug(results)
                 self._active_bounties = results.get("bounties", [])
                 self._active_bounties_fetched_event.set()
-        except asyncio.CancelledError:
+        except Exception:
             raise
-        except Exception as e:
-            self.logger().error(f"Failed to fetch active bounties: {str(e)}")
+
+    async def fetch_active_bounties_loop(self):
+        """ Repeatedly polling for active bounties  """
+        while True:
+            try:
+                await self.fetch_active_bounties()
+            except asyncio.CancelledError:
+                raise
+            except asyncio.TimeoutError:
+                continue
+            except Exception as e:
+                self.logger().error(f"Failed to fetch active bounties: {str(e)}", exc_info=True)
+            await asyncio.sleep(self._active_bounties_update_interval)
 
     async def register(self, email: Optional[str] = None, eth_address: Optional[str] = None) -> Dict[str, Any]:
         if email is None or eth_address is None:
@@ -402,7 +417,7 @@ class LiquidityBounty(NetworkBase):
 
     async def start_network(self):
         await self.stop_network()
-        self.fetch_active_bounties_task = safe_ensure_future(self.fetch_active_bounties(), loop=self._ev_loop)
+        self.fetch_active_bounties_task = safe_ensure_future(self.fetch_active_bounties_loop(), loop=self._ev_loop)
         self.status_polling_task = safe_ensure_future(self.status_polling_loop(), loop=self._ev_loop)
         self.submit_data_task = safe_ensure_future(self.submit_data_loop(), loop=self._ev_loop)
 
