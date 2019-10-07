@@ -58,6 +58,17 @@ cdef class SimpleTradeStrategy(StrategyBase):
                  order_amount: float = 1.0,
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900):
+        """
+        :param market_infos: list of market trading pairs
+        :param order_type: type of order to place
+        :param order_price: price to place the order at
+        :param cancel_order_wait_time: how long to wait before cancelling an order
+        :param is_buy: if the order is to buy
+        :param time_delay: how long to wait between placing trades
+        :param order_amount: qty of the order to place
+        :param logging_options: select the types of logs to output
+        :param status_report_interval: how often to report network connection related warnings, if any
+        """
 
         if len(market_infos) < 1:
             raise ValueError(f"market_infos must not be empty.")
@@ -160,6 +171,11 @@ cdef class SimpleTradeStrategy(StrategyBase):
         return "\n".join(lines)
 
     cdef c_did_fill_order(self, object order_filled_event):
+        """
+        Output log for filled order.
+
+        :param order_filled_event: Order filled event
+        """
         cdef:
             str order_id = order_filled_event.order_id
             object market_info = self._sb_order_tracker.c_get_shadow_market_pair_from_order_id(order_id)
@@ -185,6 +201,11 @@ cdef class SimpleTradeStrategy(StrategyBase):
                     )
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
+        """
+        Output log for completed buy order.
+
+        :param order_completed_event: Order completed event
+        """
         cdef:
             str order_id = order_completed_event.order_id
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
@@ -209,6 +230,11 @@ cdef class SimpleTradeStrategy(StrategyBase):
                 )
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
+        """
+        Output log for completed sell order.
+
+        :param order_completed_event: Order completed event
+        """
         cdef:
             str order_id = order_completed_event.order_id
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
@@ -239,6 +265,14 @@ cdef class SimpleTradeStrategy(StrategyBase):
         self._last_timestamp = timestamp
 
     cdef c_tick(self, double timestamp):
+        """
+        Clock tick entry point.
+
+        For the simple trade strategy, this function simply checks for the readiness and connection status of markets, and
+        then delegates the processing of each market info to c_process_market().
+
+        :param timestamp: current tick timestamp
+        """
         StrategyBase.c_tick(self, timestamp)
         cdef:
             int64_t current_tick = <int64_t>(timestamp // self._status_report_interval)
@@ -267,6 +301,11 @@ cdef class SimpleTradeStrategy(StrategyBase):
             self._last_timestamp = timestamp
 
     cdef c_place_orders(self, object market_info):
+        """
+        Places an order specified by the user input if the user has enough balance
+
+        :param market_info: a market trading pair
+        """
         cdef:
             MarketBase market = market_info.market
             object quantized_amount = market.c_quantize_order_amount(market_info.trading_pair, Decimal(self._order_amount))
@@ -305,6 +344,12 @@ cdef class SimpleTradeStrategy(StrategyBase):
             self.logger().info(f"Not enough balance to run the strategy. Please check balances and try again.")
 
     cdef c_has_enough_balance(self, object market_info):
+        """
+        Checks to make sure the user has the sufficient balance in order to place the specified order
+
+        :param market_info: a market trading pair
+        :return: True if user has enough balance, False if not
+        """
         cdef:
             MarketBase market = market_info.market
             double base_asset_balance = market.c_get_balance(market_info.base_asset)
@@ -315,6 +360,12 @@ cdef class SimpleTradeStrategy(StrategyBase):
         return quote_asset_balance >= self._order_amount * price if self._is_buy else base_asset_balance >= self._order_amount
 
     cdef c_process_market(self, object market_info):
+        """
+        Checks if enough time has elapsed to place orders and if so, calls c_place_orders() and cancels orders if they
+        are older than self._cancel_order_wait_time.
+
+        :param market_info: a market trading pair
+        """
         cdef:
             MarketBase maker_market = market_info.market
             set cancel_order_ids = set()
