@@ -35,6 +35,12 @@ yaml_parser = ruamel.yaml.YAML()
 
 
 def parse_cvar_value(cvar: ConfigVar, value: Any) -> Any:
+    """
+    Based on the target type specified in `ConfigVar.type_str`, parses a string value into the target type.
+    :param cvar: ConfigVar object
+    :param value: User input from running session or from saved `yml` files. Type is usually string.
+    :return: value in the correct type
+    """
     if value is None:
         return None
     elif cvar.type == 'str':
@@ -78,6 +84,11 @@ def parse_cvar_value(cvar: ConfigVar, value: Any) -> Any:
 
 
 async def copy_strategy_template(strategy: str) -> str:
+    """
+    Look up template `.yml` file for a particular strategy in `hummingbot/templates` and copy it to the `conf` folder.
+    The file name is `conf_{STRATEGY}_strategy_{INDEX}.yml`
+    :return: The newly created file name
+    """
     old_path = get_strategy_template_path(strategy)
     i = 0
     new_fname = f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_{i}.yml"
@@ -91,6 +102,9 @@ async def copy_strategy_template(strategy: str) -> str:
 
 
 def get_strategy_template_path(strategy: str) -> str:
+    """
+    Given the strategy name, return its template config `yml` file name.
+    """
     return join(TEMPLATE_PATH, f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_TEMPLATE.yml")
 
 
@@ -105,6 +119,9 @@ def get_erc20_token_addresses(symbols: List[str]):
 
 
 def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
+    """
+    Helper function to merge a few dictionaries into an ordered dictionary.
+    """
     result: OrderedDict[any] = OrderedDict()
     for d in args:
         result.update(d)
@@ -112,7 +129,9 @@ def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
 
 
 def get_strategy_config_map(strategy: str) -> Optional[Dict[str, ConfigVar]]:
-    # Get the right config map from this file by its variable name
+    """
+    Given the name of a strategy, find and load strategy-specific config map.
+    """
     if strategy is None:
         return None
     try:
@@ -125,6 +144,10 @@ def get_strategy_config_map(strategy: str) -> Optional[Dict[str, ConfigVar]]:
 
 
 def get_strategy_starter_file(strategy: str) -> Callable:
+    """
+    Given the name of a strategy, find and load the `start` function in
+    `hummingbot/strategy/{STRATEGY_NAME}/start.py` file.
+    """
     if strategy is None:
         return lambda: None
     try:
@@ -136,6 +159,10 @@ def get_strategy_starter_file(strategy: str) -> Callable:
 
 
 def load_required_configs(*args) -> OrderedDict:
+    """
+    Go through `in_memory_config_map`, `strategy_config_map`, and `global_config_map` in order to list all of the
+    config settings required by the bot.
+    """
     from hummingbot.client.config.in_memory_config_map import in_memory_config_map
     current_strategy = in_memory_config_map.get("strategy").value
     current_strategy_file_path = in_memory_config_map.get("strategy_file_path").value
@@ -188,6 +215,9 @@ def read_configs_from_yml(strategy_file_path: str = None):
 
 
 async def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
+    """
+    Write current config saved a single config map into each a single yml file
+    """
     try:
         with open(yml_path) as stream:
             data = yaml_parser.load(stream) or {}
@@ -202,7 +232,7 @@ async def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
 
 async def write_config_to_yml():
     """
-    Write current config saved in config maps into each corresponding yml file
+    Write current config saved in all config maps into each corresponding yml file
     """
     from hummingbot.client.config.in_memory_config_map import in_memory_config_map
     current_strategy = in_memory_config_map.get("strategy").value
@@ -217,8 +247,10 @@ async def write_config_to_yml():
 
 
 async def create_yml_files():
+    """
+    Copy `hummingbot_logs.yml` and `conf_global.yml` templates to the `conf` directory on start up
+    """
     for fname in listdir(TEMPLATE_PATH):
-        # Only copy `hummingbot_logs.yml` and `conf_global.yml` on start up
         if "_TEMPLATE" in fname and CONF_POSTFIX not in fname:
             stripped_fname = fname.replace("_TEMPLATE", "")
             template_path = join(TEMPLATE_PATH, fname)

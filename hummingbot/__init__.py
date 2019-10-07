@@ -1,15 +1,22 @@
 #!/usr/bin/env python
-from typing import Optional
+from typing import (
+    List,
+    Optional
+)
 import logging
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
-from os import path
+from os import (
+    listdir,
+    path,
+)
 from hummingbot.logger.struct_logger import (
     StructLogRecord,
     StructLogger
 )
 
 STRUCT_LOGGER_SET = False
+DEV_STRATEGY_PREFIX = "dev"
 _prefix_path = None
 
 # Do not raise exceptions during log handling
@@ -104,7 +111,6 @@ def init_logging(conf_filename: str, override_log_level: Optional[str] = None, d
     from ruamel.yaml import YAML
 
     from hummingbot.client.config.global_config_map import global_config_map
-    from hummingbot.logger import reporting_proxy_handler
     from hummingbot.logger.struct_logger import (
         StructLogRecord,
         StructLogger
@@ -135,3 +141,21 @@ def init_logging(conf_filename: str, override_log_level: Optional[str] = None, d
         # add remote logging to logger if in dev mode
         if dev_mode:
             add_remote_logger_handler(config_dict.get("loggers", []))
+
+
+def get_strategy_list() -> List[str]:
+    """
+    Search `hummingbot.strategy` folder for all available strategies
+    Automatically hide all strategies that starts with "dev" if on master branch
+    """
+    try:
+        folder = path.realpath(path.join(__file__, "../strategy"))
+        # Only include valid directories
+        strategies = [d for d in listdir(folder) if path.isdir(path.join(folder, d)) and not d.startswith("__")]
+        on_dev_mode = check_dev_mode()
+        if not on_dev_mode:
+            strategies = [s for s in strategies if not s.startswith(DEV_STRATEGY_PREFIX)]
+        return sorted(strategies)
+    except Exception as e:
+        logging.getLogger().warning(f"Error getting strategy set: {str(e)}")
+        return []

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import logging
 from os.path import join, realpath
-import sys;sys.path.insert(0, realpath(join(__file__, "../../../")))
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
@@ -142,11 +142,11 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
     def test_limit_buy(self):
         self.assertGreater(self.market.get_balance("ETH"), 0.1)
         symbol = "ETH-USDC"
-        amount: float = 0.02
+        amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
         current_bid_price: float = self.market.get_price(symbol, True)
-        bid_price: float = current_bid_price + 0.05 * current_bid_price
+        bid_price: Decimal = Decimal(current_bid_price + 0.05 * current_bid_price)
         quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
         order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
@@ -171,10 +171,10 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
 
     def test_limit_sell(self):
         symbol = "ETH-USDC"
-        amount: float = 0.02
+        amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
         current_ask_price: float = self.market.get_price(symbol, False)
-        ask_price: float = current_ask_price - 0.05 * current_ask_price
+        ask_price: Decimal = Decimal(current_ask_price - 0.05 * current_ask_price)
         quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price)
 
         order_id = self.market.sell(symbol, amount, OrderType.LIMIT, quantize_ask_price)
@@ -200,7 +200,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
     def test_market_buy(self):
         self.assertGreater(self.market.get_balance("ETH"), 0.1)
         symbol = "ETH-USD"
-        amount: float = 0.02
+        amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
         order_id = self.market.buy(symbol, quantized_amount, OrderType.MARKET, 0)
@@ -226,7 +226,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
     # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
     def test_market_sell(self):
         symbol = "ETH-USD"
-        amount: float = 0.02
+        amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
         order_id = self.market.sell(symbol, amount, OrderType.MARKET, 0)
@@ -253,9 +253,9 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         symbol = "ETH-USDC"
 
         current_bid_price: float = self.market.get_price(symbol, True)
-        amount: float = 10 / current_bid_price
+        amount: Decimal = Decimal(10 / current_bid_price)
 
-        bid_price: float = current_bid_price - 0.1 * current_bid_price
+        bid_price: Decimal = Decimal(current_bid_price - 0.1 * current_bid_price)
         quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
@@ -269,12 +269,12 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         symbol = "ETH-USDC"
         bid_price: float = self.market.get_price(symbol, True) * 0.5
         ask_price: float = self.market.get_price(symbol, False) * 2
-        amount: float = 10 / bid_price
+        amount: Decimal = Decimal(10 / bid_price)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
         # Intentionally setting invalid price to prevent getting filled
-        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price * 0.7)
-        quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price * 1.5)
+        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, Decimal(bid_price * 0.7))
+        quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, Decimal(ask_price * 1.5))
 
         self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
         self.market.sell(symbol, quantized_amount, OrderType.LIMIT, quantize_ask_price)
@@ -287,11 +287,11 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
     def test_list_orders(self):
         self.assertGreater(self.market.get_balance("ETH"), 0.1)
         symbol = "ETH-USDC"
-        amount: float = 0.02
+        amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
         current_bid_price: float = self.market.get_price(symbol, True)
-        bid_price: float = current_bid_price + 0.05 * current_bid_price
+        bid_price: Decimal = Decimal(current_bid_price + 0.05 * current_bid_price)
         quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
         self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
@@ -339,10 +339,10 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
 
             # Try to put limit buy order for 0.04 ETH, and watch for order creation event.
             current_bid_price: float = self.market.get_price(symbol, True)
-            bid_price: float = current_bid_price * 0.8
+            bid_price: Decimal = Decimal(current_bid_price * 0.8)
             quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
-            amount: float = 0.04
+            amount: Decimal = Decimal(0.04)
             quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
             order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
@@ -415,8 +415,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
 
         try:
             # Try to buy 0.04 ETH from the exchange, and watch for completion event.
-            current_price: float = self.market.get_price(symbol, True)
-            amount: float = 0.04
+            amount: Decimal = Decimal(0.04)
             order_id = self.market.buy(symbol, amount)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
@@ -424,7 +423,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             self.market_logger.clear()
 
             # Try to sell back the same amount of ETH to the exchange, and watch for completion event.
-            amount = float(buy_order_completed_event.base_asset_amount)
+            amount = Decimal(buy_order_completed_event.base_asset_amount)
             order_id = self.market.sell(symbol, amount)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 

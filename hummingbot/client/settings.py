@@ -4,6 +4,7 @@ from os.path import (
 )
 from typing import List
 
+from hummingbot import get_strategy_list
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
 # Global variables
@@ -40,13 +41,7 @@ DEXES = {
     "radar_relay",
 }
 
-STRATEGIES = {
-    "cross_exchange_market_making",
-    "arbitrage",
-    "discovery",
-    "pure_market_making",
-    "simple_trade"
-}
+STRATEGIES: List[str] = get_strategy_list()
 
 EXAMPLE_PAIRS = {
     "binance": "ZRXETH",
@@ -56,6 +51,16 @@ EXAMPLE_PAIRS = {
     "bamboo_relay": "ZRX-WETH",
     "coinbase_pro": "ETH-USDC",
     "huobi": "ethusdt"
+}
+
+EXAMPLE_ASSETS = {
+    "binance": "ZRX",
+    "ddex": "ZRX",
+    "idex": "ETH=",
+    "radar_relay": "ZRX",
+    "bamboo_relay": "ZRX",
+    "coinbase_pro": "ETH",
+    "huobi": "eth"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
