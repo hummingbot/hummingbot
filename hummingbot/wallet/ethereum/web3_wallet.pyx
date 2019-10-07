@@ -21,6 +21,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.pubsub cimport PubSub
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.wallet.wallet_base import WalletBase
+from hummingbot.wallet.ethereum.erc20_token import ERC20Token
 from hummingbot.wallet.ethereum.web3_wallet_backend import Web3WalletBackend
 
 class_logger = None
@@ -98,6 +99,10 @@ cdef class Web3Wallet(WalletBase):
         self.check_network_interval = 2.0
 
     @property
+    def erc20_tokens(self) -> Dict[str, ERC20Token]:
+        return self._best_backend._erc20_tokens
+
+    @property
     def address(self) -> str:
         return self._local_account.address
 
@@ -147,7 +152,7 @@ cdef class Web3Wallet(WalletBase):
             # Wait for the next iteration
             now = time.time()
             next_iteration_timestamp = (int(now / self.BACKEND_SELECTION_INTERVAL) + 1) * \
-                                       self.BACKEND_SELECTION_INTERVAL
+                self.BACKEND_SELECTION_INTERVAL
             await asyncio.sleep(next_iteration_timestamp - now)
 
     def approve_token_transfer(self, asset_name: str, spender_address: str, amount: float, **kwargs) -> str:

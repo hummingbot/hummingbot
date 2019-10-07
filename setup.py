@@ -17,7 +17,7 @@ if os.name == "posix":
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20190923"
+    version = "20191007"
     packages = [
         "hummingbot",
         "hummingbot.client",
@@ -66,7 +66,7 @@ def main():
             "templates/*TEMPLATE.yml"
         ],
     }
-    install_requires=[
+    install_requires = [
         "aioconsole",
         "aiokafka",
         "attrdict",
@@ -129,9 +129,7 @@ def main():
           packages=packages,
           package_data=package_data,
           install_requires=install_requires,
-          ext_modules=cythonize([
-              "hummingbot/**/*.pyx",
-          ], language="c++", language_level=3, nthreads=cpu_count),
+          ext_modules=cythonize(["hummingbot/**/*.pyx"], language="c++", language_level=3, nthreads=cpu_count),
           include_dirs=[
               np.get_include(),
           ],
