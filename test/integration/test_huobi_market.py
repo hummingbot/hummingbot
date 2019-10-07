@@ -53,13 +53,6 @@ from hummingbot.model.trade_fill import TradeFill
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 MOCK_HUOBI_USER_ID = 10000000
 
-class MockHuobiMarket(HuobiMarket):
-    def __init__(self, api_key, secret_key, symbols):
-        super().__init__(api_key, secret_key, symbols=symbols)
-
-    async def _http_client(self):
-        return await self.client
-
 
 class HuobiMarketUnitTest(AioHTTPTestCase):
     events: List[MarketEvent] = [
@@ -83,6 +76,7 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
     def setUpClass(cls):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        cls.ev_loop.set_debug(True)
         cls.stack = contextlib.ExitStack()
         cls._clock = cls.stack.enter_context(cls.clock)
 
@@ -91,13 +85,33 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
         cls.stack.close()
 
     async def get_application(self):
+        async def get_common_timestamp(_):
+            print('$$$$$$$$$$$$$$$$ get_common_timestamp')
+            return web.Response({'status': 'ok', 'data': 1569445000000}, status=200)
         app = web.Application()
+        app.router.add_get("/market/tickers", self.get_market_tickers)
         app.router.add_post("/order/orders/place", self.get_account_accounts)
         app.router.add_get("/account/accounts", self.get_account_accounts)
-        app.router.add_get("/common/timestamp", self.get_common_timestamp)
+        app.router.add_get("/common/timestamp", get_common_timestamp)
         app.router.add_get("/common/symbols", self.get_common_symbols)
         app.router.add_get(f"/account/accounts/{MOCK_HUOBI_USER_ID}/balance", self.get_user_balance)
         return app
+
+    async def get_market_tickers(self, _):
+        return web.json_response({
+            'status': 'ok',
+            'ts': 1570060262253,
+            'data': [{
+                "symbol": "ethusdt",
+                "open": 175.57,
+                "high": 181,
+                "low": 175,
+                "close": 180.11,
+                "amount": 330265.5220692477,
+                "vol": 58300213.797686026,
+                "count": 93755
+            }]
+        }, status=200)
 
     async def get_account_accounts(self, _):
         return web.json_response({
@@ -106,7 +120,8 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
         }, status=200)
 
     async def get_common_timestamp(self, _):
-        return web.json_response({'status': 'ok', 'data': 1569445000000}, status=200)
+        print('$$$$$$$$$$$$$$$$ get_common_timestamp')
+        return web.Response({'status': 'ok', 'data': 1569445000000}, status=200)
 
     async def get_common_symbols(self, _):
         return web.json_response({
@@ -143,62 +158,46 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
             }
         }, status=200)
 
-    async def mock_http_client(self):
-        return await self.client
-
     @staticmethod
     async def wait_til_ready(market, clock):
         while True:
             now = time.time()
             next_iteration = now // 1.0 + 1
-            if market.ready:  # and self.market_2.ready:
+            if market.ready:
+                print('MARKET READY')
                 break
             else:
                 await clock.run_til(next_iteration)
             await asyncio.sleep(1.0)
 
-    async def customSetUp(self):
+    def customSetUp(self):
         self.market: HuobiMarket = HuobiMarket(
             conf.huobi_api_key,
             conf.huobi_secret_key,
             symbols=["ethusdt"]
         )
         # self.market.shared_client = self.client
-        # print(self.market._http_client)
-        # Need 2nd instance of market to prevent events mixing up across tests
-        # self.market_2: HuobiMarket = HuobiMarket(
-        #     conf.huobi_api_key,
-        #     conf.huobi_secret_key,
-        #     symbols=["ethusdt"]
-        # )
+        # test = await self.client.get("/common/timestamp")
+        # self.market.order_book_tracker.data_source
         self.clock.add_iterator(self.market)
-        # self.clock.add_iterator(self.market_2)
-        print('customSetUp1')
-        await self.wait_til_ready(self.market, self._clock)
-
+        self.run_parallel(self.wait_til_ready(self.market, self._clock))
         self.db_path: str = realpath(join(__file__, "../huobi_test.sqlite"))
         try:
             os.unlink(self.db_path)
         except FileNotFoundError:
             pass
-        print('customSetUp2')
 
         self.market_logger = EventLogger()
-        # self.market_2_logger = EventLogger()
         for event_tag in self.events:
             self.market.add_listener(event_tag, self.market_logger)
-            # self.market_2.add_listener(event_tag, self.market_2_logger)
-        print('customSetUp3')
 
     def tearDown(self):
         for event_tag in self.events:
             self.market.remove_listener(event_tag, self.market_logger)
-            # self.market_2.remove_listener(event_tag, self.market_2_logger)
         self.market_logger = None
-        # self.market_2_logger = None
 
     async def run_parallel_async(self, *tasks):
-        future: asyncio.Future = safe_ensure_future(safe_gather(*tasks))
+        future: asyncio.Future = asyncio.ensure_future(safe_gather(*tasks))
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1
@@ -221,7 +220,7 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
     #     self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
     def test_limit_buy(self):
-        self.run_parallel(self.customSetUp())
+        self.customSetUp()
         symbol = "ethusdt"
         amount: Decimal = Decimal(0.02)
         print(self.market)
