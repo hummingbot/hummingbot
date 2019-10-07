@@ -108,36 +108,38 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
 
         if market.name == "binance":
             quantized_bid_order_size = market.c_quantize_order_amount(market_info.trading_pair,
-                                                                      float(bid_order_size),
+                                                                      bid_order_size,
                                                                       pricing_proposal.buy_order_prices[0])
             quantized_ask_order_size = market.c_quantize_order_amount(market_info.trading_pair,
-                                                                      float(ask_order_size),
+                                                                      ask_order_size,
                                                                       pricing_proposal.sell_order_prices[0])
             required_quote_asset_balance = pricing_proposal.buy_order_prices[0] * quantized_bid_order_size
 
         else:
             quantized_bid_order_size = market.c_quantize_order_amount(market_info.trading_pair,
-                                                                      float(bid_order_size))
+                                                                      bid_order_size)
             quantized_ask_order_size = market.c_quantize_order_amount(market_info.trading_pair,
-                                                                      float(ask_order_size))
+                                                                      ask_order_size)
 
-            buy_fees = market.c_get_fee(market_info.base_asset, market_info.quote_asset,
+            buy_fees = market.c_get_fee(market_info.base_asset,
+                                        market_info.quote_asset,
                                         OrderType.MARKET, TradeType.BUY,
-                                        quantized_bid_order_size, pricing_proposal.buy_order_prices[0])
+                                        quantized_bid_order_size,
+                                        pricing_proposal.buy_order_prices[0])
 
             required_quote_asset_balance = (pricing_proposal.buy_order_prices[0] *
-                                            (1 + Decimal(buy_fees.percent)) *
+                                            (Decimal(1) + Decimal(buy_fees.percent)) *
                                             quantized_bid_order_size)
 
         if quote_asset_balance < required_quote_asset_balance:
             bid_order_size = quote_asset_balance / pricing_proposal.buy_order_prices[0]
             quantized_bid_order_size = market.c_quantize_order_amount(market_info.trading_pair,
-                                                                      float(bid_order_size),
+                                                                      bid_order_size,
                                                                       pricing_proposal.buy_order_prices[0])
 
         if base_asset_balance < quantized_ask_order_size:
             quantized_ask_order_size = market.c_quantize_order_amount(market_info.trading_pair,
-                                                                      float(base_asset_balance),
+                                                                      base_asset_balance,
                                                                       pricing_proposal.sell_order_prices[0])
 
         return SizingProposal(

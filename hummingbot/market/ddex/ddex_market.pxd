@@ -15,6 +15,7 @@ cdef class DDEXMarket(MarketBase):
         object _poll_notifier
         double _last_timestamp
         double _last_update_order_timestamp
+        double _last_update_trade_fills_timestamp
         double _last_update_available_balance_timestamp
         double _last_update_trading_rules_timestamp
         double _last_update_trade_fees_timestamp

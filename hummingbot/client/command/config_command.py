@@ -61,6 +61,9 @@ class ConfigCommand:
     @property
     def config_complete(self,  # type: HummingbotApplication
                         ) -> bool:
+        """
+        Returns bool value that indicates if the bot's configuration is all complete.
+        """
         config_map = load_required_configs()
         keys = self._get_empty_configs()
         for key in keys:
@@ -71,11 +74,17 @@ class ConfigCommand:
 
     @staticmethod
     def _get_empty_configs() -> List[str]:
+        """
+        Returns a list of required config keys whose current value is None or an empty string.
+        """
         config_map = load_required_configs()
         return [key for key, config in config_map.items() if config.value is None]
 
     @staticmethod
     def get_all_available_config_keys() -> List[str]:
+        """
+        Returns a list of config keys that are currently relevant, including the ones that are not required.
+        """
         all_available_config_keys = list(in_memory_config_map.keys()) + list(global_config_map.keys())
         current_strategy: str = in_memory_config_map.get("strategy").value
         strategy_cm: Optional[Dict[str, ConfigVar]] = get_strategy_config_map(current_strategy)
@@ -85,6 +94,9 @@ class ConfigCommand:
 
     async def reset_config_loop(self,  # type: HummingbotApplication
                                 key: str = None):
+        """
+        Handler function that allows user to redo the config step.
+        """
         strategy = in_memory_config_map.get("strategy").value
         strategy_cm = get_strategy_config_map(strategy)
 
@@ -118,6 +130,10 @@ class ConfigCommand:
 
     async def _create_or_import_wallet(self,  # type: HummingbotApplication
                                        ):
+        """
+        Special handler function that asks the user to either create a new wallet,
+        or import one by entering the private key.
+        """
         choice = await self.app.prompt(prompt=global_config_map.get("wallet").prompt)
         if choice == "import":
             private_key = await self.app.prompt(prompt="Your wallet private key >>> ", is_password=True)
@@ -142,6 +158,9 @@ class ConfigCommand:
 
     async def _unlock_wallet(self,  # type: HummingbotApplication
                              ):
+        """
+        Special handler function that helps the user unlock an existing wallet, or redirect user to create a new wallet.
+        """
         choice = await self.app.prompt(prompt="Would you like to unlock your previously saved wallet? (y/n) >>> ")
         if choice.lower() in {"y", "yes"}:
             wallets = list_wallets()
@@ -157,7 +176,7 @@ class ConfigCommand:
                 self._notify("Wallet %s unlocked" % (acct.address,))
                 self.acct = acct
                 return self.acct.address
-            except Exception as e:
+            except Exception:
                 self._notify("Cannot unlock wallet. Please try again.")
                 result = await self._unlock_wallet()
                 return result
@@ -167,6 +186,9 @@ class ConfigCommand:
 
     async def _import_or_create_strategy_config(self,  # type: HummingbotApplication
                                                 ):
+        """
+        Special handler function that asks if the user wants to import or create a new strategy config.
+        """
         current_strategy: str = in_memory_config_map.get("strategy").value
         strategy_file_path_cv: ConfigVar = in_memory_config_map.get("strategy_file_path")
         choice = await self.app.prompt(prompt="Import previous configs or create a new config file? "
@@ -221,6 +243,10 @@ class ConfigCommand:
 
     @staticmethod
     def _get_config_var_with_key(key: str) -> ConfigVar:
+        """
+        Check if key exists in `in_memory_config-map`, `global_config_map`, and `strategy_config_map`.
+        If so, return the corresponding ConfigVar for that key
+        """
         current_strategy: str = in_memory_config_map.get("strategy").value
         strategy_cm: Optional[Dict[str, ConfigVar]] = get_strategy_config_map(current_strategy)
         if key in in_memory_config_map:
@@ -304,4 +330,3 @@ class ConfigCommand:
             self.app.toggle_hide_input()
             self.placeholder_mode = False
             self.app.change_prompt(prompt=">>> ")
-

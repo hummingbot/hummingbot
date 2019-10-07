@@ -38,6 +38,7 @@ cdef class DDEXInFlightOrder(InFlightOrderBase):
         self.pending_amount_base = s_decimal_0
         self.gas_fee_amount = s_decimal_0
         self.available_amount_base = amount
+        self.trade_id_set = set()
 
     def __repr__(self) -> str:
         return f"DDEXInFlightOrder(" \
@@ -99,3 +100,16 @@ cdef class DDEXInFlightOrder(InFlightOrderBase):
         retval.pending_amount_base = Decimal(data["pending_amount_base"])
         retval.gas_fee_amount = Decimal(data["gas_fee_amount"])
         return retval
+
+    def update_with_trade_update(self, trade_update: Dict[str, Any]):
+        trade_id = trade_update["transactionId"]
+        if (trade_update["makerOrderId"] != self.exchange_order_id and
+                trade_update["takerOrderId"] != self.exchange_order_id) or trade_id in self.trade_id_set:
+            # trade already recorded
+            return
+        self.trade_id_set.add(trade_id)
+        self.executed_amount_base += Decimal(trade_update["amount"])
+        self.available_amount_base -= Decimal(trade_update["amount"])
+        self.executed_amount_quote += Decimal(trade_update["amount"]) * Decimal(trade_update["price"])
+        self.fee_paid += Decimal(trade_update["feeAmount"])
+        return trade_update
