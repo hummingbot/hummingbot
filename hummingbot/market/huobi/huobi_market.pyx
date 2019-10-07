@@ -147,6 +147,10 @@ cdef class HuobiMarket(MarketBase):
         return "huobi"
 
     @property
+    def order_book_tracker(self) -> HuobiOrderBookTracker:
+        return self._order_book_tracker
+
+    @property
     def order_books(self) -> Dict[str, OrderBook]:
         return self._order_book_tracker.order_books
 
@@ -259,13 +263,16 @@ cdef class HuobiMarket(MarketBase):
             client = await self._http_client()
             if is_auth_required:
                 params = self._huobi_auth.add_auth_to_params(method, path_url, params)
-            async with client.request(method=method,
+            print('************_api_request', path_url, method, headers, params, ujson.dumps(data))
+            
+            async with client.request(method=method.upper(),
                                     url=url,
                                     # path=f"/{path_url}",
                                     headers=headers,
                                     params=params,
                                     data=ujson.dumps(data),
-                                    timeout=self.API_CALL_TIMEOUT)  as response:
+                                    timeout=100) as response:
+                print('_____________________________________*****************************************_________________-', response)
                 if response.status != 200:
                     raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
                 try:
@@ -279,7 +286,7 @@ cdef class HuobiMarket(MarketBase):
                     return {"error": parsed_response}
                 return data
         except Exception as e:
-            self.logger().error('ERRRORRR', e)
+            print('ERRRORRR', e)
 
     async def _update_account_id(self) -> str:
         accounts = await self._api_request("get", path_url="account/accounts", is_auth_required=True)
@@ -649,8 +656,13 @@ cdef class HuobiMarket(MarketBase):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = f"buy-{symbol}-{tracking_nonce}"
-        print('c-buy')
-        asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
+        print('c-buy', order_id, symbol, amount, order_type, price)
+        print('exceute, ', self.execute_buy)
+        try:
+            asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
+        except Exception as e:
+            print('EEEEEEEEE', e)
+        print('ORDER ID', order_id)
         return order_id
 
     async def execute_sell(self,

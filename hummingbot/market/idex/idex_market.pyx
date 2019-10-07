@@ -1113,4 +1113,5 @@ cdef class IDEXMarket(MarketBase):
             amount_quote = quantized_amount * actual_price
             if amount_quote < Decimal(self.MINIMUM_MAKER_ORDER_SIZE_ETH):
                 return s_decimal_0
+            print(amount_quote)
         return quantized_amount
