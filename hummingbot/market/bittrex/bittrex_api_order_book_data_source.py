@@ -32,6 +32,7 @@ BITTREX_WS_FEED = "https://socket.bittrex.com/signalr"
 
 MAX_RETRIES = 20
 MESSAGE_TIMEOUT = 30.0
+SNAPSHOT_TIMEOUT = 10.0
 NaN = float("nan")
 
 
@@ -52,6 +53,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._symbols: Optional[List[str]] = symbols
         self._websocket_connection: Optional[Connection] = None
         self._websocket_hub: Optional[Hub] = None
+        self._snapshot_msg: Dict[str, any] = {}
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
@@ -152,68 +154,56 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if not self._websocket_connection or not self._websocket_hub:
             self._websocket_connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
             self._websocket_hub = self._websocket_connection.register_hub("c2")
+
+            trading_pairs = await self.get_trading_pairs()
+            for trading_pair in trading_pairs:
+                # TODO: Refactor accordingly when V3 WebSocket API is released
+                # WebSocket API requires trading_pair to be in 'Quote-Base' format
+                trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
+                self.logger().info(f"Subscribed to {trading_pair} deltas")
+                self._websocket_hub.server.invoke("SubscribeToExchangeDeltas", trading_pair)
+
+                self.logger().info(f"Query {trading_pair} snapshot")
+                self._websocket_hub.server.invoke("queryExchangeState", trading_pair)
+
             self._websocket_connection.start()
 
         return self._websocket_connection, self._websocket_hub
 
-    @staticmethod
-    async def get_snapshot(trading_pair: str) -> Dict[str, any]:
-        async def _get_raw_message(conn: signalr_aio.Connection) -> AsyncIterable[str]:
-            try:
-                async with timeout(MESSAGE_TIMEOUT):
-                    yield await conn.msg_queue.get()
-            except asyncio.TimeoutError:
-                return
+    async def wait_for_snapshot(self, trading_pair: str, invoke_timestamp: int) -> Optional[OrderBookMessage]:
+        try:
+            async with timeout(SNAPSHOT_TIMEOUT):
+                while True:
+                    if self._snapshot_msg.get(trading_pair):
+                        msg: Dict[str, any] = self._snapshot_msg.pop(trading_pair)
+                        if msg["timestamp"] > invoke_timestamp:
+                            return msg["content"]
+                    await asyncio.sleep(1)
+        except asyncio.TimeoutError:
+            raise
 
-        async def _transform_raw_message(msg) -> Dict[str, Any]:
-            def _decode_message(raw_message: bytes) -> Dict[str, Any]:
-                try:
-                    decoded_msg: bytes = decompress(b64decode(raw_message, validate=True), -MAX_WBITS)
-                except SyntaxError:
-                    decoded_msg: bytes = decompress(b64decode(raw_message, validate=True))
-                except Exception:
-                    return {}
-
-                return ujson.loads(decoded_msg.decode())
-
-            def _is_snapshot(msg) -> bool:
-                return type(msg.get("R", False)) is not bool
-
-            output: Dict[str, Any] = {"nonce": None, "results": {}}
-            msg: Dict[str, Any] = ujson.loads(msg)
-
-            if _is_snapshot(msg):
-                output["results"] = _decode_message(msg["R"])
-
-                # TODO: Refactor accordingly when V3 WebSocket API is released
-                # WebSocket API returns market symbols in 'Quote-Base' format
-                # Code below converts 'Quote-Base' -> 'Base-Quote'
-                output["results"].update({
-                    "M": f"{output['results']['M'].split('-')[1]}-{output['results']['M'].split('-')[0]}"
-                })
-
-                output["nonce"] = output["results"]["N"]
-
-            return output
-
+    async def get_snapshot(self, trading_pair: str) -> OrderBookMessage:
         # Creates a new connection to obtain a single snapshot of the trading_pair
-        connection: signalr_aio.Connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
-        hub: signalr_aio.hubs.Hub = connection.register_hub("c2")
-        hub.server.invoke("queryExchangeState", trading_pair)
-        connection.start()
+        connection, hub = await self.websocket_connection()
 
-        # Attempts to retrieve a snapshot a minimum of 20 times
+        # TODO: Refactor accordingly when V3 WebSocket API is released
+        temp_trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
+
         get_snapshot_attempts = 0
         while get_snapshot_attempts < MAX_RETRIES:
             get_snapshot_attempts += 1
-            async for raw_message in _get_raw_message(connection):
-                decoded: Dict[str, any] = await _transform_raw_message(raw_message)
-                symbol: str = decoded["results"].get("M")
-                if not symbol:  # Re-attempt to retrieve snapshot from stream
-                    continue
 
-                connection.close()
-                return decoded
+            hub.server.invoke("queryExchangeState", trading_pair)
+            self.logger().info(f"Query {trading_pair} snapshots.")
+            invoke_timestamp = int(time.time())
+
+            try:
+                return await self.wait_for_snapshot(temp_trading_pair, invoke_timestamp)
+            except asyncio.TimeoutError:
+                self.logger().warning("Snapshot query timed out. Retrying...")
+            except KeyError:
+                self.logger().error(f"{trading_pair} snapshot not received. Retrying query")
+
         raise IOError
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
@@ -230,23 +220,20 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             temp_trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
 
             try:
-                snapshot: Dict[str, any] = await self.get_snapshot(temp_trading_pair)
-                snapshot_timestamp: float = snapshot["nonce"]
-                snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
-                    snapshot["results"], snapshot_timestamp, metadata={"symbol": trading_pair}
-                )
+                snapshot: OrderBookMessage = await self.get_snapshot(temp_trading_pair)
+
                 order_book: BittrexOrderBook = BittrexOrderBook()
                 active_order_tracker: BittrexActiveOrderTracker = BittrexActiveOrderTracker()
 
-                bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
-                order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
+                bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot)
+                order_book.apply_snapshot(bids, asks, snapshot.update_id)
                 retval[trading_pair] = BittrexOrderBookTrackerEntry(
-                    trading_pair, snapshot_timestamp, order_book, active_order_tracker
+                    trading_pair, snapshot.timestamp, order_book, active_order_tracker
                 )
                 self.logger().info(
                     f"Initialized order book for {trading_pair}. " f"{index + 1}/{number_of_pairs} completed."
                 )
-                await asyncio.sleep(0.6)
+                await asyncio.sleep(0.5)
             except IOError:
                 self.logger().network(
                     f"Max retries met fetching snapshot for {trading_pair}.",
@@ -323,7 +310,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         # Technically this does not listen for snapshot, Instead it periodically queries for snapshots.
         while True:
             try:
-                connection, hub = self.websocket_connection()
+                connection, hub = await self.websocket_connection()
                 trading_pairs = await self.get_trading_pairs()  # Symbols of trading pair in V3 format i.e. 'Base-Quote'
                 for trading_pair in trading_pairs:
                     # TODO: Refactor accordingly when V3 WebSocket API is released
@@ -385,17 +372,6 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 connection, hub = await self.websocket_connection()
 
-                trading_pairs = await self.get_trading_pairs()
-                for trading_pair in trading_pairs:
-                    # TODO: Refactor accordingly when V3 WebSocket API is released
-                    # WebSocket API requires trading_pair to be in 'Quote-Base' format
-                    trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
-                    self.logger().info(f"Subscribed to {trading_pair} deltas")
-                    hub.server.invoke("SubscribeToExchangeDeltas", trading_pair)
-
-                    self.logger().info(f"Query {trading_pair} snapshot")
-                    hub.server.invoke("queryExchangeState", trading_pair)
-
                 async for raw_message in self._socket_stream(connection):
                     decoded: Dict[str, Any] = await self._transform_raw_message(raw_message)
                     symbol: str = decoded["results"].get("M")
@@ -411,6 +387,10 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             snapshot["results"], snapshot_timestamp, metadata={"product_id": symbol}
                         )
                         snapshot_queue.put_nowait(snapshot_msg)
+                        self._snapshot_msg[symbol] = {
+                            "timestamp": int(time.time()),
+                            "content": snapshot_msg
+                        }
 
                     # Processes diff messages
                     if decoded["type"] == "update":
