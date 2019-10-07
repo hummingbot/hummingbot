@@ -52,6 +52,7 @@ from hummingbot.model.trade_fill import TradeFill
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 MOCK_HUOBI_USER_ID = 10000000
+MOCK_HUOBI_BUY_ORDER_ID = 59378
 
 
 class HuobiMarketUnitTest(AioHTTPTestCase):
@@ -75,8 +76,6 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
     @classmethod
     def setUpClass(cls):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        # cls.ev_loop.set_debug(True)
         cls.stack = contextlib.ExitStack()
         cls._clock = cls.stack.enter_context(cls.clock)
 
@@ -85,16 +84,14 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
         cls.stack.close()
 
     async def get_application(self):
-        async def get_common_timestamp(_):
-            print('$$$$$$$$$$$$$$$$ get_common_timestamp')
-            return web.Response({'status': 'ok', 'data': 1569445000000}, status=200)
         app = web.Application()
         app.router.add_get("/market/tickers", self.get_market_tickers)
-        app.router.add_post("/order/orders/place", self.get_account_accounts)
         app.router.add_get("/account/accounts", self.get_account_accounts)
-        app.router.add_get("/common/timestamp", get_common_timestamp)
+        app.router.add_get("/common/timestamp", self.get_common_timestamp)
         app.router.add_get("/common/symbols", self.get_common_symbols)
         app.router.add_get(f"/account/accounts/{MOCK_HUOBI_USER_ID}/balance", self.get_user_balance)
+        app.router.add_post("/order/orders/place", self.post_order_place)
+        app.router.add_get(f"/order/orders/{MOCK_HUOBI_BUY_ORDER_ID}", self.get_order)
         return app
 
     async def get_market_tickers(self, _):
@@ -120,8 +117,7 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
         }, status=200)
 
     async def get_common_timestamp(self, _):
-        print('$$$$$$$$$$$$$$$$ get_common_timestamp')
-        return web.Response({'status': 'ok', 'data': 1569445000000}, status=200)
+        return web.json_response({'status': 'ok', 'data': 1569445000000}, status=200)
 
     async def get_common_symbols(self, _):
         return web.json_response({
@@ -158,17 +154,50 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
             }
         }, status=200)
 
+    async def post_order_place(self, _):
+        return web.json_response({
+            'status': 'ok',
+            'data': MOCK_HUOBI_BUY_ORDER_ID
+        })
+
+    async def get_order(self, _):
+        response = {
+            "status": 'ok',
+            "data": {
+                "id": MOCK_HUOBI_BUY_ORDER_ID,
+                "symbol": "ethusdt",
+                "account-id": 100009,
+                "amount": "10.1000000000",
+                "price": "100.1000000000",
+                "created-at": 1494901162595,
+                "type": "buy-limit",
+                "field-amount": "10.1000000000",
+                "field-cash-amount": "1011.0100000000",
+                "field-fees": "0.0202000000",
+                "finished-at": 1494901400468,
+                "user-id": MOCK_HUOBI_USER_ID,
+                "source": "api",
+                "state": "filled",
+                "canceled-at": 0,
+                "exchange": "huobi",
+                "batch": ""
+            }
+        }
+        return web.json_response(response)
+
     @staticmethod
     async def wait_til_ready(market, clock):
         while True:
             now = time.time()
             next_iteration = now // 1.0 + 1
             if market.ready:
-                print('MARKET READY')
                 break
             else:
                 await clock.run_til(next_iteration)
             await asyncio.sleep(1.0)
+
+    def mock_get_price(symbol, is_buy) -> float:
+        return float(100.0)
 
     def customSetUp(self):
         self.market: HuobiMarket = HuobiMarket(
@@ -176,8 +205,8 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
             conf.huobi_secret_key,
             symbols=["ethusdt"]
         )
-        # self.market.shared_client = self.client
-        # test = await self.client.get("/common/timestamp")
+        self.market.shared_client = self.client
+        # self.market.get_price = self.mock_get_price
         # self.market.order_book_tracker.data_source
         self.clock.add_iterator(self.market)
         self.run_parallel(self.wait_til_ready(self.market, self._clock))
@@ -206,6 +235,7 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
         return future.result()
 
     def run_parallel(self, *tasks):
+        self.ev_loop = asyncio.get_event_loop()
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     # def test_get_fee(self):
@@ -223,17 +253,13 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
         self.customSetUp()
         symbol = "ethusdt"
         amount: Decimal = Decimal(0.02)
-        print(self.market)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
-        print('test_limit_buy1')
         current_bid_price: float = self.market.get_price(symbol, True)
-        print(current_bid_price)
+        print('@@@@@@@@@@@@@ CURRENT BUY PRICE', current_bid_price)
         bid_price: Decimal = Decimal(current_bid_price + 0.05 * current_bid_price)
         quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
-        print('test_limit_buy12')
 
         order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
-        print('test_limit_buy3')
 
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
@@ -241,7 +267,6 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
                                                 if isinstance(t, OrderFilledEvent)]
         base_amount_traded: float = sum(t.amount for t in trade_events)
         quote_amount_traded: float = sum(t.amount * t.price for t in trade_events)
-        print('test_limit_buy4')
 
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
