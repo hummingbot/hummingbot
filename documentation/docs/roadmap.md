@@ -26,7 +26,7 @@ The timeline below shows the past milestones we have completed, along with the f
 * Released [Simple Trade](/strategies/simple-trade) strategy
 * Created [Developer Manual](/developers/index)
 * Released [Paper Trading Mode](/utilities/paper-trade)
-* Released connectors for [Huobi Global](/connectors/huobi)
+* Released connector for [Huobi Global](/connectors/huobi)
 * Support for user defined strategies
 
 ## Q4 2019
