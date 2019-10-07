@@ -6,8 +6,8 @@ Hummingbot has been successfully tested with the following specifications:
 
 Resource | Requirement
 ---|---
-**Operating System** | **Linux**: Ubuntu 16.,04 or later (recommended)<ul><li>*Other Linux installations: Debian GNU/Linux 9, CentOS 7, Amazon Linux 2 AMI*</ul>**MacOS**: macOS 10.12.6 (Sierra) or later<br/>**Windows**: Windows 10 or later
-**Memory/RAM** | 1 GB one instance *+250 MB per addiional instance*
+**Operating System** | **Linux**: Ubuntu 16.04 or later (recommended)<ul><li>*Other Linux installations: Debian GNU/Linux 9, CentOS 7, Amazon Linux 2 AMI*</ul>**MacOS**: macOS 10.12.6 (Sierra) or later<br/>**Windows**: Windows 10 or later
+**Memory/RAM** | 1 GB one instance *+250 MB per additional instance*
 **Storage** | <li>**Install using Docker**: 5 GB per instance<li>**Install from source**: 3 GB per instance
 **Network** | A reliable internet connection is critical to keeping Hummingbot connected to exchanges.
 
@@ -49,4 +49,3 @@ For users who want to access to and intend to edit the codebase, you can install
 * [For Linux Systems](/installation/from-source/linux)
 * [For macOS Systems](/installation/from-source/macOS)
 * [For Windows Systems](/installation/from-source/windows)
-

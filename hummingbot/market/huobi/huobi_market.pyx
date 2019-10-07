@@ -416,8 +416,11 @@ cdef class HuobiMarket(MarketBase):
                     )
                     continue
                 if order_update.get("error") is not None:
-                    error_code = order_update.get("error").get("error-code")
-                    if error_code == "base-record-invalid":  # order no longer exists
+                    error_code = order_update.get("error").get("err-code")
+                    if error_code == "base-record-invalid" or error_code == "order-orderstate-error":
+                        # 'base-record-invalid' - order no longer exists
+                        # 'order-orderstate-error' - order is either partial-canceled, filled, canceled, or cancelling
+                        # Huobi seems to return error if an order has been "partial-canceled"
                         self.c_stop_tracking_order(tracked_order.client_order_id)
                         self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled according"
                                            f" to order status API. error code - {error_code}")
@@ -456,7 +459,11 @@ cdef class HuobiMarket(MarketBase):
                             tracked_order.trade_type,
                             float(execute_price),
                             float(execute_amount_diff),
-                        )
+                        ),
+                        # Unique exchange trade ID not available in client order status
+                        # But can use validate an order using exchange order ID:
+                        # https://huobiapi.github.io/docs/spot/v1/en/#query-order-by-order-id
+                        exchange_trade_id=exchange_order_id,
                     )
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"order {tracked_order.client_order_id}.")
