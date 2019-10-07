@@ -1,5 +1,4 @@
 import aiohttp
-from aiohttp.test_utils import TestClient
 import asyncio
 from async_timeout import timeout
 import conf
@@ -189,7 +188,6 @@ cdef class HuobiMarket(MarketBase):
     @shared_client.setter
     def shared_client(self, client: aiohttp.ClientSession):
         self._shared_client = client
-
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         return await HuobiAPIOrderBookDataSource.get_active_exchange_markets()

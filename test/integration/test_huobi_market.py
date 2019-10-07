@@ -76,7 +76,7 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
     def setUpClass(cls):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.ev_loop.set_debug(True)
+        # cls.ev_loop.set_debug(True)
         cls.stack = contextlib.ExitStack()
         cls._clock = cls.stack.enter_context(cls.clock)
 
