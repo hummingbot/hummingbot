@@ -811,7 +811,8 @@ cdef class BittrexMarket(MarketBase):
             exchange_order_id = order_result["id"]
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
-                self.logger().info(f"Created {order_type} buy order {order_id} for "
+                order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+                self.logger().info(f"Created {order_type_str} buy order {order_id} for "
                                    f"{decimal_amount} {symbol}")
                 tracked_order.update_exchange_order_id(exchange_order_id)
             self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
@@ -826,9 +827,9 @@ cdef class BittrexMarket(MarketBase):
 
         except asyncio.CancelledError:
             raise
-        except asyncio.TimeoutError:
-            self.logger().network(f"Timeout Error encountered while submitting buy-{order_type} order", exc_info=True)
         except Exception:
+            tracked_order = self._in_flight_orders.get(order_id)
+            tracked_order.last_state = "FAILURE"
             self.c_stop_tracking_order(order_id)
             order_type_str = "LIMIT" if order_type is OrderType.LIMIT else "MARKET"
             self.logger().network(
@@ -911,11 +912,11 @@ cdef class BittrexMarket(MarketBase):
                                      float(decimal_price),
                                      order_id
                                  ))
-        except asyncio.TimeoutError:
-            self.logger().network(f"Timeout Error encountered while submitting sell ", exc_info=True)
         except asyncio.CancelledError:
             raise
         except Exception:
+            tracked_order = self._in_flight_orders.get(order_id)
+            tracked_order.last_state = "FAILURE"
             self.c_stop_tracking_order(order_id)
             order_type_str = "LIMIT" if order_type is OrderType.LIMIT else "MARKET"
             self.logger().network(
@@ -953,6 +954,7 @@ cdef class BittrexMarket(MarketBase):
             cancel_result = await self._api_request("DELETE", path_url=path_url)
             if cancel_result["status"] == "CLOSED":
                 self.logger().info(f"Successfully cancelled order {order_id}.")
+                tracked_order.last_state = "CANCELLED"
                 self.c_stop_tracking_order(order_id)
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
