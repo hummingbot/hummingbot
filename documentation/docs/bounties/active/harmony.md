@@ -6,7 +6,7 @@ Users who use Hummingbot to build and run market making bots for $ONE can earn r
 
 ## Timeline
 
-$ONE Makers will run from July 1, 2019 to September 30, 2019, split into 3 monthly competition periods:
+$ONE Makers will run from July 1, 2019 to October 31, 2019, split into 4 monthly competition periods:
 
 * July 1st to July 31st
 * August 1st to August 31st

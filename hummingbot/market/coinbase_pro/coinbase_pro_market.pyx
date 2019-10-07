@@ -492,7 +492,10 @@ cdef class CoinbaseProMarket(MarketBase):
                         tracked_order.trade_type,
                         execute_price,
                         execute_amount_diff,
-                    )
+                    ),
+                    # Coinbase Pro's websocket stream tags events with order_id rather than trade_id
+                    # Using order_id here for easier data validation
+                    exchange_trade_id=exchange_order_id,
                 )
                 self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                    f"{order_type_description} order {client_order_id}.")
@@ -664,7 +667,10 @@ cdef class CoinbaseProMarket(MarketBase):
                             tracked_order.trade_type,
                             execute_price,
                             execute_amount_diff,
-                        )
+                        ),
+                        # Coinbase Pro's websocket stream tags events with order_id rather than trade_id
+                        # Using order_id here for easier data validation
+                        exchange_trade_id=tracked_order.exchange_order_id,
                     )
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"{order_type_description} order {tracked_order.client_order_id}.")

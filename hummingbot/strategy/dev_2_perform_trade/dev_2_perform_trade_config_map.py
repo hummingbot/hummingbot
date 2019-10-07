@@ -10,7 +10,7 @@ from hummingbot.client.settings import (
 
 
 def symbol_prompt():
-    market = perform_trade_config_map.get("market").value
+    market = dev_2_perform_trade_config_map.get("market").value
     example = EXAMPLE_PAIRS.get(market)
     return "Enter the token symbol you would like to trade on %s%s >>> " \
            % (market, f" (e.g. {example})" if example else "")
@@ -22,11 +22,11 @@ def str2bool(value: str):
 
 # checks if the symbol pair is valid
 def is_valid_market_trading_pair_tuple(value: str) -> bool:
-    market = perform_trade_config_map.get("market").value
+    market = dev_2_perform_trade_config_map.get("market").value
     return is_valid_market_symbol(market, value)
 
 
-perform_trade_config_map = {
+dev_2_perform_trade_config_map = {
     "market":
         ConfigVar(key="market",
                   prompt="Enter the name of the exchange >>> ",
@@ -56,6 +56,6 @@ perform_trade_config_map = {
     "order_price":
         ConfigVar(key="order_price",
                   prompt="What is the price of the limit order ? >>> ",
-                  required_if=lambda: perform_trade_config_map.get("order_type").value == "limit",
+                  required_if=lambda: dev_2_perform_trade_config_map.get("order_type").value == "limit",
                   type_str="float"),
 }
