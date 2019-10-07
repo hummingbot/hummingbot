@@ -73,7 +73,7 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     help_parser.add_argument("command", nargs="?", default="all", help="Get help for a specific command")
     help_parser.set_defaults(func=hummingbot.help)
 
-    history_parser = subparsers.add_parser("history", help="Get your bot\"s past trades and performance analytics")
+    history_parser = subparsers.add_parser("history", help="Get your bot\'s past trades and performance analytics")
     history_parser.set_defaults(func=hummingbot.history)
 
     list_parser = subparsers.add_parser("list", help="List global objects")

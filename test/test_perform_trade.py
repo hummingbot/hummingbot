@@ -30,9 +30,8 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.strategy.perform_trade import PerformTradeStrategy
-import sys
-sys.path.insert(0, realpath(join(__file__, "../../")))
+from hummingbot.strategy.dev_2_perform_trade import PerformTradeStrategy
+import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
 
 class PerformTradeUnitTest(unittest.TestCase):
