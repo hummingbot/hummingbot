@@ -200,7 +200,8 @@ class LiquidityBounty(NetworkBase):
                 results = await resp.json()
                 self.logger().debug(results)
                 self._active_bounties = results.get("bounties", [])
-                self._active_bounties_fetched_event.set()
+                if not self._active_bounties_fetched_event.is_set():
+                    self._active_bounties_fetched_event.set()
         except Exception:
             raise
 
