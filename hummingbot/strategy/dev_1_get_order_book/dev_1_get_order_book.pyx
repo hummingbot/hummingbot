@@ -12,6 +12,8 @@ from hummingbot.core.clock cimport Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
+
+from libc.stdint cimport int64_t
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.market_base cimport MarketBase

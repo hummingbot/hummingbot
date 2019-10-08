@@ -41,7 +41,7 @@ def start(self):
 
         self.strategy = SimpleTradeStrategy(market_infos=[MarketTradingPairTuple(*maker_data)],
                                             order_type=order_type,
-                                            order_price=order_price,
+                                            order_price=order_price if order_price else None,
                                             cancel_order_wait_time=cancel_order_wait_time,
                                             is_buy=is_buy,
                                             time_delay=time_delay,
