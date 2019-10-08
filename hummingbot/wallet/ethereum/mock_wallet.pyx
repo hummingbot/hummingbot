@@ -77,21 +77,21 @@ cdef class MockWallet(WalletBase):
         except Exception:
             get_logger().error("Error sending transaction to Ethereum network.", exc_info=True)
 
-    def get_all_balances(self) -> Dict[str, float]:
+    def get_all_balances(self) -> Dict[str, Decimal]:
         retval = {"ETH": self.c_get_balance("ETH")}
         for asset_name in self._erc20_contracts.keys():
             retval[asset_name] = self.c_get_balance(asset_name)
         return retval
 
-    cdef double c_get_balance(self, str asset_name) except? -1:
+    cdef object c_get_balance(self, str asset_name):
         if asset_name == "ETH":
-            return self._w3.eth.getBalance(self.address) * 1e-18
+            return Decimal(self._w3.eth.getBalance(self.address)) / 10 ** 18
         else:
             if asset_name not in self._erc20_contracts:
                 raise ValueError(f"{asset_name} is not a recognized asset in this wallet.")
             contract = self._erc20_contracts[asset_name].contract
             decimals = self._erc20_contracts[asset_name].decimals
-            return contract.functions.balanceOf(self.address).call() * math.pow(10, -decimals)
+            return Decimal(contract.functions.balanceOf(self.address).call()) / 10 ** decimals
 
     cdef str c_send(self, str address, str asset_name, object amount):
         if asset_name == "ETH":

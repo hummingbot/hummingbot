@@ -3,6 +3,6 @@ from decimal import Decimal
 
 
 cdef class WalletBase(NetworkIterator):
-    cdef double c_get_balance(self, str asset_name) except? -1
+    cdef object c_get_balance(self, str asset_name)
     cdef object c_get_raw_balance(self, str asset_name)
     cdef str c_send(self, str address, str currency, object amount)

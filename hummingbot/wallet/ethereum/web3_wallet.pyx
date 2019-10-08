@@ -240,7 +240,7 @@ cdef class Web3Wallet(WalletBase):
     cdef str c_send(self, str address, str asset_name, object amount):
         return self._best_backend.send(address, asset_name, amount)
 
-    cdef double c_get_balance(self, str asset_name) except? -1:
+    cdef object c_get_balance(self, str asset_name):
         return self._best_backend.get_balance(asset_name)
 
     cdef object c_get_raw_balance(self, str asset_name):

@@ -24,7 +24,7 @@ cdef class WalletBase(NetworkIterator):
     def to_raw(self, asset_name: str, nominal_amount: Decimal) -> int:
         raise NotImplementedError
 
-    cdef double c_get_balance(self, str asset_name) except? -1:
+    cdef object c_get_balance(self, str asset_name):
         raise NotImplementedError
 
     cdef object c_get_raw_balance(self, str asset_name):
