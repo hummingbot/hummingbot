@@ -99,6 +99,7 @@ class NewBlocksWatcher(BaseWatcher):
 
     async def fetch_new_blocks_loop(self):
         last_timestamp_received_blocks: float = 0.0
+        block_hash = ""
         while True:
             try:
                 async with timeout(30.0):
