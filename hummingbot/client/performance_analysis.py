@@ -106,7 +106,7 @@ class PerformanceAnalysis:
         return percent
 
     @staticmethod
-    def calculate_trade_asset_delta_with_fees(trade: TradeFill):
+    def calculate_trade_asset_delta_with_fees(trade: TradeFill) -> Tuple[Decimal, Decimal]:
         trade_fee: Dict[str, any] = trade.trade_fee
         total_flat_fees: Decimal = s_decimal_0
         amount: Decimal = Decimal(trade.amount)
