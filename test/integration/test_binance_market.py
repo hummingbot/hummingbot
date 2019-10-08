@@ -153,27 +153,27 @@ class BinanceMarketUnitTest(unittest.TestCase):
         self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
     def test_buy_and_sell(self):
-        self.assertGreater(self.market.get_balance("ETH"), 0.1)
+        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
 
         # Try to buy 0.02 ETH worth of ZRX from the exchange, and watch for completion event.
-        current_price: float = self.market.get_price("ZRXETH", True)
-        amount: float = 0.02 / current_price
-        quantized_amount: Decimal = self.market.quantize_order_amount("ZRXETH", Decimal(amount))
-        order_id = self.market.buy("ZRXETH", quantized_amount)
+        current_price: Decimal = self.market.get_price("ZRXETH", True)
+        amount: Decimal = Decimal("0.02") / current_price
+        quantized_amount: Decimal = self.market.quantize_order_amount("ZRXETH", amount)
+        order_id = self.market.buy("ZRXETH", amount)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
                                                 if isinstance(t, OrderFilledEvent)]
-        base_amount_traded: float = sum(t.amount for t in trade_events)
-        quote_amount_traded: float = sum(t.amount * t.price for t in trade_events)
+        base_amount_traded: Decimal = sum(t.amount for t in trade_events)
+        quote_amount_traded: Decimal = sum(t.amount * t.price for t in trade_events)
 
         self.assertTrue([evt.order_type == OrderType.MARKET for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
         self.assertEqual("ZRX", order_completed_event.base_asset)
         self.assertEqual("ETH", order_completed_event.quote_asset)
-        self.assertAlmostEqual(base_amount_traded, float(order_completed_event.base_asset_amount))
-        self.assertAlmostEqual(quote_amount_traded, float(order_completed_event.quote_asset_amount))
+        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
+        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
@@ -182,9 +182,9 @@ class BinanceMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
         # Try to sell back the same amount of ZRX to the exchange, and watch for completion event.
-        amount = float(order_completed_event.base_asset_amount)
-        quantized_amount = Decimal(order_completed_event.base_asset_amount)
-        order_id = self.market.sell("ZRXETH", quantized_amount)
+        amount = order_completed_event.base_asset_amount
+        quantized_amount = order_completed_event.base_asset_amount
+        order_id = self.market.sell("ZRXETH", amount)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events = [t for t in self.market_logger.event_log
@@ -197,38 +197,38 @@ class BinanceMarketUnitTest(unittest.TestCase):
         self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
         self.assertEqual("ZRX", order_completed_event.base_asset)
         self.assertEqual("ETH", order_completed_event.quote_asset)
-        self.assertAlmostEqual(base_amount_traded, float(order_completed_event.base_asset_amount))
-        self.assertAlmostEqual(quote_amount_traded, float(order_completed_event.quote_asset_amount))
+        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
+        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
 
     def test_limit_buy_and_sell(self):
-        self.assertGreater(self.market.get_balance("ETH"), 0.1)
+        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
 
         # Try to put limit buy order for 0.02 ETH worth of ZRX, and watch for completion event.
-        current_bid_price: float = self.market.get_price("ZRXETH", True)
-        bid_price: float = current_bid_price + 0.05 * current_bid_price
-        quantize_bid_price: Decimal = self.market.quantize_order_price("ZRXETH", Decimal(bid_price))
+        current_bid_price: Decimal = self.market.get_price("ZRXETH", True)
+        bid_price: Decimal = current_bid_price + Decimal("0.05") * current_bid_price
+        quantize_bid_price: Decimal = self.market.quantize_order_price("ZRXETH", bid_price)
 
-        amount: float = 0.02 / bid_price
-        quantized_amount: Decimal = self.market.quantize_order_amount("ZRXETH", Decimal(amount))
+        amount: Decimal = Decimal("0.02") / bid_price
+        quantized_amount: Decimal = self.market.quantize_order_amount("ZRXETH", amount)
 
         order_id = self.market.buy("ZRXETH", quantized_amount, OrderType.LIMIT, quantize_bid_price)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
                                                 if isinstance(t, OrderFilledEvent)]
-        base_amount_traded: float = sum(t.amount for t in trade_events)
-        quote_amount_traded: float = sum(t.amount * t.price for t in trade_events)
+        base_amount_traded: Decimal = sum(t.amount for t in trade_events)
+        quote_amount_traded: Decimal = sum(t.amount * t.price for t in trade_events)
 
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
         self.assertEqual("ZRX", order_completed_event.base_asset)
         self.assertEqual("ETH", order_completed_event.quote_asset)
-        self.assertAlmostEqual(base_amount_traded, float(order_completed_event.base_asset_amount))
-        self.assertAlmostEqual(quote_amount_traded, float(order_completed_event.quote_asset_amount))
+        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
+        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
@@ -237,12 +237,12 @@ class BinanceMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
         # Try to put limit sell order for 0.02 ETH worth of ZRX, and watch for completion event.
-        current_ask_price: float = self.market.get_price("ZRXETH", False)
-        ask_price: float = current_ask_price - 0.05 * current_ask_price
-        quantize_ask_price: Decimal = self.market.quantize_order_price("ZRXETH", Decimal(ask_price))
+        current_ask_price: Decimal = self.market.get_price("ZRXETH", False)
+        ask_price: Decimal = current_ask_price - Decimal("0.05") * current_ask_price
+        quantize_ask_price: Decimal = self.market.quantize_order_price("ZRXETH", ask_price)
 
-        amount = float(order_completed_event.base_asset_amount)
-        quantized_amount = Decimal(order_completed_event.base_asset_amount)
+        amount = order_completed_event.base_asset_amount
+        quantized_amount = order_completed_event.base_asset_amount
 
         order_id = self.market.sell("ZRXETH", quantized_amount, OrderType.LIMIT, quantize_ask_price)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
@@ -257,8 +257,8 @@ class BinanceMarketUnitTest(unittest.TestCase):
         self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
         self.assertEqual("ZRX", order_completed_event.base_asset)
         self.assertEqual("ETH", order_completed_event.quote_asset)
-        self.assertAlmostEqual(base_amount_traded, float(order_completed_event.base_asset_amount))
-        self.assertAlmostEqual(quote_amount_traded, float(order_completed_event.quote_asset_amount))
+        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
+        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
@@ -284,7 +284,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
                                               chain_id=1)
 
         # Ensure the market account has enough balance for withdraw testing.
-        self.assertGreaterEqual(self.market.get_balance("ZRX"), 10)
+        self.assertGreaterEqual(self.market.get_balance("ZRX"), Decimal(10))
 
         # Withdraw ZRX from Binance to test wallet.
         self.market.withdraw(local_wallet.address, "ZRX", 10)
@@ -299,14 +299,14 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
     def test_cancel_all(self):
         symbol = "ZRXETH"
-        bid_price: float = self.market.get_price(symbol, True)
-        ask_price: float = self.market.get_price(symbol, False)
-        amount: float = 0.02 / bid_price
-        quantized_amount: Decimal = self.market.quantize_order_amount(symbol, Decimal(amount))
+        bid_price: Decimal = self.market.get_price(symbol, True)
+        ask_price: Decimal = self.market.get_price(symbol, False)
+        amount: Decimal = Decimal("0.02") / bid_price
+        quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
         # Intentionally setting invalid price to prevent getting filled
-        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, Decimal(bid_price * 0.7))
-        quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, Decimal(ask_price * 1.5))
+        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price * Decimal("0.7"))
+        quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price * Decimal("1.5"))
 
         self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
         self.market.sell(symbol, quantized_amount, OrderType.LIMIT, quantize_ask_price)
@@ -320,24 +320,24 @@ class BinanceMarketUnitTest(unittest.TestCase):
         # As of the day this test was written, the min order size (base) is 1 IOST, the min order size (quote) is
         # 0.01 ETH, and order step size is 1 IOST.
         symbol = "IOSTETH"
-        bid_price: float = self.market.get_price(symbol, True)
-        ask_price: float = self.market.get_price(symbol, False)
-        mid_price: float = (bid_price + ask_price) / 2
-        amount: float = 0.02 / mid_price
+        bid_price: Decimal = self.market.get_price(symbol, True)
+        ask_price: Decimal = self.market.get_price(symbol, False)
+        mid_price: Decimal = (bid_price + ask_price) / 2
+        amount: Decimal = Decimal("0.02") / mid_price
         binance_client = self.market.binance_client
 
         # Make sure there's enough balance to make the limit orders.
-        self.assertGreater(self.market.get_balance("ETH"), 0.1)
+        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
         self.assertGreater(self.market.get_balance("IOST"), amount * 2)
 
         # Intentionally set some prices with too many decimal places s.t. they
         # need to be quantized. Also, place them far away from the mid-price s.t. they won't
         # get filled during the test.
-        bid_price: float = mid_price * 0.3333192292111341
-        ask_price: float = mid_price * 3.4392431474884933
+        bid_price: Decimal = mid_price * Decimal("0.3333192292111341")
+        ask_price: Decimal = mid_price * Decimal("3.4392431474884933")
 
         # This is needed to get around the min quote amount limit.
-        bid_amount: float = 0.02 / bid_price
+        bid_amount: Decimal = Decimal("0.02") / bid_price
 
         # Test bid order
         bid_order_id: str = self.market.buy(
@@ -420,12 +420,12 @@ class BinanceMarketUnitTest(unittest.TestCase):
             self.assertEqual(0, len(self.market.tracking_states))
 
             # Try to put limit buy order for 0.02 ETH worth of ZRX, and watch for order creation event.
-            current_bid_price: float = self.market.get_price("ZRXETH", True)
-            bid_price: float = current_bid_price * 0.8
-            quantize_bid_price: Decimal = self.market.quantize_order_price("ZRXETH", Decimal(bid_price))
+            current_bid_price: Decimal = self.market.get_price("ZRXETH", True)
+            bid_price: Decimal = current_bid_price * Decimal("0.8")
+            quantize_bid_price: Decimal = self.market.quantize_order_price("ZRXETH", bid_price)
 
-            amount: float = 0.02 / bid_price
-            quantized_amount: Decimal = self.market.quantize_order_amount("ZRXETH", Decimal(amount))
+            amount: Decimal = Decimal("0.02") / bid_price
+            quantized_amount: Decimal = self.market.quantize_order_amount("ZRXETH", amount)
 
             order_id = self.market.buy("ZRXETH", quantized_amount, OrderType.LIMIT, quantize_bid_price)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
@@ -497,22 +497,22 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
         try:
             # Try to buy 0.02 ETH worth of ZRX from the exchange, and watch for completion event.
-            current_price: float = self.market.get_price("ZRXETH", True)
-            amount: float = 0.02 / current_price
-            order_id = self.market.buy("ZRXETH", Decimal(amount))
+            current_price: Decimal = self.market.get_price("ZRXETH", True)
+            amount: Decimal = Decimal("0.02") / current_price
+            order_id = self.market.buy("ZRXETH", amount)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
             # Reset the logs
             self.market_logger.clear()
 
             # Try to sell back the same amount of ZRX to the exchange, and watch for completion event.
-            amount = float(buy_order_completed_event.base_asset_amount)
-            order_id = self.market.sell("ZRXETH", Decimal(amount))
+            amount = buy_order_completed_event.base_asset_amount
+            order_id = self.market.sell("ZRXETH", amount)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
             # Query the persisted trade logs
             trade_fills: List[TradeFill] = recorder.get_trades_for_config(config_path)
-            self.assertEqual(2, len(trade_fills))
+            self.assertGreaterEqual(2, len(trade_fills))
             buy_fills: List[TradeFill] = [t for t in trade_fills if t.trade_type == "BUY"]
             sell_fills: List[TradeFill] = [t for t in trade_fills if t.trade_type == "SELL"]
             self.assertEqual(1, len(buy_fills))

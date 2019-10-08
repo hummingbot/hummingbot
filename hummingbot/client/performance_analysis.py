@@ -50,7 +50,7 @@ class PerformanceAnalysis:
                 currency_amount.amount += amount
             else:
                 erc = ExchangeRateConversion.get_instance()
-                temp_amount = erc.convert_token_value(amount, asset_name, currency_amount.token, source="default")
+                temp_amount = erc.convert_token_value(amount, asset_name, currency_amount.token, source="any")
                 currency_amount.amount += temp_amount
 
     def compute_starting(self, price: float) -> Tuple[str, float]:
