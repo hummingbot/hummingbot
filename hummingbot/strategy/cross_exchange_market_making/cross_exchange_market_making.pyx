@@ -8,6 +8,7 @@ from math import (
     floor,
     ceil
 )
+from numpy import isnan
 from typing import (
     List,
     Tuple,
@@ -334,6 +335,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             dict tracked_taker_orders = self._sb_order_tracker.c_get_taker_orders()
 
         global s_decimal_zero
+
+        self.c_take_suggested_price_sample(market_pair)
 
         for active_order in active_orders:
             # Mark the has_active_bid and has_active_ask flags
@@ -753,23 +756,25 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             MarketBase taker_market = market_pair.taker.market
             OrderBook taker_order_book = market_pair.taker.order_book
             OrderBook maker_order_book = market_pair.maker.order_book
-            object top_bid_price
-            object top_ask_price
+            object top_bid_price = s_decimal_nan
+            object top_ask_price = s_decimal_nan
+            object next_price_below_top_ask = s_decimal_nan
 
         top_bid_price, top_ask_price = self.c_get_top_bid_ask_from_price_samples(market_pair)
 
         if is_bid:
-            # Calculate the next price above top bid
-            price_quantum = maker_market.c_get_order_price_quantum(
-                market_pair.maker.trading_pair,
-                top_bid_price
-            )
-            price_above_bid = (ceil(top_bid_price / price_quantum) + 1) * price_quantum
+            if not Decimal.is_nan(top_bid_price):
+                # Calculate the next price above top bid
+                price_quantum = maker_market.c_get_order_price_quantum(
+                    market_pair.maker.trading_pair,
+                    top_bid_price
+                )
+                price_above_bid = (ceil(top_bid_price / price_quantum) + 1) * price_quantum
 
             try:
                 taker_price = taker_market.c_get_vwap_for_volume(taker_trading_pair, False, size).result_price
             except ZeroDivisionError:
-                return None
+                return s_decimal_nan
 
             # If quote assets are not same, convert them from taker's quote asset to maker's quote asset
             if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
@@ -780,9 +785,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             # you are buying on the maker market and selling on the taker market
             maker_price = taker_price / (1 + self._min_profitability)
 
+            # # If your bid is higher than highest bid price, reduce it to one tick above the top bid price
             if self._adjust_orders_enabled:
-                # If your bid is higher than highest bid price, reduce it to one tick above the top bid price
-                maker_price = min(maker_price, price_above_bid)
+                # If maker bid order book is not empty
+                if not Decimal.is_nan(price_above_bid):
+                    maker_price = min(maker_price, price_above_bid)
 
             price_quantum = maker_market.c_get_order_price_quantum(
                 market_pair.maker.trading_pair,
@@ -794,17 +801,18 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             return maker_price
         else:
-            # Calculate the next price below top ask
-            price_quantum = maker_market.c_get_order_price_quantum(
-                market_pair.maker.trading_pair,
-                top_ask_price
-            )
-            next_price_below_top_ask = (floor(top_ask_price / price_quantum) - 1) * price_quantum
+            if not Decimal.is_nan(top_ask_price):
+                # Calculate the next price below top ask
+                price_quantum = maker_market.c_get_order_price_quantum(
+                    market_pair.maker.trading_pair,
+                    top_ask_price
+                )
+                next_price_below_top_ask = (floor(top_ask_price / price_quantum) - 1) * price_quantum
 
             try:
                 taker_price = taker_market.c_get_vwap_for_volume(taker_trading_pair, True, size).result_price
             except ZeroDivisionError:
-                return None
+                return s_decimal_nan
 
             if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
                 taker_price *= self._exchange_rate_conversion.convert_token_value_decimal(1,
@@ -814,9 +822,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             # You are buying on the taker market and selling on the maker market
             maker_price = taker_price * (1 + self._min_profitability)
 
+            # If your ask is lower than the the top ask, increase it to just one tick below top ask
             if self._adjust_orders_enabled:
-                # If your ask is lower than the the top ask, increase it to just one tick below top ask
-                maker_price = max(maker_price, next_price_below_top_ask)
+                # If maker ask order book is not empty
+                if not Decimal.is_nan(next_price_below_top_ask):
+                    maker_price = max(maker_price, next_price_below_top_ask)
 
             price_quantum = maker_market.c_get_order_price_quantum(
                 market_pair.maker.trading_pair,
@@ -902,7 +912,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             MarketBase maker_market = market_pair.maker.market
 
         if self._top_depth_tolerance == 0:
-
             top_bid_price = maker_market.c_get_price(trading_pair, False)
 
             top_ask_price = maker_market.c_get_price(trading_pair, True)
@@ -952,15 +961,20 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         :param market_pair: cross exchange market pair
         :return: (top bid, top ask)
         """
-        # Incorporate the past bid price samples.
+        # Incorporate the past bid & ask price samples.
         current_top_bid_price, current_top_ask_price = self.c_get_top_bid_ask(market_pair)
 
         bid_price_samples, ask_price_samples = self.c_get_suggested_price_samples(market_pair)
 
-        top_bid_price = max(list(bid_price_samples) + [current_top_bid_price])
+        if not any(Decimal.is_nan(p) for p in bid_price_samples) and not Decimal.is_nan(current_top_bid_price):
+            top_bid_price = max(list(bid_price_samples) + [current_top_bid_price])
+        else:
+            top_bid_price = current_top_ask_price
 
-        # Incorporate the past ask price samples.
-        top_ask_price = min(list(ask_price_samples) + [current_top_ask_price])
+        if not any(Decimal.is_nan(p) for p in ask_price_samples) and not Decimal.is_nan(current_top_ask_price):
+            top_ask_price = min(list(ask_price_samples) + [current_top_ask_price])
+        else:
+            top_ask_price = current_top_ask_price
 
         return top_bid_price, top_ask_price
 
@@ -1077,7 +1091,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
                 bid_price = self.c_get_market_making_price(market_pair, True, bid_size)
 
-                if bid_price is not None:
+                if not Decimal.is_nan(bid_price):
                     effective_hedging_price = self.c_calculate_effective_hedging_price(
                         market_pair,
                         True,
@@ -1122,10 +1136,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             # Check if ask size is greater than zero
             if ask_size > s_decimal_zero:
-
                 ask_price = self.c_get_market_making_price(market_pair, False, ask_size)
-
-                if ask_price is not None:
+                if not Decimal.is_nan(ask_price):
                     effective_hedging_price = self.c_calculate_effective_hedging_price(
                         market_pair,
                         False,

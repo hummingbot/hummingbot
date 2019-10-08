@@ -1,5 +1,6 @@
 # distutils: language=c++
 from decimal import Decimal
+from libc.stdint cimport int64_t
 import logging
 from typing import (
     List,
@@ -12,21 +13,22 @@ from hummingbot.core.clock cimport Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.market.market_base import (
     MarketBase,
     OrderType
 )
+from hummingbot.market.market_base cimport MarketBase
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
 
-from libc.stdint cimport int64_t
-from hummingbot.core.data_type.order_book cimport OrderBook
 
 s_decimal_NaN = Decimal("nan")
 s_decimal_zero = Decimal(0)
 pt_logger = None
+
 
 cdef class PerformTradeStrategy(StrategyBase):
     OPTION_LOG_NULL_ORDER_SIZE = 1 << 0

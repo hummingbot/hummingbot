@@ -160,6 +160,8 @@ class ExchangeRateConversion:
         :param price:
         :return:
         """
+        if price == s_decimal_nan:
+            return price
         asset_name = asset_name.upper()
         if not self._started:
             self.start()
