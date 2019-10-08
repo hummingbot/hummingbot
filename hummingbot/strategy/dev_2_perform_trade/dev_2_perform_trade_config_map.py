@@ -52,10 +52,10 @@ dev_2_perform_trade_config_map = {
                   prompt="What is your preferred quantity per order "
                          "(denominated in the base asset, default is 1) ? >>> ",
                   default=1.0,
-                  type_str="float"),
+                  type_str="decimal"),
     "order_price":
         ConfigVar(key="order_price",
                   prompt="What is the price of the limit order ? >>> ",
                   required_if=lambda: dev_2_perform_trade_config_map.get("order_type").value == "limit",
-                  type_str="float"),
+                  type_str="decimal")
 }
