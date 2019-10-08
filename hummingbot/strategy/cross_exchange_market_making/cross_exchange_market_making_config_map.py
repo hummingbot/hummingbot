@@ -1,5 +1,8 @@
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_validators import is_exchange, is_valid_market_symbol
+from hummingbot.client.config.config_validators import (
+    is_exchange,
+    is_valid_market_symbol
+)
 from hummingbot.client.settings import required_exchanges, EXAMPLE_PAIRS
 
 
@@ -54,13 +57,13 @@ cross_exchange_market_making_config_map = {
     "min_profitability": ConfigVar(
         key="min_profitability",
         prompt="What is the minimum profitability for you to make a trade? (Enter 0.01 to indicate 1%) >>> ",
-        type_str="float",
+        type_str="decimal",
     ),
     "order_amount": ConfigVar(
         key="order_amount",
         prompt="What is your preferred trade size? (denominated in the base asset) >>> ",
         default=0.0,
-        type_str="float",
+        type_str="decimal",
     ),
     "adjust_order_enabled": ConfigVar(
         key="adjust_order_enabled",
@@ -82,7 +85,7 @@ cross_exchange_market_making_config_map = {
         key="cancel_order_threshold",
         prompt="",
         default=0.05,
-        type_str="float",
+        type_str="decimal",
         required_if=lambda: False,
     ),
     "limit_order_min_expiration": ConfigVar(
@@ -96,7 +99,7 @@ cross_exchange_market_making_config_map = {
         key="top_depth_tolerance",
         prompt="",
         default=0,
-        type_str="float",
+        type_str="decimal",
         required_if=lambda: False,
     ),
     "anti_hysteresis_duration": ConfigVar(
@@ -110,21 +113,21 @@ cross_exchange_market_making_config_map = {
         key="order_size_taker_volume_factor",
         prompt="",
         default=0.25,
-        type_str="float",
+        type_str="decimal",
         required_if=lambda: False,
     ),
     "order_size_taker_balance_factor": ConfigVar(
         key="order_size_taker_balance_factor",
         prompt="",
         default=0.995,
-        type_str="float",
+        type_str="decimal",
         required_if=lambda: False,
     ),
     "order_size_portfolio_ratio_limit": ConfigVar(
         key="order_size_taker_balance_factor",
         prompt="",
         default=0.1667,
-        type_str="float",
+        type_str="decimal",
         required_if=lambda: False,
     )
 }
