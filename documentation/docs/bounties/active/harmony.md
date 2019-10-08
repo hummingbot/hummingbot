@@ -73,7 +73,7 @@ You can also read through the articles in our [blog](https://hummingbot.io/blog/
 
 ## Performance
 
-Check your performance in our real-time [leaderboard](https://www.hummingbot.io/liquidity-bounties/harmony/) using your registered wallet address.
+Check your performance in our real-time [leaderboard](https://hummingbot.io/liquidity-bounties/harmony#performance) using your registered wallet address.
 
 ## Evaluation
 
