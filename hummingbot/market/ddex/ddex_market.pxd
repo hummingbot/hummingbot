@@ -8,13 +8,11 @@ cdef class DDEXMarket(MarketBase):
         object _shared_client
         object _wallet
         object _weth_token
-        object _order_book_tracker
-        dict _account_balances
-        dict _account_available_balances
         object _ev_loop
         object _poll_notifier
         double _last_timestamp
         double _last_update_order_timestamp
+        double _last_update_trade_fills_timestamp
         double _last_update_available_balance_timestamp
         double _last_update_trading_rules_timestamp
         double _last_update_trade_fees_timestamp
@@ -31,10 +29,10 @@ cdef class DDEXMarket(MarketBase):
         public object _user_stream_event_listener_task
         public object _order_tracker_task
         public object _approval_tx_polling_task
-        double _maker_trade_fee
-        double _taker_trade_fee
-        double _gas_fee_weth
-        double _gas_fee_usd
+        object _maker_trade_fee
+        object _taker_trade_fee
+        object _gas_fee_weth
+        object _gas_fee_usd
         object _api_response_records
 
     cdef c_start_tracking_order(self,

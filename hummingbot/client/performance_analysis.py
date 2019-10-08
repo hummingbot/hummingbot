@@ -1,6 +1,9 @@
 import logging
+from decimal import Decimal
 from typing import (
-    Tuple, Dict, List
+    Tuple,
+    Dict,
+    List
 )
 from hummingbot.client.data_type.currency_amount import CurrencyAmount
 from hummingbot.core.event.events import TradeType
@@ -12,6 +15,7 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 ERC = ExchangeRateConversion.get_instance()
 s_float_nan = float("nan")
 s_float_0 = float(0)
+s_decimal_0 = Decimal(0)
 
 
 class PerformanceAnalysis:
@@ -70,7 +74,7 @@ class PerformanceAnalysis:
                 currency_amount.amount += amount
             else:
                 erc = ExchangeRateConversion.get_instance()
-                temp_amount = erc.convert_token_value(amount, asset_name, currency_amount.token, source="default")
+                temp_amount = erc.convert_token_value(amount, asset_name, currency_amount.token, source="any")
                 currency_amount.amount += temp_amount
 
     def compute_starting(self, price: float) -> Tuple[str, float]:
@@ -104,38 +108,48 @@ class PerformanceAnalysis:
     @staticmethod
     def calculate_trade_asset_delta_with_fees(trade: TradeFill):
         trade_fee: Dict[str, any] = trade.trade_fee
-        total_flat_fees: float = s_float_0
+        total_flat_fees: Decimal = s_decimal_0
         for flat_fee_currency, flat_fee_amount in trade_fee["flat_fees"]:
             if flat_fee_currency == trade.quote_asset:
-                total_flat_fees += flat_fee_amount
+                total_flat_fees += Decimal(flat_fee_amount)
             else:
                 # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
-                total_flat_fees += ExchangeRateConversion.get_instance().convert_token_value(
+                total_flat_fees += ExchangeRateConversion.get_instance().convert_token_value_decimal(
                     amount=flat_fee_amount,
                     from_currency=flat_fee_currency,
                     to_currency=trade.quote_asset,
                     source="default"
                 )
         if trade.trade_type == TradeType.SELL.name:
-            net_base_delta: float = trade.amount
-            net_quote_delta: float = trade.amount * trade.price * (1 - float(trade_fee["percent"])) - total_flat_fees
+            net_base_delta: Decimal = trade.amount
+            net_quote_delta: Decimal = trade.amount * trade.price * (1 - Decimal(trade_fee["percent"])) - total_flat_fees
         elif trade.trade_type == TradeType.BUY.name:
-            net_base_delta: float = trade.amount * (1 - float(trade_fee["percent"])) - total_flat_fees
-            net_quote_delta: float = trade.amount * trade.price
+            net_base_delta: Decimal = trade.amount * (1 - Decimal(trade_fee["percent"])) - total_flat_fees
+            net_quote_delta: Decimal = trade.amount * trade.price
         else:
-            raise Exception(f"Unsupported trade type {trade.trade-type}")
+            raise Exception(f"Unsupported trade type {trade.trade_type}")
         return net_base_delta, net_quote_delta
 
     def calculate_asset_delta_from_trades(self,
                                           analysis_start_time: int,
                                           current_startegy_name: str,
                                           market_trading_pair_tuples: List[MarketTradingPairTuple]
-                                          ) -> Dict[MarketTradingPairTuple, Dict[str, float]]:
-        market_trading_pair_stats: Dict[MarketTradingPairTuple, Dict[str, float]] = {}
+                                          ) -> Dict[MarketTradingPairTuple, Dict[str, Decimal]]:
+        """
+        Calculate spent and acquired amount for each asset from trades.
+        Example:
+        A buy trade of ETH_USD for price 100 and amount 1, will have 1 ETH as acquired and 100 USD as spent amount.
+
+        :param analysis_start_time: Start timestamp for the trades to be quired
+        :param current_startegy_name: Name of the currently configured strategy
+        :param market_trading_pair_tuples: Current MarketTradingPairTuple
+        :return: Dictionary consisting of spent and acquired amount for each assets
+        """
+        market_trading_pair_stats: Dict[MarketTradingPairTuple, Dict[str, Decimal]] = {}
         for market_trading_pair_tuple in market_trading_pair_tuples:
-            asset_stats: Dict[str, float] = {
-                market_trading_pair_tuple.base_asset.upper(): {"spent": s_float_0, "acquired": s_float_0},
-                market_trading_pair_tuple.quote_asset.upper(): {"spent": s_float_0, "acquired": s_float_0}
+            asset_stats: Dict[str, Decimal] = {
+                market_trading_pair_tuple.base_asset.upper(): {"spent": s_decimal_0, "acquired": s_decimal_0},
+                market_trading_pair_tuple.quote_asset.upper(): {"spent": s_decimal_0, "acquired": s_decimal_0}
             }
             queried_trades: List[TradeFill] = TradeFill.get_trades(self.sql_manager.get_shared_session(),
                                                                    start_time=analysis_start_time,
@@ -149,6 +163,7 @@ class PerformanceAnalysis:
                 continue
 
             for trade in queried_trades:
+                # For each trade, calculate the spent and acquired amount of the corresponding base and quote asset
                 trade_side: str = trade.trade_type
                 base_asset: str = trade.base_asset.upper()
                 quote_asset: str = trade.quote_asset.upper()
@@ -161,7 +176,7 @@ class PerformanceAnalysis:
                     asset_stats[quote_asset]["spent"] += quote_delta
 
             market_trading_pair_stats[market_trading_pair_tuple] = {
-                "starting_quote_rate": queried_trades[0].price,
+                "starting_quote_rate": Decimal(repr(queried_trades[0].price)),
                 "asset": asset_stats
             }
 
@@ -171,58 +186,77 @@ class PerformanceAnalysis:
                                     analysis_start_time: int,
                                     current_startegy_name: str,
                                     market_trading_pair_tuples: List[MarketTradingPairTuple]) -> Tuple[Dict, Dict]:
-        trade_performance_stats: Dict[str, float] = {}
+        """
+        Calculate total spent and acquired amount for the whole portfolio in quote value.
+
+        :param analysis_start_time: Start timestamp for the trades to be quired
+        :param current_startegy_name: Name of the currently configured strategy
+        :param market_trading_pair_tuples: Current MarketTradingPairTuple
+        :return: Dictionary consisting of total spent and acquired across whole portfolio in quote value,
+                 as well as individual assets
+        """
+        trade_performance_stats: Dict[str, Decimal] = {}
+        # The final stats will be in primary quote unit
         primary_quote_asset: str = market_trading_pair_tuples[0].quote_asset
-        market_trading_pair_stats: Dict[str, Dict[str, float]] = self.calculate_asset_delta_from_trades(
+        market_trading_pair_stats: Dict[str, Dict[str, Decimal]] = self.calculate_asset_delta_from_trades(
             analysis_start_time,
             current_startegy_name,
             market_trading_pair_tuples)
 
+        # Calculate total spent and acquired amount for each trading pair in primary quote value
         for market_trading_pair_tuple, trading_pair_stats in market_trading_pair_stats.items():
             market_trading_pair_tuple: MarketTradingPairTuple
-            base_asset = market_trading_pair_tuple.base_asset.upper()
-            quote_asset = market_trading_pair_tuple.quote_asset.upper()
-            quote_rate: float = market_trading_pair_tuple.get_mid_price()
+            base_asset: str = market_trading_pair_tuple.base_asset.upper()
+            quote_asset: str = market_trading_pair_tuple.quote_asset.upper()
+            quote_rate: Decimal = market_trading_pair_tuple.get_mid_price()
             trading_pair_stats["end_quote_rate"] = quote_rate
-            asset_stats = trading_pair_stats["asset"]
+            asset_stats: Dict[str, Decimal] = trading_pair_stats["asset"]
 
+            # Calculate delta amount and delta percentage for each asset based on spent and acquired amount
             for asset, stats in asset_stats.items():
                 stats["delta"] = stats["acquired"] - stats["spent"]
 
-                if stats["spent"] == s_float_0 and stats["acquired"] > s_float_0:
-                    stats["delta_percentage"] = 100.0
-                elif stats["spent"] == s_float_0 and stats["acquired"] == s_float_0:
-                    stats["delta_percentage"] = s_float_0
+                if stats["spent"] == s_decimal_0 and stats["acquired"] > s_decimal_0:
+                    stats["delta_percentage"] = Decimal("100")
+                elif stats["spent"] == s_decimal_0 and stats["acquired"] == s_decimal_0:
+                    stats["delta_percentage"] = s_decimal_0
                 else:
-                    stats["delta_percentage"] = ((stats["acquired"] / stats["spent"]) - 1) * 100
+                    stats["delta_percentage"] = ((stats["acquired"] / stats["spent"]) - Decimal("1")) * Decimal("100")
 
-            spent_base_quote_value: float = asset_stats[base_asset]["spent"] * quote_rate
-            acquired_base_quote_value: float = asset_stats[base_asset]["acquired"] * quote_rate
+            # Convert spent and acquired amount for base asset to quote asset value
+            spent_base_quote_value: Decimal = asset_stats[base_asset]["spent"] * quote_rate
+            acquired_base_quote_value: Decimal = asset_stats[base_asset]["acquired"] * quote_rate
 
-            combined_spent: float = spent_base_quote_value + asset_stats[quote_asset]["spent"]
-            combined_acquired: float = acquired_base_quote_value + asset_stats[quote_asset]["acquired"]
+            # Calculate total spent and acquired of a trading pair
+            combined_spent: Decimal = spent_base_quote_value + asset_stats[quote_asset]["spent"]
+            combined_acquired: Decimal = acquired_base_quote_value + asset_stats[quote_asset]["acquired"]
 
-            trading_pair_stats["acquired_quote_value"] = ERC.convert_token_value(
+            # Convert trading pair's spent and acquired amount into primary quote asset value
+            # (primary quote asset is the quote asset of the first trading pair)
+            trading_pair_stats["acquired_quote_value"] = ERC.convert_token_value_decimal(
                 combined_acquired, quote_asset, primary_quote_asset, source="default"
             )
-            trading_pair_stats["spent_quote_value"] = ERC.convert_token_value(
+            trading_pair_stats["spent_quote_value"] = ERC.convert_token_value_decimal(
                 combined_spent, quote_asset, primary_quote_asset, source="default"
             )
             trading_pair_stats["trading_pair_delta"] = combined_acquired - combined_spent
 
-            if combined_acquired == s_float_0 or combined_spent == s_float_0:
-                trading_pair_stats["trading_pair_delta_percentage"] = s_float_nan
+            if combined_acquired == s_decimal_0 or combined_spent == s_decimal_0:
+                trading_pair_stats["trading_pair_delta_percentage"] = s_decimal_0
                 continue
-            trading_pair_stats["trading_pair_delta_percentage"] = ((combined_acquired / combined_spent) - 1) * 100
+            trading_pair_stats["trading_pair_delta_percentage"] = \
+                ((combined_acquired / combined_spent) - Decimal("1")) * Decimal("100")
 
-        portfolio_acquired_quote_value: float = sum(
+        portfolio_acquired_quote_value: Decimal = sum(
             s["acquired_quote_value"] for s in market_trading_pair_stats.values())
-        portfolio_spent_quote_value: float = sum(
+        portfolio_spent_quote_value: Decimal = sum(
             s["spent_quote_value"] for s in market_trading_pair_stats.values())
-        if portfolio_acquired_quote_value == s_float_0 or portfolio_spent_quote_value == s_float_0:
-            portfolio_delta_percentage: float = s_float_nan
+
+        if portfolio_acquired_quote_value == s_decimal_0 or portfolio_spent_quote_value == s_decimal_0:
+            portfolio_delta_percentage: Decimal = s_decimal_0
         else:
-            portfolio_delta_percentage: float = ((portfolio_acquired_quote_value / portfolio_spent_quote_value) - 1) * 100
+            portfolio_delta_percentage: Decimal = \
+                ((portfolio_acquired_quote_value / portfolio_spent_quote_value) - Decimal("1")) * Decimal("100")
 
         trade_performance_stats["portfolio_acquired_quote_value"] = portfolio_acquired_quote_value
         trade_performance_stats["portfolio_spent_quote_value"] = portfolio_spent_quote_value

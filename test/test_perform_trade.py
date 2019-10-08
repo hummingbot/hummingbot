@@ -30,9 +30,8 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.strategy.perform_trade import PerformTradeStrategy
-import sys
-sys.path.insert(0, realpath(join(__file__, "../../")))
+from hummingbot.strategy.dev_2_perform_trade import PerformTradeStrategy
+import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
 
 class PerformTradeUnitTest(unittest.TestCase):
@@ -119,8 +118,8 @@ class PerformTradeUnitTest(unittest.TestCase):
 
     @staticmethod
     def simulate_limit_order_fill(market: Market, limit_order: LimitOrder):
-        quote_currency_traded: float = float(float(limit_order.price) * float(limit_order.quantity))
-        base_currency_traded: float = float(limit_order.quantity)
+        quote_currency_traded: Decimal = limit_order.price * limit_order.quantity
+        base_currency_traded: Decimal = limit_order.quantity
         quote_currency: str = limit_order.quote_currency
         base_currency: str = limit_order.base_currency
         config: MarketConfig = market.config
@@ -134,9 +133,9 @@ class PerformTradeUnitTest(unittest.TestCase):
                 limit_order.symbol,
                 TradeType.BUY,
                 OrderType.LIMIT,
-                float(limit_order.price),
-                float(limit_order.quantity),
-                TradeFee(0.0)
+                limit_order.price,
+                limit_order.quantity,
+                TradeFee(Decimal(0.0))
             ))
             market.trigger_event(MarketEvent.BuyOrderCompleted, BuyOrderCompletedEvent(
                 market.current_timestamp,
@@ -146,7 +145,7 @@ class PerformTradeUnitTest(unittest.TestCase):
                 base_currency if config.buy_fees_asset is AssetType.BASE_CURRENCY else quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                0.0,
+                Decimal(0.0),
                 OrderType.LIMIT
             ))
         else:
@@ -158,9 +157,9 @@ class PerformTradeUnitTest(unittest.TestCase):
                 limit_order.symbol,
                 TradeType.SELL,
                 OrderType.LIMIT,
-                float(limit_order.price),
-                float(limit_order.quantity),
-                TradeFee(0.0)
+                limit_order.price,
+                limit_order.quantity,
+                TradeFee(Decimal(0.0))
             ))
             market.trigger_event(MarketEvent.SellOrderCompleted, SellOrderCompletedEvent(
                 market.current_timestamp,
@@ -170,7 +169,7 @@ class PerformTradeUnitTest(unittest.TestCase):
                 base_currency if config.sell_fees_asset is AssetType.BASE_CURRENCY else quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                0.0,
+                Decimal(0.0),
                 OrderType.LIMIT
             ))
 
@@ -210,7 +209,7 @@ class PerformTradeUnitTest(unittest.TestCase):
         market_buy_events: List[BuyOrderCompletedEvent] = [t for t in self.buy_order_completed_logger.event_log
                                                            if isinstance(t, BuyOrderCompletedEvent)]
         self.assertEqual(1, len(market_buy_events))
-        amount: float = sum(t.base_asset_amount for t in market_buy_events)
+        amount: Decimal = sum(t.base_asset_amount for t in market_buy_events)
         self.assertEqual(1, amount)
         self.buy_order_completed_logger.clear()
 
@@ -224,7 +223,7 @@ class PerformTradeUnitTest(unittest.TestCase):
         market_sell_events: List[SellOrderCompletedEvent] = [t for t in self.sell_order_completed_logger.event_log
                                                              if isinstance(t, SellOrderCompletedEvent)]
         self.assertEqual(1, len(market_sell_events))
-        amount: float = sum(t.base_asset_amount for t in market_sell_events)
+        amount: Decimal = sum(t.base_asset_amount for t in market_sell_events)
         self.assertEqual(1, amount)
         self.sell_order_completed_logger.clear()
 

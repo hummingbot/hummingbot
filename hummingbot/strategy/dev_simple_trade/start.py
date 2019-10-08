@@ -2,28 +2,25 @@ from typing import (
     List,
     Tuple,
 )
-
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.simple_trade import (
-    SimpleTradeStrategy
-)
-from hummingbot.strategy.simple_trade.simple_trade_config_map import simple_trade_config_map
+from hummingbot.strategy.dev_simple_trade import SimpleTradeStrategy
+from hummingbot.strategy.dev_simple_trade.dev_simple_trade_config_map import dev_simple_trade_config_map
 
 
 def start(self):
     try:
-        order_amount = simple_trade_config_map.get("order_amount").value
-        order_type = simple_trade_config_map.get("order_type").value
-        is_buy = simple_trade_config_map.get("is_buy").value
-        time_delay = simple_trade_config_map.get("time_delay").value
-        market = simple_trade_config_map.get("market").value.lower()
-        raw_market_symbol = simple_trade_config_map.get("market_trading_pair_tuple").value
+        order_amount = dev_simple_trade_config_map.get("order_amount").value
+        order_type = dev_simple_trade_config_map.get("order_type").value
+        is_buy = dev_simple_trade_config_map.get("is_buy").value
+        time_delay = dev_simple_trade_config_map.get("time_delay").value
+        market = dev_simple_trade_config_map.get("market").value.lower()
+        raw_market_symbol = dev_simple_trade_config_map.get("market_trading_pair_tuple").value
         order_price = None
         cancel_order_wait_time = None
 
         if order_type == "limit":
-            order_price = simple_trade_config_map.get("order_price").value
-            cancel_order_wait_time = simple_trade_config_map.get("cancel_order_wait_time").value
+            order_price = dev_simple_trade_config_map.get("order_price").value
+            cancel_order_wait_time = dev_simple_trade_config_map.get("cancel_order_wait_time").value
 
         try:
             assets: Tuple[str, str] = self._initialize_market_assets(market, [raw_market_symbol])[0]
@@ -44,7 +41,7 @@ def start(self):
 
         self.strategy = SimpleTradeStrategy(market_infos=[MarketTradingPairTuple(*maker_data)],
                                             order_type=order_type,
-                                            order_price=order_price,
+                                            order_price=order_price if order_price else None,
                                             cancel_order_wait_time=cancel_order_wait_time,
                                             is_buy=is_buy,
                                             time_delay=time_delay,

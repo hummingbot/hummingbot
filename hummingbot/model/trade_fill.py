@@ -16,7 +16,10 @@ from sqlalchemy import (
     Float,
     JSON
 )
-from sqlalchemy.orm import relationship, Session
+from sqlalchemy.orm import (
+    relationship,
+    Session
+)
 from datetime import datetime
 
 from . import HummingbotBase

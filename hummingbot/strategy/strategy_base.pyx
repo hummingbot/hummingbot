@@ -21,8 +21,8 @@ from hummingbot.core.event.events import (
 from .order_tracker import OrderTracker
 
 NaN = float("nan")
-decimal_nan = Decimal("NaN")
-
+s_decimal_nan = Decimal("NaN")
+s_decimal_0 = Decimal("0")
 
 # <editor-fold desc="+ Event listeners">
 cdef class BaseStrategyEventListener(EventListener):
@@ -141,7 +141,6 @@ cdef class StrategyBase(TimeIterator):
                          market_name,
                          order_filled_event.timestamp,
                          order_filled_event.trade_fee)
-
         past_trades = []
         for market in self.active_markets:
             event_logs = market.event_logs
@@ -157,27 +156,26 @@ cdef class StrategyBase(TimeIterator):
             str trading_pair
             str base_asset
             str quote_asset
-            double bid_price
-            double ask_price
-            double bid_price_adjusted
-            double ask_price_adjusted
+            object bid_price
+            object ask_price
+            object bid_price_adjusted
+            object ask_price_adjusted
             list markets_data = []
             list markets_columns = ["Market", "Symbol", "Bid Price", "Ask Price", "Adjusted Bid", "Adjusted Ask"]
         try:
             for market_trading_pair_tuple in market_trading_pair_tuples:
                 market, trading_pair, base_asset, quote_asset = market_trading_pair_tuple
-                order_book = market.get_order_book(trading_pair)
-                bid_price = order_book.get_price(False)
-                ask_price = order_book.get_price(True)
+                bid_price = market.get_price(trading_pair, False)
+                ask_price = market.get_price(trading_pair, True)
                 bid_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, bid_price)
                 ask_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, ask_price)
                 markets_data.append([
                     market.display_name,
                     trading_pair,
-                    bid_price,
-                    ask_price,
-                    bid_price_adjusted,
-                    ask_price_adjusted
+                    float(bid_price),
+                    float(ask_price),
+                    float(bid_price_adjusted),
+                    float(ask_price_adjusted)
                 ])
             return pd.DataFrame(data=markets_data, columns=markets_columns)
 
@@ -198,12 +196,12 @@ cdef class StrategyBase(TimeIterator):
         try:
             for market_trading_pair_tuple in market_trading_pair_tuples:
                 market, trading_pair, base_asset, quote_asset = market_trading_pair_tuple
-                base_balance = market.get_balance(base_asset)
-                quote_balance = market.get_balance(quote_asset)
-                available_base_balance = market.get_available_balance(base_asset)
-                available_quote_balance = market.get_available_balance(quote_asset)
-                base_asset_conversion_rate = ExchangeRateConversion.get_instance().adjust_token_rate(base_asset, 1.0)
-                quote_asset_conversion_rate = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, 1.0)
+                base_balance = float(market.get_balance(base_asset))
+                quote_balance = float(market.get_balance(quote_asset))
+                available_base_balance = float(market.get_available_balance(base_asset))
+                available_quote_balance = float(market.get_available_balance(quote_asset))
+                base_asset_conversion_rate = ExchangeRateConversion.get_instance().adjust_token_rate(base_asset, 1)
+                quote_asset_conversion_rate = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, 1)
                 assets_data.extend([
                     [market.display_name, base_asset, base_balance, available_base_balance, base_asset_conversion_rate],
                     [market.display_name, quote_asset, quote_balance, available_quote_balance, quote_asset_conversion_rate]
@@ -224,10 +222,10 @@ cdef class StrategyBase(TimeIterator):
         for market_trading_pair_tuple in market_trading_pair_tuples:
             base_balance = market_trading_pair_tuple.market.get_balance(market_trading_pair_tuple.base_asset)
             quote_balance = market_trading_pair_tuple.market.get_balance(market_trading_pair_tuple.quote_asset)
-            if base_balance <= 0.0001:
+            if base_balance <= Decimal("0.0001"):
                 warning_lines.append(f"  {market_trading_pair_tuple.market.name} market "
                                      f"{market_trading_pair_tuple.base_asset} balance is too low. Cannot place order.")
-            if quote_balance <= 0.0001:
+            if quote_balance <= Decimal("0.0001"):
                 warning_lines.append(f"  {market_trading_pair_tuple.market.name} market "
                                      f"{market_trading_pair_tuple.quote_asset} balance is too low. Cannot place order.")
         return warning_lines
@@ -292,6 +290,26 @@ cdef class StrategyBase(TimeIterator):
             typed_market.c_remove_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_buy_order_listener)
             typed_market.c_remove_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
             self._sb_markets.remove(typed_market)
+
+    cdef object c_sum_flat_fees(self, str quote_asset, list flat_fees):
+
+        """
+        Converts flat fees to quote token and sums up all flat fees
+        """
+        cdef:
+            object total_flat_fees = s_decimal_0
+
+        for flat_fee_currency, flat_fee_amount in flat_fees:
+            if flat_fee_currency == quote_asset:
+                total_flat_fees += flat_fee_amount
+            else:
+                # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
+                total_flat_fees += ExchangeRateConversion.get_instance().convert_token_value_decimal(
+                    amount=flat_fee_amount,
+                    from_currency=flat_fee_currency,
+                    to_currency=quote_asset
+                )
+        return total_flat_fees
 
     # <editor-fold desc="+ Event handling functions">
     # ----------------------------------------------------------------------------------------------------------
@@ -363,12 +381,10 @@ cdef class StrategyBase(TimeIterator):
 
     # <editor-fold desc="+ Creating and cancelling orders">
     # ----------------------------------------------------------------------------------------------------------
-    cdef str c_buy_with_specific_market(self,
-                                        object market_trading_pair_tuple,
-                                        object amount,
-                                        object order_type = OrderType.MARKET,
-                                        object price = decimal_nan,
-                                        double expiration_seconds = NaN):
+    cdef str c_buy_with_specific_market(self, object market_trading_pair_tuple, object amount,
+                                        object order_type=OrderType.MARKET,
+                                        object price=s_decimal_nan,
+                                        double expiration_seconds=NaN):
         if self._sb_delegate_lock:
             raise RuntimeError("Delegates are not allowed to execute orders directly.")
 
@@ -399,12 +415,10 @@ cdef class StrategyBase(TimeIterator):
 
         return order_id
 
-    cdef str c_sell_with_specific_market(self,
-                                         object market_trading_pair_tuple,
-                                         object amount,
-                                         object order_type = OrderType.MARKET,
-                                         object price = decimal_nan,
-                                         double expiration_seconds = NaN):
+    cdef str c_sell_with_specific_market(self, object market_trading_pair_tuple, object amount,
+                                         object order_type=OrderType.MARKET,
+                                         object price=s_decimal_nan,
+                                         double expiration_seconds=NaN):
         if self._sb_delegate_lock:
             raise RuntimeError("Delegates are not allowed to execute orders directly.")
 
@@ -415,17 +429,15 @@ cdef class StrategyBase(TimeIterator):
             dict kwargs = {
                 "expiration_ts": self._current_timestamp + max(self._sb_limit_order_min_expiration, expiration_seconds)
             }
+
             MarketBase market = market_trading_pair_tuple.market
 
         if market not in self._sb_markets:
             raise ValueError(f"Market object for sell order is not in the whitelisted markets set.")
 
         cdef:
-            str order_id = market.c_sell(market_trading_pair_tuple.trading_pair,
-                                         amount,
-                                         order_type=order_type,
-                                         price=price,
-                                         kwargs=kwargs)
+            str order_id = market.c_sell(market_trading_pair_tuple.trading_pair, amount,
+                                         order_type=order_type, price=price, kwargs=kwargs)
 
         # Start order tracking
         if order_type == OrderType.LIMIT:
