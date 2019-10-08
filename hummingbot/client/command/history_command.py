@@ -23,6 +23,9 @@ if TYPE_CHECKING:
 class HistoryCommand:
     def history(self,  # type: HummingbotApplication
                 ):
+        if not all(market.ready for market in self.markets.values()):
+            self._notify("  History stats are not available before Markets are ready.")
+            return
         self.list_trades()
         self.trade_performance_report()
 
@@ -63,7 +66,7 @@ class HistoryCommand:
                              float(current_balance),
                              float(current_balance - starting_balance),
                              float(asset_delta["delta"]),
-                             ERC.adjust_token_rate(asset, 1, source="default")])
+                             ERC.adjust_token_rate(asset, 1)])
         df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Net_Delta",
                                                      "Trade_Delta", "Conversion_Rate"])
         return df
@@ -166,10 +169,10 @@ class HistoryCommand:
                 market_df_data.append([
                     market_trading_pair_tuple.market.display_name,
                     market_trading_pair_tuple.trading_pair.upper(),
-                    trading_pair_stats["starting_quote_rate"],
-                    trading_pair_stats["end_quote_rate"],
+                    float(trading_pair_stats["starting_quote_rate"]),
+                    float(trading_pair_stats["end_quote_rate"]),
                     f"{trading_pair_stats['trading_pair_delta']:.8f} {primary_quote_asset}",
-                    trading_pair_stats["trading_pair_delta_percentage"]
+                    f"{trading_pair_stats['trading_pair_delta_percentage']:.3f} %"
                 ])
 
             inventory_df: pd.DataFrame = self.balance_comparison_data_frame(market_trading_pair_stats)
@@ -180,14 +183,12 @@ class HistoryCommand:
             trade_performance_status_line.extend(["", "  Inventory:"] +
                                                  ["    " + line for line in inventory_df.to_string().split("\n")])
             trade_performance_status_line.extend(["", "  Market Trading Pair Performance:"] +
-                                                 ["    " + line for line in market_df.to_string(formatters={
-                                                     "Profit": "{:,.2f} %".format,
-                                                 }).split("\n")])
+                                                 ["    " + line for line in market_df.to_string().split("\n")])
 
             trade_performance_status_line.extend(
                 ["", "  Portfolio Performance:"] +
-                [f"    Quote Value Delta: {portfolio_delta:7g} {primary_quote_asset}"] +
-                [f"    Delta Percentage: {portfolio_delta_percentage:2f} %"])
+                [f"    Quote Value Delta: {portfolio_delta:.7g} {primary_quote_asset}"] +
+                [f"    Delta Percentage: {portfolio_delta_percentage:.3f} %"])
 
             self._notify("\n".join(trade_performance_status_line))
 

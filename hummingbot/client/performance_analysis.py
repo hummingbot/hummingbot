@@ -109,6 +109,8 @@ class PerformanceAnalysis:
     def calculate_trade_asset_delta_with_fees(trade: TradeFill):
         trade_fee: Dict[str, any] = trade.trade_fee
         total_flat_fees: Decimal = s_decimal_0
+        amount: Decimal = Decimal(trade.amount)
+        price: Decimal = Decimal(trade.price)
         for flat_fee_currency, flat_fee_amount in trade_fee["flat_fees"]:
             if flat_fee_currency == trade.quote_asset:
                 total_flat_fees += Decimal(flat_fee_amount)
@@ -121,11 +123,11 @@ class PerformanceAnalysis:
                     source="default"
                 )
         if trade.trade_type == TradeType.SELL.name:
-            net_base_delta: Decimal = trade.amount
-            net_quote_delta: Decimal = trade.amount * trade.price * (1 - Decimal(trade_fee["percent"])) - total_flat_fees
+            net_base_delta: Decimal = amount
+            net_quote_delta: Decimal = amount * price * (1 - Decimal(trade_fee["percent"])) - total_flat_fees
         elif trade.trade_type == TradeType.BUY.name:
-            net_base_delta: Decimal = trade.amount * (1 - Decimal(trade_fee["percent"])) - total_flat_fees
-            net_quote_delta: Decimal = trade.amount * trade.price
+            net_base_delta: Decimal = amount * (1 - Decimal(trade_fee["percent"])) - total_flat_fees
+            net_quote_delta: Decimal = amount * price
         else:
             raise Exception(f"Unsupported trade type {trade.trade_type}")
         return net_base_delta, net_quote_delta
