@@ -30,5 +30,5 @@ cdef class WalletBase(NetworkIterator):
     cdef object c_get_raw_balance(self, str asset_name):
         raise NotImplementedError
 
-    cdef str c_send(self, str address, str asset_name, double amount):
+    cdef str c_send(self, str address, str asset_name, object amount):
         raise NotImplementedError

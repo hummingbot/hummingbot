@@ -127,7 +127,7 @@ cdef class Web3Wallet(WalletBase):
     def current_backend(self) -> Web3WalletBackend:
         return self._best_backend
 
-    def get_all_balances(self) -> Dict[str, float]:
+    def get_all_balances(self) -> Dict[str, Decimal]:
         return self._best_backend.get_all_balances()
 
     def get_raw_balances(self) -> Dict[str, int]:
@@ -159,10 +159,10 @@ cdef class Web3Wallet(WalletBase):
     def approve_token_transfer(self, asset_name: str, spender_address: str, amount: float, **kwargs) -> str:
         return self._best_backend.approve_token_transfer(asset_name, spender_address, amount, **kwargs)
 
-    def wrap_eth(self, amount: float) -> str:
+    def wrap_eth(self, amount: Decimal) -> str:
         return self._best_backend.wrap_eth(amount)
 
-    def unwrap_eth(self, amount: float) -> str:
+    def unwrap_eth(self, amount: Decimal) -> str:
         return self._best_backend.unwrap_eth(amount)
 
     def execute_transaction(self, contract_function: ContractFunction, **kwargs) -> str:
@@ -237,7 +237,7 @@ cdef class Web3Wallet(WalletBase):
         for backend in self._wallet_backends:
             backend.stop()
 
-    cdef str c_send(self, str address, str asset_name, double amount):
+    cdef str c_send(self, str address, str asset_name, object amount):
         return self._best_backend.send(address, asset_name, amount)
 
     cdef double c_get_balance(self, str asset_name) except? -1:
