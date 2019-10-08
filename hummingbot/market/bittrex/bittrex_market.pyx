@@ -449,16 +449,17 @@ cdef class BittrexMarket(MarketBase):
 
                         if tracked_order.trade_type is TradeType.BUY:
                             self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                                 BuyOrderCompletedEvent(self._current_timestamp,
-                                                                        tracked_order.client_order_id,
-                                                                        tracked_order.base_asset,
-                                                                        tracked_order.quote_asset,
-                                                                        (tracked_order.fee_asset
-                                                                         or tracked_order.base_asset),
-                                                                        float(tracked_order.executed_amount_base),
-                                                                        float(tracked_order.executed_amount_quote),
-                                                                        float(tracked_order.fee_paid),
-                                                                        tracked_order.order_type))
+                                                 BuyOrderCompletedEvent(
+                                                     self._current_timestamp,
+                                                     tracked_order.client_order_id,
+                                                     tracked_order.base_asset,
+                                                     tracked_order.quote_asset,
+                                                     (tracked_order.fee_asset
+                                                      or tracked_order.base_asset),
+                                                     float(tracked_order.executed_amount_base),
+                                                     float(tracked_order.executed_amount_quote),
+                                                     float(tracked_order.fee_paid),
+                                                     tracked_order.order_type))
                         elif tracked_order.trade_type is TradeType.SELL:
                             self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
                                                  SellOrderCompletedEvent(
@@ -866,6 +867,11 @@ cdef class BittrexMarket(MarketBase):
                            price: Optional[Decimal] = NaN):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
+            double quote_amount
+            object decimal_amount
+            object decimal_price
+            str exchange_order_id
+            object tracked_order
 
         decimal_amount = self.c_quantize_order_amount(symbol, amount)
         decimal_price = (self.c_quantize_order_price(symbol, price)
@@ -990,7 +996,7 @@ cdef class BittrexMarket(MarketBase):
 
         try:
             async with timeout(timeout_seconds):
-                api_responses = await asyncio.gather(*tasks, return_exceptions=True)
+                api_responses = await safe_gather(*tasks, return_exceptions=True)
                 for order_id in api_responses:
                     if order_id:
                         order_id_set.remove(order_id)

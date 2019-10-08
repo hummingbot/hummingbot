@@ -150,7 +150,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return self._symbols
 
     async def websocket_connection(self) -> (signalr_aio.Connection, signalr_aio.hubs.Hub):
-        if not self._websocket_connection or not self._websocket_hub:
+        if not self._websocket_connection and not self._websocket_hub:
             self._websocket_connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
             self._websocket_hub = self._websocket_connection.register_hub("c2")
 
@@ -162,7 +162,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().info(f"Subscribed to {trading_pair} deltas")
                 self._websocket_hub.server.invoke("SubscribeToExchangeDeltas", trading_pair)
 
-                self.logger().info(f"Query {trading_pair} snapshot")
+                self.logger().info(f"Query {trading_pair} snapshot.")
                 self._websocket_hub.server.invoke("queryExchangeState", trading_pair)
 
             self._websocket_connection.start()
@@ -173,10 +173,13 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             async with timeout(SNAPSHOT_TIMEOUT):
                 while True:
-                    if self._snapshot_msg.get(trading_pair):
-                        msg: Dict[str, any] = self._snapshot_msg.pop(trading_pair)
-                        if msg["timestamp"] > invoke_timestamp:
-                            return msg["content"]
+                    msg: Dict[str, any] = self._snapshot_msg.pop(trading_pair, None)
+                    if msg and msg["timestamp"] > invoke_timestamp:
+                        return msg["content"]
+                    # if self._snapshot_msg.get(trading_pair):
+                    #     msg: Dict[str, any] = self._snapshot_msg.pop(trading_pair)
+                    #     if msg["timestamp"] > invoke_timestamp:
+                    #         return msg["content"]
                     await asyncio.sleep(1)
         except asyncio.TimeoutError:
             raise
@@ -193,15 +196,18 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             get_snapshot_attempts += 1
 
             hub.server.invoke("queryExchangeState", trading_pair)
-            self.logger().info(f"Query {trading_pair} snapshots.")
+            self.logger().info(f"Query {trading_pair} snapshots. {get_snapshot_attempts}/{MAX_RETRIES}")
             invoke_timestamp = int(time.time())
 
             try:
                 return await self.wait_for_snapshot(temp_trading_pair, invoke_timestamp)
             except asyncio.TimeoutError:
                 self.logger().warning("Snapshot query timed out. Retrying...")
-            except KeyError:
-                self.logger().error(f"{trading_pair} snapshot not received. Retrying query")
+            except Exception:
+                self.logger().error(f"Unexpected error occurred when retrieving {trading_pair} snapshot. "
+                                    f"Retrying...",
+                                    exc_info=True)
+            await asyncio.sleep(0.5)
 
         raise IOError
 
@@ -233,11 +239,11 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     f"Initialized order book for {trading_pair}. " f"{index + 1}/{number_of_pairs} completed."
                 )
                 await asyncio.sleep(0.5)
-            except IOError:
+            except (IOError, OSError):
                 self.logger().network(
                     f"Max retries met fetching snapshot for {trading_pair}.",
                     exc_info=True,
-                    app_warning_msg=f"Error getting snapshot fro {trading_pair}. Check network connection.",
+                    app_warning_msg=f"Error getting snapshot for {trading_pair}. Check network connection.",
                 )
             except Exception:
                 self.logger().error(f"Error initiailizing order book for {trading_pair}. ", exc_info=True)
@@ -320,7 +326,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     # WebSocket API requires trading_pair to be in 'Quote-Base' format
                     trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
                     hub.server.invoke("queryExchangeState", trading_pair)
-                    self.logger().info(f"Query {trading_pair} snapshots.")
+                    self.logger().info(f"Query {trading_pair} snapshots.[Scheduled]")
 
                 # Waits for delta amount of time before getting new snapshots
                 this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
@@ -335,9 +341,8 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                            snapshot_queue: asyncio.Queue,
                                            diff_queue: asyncio.Queue):
         while True:
+            connection, hub = await self.websocket_connection()
             try:
-                connection, hub = await self.websocket_connection()
-
                 async for raw_message in self._socket_stream(connection):
                     decoded: Dict[str, Any] = await self._transform_raw_message(raw_message)
                     symbol: str = decoded["results"].get("M")
@@ -369,3 +374,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             except Exception:
                 self.logger().error("Unexpected error when listening on socket stream.", exc_info=True)
+            finally:
+                connection.close()
+                connection = None
+                self.logger().info("Reinitializing websocket connection...")
