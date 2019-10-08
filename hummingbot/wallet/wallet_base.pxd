@@ -1,4 +1,5 @@
 from hummingbot.core.network_iterator cimport NetworkIterator
+from decimal import Decimal
 
 
 cdef class WalletBase(NetworkIterator):

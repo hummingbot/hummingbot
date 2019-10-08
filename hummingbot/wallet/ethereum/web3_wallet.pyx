@@ -15,6 +15,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import (
     WalletEvent
 )
+from decimal import Decimal
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
@@ -167,10 +168,10 @@ cdef class Web3Wallet(WalletBase):
     def execute_transaction(self, contract_function: ContractFunction, **kwargs) -> str:
         return self._best_backend.execute_transaction(contract_function, **kwargs)
 
-    def to_nominal(self, asset_name: str, raw_amount: int) -> float:
+    def to_nominal(self, asset_name: str, raw_amount: int) -> Decimal:
         return self._best_backend.to_nominal(asset_name, raw_amount)
 
-    def to_raw(self, asset_name: str, nominal_amount: float) -> int:
+    def to_raw(self, asset_name: str, nominal_amount: Decimal) -> int:
         return self._best_backend.to_raw(asset_name, nominal_amount)
 
     async def start_network(self):
