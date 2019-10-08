@@ -82,12 +82,12 @@ class DDEXMarketUnitTest(unittest.TestCase):
         cls.wallet = Web3Wallet(private_key=conf.web3_test_private_key_ddex,
                                 backend_urls=conf.test_ddex_web3_provider_list,
                                 erc20_token_addresses=[conf.test_ddex_erc20_token_address_1,
-                                                       conf.test_ddex_erc20_token_address_2],
+                                                       conf.test_ddex_erc20_token_address_2
+                                                       ],
                                 chain=EthereumChain.MAIN_NET)
         cls.market: DDEXMarket = DDEXMarket(wallet=cls.wallet,
                                             ethereum_rpc_url=conf.test_ddex_web3_provider_list[0],
-                                            order_book_tracker_data_source_type=
-                                            OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                            order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                             symbols=["HOT-WETH"])
         print("Initializing DDEX market... ")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -178,16 +178,16 @@ class DDEXMarketUnitTest(unittest.TestCase):
                          "bad_orders_are_not_tracked test requires manual action.")
     def test_bad_orders_are_not_tracked(self):
         # Should fail due to insufficient balance
-        order_id = self.market.buy("WETH-DAI", Decimal(10000), OrderType.LIMIT, Decimal(1))
+        order_id = self.market.buy("WETH-DAI", Decimal("10000"), OrderType.LIMIT, Decimal(1))
         self.assertEqual(self.market.in_flight_orders.get(order_id), None)
 
     def test_cancel_order(self):
         symbol = "HOT-WETH"
-        bid_price: Decimal = Decimal(self.market.get_price(symbol, True))
-        amount = Decimal(2000)
+        bid_price: Decimal = self.market.get_price(symbol, True)
+        amount = 2000
 
         # Intentionally setting invalid price to prevent getting filled
-        client_order_id = self.market.buy(symbol, amount, OrderType.LIMIT, bid_price * Decimal(0.7))
+        client_order_id = self.market.buy(symbol, amount, OrderType.LIMIT, bid_price * Decimal("0.7"))
         self.market.cancel(symbol, client_order_id)
         [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
         order_cancelled_event: OrderCancelledEvent = order_cancelled_event
@@ -197,14 +197,14 @@ class DDEXMarketUnitTest(unittest.TestCase):
         self.assertEqual(client_order_id, order_cancelled_event.order_id)
 
     def test_place_limit_buy_and_sell(self):
-        self.assertGreater(self.market.get_balance("WETH"), 0.1)
+        self.assertGreater(self.market.get_balance("WETH"), Decimal("0.1"))
         self.assertGreater(self.market.get_balance("HOT"), 2000)
 
         # Try to buy 2000 HOT from the exchange, and watch for completion event.
         symbol = "HOT-WETH"
-        bid_price: float = self.market.get_price(symbol, True)
-        amount: Decimal = Decimal(2000)
-        buy_order_id: str = self.market.buy(symbol, amount, OrderType.LIMIT, Decimal(bid_price * 0.7))
+        bid_price: Decimal = self.market.get_price(symbol, True)
+        amount: Decimal = 2000
+        buy_order_id: str = self.market.buy(symbol, amount, OrderType.LIMIT, bid_price * Decimal("0.7"))
         [buy_order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         exchange_order_id: str = self.market.in_flight_orders.get(buy_order_id).exchange_order_id
         buy_order = self.run_parallel(self.market.get_order(exchange_order_id))
@@ -214,8 +214,8 @@ class DDEXMarketUnitTest(unittest.TestCase):
         [_] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
         # Try to sell back the same amount of HOT to the exchange, and watch for completion event.
-        ask_price: float = self.market.get_price(symbol, False)
-        sell_order_id: str = self.market.sell(symbol, amount, OrderType.LIMIT, Decimal(ask_price * 1.5))
+        ask_price: Decimal = self.market.get_price(symbol, False)
+        sell_order_id: str = self.market.sell(symbol, amount, OrderType.LIMIT, ask_price * Decimal("1.5"))
         [sell_order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         exchange_order_id: str = self.market.in_flight_orders.get(sell_order_id).exchange_order_id
         sell_order = self.run_parallel(self.market.get_order(exchange_order_id))
@@ -227,11 +227,11 @@ class DDEXMarketUnitTest(unittest.TestCase):
     @unittest.skipUnless(any("test_limit_buy_and_sell_get_matched" in arg for arg in sys.argv),
                          "test_limit_buy_and_sell_get_matched test requires manual action.")
     def test_limit_buy_and_sell_get_matched(self):
-        self.assertGreater(self.market.get_balance("WETH"), 0.01)
+        self.assertGreater(self.market.get_balance("WETH"), Decimal("0.01"))
 
         # Try to buy 0.01 WETH worth of HOT from the exchange, and watch for completion event.
-        current_price: float = self.market.get_price("HOT-WETH", True)
-        amount: Decimal = Decimal(2000)
+        current_price: Decimal = self.market.get_price("HOT-WETH", True)
+        amount: Decimal = 2000
         quantized_amount: Decimal = self.market.quantize_order_amount("HOT-WETH", amount)
         order_id = self.market.buy("HOT-WETH", amount, OrderType.LIMIT, Decimal(current_price))
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
@@ -241,20 +241,20 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in order_filled_events])
         self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertEqual(float(quantized_amount), order_completed_event.base_asset_amount)
+        self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
         self.assertEqual("HOT", order_completed_event.base_asset)
         self.assertEqual("WETH", order_completed_event.quote_asset)
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
-                        for event in self.market_logger.event_log]))
+                             for event in self.market_logger.event_log]))
         # Reset the logs
         self.market_logger.clear()
 
         # Try to sell back the same amount of HOT to the exchange, and watch for completion event.
-        current_price: float = self.market.get_price("HOT-WETH", False)
+        current_price: Decimal = self.market.get_price("HOT-WETH", False)
         amount = Decimal(order_completed_event.base_asset_amount)
-        quantized_amount = Decimal(order_completed_event.base_asset_amount)
-        order_id = self.market.sell("HOT-WETH", amount, OrderType.LIMIT, Decimal(current_price))
+        quantized_amount = order_completed_event.base_asset_amount
+        order_id = self.market.sell("HOT-WETH", amount, OrderType.LIMIT, current_price)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         order_filled_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -262,7 +262,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in order_filled_events])
         self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertEqual(float(quantized_amount), order_completed_event.base_asset_amount)
+        self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
         self.assertEqual("HOT", order_completed_event.base_asset)
         self.assertEqual("WETH", order_completed_event.quote_asset)
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
@@ -270,9 +270,9 @@ class DDEXMarketUnitTest(unittest.TestCase):
                         for event in self.market_logger.event_log]))
 
     def test_market_buy_and_sell(self):
-        self.assertGreater(self.market.get_balance("WETH"), 0.01)
+        self.assertGreater(self.market.get_balance("WETH"), Decimal("0.01"))
 
-        amount: Decimal = Decimal(2000)      # Min order size is 1000 HOT
+        amount: Decimal = Decimal("2000.0")  # Min order size is 1000 HOT
         quantized_amount: Decimal = self.market.quantize_order_amount("HOT-WETH", amount)
 
         order_id = self.market.buy("HOT-WETH", amount, OrderType.MARKET)
@@ -282,12 +282,12 @@ class DDEXMarketUnitTest(unittest.TestCase):
         order_filled_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
                                                        if isinstance(t, OrderFilledEvent)]
 
-        self.assertTrue([evt.order_type == OrderType.MARKET for evt in order_filled_events])
+        self.assertTrue(all([evt.order_type == OrderType.MARKET for evt in order_filled_events]))
         self.assertEqual(order_id, order_completed_event.order_id)
 
         # This is because some of the tokens are deducted in the trading fees.
         self.assertTrue(
-            float(quantized_amount) > order_completed_event.base_asset_amount > float(quantized_amount) * 0.9
+            quantized_amount > order_completed_event.base_asset_amount > quantized_amount * Decimal("0.9")
         )
         self.assertEqual("HOT", order_completed_event.base_asset)
         self.assertEqual("WETH", order_completed_event.quote_asset)
@@ -299,14 +299,14 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
         # Try to sell back the same amount of HOT to the exchange, and watch for completion event.
         amount = Decimal(order_completed_event.base_asset_amount)
-        quantized_amount = Decimal(order_completed_event.base_asset_amount)
+        quantized_amount: Decimal = self.market.quantize_order_amount("HOT-WETH", amount)
         order_id = self.market.sell("HOT-WETH", amount, OrderType.MARKET)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         order_filled_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
                                                        if isinstance(t, OrderFilledEvent)]
 
-        self.assertTrue([evt.order_type == OrderType.MARKET for evt in order_filled_events])
+        self.assertTrue(all([evt.order_type == OrderType.MARKET for evt in order_filled_events]))
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertEqual(float(quantized_amount), order_completed_event.base_asset_amount)
         self.assertEqual("HOT", order_completed_event.base_asset)
@@ -339,16 +339,16 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
     def test_cancel_all_happy_case(self):
         symbol = "HOT-WETH"
-        bid_price: float = self.market.get_price(symbol, True)
-        ask_price: float = self.market.get_price(symbol, False)
-        amount = Decimal(2000)
+        bid_price: Decimal = self.market.get_price(symbol, True)
+        ask_price: Decimal = self.market.get_price(symbol, False)
+        amount = 2000
 
-        self.assertGreater(self.market.get_balance("WETH"), 0.02)
+        self.assertGreater(self.market.get_balance("WETH"), Decimal("0.02"))
         self.assertGreater(self.market.get_balance("HOT"), amount)
 
         # Intentionally setting invalid price to prevent getting filled
-        self.market.buy(symbol, amount, OrderType.LIMIT, Decimal(bid_price * 0.7))
-        self.market.sell(symbol, amount, OrderType.LIMIT, Decimal(ask_price * 1.5))
+        self.market.buy(symbol, amount, OrderType.LIMIT, bid_price * Decimal("0.7"))
+        self.market.sell(symbol, amount, OrderType.LIMIT, ask_price * Decimal("1.5"))
 
         [cancellation_results] = self.run_parallel(self.market.cancel_all(10))
         self.assertGreater(len(cancellation_results), 0)
@@ -357,16 +357,16 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
     def test_cancel_all_failure_case(self):
         symbol = "HOT-WETH"
-        bid_price: float = self.market.get_price(symbol, True)
-        ask_price: float = self.market.get_price(symbol, False)
+        bid_price: Decimal = self.market.get_price(symbol, True)
+        ask_price: Decimal = self.market.get_price(symbol, False)
         # order submission should fail due to insufficient balance
         amount = Decimal(200000)
 
         self.assertLess(self.market.get_balance("WETH"), 100)
         self.assertLess(self.market.get_balance("HOT"), amount)
 
-        self.market.buy(symbol, amount, OrderType.LIMIT, Decimal(bid_price * 0.7))
-        self.market.sell(symbol, amount, OrderType.LIMIT, Decimal(ask_price * 1.5))
+        self.market.buy(symbol, amount, OrderType.LIMIT, bid_price * Decimal("0.7"))
+        self.market.sell(symbol, amount, OrderType.LIMIT, ask_price * Decimal("1.5"))
 
         [cancellation_results] = self.run_parallel(self.market.cancel_all(10))
         self.assertGreater(len(cancellation_results), 0)
@@ -386,12 +386,12 @@ class DDEXMarketUnitTest(unittest.TestCase):
             self.assertEqual(0, len(self.market.tracking_states))
 
             # Try to put limit buy order for 0.05 ETH worth of HOT, and watch for order creation event.
-            current_bid_price: float = self.market.get_price(symbol, True)
-            bid_price: float = current_bid_price * 0.8
-            quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, Decimal(bid_price))
+            current_bid_price: Decimal = self.market.get_price(symbol, True)
+            bid_price: Decimal = current_bid_price * Decimal("0.8")
+            quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
-            amount: float = 0.05 / bid_price
-            quantized_amount: Decimal = self.market.quantize_order_amount(symbol, Decimal(amount))
+            amount: Decimal = Decimal("0.05") / bid_price
+            quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
             order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
@@ -417,6 +417,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.market_events:
                 self.market.remove_listener(event_tag, self.market_logger)
+
             self.market: DDEXMarket = DDEXMarket(
                 wallet=self.wallet,
                 ethereum_rpc_url=conf.test_ddex_web3_provider_list[0],
@@ -463,8 +464,8 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
         try:
             # Try to buy 0.05 ETH worth of HOT from the exchange, and watch for completion event.
-            current_price: float = self.market.get_price(symbol, True)
-            amount: Decimal = Decimal(0.05 / current_price)
+            current_price: Decimal = self.market.get_price(symbol, True)
+            amount: Decimal = Decimal("0.05") / current_price
             order_id = self.market.buy(symbol, amount)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
@@ -472,7 +473,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
             self.market_logger.clear()
 
             # Try to sell back the same amount of HOT to the exchange, and watch for completion event.
-            amount = Decimal(buy_order_completed_event.base_asset_amount)
+            amount = buy_order_completed_event.base_asset_amount
             order_id = self.market.sell(symbol, amount)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
@@ -496,7 +497,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
 
 def main():
-    logging.basicConfig(level=logging.ERROR)
+    logging.basicConfig(level=logging.INFO)
     unittest.main()
 
 

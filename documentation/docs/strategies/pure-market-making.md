@@ -64,17 +64,19 @@ The following walks through all the steps when running `config` for the first ti
 
 ### Adding Transaction Costs to Prices
 
-Transaction costs are by default now added to the prices. This setting can be disabled by going to hummingbot/strategy/pure_market_making/start.py and setting `add_transaction_costs_to_orders` to False. fee_pct refers to the percentage maker fees per order (generally common in Centralized exchanges) while fixed fees refers to the flat fees (generally common in Decentralized exchanges)
+Transaction costs are by default now added to the prices. This setting can be disabled by going to `hummingbot/strategy/pure_market_making/start.py` and setting `add_transaction_costs_to_orders` to `False`.
 
-The bid order price is now calculated as (mid_price * (1 - fee_pct) * order_size - fixed_fees) / order_size
+`fee_pct` refers to the percentage maker fees per order (generally common in Centralized exchanges) while `fixed_fees` refers to the flat fees (generally common in Decentralized exchanges)
 
-The ask order price is now calculated as (mid_price * (1 + fee_pct) * order_size + fixed_fees) / order_size
+- The bid order price is now calculated as (mid_price * (1 - fee_pct) * order_size - fixed_fees) / order_size
+
+- The ask order price is now calculated as (mid_price * (1 + fee_pct) * order_size + fixed_fees) / order_size
 
 Adding the transaction cost will reduce the bid order price and increase the ask order price.
 
-We currently display warnings if the adjusted price post adding the transaction costs is 10% away from the original price. This setting can be modified by changing `warning_report_threshold` in the c_add_transaction_costs_to_pricing_proposal function inside hummingbot/strategy/pure_market_making/pure_market_making_v2.pyx.
+We currently display warnings if the adjusted price post adding the transaction costs is 10% away from the original price. This setting can be modified by changing `warning_report_threshold` in the `c_add_transaction_costs_to_pricing_proposal` function inside `hummingbot/strategy/pure_market_making/pure_market_making_v2.pyx`.
 
-If the Buy price with the transaction cost is zero or negative, it is not profitable to place orders and orders will not be placed.
+If the buy price with the transaction cost is zero or negative, it is not profitable to place orders and orders will not be placed.
 
 ### Multiple Order Configuration
 
@@ -108,7 +110,7 @@ The input `order_amount` is adjusted by the ratio of current base (or quote) per
 
 ### Order Adjustment Based on Filled Events
 
-By defaults, Hummingbot places orders as soon as there are no active orders; i.e., Hummingbot immediately places a new order to replace a filled order. If there is a sustained movement in the market in any one direction for some time, there is a risk of continued trading in that direction: for example, continuing to buy and accumulate base tokens in the case of a prolonged downward move or continuing to sell in the case of a prolonged upward move.
+By default, Hummingbot places orders as soon as there are no active orders; i.e., Hummingbot immediately places a new order to replace a filled order. If there is a sustained movement in the market in any one direction for some time, there is a risk of continued trading in that direction: for example, continuing to buy and accumulate base tokens in the case of a prolonged downward move or continuing to sell in the case of a prolonged upward move.
 
 #### Order Replenish Time
 

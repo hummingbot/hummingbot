@@ -1,6 +1,7 @@
 # distutils: language=c++
 import asyncio
 import logging
+from decimal import Decimal
 
 import pandas as pd
 from typing import (
@@ -15,6 +16,7 @@ from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversio
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.discovery.discovery_market_pair import DiscoveryMarketPair
 from hummingbot.strategy.arbitrage import ArbitrageStrategy
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base cimport StrategyBase
 
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -23,6 +25,7 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 import itertools
 
 NaN = float("nan")
+s_decimal_0 = Decimal(0)
 ds_logger = None
 
 
@@ -183,14 +186,20 @@ cdef class DiscoveryStrategy(StrategyBase):
         for base_1, quote_1 in market_1_base_quote:
             # check for all equivalent base and quote token from market1 in market2
             for equivalent_base_1, equivalent_quote_1 in itertools.product(
-                    self._equivalent_token_dict.get(base_1, {base_1}),
-                    self._equivalent_token_dict.get(quote_1, {quote_1})):
-
-                if (equivalent_base_1, equivalent_quote_1) in market_2_base_quote:
+                self._equivalent_token_dict.get(base_1.upper(), {base_1}),
+                self._equivalent_token_dict.get(quote_1.upper(), {quote_1})
+            ):
+                if (equivalent_base_1.upper(), equivalent_quote_1.upper()) in market_2_base_quote:
                     matching_pair.add((
                         self._market_info[market_1]["base_quote_to_symbol"][(base_1, quote_1)],
-                        self._market_info[market_2]["base_quote_to_symbol"][(equivalent_base_1,
-                                                                             equivalent_quote_1)]
+                        self._market_info[market_2]["base_quote_to_symbol"][(equivalent_base_1.upper(),
+                                                                            equivalent_quote_1.upper())]
+                    ))
+                elif (equivalent_base_1.lower(), equivalent_quote_1.lower()) in market_2_base_quote:
+                    matching_pair.add((
+                        self._market_info[market_1]["base_quote_to_symbol"][(base_1, quote_1)],
+                        self._market_info[market_2]["base_quote_to_symbol"][(equivalent_base_1.lower(),
+                                                                            equivalent_quote_1.lower())]
                     ))
         return matching_pair
 
@@ -246,48 +255,31 @@ cdef class DiscoveryStrategy(StrategyBase):
         :rtype: Dict[Tuple[str, str, str, str], Tuple[float, float, float]]
         """
         cdef:
-            double total_bid_value = 0                                  # total revenue
-            double total_ask_value = 0                                  # total cost
-            double total_bid_value_adjusted = 0
-            double total_ask_value_adjusted = 0
-            double total_profitable_base_amount = 0
-            double step_amount = 0
-            double profitability = 0
-            double next_profitability = 0
-            object market_1 = (market_pair.market_1, matching_pair[0])  # (symbol, base_token, quote_token)
-            object market_2 = (market_pair.market_2, matching_pair[1])
-            str buy_market_name
-            str sell_market_name
-            str buy_market_symbol
-            str buy_market_base
-            str buy_market_quote
-            str sell_market_symbol
-            str sell_market_base
-            str sell_market_quote
+            object total_bid_value = s_decimal_0                                  # total revenue
+            object total_ask_value = s_decimal_0                                  # total cost
+            object total_bid_value_adjusted = s_decimal_0
+            object total_ask_value_adjusted = s_decimal_0
+            object total_profitable_base_amount = s_decimal_0
+            object step_amount = s_decimal_0
+            object profitability = s_decimal_0
+            object next_profitability = s_decimal_0
             OrderBook buy_market_order_book
             OrderBook sell_market_order_book
             dict ret = {}
+            object market_symbol_pair_1 = MarketTradingPairTuple(market_pair.market_1, *matching_pair[0])
+            object market_symbol_pair_2 = MarketTradingPairTuple(market_pair.market_2, *matching_pair[1])
 
-        for buy_market, sell_market in [(market_1, market_2), (market_2, market_1)]:
+        for buy_market_symbol_pair, sell_market_symbol_pair in [(market_symbol_pair_1, market_symbol_pair_2),
+                                                                (market_symbol_pair_2, market_symbol_pair_1)]:
             try:
-                total_bid_value, total_ask_value = 0, 0
-                total_profitable_base_amount = 0
-                profitability, next_profitability = 0, 0
-
-                buy_market_name = buy_market[0].name
-                sell_market_name = sell_market[0].name
-                buy_market_symbol, buy_market_base, buy_market_quote = buy_market[1]
-                sell_market_symbol, sell_market_base, sell_market_quote = sell_market[1]
-
-                buy_market_order_book = buy_market[0].get_order_book(buy_market_symbol)
-                sell_market_order_book = sell_market[0].get_order_book(sell_market_symbol)
+                total_bid_value, total_ask_value = s_decimal_0, s_decimal_0
+                total_profitable_base_amount = s_decimal_0
+                profitability, next_profitability = s_decimal_0, s_decimal_0
 
                 profitable_orders = ArbitrageStrategy.find_profitable_arbitrage_orders(
                     target_profitability,
-                    buy_market_order_book,
-                    sell_market_order_book,
-                    buy_market_quote,
-                    sell_market_quote
+                    buy_market_symbol_pair,
+                    sell_market_symbol_pair
                 )
                 for bid_price_adjusted, ask_price_adjusted, bid_price, ask_price, amount in profitable_orders:
                     if total_profitable_base_amount + amount >= target_amount:
@@ -316,22 +308,25 @@ cdef class DiscoveryStrategy(StrategyBase):
                 # or for profitability lower than targeted, calculate with the best bid and ask
                 if not profitable_orders or profitability == 0:
                     sell_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(
-                        sell_market_quote,
-                        sell_market_order_book.get_price(False)
+                        sell_market_symbol_pair.quote_asset,
+                        sell_market_symbol_pair.get_price(False)
                     )
                     buy_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(
-                        buy_market_quote,
-                        buy_market_order_book.get_price(True)
+                        buy_market_symbol_pair.quote_asset,
+                        buy_market_symbol_pair.get_price(True)
                     )
                     profitability = sell_price_adjusted / buy_price_adjusted
 
-                ret[(buy_market_name, buy_market_symbol, sell_market_name, sell_market_symbol)] = \
+                ret[(buy_market_symbol_pair.market.name,
+                     buy_market_symbol_pair.trading_pair,
+                     sell_market_symbol_pair.market.name,
+                     sell_market_symbol_pair.trading_pair)] = \
                     (total_profitable_base_amount, total_ask_value, (profitability - 1) * 100)
 
             except Exception:
-                self.logger().debug(f"Error calculating arbitrage profitability: {buy_market[1]} v.s {sell_market[1]}.",
+                self.logger().debug(f"Error calculating arbitrage profitability: "
+                                    f"{buy_market_symbol_pair} v.s {sell_market_symbol_pair}.",
                                     exc_info=True)
-
         return ret
 
     def calculate_arbitrage_discovery(self,
@@ -370,7 +365,7 @@ cdef class DiscoveryStrategy(StrategyBase):
             arbitrage_discovery.update(discovery_dict)
 
         arbitrage_discovery_df = pd.DataFrame(
-            data=[(names[0], names[1], names[2], names[3], stats[0] * stats[1], stats[2])
+            data=[(names[0], names[1], names[2], names[3], float(stats[0]) * float(stats[1]), float(stats[2]))
                   for names, stats in arbitrage_discovery.items()],
             columns=["buy_market", "buy_pair", "sell_market", "sell_pair", "profit (quote)", "profit (%)"]
         )

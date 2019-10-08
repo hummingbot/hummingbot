@@ -4,23 +4,21 @@ from typing import (
 )
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.perform_trade import (
-    PerformTradeStrategy
-)
-from hummingbot.strategy.perform_trade.perform_trade_config_map import perform_trade_config_map
+from hummingbot.strategy.dev_2_perform_trade import PerformTradeStrategy
+from hummingbot.strategy.dev_2_perform_trade.dev_2_perform_trade_config_map import dev_2_perform_trade_config_map
 
 
 def start(self):
     try:
-        order_amount = perform_trade_config_map.get("order_amount").value
-        order_type = perform_trade_config_map.get("order_type").value
-        is_buy = perform_trade_config_map.get("is_buy").value
-        market = perform_trade_config_map.get("market").value.lower()
-        raw_market_symbol = perform_trade_config_map.get("market_trading_pair_tuple").value
+        order_amount = dev_2_perform_trade_config_map.get("order_amount").value
+        order_type = dev_2_perform_trade_config_map.get("order_type").value
+        is_buy = dev_2_perform_trade_config_map.get("is_buy").value
+        market = dev_2_perform_trade_config_map.get("market").value.lower()
+        raw_market_symbol = dev_2_perform_trade_config_map.get("market_trading_pair_tuple").value
         order_price = None
 
         if order_type == "limit":
-            order_price = perform_trade_config_map.get("order_price").value
+            order_price = dev_2_perform_trade_config_map.get("order_price").value
 
         try:
             assets: Tuple[str, str] = self._initialize_market_assets(market, [raw_market_symbol])[0]

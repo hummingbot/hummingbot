@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pandas as pd
 from typing import (
     Any,
@@ -94,14 +96,14 @@ class HistoryCommand:
 
     def get_market_mid_price(self,  # type: HummingbotApplication
                              ) -> float:
-        # Compute the current exchange rate. We use the first market_trading_pair_tuple because
+        # Compute the current exchange rate. We use the first market_symbol_pair because
         # if the trading pairs are different, such as WETH-DAI and ETH-USD, the currency
         # pairs above will contain the information in terms of the first trading pair.
         market_pair_info = self.market_trading_pair_tuples[0]
         market = market_pair_info.market
         buy_price = market.get_price(market_pair_info.trading_pair, True)
         sell_price = market.get_price(market_pair_info.trading_pair, False)
-        price = (buy_price + sell_price) / 2.0
+        price = float((buy_price + sell_price) / 2)
         return price
 
     def analyze_performance(self,  # type: HummingbotApplication
@@ -149,7 +151,8 @@ class HistoryCommand:
             current_strategy_name: str = self.markets_recorder.strategy_name
             analysis_start_time: int = self.init_time
             primary_quote_asset: str = self.market_trading_pair_tuples[0].quote_asset.upper()
-            trade_performance_stats, market_trading_pair_stats = self.calculate_trade_performance(
+            performance_analysis: PerformanceAnalysis = PerformanceAnalysis()
+            trade_performance_stats, market_trading_pair_stats = performance_analysis.calculate_trade_performance(
                 analysis_start_time,
                 current_strategy_name,
                 self.market_trading_pair_tuples
@@ -171,8 +174,8 @@ class HistoryCommand:
 
             inventory_df: pd.DataFrame = self.balance_comparison_data_frame(market_trading_pair_stats)
             market_df: pd.DataFrame = pd.DataFrame(data=market_df_data, columns=market_df_columns)
-            portfolio_delta: float = trade_performance_stats["portfolio_delta"]
-            portfolio_delta_percentage: float = trade_performance_stats["portfolio_delta_percentage"]
+            portfolio_delta: Decimal = trade_performance_stats["portfolio_delta"]
+            portfolio_delta_percentage: Decimal = trade_performance_stats["portfolio_delta_percentage"]
 
             trade_performance_status_line.extend(["", "  Inventory:"] +
                                                  ["    " + line for line in inventory_df.to_string().split("\n")])

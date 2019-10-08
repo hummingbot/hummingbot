@@ -99,6 +99,7 @@ class NewBlocksWatcher(BaseWatcher):
 
     async def fetch_new_blocks_loop(self):
         last_timestamp_received_blocks: float = 0.0
+        block_hash = ""
         while True:
             try:
                 async with timeout(30.0):
@@ -134,8 +135,8 @@ class NewBlocksWatcher(BaseWatcher):
             except asyncio.CancelledError:
                 raise
             except asyncio.TimeoutError:
-                self.logger().network(f"Timed out fetching new block - '{block_hash}'.", exc_info=True,
-                                      app_warning_msg=f"Timed out fetching new block - '{block_hash}'. "
+                self.logger().network(f"Timed out fetching new block.", exc_info=True,
+                                      app_warning_msg=f"Timed out fetching new block"
                                                       f"Check wallet network connection")
             except Exception:
                 self.logger().network(f"Error fetching new block.", exc_info=True,
