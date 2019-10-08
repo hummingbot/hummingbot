@@ -2,14 +2,10 @@ from typing import (
     List,
     Tuple,
 )
-from hummingbot.client.settings import (
-    EXAMPLE_PAIRS,
-)
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.execution1 import (
-    Execution1Strategy
-)
 from hummingbot.strategy.execution1.execution1_config_map import execution1_config_map
+from hummingbot.client.settings import EXAMPLE_PAIRS
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.dev_0_hello_world import HelloWorldStrategy
 
 
 def start(self):
@@ -33,9 +29,9 @@ def start(self):
         maker_data = [self.markets[market], symbol_pair] + list(assets)
         self.market_symbol_pairs = [MarketTradingPairTuple(*maker_data)]
 
-        strategy_logging_options = Execution1Strategy.OPTION_LOG_ALL
+        strategy_logging_options = HelloWorldStrategy.OPTION_LOG_ALL
 
-        self.strategy = Execution1Strategy(market_infos=[MarketTradingPairTuple(*maker_data)],
+        self.strategy = HelloWorldStrategy(market_infos=[MarketTradingPairTuple(*maker_data)],
                                            asset_symbol=asset_symbol,
                                            logging_options=strategy_logging_options)
     except Exception as e:

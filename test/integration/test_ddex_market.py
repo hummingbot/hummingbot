@@ -282,7 +282,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
         order_filled_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
                                                        if isinstance(t, OrderFilledEvent)]
 
-        self.assertTrue([evt.order_type == OrderType.MARKET for evt in order_filled_events])
+        self.assertTrue(all([evt.order_type == OrderType.MARKET for evt in order_filled_events]))
         self.assertEqual(order_id, order_completed_event.order_id)
 
         # This is because some of the tokens are deducted in the trading fees.
@@ -298,15 +298,15 @@ class DDEXMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
         # Try to sell back the same amount of HOT to the exchange, and watch for completion event.
-        amount = order_completed_event.base_asset_amount
-        quantized_amount = order_completed_event.base_asset_amount
+        amount = Decimal(order_completed_event.base_asset_amount)
+        quantized_amount: Decimal = self.market.quantize_order_amount("HOT-WETH", amount)
         order_id = self.market.sell("HOT-WETH", amount, OrderType.MARKET)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         order_filled_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
                                                        if isinstance(t, OrderFilledEvent)]
 
-        self.assertTrue([evt.order_type == OrderType.MARKET for evt in order_filled_events])
+        self.assertTrue(all([evt.order_type == OrderType.MARKET for evt in order_filled_events]))
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertEqual(float(quantized_amount), order_completed_event.base_asset_amount)
         self.assertEqual("HOT", order_completed_event.base_asset)
@@ -417,6 +417,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.market_events:
                 self.market.remove_listener(event_tag, self.market_logger)
+
             self.market: DDEXMarket = DDEXMarket(
                 wallet=self.wallet,
                 ethereum_rpc_url=conf.test_ddex_web3_provider_list[0],
@@ -496,7 +497,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
 
 def main():
-    logging.basicConfig(level=logging.ERROR)
+    logging.basicConfig(level=logging.INFO)
     unittest.main()
 
 

@@ -297,7 +297,6 @@ cdef class OrderBook(PubSub):
             double total_cost = 0
             double total_volume = 0
             double result_vwap = NaN
-
         if is_buy:
             for order_book_row in self.ask_entries():
                 total_cost += order_book_row.amount * order_book_row.price

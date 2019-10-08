@@ -9,7 +9,7 @@ from hummingbot.client.settings import (
 
 
 def symbol_prompt():
-    market = execution1_config_map.get("market").value
+    market = dev_0_hello_world_config_map.get("market").value
     example = EXAMPLE_ASSETS.get(market)
     return "Enter a single token to fetch its balance on %s%s >>> " \
            % (market, f" (e.g. {example})" if example else "")
@@ -19,7 +19,7 @@ def str2bool(value: str):
     return str(value).lower() in ("yes", "true", "t", "1")
 
 
-execution1_config_map = {
+dev_0_hello_world_config_map = {
     "market": ConfigVar(key="market",
                         prompt="Enter the name of the exchange >>> ",
                         validator=is_exchange,
