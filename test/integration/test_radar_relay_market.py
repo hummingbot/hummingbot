@@ -393,8 +393,8 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
 
         try:
             # Try to buy 0.05 ETH worth of ZRX from the exchange, and watch for completion event.
-            current_price: float = self.market.get_price(symbol, True)
-            amount: Decimal = Decimal(0.05 / current_price)
+            current_price: Decimal = self.market.get_price(symbol, True)
+            amount: Decimal = Decimal("0.05" / current_price)
             order_id = self.market.buy(symbol, amount)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 

@@ -22,7 +22,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         double _status_report_interval
         double _last_timestamp
         double _filled_order_replenish_wait_time
-        double _jump_orders_depth
+        object _jump_orders_depth
 
         dict _time_to_cancel
 
@@ -42,9 +42,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                     object market_info,
                                                     object pricing_proposal,
                                                     list active_orders)
-    cdef double c_sum_flat_fees(self,
-                                str quote_currency,
-                                list flat_fees)
     cdef tuple c_check_and_add_transaction_costs_to_pricing_proposal(self,
                                                                      object market_info,
                                                                      object pricing_proposal,
