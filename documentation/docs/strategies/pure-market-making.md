@@ -124,7 +124,7 @@ If you have a buy order that is filled at 1:00:00 and the delay is set as 10 sec
 Typically, orders are placed as pairs, e.g. 1 buy order + 1 sell order (or multiple of buy/sell, in multiple mode).  There is now an option using `enable_order_filled_stop_cancellation` to leave the orders on the other side hanging (not cancelled) whenever a one side (buy or sell) is filled.
 
 > Example:
-Assume you are running pure parket making in single order mode, the order size is 1 and the mid price is 100. Then,
+Assume you are running pure market making in single order mode, the order size is 1 and the mid price is 100. Then,
 <ul><li> Based on bid and ask thresholds of 0.01, your bid/ask orders would be placed at 99 and 101, respectively.
 <li> Your current bid at 99 is fully filled, i.e. someone takes your order and you buy 1.
 <li> By default, after the `cancel_order_wait_time`, the ask order at 101 would be canceled normally
