@@ -7,8 +7,16 @@ from os.path import (
 import shutil
 
 
+def project_dir() -> str:
+    return realpath(join(__file__, "../../"))
+
+
 def main():
-    pass
+    shutil.move(join(project_dir(), "bin/hummingbot.py"), join(project_dir(), "bin/bot"))
+    try:
+        pass
+    finally:
+        shutil.move(join(project_dir(), "bin/bot"), join(project_dir(), "bin/hummingbot.py"))
 
 
 if __name__ == "__main__":
