@@ -212,8 +212,6 @@ class LiquidityBounty(NetworkBase):
                 await self.fetch_active_bounties()
             except asyncio.CancelledError:
                 raise
-            except asyncio.TimeoutError:
-                continue
             except Exception as e:
                 self.logger().error(f"Failed to fetch active bounties: {str(e)}", exc_info=True)
             await asyncio.sleep(self._active_bounties_update_interval)
