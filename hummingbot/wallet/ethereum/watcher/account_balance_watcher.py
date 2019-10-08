@@ -2,18 +2,14 @@
 
 import asyncio
 import logging
-import math
 from typing import (
     List,
     Dict,
     Optional,
     Coroutine
 )
-from decimal import (
-    Decimal,
-    Context,
-    ROUND_DOWN
-)
+from decimal import Decimal
+
 from web3 import Web3
 from web3.contract import Contract
 from web3.datastructures import AttributeDict
@@ -119,10 +115,10 @@ class AccountBalanceWatcher(BaseWatcher):
         if asset_name not in self._raw_account_balances:
             return s_decimal_0
         decimals: int = self.get_decimals(asset_name)
-        context = Context(prec=decimals, rounding=ROUND_DOWN)
         raw_balance: int = self._raw_account_balances[asset_name]
-        balance_in_float: float = (raw_balance * math.pow(10, -decimals))
-        return context.create_decimal_from_float(balance_in_float)
+        raw_balance_in_decimal = Decimal(raw_balance)
+        balance_in_decimal = raw_balance_in_decimal / (10**decimals)
+        return balance_in_decimal
 
     def get_decimals(self, asset_name: str) -> int:
         if asset_name == "ETH":
