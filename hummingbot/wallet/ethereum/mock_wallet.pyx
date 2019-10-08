@@ -93,10 +93,10 @@ cdef class MockWallet(WalletBase):
             decimals = self._erc20_contracts[asset_name].decimals
             return contract.functions.balanceOf(self.address).call() * math.pow(10, -decimals)
 
-    cdef str c_send(self, str address, str asset_name, double amount):
+    cdef str c_send(self, str address, str asset_name, object amount):
         if asset_name == "ETH":
             gas_price = self.gas_price
-            raw_amount = int(Decimal(f"{amount:.12g}") * Decimal("1e18"))
+            raw_amount = int(amount * Decimal("1e18"))
             transaction = {
                 "to": address,
                 "value": raw_amount,
@@ -116,7 +116,7 @@ cdef class MockWallet(WalletBase):
                 raise ValueError(f"{asset_name} is not a recognized asset in this wallet.")
             contract = self._erc20_contracts[asset_name].contract
             decimals = self._erc20_contracts[asset_name].decimals
-            raw_amount = int(Decimal(f"{amount:.12g}") * Decimal(f"1e{decimals}"))
+            raw_amount = int(amount * Decimal(f"1e{decimals}"))
             transaction = contract.functions.transfer(address, raw_amount).buildTransaction({
                 "nonce": self.nonce,
                 "chainId": self._chain_id,
