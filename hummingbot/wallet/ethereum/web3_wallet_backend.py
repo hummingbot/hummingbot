@@ -1,10 +1,6 @@
 import asyncio
 from collections import OrderedDict
-from decimal import (
-    Decimal,
-    Context,
-    ROUND_DOWN
-)
+from decimal import Decimal
 from eth_account import Account
 from eth_account.local import LocalAccount
 from eth_account.messages import defunct_hash_message
@@ -546,11 +542,9 @@ class Web3WalletBackend(PubSub):
     def to_nominal(self, asset_name: str, raw_amount: int) -> Decimal:
         if asset_name not in self._asset_decimals:
             raise ValueError(f"Unrecognized asset name '{asset_name}'.")
-        multiplier: float = math.pow(10, self._asset_decimals[asset_name])
+
         decimals: int = self._asset_decimals[asset_name]
-        nominal_float: float = raw_amount / multiplier
-        context = Context(prec=decimals, rounding=ROUND_DOWN)
-        return context.create_decimal_from_float(nominal_float)
+        return Decimal(raw_amount) / (10 ** decimals)
 
     def to_raw(self, asset_name: str, nominal_amount: Decimal) -> int:
         if asset_name not in self._asset_decimals:
