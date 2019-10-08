@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from .perform_trade import PerformTradeStrategy
+from .dev_2_perform_trade import PerformTradeStrategy
 
 
 __all__ = [

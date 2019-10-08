@@ -3,6 +3,7 @@ import asyncio
 from async_timeout import timeout
 from cachetools import TTLCache
 from collections import (
+    defaultdict,
     deque,
     OrderedDict
 )
@@ -111,6 +112,7 @@ cdef class DDEXMarket(MarketBase):
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._last_update_order_timestamp = 0
+        self._last_update_trade_fills_timestamp = 0
         self._last_update_available_balance_timestamp = 0
         self._last_update_trading_rules_timestamp = 0
         self._last_update_trade_fees_timestamp = 0
@@ -224,6 +226,7 @@ cdef class DDEXMarket(MarketBase):
                 await safe_gather(
                     self._update_available_balances(),
                     self._update_trading_rules(),
+                    self._update_order_fills_from_trades(),
                     self._update_order_status(),
                     self._update_trade_fees()
                 )
@@ -246,7 +249,7 @@ cdef class DDEXMarket(MarketBase):
         if current_timestamp - self._last_update_available_balance_timestamp > 10.0:
             locked_balances = await self.list_locked_balances()
             total_balances = self.get_all_balances()
-            self.logger().warning(f"available balance, locked: {locked_balances}, total: {total_balances}")
+
             for currency, balance in total_balances.items():
                 self._account_available_balances[currency] = \
                     Decimal(total_balances[currency]) - locked_balances.get(currency, s_decimal_0)
@@ -282,6 +285,61 @@ cdef class DDEXMarket(MarketBase):
             except Exception:
                 self.logger().error(f"Error parsing the symbol {symbol}. Skipping.", exc_info=True)
         return retval
+
+    async def _update_order_fills_from_trades(self):
+        cdef:
+            double current_timestamp = self._current_timestamp
+
+        if not (current_timestamp - self._last_update_trade_fills_timestamp > 10.0 and len(self._in_flight_orders) > 0):
+            return
+
+        trading_pairs_to_order_map = defaultdict(lambda: {})
+        for o in self._in_flight_orders.values():
+            trading_pairs_to_order_map[o.symbol][o.exchange_order_id] = o
+        trading_pairs = list(trading_pairs_to_order_map.keys())
+        tasks = [self.list_account_trades(trading_pair) for trading_pair in trading_pairs]
+        results = await safe_gather(*tasks, return_exceptions=True)
+        for trades, trading_pair in zip(results, trading_pairs):
+            order_map = trading_pairs_to_order_map[trading_pair]
+            if isinstance(trades, Exception):
+                self.logger().network(
+                    f"Error fetching trades update for the order {trading_pair}: {trades}.",
+                    app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
+                )
+                continue
+            for trade in trades:
+                maker_order_id = str(trade["makerOrderId"])
+                taker_order_id = str(trade["takerOrderId"])
+                if maker_order_id in order_map or taker_order_id in order_map:
+                    order_id = maker_order_id if maker_order_id in order_map else taker_order_id
+                    tracked_order = order_map[order_id]
+                    applied_trade = order_map[order_id].update_with_trade_update(trade)
+                    if applied_trade:
+                        client_order_id = tracked_order.client_order_id
+                        fill_size = float(trade["amount"])
+                        execute_price = float(trade["price"])
+                        order_type_description = (
+                            ("market" if tracked_order.order_type == OrderType.MARKET else "limit") + " " +
+                            ("buy" if tracked_order.trade_type is TradeType.BUY else "sell")
+                        )
+                        order_filled_event = OrderFilledEvent(self._current_timestamp,
+                                                              client_order_id,
+                                                              tracked_order.symbol,
+                                                              tracked_order.trade_type,
+                                                              tracked_order.order_type,
+                                                              execute_price,
+                                                              fill_size,
+                                                              self.c_get_fee(tracked_order.base_asset,
+                                                                             tracked_order.quote_asset,
+                                                                             tracked_order.order_type,
+                                                                             tracked_order.trade_type,
+                                                                             execute_price,
+                                                                             fill_size),
+                                                              exchange_trade_id=trade["transactionId"])
+                        self.logger().info(f"Filled {fill_size} out of {tracked_order.amount} of the "
+                                           f"{order_type_description} order {client_order_id}.")
+                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
+        self._last_update_trade_fills_timestamp = current_timestamp
 
     async def _update_order_status(self):
         cdef:
@@ -329,51 +387,16 @@ cdef class DDEXMarket(MarketBase):
 
                 continue
 
-            # Calculate the newly executed amount for this update.
             previous_is_done = tracked_order.is_done
-            new_confirmed_amount = Decimal(order_update["confirmedAmount"])
-            execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
             is_market_buy = order_update["side"] == "buy" and order_update["type"] == "market"
 
-            # DDEX return price data in "price" rather than "averagePrice" for market orders sometimes
-            # using the following logic to account for both cases
-            average_price = Decimal(order_update.get("averagePrice", 0))
-            price = Decimal(order_update.get("price", 0))
-            execute_price = price if average_price == s_decimal_0 else average_price
-
+            # Update the tracked order
             client_order_id = tracked_order.client_order_id
             order_type_description = (("market" if tracked_order.order_type == OrderType.MARKET else "limit") +
                                       " " +
                                       ("buy" if tracked_order.trade_type is TradeType.BUY else "sell"))
             order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
-            # Emit event if executed amount is greater than 0.
-            if execute_amount_diff > 0:
-                fill_size = execute_amount_diff
-                if is_market_buy:
-                    # Special rules for market buy orders, in which all reported amounts are in quote asset.
-                    fill_size = execute_amount_diff / execute_price
-
-                order_filled_event = OrderFilledEvent(
-                    self._current_timestamp,
-                    tracked_order.client_order_id,
-                    tracked_order.symbol,
-                    tracked_order.trade_type,
-                    order_type,
-                    execute_price,
-                    fill_size,
-                    self.c_get_fee(
-                        tracked_order.base_asset,
-                        tracked_order.quote_asset,
-                        order_type,
-                        tracked_order.trade_type,
-                        Decimal(fill_size),
-                        Decimal(execute_price))
-                )
-                self.logger().info(f"Filled {fill_size} out of {tracked_order.amount} of the "
-                                   f"{order_type_description} order {client_order_id}.")
-                self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
-
-            # Update the tracked order
+            previous_is_done = tracked_order.is_done
             tracked_order.last_state = order_update["status"]
             tracked_order.executed_amount_base = Decimal(order_update["confirmedAmount"])
             tracked_order.available_amount_base = Decimal(order_update["availableAmount"])
@@ -387,7 +410,13 @@ cdef class DDEXMarket(MarketBase):
                     if tracked_order.trade_type is TradeType.BUY:
                         self.logger().info(f"The {order_type_description} order {client_order_id} has "
                                            f"completed according to order status API.")
+                        is_market_buy = order_update["side"] == "buy" and order_update["type"] == "market"
                         if is_market_buy:
+                            # DDEX return price data in "price" rather than "averagePrice" for market orders sometimes
+                            # using the following logic to account for both cases
+                            average_price = Decimal(order_update.get("averagePrice", 0))
+                            price = Decimal(order_update.get("price", 0))
+                            execute_price = price if average_price == s_decimal_0 else average_price
                             # Special rules for market buy orders, in which all reported amounts are in quote asset.
                             executed_amount_base = tracked_order.executed_amount_base / execute_price
                             executed_amount_quote = tracked_order.executed_amount_base
@@ -416,8 +445,7 @@ cdef class DDEXMarket(MarketBase):
                                                                      tracked_order.gas_fee_amount,
                                                                      order_type))
                 else:
-                    if (self._in_flight_cancels.get(client_order_id, 0) >
-                            self._current_timestamp - self.CANCEL_EXPIRY_TIME):
+                    if (self._in_flight_cancels.get(client_order_id, 0) > self._current_timestamp - self.CANCEL_EXPIRY_TIME):
                         # This cancel was originated from this connector, and the cancel event should have been
                         # emitted in the cancel_order() call already.
                         del self._in_flight_cancels[client_order_id]
@@ -600,6 +628,11 @@ cdef class DDEXMarket(MarketBase):
         response_data = await self._api_request('get', url, headers=self._generate_auth_headers())
         return response_data["data"]["order"]
 
+    async def list_account_trades(self, symbol: str) -> Dict[str, Any]:
+        url = "%s/markets/%s/trades/mine" % (self.DDEX_REST_ENDPOINT, symbol)
+        response_data = await self._api_request('get', url, headers=self._generate_auth_headers())
+        return response_data["data"]["trades"]
+
     async def list_locked_balances(self) -> Dict[str, Decimal]:
         url = "%s/account/lockedBalances" % (self.DDEX_REST_ENDPOINT,)
         response_data = await self._api_request('get', url=url, headers=self._generate_auth_headers())
@@ -613,7 +646,7 @@ cdef class DDEXMarket(MarketBase):
                     decimals = await self.wallet.erc20_tokens[symbol].get_decimals()
                     locked_balance_dict[symbol] = Decimal(locked_balance["amount"]) / Decimal(f"1e{decimals}")
                 except Exception as e:
-                    self.logger().error(f"Error getting decimals value for ERC20 token '{symbol}'.")
+                    self.logger().error(f"Error getting decimals value for ERC20 token '{symbol}'.", exc_info=True)
         return locked_balance_dict
 
     async def get_market(self, symbol: str) -> Dict[str, Any]:

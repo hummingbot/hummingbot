@@ -170,6 +170,8 @@ cdef class MarketBase(NetworkIterator):
         raise NotImplementedError
 
     cdef object c_quantize_order_price(self, str symbol, object price):
+        if price == s_decimal_NaN:
+            return price
         price_quantum = self.c_get_order_price_quantum(symbol, price)
         return round(price / price_quantum) * price_quantum
 
@@ -188,7 +190,14 @@ cdef class MarketBase(NetworkIterator):
         """
         cdef:
             OrderBook order_book = self.c_get_order_book(symbol)
-        return self.c_quantize_order_price(symbol, Decimal(order_book.c_get_price(is_buy)))
+            object top_price
+        try:
+            top_price = Decimal(order_book.c_get_price(is_buy))
+        except EnvironmentError as e:
+            self.logger().warning(f"{'Ask' if is_buy else 'Buy'} orderbook for {symbol} is empty.")
+            return s_decimal_NaN
+
+        return self.c_quantize_order_price(symbol, top_price)
 
     cdef ClientOrderBookQueryResult c_get_vwap_for_volume(self, str symbol, bint is_buy, object volume):
         cdef:
