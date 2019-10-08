@@ -97,7 +97,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  enable_order_filled_stop_cancellation: bool = False,
                  add_transaction_costs_to_orders: bool = False,
                  jump_orders_enabled: bool = False,
-                 jump_orders_depth: float = 0,
+                 jump_orders_depth: Decimal = s_decimal_zero,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
                  status_report_interval: float = 900):
@@ -310,8 +310,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             OrderBook maker_orderbook = market_info.order_book
             object updated_buy_order_prices = pricing_proposal.buy_order_prices
             object updated_sell_order_prices = pricing_proposal.sell_order_prices
-            double own_buy_order_depth = 0
-            double own_sell_order_depth = 0
+            object own_buy_order_depth = s_decimal_zero
+            object own_sell_order_depth = s_decimal_zero
 
         active_orders = self.market_info_to_active_orders.get(market_info, [])
 
@@ -326,14 +326,14 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 own_sell_order_depth = order.quantity
 
         # Get the top bid price in the market using jump_orders_depth and your buy order volume
-        top_bid_price = maker_orderbook.c_get_price_for_volume(False,
-                                                               self._jump_orders_depth + own_buy_order_depth).result_price
+        top_bid_price = market_info.get_price_for_volume(False,
+                                                         self._jump_orders_depth + own_buy_order_depth).result_price
         price_quantum = maker_market.c_get_order_price_quantum(
             market_info.trading_pair,
             top_bid_price
         )
         # Get the price above the top bid
-        price_above_bid = (ceil(Decimal(top_bid_price) / price_quantum) + 1) * price_quantum
+        price_above_bid = (ceil(top_bid_price / price_quantum) + 1) * price_quantum
 
         # If the price_above_bid is lower than the price suggested by the pricing proposal,
         # lower your price to this
@@ -342,14 +342,14 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                           lower_buy_price)
 
         # Get the top ask price in the market using jump_orders_depth and your sell order volume
-        top_ask_price = maker_orderbook.c_get_price_for_volume(True,
-                                                               self._jump_orders_depth + own_sell_order_depth).result_price
+        top_ask_price = market_info.get_price_for_volume(True,
+                                                         self._jump_orders_depth + own_sell_order_depth).result_price
         price_quantum = maker_market.c_get_order_price_quantum(
             market_info.trading_pair,
             top_ask_price
         )
         # Get the price below the top ask
-        price_below_ask = (floor(Decimal(top_ask_price) / price_quantum) - 1) * price_quantum
+        price_below_ask = (floor(top_ask_price / price_quantum) - 1) * price_quantum
 
         # If the price_below_ask is higher than the price suggested by the pricing proposal,
         # increase your price to this
@@ -358,25 +358,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                            higher_sell_price)
 
         return PricingProposal(updated_buy_order_prices, updated_sell_order_prices)
-
-    cdef double c_sum_flat_fees(self, str quote_asset, list flat_fees):
-        """
-        Converts flat fees to quote token and sums up all flat fees
-        """
-        cdef:
-            double total_flat_fees = 0.0
-
-        for flat_fee_currency, flat_fee_amount in flat_fees:
-            if flat_fee_currency == quote_asset:
-                total_flat_fees += flat_fee_amount
-            else:
-                # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
-                total_flat_fees += ExchangeRateConversion.get_instance().convert_token_value(
-                    amount=flat_fee_amount,
-                    from_currency=flat_fee_currency,
-                    to_currency=quote_asset
-                )
-        return total_flat_fees
 
     cdef tuple c_check_and_add_transaction_costs_to_pricing_proposal(self,
                                                                      object market_info,
@@ -404,7 +385,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             # Current warning report threshold is 10%
             # If the adjusted price with transaction cost is 10% away from the suggested price,
             # warnings will be displayed
-            double warning_report_threshold = 0.1
+            object warning_report_threshold = Decimal("0.1")
 
         # If both buy order and sell order sizes are zero, no need to add transaction costs
         # as no new orders are created
@@ -429,14 +410,14 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                        fee_object.flat_fees)
                 # Find the fixed cost per unit size for the total amount
                 # Fees is in Float
-                fixed_cost_per_unit = total_flat_fees / float(buy_amount)
+                fixed_cost_per_unit = total_flat_fees / buy_amount
                 # New Price = Price * (1 - maker_fees) - Fixed_fees_per_unit
-                buy_price_with_tx_cost = float(buy_price) * (1 - fee_object.percent) - fixed_cost_per_unit
+                buy_price_with_tx_cost = buy_price * (Decimal(1) - fee_object.percent) - fixed_cost_per_unit
             else:
                 buy_price_with_tx_cost = buy_price
 
             buy_price_with_tx_cost = maker_market.c_quantize_order_price(market_info.trading_pair,
-                                                                         Decimal(buy_price_with_tx_cost))
+                                                                         buy_price_with_tx_cost)
 
             # If the buy price with transaction cost is less than or equal to zero
             # do not place orders
@@ -449,7 +430,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
             # If the buy price with the transaction cost is 10% below the buy price due to price adjustment,
             # Display warning
-            if (buy_price_with_tx_cost / buy_price) < (1 - warning_report_threshold):
+            if (buy_price_with_tx_cost / buy_price) < (Decimal(1) - warning_report_threshold):
                 if should_report_warnings:
                     self.logger().warning(f"Buy price with transaction cost is "
                                           f"{warning_report_threshold * 100} % below the buy price ")
@@ -477,16 +458,16 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                        fee_object.flat_fees)
                 # Find the fixed cost per unit size for the total amount
                 # Fees is in Float
-                fixed_cost_per_unit = total_flat_fees / float(sell_amount)
+                fixed_cost_per_unit = total_flat_fees / sell_amount
                 # New Price = Price * (1 + maker_fees) + Fixed_fees_per_unit
-                sell_price_with_tx_cost = float(sell_price) * (1 + fee_object.percent) + fixed_cost_per_unit
+                sell_price_with_tx_cost = sell_price * (Decimal(1) + fee_object.percent) + fixed_cost_per_unit
             else:
                 sell_price_with_tx_cost = sell_price
 
             sell_price_with_tx_cost = maker_market.c_quantize_order_price(market_info.trading_pair,
                                                                           Decimal(sell_price_with_tx_cost))
 
-            if (sell_price_with_tx_cost / sell_price) > (1 + warning_report_threshold):
+            if (sell_price_with_tx_cost / sell_price) > (Decimal(1) + warning_report_threshold):
                 if should_report_warnings:
                     self.logger().warning(f"Sell price with transaction cost is "
                                           f"{warning_report_threshold * 100} % above the sell price")
@@ -499,7 +480,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
     cdef object c_get_orders_proposal_for_market_info(self, object market_info, list active_orders):
         cdef:
-            double last_trade_price
             int actions = 0
             list cancel_order_ids = []
             bint no_order_placement = False
