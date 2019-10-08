@@ -1,35 +1,31 @@
 # distutils: language=c++
 from decimal import Decimal
+from libc.stdint cimport int64_t
 import logging
 from typing import (
     List,
     Tuple,
-    Optional,
     Dict
 )
 
 from hummingbot.core.clock cimport Clock
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.market.market_base import (
-    MarketBase
-)
-
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.strategy_base import StrategyBase
 
 from libc.stdint cimport int64_t
 from hummingbot.core.data_type.order_book cimport OrderBook
-from datetime import datetime
+from hummingbot.market.market_base import MarketBase
+from hummingbot.market.market_base cimport MarketBase
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.strategy_base import StrategyBase
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
 ds_logger = None
 
-cdef class Execution1Strategy(StrategyBase):
+
+cdef class GetOrderBookStrategy(StrategyBase):
     OPTION_LOG_NULL_ORDER_SIZE = 1 << 0
     OPTION_LOG_REMOVING_ORDER = 1 << 1
     OPTION_LOG_ADJUST_ORDER = 1 << 2
@@ -49,7 +45,6 @@ cdef class Execution1Strategy(StrategyBase):
 
     def __init__(self,
                  market_infos: List[MarketTradingPairTuple],
-                 asset_symbol: str,
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900):
 
@@ -62,7 +57,6 @@ cdef class Execution1Strategy(StrategyBase):
             for market_info in market_infos
         }
 
-        self._asset_symbol = asset_symbol
         self._all_markets_ready = False
         self._logging_options = logging_options
         self._status_report_interval = status_report_interval
@@ -115,14 +109,28 @@ cdef class Execution1Strategy(StrategyBase):
             double maker_quote_balance
             list lines = []
             list warning_lines = []
+            dict market_info_to_active_orders = self.market_info_to_active_orders
+            list active_orders = []
 
         for market_info in self._market_infos.values():
             active_orders = self.market_info_to_active_orders.get(market_info, [])
 
             warning_lines.extend(self.network_warning([market_info]))
 
-            lines.extend(["", "  Assets:"] + ["    " + str(self._asset_symbol) + "    " +
-                                              str(market_info.market.get_balance(self._asset_symbol))])
+            markets_df = self.market_status_data_frame([market_info])
+            lines.extend(["", "  Markets:"] + ["    " + line for line in str(markets_df).split("\n")])
+
+            assets_df = self.wallet_balance_data_frame([market_info])
+            lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
+
+            # See if there're any open orders.
+            if len(active_orders) > 0:
+                df = LimitOrder.to_pandas(active_orders)
+                df_lines = str(df).split("\n")
+                lines.extend(["", "  Active orders:"] +
+                             ["    " + line for line in df_lines])
+            else:
+                lines.extend(["", "  No active maker orders."])
 
             warning_lines.extend(self.balance_warning([market_info]))
 

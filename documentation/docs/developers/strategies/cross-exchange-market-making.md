@@ -40,7 +40,7 @@ When `active_order_canceling` is enabled, the cross exchange market making strat
 
 When `active_order_canceling` is disabled, the cross exchange market making strategy would emit limit orders that automatically expire after a predefined time period. This means the strategy can just wait for them to expire to refresh the maker orders, rather than having to cancel them actively. This is useful for decentralized exchanges because it avoids the potentially very long cancellation delays there, and it also does not cost any gas to wait for order expiration.
 
-It is still possible for the strategy to actively cancel orders with `active_order_canceling` disabled, via the [`cancel_order_threshold`](/strategies/cross-exchange-market-making/) setting. For example, you can set it to -0.05 s.t. the strategy would still cancel a limit order on a DEX when it's profitability dropped below -5%. This can be used as a safety switch to guard against sudden and large price changes on decentralized exchanges.
+It is still possible for the strategy to actively cancel orders with `active_order_canceling` disabled, via the [`cancel_order_threshold`](/strategies/cross-exchange-market-making/) setting. For example, you can set it to -0.05 such that the strategy would still cancel a limit order on a DEX when it's profitability dropped below -5%. This can be used as a safety switch to guard against sudden and large price changes on decentralized exchanges.
 
 #### Is hedging profitable?
 

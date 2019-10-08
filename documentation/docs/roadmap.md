@@ -18,14 +18,18 @@ The timeline below shows the past milestones we have completed, along with the f
 * Released connectors for [Coinbase Pro](/connectors/coinbase) and [IDEX](/connectors/idex)
 * First community contributed connector for [Bamboo Relay](https://bamboorelay.com/)
 * Released [pure market making strategy](/strategies/pure-market-making)
-* Released [Telegram integration](/utilities/telegram)
+* Released [Telegram Integration](/utilities/telegram)
 * Announced [Liquidity Bounty Programs](https://www.hummingbot.io/liquidity-bounties/)
 * Launch 1st liquidity bounty program for [Harmony](https://www.hummingbot.io/liquidity-bounties/harmony)
 
 ## Q3 2019
-* More connectors for decentralized and centralized exchanges: Huobi, Bittrex, Bitfinex, Kraken, Bitmex, Binance DEX
+* Released [Simple Trade](/strategies/simple-trade) strategy
+* Created [Developer Manual](/developers/index)
+* Released [Paper Trading Mode](/utilities/paper-trade)
+* Released connector for [Huobi Global](/connectors/huobi)
 * Support for user defined strategies
 
 ## Q4 2019
+* More connectors for decentralized and centralized exchanges: Bittrex, Bitfinex, Kraken, Bitmex, Binance DEX
 * Graphical user interface
 * Connectors to automated market makers

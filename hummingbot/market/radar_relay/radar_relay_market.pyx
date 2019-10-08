@@ -378,7 +378,8 @@ cdef class RadarRelayMarket(MarketBase):
                             OrderType.LIMIT,
                             tracked_limit_order.price,
                             order_executed_amount_base,
-                            TradeFee(0.0)  # no fee for limit order fills
+                            TradeFee(0.0),  # no fee for limit order fills
+                            tracked_limit_order.exchange_order_id,  # Use order hash for limit order validation
                         )
                     )
 
@@ -476,7 +477,8 @@ cdef class RadarRelayMarket(MarketBase):
                             OrderType.MARKET,
                             tracked_market_order.price,
                             tracked_market_order.amount,
-                            TradeFee(0.0, [("ETH", gas_used)])
+                            TradeFee(0.0, [("ETH", gas_used)]),
+                            tracked_market_order.tx_hash  # Use tx hash for market order validation
                         )
                     )
                     if tracked_market_order.trade_type is TradeType.BUY:

@@ -4,16 +4,14 @@ from typing import (
 )
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.execution2 import (
-    Execution2Strategy
-)
-from hummingbot.strategy.execution2.execution2_config_map import execution2_config_map
+from hummingbot.strategy.dev_1_get_order_book import GetOrderBookStrategy
+from hummingbot.strategy.dev_1_get_order_book.dev_1_get_order_book_config_map import dev_1_get_order_book_config_map
 
 
 def start(self):
     try:
-        market = execution2_config_map.get("market").value.lower()
-        raw_market_symbol = execution2_config_map.get("market_symbol_pair").value
+        market = dev_1_get_order_book_config_map.get("market").value.lower()
+        raw_market_symbol = dev_1_get_order_book_config_map.get("market_symbol_pair").value
 
         try:
             assets: Tuple[str, str] = self._initialize_market_assets(market, [raw_market_symbol])[0]
@@ -30,10 +28,10 @@ def start(self):
         maker_data = [self.markets[market], raw_market_symbol] + list(assets)
         self.market_symbol_pairs = [MarketTradingPairTuple(*maker_data)]
 
-        strategy_logging_options = Execution2Strategy.OPTION_LOG_ALL
+        strategy_logging_options = GetOrderBookStrategy.OPTION_LOG_ALL
 
-        self.strategy = Execution2Strategy(market_infos=[MarketTradingPairTuple(*maker_data)],
-                                           logging_options=strategy_logging_options)
+        self.strategy = GetOrderBookStrategy(market_infos=[MarketTradingPairTuple(*maker_data)],
+                                             logging_options=strategy_logging_options)
     except Exception as e:
         self._notify(str(e))
         self.logger().error("Unknown error during initialization.", exc_info=True)

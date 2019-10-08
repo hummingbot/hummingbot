@@ -479,3 +479,39 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         ask_price = self.strategy.get_market_making_price(self.market_pair, False, ask_size)
         self.assertEqual((Decimal("0.99452"), Decimal("3")), (bid_price, bid_size))
         self.assertEqual((Decimal("1.0056"), Decimal("3")), (ask_price, ask_size))
+
+    def test_empty_maker_orderbook(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.remove_iterator(self.maker_market)
+        self.maker_market: BacktestMarket = BacktestMarket()
+
+        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_symbols)
+        # Orderbook is empty
+        self.maker_market.add_data(self.maker_data)
+        self.market_pair: CrossExchangeMarketPair = CrossExchangeMarketPair(
+            MarketTradingPairTuple(self.maker_market, *self.maker_symbols),
+            MarketTradingPairTuple(self.taker_market, *self.taker_symbols),
+        )
+        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
+            [self.market_pair],
+            order_amount=1,
+            min_profitability=Decimal("0.005"),
+            logging_options=self.logging_options,
+            adjust_order_enabled=False
+        )
+        self.maker_market.set_balance("COINALPHA", 5)
+        self.maker_market.set_balance("WETH", 5)
+        self.maker_market.set_balance("QETH", 5)
+        self.maker_market.set_quantization_param(QuantizationParams(self.maker_symbols[0], 4, 4, 4, 4))
+        self.clock.add_iterator(self.strategy)
+        self.clock.add_iterator(self.maker_market)
+        self.clock.backtest_til(self.start_timestamp + 5)
+        self.assertEqual(1, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))
+        bid_order: LimitOrder = self.strategy.active_bids[0][1]
+        ask_order: LimitOrder = self.strategy.active_asks[0][1]
+        # Places orders based on taker orderbook
+        self.assertEqual(Decimal("0.9945"), bid_order.price)
+        self.assertEqual(Decimal("1.006"), ask_order.price)
+        self.assertAlmostEqual(Decimal("1"), round(bid_order.quantity, 4))
+        self.assertAlmostEqual(Decimal("1"), round(ask_order.quantity, 4))

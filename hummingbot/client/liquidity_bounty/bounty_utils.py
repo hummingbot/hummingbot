@@ -41,7 +41,7 @@ class LiquidityBounty(NetworkBase):
     _lb_shared_instance: Optional["LiquidityBounty"] = None
     LIQUIDITY_BOUNTY_REST_API = "https://api.hummingbot.io/bounty"
     ACCEPTED_ORDER_STATUS_UPDATES = ["BuyOrderCreated", "SellOrderCreated", "OrderFilled", "OrderCancelled",
-                                     "OrderFailure"]
+                                     "OrderFailure", "OrderExpired"]
 
     @classmethod
     def get_instance(cls) -> "LiquidityBounty":

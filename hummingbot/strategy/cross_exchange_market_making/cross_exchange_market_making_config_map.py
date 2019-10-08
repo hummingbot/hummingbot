@@ -57,7 +57,7 @@ cross_exchange_market_making_config_map = {
     "min_profitability": ConfigVar(
         key="min_profitability",
         prompt="What is the minimum profitability for you to make a trade? (Enter 0.01 to indicate 1%) >>> ",
-        type_str="float",
+        type_str="decimal",
     ),
     "order_amount": ConfigVar(
         key="order_amount",

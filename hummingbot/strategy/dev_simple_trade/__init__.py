@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from .simple_trade import SimpleTradeStrategy
+from .dev_simple_trade import SimpleTradeStrategy
 
 
 __all__ = [

@@ -46,15 +46,15 @@ You can also use an FTP client software (e.g. WinSCP, FileZila) to copy, move, f
 
 By default, the Docker Toolbox has copy and paste disabled within the command line. This can make it difficult to port long API and wallet keys to Hummingbot. However, there is a simple fix which can be enabled as follows:
 
-1. Open up the Docker Toolbox via the Quickstart Terminal
+1 - Open up the Docker Toolbox via the Quickstart Terminal
 
   ![](/assets/img/docker_toolbox_startup.PNG)
 
-1. Right-click on the title bar of Toolbox and select "Properties"
+2 - Right-click on the title bar of Toolbox and select "Properties"
 
   ![](/assets/img/docker_toolbox_properties.png)
 
-1. Check the box under the "Options" tab to enable "Ctrl Key Shortcuts"
+3 - Check the box under the "Options" tab to enable "Ctrl Key Shortcuts"
 
   ![](/assets/img/docker_toolbox_enable.png)
 
@@ -66,15 +66,15 @@ Close any warnings, and you're done! Just hit enter to move onto the next line a
 
 You should be able to paste items from your clipboard by doing mouse right-click or `SHIFT + right-click`. If that doesn't work, follow the steps below.
 
-1. If you are currently logged in a session, do a left-click on the upper left hand corner of the PuTTY window or a right-click anywhere on the title bar then select "Change Settings". If not, proceed to step 2.
+1 - If you are currently logged in a session, do a left-click on the upper left hand corner of the PuTTY window or a right-click anywhere on the title bar then select "Change Settings". If not, proceed to step 2.
 
   ![](/assets/img/putty_1.png)
 
-1. In PuTTY configuration under Window category go to "Selection". Select the "Window" radio button for action of mouse buttons.
+2 - In PuTTY configuration under Window category go to "Selection". Select the "Window" radio button for action of mouse buttons.
 
   ![](/assets/img/putty_2.png)
 
-1. You can now paste items from clipboard by doing a right-click to bring up the menu and select "Paste".
+3 - You can now paste items from clipboard by doing a right-click to bring up the menu and select "Paste".
 
   ![](/assets/img/putty_3.png)
 
@@ -91,15 +91,15 @@ Create and run multiple Docker instances that use the same file folder location 
 
 - Installed from source:
 
-1. Register for liquidity bounties using your email and ETH address
+1 - Register for liquidity bounties using your email and ETH address
 
-1. Exit Hummingbot and open `conf/conf_liquidity_bounty.yml`
+2 - Exit Hummingbot and open `conf/conf_liquidity_bounty.yml`
 
-1. Copy the contents of this file
+3 - Copy the contents of this file
 
-1. Create another instance of Hummingbot
+4 - Create another instance of Hummingbot
 
-1. Paste what you copied in step 3 into `conf/conf_liquidity_bounty.yml` in this new instance
+5 - Paste what you copied in step 3 into `conf/conf_liquidity_bounty.yml` in this new instance
 
 
 #### How do I update Hummingbot after I had previously installed using old instructions?
