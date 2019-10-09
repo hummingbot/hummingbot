@@ -117,16 +117,16 @@ class PerformanceAnalysis:
             else:
                 # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
                 total_flat_fees += ExchangeRateConversion.get_instance().convert_token_value_decimal(
-                    amount=flat_fee_amount,
+                    amount=Decimal(flat_fee_amount),
                     from_currency=flat_fee_currency,
                     to_currency=trade.quote_asset,
                     source="default"
                 )
         if trade.trade_type == TradeType.SELL.name:
             net_base_delta: Decimal = amount
-            net_quote_delta: Decimal = amount * price * (1 - Decimal(trade_fee["percent"])) - total_flat_fees
+            net_quote_delta: Decimal = amount * price * (Decimal("1") - Decimal(trade_fee["percent"])) - total_flat_fees
         elif trade.trade_type == TradeType.BUY.name:
-            net_base_delta: Decimal = amount * (1 - Decimal(trade_fee["percent"])) - total_flat_fees
+            net_base_delta: Decimal = amount * (Decimal("1") - Decimal(trade_fee["percent"])) - total_flat_fees
             net_quote_delta: Decimal = amount * price
         else:
             raise Exception(f"Unsupported trade type {trade.trade_type}")
@@ -224,7 +224,6 @@ class PerformanceAnalysis:
                     stats["delta_percentage"] = s_decimal_0
                 else:
                     stats["delta_percentage"] = ((stats["acquired"] / stats["spent"]) - Decimal("1")) * Decimal("100")
-
             # Convert spent and acquired amount for base asset to quote asset value
             spent_base_quote_value: Decimal = asset_stats[base_asset]["spent"] * quote_rate
             acquired_base_quote_value: Decimal = asset_stats[base_asset]["acquired"] * quote_rate
