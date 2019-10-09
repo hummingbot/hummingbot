@@ -318,9 +318,9 @@ cdef class BittrexMarket(MarketBase):
     async def _update_order_fills_from_trades(self):
         cdef:
             # This is intended to be a backup measure to get filled events with trade ID for orders,
-            # in case Binance's user stream events are not working.
+            # in case Bittrex's user stream events are not working.
             # This is separated from _update_order_status which only updates the order status without producing filled
-            # events, since Binance's get order endpoint does not return trade IDs.
+            # events, since Bittrex's get order endpoint does not return trade IDs.
             # The poll interval for order status is 10 seconds.
             int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
             int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDERS_INTERVAL)
@@ -363,38 +363,37 @@ cdef class BittrexMarket(MarketBase):
                 order_state = order["status"]
                 order_type_description = tracked_order.order_type_description
                 tracked_order.last_state = order_state
-                if order_state == "OPEN":
 
-                    executed_price = Decimal(order["limit"])
-                    executed_amount_diff = s_decimal_0
+                executed_price = Decimal(order["limit"])
+                executed_amount_diff = s_decimal_0
 
-                    remaining_size = Decimal(order["quantity"]) - Decimal(order["fillQuantity"])
-                    new_confirmed_amount = tracked_order.amount - remaining_size
-                    executed_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-                    tracked_order.executed_amount_base = new_confirmed_amount
-                    tracked_order.executed_amount_quote += executed_amount_diff * executed_price
+                remaining_size = Decimal(order["quantity"]) - Decimal(order["fillQuantity"])
+                new_confirmed_amount = tracked_order.amount - remaining_size
+                executed_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
+                tracked_order.executed_amount_base = new_confirmed_amount
+                tracked_order.executed_amount_quote += executed_amount_diff * executed_price
 
-                    if executed_amount_diff > s_decimal_0:
-                        self.logger().info(f"Filled {executed_amount_diff} out of {tracked_order.amount} of the "
-                                           f"{order_type_description} order {tracked_order.client_order_id}.")
-                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                             OrderFilledEvent(
-                                                 self._current_timestamp,
-                                                 tracked_order.client_order_id,
-                                                 tracked_order.symbol,
-                                                 tracked_order.trade_type,
+                if executed_amount_diff > s_decimal_0:
+                    self.logger().info(f"Filled {executed_amount_diff} out of {tracked_order.amount} of the "
+                                       f"{order_type_description} order {tracked_order.client_order_id}.")
+                    self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                         OrderFilledEvent(
+                                             self._current_timestamp,
+                                             tracked_order.client_order_id,
+                                             tracked_order.symbol,
+                                             tracked_order.trade_type,
+                                             tracked_order.order_type,
+                                             float(executed_price),
+                                             float(executed_amount_diff),
+                                             self.c_get_fee(
+                                                 tracked_order.base_asset,
+                                                 tracked_order.quote_asset,
                                                  tracked_order.order_type,
+                                                 tracked_order.trade_type,
                                                  float(executed_price),
-                                                 float(executed_amount_diff),
-                                                 self.c_get_fee(
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.order_type,
-                                                     tracked_order.trade_type,
-                                                     float(executed_price),
-                                                     float(executed_amount_diff)
-                                                 )
-                                             ))
+                                                 float(executed_amount_diff)
+                                             )
+                                         ))
 
     async def _update_order_status(self):
         cdef:
@@ -618,7 +617,6 @@ cdef class BittrexMarket(MarketBase):
                 await safe_gather(
                     self._update_balances(),
                     self._update_order_status(),
-                    # Currently Fills are handled by _user_stream_event_listener(...)
                     self._update_order_fills_from_trades()
                 )
                 self._last_poll_timestamp = self._current_timestamp
