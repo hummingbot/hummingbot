@@ -4,7 +4,7 @@ from PyInstaller.building.build_main import (
     Analysis,
     PYZ,
     EXE,
-    COLLECT
+    COLLECT,
 )
 import os
 import re
@@ -58,8 +58,6 @@ if "SPEC" in globals():
         "aiokafka"
     ])
 
-    print(f"project path: {project_path()}")
-
     import _strptime
 
     datas: List[Tuple[str, str]] = list(enumerate_data_files(
@@ -68,8 +66,8 @@ if "SPEC" in globals():
     ))
     datas.extend([(_strptime.__file__, ".")])
 
-    a = Analysis(['../bin/bot'],
-                 pathex=['/Users/martin_kou/Development/hummingbot'],
+    a = Analysis([os.path.join(project_path(), "bin/bot")],
+                 pathex=[project_path()],
                  binaries=[],
                  datas=datas,
                  hiddenimports=hidden_imports,

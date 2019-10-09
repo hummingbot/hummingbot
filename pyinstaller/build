@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
+import logging
 from os.path import (
     realpath,
     join
 )
+import platform
 import shutil
 from subprocess import (
     check_call,
@@ -15,6 +17,16 @@ def project_dir() -> str:
     return realpath(join(__file__, "../../"))
 
 
+def generate_app_bundle():
+    template_bundle_path: str = join(project_dir(), "pyinstaller/Hummingbot.app.template")
+    dst_bundle_path: str = join(project_dir(), "dist/Hummingbot.app")
+    src_binary_path: str = join(project_dir(), "dist/bot")
+    dst_binary_path: str = join(dst_bundle_path, "Contents/Resources/hummingbot")
+    logging.info("Generating Hummingbot.app bundle...")
+    shutil.copytree(template_bundle_path, dst_bundle_path)
+    shutil.copytree(src_binary_path, dst_binary_path)
+
+
 def main():
     shutil.move(join(project_dir(), "bin/hummingbot.py"), join(project_dir(), "bin/bot"))
     try:
@@ -23,6 +35,11 @@ def main():
         check_call([pyinstaller_path, spec_file_path])
     finally:
         shutil.move(join(project_dir(), "bin/bot"), join(project_dir(), "bin/hummingbot.py"))
+
+    if platform.system() == "Darwin":
+        generate_app_bundle()
+
+    logging.info("Done!")
 
 
 if __name__ == "__main__":
