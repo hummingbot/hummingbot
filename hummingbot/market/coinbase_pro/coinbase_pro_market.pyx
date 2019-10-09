@@ -990,13 +990,13 @@ cdef class CoinbaseProMarket(MarketBase):
         """
         return DepositInfo(await self.get_deposit_address(asset))
 
-    async def execute_withdraw(self, str tracking_id, str to_address, str currency, double amount):
+    async def execute_withdraw(self, str tracking_id, str to_address, str currency, object amount):
         """
         Function that makes API request to withdraw funds
         """
         path_url = "/withdrawals/crypto"
         data = {
-            "amount": amount,
+            "amount": float(amount),
             "currency": currency,
             "crypto_address": to_address,
             "no_destination_tag": True,
@@ -1005,13 +1005,13 @@ cdef class CoinbaseProMarket(MarketBase):
             withdraw_result = await self._api_request("post", path_url=path_url, data=data)
             self.logger().info(f"Successfully withdrew {amount} of {currency}. {withdraw_result}")
             # Withdrawing of digital assets from Coinbase Pro is currently free
-            withdraw_fee = 0.0
+            withdraw_fee = s_decimal_0
             # Currently, we assume when coinbase accepts the API request, the withdraw is valid
             # In the future, if the confirmation of the withdrawal becomes more essential,
             # we can perform status check by using self.get_transfers()
             self.c_trigger_event(self.MARKET_WITHDRAW_ASSET_EVENT_TAG,
                                  MarketWithdrawAssetEvent(self._current_timestamp, tracking_id, to_address, currency,
-                                                          float(amount), float(withdraw_fee)))
+                                                          amount, withdraw_fee))
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -1024,7 +1024,7 @@ cdef class CoinbaseProMarket(MarketBase):
             self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                                  MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
 
-    cdef str c_withdraw(self, str to_address, str currency, double amount):
+    cdef str c_withdraw(self, str to_address, str currency, object amount):
         """
         *required
         Synchronous wrapper that schedules a withdrawal.
