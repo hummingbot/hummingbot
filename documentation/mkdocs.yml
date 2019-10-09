@@ -157,6 +157,7 @@ nav:
           - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
           - Pure Market Making: developers/strategies/pure-market-making.md
           - Discovery: developers/strategies/discovery.md
+          - Perform Trade: developers/strategies/perform-trade.md
         - Connectors:
           - Adding Connectors: developers/connectors/index.md
           - Adding Connectors to Other Blockchains: developers/connectors/new-blockchain.md
@@ -165,6 +166,7 @@ nav:
         - Configuration: developers/config.md
     - Release Notes:
       - About Releases: release-notes/index.md
+      - 0.16.0: release-notes/0.16.0.md
       - 0.15.0: release-notes/0.15.0.md
       - 0.14.0: release-notes/0.14.0.md
       - 0.13.0: release-notes/0.13.0.md
