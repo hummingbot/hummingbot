@@ -2,7 +2,7 @@ import time
 import hmac
 import hashlib
 import urllib
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 
 import ujson
 
@@ -37,14 +37,16 @@ class BittrexAuth:
                 return f"{url}?{param_str}"
             return url
 
-        def construct_content_hash(body: Dict[str, any] = {}) -> str:
+        def construct_content_hash(body: Dict[str, any] = {}) -> Tuple[str, bytes]:
+            json_byte: bytes = "".encode()
             if body:
-                return hashlib.sha512(ujson.dumps(body).encode()).hexdigest()
-            return hashlib.sha512("".encode()).hexdigest()
+                json_byte = ujson.dumps(body).encode()
+                return hashlib.sha512(json_byte).hexdigest(), json_byte
+            return hashlib.sha512(json_byte).hexdigest(), json_byte
 
         timestamp = str(int(time.time() * 1000))
         url = append_params_to_url(url, params)
-        content_hash = construct_content_hash(body)
+        content_hash, content_bytes = construct_content_hash(body)
         content_to_sign = "".join([timestamp, url, http_method, content_hash, subaccount_id])
         signature = hmac.new(self.secret_key.encode(), content_to_sign.encode(), hashlib.sha512).hexdigest()
 
@@ -61,4 +63,4 @@ class BittrexAuth:
         if subaccount_id:
             headers.update({"Api-Subaccount-Id": subaccount_id})
 
-        return {"headers": headers, "body": ujson.dumps(body).encode(), "url": url}
+        return {"headers": headers, "body": content_bytes, "url": url}
