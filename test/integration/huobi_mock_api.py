@@ -110,10 +110,10 @@ class HuobiMockAPI:
     MOCK_HUOBI_LIMIT_OPEN_RESPONSE = {
         "status": 'ok',
         "data": {
-            'id': MOCK_HUOBI_LIMIT_CANCEL_ORDER_ID,
+            'id': MOCK_HUOBI_LIMIT_OPEN_ORDER_ID,
             'symbol': 'ethusdt',
             'account-id': 10055506,
-            'amount': '0.020000000000000000',
+            'amount': '0.040000000000000000',
             'price': '162.670000000000000000',
             'created-at': 1570575422098,
             'type': 'buy-limit',
