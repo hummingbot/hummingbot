@@ -150,7 +150,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return self._symbols
 
     async def websocket_connection(self) -> (signalr_aio.Connection, signalr_aio.hubs.Hub):
-        if not self._websocket_connection and not self._websocket_hub:
+        if not self._websocket_connection or not self._websocket_hub:
             self._websocket_connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
             self._websocket_hub = self._websocket_connection.register_hub("c2")
 
@@ -176,10 +176,6 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     msg: Dict[str, any] = self._snapshot_msg.pop(trading_pair, None)
                     if msg and msg["timestamp"] > invoke_timestamp:
                         return msg["content"]
-                    # if self._snapshot_msg.get(trading_pair):
-                    #     msg: Dict[str, any] = self._snapshot_msg.pop(trading_pair)
-                    #     if msg["timestamp"] > invoke_timestamp:
-                    #         return msg["content"]
                     await asyncio.sleep(1)
         except asyncio.TimeoutError:
             raise
