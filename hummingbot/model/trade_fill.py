@@ -5,12 +5,7 @@ from typing import (
     Any,
     Dict,
     List,
-)
-from hummingbot.core.event.events import (
-    TradeType,
-    TradeFee,
-    OrderType,
-)
+    Optional)
 from sqlalchemy import (
     Column,
     ForeignKey,
@@ -21,7 +16,10 @@ from sqlalchemy import (
     Float,
     JSON
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import (
+    relationship,
+    Session
+)
 from datetime import datetime
 
 from . import HummingbotBase
@@ -38,7 +36,7 @@ class TradeFill(HummingbotBase):
                       Index("tf_market_quote_asset_timestamp_index",
                             "market", "quote_asset", "timestamp")
                       )
-        
+
     id = Column(Integer, primary_key=True, nullable=False)
     config_file_path = Column(Text, nullable=False)
     strategy = Column(Text, nullable=False)
@@ -62,6 +60,45 @@ class TradeFill(HummingbotBase):
             f"quote_asset='{self.quote_asset}', timestamp={self.timestamp}, order_id='{self.order_id}', " \
             f"trade_type='{self.trade_type}', order_type='{self.order_type}', price={self.price}, " \
             f"amount={self.amount}, trade_fee={self.trade_fee}, exchange_trade_id={self.exchange_trade_id})"
+
+    @staticmethod
+    def get_trades(sql_session: Session,
+                   strategy: str = None,
+                   market: str = None,
+                   symbol: str = None,
+                   base_asset: str = None,
+                   quote_asset: str = None,
+                   trade_type: str = None,
+                   order_type: str = None,
+                   start_time: int = None,
+                   end_time: int = None,
+                   ) -> Optional[List["TradeFill"]]:
+        filters = []
+        if strategy is not None:
+            filters.append(TradeFill.strategy == strategy)
+        if market is not None:
+            filters.append(TradeFill.market == market)
+        if symbol is not None:
+            filters.append(TradeFill.symbol == symbol)
+        if base_asset is not None:
+            filters.append(TradeFill.base_asset == base_asset)
+        if quote_asset is not None:
+            filters.append(TradeFill.quote_asset == quote_asset)
+        if trade_type is not None:
+            filters.append(TradeFill.trade_type == trade_type)
+        if order_type is not None:
+            filters.append(TradeFill.order_type == order_type)
+        if start_time is not None:
+            filters.append(TradeFill.timestamp >= start_time)
+        if end_time is not None:
+            filters.append(TradeFill.timestamp <= end_time)
+
+        trades: Optional[List[TradeFill]] = (sql_session
+                                             .query(TradeFill)
+                                             .filter(*filters)
+                                             .order_by(TradeFill.timestamp.asc())
+                                             .all())
+        return trades
 
     @classmethod
     def to_pandas(cls, trades: List):
@@ -113,5 +150,3 @@ class TradeFill(HummingbotBase):
                 "trade_fee": trade_fill.trade_fee,
             }
         }
-
-
