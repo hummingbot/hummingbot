@@ -222,7 +222,7 @@ class BittrexOrderBookTracker(OrderBookTracker):
         self._order_book_snapshot_listener_task = safe_ensure_future(
             self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
         )
-        self._order_book_stream_listener_task = safe_ensure_future(
+        self._order_book_diff_listener_task = safe_ensure_future(
             self.data_source.listen_for_order_book_stream(self._ev_loop,
                                                           self._order_book_snapshot_stream,
                                                           self._order_book_diff_stream)
