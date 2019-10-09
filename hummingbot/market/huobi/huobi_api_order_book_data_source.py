@@ -87,7 +87,6 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 for item in market_data["data"]
                 if item["symbol"] in trading_pairs
             ]
-            print('market_datamarket_datamarket_datamarket_data', market_data)
 
             # Build the data frame.
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index="symbol")
