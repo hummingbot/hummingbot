@@ -213,6 +213,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
         symbol = "ethusdt"
         amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+
         order_id = self.market.buy(symbol, quantized_amount, OrderType.MARKET, 0)
         [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         buy_order_completed_event: BuyOrderCompletedEvent = buy_order_completed_event
