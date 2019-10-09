@@ -1,5 +1,6 @@
 import asyncio
 import time
+from decimal import Decimal
 from typing import List, Dict
 import unittest
 from hummingbot.client.performance_analysis import PerformanceAnalysis
@@ -47,6 +48,12 @@ class MockDataFeed1(DataFeedBase):
     def get_price(self, symbol):
         return self.mock_price_dict.get(symbol.upper())
 
+    async def start_network(self):
+        pass
+
+    async def stop_network(self):
+        pass
+
 
 class MockMarket1(MarketBase):
     def __init__(self):
@@ -60,8 +67,8 @@ class MockMarket1(MarketBase):
     def display_name(self):
         return "coinalpha"
 
-    def get_mid_price(self, trading_pair: str) -> float:
-        return self.mock_mid_price[trading_pair]
+    def get_mid_price(self, trading_pair: str) -> Decimal:
+        return Decimal(repr(self.mock_mid_price[trading_pair]))
 
 
 class MockMarket2(MarketBase):
@@ -76,8 +83,8 @@ class MockMarket2(MarketBase):
     def display_name(self):
         return "coinalpha2"
 
-    def get_mid_price(self, trading_pair: str) -> float:
-        return self.mock_mid_price[trading_pair]
+    def get_mid_price(self, trading_pair: str) -> Decimal:
+        return Decimal(repr(self.mock_mid_price[trading_pair]))
 
 
 class TestTradePerformanceAnalysis(unittest.TestCase):
@@ -172,33 +179,29 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
         )
 
         expected_trade_performance_stats = {
-            "portfolio_acquired_quote_value": 24111.45,
-            "portfolio_spent_quote_value": 24935.0,
-            "portfolio_delta": -823.5499999999993,
-            "portfolio_delta_percentage": -3.3027872468417874
-        }
+            "portfolio_acquired_quote_value": Decimal("24111.45"),
+            "portfolio_delta": Decimal("-823.55"),
+            "portfolio_delta_percentage": Decimal("-3.302787246841788650491277320"),
+            "portfolio_spent_quote_value": Decimal("24935.0")}
+
         expected_market_trading_pair_stats = {
-            "starting_quote_rate": 1.0,
+            "acquired_quote_value": Decimal("24111.45"),
             "asset": {
-                "WETH": {
-                    "spent": 215.0,
-                    "acquired": 207.9,
-                    "delta": -7.099999999999994,
-                    "delta_percentage": -3.302325581395349
-                },
                 "DAI": {
-                    "spent": 210.0,
-                    "acquired": 202.95,
-                    "delta": -7.050000000000011,
-                    "delta_percentage": -3.3571428571428585
-                }
-            },
-            "end_quote_rate": 115.0,
-            "acquired_quote_value": 24111.45,
-            "spent_quote_value": 24935.0,
-            "trading_pair_delta": -823.5499999999993,
-            "trading_pair_delta_percentage": -3.3027872468417874
-        }
+                    "acquired": Decimal("202.9500000000000021555673912"),
+                    "delta": Decimal("-7.0499999999999978444326088"),
+                    "delta_percentage": Decimal("-3.357142857142856116396480380"),
+                    "spent": Decimal("210")},
+                "WETH": {
+                    "acquired": Decimal("207.8999999999999999562849684"),
+                    "delta": Decimal("-7.1000000000000000437150316"),
+                    "delta_percentage": Decimal("-3.302325581395348857541875160"),
+                    "spent": Decimal("215")}},
+            "end_quote_rate": Decimal("115.0"),
+            "spent_quote_value": Decimal("24935.0"),
+            "starting_quote_rate": Decimal("1.0"),
+            "trading_pair_delta": Decimal("-823.55000000000000287166124"),
+            "trading_pair_delta_percentage": Decimal("-3.302787246841788662007865410")}
 
         self.assertDictEqual(trade_performance_stats, expected_trade_performance_stats)
         self.assertDictEqual(expected_market_trading_pair_stats, market_trading_pair_stats[self.trading_pair_tuple_1])
@@ -222,18 +225,19 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
         market_trading_pair_stats = performance_analysis.calculate_asset_delta_from_trades(
             start_time, self.strategy_1, [self.trading_pair_tuple_1]
         )
+
         expected_stats = {
-            "starting_quote_rate": 1.0,
-            "asset": {
-                "WETH": {
-                    "spent": 230.0,
-                    "acquired": 198.0
+            'asset': {
+                'DAI': {
+                    'acquired': Decimal('216.8100000000000023724772146'),
+                    'spent': Decimal('110.0000000000000005551115123')
                 },
-                "DAI": {
-                    "spent": 110.0,
-                    "acquired": 216.81
+                'WETH': {
+                    'acquired': Decimal('197.9999999999999999583666366'),
+                    'spent': Decimal('230')
                 }
-            }
+            },
+            'starting_quote_rate': Decimal('1.0')
         }
         self.assertDictEqual(expected_stats, market_trading_pair_stats[self.trading_pair_tuple_1])
 
@@ -258,32 +262,30 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
         )
 
         expected_trade_performance_stats = {
-            "portfolio_acquired_quote_value": 23556.06,
-            "portfolio_spent_quote_value": 26702.5,
-            "portfolio_delta": -3146.4399999999987,
-            "portfolio_delta_percentage": -11.78331616889804
+            'portfolio_acquired_quote_value': Decimal('23556.06'),
+            'portfolio_delta': Decimal('-3146.44'),
+            'portfolio_delta_percentage': Decimal('-11.78331616889804325437693100'),
+            'portfolio_spent_quote_value': Decimal('26702.5')
         }
         expected_market_trading_pair_stats = {
-            "starting_quote_rate": 2.0,
-            "asset": {
-                "WETH": {
-                    "spent": 230.0,
-                    "acquired": 202.95,
-                    "delta": -27.05000000000001,
-                    "delta_percentage": -11.76086956521739
+            'acquired_quote_value': Decimal('23556.06'),
+            'asset': {
+                'DAI': {
+                    'acquired': Decimal('216.8100000000000023724772146'),
+                    'delta': Decimal('-35.6899999999999976275227854'),
+                    'delta_percentage': Decimal('-14.13465346534653371387041006'),
+                    'spent': Decimal('252.5')
                 },
-                "DAI": {
-                    "spent": 252.5,
-                    "acquired": 216.81,
-                    "delta": -35.69,
-                    "delta_percentage": -14.134653465346537
-                }
-            },
-            "end_quote_rate": 115.0,
-            "acquired_quote_value": 23556.06,
-            "spent_quote_value": 26702.5,
-            "trading_pair_delta": -3146.4399999999987,
-            "trading_pair_delta_percentage": -11.78331616889804
+                'WETH': {
+                    'acquired': Decimal('202.9499999999999999573258025'),
+                    'delta': Decimal('-27.0500000000000000426741975'),
+                    'delta_percentage': Decimal('-11.76086956521739132290182500'),
+                    'spent': Decimal('230')}},
+            'end_quote_rate': Decimal('115.0'),
+            'spent_quote_value': Decimal('26702.5'),
+            'starting_quote_rate': Decimal('2.0'),
+            'trading_pair_delta': Decimal('-3146.44000000000000253505550'),
+            'trading_pair_delta_percentage': Decimal('-11.78331616889804326387063196')
         }
 
         self.assertDictEqual(expected_trade_performance_stats, trade_performance_stats)
@@ -322,55 +324,49 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
         )
 
         expected_trade_performance_stats = {
-            "portfolio_acquired_quote_value": 49025.52947368422,
-            "portfolio_spent_quote_value": 53177.23684210527,
-            "portfolio_delta": -4151.707368421048,
-            "portfolio_delta_percentage": -7.807301798602973
+            'portfolio_acquired_quote_value': Decimal('49025.529473684214'),
+            'portfolio_delta': Decimal('-4151.707368421049'),
+            'portfolio_delta_percentage': Decimal('-7.807301798602976761843492980'),
+            'portfolio_spent_quote_value': Decimal('53177.236842105263')
         }
         expected_markettrading_pair_stats_1 = {
-            "starting_quote_rate": 1.0,
-            "asset": {
-                "WETH": {
-                    "spent": 215.0,
-                    "acquired": 207.9,
-                    "delta": -7.099999999999994,
-                    "delta_percentage": -3.302325581395349
+            'acquired_quote_value': Decimal('24111.45'),
+            'asset': {
+                'DAI': {
+                    'acquired': Decimal('202.9500000000000021555673912'),
+                    'delta': Decimal('-7.0499999999999978444326088'),
+                    'delta_percentage': Decimal('-3.357142857142856116396480380'),
+                    'spent': Decimal('210')
                 },
-                "DAI": {
-                    "spent": 210.0,
-                    "acquired": 202.95,
-                    "delta": -7.050000000000011,
-                    "delta_percentage": -3.3571428571428585
-                }
-            },
-            "end_quote_rate": 115.0,
-            "acquired_quote_value": 24111.45,
-            "spent_quote_value": 24935.0,
-            "trading_pair_delta": -823.5499999999993,
-            "trading_pair_delta_percentage": -3.3027872468417874
+                'WETH': {
+                    'acquired': Decimal('207.8999999999999999562849684'),
+                    'delta': Decimal('-7.1000000000000000437150316'),
+                    'delta_percentage': Decimal('-3.302325581395348857541875160'),
+                    'spent': Decimal('215')}},
+            'end_quote_rate': Decimal('115.0'),
+            'spent_quote_value': Decimal('24935.0'),
+            'starting_quote_rate': Decimal('1.0'),
+            'trading_pair_delta': Decimal('-823.55000000000000287166124'),
+            'trading_pair_delta_percentage': Decimal('-3.302787246841788662007865410')
         }
-
         expected_markettrading_pair_stats_2 = {
-            "starting_quote_rate": 2.0,
-            "asset": {
-                "ETH": {
-                    "spent": 230.0,
-                    "acquired": 202.95,
-                    "delta": -27.05000000000001,
-                    "delta_percentage": -11.76086956521739
-                },
-                "USDC": {
-                    "spent": 252.5,
-                    "acquired": 216.81,
-                    "delta": -35.69,
-                    "delta_percentage": -14.134653465346537
-                }
-            },
-            "end_quote_rate": 110.0,
-            "acquired_quote_value": 24914.079473684214,
-            "spent_quote_value": 28242.236842105263,
-            "trading_pair_delta": -3011.1899999999987,
-            "trading_pair_delta_percentage": -11.784326386850596
+            'acquired_quote_value': Decimal('24914.079473684214'),
+            'asset': {
+                'ETH': {
+                    'acquired': Decimal('202.9499999999999999573258025'),
+                    'delta': Decimal('-27.0500000000000000426741975'),
+                    'delta_percentage': Decimal('-11.76086956521739132290182500'),
+                    'spent': Decimal('230')},
+                'USDC': {
+                    'acquired': Decimal('216.8100000000000023724772146'),
+                    'delta': Decimal('-35.6899999999999976275227854'),
+                    'delta_percentage': Decimal('-14.13465346534653371387041006'),
+                    'spent': Decimal('252.5')}},
+            'end_quote_rate': Decimal('110.0'),
+            'spent_quote_value': Decimal('28242.236842105263'),
+            'starting_quote_rate': Decimal('2.0'),
+            'trading_pair_delta': Decimal('-3011.19000000000000232168451'),
+            'trading_pair_delta_percentage': Decimal('-11.78432638685060171146339697')
         }
         self.assertDictEqual(expected_trade_performance_stats, trade_performance_stats)
         self.assertDictEqual(expected_markettrading_pair_stats_1, market_trading_pair_stats[self.trading_pair_tuple_1])
