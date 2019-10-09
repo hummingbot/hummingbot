@@ -6,8 +6,6 @@ from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
 cdef class BittrexMarket(MarketBase):
     cdef:
-        dict _account_available_balances
-        dict _account_balances
         str _account_id
         object _bittrex_auth
         object _coro_queue
@@ -16,7 +14,6 @@ cdef class BittrexMarket(MarketBase):
         dict _in_flight_orders
         double _last_timestamp
         double _last_poll_timestamp
-        object _order_book_tracker
         dict _order_not_found_records
         object _user_stream_tracker
         object _poll_notifier
@@ -31,7 +28,7 @@ cdef class BittrexMarket(MarketBase):
         public object _user_stream_tracker_task
         TransactionTracker _tx_tracker
 
-    cdef c_start_tracking_order(self, str order_id, str symbol, object trade_type, object order_type, object price,
+    cdef c_start_tracking_order(self, str order_id, str exchange_order_id, str symbol, object trade_type, object order_type, object price,
                                 object amount)
     cdef c_stop_tracking_order(self, str order_id)
     cdef c_did_timeout_tx(self, str tracking_id)

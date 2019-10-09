@@ -159,9 +159,6 @@ cdef class BittrexMarket(MarketBase):
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         return await BittrexAPIOrderBookDataSource.get_active_exchange_markets()
 
-    def get_all_balances(self) -> Dict[str, float]:
-        return self._account_balances.copy()
-
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
         MarketBase.c_start(self, clock, timestamp)
@@ -188,8 +185,8 @@ cdef class BittrexMarket(MarketBase):
         # There is no API for checking fee
         # Fee info from https://bittrex.zendesk.com/hc/en-us/articles/115003684371
         cdef:
-            double maker_fee = 0.0025
-            double taker_fee = 0.0025
+            object maker_fee = Decimal(0.0025)
+            object taker_fee = Decimal(0.0025)
 
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
 
@@ -383,15 +380,15 @@ cdef class BittrexMarket(MarketBase):
                                              tracked_order.symbol,
                                              tracked_order.trade_type,
                                              tracked_order.order_type,
-                                             float(executed_price),
-                                             float(executed_amount_diff),
+                                             executed_price,
+                                             executed_amount_diff,
                                              self.c_get_fee(
                                                  tracked_order.base_asset,
                                                  tracked_order.quote_asset,
                                                  tracked_order.order_type,
                                                  tracked_order.trade_type,
-                                                 float(executed_price),
-                                                 float(executed_amount_diff)
+                                                 executed_price,
+                                                 executed_amount_diff
                                              )
                                          ))
 
@@ -453,11 +450,10 @@ cdef class BittrexMarket(MarketBase):
                                                      tracked_order.client_order_id,
                                                      tracked_order.base_asset,
                                                      tracked_order.quote_asset,
-                                                     (tracked_order.fee_asset
-                                                      or tracked_order.base_asset),
-                                                     float(tracked_order.executed_amount_base),
-                                                     float(tracked_order.executed_amount_quote),
-                                                     float(tracked_order.fee_paid),
+                                                     tracked_order.fee_asset or tracked_order.base_asset,
+                                                     tracked_order.executed_amount_base,
+                                                     tracked_order.executed_amount_quote,
+                                                     tracked_order.fee_paid,
                                                      tracked_order.order_type))
                         elif tracked_order.trade_type is TradeType.SELL:
                             self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
@@ -466,11 +462,10 @@ cdef class BittrexMarket(MarketBase):
                                                      tracked_order.client_order_id,
                                                      tracked_order.base_asset,
                                                      tracked_order.quote_asset,
-                                                     (tracked_order.fee_asset
-                                                      or tracked_order.base_asset),
-                                                     float(tracked_order.executed_amount_base),
-                                                     float(tracked_order.executed_amount_quote),
-                                                     float(tracked_order.fee_paid),
+                                                     tracked_order.fee_asset or tracked_order.base_asset,
+                                                     tracked_order.executed_amount_base,
+                                                     tracked_order.executed_amount_quote,
+                                                     tracked_order.fee_paid,
                                                      tracked_order.order_type))
                     else:  # Order PARTIAL-CANCEL or CANCEL
                         self.logger().info(f"The {tracked_order.order_type}-{tracked_order.trade_type} "
@@ -543,15 +538,15 @@ cdef class BittrexMarket(MarketBase):
                                                  tracked_order.symbol,
                                                  tracked_order.trade_type,
                                                  tracked_order.order_type,
-                                                 float(execute_price),
-                                                 float(execute_amount_diff),
+                                                 execute_price,
+                                                 execute_amount_diff,
                                                  self.c_get_fee(
                                                      tracked_order.base_asset,
                                                      tracked_order.quote_asset,
                                                      tracked_order.order_type,
                                                      tracked_order.trade_type,
-                                                     float(execute_price),
-                                                     float(execute_amount_diff)
+                                                     execute_price,
+                                                     execute_amount_diff
                                                  )
                                              ))
 
@@ -567,28 +562,27 @@ cdef class BittrexMarket(MarketBase):
                                                      tracked_order.client_order_id,
                                                      tracked_order.base_asset,
                                                      tracked_order.quote_asset,
-                                                     (tracked_order.fee_asset
-                                                      or tracked_order.quote_asset),
-                                                     float(tracked_order.executed_amount_base),
-                                                     float(tracked_order.executed_amount_quote),
-                                                     float(tracked_order.fee_paid),
+                                                     tracked_order.fee_asset or tracked_order.quote_asset,
+                                                     tracked_order.executed_amount_base,
+                                                     tracked_order.executed_amount_quote,
+                                                     tracked_order.fee_paid,
                                                      tracked_order.order_type
                                                  ))
                         elif tracked_order.trade_type is TradeType.SELL:
                             self.logger().info(f"The LIMIT_SELL order {tracked_order.client_order_id} has completed "
                                                f"according to Order Delta WebSocket API.")
                             self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                                 SellOrderCompletedEvent(self._current_timestamp,
-                                                                         tracked_order.client_order_id,
-                                                                         tracked_order.base_asset,
-                                                                         tracked_order.quote_asset,
-                                                                         (tracked_order.fee_asset
-                                                                          or tracked_order.quote_asset),
-                                                                         float(tracked_order.executed_amount_base),
-                                                                         float(tracked_order.executed_amount_quote),
-                                                                         float(tracked_order.fee_paid),
-                                                                         tracked_order.order_type
-                                                                         ))
+                                                 SellOrderCompletedEvent(
+                                                     self._current_timestamp,
+                                                     tracked_order.client_order_id,
+                                                     tracked_order.base_asset,
+                                                     tracked_order.quote_asset,
+                                                     tracked_order.fee_asset or tracked_order.quote_asset,
+                                                     tracked_order.executed_amount_base,
+                                                     tracked_order.executed_amount_quote,
+                                                     tracked_order.fee_paid,
+                                                     tracked_order.order_type
+                                                 ))
                         self.c_stop_tracking_order(tracked_order.client_order_id)
                         continue
 
@@ -659,17 +653,6 @@ cdef class BittrexMarket(MarketBase):
     async def get_deposit_info(self, asset: str) -> DepositInfo:
         return DepositInfo(await self.get_deposit_address(asset))
 
-    cdef double c_get_balance(self, str currency) except? -1:
-        return float(self._account_balances.get(currency, 0.0))
-
-    cdef double c_get_available_balance(self, str currency) except? -1:
-        return float(self._account_available_balances.get(currency, 0.0))
-
-    cdef double c_get_price(self, str symbol, bint is_buy) except? -1:
-        cdef:
-            OrderBook order_book = self.c_get_order_book(symbol)
-        return order_book.c_get_price(is_buy)
-
     cdef OrderBook c_get_order_book(self, str symbol):
         cdef:
             dict order_books = self._order_book_tracker.order_books
@@ -680,6 +663,7 @@ cdef class BittrexMarket(MarketBase):
 
     cdef c_start_tracking_order(self,
                                 str order_id,
+                                str exchange_order_id,
                                 str symbol,
                                 object order_type,
                                 object trade_type,
@@ -687,7 +671,7 @@ cdef class BittrexMarket(MarketBase):
                                 object amount):
         self._in_flight_orders[order_id] = BittrexInFlightOrder(
             order_id,
-            None,
+            exchange_order_id,
             symbol,
             order_type,
             trade_type,
@@ -765,7 +749,7 @@ cdef class BittrexMarket(MarketBase):
                           symbol: str,
                           amount: Decimal,
                           order_type: OrderType,
-                          price: Optional[float] = NaN):
+                          price: Optional[Decimal] = s_decimal_0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
             double quote_amount
@@ -784,7 +768,6 @@ cdef class BittrexMarket(MarketBase):
                              f"{trading_rule.min_order_size}.")
 
         try:
-            self.c_start_tracking_order(order_id, symbol, order_type, TradeType.BUY, decimal_price, decimal_amount)
             order_result = None
             if order_type is OrderType.LIMIT:
 
@@ -794,7 +777,6 @@ cdef class BittrexMarket(MarketBase):
                                                       True,
                                                       order_type,
                                                       decimal_price)
-
             elif order_type is OrderType.MARKET:
                 decimal_price = self.c_get_price(symbol, True)
                 order_result = await self.place_order(order_id,
@@ -808,19 +790,26 @@ cdef class BittrexMarket(MarketBase):
                 raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
 
             exchange_order_id = order_result["id"]
+            self.c_start_tracking_order(
+                order_id,
+                exchange_order_id,
+                symbol, order_type,
+                TradeType.BUY,
+                decimal_price,
+                decimal_amount
+            )
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
                 self.logger().info(f"Created {order_type_str} buy order {order_id} for "
                                    f"{decimal_amount} {symbol}")
-                tracked_order.update_exchange_order_id(exchange_order_id)
             self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
                                  BuyOrderCreatedEvent(
                                      self._current_timestamp,
                                      order_type,
                                      symbol,
-                                     float(decimal_amount),
-                                     float(decimal_price),
+                                     decimal_amount,
+                                     decimal_price,
                                      order_id
                                  ))
 
@@ -881,7 +870,6 @@ cdef class BittrexMarket(MarketBase):
                              f"{trading_rule.min_order_size}")
 
         try:
-            self.c_start_tracking_order(order_id, symbol, order_type, TradeType.SELL, decimal_price, decimal_amount)
             order_result = None
             if order_type is OrderType.LIMIT:
                 order_result = await self.place_order(order_id,
@@ -902,18 +890,27 @@ cdef class BittrexMarket(MarketBase):
                 raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
 
             exchange_order_id = order_result["id"]
+            self.c_start_tracking_order(
+                order_id,
+                exchange_order_id,
+                symbol,
+                order_type,
+                TradeType.SELL,
+                decimal_price,
+                decimal_amount
+            )
+
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type} sell order {order_id} for "
                                    f"{decimal_amount} {symbol}.")
-                tracked_order.update_exchange_order_id(exchange_order_id)
             self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
                                  SellOrderCreatedEvent(
                                      self._current_timestamp,
                                      order_type,
                                      symbol,
-                                     float(decimal_amount),
-                                     float(decimal_price),
+                                     decimal_amount,
+                                     decimal_price,
                                      order_id
                                  ))
         except asyncio.CancelledError:
