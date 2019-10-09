@@ -10,7 +10,7 @@ from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
 
 def discovery_symbol_list_prompt(market_name):
-    return "Enter list of trading pairs or token names on %s (e.g. [%s] or press ENTER for all symbols.) >>> " % (
+    return "Enter list of trading pairs or token names on %s (e.g. [%s] or press ENTER for all symbols) >>> " % (
         market_name,
         EXAMPLE_PAIRS.get(market_name, ""),
     )
@@ -97,7 +97,7 @@ discovery_config_map = {
     ),
     "target_amount": ConfigVar(
         key="target_amount",
-        prompt="What is the max order size for discovery? >>> " "(default to infinity)",
+        prompt="What is the max order size for discovery? " "(default to infinity) >>> ",
         default=float("inf"),
         type_str="float",
     ),
