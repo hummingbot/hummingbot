@@ -16,8 +16,8 @@ cdef class SimpleTradeStrategy(StrategyBase):
         double _last_timestamp
         double _start_timestamp
         double _time_delay
-        double _order_price
-        double _order_amount
+        object _order_price
+        object _order_amount
 
         dict _tracked_orders
         dict _time_to_cancel
