@@ -181,6 +181,8 @@ cdef class PaperTradeMarket(MarketBase):
     def __init__(self, order_book_tracker: OrderBookTracker, config: MarketConfig, target_market: type):
         super(MarketBase, self).__init__()
         order_book_tracker.data_source.order_book_create_function = lambda: CompositeOrderBook()
+        self._account_balances = {}
+        self._account_available_balances = {}
         self._paper_trade_market_initialized = False
         self._trading_pairs = {}
         self._config = config
@@ -291,7 +293,7 @@ cdef class PaperTradeMarket(MarketBase):
 
     @property
     def available_balances(self) -> Dict[str, Decimal]:
-        _available_balances = self._account_balance.copy()
+        _available_balances = self._account_balances.copy()
         for trading_pair_str, balance in _available_balances.items():
             _available_balances[trading_pair_str] -= self.on_hold_balances[trading_pair_str]
         return _available_balances
@@ -314,13 +316,13 @@ cdef class PaperTradeMarket(MarketBase):
         return NetworkStatus.CONNECTED
 
     cdef c_set_balance(self, str currency, object balance):
-        self._account_balance[currency.upper()] = Decimal(balance)
+        self._account_balances[currency.upper()] = Decimal(balance)
 
     cdef object c_get_balance(self, str currency):
-        if currency.upper() not in self._account_balance:
+        if currency.upper() not in self._account_balances:
             self.logger().warning(f"Account balance does not have asset {currency.upper()}.")
             return Decimal(0.0)
-        return self._account_balance[currency.upper()]
+        return self._account_balances[currency.upper()]
 
     cdef c_tick(self, double timestamp):
         MarketBase.c_tick(self, timestamp)
@@ -935,9 +937,18 @@ cdef class PaperTradeMarket(MarketBase):
         return (Decimal('%s' % amount) // order_size_quantum) * order_size_quantum
 
     def get_all_balances(self) -> Dict[str, Decimal]:
-        return self._account_balance.copy()
+        return self._account_balances.copy()
+
+    async def get_deposit_info(self, asset: str):
+        pass
+
+    def c_withdraw(self, address, currency, amount):
+        pass
 
     # <editor-fold desc="Python wrapper for cdef functions">
     def match_trade_to_limit_orders(self, event_object: OrderBookTradeEvent):
         self.c_match_trade_to_limit_orders(event_object)
+
+    def set_balance(self, currency: str, balance: Decimal):
+        self.c_set_balance(currency, balance)
     # </editor-fold>

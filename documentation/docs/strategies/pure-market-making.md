@@ -154,8 +154,8 @@ Assume you are running pure parket making in single order mode, the order size i
 
 | Prompt | Description |
 |-----|-----|
-| `Do you want to enable jump_orders. If enabled, if the top bid price is lesser than your order price, buy order will jump to one tick above top bid price & vice versa for sell.(Default is False)? >>> ` | This sets `jump_orders_enabled` (see [definition](#configuration-parameters)) |
-| `How deep do you want to go into the order book for calculating the top bid and ask, ignoring dust orders on the top. (expressed in base currency). (Default is 0) ? >>> "` | This sets `jump_orders_depth` (see [definition](#configuration-parameters)) |
+| `Do you want to enable jump_orders? If enabled, when the top bid price is lesser than your order price, buy order will jump to one tick above top bid price & vice versa for sell. (Default is False) >>> ` | This sets `jump_orders_enabled` (see [definition](#configuration-parameters)) |
+| `How deep do you want to go into the order book for calculating the top bid and ask, ignoring dust orders on the top (expressed in base currency)? (Default is 0) >>> "` | This sets `jump_orders_depth` (see [definition](#configuration-parameters)) |
 
 
 ## Configuration Parameters
