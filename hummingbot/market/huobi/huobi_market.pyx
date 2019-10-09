@@ -605,6 +605,7 @@ cdef class HuobiMarket(MarketBase):
             object decimal_price
             str exchange_order_id
             object tracked_order
+
         if order_type is OrderType.MARKET:
             quote_amount = (<OrderBook>self.c_get_order_book(symbol)).c_get_quote_volume_for_base_amount(
                 True, float(amount)).result_volume
