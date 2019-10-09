@@ -150,22 +150,24 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return self._symbols
 
     async def websocket_connection(self) -> (signalr_aio.Connection, signalr_aio.hubs.Hub):
-        if not self._websocket_connection or not self._websocket_hub:
-            self._websocket_connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
-            self._websocket_hub = self._websocket_connection.register_hub("c2")
+        if self._websocket_connection and self._websocket_hub:
+            return self._websocket_connection, self._websocket_hub
 
-            trading_pairs = await self.get_trading_pairs()
-            for trading_pair in trading_pairs:
-                # TODO: Refactor accordingly when V3 WebSocket API is released
-                # WebSocket API requires trading_pair to be in 'Quote-Base' format
-                trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
-                self.logger().info(f"Subscribed to {trading_pair} deltas")
-                self._websocket_hub.server.invoke("SubscribeToExchangeDeltas", trading_pair)
+        self._websocket_connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
+        self._websocket_hub = self._websocket_connection.register_hub("c2")
 
-                self.logger().info(f"Query {trading_pair} snapshot.")
-                self._websocket_hub.server.invoke("queryExchangeState", trading_pair)
+        trading_pairs = await self.get_trading_pairs()
+        for trading_pair in trading_pairs:
+            # TODO: Refactor accordingly when V3 WebSocket API is released
+            # WebSocket API requires trading_pair to be in 'Quote-Base' format
+            trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
+            self.logger().info(f"Subscribed to {trading_pair} deltas")
+            self._websocket_hub.server.invoke("SubscribeToExchangeDeltas", trading_pair)
 
-            self._websocket_connection.start()
+            self.logger().info(f"Query {trading_pair} snapshot.")
+            self._websocket_hub.server.invoke("queryExchangeState", trading_pair)
+
+        self._websocket_connection.start()
 
         return self._websocket_connection, self._websocket_hub
 
@@ -254,10 +256,11 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         # Orderbooks Deltas and Snapshots are handled by listen_for_order_book_stream()
         pass
 
-    async def _socket_stream(self, conn: signalr_aio.Connection) -> AsyncIterable[str]:
+    async def _socket_stream(self) -> AsyncIterable[str]:
         try:
             while True:
                 async with timeout(MESSAGE_TIMEOUT):  # Timeouts if not receiving any messages for 10 seconds(ping)
+                    conn: signalr_aio.Connection = (await self.websocket_connection())[0]
                     yield await conn.msg_queue.get()
         except asyncio.TimeoutError:
             self.logger().warning("Message recv() timed out. Going to reconnect...")
@@ -339,7 +342,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             connection, hub = await self.websocket_connection()
             try:
-                async for raw_message in self._socket_stream(connection):
+                async for raw_message in self._socket_stream():
                     decoded: Dict[str, Any] = await self._transform_raw_message(raw_message)
                     symbol: str = decoded["results"].get("M")
 
@@ -372,5 +375,5 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Unexpected error when listening on socket stream.", exc_info=True)
             finally:
                 connection.close()
-                connection = None
+                self._websocket_connection = self._websocket_hub = None
                 self.logger().info("Reinitializing websocket connection...")
