@@ -56,13 +56,13 @@ async def main():
                      dev_mode=dev_mode)
         tasks: List[Coroutine] = [hb.run()]
         if global_config_map.get("debug_console").value:
-            try:
-                from hummingbot.core.management.console import start_management_console
-                management_port: int = detect_available_port(8211)
-                tasks.append(start_management_console(locals(), host="localhost", port=management_port))
-            except NameError:
-                # pyinstaller created packages cannot use aioconsole for some reason - ignore.
-                pass
+            if not hasattr(__builtins__, "help"):
+                import _sitebuiltins
+                __builtins__.help = _sitebuiltins._Helper()
+
+            from hummingbot.core.management.console import start_management_console
+            management_port: int = detect_available_port(8211)
+            tasks.append(start_management_console(locals(), host="localhost", port=management_port))
         await safe_gather(*tasks)
 
 if __name__ == "__main__":
