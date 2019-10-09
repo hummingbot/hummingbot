@@ -20,7 +20,6 @@ from hummingbot import (
     check_dev_mode
 )
 from hummingbot.client.ui.stdout_redirection import patch_stdout
-from hummingbot.core.management.console import start_management_console
 from hummingbot.core.utils.async_utils import safe_gather
 
 
@@ -57,8 +56,13 @@ async def main():
                      dev_mode=dev_mode)
         tasks: List[Coroutine] = [hb.run()]
         if global_config_map.get("debug_console").value:
-            management_port: int = detect_available_port(8211)
-            tasks.append(start_management_console(locals(), host="localhost", port=management_port))
+            try:
+                from hummingbot.core.management.console import start_management_console
+                management_port: int = detect_available_port(8211)
+                tasks.append(start_management_console(locals(), host="localhost", port=management_port))
+            except NameError:
+                # pyinstaller created packages cannot use aioconsole for some reason - ignore.
+                pass
         await safe_gather(*tasks)
 
 if __name__ == "__main__":
