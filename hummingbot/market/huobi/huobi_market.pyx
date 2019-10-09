@@ -1,4 +1,5 @@
 import aiohttp
+from aiohttp.test_utils import TestClient
 import asyncio
 from async_timeout import timeout
 import conf
@@ -254,36 +255,46 @@ cdef class HuobiMarket(MarketBase):
                            params: Optional[Dict[str, Any]] = None,
                            data = None,
                            is_auth_required: bool = False) -> Dict[str, Any]:
-        try:
-            content_type = "application/json" if method == "post" else "application/x-www-form-urlencoded"
-            headers = {"Content-Type": content_type}
-            url = HUOBI_ROOT_API + path_url
-            client = await self._http_client()
-            if is_auth_required:
-                params = self._huobi_auth.add_auth_to_params(method, path_url, params)
-            print('************_api_request', path_url, method, params)
-            
-            async with client.request(method=method.upper(),
-                                    # url=url,
-                                    path=f"/{path_url}",
-                                    headers=headers,
-                                    params=params,
-                                    data=ujson.dumps(data),
-                                    timeout=100) as response:
-                if response.status != 200:
-                    raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
-                try:
-                    parsed_response = await response.json()
-                except Exception:
-                    raise IOError(f"Error parsing data from {url}.")
+        content_type = "application/json" if method == "post" else "application/x-www-form-urlencoded"
+        headers = {"Content-Type": content_type}
+        url = HUOBI_ROOT_API + path_url
+        client = await self._http_client()
+        if is_auth_required:
+            params = self._huobi_auth.add_auth_to_params(method, path_url, params)
 
-                data = parsed_response.get("data")
-                if data is None:
-                    self.logger().error(f"Error received from {url}. Response is {parsed_response}.")
-                    return {"error": parsed_response}
-                return data
-        except Exception as e:
-            print('*************!!!!!!! ERROR !!!!!!!!!!!***********', e)
+        # aiohttp TestClient requires path instead of url
+        if isinstance(client, TestClient):
+            response_coro = client.request(
+                method=method.upper(),
+                path=f"/{path_url}",
+                headers=headers,
+                params=params,
+                data=ujson.dumps(data),
+                timeout=100
+            )
+        else:
+            response_coro = client.request(
+                method=method.upper(),
+                url=url,
+                headers=headers,
+                params=params,
+                data=ujson.dumps(data),
+                timeout=100
+            )
+
+        async with response_coro as response:
+            if response.status != 200:
+                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
+            try:
+                parsed_response = await response.json()
+            except Exception:
+                raise IOError(f"Error parsing data from {url}.")
+
+            data = parsed_response.get("data")
+            if data is None:
+                self.logger().error(f"Error received from {url}. Response is {parsed_response}.")
+                return {"error": parsed_response}
+            return data
 
     async def _update_account_id(self) -> str:
         accounts = await self._api_request("get", path_url="account/accounts", is_auth_required=True)
@@ -548,7 +559,6 @@ cdef class HuobiMarket(MarketBase):
 
     @property
     def ready(self) -> bool:
-        print(self.status_dict)
         return all(self.status_dict.values())
 
     def get_all_balances(self) -> Dict[str, Decimal]:
@@ -654,10 +664,7 @@ cdef class HuobiMarket(MarketBase):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = f"buy-{symbol}-{tracking_nonce}"
-        try:
-            asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
-        except Exception as e:
-            print('EEEEEEEEE', e)
+        asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
         return order_id
 
     async def execute_sell(self,
