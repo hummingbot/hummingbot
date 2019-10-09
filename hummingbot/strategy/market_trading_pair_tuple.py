@@ -29,6 +29,9 @@ class MarketTradingPairTuple(NamedTuple):
     def base_balance(self) -> Decimal:
         return self.market.get_balance(self.base_asset)
 
+    def get_mid_price(self) -> Decimal:
+        return self.market.get_mid_price(self.trading_pair)
+
     def get_price(self, is_buy: bool) -> Decimal:
         return self.market.get_price(self.trading_pair, is_buy)
 

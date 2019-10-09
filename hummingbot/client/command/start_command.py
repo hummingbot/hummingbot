@@ -87,7 +87,7 @@ class StartCommand:
 
         try:
             config_path: str = in_memory_config_map.get("strategy_file_path").value
-            self.start_time = time.time() * 1e3 # Time in milliseconds
+            self.start_time = time.time() * 1e3  # Time in milliseconds
             self.clock = Clock(ClockMode.REALTIME)
             if self.wallet is not None:
                 self.clock.add_iterator(self.wallet)
@@ -104,7 +104,8 @@ class StartCommand:
             self._notify(f"\n  '{strategy_name}' strategy started.\n"
                          f"  You can use the `status` command to query the progress.")
 
-            self.starting_balances = await self.wait_till_ready(self.balance_snapshot)
+            if not self.starting_balances:
+                self.starting_balances = await self.wait_till_ready(self.balance_snapshot)
 
             if self._trading_required:
                 self.kill_switch = KillSwitch(self)
