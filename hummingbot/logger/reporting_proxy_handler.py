@@ -1,8 +1,15 @@
+#!/usr/bin/env python
+
 import io
+from os.path import (
+    realpath,
+    join
+)
+import json
+import logging
 import traceback
 from typing import Optional
-import logging
-import json
+
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.logger import (
     HummingbotLogger,
@@ -11,7 +18,7 @@ from hummingbot.logger import (
 from hummingbot.logger.log_server_client import LogServerClient
 
 
-VERSIONFILE = "hummingbot/VERSION"
+VERSIONFILE = realpath(join(__file__, "../../VERSION"))
 CLIENT_VERSION = open(VERSIONFILE, "rt").read()
 
 

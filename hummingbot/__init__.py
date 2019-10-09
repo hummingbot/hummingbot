@@ -10,6 +10,8 @@ from os import (
     listdir,
     path,
 )
+import sys
+
 from hummingbot.logger.struct_logger import (
     StructLogRecord,
     StructLogger
@@ -75,8 +77,21 @@ def set_data_path(path: str):
     _data_path = path
 
 
+_independent_package: Optional[bool] = None
+
+
+def is_independent_package() -> bool:
+    global _independent_package
+    import os
+    if _independent_package is None:
+        _independent_package = (os.path.basename(sys.executable) != "python")
+    return _independent_package
+
+
 def check_dev_mode():
     try:
+        if is_independent_package():
+            return False
         if not path.isdir(".git"):
             return False
         current_branch = subprocess.check_output(["git", "symbolic-ref", "--short", "HEAD"]).decode("utf8").rstrip()
@@ -84,6 +99,19 @@ def check_dev_mode():
             return True
     except Exception:
         return False
+
+
+def chdir_to_data_directory():
+    if not is_independent_package():
+        # Do nothing.
+        return
+
+    import os
+    app_data_dir: str = os.path.expanduser("~/.hummingbot")
+    os.makedirs(os.path.join(app_data_dir, "logs"), 0o711, exist_ok=True)
+    os.makedirs(os.path.join(app_data_dir, "conf"), 0o711, exist_ok=True)
+    os.chdir(app_data_dir)
+    set_prefix_path(app_data_dir)
 
 
 def add_remote_logger_handler(loggers):
