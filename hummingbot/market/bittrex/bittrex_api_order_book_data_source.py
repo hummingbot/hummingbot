@@ -185,8 +185,6 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             raise
 
     async def get_snapshot(self, trading_pair: str) -> OrderBookMessage:
-        # Creates a new connection to obtain a single snapshot of the trading_pair
-        connection, hub = await self.websocket_connection()
 
         # TODO: Refactor accordingly when V3 WebSocket API is released
         temp_trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
@@ -195,6 +193,8 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while get_snapshot_attempts < MAX_RETRIES:
             get_snapshot_attempts += 1
 
+            # Creates/Reuses connection to obtain a single snapshot of the trading_pair
+            connection, hub = await self.websocket_connection()
             hub.server.invoke("queryExchangeState", trading_pair)
             self.logger().info(f"Query {trading_pair} snapshots. {get_snapshot_attempts}/{MAX_RETRIES}")
             invoke_timestamp = int(time.time())
