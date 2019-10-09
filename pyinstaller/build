@@ -5,6 +5,10 @@ from os.path import (
     join
 )
 import shutil
+from subprocess import (
+    check_call,
+    check_output
+)
 
 
 def project_dir() -> str:
@@ -14,7 +18,9 @@ def project_dir() -> str:
 def main():
     shutil.move(join(project_dir(), "bin/hummingbot.py"), join(project_dir(), "bin/bot"))
     try:
-        pass
+        spec_file_path: str = join(project_dir(), "pyinstaller/bot.spec")
+        pyinstaller_path: str = check_output("which pyinstaller", shell=True).decode("utf8").strip()
+        check_call([pyinstaller_path, spec_file_path])
     finally:
         shutil.move(join(project_dir(), "bin/bot"), join(project_dir(), "bin/hummingbot.py"))
 

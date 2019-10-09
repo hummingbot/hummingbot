@@ -10,12 +10,15 @@ import os
 import re
 from typing import (
     List,
-    Iterable
+    Iterable,
+    Tuple
 )
+
+global SPEC
 
 
 def project_path() -> str:
-    return os.path.realpath(f"./{SPEC}/../../")
+    return os.path.realpath(f"{SPEC}/../../")
 
 
 def enumerate_modules(path: str) -> Iterable[str]:
@@ -33,6 +36,20 @@ def enumerate_modules(path: str) -> Iterable[str]:
                 yield ".".join(pkg_components) + f".{module_name}"
 
 
+def enumerate_data_files(path: str, pattern: str) -> Iterable[Tuple[str, str]]:
+    actual_path: str = os.path.realpath(path)
+    prefix_length: int = len(actual_path.split(os.sep)) - 1
+    pattern_re = re.compile(pattern)
+
+    for dirpath, dirnames, filenames in os.walk(actual_path):
+        dst_path_components: List[str] = dirpath.split(os.sep)[prefix_length:]
+        dst_dir: str = "/".join(dst_path_components)
+        for filename in filenames:
+            src_path: str = os.path.join(dirpath, filename)
+            if pattern_re.search(src_path) is not None:
+                yield src_path, dst_dir
+
+
 if "SPEC" in globals():
     block_cipher = None
 
@@ -41,12 +58,20 @@ if "SPEC" in globals():
         "aiokafka"
     ])
 
+    print(f"project path: {project_path()}")
+
     import _strptime
+
+    datas: List[Tuple[str, str]] = list(enumerate_data_files(
+        os.path.join(project_path(), "hummingbot"),
+        r"(.+\.json|\/VERSION|templates\/.+\.yml)$"
+    ))
+    datas.extend([(_strptime.__file__, ".")])
 
     a = Analysis(['../bin/bot'],
                  pathex=['/Users/martin_kou/Development/hummingbot'],
                  binaries=[],
-                 datas=[(_strptime.__file__, ".")],
+                 datas=datas,
                  hiddenimports=hidden_imports,
                  hookspath=[],
                  runtime_hooks=[],
