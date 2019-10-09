@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import time
 from os.path import join, realpath
-import sys;sys.path.insert(0, realpath(join(__file__, "../../")))
+import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 import asyncio
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 import logging; logging.basicConfig(level=logging.ERROR)
@@ -31,6 +31,12 @@ class MockDataFeed1(DataFeedBase):
 
     def get_price(self, symbol):
         return self.mock_price_dict.get(symbol.upper())
+
+    async def start_network(self):
+        pass
+
+    async def stop_network(self):
+        pass
 
 
 class MockDataFeed2(DataFeedBase):
