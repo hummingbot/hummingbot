@@ -240,7 +240,7 @@ cdef class DDEXMarket(MarketBase):
                 )
 
     def _update_balances(self):
-        self._account_balances = {k: Decimal(repr(v)) for k, v in self.wallet.get_all_balances().items()}
+        self._account_balances = {k: v for k, v in self.wallet.get_all_balances().items()}
 
     async def _update_available_balances(self):
         cdef:
