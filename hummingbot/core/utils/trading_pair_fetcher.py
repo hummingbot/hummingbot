@@ -15,9 +15,7 @@ BAMBOO_RELAY_ENDPOINT = "https://rest.bamboorelay.com/main/0x/markets"
 COINBASE_PRO_ENDPOINT = "https://api.pro.coinbase.com/products/"
 IDEX_REST_ENDPOINT = "https://api.idex.market/returnTicker"
 HUOBI_ENDPOINT = "https://api.huobi.pro/v1/common/symbols"
-BITTREX_ENDPOINT = "https://api.bittrex.com/v3/markets"
 DOLOMITE_ENDPOINT = "https://exchange-api.dolomite.io/v1/markets"
-
 API_CALL_TIMEOUT = 5
 
 
@@ -169,6 +167,7 @@ class TradingPairFetcher:
                 return []
 
     @staticmethod
+<<<<<<< HEAD
     async def fetch_bittrex_trading_pairs() -> List[str]:
         async with aiohttp.ClientSession() as client:
             async with client.get(BITTREX_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
@@ -187,6 +186,9 @@ class TradingPairFetcher:
     async def fetch_dolomite_trading_pairs() -> List[str]:
         from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 
+=======
+    async def fetch_dolomite_trading_pairs() -> List[str]:
+>>>>>>> Fixed merge conflicts and got rid of float usage in dolomite_market.pyx. Zack will finish up one of the missing part pertaining to the # of decimals
         async with aiohttp.ClientSession() as client:
             async with client.get(DOLOMITE_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
@@ -195,7 +197,11 @@ class TradingPairFetcher:
                         valid_trading_pairs: list = []
                         for item in all_trading_pairs["data"]:
                             valid_trading_pairs.append(item["market"])
+<<<<<<< HEAD
                         return [DolomiteMarket.convert_from_exchange_trading_pair(p) for p in valid_trading_pairs]
+=======
+                        return valid_trading_pairs
+>>>>>>> Fixed merge conflicts and got rid of float usage in dolomite_market.pyx. Zack will finish up one of the missing part pertaining to the # of decimals
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for dolomite trading pairs
