@@ -37,49 +37,29 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
-<<<<<<< HEAD
-from hummingbot.market.bitroyal.bitroyal_auth import bitroyalAuth
-from hummingbot.market.bitroyal.bitroyal_order_book_tracker import bitroyalOrderBookTracker
-from hummingbot.market.bitroyal.bitroyal_user_stream_tracker import bitroyalUserStreamTracker
-from hummingbot.market.bitroyal.bitroyal_api_order_book_data_source import bitroyalAPIOrderBookDataSource
-=======
-from hummingbot.market.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
-from hummingbot.market.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
-from hummingbot.market.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
-from hummingbot.market.coinbase_pro.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
+from hummingbot.market.bitroyal.bitroyal_auth import BitroyalAuth
+from hummingbot.market.bitroyal.bitroyal_order_book_tracker import BitroyalOrderBookTracker
+from hummingbot.market.bitroyal.bitroyal_user_stream_tracker import BitroyalUserStreamTracker
+from hummingbot.market.bitroyal.bitroyal_api_order_book_data_source import BitroyalAPIOrderBookDataSource
 from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import (
     MarketBase,
     OrderType,
 )
 from hummingbot.market.trading_rule cimport TradingRule
-<<<<<<< HEAD
-from hummingbot.market.bitroyal.bitroyal_in_flight_order import bitroyalInFlightOrder
-from hummingbot.market.bitroyal.bitroyal_in_flight_order cimport bitroyalInFlightOrder
-=======
-from hummingbot.market.coinbase_pro.coinbase_pro_in_flight_order import CoinbaseProInFlightOrder
-from hummingbot.market.coinbase_pro.coinbase_pro_in_flight_order cimport CoinbaseProInFlightOrder
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
+from hummingbot.market.bitroyal.bitroyal_in_flight_order import BitroyalInFlightOrder
+from hummingbot.market.bitroyal.bitroyal_in_flight_order cimport BitroyalInFlightOrder
 
 
 s_logger = None
 s_decimal_0 = Decimal(0)
 
 
-<<<<<<< HEAD
-cdef class bitroyalMarketTransactionTracker(TransactionTracker):
+cdef class BitroyalMarketTransactionTracker(TransactionTracker):
     cdef:
-        bitroyalMarket _owner
+        BitroyalMarket _owner
 
-    def __init__(self, owner: bitroyalMarket):
-=======
-cdef class CoinbaseProMarketTransactionTracker(TransactionTracker):
-    cdef:
-        CoinbaseProMarket _owner
-
-    def __init__(self, owner: CoinbaseProMarket):
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
+    def __init__(self, owner: BitroyalMarket):
         super().__init__()
         self._owner = owner
 
@@ -110,15 +90,10 @@ cdef class InFlightDeposit:
         self.has_tx_receipt = False
 
     def __repr__(self) -> str:
-        return f"InFlightDeposit(tracking_id='{self.tracking_id}', timestamp_ms={self.timestamp_ms}, " \
-        f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
+        return f"InFlightDeposit(tracking_id='{self.tracking_id}', timestamp_ms={self.timestamp_ms}, tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
 
 
-<<<<<<< HEAD
 cdef class BitroyalMarket(MarketBase):
-=======
-cdef class CoinbaseProMarket(MarketBase):
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
@@ -134,11 +109,7 @@ cdef class CoinbaseProMarket(MarketBase):
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
 
-<<<<<<< HEAD
     BITROYAL_API_ENDPOINT = "https://apicoinmartprod.alphapoint.com:8443/API"
-=======
-    COINBASE_API_ENDPOINT = "https://api.pro.coinbase.com"
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -148,34 +119,17 @@ cdef class CoinbaseProMarket(MarketBase):
         return s_logger
 
     def __init__(self,
-<<<<<<< HEAD
                  bitroyal_api_key: str,
                  bitroyal_secret_key: str,
-                 bitroyal_passphrase: str,
-=======
-                 coinbase_pro_api_key: str,
-                 coinbase_pro_secret_key: str,
-                 coinbase_pro_passphrase: str,
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
                  poll_interval: float = 5.0,
-                 order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                    OrderBookTrackerDataSourceType.EXCHANGE_API,
+                 order_book_tracker_data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
                  symbols: Optional[List[str]] = None,
                  trading_required: bool = True):
         super().__init__()
         self._trading_required = trading_required
-<<<<<<< HEAD
-        self._bitroyal_auth = bitroyalAuth(bitroyal_api_key, bitroyal_secret_key, bitroyal_passphrase)
-        self._order_book_tracker = bitroyalOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                               symbols=symbols)
-        self._user_stream_tracker = bitroyalUserStreamTracker(bitroyal_auth=self._bitroyal_auth,
-=======
-        self._coinbase_auth = CoinbaseProAuth(coinbase_pro_api_key, coinbase_pro_secret_key, coinbase_pro_passphrase)
-        self._order_book_tracker = CoinbaseProOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                               symbols=symbols)
-        self._user_stream_tracker = CoinbaseProUserStreamTracker(coinbase_pro_auth=self._coinbase_auth,
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
-                                                                 symbols=symbols)
+        self._bitroyal_auth = BitroyalAuth(bitroyal_api_key, bitroyal_secret_key)
+        self._order_book_tracker = BitroyalOrderBookTracker(data_source_type=order_book_tracker_data_source_type, symbols=symbols)
+        self._user_stream_tracker = BitroyalUserStreamTracker(bitroyal_auth=self._bitroyal_auth, symbols=symbols)
         self._account_balances = {}
         self._account_available_balances = {}
         self._ev_loop = asyncio.get_event_loop()
@@ -184,11 +138,7 @@ cdef class CoinbaseProMarket(MarketBase):
         self._last_order_update_timestamp = 0
         self._poll_interval = poll_interval
         self._in_flight_orders = {}
-<<<<<<< HEAD
-        self._tx_tracker = bitroyalMarketTransactionTracker(self)
-=======
-        self._tx_tracker = CoinbaseProMarketTransactionTracker(self)
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
+        self._tx_tracker = BitroyalMarketTransactionTracker(self)
         self._trading_rules = {}
         self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
@@ -200,24 +150,15 @@ cdef class CoinbaseProMarket(MarketBase):
 
     @property
     def name(self) -> str:
-<<<<<<< HEAD
         return "bitroyal"
-=======
-        return "coinbase_pro"
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
         return self._order_book_tracker.order_books
 
     @property
-<<<<<<< HEAD
-    def bitroyal_auth(self) -> bitroyalAuth:
+    def bitroyal_auth(self) -> BitroyalAuth:
         return self._bitroyal_auth
-=======
-    def coinbase_auth(self) -> CoinbaseProAuth:
-        return self._coinbase_auth
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
 
     @property
     def status_dict(self) -> Dict[str, bool]:
@@ -247,20 +188,12 @@ cdef class CoinbaseProMarket(MarketBase):
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self._in_flight_orders.update({
-<<<<<<< HEAD
-            key: bitroyalInFlightOrder.from_json(value)
-=======
-            key: CoinbaseProInFlightOrder.from_json(value)
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
+            key: BitroyalInFlightOrder.from_json(value)
             for key, value in saved_states.items()
         })
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
-<<<<<<< HEAD
-        return await bitroyalAPIOrderBookDataSource.get_active_exchange_markets()
-=======
-        return await CoinbaseProAPIOrderBookDataSource.get_active_exchange_markets()
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
+        return await BitroyalAPIOrderBookDataSource.get_active_exchange_markets()
 
     def get_all_balances(self) -> Dict[str, float]:
         return self._account_balances.copy()
@@ -327,15 +260,9 @@ cdef class CoinbaseProMarket(MarketBase):
                            data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         assert path_url is not None or url is not None
 
-<<<<<<< HEAD
         url = f"{self.BITROYAL_API_ENDPOINT}{path_url}" if url is None else url
         data_str = "" if data is None else json.dumps(data)
         headers = self.bitroyal_auth.get_headers(http_method, path_url, data_str)
-=======
-        url = f"{self.COINBASE_API_ENDPOINT}{path_url}" if url is None else url
-        data_str = "" if data is None else json.dumps(data)
-        headers = self.coinbase_auth.get_headers(http_method, path_url, data_str)
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
 
         client = await self._http_client()
         async with client.request(http_method,
@@ -353,11 +280,7 @@ cdef class CoinbaseProMarket(MarketBase):
                           double amount,
                           double price):
         # There is no API for checking user's fee tier
-<<<<<<< HEAD
         # Fee info from https://pro.bitroyal.com/fees
-=======
-        # Fee info from https://pro.coinbase.com/fees
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
         cdef:
             double maker_fee = 0.0015
             double taker_fee = 0.0025
@@ -443,9 +366,8 @@ cdef class CoinbaseProMarket(MarketBase):
             # Calculate the newly executed amount for this update.
             new_confirmed_amount = Decimal(order_update["filled_size"])
             execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-            execute_price = s_decimal_0 if new_confirmed_amount == s_decimal_0 \
-                            else Decimal(order_update["executed_value"]) / new_confirmed_amount
-
+            execute_price = s_decimal_0
+            if new_confirmed_amount == s_decimal_0 else Decimal(order_update["executed_value"]) / new_confirmed_amount
             client_order_id = tracked_order.client_order_id
             order_type_description = tracked_order.order_type_description
             order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
@@ -459,15 +381,13 @@ cdef class CoinbaseProMarket(MarketBase):
                     order_type,
                     float(execute_price),
                     float(execute_amount_diff),
-                    self.c_get_fee(
-                          tracked_order.base_asset,
-                          tracked_order.quote_asset,
-                          order_type,
-                          tracked_order.trade_type,
-                          float(execute_price),
-                          float(execute_amount_diff),
-                    )
-                )
+                    self.c_get_fee(tracked_order.base_asset,
+                                   tracked_order.quote_asset,
+                                   order_type,
+                                   tracked_order.trade_type,
+                                   float(execute_price),
+                                   float(execute_amount_diff),
+                                   ))
                 self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                    f"{order_type_description} order {client_order_id}.")
                 self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
@@ -569,11 +489,7 @@ cdef class CoinbaseProMarket(MarketBase):
 
                         if tracked_order.trade_type == TradeType.BUY:
                             self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
-<<<<<<< HEAD
                                                f"according to Bitroyal user stream.")
-=======
-                                               f"according to Coinbase Pro user stream.")
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
                             self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
                                                  BuyOrderCompletedEvent(self._current_timestamp,
                                                                         tracked_order.client_order_id,
@@ -587,11 +503,7 @@ cdef class CoinbaseProMarket(MarketBase):
                                                                         tracked_order.order_type))
                         else:
                             self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
-<<<<<<< HEAD
                                                f"according to Bitroyal user stream.")
-=======
-                                               f"according to Coinbase Pro user stream.")
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
                             self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
                                                  SellOrderCompletedEvent(self._current_timestamp,
                                                                          tracked_order.client_order_id,
@@ -603,11 +515,10 @@ cdef class CoinbaseProMarket(MarketBase):
                                                                          float(tracked_order.executed_amount_quote),
                                                                          float(tracked_order.fee_paid),
                                                                          tracked_order.order_type))
-                    else: # reason == "canceled":
+                    else:  # reason == "canceled":
                         execute_amount_diff = 0
                         tracked_order.last_state = "canceled"
-                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                            OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
+                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG, OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
                         execute_amount_diff = 0
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                 elif event_type == "match":
@@ -633,14 +544,13 @@ cdef class CoinbaseProMarket(MarketBase):
                         tracked_order.order_type,
                         float(execute_price),
                         float(execute_amount_diff),
-                        self.c_get_fee(
-                          tracked_order.base_asset,
-                          tracked_order.quote_asset,
-                          tracked_order.order_type,
-                          tracked_order.trade_type,
-                          float(execute_price),
-                          float(execute_amount_diff),
-                        )
+                        self.c_get_fee(tracked_order.base_asset,
+                                       tracked_order.quote_asset,
+                                       tracked_order.order_type,
+                                       tracked_order.trade_type,
+                                       float(execute_price),
+                                       float(execute_amount_diff),
+                                       )
                     )
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"{order_type_description} order {tracked_order.client_order_id}.")
@@ -704,17 +614,10 @@ cdef class CoinbaseProMarket(MarketBase):
             self.c_stop_tracking_order(order_id)
             order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
             self.logger().network(
-<<<<<<< HEAD
                 f"Error submitting buy {order_type_str} order to Bitroyal for "
                 f"{decimal_amount} {symbol} {price}.",
                 exc_info=True,
                 app_warning_msg="Failed to submit buy order to Bitroyal. "
-=======
-                f"Error submitting buy {order_type_str} order to Coinbase Pro for "
-                f"{decimal_amount} {symbol} {price}.",
-                exc_info=True,
-                app_warning_msg="Failed to submit buy order to Coinbase Pro. "
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
                                 "Check API key and network connection."
             )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
@@ -767,17 +670,10 @@ cdef class CoinbaseProMarket(MarketBase):
             self.c_stop_tracking_order(order_id)
             order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
             self.logger().network(
-<<<<<<< HEAD
                 f"Error submitting sell {order_type_str} order to Bitroyal for "
                 f"{decimal_amount} {symbol} {price}.",
                 exc_info=True,
                 app_warning_msg="Failed to submit sell order to Bitroyal. "
-=======
-                f"Error submitting sell {order_type_str} order to Coinbase Pro for "
-                f"{decimal_amount} {symbol} {price}.",
-                exc_info=True,
-                app_warning_msg="Failed to submit sell order to Coinbase Pro. "
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
                                 "Check API key and network connection."
             )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
@@ -805,11 +701,7 @@ cdef class CoinbaseProMarket(MarketBase):
         except IOError as e:
             if "order not found" in e.message:
                 # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
-<<<<<<< HEAD
                 self.logger().info(f"The order {order_id} does not exist on Bitroyal. No cancellation needed.")
-=======
-                self.logger().info(f"The order {order_id} does not exist on Coinbase Pro. No cancellation needed.")
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
                 self.c_stop_tracking_order(order_id)
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
@@ -820,11 +712,7 @@ cdef class CoinbaseProMarket(MarketBase):
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(e)}",
                 exc_info=True,
-<<<<<<< HEAD
                 app_warning_msg=f"Failed to cancel the order {order_id} on Bitroyal. "
-=======
-                app_warning_msg=f"Failed to cancel the order {order_id} on Coinbase Pro. "
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
                                 f"Check API key and network connection."
             )
         return None
@@ -850,22 +738,14 @@ cdef class CoinbaseProMarket(MarketBase):
             self.logger().network(
                 f"Unexpected error cancelling orders.",
                 exc_info=True,
-<<<<<<< HEAD
                 app_warning_msg="Failed to cancel order on Bitroyal. Check API key and network connection."
-=======
-                app_warning_msg="Failed to cancel order on Coinbase Pro. Check API key and network connection."
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
             )
 
         failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
         return successful_cancellations + failed_cancellations
 
     async def get_active_exchange_markets(self):
-<<<<<<< HEAD
-        return await bitroyalAPIOrderBookDataSource.get_active_exchange_markets()
-=======
-        return await CoinbaseProAPIOrderBookDataSource.get_active_exchange_markets()
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
+        return await BitroyalAPIOrderBookDataSource.get_active_exchange_markets()
 
     async def _status_polling_loop(self):
         while True:
@@ -883,11 +763,7 @@ cdef class CoinbaseProMarket(MarketBase):
                 self.logger().network(
                     "Unexpected error while fetching account updates.",
                     exc_info=True,
-<<<<<<< HEAD
                     app_warning_msg=f"Could not fetch account updates on Bitroyal. "
-=======
-                    app_warning_msg=f"Could not fetch account updates on Coinbase Pro. "
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
                                     f"Check API key and network connection."
                 )
 
@@ -902,11 +778,7 @@ cdef class CoinbaseProMarket(MarketBase):
                 self.logger().network(
                     "Unexpected error while fetching trading rules.",
                     exc_info=True,
-<<<<<<< HEAD
                     app_warning_msg=f"Could not fetch trading rule updates on Bitroyal. "
-=======
-                    app_warning_msg=f"Could not fetch trading rule updates on Coinbase Pro. "
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
                                     f"Check network connection."
                 )
                 await asyncio.sleep(0.5)
@@ -928,7 +800,6 @@ cdef class CoinbaseProMarket(MarketBase):
         result = await self._api_request("get", path_url=path_url)
         return result
 
-<<<<<<< HEAD
     async def list_bitroyal_accounts(self) -> Dict[str, str]:
         path_url = "/bitroyal-accounts"
         bitroyal_accounts = await self._api_request("get", path_url=path_url)
@@ -940,19 +811,6 @@ cdef class CoinbaseProMarket(MarketBase):
         bitroyal_account_id_dict = await self.list_bitroyal_accounts()
         account_id = bitroyal_account_id_dict.get(asset)
         path_url = f"/bitroyal-accounts/{account_id}/addresses"
-=======
-    async def list_coinbase_accounts(self) -> Dict[str, str]:
-        path_url = "/coinbase-accounts"
-        coinbase_accounts = await self._api_request("get", path_url=path_url)
-        ids = [a["id"] for a in coinbase_accounts]
-        currencies = [a["currency"] for a in coinbase_accounts]
-        return dict(zip(currencies, ids))
-
-    async def get_deposit_address(self, asset: str) -> str:
-        coinbase_account_id_dict = await self.list_coinbase_accounts()
-        account_id = coinbase_account_id_dict.get(asset)
-        path_url = f"/coinbase-accounts/{account_id}/addresses"
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
         deposit_result = await self._api_request("post", path_url=path_url)
         return deposit_result.get("address")
 
@@ -970,15 +828,9 @@ cdef class CoinbaseProMarket(MarketBase):
         try:
             withdraw_result = await self._api_request("post", path_url=path_url, data=data)
             self.logger().info(f"Successfully withdrew {amount} of {currency}. {withdraw_result}")
-<<<<<<< HEAD
             # Withdrawing of digital assets from Bitroyal is currently free
             withdraw_fee = 0.0
             # Currently, we assume when bitroyal accepts the API request, the withdraw is valid
-=======
-            # Withdrawing of digital assets from Coinbase Pro is currently free
-            withdraw_fee = 0.0
-            # Currently, we assume when coinbase accepts the API request, the withdraw is valid
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
             # In the future, if the confirmation of the withdrawal becomes more essential,
             # we can perform status check by using self.get_transfers()
             self.c_trigger_event(self.MARKET_WITHDRAW_ASSET_EVENT_TAG,
@@ -988,15 +840,9 @@ cdef class CoinbaseProMarket(MarketBase):
             raise
         except Exception as e:
             self.logger().network(
-<<<<<<< HEAD
                 f"Error sending withdraw request to Bitroyal for {currency}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to issue withdrawal request for {currency} from Bitroyal. "
-=======
-                f"Error sending withdraw request to Coinbase Pro for {currency}.",
-                exc_info=True,
-                app_warning_msg=f"Failed to issue withdrawal request for {currency} from Coinbase Pro. "
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
                                 f"Check API key and network connection."
             )
             self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
@@ -1011,7 +857,6 @@ cdef class CoinbaseProMarket(MarketBase):
 
     cdef double c_get_balance(self, str currency) except? -1:
         return float(self._account_balances.get(currency, 0.0))
-    
     cdef double c_get_available_balance(self, str currency) except? -1:
         return float(self._account_available_balances.get(currency, 0.0))
 
@@ -1035,11 +880,7 @@ cdef class CoinbaseProMarket(MarketBase):
                                 object trade_type,
                                 object price,
                                 object amount):
-<<<<<<< HEAD
-        self._in_flight_orders[client_order_id] = bitroyalInFlightOrder(
-=======
-        self._in_flight_orders[client_order_id] = CoinbaseProInFlightOrder(
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
+        self._in_flight_orders[client_order_id] = BitroyalInFlightOrder(
             client_order_id,
             None,
             symbol,
@@ -1066,11 +907,7 @@ cdef class CoinbaseProMarket(MarketBase):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
 
-<<<<<<< HEAD
         # Bitroyal is using the min_order_size as max_precision
-=======
-        # Coinbase Pro is using the min_order_size as max_precision
->>>>>>> Created bitroyal connector folder and files in hummingbot>market
         # Order size must be a multiple of the min_order_size
         return trading_rule.min_order_size
 
