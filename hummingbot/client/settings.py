@@ -1,7 +1,4 @@
-from os.path import (
-    realpath,
-    join,
-)
+from os.path import realpath, join
 from typing import List
 
 from hummingbot import get_strategy_list
@@ -24,24 +21,12 @@ CONF_FILE_PATH = "conf/"
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
 
-EXCHANGES = {
-    "bamboo_relay",
-    "binance",
-    "coinbase_pro",
-    "ddex",
-    "huobi",
-    "idex",
-    "radar_relay",
-}
+EXCHANGES = {"bamboo_relay", "binance", "coinbase_pro", "ddex", "huobi", "idex", "radar_relay", "bitroyal"}
 
-DEXES = {
-    "bamboo_relay",
-    "ddex",
-    "idex",
-    "radar_relay",
-}
+DEXES = {"bamboo_relay", "ddex", "idex", "radar_relay"}
 
 STRATEGIES: List[str] = get_strategy_list()
+STRATEGIES = {"cross_exchange_market_making", "arbitrage", "discovery", "pure_market_making", "simple_trade"}
 
 EXAMPLE_PAIRS = {
     "binance": "ZRXETH",
@@ -50,7 +35,8 @@ EXAMPLE_PAIRS = {
     "radar_relay": "ZRX-WETH",
     "bamboo_relay": "ZRX-WETH",
     "coinbase_pro": "ETH-USDC",
-    "huobi": "ethusdt"
+    "huobi": "ethusdt",
+    "bitroyal": "ETHUSD"
 }
 
 EXAMPLE_ASSETS = {
@@ -60,7 +46,8 @@ EXAMPLE_ASSETS = {
     "radar_relay": "ZRX",
     "bamboo_relay": "ZRX",
     "coinbase_pro": "ETH",
-    "huobi": "eth"
+    "huobi": "eth",
+    "bitroyal": "ETH"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
