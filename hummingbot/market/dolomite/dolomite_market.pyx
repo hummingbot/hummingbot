@@ -5,7 +5,7 @@ import json
 import time
 import uuid
 import traceback
-from typing import(
+from typing import (
     Any,
     Dict,
     List,
@@ -24,6 +24,9 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.market.dolomite.dolomite_order_book_tracker import DolomiteOrderBookTracker
 from hummingbot.market.dolomite.dolomite_api_order_book_data_source import DolomiteAPIOrderBookDataSource
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
+)
 from hummingbot.core.event.events import (
     MarketEvent,
     BuyOrderCompletedEvent,
@@ -39,7 +42,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.dolomite.dolomite_in_flight_order cimport DolomiteInFlightOrder
-from hummingbot.market.dolomite.dolomite_util cimport (
+from hummingbot.market.dolomite.dolomite_util cimport(
     DolomiteTradingRule,
 )
 from hummingbot.market.dolomite.dolomite_util import (
@@ -52,16 +55,22 @@ from hummingbot.market.dolomite.dolomite_util import (
 s_logger = None
 s_decimal_0 = Decimal(0)
 
+
 def num_d(amount):
     return abs(Decimal(amount).normalize().as_tuple().exponent)
 
+
 def round_d(amount, n):
-    if n < 1: return Decimal(int(amount))
-    quantum = Decimal('0.' + ('0' * (n - 1)) + '1')
-    return Decimal(str(amount)).quantize(quantum, rounding=ROUND_HALF_DOWN).normalize()
+    if n < 1:
+        return Decimal(int(amount))
+    else:
+        quantum = Decimal('0.' + ('0' * (n - 1)) + '1')
+        return Decimal(str(amount)).quantize(quantum, rounding=ROUND_HALF_DOWN).normalize()
+
 
 def now():
     return int(time.time()) * 1000
+
 
 BUY_ORDER_COMPLETED_EVENT = MarketEvent.BuyOrderCompleted.value
 SELL_ORDER_COMPLETED_EVENT = MarketEvent.SellOrderCompleted.value
@@ -71,9 +80,7 @@ ORDER_FILLED_EVENT = MarketEvent.OrderFilled.value
 ORDER_FAILURE_EVENT = MarketEvent.OrderFailure.value
 BUY_ORDER_CREATED_EVENT = MarketEvent.BuyOrderCreated.value
 SELL_ORDER_CREATED_EVENT = MarketEvent.SellOrderCreated.value
-
 API_CALL_TIMEOUT = 10.0
-
 
 # ==========================================================
 
@@ -98,7 +105,6 @@ GET_ORDER_ROUTE = "/v1/orders/:order_id"
 GET_ORDER_FILLS_ROUTE = "/v1/orders/:order_id/fills"
 MAXIMUM_FILL_COUNT = 16
 
-
 cdef class DolomiteMarketTransactionTracker(TransactionTracker):
     cdef:
         DolomiteMarket _owner
@@ -111,15 +117,13 @@ cdef class DolomiteMarketTransactionTracker(TransactionTracker):
         TransactionTracker.c_did_timeout_tx(self, tx_id)
         self._owner.c_did_timeout_tx(tx_id)
 
-
 cdef class DolomiteMarket(MarketBase):
-
     def __init__(self,
                  wallet: Web3Wallet,
                  ethereum_rpc_url: str,
                  poll_interval: float = 10.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                    OrderBookTrackerDataSourceType.EXCHANGE_API,
+                 OrderBookTrackerDataSourceType.EXCHANGE_API,
                  symbols: Optional[List[str]] = None,
                  isTestNet: bool = False,
                  trading_required: bool = True):
@@ -147,13 +151,13 @@ cdef class DolomiteMarket(MarketBase):
 
         # State
         self._account_balances = {}
-        self._available_account_balances = {}
+        self._account_available_balances = {}
         self._trading_rules = {}
         self._exchange_info = None
         self._exchange_rates = None
         self._pending_approval_tx_hashes = set()
+        self._approval_tx_polling_task = None
         self._in_flight_orders = {}
-
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -162,16 +166,13 @@ cdef class DolomiteMarket(MarketBase):
             s_logger = logging.getLogger(__name__)
         return s_logger
 
-
     @property
     def name(self) -> str:
         return "dolomite"
 
-
     @property
     def ready(self) -> bool:
         return all(self.status_dict.values())
-
 
     @property
     def status_dict(self) -> Dict[str, bool]:
@@ -189,13 +190,11 @@ cdef class DolomiteMarket(MarketBase):
     def order_books(self) -> Dict[str, OrderBook]:
         return self._order_book_tracker.order_books
 
-
     cdef OrderBook c_get_order_book(self, str symbol):
         cdef dict order_books = self._order_book_tracker.order_books
         if symbol not in order_books:
             raise ValueError(f"No order book exists for '{symbol}'.")
         return order_books[symbol]
-
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
@@ -209,25 +208,20 @@ cdef class DolomiteMarket(MarketBase):
                 retval.append(dolomite_flight_order.to_limit_order())
         return retval
 
-
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         return await DolomiteAPIOrderBookDataSource.get_active_exchange_markets()
-
 
     # ----------------------------------------
     # Account Balances
 
-    cdef double c_get_balance(self, str currency) except? -1:
+    cdef object c_get_balance(self, str currency):
         return self._account_balances[currency]
 
-
-    cdef double c_get_available_balance(self, str currency) except? -1:
-        return self._available_account_balances[currency]
-
+    cdef object c_get_available_balance(self, str currency):
+        return self._account_available_balances[currency]
 
     def get_all_balances(self) -> Dict[str, float]:
         return self._account_balances
-
 
     # ==========================================================
     # Order Submission
@@ -239,9 +233,9 @@ cdef class DolomiteMarket(MarketBase):
             exchange_info = self._exchange_info
 
             # Check order type support
-            if order_type == OrderType.LIMIT and trading_rule.supports_limit_orders == False:
+            if order_type == OrderType.LIMIT and trading_rule.supports_limit_orders is False:
                 raise ValueError("LIMIT orders are not supported")
-            elif order_type == OrderType.MARKET and trading_rule.supports_market_orders == False:
+            elif order_type == OrderType.MARKET and trading_rule.supports_market_orders is False:
                 raise ValueError("MARKET orders are not supported")
 
             # Calculate amounts and get token info
@@ -257,12 +251,12 @@ cdef class DolomiteMarket(MarketBase):
                 primary_amount = self.c_quantize_order_amount(symbol, Decimal(amount), price)
 
             (__,
-                secondary_amount,
-                fee_amount,
-                num_taker_matches,
-                fee_per_fill,
-                network_fee_premium
-            ) = self.calculate_order_fill_and_fee(symbol, order_type, order_side, primary_amount, price)
+             secondary_amount,
+             fee_amount,
+             num_taker_matches,
+             fee_per_fill,
+             network_fee_premium
+             ) = self.calculate_order_fill_and_fee(symbol, order_type, order_side, primary_amount, price)
 
             if price is None:
                 price = self.c_quantize_order_price(symbol, secondary_amount / primary_amount)
@@ -280,8 +274,8 @@ cdef class DolomiteMarket(MarketBase):
 
             # Get order hash for signing
             dual_auth_wallet = self._web3.eth.account.create()
-            dual_auth_address =  str(dual_auth_wallet.address)
-            dual_auth_private_key =  str(binascii.hexlify(dual_auth_wallet.privateKey).decode("utf-8"))
+            dual_auth_address = str(dual_auth_wallet.address)
+            dual_auth_private_key = str(binascii.hexlify(dual_auth_wallet.privateKey).decode("utf-8"))
 
             unsigned_order = {
                 "owner_address": self._wallet.address,
@@ -295,7 +289,8 @@ cdef class DolomiteMarket(MarketBase):
                 "base_taker_gas_fee_padded_amount": fee_token.pad(fee_per_fill),
                 "taker_gas_fee_premium_padded_amount": fee_token.pad(network_fee_premium),
                 "max_number_of_taker_matches": num_taker_matches,
-                "creation_timestamp": (int(time.time()) - 300) * 1000, # 5 minutes earlier to avoid issue with block times
+                "creation_timestamp": (int(time.time()) - 300) * 1000,
+                # 5 minutes earlier to avoid issue with block times
                 "fee_collecting_wallet_address": exchange_info.fee_collecting_wallet_address,
                 "auth_address": dual_auth_address,
                 "auth_private_key": dual_auth_private_key,
@@ -330,13 +325,16 @@ cdef class DolomiteMarket(MarketBase):
 
             # Begin tracking order
             self.start_tracking(in_flight_order)
-            self.logger().info(f"Created {in_flight_order.description} order {client_order_id} for {primary_amount} {primary_token.ticker}.")
+            self.logger().info(
+                f"Created {in_flight_order.description} order {client_order_id} for {primary_amount} {primary_token.ticker}.")
 
             if order_side is TradeType.BUY:
-                buy_event = BuyOrderCreatedEvent(now(), order_type, symbol, float(primary_amount), float(price), client_order_id)
+                buy_event = BuyOrderCreatedEvent(now(), order_type, symbol, float(primary_amount), float(price),
+                                                 client_order_id)
                 self.c_trigger_event(BUY_ORDER_CREATED_EVENT, buy_event)
             else:
-                sell_event = SellOrderCreatedEvent(now(), order_type, symbol, float(primary_amount), float(price), client_order_id)
+                sell_event = SellOrderCreatedEvent(now(), order_type, symbol, float(primary_amount), float(price),
+                                                   client_order_id)
                 self.c_trigger_event(SELL_ORDER_CREATED_EVENT, sell_event)
 
         except Exception as e:
@@ -351,18 +349,17 @@ cdef class DolomiteMarket(MarketBase):
             self.stop_tracking(client_order_id)
             self.c_trigger_event(ORDER_FAILURE_EVENT, MarketOrderFailureEvent(now(), client_order_id, order_type))
 
-
-    cdef str c_buy(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0, dict kwargs = {}):
+    cdef str c_buy(self, str symbol, object amount, object order_type = OrderType.MARKET, object price = 0.0,
+                   dict kwargs = {}):
         cdef str client_order_id = str(uuid.uuid1())[:8]
-        asyncio.ensure_future(self.place_order(client_order_id, symbol, TradeType.BUY, amount, order_type, price))
+        safe_ensure_future(self.place_order(client_order_id, symbol, TradeType.BUY, amount, order_type, price))
         return client_order_id
 
-
-    cdef str c_sell(self, str symbol, double amount, object order_type = OrderType.MARKET, double price = 0.0, dict kwargs = {}):
+    cdef str c_sell(self, str symbol, object amount, object order_type = OrderType.MARKET, object price = 0.0,
+                    dict kwargs = {}):
         cdef str client_order_id = str(uuid.uuid1())[:8]
-        asyncio.ensure_future(self.place_order(client_order_id, symbol, TradeType.SELL, amount, order_type, price))
+        safe_ensure_future(self.place_order(client_order_id, symbol, TradeType.SELL, amount, order_type, price))
         return client_order_id
-
 
     # ----------------------------------------
     # Cancellation
@@ -395,10 +392,8 @@ cdef class DolomiteMarket(MarketBase):
             self.logger().info(f"Failed to cancel order {client_order_id}")
             self.logger().debug(e)
 
-
     cdef c_cancel(self, str symbol, str client_order_id):
-        asyncio.ensure_future(self.cancel_order(client_order_id))
-
+        safe_ensure_future(self.cancel_order(client_order_id))
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         results = []
@@ -411,19 +406,18 @@ cdef class DolomiteMarket(MarketBase):
                 results.append(CancellationResult(order_id=order_id, success=False))
         return results
 
-
     # ----------------------------------------
     # Estimation
 
     def calculate_order_fill_and_fee(self,
-                      symbol: str,
-                      order_type: OrderType,
-                      order_side: TradeType,
-                      amount: Decimal,
-                      price: Decimal = None) -> (TradeFee, Decimal, Decimal, int, Decimal, Decimal):
-        '''
+                                     symbol: str,
+                                     order_type: OrderType,
+                                     order_side: TradeType,
+                                     amount: Decimal,
+                                     price: Decimal = None) -> (TradeFee, Decimal, Decimal, int, Decimal, Decimal):
+        """
         Returns (_, <fill_amount>, <fee_amount>, <taker_fill_count>, <base_fee_per_fill>, <network_fee_premium>)
-        '''
+        """
         order_book = self.c_get_order_book(symbol)
         exchange_info = self._exchange_info
         trading_rule = self._trading_rules[symbol]
@@ -444,7 +438,8 @@ cdef class DolomiteMarket(MarketBase):
             fill_count = 0 if len(filled_rows) == 0 else MAXIMUM_FILL_COUNT
 
             if fill_count == 0:
-                raise ValueError("Unfillable MARKET order: {order_side} of {amount} {trading_rule.secondary_token.ticker}")
+                raise ValueError(
+                    "Unfillable MARKET order: {order_side} of {amount} {trading_rule.secondary_token.ticker}")
 
             book_query = order_book.get_quote_volume_for_base_amount(order_side is TradeType.BUY, float(amount))
             fill_amount_secondary = self.c_quantize_order_amount(symbol, Decimal(book_query.result_volume))
@@ -462,14 +457,13 @@ cdef class DolomiteMarket(MarketBase):
             trade_fee = TradeFee(percent=taker_fee_percentage, flat_fees=[(fee_token.ticker, float(network_fee))])
             return trade_fee, fill_amount_secondary, fee_amount, fill_count, fee_per_fill, network_fee_premium
 
-
     cdef object c_get_fee(self,
                           str base_currency,
                           str quote_currency,
                           object order_type,
                           object order_side,
-                          double amount,
-                          double price):
+                          object amount,
+                          object price):
         cdef:
             tuple order_fill_and_fee_result = self.calculate_order_fill_and_fee(
                 symbol=f"{base_currency}-{quote_currency}",
@@ -479,11 +473,9 @@ cdef class DolomiteMarket(MarketBase):
                 price=(None if price is None else Decimal(price)))
         return order_fill_and_fee_result[0]
 
-
-    cdef double c_get_price(self, str symbol, bint is_buy) except? -1:
+    cdef object c_get_price(self, str symbol, bint is_buy):
         cdef OrderBook order_book = self.c_get_order_book(symbol)
         return order_book.c_get_price(is_buy)
-
 
     # ==========================================================
     # Runtime
@@ -492,23 +484,23 @@ cdef class DolomiteMarket(MarketBase):
     async def start_network(self):
         if self._order_tracker_task is not None:
             await self.stop_network()
-        self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
-        self._polling_update_task = asyncio.ensure_future(self._polling_update())
+        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._polling_update_task = safe_ensure_future(self._polling_update())
 
         if self._trading_required:
             exchange_info = await self.api_request("GET", EXCHANGE_INFO_ROUTE)
             spender_address = exchange_info["data"]["loopring_delegate_address"]
             tx_hashes = await self.wallet.current_backend.check_and_fix_approval_amounts(spender=spender_address)
             self._pending_approval_tx_hashes.update(tx_hashes)
-
+            self._approval_tx_polling_task = safe_ensure_future(self._approval_tx_polling_loop())
 
     async def stop_network(self):
         if self._order_tracker_task is not None:
             self._order_tracker_task.cancel()
             self._polling_update_task.cancel()
             self._pending_approval_tx_hashes.clear()
-        self._order_tracker_task = self._polling_update_task = None
-
+            self._approval_tx_polling_task.cancel()
+        self._order_tracker_task = self._polling_update_task = self._approval_tx_polling_task = None
 
     async def check_network(self) -> NetworkStatus:
         if self._wallet.network_status is not NetworkStatus.CONNECTED:
@@ -518,14 +510,14 @@ cdef class DolomiteMarket(MarketBase):
             try:
                 await self.api_request("GET", ACCOUNT_INFO_ROUTE.replace(':address', self._wallet.address))
             except Exception:
-                self.logger().info(f"No Dolomite account for {self._wallet.address}. Create an account on the exchange at dolomite.io")
+                self.logger().info(
+                    f"No Dolomite account for {self._wallet.address}. Create an account on the exchange at dolomite.io")
                 return NetworkStatus.NOT_CONNECTED
         except asyncio.CancelledError:
             raise
         except Exception:
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
-
 
     # ----------------------------------------
     # State Management
@@ -537,19 +529,34 @@ cdef class DolomiteMarket(MarketBase):
             for key, value in self._in_flight_orders.items()
         }
 
-
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         for order_id, in_flight_json in saved_states.iteritems():
             self._in_flight_orders[order_id] = DolomiteInFlightOrder.from_json(in_flight_json, self)
 
-
     def start_tracking(self, in_flight_order):
         self._in_flight_orders[in_flight_order.client_order_id] = in_flight_order
-
 
     def stop_tracking(self, client_order_id):
         if client_order_id in self._in_flight_orders:
             del self._in_flight_orders[client_order_id]
+
+    async def _approval_tx_polling_loop(self):
+        while len(self._pending_approval_tx_hashes) > 0:
+            try:
+                if len(self._pending_approval_tx_hashes) > 0:
+                    for tx_hash in list(self._pending_approval_tx_hashes):
+                        receipt = self._w3.eth.getTransactionReceipt(tx_hash)
+                        if receipt is not None:
+                            self._pending_approval_tx_hashes.remove(tx_hash)
+            except Exception:
+                self.logger().network(
+                    "Unexpected error while fetching approval transactions.",
+                    exc_info=True,
+                    app_warning_msg="Could not get token approval status. "
+                                    "Check Ethereum wallet and network connection."
+                )
+            finally:
+                await asyncio.sleep(1.0)
 
     # ----------------------------------------
     # Polling Updates
@@ -572,7 +579,6 @@ cdef class DolomiteMarket(MarketBase):
                 self.logger().warn("Failed to fetch updates on Dolomite. Check network connection.")
                 self.logger().info(e)
 
-
     async def _update_balances(self):
         balances_route = PORTFOLIO_ROUTE.replace(':address', self._wallet.address)
         fee_rebates_route = FEE_REBATE_ROUTE.replace(':address', self._wallet.address)
@@ -594,8 +600,7 @@ cdef class DolomiteMarket(MarketBase):
             available_balances[ticker] = unpad(balance_info["balance"]) - unpad(balance_info["committed"])
 
         self._account_balances = balances
-        self._available_account_balances = available_balances
-
+        self._account_available_balances = available_balances
 
     async def _update_trading_rules(self):
         markets, exchange_info, account_info, raw_rates = await asyncio.gather(
@@ -619,7 +624,6 @@ cdef class DolomiteMarket(MarketBase):
         self._exchange_rates = exchange_rates
         self._trading_rules = trading_rules
 
-
     async def _update_order_status(self):
         tracked_orders = self._in_flight_orders.copy()
 
@@ -627,7 +631,8 @@ cdef class DolomiteMarket(MarketBase):
             dolomite_order_id = tracked_order.exchange_order_id
 
             try:
-                dolomite_order_request = await self.api_request("GET", GET_ORDER_ROUTE.replace(":order_id", dolomite_order_id))
+                dolomite_order_request = await self.api_request("GET",
+                                                                GET_ORDER_ROUTE.replace(":order_id", dolomite_order_id))
                 dolomite_order = dolomite_order_request["data"]
             except Exception:
                 self.logger().warn(f"Failed to fetch tracked Dolomite order {tracked_order.identifier} from api")
@@ -693,12 +698,12 @@ cdef class DolomiteMarket(MarketBase):
                     self.logger().warn(f"The {tracked_order.description} order {client_order_id} has FAILED. "
                                        f"This can occur when on-chain settlement fails and the order cannot be placed again")
                     self.stop_tracking(client_order_id)
-                    self.c_trigger_event(ORDER_FAILURE_EVENT, MarketOrderFailureEvent(now(), client_order_id, tracked_order.order_type))
+                    self.c_trigger_event(ORDER_FAILURE_EVENT,
+                                         MarketOrderFailureEvent(now(), client_order_id, tracked_order.order_type))
 
             except Exception as e:
                 self.logger().warn(f"Failed to update Dolomite order {tracked_order.identifier}")
                 self.logger().debug(e)
-
 
     async def _update_pending_approvals(self):
         if len(self._pending_approval_tx_hashes) > 0:
@@ -711,26 +716,20 @@ cdef class DolomiteMarket(MarketBase):
                 self.logger().warn("Could not get token approval status. Check Ethereum wallet and network connection.")
                 self.logger().debug(e)
 
-
     # ==========================================================
     # Miscellaneous
     # ----------------------------------------------------------
 
-    cdef object c_quantize_order_price(self, str symbol, double price):
-        # TODO get number of decimals for price for symbol (secondary symbol)
-        num_decimals = 4
-        return round_d(amount, num_decimals)
+    cdef object c_quantize_order_price(self, str symbol, object price):
+        return round_d(amount, 4)  # TODO get number of decimals for price for symbol (secondary symbol)
 
-
-    cdef object c_quantize_order_amount(self, str symbol, double amount, double price = 0.0):
-        # TODO get number of decimals for amount for symbol
-        num_decimals = 4
-        return round_d(amount, num_decimals)
+    cdef object c_quantize_order_amount(self, str symbol, object amount, object price = 0.0):
+        return round_d(amount, 4)  # TODO get number of decimals for amount for symbol
 
     cdef c_tick(self, double timestamp):
         cdef:
-            int64_t last_tick = <int64_t>(self._last_timestamp / self._poll_interval)
-            int64_t current_tick = <int64_t>(timestamp / self._poll_interval)
+            int64_t last_tick = <int64_t> (self._last_timestamp / self._poll_interval)
+            int64_t current_tick = <int64_t> (timestamp / self._poll_interval)
 
         self._tx_tracker.c_tick(timestamp)
         MarketBase.c_tick(self, timestamp)
@@ -738,7 +737,6 @@ cdef class DolomiteMarket(MarketBase):
             if not self._poll_notifier.is_set():
                 self._poll_notifier.set()
         self._last_timestamp = timestamp
-
 
     def _sign_timestamp(self):
         timestamp = now()
@@ -751,10 +749,9 @@ cdef class DolomiteMarket(MarketBase):
         }
         return timestamp, signature
 
-
     async def api_request(self, http_method: str, url: str, data: Optional[Dict[str, Any]] = None,
-                           params: Optional[Dict[str, Any]] = None,
-                           headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+                          params: Optional[Dict[str, Any]] = None,
+                          headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
 
         if self._shared_client is None:
             self._shared_client = aiohttp.ClientSession()
@@ -763,7 +760,8 @@ cdef class DolomiteMarket(MarketBase):
             data = json.dumps(data).encode('utf8')
             headers = {"Content-Type": "application/json"}
 
-        async with self._shared_client.request(http_method, url=f"{self.API_REST_ENDPOINT}{url}", timeout=API_CALL_TIMEOUT,
+        async with self._shared_client.request(http_method, url=f"{self.API_REST_ENDPOINT}{url}",
+                                               timeout=API_CALL_TIMEOUT,
                                                data=data, params=params, headers=headers) as response:
             if response.status != 200:
                 self.logger().info("Issue with Dolomite API, response: ")
