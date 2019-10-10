@@ -14,17 +14,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         bint _active_order_canceling
         bint _adjust_orders_enabled
         dict _anti_hysteresis_timers
-        double _min_profitability
-        double _order_size_taker_volume_factor
-        double _order_size_taker_balance_factor
-        double _order_size_portfolio_ratio_limit
+        object _min_profitability
+        object _order_size_taker_volume_factor
+        object _order_size_taker_balance_factor
+        object _order_size_portfolio_ratio_limit
+        object _order_amount
+        object _cancel_order_threshold
+        object _top_depth_tolerance
         double _anti_hysteresis_duration
         double _status_report_interval
         double _last_timestamp
-        double _order_amount
-        double _cancel_order_threshold
         double _limit_order_min_expiration
-        double _top_depth_tolerance
         dict _order_fill_buy_events
         dict _order_fill_sell_events
         dict _suggested_price_samples
@@ -48,11 +48,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef object c_get_market_making_price(self,
                                           object market_pair,
                                           bint is_bid,
-                                          double size)
+                                          object size)
     cdef object c_calculate_effective_hedging_price(self,
                                                     object market_pair,
                                                     bint is_bid,
-                                                    double size)
+                                                    object size)
     cdef bint c_check_if_still_profitable(self,
                                           object market_pair,
                                           LimitOrder active_order,
