@@ -1,12 +1,10 @@
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
-
 cdef class DolomiteMarket(MarketBase):
     cdef:
         str API_REST_ENDPOINT
         str WS_ENDPOINT
-        object _order_book_tracker
         TransactionTracker _tx_tracker
         object _poll_notifier
         double _poll_interval
@@ -18,11 +16,8 @@ cdef class DolomiteMarket(MarketBase):
         public object _order_tracker_task
         public object _polling_update_task
 
-        dict _account_balances
-        dict _available_account_balances
         dict _trading_rules
         object _exchange_info
-        object _exchange_rates     
+        object _exchange_rates
         object _pending_approval_tx_hashes
         dict _in_flight_orders
-        
