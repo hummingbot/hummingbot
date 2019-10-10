@@ -92,6 +92,7 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         elif _is_balance_delta(msg):
             output["event_type"] = "uB"
             output["content"] = _decode_message(msg["M"][0]["A"][0])
+            output["time"] = time.strftime(timestamp_patten, time.gmtime(output["content"]['d']['u'] / 1000))
 
         elif _is_order_delta(msg):
             output["event_type"] = "uO"
@@ -131,7 +132,7 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                             hub.server.invoke("Authenticate", self._bittrex_auth.api_key, signature)
                             continue
 
-                        if content_type in ["uO"]:  # uB: Balance Delta, uO: Order Delta
+                        if content_type in ["uO", "uB"]:  # uB: Balance Delta, uO: Order Delta
                             order_delta: OrderBookMessage = self.order_book_class.diff_message_from_exchange(decode)
                             output.put_nowait(order_delta)
 

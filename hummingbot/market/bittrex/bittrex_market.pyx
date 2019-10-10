@@ -495,9 +495,10 @@ cdef class BittrexMarket(MarketBase):
                 event_type = stream_message.content.get("event_type")
 
                 if event_type == "uB":  # Updates total balance and available balance of specified currency
-                    asset_name = content["C"]
-                    total_balance = content["b"]
-                    available_balance = content["a"]
+                    balance_delta = content["d"]
+                    asset_name = balance_delta["c"]
+                    total_balance = Decimal(balance_delta["b"])
+                    available_balance = Decimal(balance_delta["a"])
                     self._account_available_balances[asset_name] = available_balance
                     self._account_balances[asset_name] = total_balance
                 elif event_type == "uO":  # Updates track order status
