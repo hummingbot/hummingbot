@@ -1,4 +1,6 @@
 import logging
+from decimal import Decimal
+
 import ruamel.yaml
 from os.path import (
     join,
@@ -64,13 +66,19 @@ def parse_cvar_value(cvar: ConfigVar, value: Any) -> Any:
         try:
             return float(value)
         except Exception:
-            logging.getLogger().error(f"\"{value}\" is not an integer.")
+            logging.getLogger().error(f"\"{value}\" is not an integer.", exc_info=True)
             return 0.0
+    elif cvar.type == 'decimal':
+        try:
+            return Decimal(str(value))
+        except Exception:
+            logging.getLogger().error(f"\"{value}\" is not valid decimal.", exc_info=True)
+            return Decimal(0)
     elif cvar.type == 'int':
         try:
             return int(value)
         except Exception:
-            logging.getLogger().error(f"\"{value}\" is not an integer.")
+            logging.getLogger().error(f"\"{value}\" is not an integer.", exc_info=True)
             return 0
     elif cvar.type == 'bool':
         if isinstance(value, str) and value.lower() in ["true", "yes", "y"]:
@@ -201,7 +209,7 @@ def read_configs_from_yml(strategy_file_path: str = None):
                     if cvar is None:
                         logging.getLogger().warning(f"Cannot find corresponding config to key {key}.")
                         continue
-                    cvar.value = val_in_file
+                    cvar.value = parse_cvar_value(cvar, val_in_file)
                     if val_in_file is not None and not cvar.validate(val_in_file):
                         raise ValueError("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
         except Exception as e:
@@ -223,7 +231,10 @@ async def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
             data = yaml_parser.load(stream) or {}
             for key in cm:
                 cvar = cm.get(key)
-                data[key] = cvar.value
+                if type(cvar.value) == Decimal:
+                    data[key] = float(cvar.value)
+                else:
+                    data[key] = cvar.value
             with open(yml_path, "w+") as outfile:
                 yaml_parser.dump(data, outfile)
     except Exception as e:
