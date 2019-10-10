@@ -69,7 +69,7 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self.logger().error(f"Error decoding message", exc_info=True)
                 return {"error": "Error decoding message"}
 
-            return ujson.loads(decode_msg.decode())
+            return ujson.loads(decode_msg.decode(), precise_float=True)
 
         def _is_auth_context(msg):
             return "R" in msg and type(msg["R"]) is not bool and msg["I"] == str(0)
