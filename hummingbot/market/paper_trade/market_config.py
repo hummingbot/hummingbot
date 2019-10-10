@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from collections import namedtuple
+from decimal import Decimal
 from enum import Enum
 
 
@@ -14,13 +15,13 @@ class MarketConfig(namedtuple("_MarketConfig", "buy_fees_asset,"
                                                "sell_fees_asset,"
                                                "sell_fees_amount,")):
     buy_fees_asset: AssetType
-    buy_fees_amount: float
+    buy_fees_amount: Decimal
     sell_fees_asset: AssetType
-    sell_fees_amount: float
+    sell_fees_amount: Decimal
 
     @classmethod
     def default_config(cls) -> "MarketConfig":
-        return MarketConfig(AssetType.BASE_CURRENCY, 0.0, AssetType.QUOTE_CURRENCY, 0.0)
+        return MarketConfig(AssetType.BASE_CURRENCY, Decimal(0.0), AssetType.QUOTE_CURRENCY, Decimal(0.0))
 
     @classmethod
     def create_config(cls, trading_fee: float):

@@ -114,6 +114,9 @@ class ConfigCommand:
         self.placeholder_mode = False
 
         if choice.lower() in {"y", "yes"}:
+            # Clear application states that are specific to config
+            self.starting_balances = {}
+
             if self.strategy:
                 await self.stop_loop()
             if key is None:
