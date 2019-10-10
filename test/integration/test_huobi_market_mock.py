@@ -52,6 +52,7 @@ from hummingbot.model.sql_connection_manager import (
     SQLConnectionType
 )
 from hummingbot.model.trade_fill import TradeFill
+from hummingbot.market.huobi.huobi_order_book import HuobiOrderBook
 from huobi_mock_api import HuobiMockAPI
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
@@ -123,7 +124,7 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
         # replace regular client with test client
         self.market.shared_client: TestClient = self.client
         # replace default data source with mock data source
-        mock_data_source: MockAPIOrderBookDataSource = MockAPIOrderBookDataSource(self.client, ["ethusdt"])
+        mock_data_source: MockAPIOrderBookDataSource = MockAPIOrderBookDataSource(self.client, HuobiOrderBook, ["ethusdt"])
         self.market.order_book_tracker.data_source = mock_data_source
 
         self.clock.add_iterator(self.market)
@@ -384,7 +385,7 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
                 symbols=["ethusdt", "btcusdt"]
             )
             self.market.shared_client: TestClient = self.client
-            mock_data_source: MockAPIOrderBookDataSource = MockAPIOrderBookDataSource(self.client, ["ethusdt"])
+            mock_data_source: MockAPIOrderBookDataSource = MockAPIOrderBookDataSource(self.client, HuobiOrderBook, ["ethusdt"])
             self.market.order_book_tracker.data_source = mock_data_source
 
             for event_tag in self.events:

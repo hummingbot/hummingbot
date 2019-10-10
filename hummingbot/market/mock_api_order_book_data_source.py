@@ -21,7 +21,6 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.huobi.huobi_order_book import HuobiOrderBook
 
 
 class MockAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -37,9 +36,10 @@ class MockAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._maobds_logger = logging.getLogger(__name__)
         return cls._maobds_logger
 
-    def __init__(self, client: TestClient, symbols: Optional[List[str]] = None):
+    def __init__(self, client: TestClient, order_book_class: OrderBook, symbols: Optional[List[str]] = None):
         super().__init__()
         self._client: TestClient = client
+        self._order_book_class = order_book_class
         self._symbols: Optional[List[str]] = symbols
         self._diff_messages: asyncio.Queue = asyncio.Queue()
         self._snapshot_messages: asyncio.Queue = asyncio.Queue()
@@ -68,7 +68,7 @@ class MockAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with client.get("/mockSnapshot") as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
-                raise IOError(f"Error fetching Huobi market snapshot for {trading_pair}. "
+                raise IOError(f"Error fetching market snapshot for {trading_pair}. "
                               f"HTTP status is {response.status}.")
             parsed_response = await response.json()
             return parsed_response
@@ -82,7 +82,7 @@ class MockAPIOrderBookDataSource(OrderBookTrackerDataSource):
         for index, trading_pair in enumerate(trading_pairs):
             try:
                 snapshot: Dict[str, Any] = await self.get_snapshot(self._client, trading_pair)
-                snapshot_msg: OrderBookMessage = HuobiOrderBook.snapshot_message_from_exchange(
+                snapshot_msg: OrderBookMessage = self._order_book_class.snapshot_message_from_exchange(
                     snapshot,
                     metadata={"symbol": trading_pair}
                 )
@@ -91,8 +91,7 @@ class MockAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 retval[trading_pair] = OrderBookTrackerEntry(trading_pair, snapshot_msg.timestamp, order_book)
                 self.logger().info(f"Initialized order book for {trading_pair}. "
                                    f"{index + 1}/{number_of_pairs} completed.")
-                # Huobi rate limit is 100 https requests per 10 seconds
-                await asyncio.sleep(0.4)
+                await asyncio.sleep(0.1)
             except Exception:
                 self.logger().error(f"Error getting snapshot for {trading_pair}. ", exc_info=True)
                 await asyncio.sleep(5)
@@ -132,7 +131,7 @@ class MockAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             msg = await self._diff_messages.get()
-            order_book_message: OrderBookMessage = HuobiOrderBook.diff_message_from_exchange(msg)
+            order_book_message: OrderBookMessage = self._order_book_class.diff_message_from_exchange(msg)
             output.put_nowait(order_book_message)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
@@ -142,7 +141,7 @@ class MockAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 for trading_pair in trading_pairs:
                     try:
                         snapshot: Dict[str, Any] = await self.get_snapshot(self._client, trading_pair)
-                        snapshot_message: OrderBookMessage = HuobiOrderBook.snapshot_message_from_exchange(
+                        snapshot_message: OrderBookMessage = self._order_book_class.snapshot_message_from_exchange(
                             snapshot,
                             metadata={"symbol": trading_pair}
                         )
