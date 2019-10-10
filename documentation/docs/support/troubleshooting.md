@@ -1,194 +1,53 @@
 # Troubleshooting
 
-## Installed with Docker
+Some of the common error messages found when using Hummingbot and how to resolve.
 
-Frequently asked questions and problems that may arise when using Hummingbot with Docker:
+## Installed via Docker
 
-#### How do I find out the name of my hummingbot instance?
-
-Run the following command to list all docker instances you have created:
+#### Permission denied after installation
 
 ```
-docker ps -a
+docker: Got permission denied while trying to connect to the Docker daemon socket at
+unix:///var/run/docker.sock: Post
+http://%2Fvar%2Frun%2Fdocker.sock/v1.39/containers/create?name=hummingbot_instance:
+dial unix /var/run/docker.sock: connect: permission denied.
 ```
 
-#### How do I list all the containers I have created?
+Exit from your virtual machine and restart.
 
-```
-docker ps -a
-```
+#### Package 'docker.io' has no installation candidate
 
-#### How do I check that my Hummingbot instance is running?
+![](/assets/img/package-docker-io.png)
 
-The following command will list all currently running docker containers:
+Install Docker using get.docker.com script as an alternative. Install `curl` tool then download and run get.docker.com script.
 
-```
-docker ps
-```
-
-#### How do I find out where the config and log files are on my local computer?
-
-Run the following command to view the details of your instance:
-
-```
-docker inspect hummingbot-instance
+```bash
+apt-get install curl
+curl -sSL https://get.docker.com/ | sh
 ```
 
-Look for a field `Mounts`, which will describe where the folders are on you local machine:
+Allow docker commands without requiring `sudo` prefix (optional).
 
-```
-"Mounts": [
-    {
-        "Type": "bind",
-        "Source": "/home/ubuntu/hummingbot_files/hummingbot_conf",
-        "Destination": "/conf",
-        "Mode": "",
-        "RW": true,
-        "Propagation": "rprivate"
-    },
-    {
-        "Type": "bind",
-        "Source": "/home/ubuntu/hummingbot_files/hummingbot_logs",
-        "Destination": "/logs",
-        "Mode": "",
-        "RW": true,
-        "Propagation": "rprivate"
-    }
-],
+```bash
+sudo usermod -a -G docker $USER
 ```
 
-#### How do I connect to my Hummingbot instance?
-
-```
-docker attach hummingbot-instance
-```
-
-#### How do I edit the conf files or access the log files used by my docker instance?
-
-You can access the files from your local file system, in the `hummingbot_conf` and `hummingbot_logs` folders on your machine.  The docker instance reads from/writes to these local files.
-
-#### Common Errors with Windows + Docker
-
-Windows users may encounter the following error when running the Docker Toolbox for Windows:
-
-```
-C:\Program Files\Docker Toolbox\docker.exe: Error response from daemon: Get https://registry-1.docker.io/v2/: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers).
-See 'C:\Program Files\Docker Toolbox\docker.exe run --help'.
-```
-
-This appears to be an environment configuration problem. The solution is to refresh the environment settings and restart the environment which can be done with the following commands:
-
-```
-docker-machine restart default      # Restart the environment
-eval $(docker-machine env default)  # Refresh your environment settings
-```
-
-#### How do I copy and paste in Docker Toolbox (Windows)?
-
-By default, the Docker Toolbox has copy and paste disabled within the command line. This can make it difficult to port long API and wallet keys to Hummingbot. However, there is a simple fix which can be enabled as follows:
-
-* Open up the Docker Toolbox via the Quickstart Terminal
-
-![](/assets/img/docker_toolbox_startup.PNG)
-
-* Right-click on the title bar of Toolbox and select "Properties"
-
-![](/assets/img/docker_toolbox_properties.png)
-
-* Check the box under the "Options" tab to enable "Ctrl Key Shortcuts"
-
-![](/assets/img/docker_toolbox_enable.png)
-
-Close any warnings, and you're done! Just hit enter to move onto the next line and you should be able to copy and paste text using **Ctrl+Shift+C** and **Ctrl+Shift+V**.
-
-#### How do I update Hummingbot after I had previously installed using old instructions?
-
-If you have previously installed Hummingbot using Docker and our previous documentation naming conventions, can you copy and paste the following command to update to the latest naming as well as to enable the user scripts:
-
-Copy the commands below and run from the root folder (i.e. when you type `ls`, make sure you see the `my-hummingbot` folder).
-
-***If your previous instance was named `my-hummingbot`*** (check by running `docker ps -a`):
-
-```
-# Remove instance
-docker rm my-hummingbot && \
-# Remove old image
-docker image rm coinalpha/hummingbot:latest && \
-# Rename file folder
-sudo mv my-hummingbot hummingbot_files && \
-# Start new instance
-docker run -it \
---name hummingbot-instance \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
-coinalpha/hummingbot:latest
-```
-
-***If your previous instance was named `my-instance-1`*** (check by running `docker ps -a`):
-
-```
-# Remove instance
-docker rm my-instance-1 && \
-# Remove old image
-docker image rm coinalpha/hummingbot:latest && \
-# Rename file folder
-sudo mv my-hummingbot hummingbot_files && \
-# Start new instance
-docker run -it \
---name hummingbot-instance \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
-coinalpha/hummingbot:latest
-```
-
-You will then be able to use the [automated docker scripts](/cheatsheets/docker/#automated-docker-scripts-optional).
-
+Exit and restart terminal.
 
 ## Installed from source
 
-#### How do I update Hummingbot?
-
-
-Download the latest code from github:
-
-```
-# From the hummingbot root folder:
-git pull origin master
-
-# Recompile the code:
-conda deactivate
-./uninstall
-./clean
-./install
-conda activate hummingbot
-./compile
-bin/hummingbot.py
-```
-
-Alternatively, use our automated script:
-
-```
-# From the *root* folder:
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/update.sh
-chmod a+x update.sh
-./update.sh
-```
-
-#### conda: not found
-
+#### Conda command not found
 
 ```
 $ conda
 -bash: conda: command not found
 ```
 
-If you have just installed conda, close Terminal and reopen a new Terminal to update the command line's program registry.
+If you have just installed conda, close terminal and reopen a new terminal to update the command line's program registry.
 
 If you use `zshrc` or another shell other than `bash`, see the note at the bottom of this section: [install dependencies](/installation/from-source/macos/#part-1-install-dependencies).
 
-#### I can not start Hummingbot
-
-***Error message 1***:
+#### Syntax error invalid syntax
 
 ```
 File "bin/hummingbot.py", line 40
@@ -199,16 +58,123 @@ SyntaxError: invalid syntax
 
 Make sure you have activated the conda environment: `conda activate hummingbot`.
 
-***Error message 2***:
+#### Module not found error
 
 ```
 ModuleNotFoundError: No module named 'hummingbot.market.market_base'
+
+root - ERROR - No module named
+‘hummingbot.strategy.pure_market_making.inventory_skew_single_size_sizing_delegate’
+(See log file for stack trace dump)
 ```
 
-Make sure you have compiled Hummingbot in the Hummingbot environment: `conda activate hummingbot && ./compile`.
+Exit Hummingbot to compile and restart using these commands:
 
+```bash
+conda activate hummingbot
+./compile
+bin/hummingbot.py
+```
 
+## Installed in Windows (Docker Toolbox)
+
+Windows users may encounter the following error when running the Docker Toolbox for Windows:
+
+```
+C:\Program Files\Docker Toolbox\docker.exe:
+Error response from daemon: Get https://registry-1.docker.io/v2/:net/http: request canceled while waiting for connection
+(Client.Timeout exceeded while awaiting headers).
+See 'C:\Program Files\Docker Toolbox\docker.exe run --help'.
+```
+
+This appears to be an environment configuration problem. The solution is to refresh the environment settings and restart the environment which can be done with the following commands:
+
+```bash
+# Restart the environment
+docker-machine restart default
+
+# Refresh your environment settings
+eval $(docker-machine env default)
+```
 
 ## Running Hummingbot
 
-Coming soon.
+#### Binance errors in logs
+
+These are known issues from the Binance API and Hummingbot will attempt to reconnect afterwards.
+
+```
+hummingbot.market.binance.binance_market - NETWORK - Unexpected error while fetching account updates.
+
+AttributeError: 'ConnectionError' object has no attribute 'code'
+AttributeError: 'TimeoutError' object has no attribute 'code'
+
+hummingbot.core.utils.async_call_scheduler - WARNING - API call error:
+('Connection aborted.', OSError("(104, 'ECONNRESET')",))
+
+hummingbot.market.binance.binance_market - NETWORK - Error fetching trades update for the order
+[BASE]USDT: ('Connection aborted.', OSError("(104, 'ECONNRESET')",)).
+```
+
+!!! note
+    Hummingbot should run normally regardless of these errors. If the bot fails to perform or behave as expected (e.g. placing and cancelling orders, performing trades, stuck orders, orders not showing in exchange, etc.) you can get help through our [support channels](/support/index).
+
+
+#### IDEX errors in logs
+
+You may see any of these errors in logs when trading on IDEX market. These are server-side issues on IDEX's end.
+
+```
+OSError: Error fetching data from https://api.idex.market/order.
+
+HTTP status is 400 - {'error': "Cannot destructure property `tier` of 'undefined' or 'null'."}
+HTTP status is 400 - {'error': 'Unauthorized'}
+HTTP status is 400 - {'error': 'Nonce too low. Please refresh and try again.'}
+HTTP status is 500 - {'error': 'Something went wrong. Try again in a moment.'}
+```
+
+!!! note
+    Hummingbot should run normally regardless of these errors. If the bot fails to perform or behave as expected (e.g. placing and cancelling orders, performing trades, stuck orders, orders not showing in exchange, etc.) you can get help through our [support channels](/support/index).
+
+
+#### No orders generated in paper trading mode
+
+Errors will appear if any of the tokens in `maker_market_symbol` and/or `taker_market_symbol` has no balance in the paper trade account.
+
+```
+hummingbot.strategy.pure_market_making.pure_market_making_v2 - ERROR - Unknown error while generating order proposals.
+Traceback (most recent call last):
+  File "pure_market_making_v2.pyx", line 284, in hummingbot.strategy.pure_market_making.pure_market_making_v2.PureMarketMakingStrategyV2.c_tick
+  File "pure_market_making_v2.pyx", line 384, in hummingbot.strategy.pure_market_making.pure_market_making_v2.PureMarketMakingStrategyV2.c_get_orders_proposal_for_market_info
+  File "inventory_skew_multiple_size_sizing_delegate.pyx", line 58, in hummingbot.strategy.pure_market_making.inventory_skew_multiple_size_sizing_delegate.InventorySkewMultipleSizeSizingDelegate.c_get_order_size_proposal
+  File "paper_trade_market.pyx", line 806, in hummingbot.market.paper_trade.paper_trade_market.PaperTradeMarket.c_get_available_balance
+KeyError: 'ZRX'
+
+hummingbot.core.clock - ERROR - Unexpected error running clock tick.
+Traceback (most recent call last):
+  File "clock.pyx", line 119, in hummingbot.core.clock.Clock.run_til
+  File "pure_market_making_v2.pyx", line 292, in hummingbot.strategy.pure_market_making.pure_market_making_v2.PureMarketMakingStrategyV2.c_tick
+  File "pass_through_filter_delegate.pyx", line 22, in hummingbot.strategy.pure_market_making.pass_through_filter_delegate.PassThroughFilterDelegate.c_filter_orders_proposal
+AttributeError: 'NoneType' object has no attribute 'actions'
+```
+
+In this case, ZRX is not yet added to the list. See [this page](/utilities/paper-trade/#account-balance) on how to add balances.
+
+#### Cross-Exchange Market Making error in logs
+
+Errors will appear if the token value is unable to convert `{from_currency}` to `{to_currency}` are not listed on the exchange rate class.
+
+```
+2019-09-30 05:42:42,000 - hummingbot.core.clock - ERROR - Unexpected error running clock tick.
+Traceback (most recent call last):
+  File "clock.pyx", line 119, in hummingbot.core.clock.Clock.run_til
+  File "cross_exchange_market_making.pyx", line 302, in hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making.CrossExchangeMarketMakingStrategy.c_tick
+  File "cross_exchange_market_making.pyx", line 387, in hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making.CrossExchangeMarketMakingStrategy.c_process_market_pair
+  File "cross_exchange_market_making.pyx", line 1088, in hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making.CrossExchangeMarketMakingStrategy.c_check_and_create_new_orders
+  File "cross_exchange_market_making.pyx", line 781, in hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making.CrossExchangeMarketMakingStrategy.c_get_market_making_price
+  File "/hummingbot/core/utils/exchange_rate_conversion.py", line 190, in convert_token_value
+    raise ValueError(f"Unable to convert '{from_currency}' to '{to_currency}'. Aborting.")
+ValueError: Unable to convert 'BTC' to 'BTC'. Aborting.
+```
+
+In this case, BTC is not yet added to the list of exchange rate class. See [this page](/utilities/exchange-rates/#exchange-rate-class) the correct format on adding exchange rate.

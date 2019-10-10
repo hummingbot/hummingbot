@@ -6,7 +6,7 @@ Hummingbot uses a command-line interface (CLI) that helps users configure and ru
 
 ### Installed from Docker
 
-Creating a new instance of Hummingbot with `docker run` will automatically start the Hummingbot client (see Docker installation guides for [Windows](/installation/windows), [Linux](/installation/linux) and [MacOS](/installation/macOS)).
+Creating a new instance of Hummingbot with `docker run` will automatically start the Hummingbot client (see Docker installation guides for [Windows](/installation/via-docker/windows), [Linux](/installation/via-docker/linux) and [MacOS](/installation/via-docker/macOS)).
 
 To run a previously created, stopped container where $NAME is the name of your instance of Hummingbot:
 
@@ -35,8 +35,8 @@ Hummingbot can automatically start the execution of a previously configured trad
 ```bash tab="Docker command"
 docker run -it \
 -e STRATEGY=${STRATEGY} \
--e CONFIG_FILE_NAME=${CONFIG_FILENAME}" \
--e WALLET=${WALLET}
+-e CONFIG_FILE_NAME=${CONFIG_FILENAME} \
+-e WALLET=${WALLET} \
 -e WALLET_PASSWORD=${WALLET_PASSWORD} \
 --name hummingbot-instance \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
@@ -66,18 +66,21 @@ The CLI is divided into three panes:
 
 | Command | Function |
 |---------|----------|
-| `help` | Prints a list of available commands.
-| `start` | Starts the bot. If any configuration settings are missing, it will automatically prompt you for them.
+| `bounty` | Participate in Hummingbot's liquidity bounty program or get bounty status.
 | `config` | Configures or, if a bot is already running, re-configures the bot.
-| `status` | Get a status report about the current bot status.
-| `list` | List wallets, exchanges, configs, and completed trades.<br/><br/>*Example usage: `list [wallets|exchanges|configs|trades]`*
-| `get_balance` | Get the balance of an exchange or wallet, or get the balance of a specific currency in an exchange or wallet.<br/><br/>*Example usage: `get_balance [-c WETH -w|-c ETH -e binance]` to show available WETH balance in the Ethereum wallet and ETH balance in Binance, respectively*.
 | `exit`| Cancels all orders, saves the log, and exits Hummingbot.
-|`exit -f`| Force quit without cancelling orders.
+| `exit -f`| Force quit without cancelling orders.
+| `export_private_key` | Print your Ethereum wallet private key.
+| `export_trades` | Export your trades to a csv file.
+| `get_balance` | Get the balance of an exchange or wallet, or get the balance of a specific currency in an exchange or wallet.<br/><br/>*Example usage: `get_balance [-c WETH -w|-c ETH -e binance]` to show available WETH balance in the Ethereum wallet and ETH balance in Binance, respectively*.
+| `help` | Prints a list of available commands. Adding a command after `help` will display available positional and optional arguments.<br/><br/>*Example: `help bounty` will show how to use the `bounty` command.
+| `history`| Print bot's past trades and performance analytics. For an explanation of how Hummingbot calculates profitability, see our blog [here](https://hummingbot.io/blog/2019-07-measure-performance-crypto-trading/#tldr).
+| `list` | List wallets, exchanges, configs, and completed trades.<br/><br/>*Example usage: `list [wallets|exchanges|configs|trades]`*
+| `paper_trade` | Enable or disable [paper trade mode](/utilities/paper-trade).
+| `start` | Starts the bot. If any configuration settings are missing, it will automatically prompt you for them.
+| `status` | Get a status report about the current bot status.
 | `stop` | Cancels all outstanding orders and stops the bot.
-|`export_private_key`| Print your ethereum wallet private key.
-|`history`| Print bot's past trades and performance analytics. For an explanation of how Hummingbot calculates profitability, see our blog [here](https://hummingbot.io/blog/2019-07-measure-performance-crypto-trading/#tldr).
-|`export_trades`| Export your trades to a csv file.
+
 
 ## Bounty-Related Commands
 

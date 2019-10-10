@@ -22,6 +22,7 @@ from hummingbot.client.settings import (
     STRATEGIES,
 )
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
 from hummingbot.core.utils.kill_switch import KillSwitch
@@ -72,7 +73,7 @@ class StartCommand:
         strategy_name = in_memory_config_map.get("strategy").value
         self.init_reporting_module()
         self._notify(f"\n  Status check complete. Starting '{strategy_name}' strategy...")
-        asyncio.ensure_future(self.start_market_making(strategy_name), loop=self.ev_loop)
+        safe_ensure_future(self.start_market_making(strategy_name), loop=self.ev_loop)
 
     async def start_market_making(self,  # type: HummingbotApplication
                                   strategy_name: str):
@@ -86,7 +87,7 @@ class StartCommand:
 
         try:
             config_path: str = in_memory_config_map.get("strategy_file_path").value
-            self.start_time = time.time() * 1e3 # Time in milliseconds
+            self.start_time = time.time() * 1e3  # Time in milliseconds
             self.clock = Clock(ClockMode.REALTIME)
             if self.wallet is not None:
                 self.clock.add_iterator(self.wallet)
@@ -99,11 +100,12 @@ class StartCommand:
                         await market.cancel_all(5.0)
             if self.strategy:
                 self.clock.add_iterator(self.strategy)
-            self.strategy_task: asyncio.Task = asyncio.ensure_future(self._run_clock(), loop=self.ev_loop)
+            self.strategy_task: asyncio.Task = safe_ensure_future(self._run_clock(), loop=self.ev_loop)
             self._notify(f"\n  '{strategy_name}' strategy started.\n"
                          f"  You can use the `status` command to query the progress.")
 
-            self.starting_balances = await self.wait_till_ready(self.balance_snapshot)
+            if not self.starting_balances:
+                self.starting_balances = await self.wait_till_ready(self.balance_snapshot)
 
             if self._trading_required:
                 self.kill_switch = KillSwitch(self)
