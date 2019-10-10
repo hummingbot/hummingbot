@@ -7,7 +7,7 @@ from typing import (
     Dict,
 )
 from web3 import Web3
-
+from hummingbot.core.utils.async_utils import safe_gather
 
 DDEX_ENDPOINT = "https://api.ddex.io/v3/markets"
 RADAR_RELAY_ENDPOINT = "https://api.radarrelay.com/v2/markets"
@@ -113,7 +113,7 @@ def download_erc20_token_addresses():
         with open(os.path.join(os.path.dirname(__file__), TOKEN_ADDRESS_PATH)) as old_erc20:
             td = json.load(old_erc20)
             old_len = len(td.keys())
-            asyncio.get_event_loop().run_until_complete(asyncio.gather(
+            asyncio.get_event_loop().run_until_complete(safe_gather(
                 download_radar_relay_token_addresses(td),
                 download_ddex_token_addresses(td),
                 download_bamboo_relay_token_addresses(td),

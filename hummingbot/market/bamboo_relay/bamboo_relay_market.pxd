@@ -9,8 +9,6 @@ cdef class BambooRelayMarket(MarketBase):
         object _wallet
         object _provider
         object _weth_token
-        object _order_book_tracker
-        dict _account_balances
         object _ev_loop
         object _poll_notifier
         double _last_timestamp
@@ -65,4 +63,3 @@ cdef class BambooRelayMarket(MarketBase):
     cdef c_expire_order(self, str order_id)
     cdef c_check_and_remove_expired_orders(self)
     cdef c_stop_tracking_order(self, str order_id)
-

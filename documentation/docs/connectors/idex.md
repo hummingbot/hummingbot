@@ -19,6 +19,10 @@ IDEX requires an API key authentication to access API endpoints required for Hum
 
 ## Miscellaneous Info
 
+### Asset Availability for US Markets
+
+IDEX has limit access to certain assets for customers in the US region (see [Updated Asset Availability for US Markets](https://medium.com/idex/idex-kyc-transition-period-and-updated-asset-availability-for-us-markets-set-to-begin-d45e945f842d)).
+
 ### Minimum Order Sizes
 
 For IDEX, maker orders must be at least the equivalent of 0.15 ETH and taker orders must be at least 0.05 ETH. In general, this means that maker orders must be at minimum $40 and taker orders should be greater than $13.

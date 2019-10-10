@@ -62,4 +62,4 @@ In this example, the minimum order size is 0.5 WETH.
 
 ### Transaction Fees
 
-The standard charge for transactions on DDEX is 0.1% for market makers and 0.3% for market takers. However, high volume market makers and hydro protocol token holders can recieve discounted trading fees. More details can be on the DDEX [trading fees page](https://ddex.zendesk.com/hc/en-us/articles/115004535333-DDEX-1-0-Fees-Update).
+The standard charge for transactions on DDEX is 0.1% for market makers and 0.3% for market takers. However, high volume market makers and hydro protocol token holders can receive discounted trading fees. More details can be on the DDEX [trading fees page](https://ddex.zendesk.com/hc/en-us/articles/115004535333-DDEX-1-0-Fees-Update).

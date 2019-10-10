@@ -1,65 +1,79 @@
 # distutils: language=c++
 
 from libc.stdint cimport int64_t
-
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.strategy.strategy_base cimport StrategyBase
-
 from .order_id_market_pair_tracker cimport OrderIDMarketPairTracker
 
 cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef:
-        dict _market_pairs
         set _maker_markets
         set _taker_markets
         bint _all_markets_ready
+        bint _active_order_canceling
+        bint _adjust_orders_enabled
         dict _anti_hysteresis_timers
-        double _min_profitability
-        double _order_size_taker_volume_factor
-        double _order_size_taker_balance_factor
-        double _order_size_portfolio_ratio_limit
+        object _min_profitability
+        object _order_size_taker_volume_factor
+        object _order_size_taker_balance_factor
+        object _order_size_portfolio_ratio_limit
+        object _order_amount
+        object _cancel_order_threshold
+        object _top_depth_tolerance
         double _anti_hysteresis_duration
         double _status_report_interval
         double _last_timestamp
-        double _trade_size_override
-        double _cancel_order_threshold
-        bint _active_order_canceling
+        double _limit_order_min_expiration
         dict _order_fill_buy_events
         dict _order_fill_sell_events
         dict _suggested_price_samples
+        dict _market_pairs
         int64_t _logging_options
         object _exchange_rate_conversion
         OrderIDMarketPairTracker _market_pair_tracker
 
-    cdef c_process_market_pair(self, object market_pair, list active_ddex_orders)
-    cdef c_check_and_hedge_orders(self, object market_pair)
-    cdef object c_get_order_size_after_portfolio_ratio_limit(self, object market_pair, double original_order_size)
-    cdef object c_get_adjusted_limit_order_size(self, object market_pair, double price, double original_order_size)
-    cdef double c_sum_flat_fees(self, str quote_currency, list flat_fees)
-
-    cdef double c_calculate_bid_profitability(self,
-                                              object market_pair,
-                                              double bid_order_size = *)
-    cdef double c_calculate_ask_profitability(self,
-                                              object market_pair,
-                                              double ask_order_size = *)
-    cdef tuple c_calculate_market_making_profitability(self, object market_pair)
-    cdef tuple c_has_market_making_profit_potential(self, object market_pair)
-    cdef tuple c_get_market_making_price_and_size_limit(self,
-                                                        object market_pair,
-                                                        bint is_bid,
-                                                        double own_order_depth=*)
-    cdef double c_calculate_effective_hedging_price(self,
-                                                    OrderBook taker_order_book,
-                                                    bint is_maker_bid,
-                                                    double maker_order_size) except? -1
-    cdef tuple c_get_suggested_price_samples(self, object market_pair)
-    cdef c_take_suggested_price_sample(self, object market_pair, list active_orders)
+    cdef c_process_market_pair(self,
+                               object market_pair,
+                               list active_ddex_orders)
+    cdef c_check_and_hedge_orders(self,
+                                  object market_pair)
+    cdef object c_get_order_size_after_portfolio_ratio_limit(self,
+                                                             object market_pair)
+    cdef object c_get_adjusted_limit_order_size(self,
+                                                object market_pair)
+    cdef object c_get_market_making_size(self,
+                                         object market_pair,
+                                         bint is_bid)
+    cdef object c_get_market_making_price(self,
+                                          object market_pair,
+                                          bint is_bid,
+                                          object size)
+    cdef object c_calculate_effective_hedging_price(self,
+                                                    object market_pair,
+                                                    bint is_bid,
+                                                    object size)
     cdef bint c_check_if_still_profitable(self,
                                           object market_pair,
                                           LimitOrder active_order,
-                                          double current_hedging_price)
-    cdef bint c_check_if_sufficient_balance(self, object market_pair, LimitOrder active_order)
-    cdef bint c_check_if_price_correct(self, object market_pair, LimitOrder active_order, double current_hedging_price)
-    cdef c_check_and_create_new_orders(self, object market_pair, bint has_active_bid, bint has_active_ask)
+                                          object current_hedging_price)
+    cdef bint c_check_if_sufficient_balance(self,
+                                            object market_pair,
+                                            LimitOrder active_order)
+
+    cdef bint c_check_if_price_has_drifted(self,
+                                           object market_pair,
+                                           LimitOrder active_order)
+
+    cdef tuple c_get_top_bid_ask(self,
+                                 object market_pair)
+    cdef tuple c_get_top_bid_ask_from_price_samples(self,
+                                                    object market_pair)
+    cdef tuple c_get_suggested_price_samples(self,
+                                             object market_pair)
+    cdef c_take_suggested_price_sample(self,
+                                       object market_pair)
+    cdef c_check_and_create_new_orders(self,
+                                       object market_pair,
+                                       bint has_active_bid,
+                                       bint has_active_ask)

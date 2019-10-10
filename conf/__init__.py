@@ -45,6 +45,13 @@ coinbase_pro_passphrase = os.getenv("COINBASE_PRO_PASSPHRASE")
 
 # IDEX Tests
 idex_api_key = os.getenv("IDEX_API_KEY")
+test_idex_erc20_token_address_1 = os.getenv("IDEX_TOKEN_ADDRESS_1")
+test_idex_erc20_token_address_2 = os.getenv("IDEX_TOKEN_ADDRESS_2")
+web3_test_private_key_idex = os.getenv("IDEX_WALLET_PRIVATE_KEY")
+
+# Huobi Tests
+huobi_api_key = os.getenv("HUOBI_API_KEY")
+huobi_secret_key = os.getenv("HUOBI_SECRET_KEY")
 
 # Dolomite Tests
 dolomite_test_web3_private_key = os.getenv("DOLOMITE_TEST_PK")
@@ -54,9 +61,9 @@ test_web3_provider_list = [os.getenv("WEB3_PROVIDER")]
 
 # Wallet Tests
 test_erc20_token_address = os.getenv("TEST_ERC20_TOKEN_ADDRESS")
-web3_test_private_key_a = "***REMOVED***"
-web3_test_private_key_b = "***REMOVED***"
-web3_test_private_key_c = "***REMOVED***"
+web3_test_private_key_a = os.getenv("TEST_WALLET_PRIVATE_KEY_A")
+web3_test_private_key_b = os.getenv("TEST_WALLET_PRIVATE_KEY_B")
+web3_test_private_key_c = os.getenv("TEST_WALLET_PRIVATE_KEY_C")
 
 coinalpha_order_book_api_username = "***REMOVED***"
 coinalpha_order_book_api_password = "***REMOVED***"
