@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 import asyncio
+from decimal import Decimal
+
 import aiohttp
 import logging
 import pandas as pd
@@ -75,8 +77,10 @@ class DolomiteAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             field_mapping = {
                 "market": "market",
-                "primary_token": "quoteAsset",
-                "secondary_token": "baseAsset",
+                "primary_token": "baseAsset",
+                "primary_ticker_decimal_places": "int",
+                "secondary_token": "quoteAsset",
+                "secondary_ticker_price_decimal_places": "int",
                 "period_volume": "volume",
                 "period_volume_usd": "USDVolume",
             }
@@ -85,12 +89,12 @@ class DolomiteAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 data=markets_data, index="market", columns=list(field_mapping.keys())
             )
 
-            def obj_to_float(c):
-                return float(c["amount"]) / math.pow(10, c["currency"]["precision"])
+            def obj_to_decimal(c):
+                return Decimal(c["amount"]) / math.pow(10, c["currency"]["precision"])
 
             all_markets.rename(field_mapping, axis="columns", inplace=True)
-            all_markets["USDVolume"] = all_markets["USDVolume"].map(obj_to_float)
-            all_markets["volume"] = all_markets["volume"].map(obj_to_float)
+            all_markets["USDVolume"] = all_markets["USDVolume"].map(obj_to_decimal)
+            all_markets["volume"] = all_markets["volume"].map(obj_to_decimal)
 
             return all_markets.sort_values("USDVolume", ascending=False)
 
