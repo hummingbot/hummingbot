@@ -57,6 +57,12 @@ ETH Address (First 6 digits) | Bugs Reported | Github Issue | Paid?
  0xFcba | Trades for taker market > maker market | [#627](https://github.com/CoinAlpha/hummingbot/issues/627) | Y 
  0x2212 | Bounties "Filled volume" remain constant | [#644](https://github.com/CoinAlpha/hummingbot/issues/644) | Y 
  0xf01E | export_trades command will only export 100 trades | [#677](https://github.com/CoinAlpha/hummingbot/issues/677) | Y 
+ 0x1309 | Discovery fails when processing market pair | [#721](https://github.com/CoinAlpha/hummingbot/issues/721) | Y 
+ 0x2A60 | Stop command causes "cancelled order" | [#723](https://github.com/CoinAlpha/hummingbot/issues/723) | Y 
  0x8950 | Token symbol format for Discovery configuration | [#724](https://github.com/CoinAlpha/hummingbot/issues/724) | Y 
+ 0xd8fb | Bounty Status server error | [#754](https://github.com/CoinAlpha/hummingbot/issues/754) | Y 
+ 0x1D95 | 0 day remote command execution | [#555](https://github.com/CoinAlpha/hummingbot/issues/555) | Y 
+ 0x09B4 | Huobi assets are not displayed when using cross exchange MM | [#826](https://github.com/CoinAlpha/hummingbot/issues/826) | Y  
+ 0xe363 | XEMM not placing orders in empty maker market | [#854](https://github.com/CoinAlpha/hummingbot/issues/854) | Y  
 
 **Happy 🐞 hunting!**
