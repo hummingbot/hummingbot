@@ -10,21 +10,21 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from hummingbot.market.bitroyal.bitroyal_order_book import bitroyalOrderBook
+from hummingbot.market.bitroyal.bitroyal_order_book import BitroyalOrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker_entry import bitroyalOrderBookTrackerEntry, OrderBookTrackerEntry
+from hummingbot.core.data_type.order_book_tracker_entry import BitroyalOrderBookTrackerEntry, OrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.market.bitroyal.bitroyal_active_order_tracker import bitroyalActiveOrderTracker
+from hummingbot.market.bitroyal.bitroyal_active_order_tracker import BitroyalActiveOrderTracker
 
-bitroyal_REST_URL = "https://apicoinmartprod.alphapoint.com:8443/API"
-bitroyal_WS_FEED = "wss://apicoinmartprod.alphapoint.com/WSGateway"
+BITROYAL_REST_URL = "https://apicoinmartprod.alphapoint.com:8443/API"
+BITROYAL_WS_FEED = "wss://apicoinmartprod.alphapoint.com/WSGateway"
 MAX_RETRIES = 20
 NaN = float("nan")
 
 
-class bitroyalAPIOrderBookDataSource(OrderBookTrackerDataSource):
+class BitroyalAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
@@ -45,15 +45,13 @@ class bitroyalAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         """
-        Returns all currently active BTC trading pairs from bitroyal Pro, sorted by volume in descending order.
+        Returns all currently active BTC trading pairs from Bitroyal, sorted by volume in descending order.
         """
         async with aiohttp.ClientSession() as client:
-            async with client.get(f"{bitroyal_REST_URL}/products") as products_response:
+            async with client.get(f"{BITROYAL_REST_URL}/products") as products_response:
                 products_response: aiohttp.ClientResponse = products_response
                 if products_response.status != 200:
-                    raise IOError(
-                        f"Error fetching active bitroyal Pro markets. HTTP status is {products_response.status}."
-                    )
+                    raise IOError(f"Error fetching active Bitroyal markets. HTTP status is {products_response.status}.")
                 data = await products_response.json()
                 all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data, index="id")
                 all_markets.rename(
@@ -63,7 +61,7 @@ class bitroyalAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 volumes: List[float] = []
                 prices: List[float] = []
                 for product_id in ids:
-                    ticker_url: str = f"{bitroyal_REST_URL}/products/{product_id}/ticker"
+                    ticker_url: str = f"{BITROYAL_REST_URL}/products/{product_id}/ticker"
                     should_retry: bool = True
                     retry_counter: int = 0
                     while should_retry:
@@ -77,7 +75,7 @@ class bitroyalAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 prices.append(float(data.get("price", NaN)))
                             elif ticker_response.status != 429 or retry_counter == MAX_RETRIES:
                                 raise IOError(
-                                    f"Error fetching ticker for {product_id} on bitroyal Pro. "
+                                    f"Error fetching ticker for {product_id} on Bitroyal. "
                                     f"HTTP status is {ticker_response.status}."
                                 )
                             await asyncio.sleep(0.5)
@@ -109,8 +107,8 @@ class bitroyalAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 return all_markets.sort_values("USDVolume", ascending=False)
 
     @property
-    def order_book_class(self) -> bitroyalOrderBook:
-        return bitroyalOrderBook
+    def order_book_class(self) -> BitroyalOrderBook:
+        return BitroyalOrderBook
 
     async def get_trading_pairs(self) -> List[str]:
         if not self._symbols:
@@ -128,13 +126,12 @@ class bitroyalAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, any]:
-        product_order_book_url: str = f"{bitroyal_REST_URL}/products/{trading_pair}/book?level=3"
+        product_order_book_url: str = f"{BITROYAL_REST_URL}/products/{trading_pair}/book?level=3"
         async with client.get(product_order_book_url) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(
-                    f"Error fetching bitroyal Pro market snapshot for {trading_pair}. "
-                    f"HTTP status is {response.status}."
+                    f"Error fetching Bitroyal market snapshot for {trading_pair}. " f"HTTP status is {response.status}."
                 )
             data: Dict[str, Any] = await response.json()
             return data
@@ -153,12 +150,12 @@ class bitroyalAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
                         snapshot, snapshot_timestamp, metadata={"symbol": trading_pair}
                     )
-                    order_book: bitroyalOrderBook = bitroyalOrderBook()
-                    active_order_tracker: bitroyalActiveOrderTracker = bitroyalActiveOrderTracker()
+                    order_book: BitroyalOrderBook = BitroyalOrderBook()
+                    active_order_tracker: BitroyalActiveOrderTracker = BitroyalActiveOrderTracker()
                     bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
                     order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
 
-                    retval[trading_pair] = bitroyalOrderBookTrackerEntry(
+                    retval[trading_pair] = BitroyalOrderBookTrackerEntry(
                         trading_pair, snapshot_timestamp, order_book, active_order_tracker
                     )
                     self.logger().info(
@@ -200,7 +197,7 @@ class bitroyalAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trading_pairs: List[str] = await self.get_trading_pairs()
-                async with websockets.connect(bitroyal_WS_FEED) as ws:
+                async with websockets.connect(BITROYAL_WS_FEED) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     subscribe_request: Dict[str, Any] = {
                         "type": "subscribe",
@@ -212,9 +209,9 @@ class bitroyalAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         msg = ujson.loads(raw_msg)
                         msg_type: str = msg.get("type", None)
                         if msg_type is None:
-                            raise ValueError(f"bitroyal Pro Websocket message does not contain a type - {msg}")
+                            raise ValueError(f"Bitroyal Websocket message does not contain a type - {msg}")
                         elif msg_type == "error":
-                            raise ValueError(f"bitroyal Pro Websocket received error message - {msg['message']}")
+                            raise ValueError(f"Bitroyal Websocket received error message - {msg['message']}")
                         elif msg_type in ["open", "match", "change", "done"]:
                             if msg_type == "done" and "price" not in msg:
                                 # done messages with no price are completed market orders which can be ignored
@@ -225,7 +222,7 @@ class bitroyalAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             # these messages are not needed to track the order book
                             continue
                         else:
-                            raise ValueError(f"Unrecognized bitroyal Pro Websocket message received - {msg}")
+                            raise ValueError(f"Unrecognized Bitroyal Websocket message received - {msg}")
             except asyncio.CancelledError:
                 raise
             except Exception:

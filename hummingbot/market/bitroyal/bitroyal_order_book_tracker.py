@@ -10,14 +10,14 @@ from typing import Deque, Dict, List, Optional, Set
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.market.bitroyal.bitroyal_api_order_book_data_source import bitroyalAPIOrderBookDataSource
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType, bitroyalOrderBookMessage
-from hummingbot.core.data_type.order_book_tracker_entry import bitroyalOrderBookTrackerEntry
-from hummingbot.market.bitroyal.bitroyal_order_book import bitroyalOrderBook
-from hummingbot.market.bitroyal.bitroyal_active_order_tracker import bitroyalActiveOrderTracker
+from hummingbot.market.bitroyal.bitroyal_api_order_book_data_source import BitroyalAPIOrderBookDataSource
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType, BitroyalOrderBookMessage
+from hummingbot.core.data_type.order_book_tracker_entry import BitroyalOrderBookTrackerEntry
+from hummingbot.market.bitroyal.bitroyal_order_book import BitroyalOrderBook
+from hummingbot.market.bitroyal.bitroyal_active_order_tracker import BitroyalActiveOrderTracker
 
 
-class bitroyalOrderBookTracker(OrderBookTracker):
+class BitroyalOrderBookTracker(OrderBookTracker):
     _cbpobt_logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -39,16 +39,16 @@ class bitroyalOrderBookTracker(OrderBookTracker):
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._process_msg_deque_task: Optional[asyncio.Task] = None
         self._past_diffs_windows: Dict[str, Deque] = {}
-        self._order_books: Dict[str, bitroyalOrderBook] = {}
-        self._saved_message_queues: Dict[str, Deque[bitroyalOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
-        self._active_order_trackers: Dict[str, bitroyalActiveOrderTracker] = defaultdict(bitroyalActiveOrderTracker)
+        self._order_books: Dict[str, BitroyalOrderBook] = {}
+        self._saved_message_queues: Dict[str, Deque[BitroyalOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
+        self._active_order_trackers: Dict[str, BitroyalActiveOrderTracker] = defaultdict(BitroyalActiveOrderTracker)
         self._symbols: Optional[List[str]] = symbols
 
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
         if not self._data_source:
             if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = bitroyalAPIOrderBookDataSource(symbols=self._symbols)
+                self._data_source = BitroyalAPIOrderBookDataSource(symbols=self._symbols)
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source
@@ -83,13 +83,13 @@ class bitroyalOrderBookTracker(OrderBookTracker):
         tracking_symbols: Set[str] = set(
             [key for key in self._tracking_tasks.keys() if not self._tracking_tasks[key].done()]
         )
-        available_pairs: Dict[str, bitroyalOrderBookTrackerEntry] = await self.data_source.get_tracking_pairs()
+        available_pairs: Dict[str, BitroyalOrderBookTrackerEntry] = await self.data_source.get_tracking_pairs()
         available_symbols: Set[str] = set(available_pairs.keys())
         new_symbols: Set[str] = available_symbols - tracking_symbols
         deleted_symbols: Set[str] = tracking_symbols - available_symbols
 
         for symbol in new_symbols:
-            order_book_tracker_entry: bitroyalOrderBookTrackerEntry = available_pairs[symbol]
+            order_book_tracker_entry: BitroyalOrderBookTrackerEntry = available_pairs[symbol]
             self._active_order_trackers[symbol] = order_book_tracker_entry.active_order_tracker
             self._order_books[symbol] = order_book_tracker_entry.order_book
             self._tracking_message_queues[symbol] = asyncio.Queue()
@@ -114,7 +114,7 @@ class bitroyalOrderBookTracker(OrderBookTracker):
         messages_rejected: int = 0
         while True:
             try:
-                ob_message: bitroyalOrderBookMessage = await self._order_book_diff_stream.get()
+                ob_message: BitroyalOrderBookMessage = await self._order_book_diff_stream.get()
                 symbol: str = ob_message.symbol
                 if symbol not in self._tracking_message_queues:
                     messages_queued += 1
@@ -123,7 +123,7 @@ class bitroyalOrderBookTracker(OrderBookTracker):
                     continue
                 message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
                 # Check the order book's initial update ID. If it's larger, don't bother.
-                order_book: bitroyalOrderBook = self._order_books[symbol]
+                order_book: BitroyalOrderBook = self._order_books[symbol]
 
                 if order_book.snapshot_uid > ob_message.update_id:
                     messages_rejected += 1
@@ -156,20 +156,20 @@ class bitroyalOrderBookTracker(OrderBookTracker):
                 await asyncio.sleep(5.0)
 
     async def _track_single_book(self, symbol: str):
-        past_diffs_window: Deque[bitroyalOrderBookMessage] = deque()
+        past_diffs_window: Deque[BitroyalOrderBookMessage] = deque()
         self._past_diffs_windows[symbol] = past_diffs_window
 
         message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
-        order_book: bitroyalOrderBook = self._order_books[symbol]
-        active_order_tracker: bitroyalActiveOrderTracker = self._active_order_trackers[symbol]
+        order_book: BitroyalOrderBook = self._order_books[symbol]
+        active_order_tracker: BitroyalActiveOrderTracker = self._active_order_trackers[symbol]
 
         last_message_timestamp: float = time.time()
         diff_messages_accepted: int = 0
 
         while True:
             try:
-                message: bitroyalOrderBookMessage = None
-                saved_messages: Deque[bitroyalOrderBookMessage] = self._saved_message_queues[symbol]
+                message: BitroyalOrderBookMessage = None
+                saved_messages: Deque[BitroyalOrderBookMessage] = self._saved_message_queues[symbol]
                 # Process saved messages first if there are any
                 if len(saved_messages) > 0:
                     message = saved_messages.popleft()
@@ -191,7 +191,7 @@ class bitroyalOrderBookTracker(OrderBookTracker):
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                 elif message.type is OrderBookMessageType.SNAPSHOT:
-                    past_diffs: List[bitroyalOrderBookMessage] = list(past_diffs_window)
+                    past_diffs: List[BitroyalOrderBookMessage] = list(past_diffs_window)
                     # only replay diffs later than snapshot, first update active order with snapshot then replay diffs
                     replay_position = bisect.bisect_right(past_diffs, message)
                     replay_diffs = past_diffs[replay_position:]

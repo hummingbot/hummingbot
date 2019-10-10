@@ -37,29 +37,29 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.bitroyal.bitroyal_auth import bitroyalAuth
-from hummingbot.market.bitroyal.bitroyal_order_book_tracker import bitroyalOrderBookTracker
-from hummingbot.market.bitroyal.bitroyal_user_stream_tracker import bitroyalUserStreamTracker
-from hummingbot.market.bitroyal.bitroyal_api_order_book_data_source import bitroyalAPIOrderBookDataSource
+from hummingbot.market.bitroyal.bitroyal_auth import BitroyalAuth
+from hummingbot.market.bitroyal.bitroyal_order_book_tracker import BitroyalOrderBookTracker
+from hummingbot.market.bitroyal.bitroyal_user_stream_tracker import BitroyalUserStreamTracker
+from hummingbot.market.bitroyal.bitroyal_api_order_book_data_source import BitroyalAPIOrderBookDataSource
 from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import (
     MarketBase,
     OrderType,
 )
 from hummingbot.market.trading_rule cimport TradingRule
-from hummingbot.market.bitroyal.bitroyal_in_flight_order import bitroyalInFlightOrder
-from hummingbot.market.bitroyal.bitroyal_in_flight_order cimport bitroyalInFlightOrder
+from hummingbot.market.bitroyal.bitroyal_in_flight_order import BitroyalInFlightOrder
+from hummingbot.market.bitroyal.bitroyal_in_flight_order cimport BitroyalInFlightOrder
 
 
 s_logger = None
 s_decimal_0 = Decimal(0)
 
 
-cdef class bitroyalMarketTransactionTracker(TransactionTracker):
+cdef class BitroyalMarketTransactionTracker(TransactionTracker):
     cdef:
-        bitroyalMarket _owner
+        BitroyalMarket _owner
 
-    def __init__(self, owner: bitroyalMarket):
+    def __init__(self, owner: BitroyalMarket):
         super().__init__()
         self._owner = owner
 
@@ -90,8 +90,7 @@ cdef class InFlightDeposit:
         self.has_tx_receipt = False
 
     def __repr__(self) -> str:
-        return f"InFlightDeposit(tracking_id='{self.tracking_id}', timestamp_ms={self.timestamp_ms}, " \
-        f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
+        return f"InFlightDeposit(tracking_id='{self.tracking_id}', timestamp_ms={self.timestamp_ms}, " \f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
 
 
 cdef class BitroyalMarket(MarketBase):
@@ -122,19 +121,15 @@ cdef class BitroyalMarket(MarketBase):
     def __init__(self,
                  bitroyal_api_key: str,
                  bitroyal_secret_key: str,
-                 bitroyal_passphrase: str,
                  poll_interval: float = 5.0,
-                 order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                    OrderBookTrackerDataSourceType.EXCHANGE_API,
+                 order_book_tracker_data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
                  symbols: Optional[List[str]] = None,
                  trading_required: bool = True):
         super().__init__()
         self._trading_required = trading_required
-        self._bitroyal_auth = bitroyalAuth(bitroyal_api_key, bitroyal_secret_key, bitroyal_passphrase)
-        self._order_book_tracker = bitroyalOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                               symbols=symbols)
-        self._user_stream_tracker = bitroyalUserStreamTracker(bitroyal_auth=self._bitroyal_auth,
-                                                                 symbols=symbols)
+        self._bitroyal_auth = BitroyalAuth(bitroyal_api_key, bitroyal_secret_key)
+        self._order_book_tracker = BitroyalOrderBookTracker(data_source_type=order_book_tracker_data_source_type, symbols=symbols)
+        self._user_stream_tracker = BitroyalUserStreamTracker(bitroyal_auth=self._bitroyal_auth, symbols=symbols)
         self._account_balances = {}
         self._account_available_balances = {}
         self._ev_loop = asyncio.get_event_loop()
@@ -143,7 +138,7 @@ cdef class BitroyalMarket(MarketBase):
         self._last_order_update_timestamp = 0
         self._poll_interval = poll_interval
         self._in_flight_orders = {}
-        self._tx_tracker = bitroyalMarketTransactionTracker(self)
+        self._tx_tracker = BitroyalMarketTransactionTracker(self)
         self._trading_rules = {}
         self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
@@ -162,7 +157,7 @@ cdef class BitroyalMarket(MarketBase):
         return self._order_book_tracker.order_books
 
     @property
-    def bitroyal_auth(self) -> bitroyalAuth:
+    def bitroyal_auth(self) -> BitroyalAuth:
         return self._bitroyal_auth
 
     @property
@@ -193,12 +188,12 @@ cdef class BitroyalMarket(MarketBase):
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self._in_flight_orders.update({
-            key: bitroyalInFlightOrder.from_json(value)
+            key: BitroyalInFlightOrder.from_json(value)
             for key, value in saved_states.items()
         })
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await bitroyalAPIOrderBookDataSource.get_active_exchange_markets()
+        return await BitroyalAPIOrderBookDataSource.get_active_exchange_markets()
 
     def get_all_balances(self) -> Dict[str, float]:
         return self._account_balances.copy()
@@ -285,7 +280,6 @@ cdef class BitroyalMarket(MarketBase):
                           double amount,
                           double price):
         # There is no API for checking user's fee tier
-        # Fee info from https://pro.bitroyal.com/fees
         cdef:
             double maker_fee = 0.0015
             double taker_fee = 0.0025
@@ -371,31 +365,12 @@ cdef class BitroyalMarket(MarketBase):
             # Calculate the newly executed amount for this update.
             new_confirmed_amount = Decimal(order_update["filled_size"])
             execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-            execute_price = s_decimal_0 if new_confirmed_amount == s_decimal_0 \
-                            else Decimal(order_update["executed_value"]) / new_confirmed_amount
-
-            client_order_id = tracked_order.client_order_id
+            execute_price = s_decimal_0 if new_confirmed_amount == s_decimal_0 else Decimal(order_update["executed_value"]) / new_confirmed_amountclient_order_id = tracked_order.client_order_id
             order_type_description = tracked_order.order_type_description
             order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
             # Emit event if executed amount is greater than 0.
             if execute_amount_diff > s_decimal_0:
-                order_filled_event = OrderFilledEvent(
-                    self._current_timestamp,
-                    tracked_order.client_order_id,
-                    tracked_order.symbol,
-                    tracked_order.trade_type,
-                    order_type,
-                    float(execute_price),
-                    float(execute_amount_diff),
-                    self.c_get_fee(
-                          tracked_order.base_asset,
-                          tracked_order.quote_asset,
-                          order_type,
-                          tracked_order.trade_type,
-                          float(execute_price),
-                          float(execute_amount_diff),
-                    )
-                )
+                order_filled_event = OrderFilledEvent(self._current_timestamp, tracked_order.client_order_id, tracked_order.symbol, tracked_order.trade_type, order_type, float(execute_price), float(execute_amount_diff), self.c_get_fee(tracked_order.base_asset, tracked_order.quote_asset, order_type, tracked_order.trade_type, float(execute_price), float(execute_amount_diff),))
                 self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                    f"{order_type_description} order {client_order_id}.")
                 self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
@@ -523,11 +498,10 @@ cdef class BitroyalMarket(MarketBase):
                                                                          float(tracked_order.executed_amount_quote),
                                                                          float(tracked_order.fee_paid),
                                                                          tracked_order.order_type))
-                    else: # reason == "canceled":
+                    else:       # reason == "canceled":
                         execute_amount_diff = 0
                         tracked_order.last_state = "canceled"
-                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                            OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
+                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG, OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
                         execute_amount_diff = 0
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                 elif event_type == "match":
@@ -553,14 +527,7 @@ cdef class BitroyalMarket(MarketBase):
                         tracked_order.order_type,
                         float(execute_price),
                         float(execute_amount_diff),
-                        self.c_get_fee(
-                          tracked_order.base_asset,
-                          tracked_order.quote_asset,
-                          tracked_order.order_type,
-                          tracked_order.trade_type,
-                          float(execute_price),
-                          float(execute_amount_diff),
-                        )
+                        self.c_get_fee(tracked_order.base_asset, tracked_order.quote_asset, tracked_order.order_type, tracked_order.trade_type, float(execute_price), float(execute_amount_diff), )
                     )
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"{order_type_description} order {tracked_order.client_order_id}.")
@@ -755,7 +722,7 @@ cdef class BitroyalMarket(MarketBase):
         return successful_cancellations + failed_cancellations
 
     async def get_active_exchange_markets(self):
-        return await bitroyalAPIOrderBookDataSource.get_active_exchange_markets()
+        return await BitroyalAPIOrderBookDataSource.get_active_exchange_markets()
 
     async def _status_polling_loop(self):
         while True:
@@ -867,7 +834,7 @@ cdef class BitroyalMarket(MarketBase):
 
     cdef double c_get_balance(self, str currency) except? -1:
         return float(self._account_balances.get(currency, 0.0))
-    
+
     cdef double c_get_available_balance(self, str currency) except? -1:
         return float(self._account_available_balances.get(currency, 0.0))
 
@@ -891,7 +858,7 @@ cdef class BitroyalMarket(MarketBase):
                                 object trade_type,
                                 object price,
                                 object amount):
-        self._in_flight_orders[client_order_id] = bitroyalInFlightOrder(
+        self._in_flight_orders[client_order_id] = BitroyalInFlightOrder(
             client_order_id,
             None,
             symbol,
