@@ -43,6 +43,7 @@ DEXES = {
 }
 
 STRATEGIES: List[str] = get_strategy_list()
+STRATEGIES = {"cross_exchange_market_making", "arbitrage", "discovery", "pure_market_making", "simple_trade"}
 
 EXAMPLE_PAIRS = {
     "binance": "ZRXETH",
@@ -51,9 +52,13 @@ EXAMPLE_PAIRS = {
     "radar_relay": "ZRX-WETH",
     "bamboo_relay": "ZRX-WETH",
     "coinbase_pro": "ETH-USDC",
+<<<<<<< HEAD
     "dolomite": "WETH-DAI",
     "huobi": "ethusdt",
     "bittrex": "ZRX-ETH",
+=======
+    "huobi": "ethusdt",
+>>>>>>> resolved conflict in settings.py
     "bitroyal": "ETHUSD"
 }
 
@@ -65,8 +70,11 @@ EXAMPLE_ASSETS = {
     "bamboo_relay": "ZRX",
     "coinbase_pro": "ETH",
     "huobi": "eth",
+<<<<<<< HEAD
     "dolomite": "LRC",
     "bittrex": "ZRX",
+=======
+>>>>>>> resolved conflict in settings.py
     "bitroyal": "ETH"
 }
 

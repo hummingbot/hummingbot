@@ -4,37 +4,32 @@ import asyncio
 import aiohttp
 import logging
 import pandas as pd
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional,
-)
+from typing import Any, AsyncIterable, Dict, List, Optional
 import time
 import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+<<<<<<< HEAD:hummingbot/market/coinbase_pro/coinbase_pro_api_order_book_data_source.py
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
+=======
+from hummingbot.market.bitroyal.bitroyal_order_book import bitroyalOrderBook
+>>>>>>> resolved conflict in settings.py:hummingbot/market/bitroyal/bitroyal_api_order_book_data_source.py
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker_entry import (
-    CoinbaseProOrderBookTrackerEntry,
-    OrderBookTrackerEntry
-)
+from hummingbot.core.data_type.order_book_tracker_entry import bitroyalOrderBookTrackerEntry, OrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.market.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
+from hummingbot.market.bitroyal.bitroyal_active_order_tracker import bitroyalActiveOrderTracker
 
-COINBASE_REST_URL = "https://api.pro.coinbase.com"
-COINBASE_WS_FEED = "wss://ws-feed.pro.coinbase.com"
+bitroyal_REST_URL = "https://api.pro.bitroyal.com"
+bitroyal_WS_FEED = "wss://ws-feed.pro.bitroyal.com"
 MAX_RETRIES = 20
 NaN = float("nan")
 
 
-class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
+class bitroyalAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
@@ -55,23 +50,30 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         """
+<<<<<<< HEAD:hummingbot/market/coinbase_pro/coinbase_pro_api_order_book_data_source.py
         *required
         Returns all currently active BTC trading pairs from Coinbase Pro, sorted by volume in descending order.
+=======
+        Returns all currently active BTC trading pairs from bitroyal Pro, sorted by volume in descending order.
+>>>>>>> resolved conflict in settings.py:hummingbot/market/bitroyal/bitroyal_api_order_book_data_source.py
         """
         async with aiohttp.ClientSession() as client:
-            async with client.get(f"{COINBASE_REST_URL}/products") as products_response:
+            async with client.get(f"{bitroyal_REST_URL}/products") as products_response:
                 products_response: aiohttp.ClientResponse = products_response
                 if products_response.status != 200:
-                    raise IOError(f"Error fetching active Coinbase Pro markets. HTTP status is {products_response.status}.")
+                    raise IOError(
+                        f"Error fetching active bitroyal Pro markets. HTTP status is {products_response.status}."
+                    )
                 data = await products_response.json()
                 all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data, index="id")
-                all_markets.rename({"base_currency": "baseAsset", "quote_currency": "quoteAsset"},
-                                   axis="columns", inplace=True)
+                all_markets.rename(
+                    {"base_currency": "baseAsset", "quote_currency": "quoteAsset"}, axis="columns", inplace=True
+                )
                 ids: List[str] = list(all_markets.index)
                 volumes: List[float] = []
                 prices: List[float] = []
                 for product_id in ids:
-                    ticker_url: str = f"{COINBASE_REST_URL}/products/{product_id}/ticker"
+                    ticker_url: str = f"{bitroyal_REST_URL}/products/{product_id}/ticker"
                     should_retry: bool = True
                     retry_counter: int = 0
                     while should_retry:
@@ -84,8 +86,10 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 volumes.append(float(data.get("volume", NaN)))
                                 prices.append(float(data.get("price", NaN)))
                             elif ticker_response.status != 429 or retry_counter == MAX_RETRIES:
-                                raise IOError(f"Error fetching ticker for {product_id} on Coinbase Pro. "
-                                              f"HTTP status is {ticker_response.status}.")
+                                raise IOError(
+                                    f"Error fetching ticker for {product_id} on bitroyal Pro. "
+                                    f"HTTP status is {ticker_response.status}."
+                                )
                             await asyncio.sleep(0.5)
                 all_markets["volume"] = volumes
                 all_markets["price"] = prices
@@ -114,6 +118,13 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 all_markets["USDVolume"] = usd_volume
                 return all_markets.sort_values("USDVolume", ascending=False)
 
+<<<<<<< HEAD:hummingbot/market/coinbase_pro/coinbase_pro_api_order_book_data_source.py
+=======
+    @property
+    def order_book_class(self) -> bitroyalOrderBook:
+        return bitroyalOrderBook
+
+>>>>>>> resolved conflict in settings.py:hummingbot/market/bitroyal/bitroyal_api_order_book_data_source.py
     async def get_trading_pairs(self) -> List[str]:
         """
         Get a list of active trading pairs
@@ -130,22 +141,28 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().network(
                     f"Error getting active exchange information.",
                     exc_info=True,
-                    app_warning_msg=f"Error getting active exchange information. Check network connection."
+                    app_warning_msg=f"Error getting active exchange information. Check network connection.",
                 )
         return self._symbols
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, any]:
+<<<<<<< HEAD:hummingbot/market/coinbase_pro/coinbase_pro_api_order_book_data_source.py
         """
         Fetches order book snapshot for a particular trading pair from the rest API
         :returns: Response from the rest API
         """
         product_order_book_url: str = f"{COINBASE_REST_URL}/products/{trading_pair}/book?level=3"
+=======
+        product_order_book_url: str = f"{bitroyal_REST_URL}/products/{trading_pair}/book?level=3"
+>>>>>>> resolved conflict in settings.py:hummingbot/market/bitroyal/bitroyal_api_order_book_data_source.py
         async with client.get(product_order_book_url) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
-                raise IOError(f"Error fetching Coinbase Pro market snapshot for {trading_pair}. "
-                              f"HTTP status is {response.status}.")
+                raise IOError(
+                    f"Error fetching bitroyal Pro market snapshot for {trading_pair}. "
+                    f"HTTP status is {response.status}."
+                )
             data: Dict[str, Any] = await response.json()
             return data
 
@@ -166,6 +183,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 try:
                     snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
                     snapshot_timestamp: float = time.time()
+<<<<<<< HEAD:hummingbot/market/coinbase_pro/coinbase_pro_api_order_book_data_source.py
                     snapshot_msg: OrderBookMessage = CoinbaseProOrderBook.snapshot_message_from_exchange(
                         snapshot,
                         snapshot_timestamp,
@@ -173,28 +191,34 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     )
                     order_book: OrderBook = self.order_book_create_function()
                     active_order_tracker: CoinbaseProActiveOrderTracker = CoinbaseProActiveOrderTracker()
+=======
+                    snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                        snapshot, snapshot_timestamp, metadata={"symbol": trading_pair}
+                    )
+                    order_book: bitroyalOrderBook = bitroyalOrderBook()
+                    active_order_tracker: bitroyalActiveOrderTracker = bitroyalActiveOrderTracker()
+>>>>>>> resolved conflict in settings.py:hummingbot/market/bitroyal/bitroyal_api_order_book_data_source.py
                     bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
                     order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
 
-                    retval[trading_pair] = CoinbaseProOrderBookTrackerEntry(
-                        trading_pair,
-                        snapshot_timestamp,
-                        order_book,
-                        active_order_tracker
+                    retval[trading_pair] = bitroyalOrderBookTrackerEntry(
+                        trading_pair, snapshot_timestamp, order_book, active_order_tracker
                     )
-                    self.logger().info(f"Initialized order book for {trading_pair}. "
-                                       f"{index+1}/{number_of_pairs} completed.")
+                    self.logger().info(
+                        f"Initialized order book for {trading_pair}. " f"{index+1}/{number_of_pairs} completed."
+                    )
                     await asyncio.sleep(0.6)
                 except IOError:
                     self.logger().network(
                         f"Error getting snapshot for {trading_pair}.",
                         exc_info=True,
-                        app_warning_msg=f"Error getting snapshot for {trading_pair}. Check network connection."
+                        app_warning_msg=f"Error getting snapshot for {trading_pair}. Check network connection.",
                     )
                 except Exception:
                     self.logger().error(f"Error initializing order book for {trading_pair}. ", exc_info=True)
             return retval
 
+<<<<<<< HEAD:hummingbot/market/coinbase_pro/coinbase_pro_api_order_book_data_source.py
     async def _inner_messages(self,
                               ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         """
@@ -202,6 +226,9 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :param ws: current web socket connection
         :returns: message in AsyncIterable format
         """
+=======
+    async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+>>>>>>> resolved conflict in settings.py:hummingbot/market/bitroyal/bitroyal_api_order_book_data_source.py
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
@@ -236,21 +263,21 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trading_pairs: List[str] = await self.get_trading_pairs()
-                async with websockets.connect(COINBASE_WS_FEED) as ws:
+                async with websockets.connect(bitroyal_WS_FEED) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     subscribe_request: Dict[str, Any] = {
                         "type": "subscribe",
                         "product_ids": trading_pairs,
-                        "channels": ["full"]
+                        "channels": ["full"],
                     }
                     await ws.send(ujson.dumps(subscribe_request))
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
                         msg_type: str = msg.get("type", None)
                         if msg_type is None:
-                            raise ValueError(f"Coinbase Pro Websocket message does not contain a type - {msg}")
+                            raise ValueError(f"bitroyal Pro Websocket message does not contain a type - {msg}")
                         elif msg_type == "error":
-                            raise ValueError(f"Coinbase Pro Websocket received error message - {msg['message']}")
+                            raise ValueError(f"bitroyal Pro Websocket received error message - {msg['message']}")
                         elif msg_type in ["open", "match", "change", "done"]:
                             if msg_type == "done" and "price" not in msg:
                                 # done messages with no price are completed market orders which can be ignored
@@ -261,7 +288,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             # these messages are not needed to track the order book
                             continue
                         else:
-                            raise ValueError(f"Unrecognized Coinbase Pro Websocket message received - {msg}")
+                            raise ValueError(f"Unrecognized bitroyal Pro Websocket message received - {msg}")
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -269,7 +296,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     f"Unexpected error with WebSocket connection.",
                     exc_info=True,
                     app_warning_msg=f"Unexpected error with WebSocket connection. Retrying in 30 seconds. "
-                                    f"Check network connection."
+                    f"Check network connection.",
                 )
                 await asyncio.sleep(30.0)
 
@@ -288,10 +315,15 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         try:
                             snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
                             snapshot_timestamp: float = time.time()
+<<<<<<< HEAD:hummingbot/market/coinbase_pro/coinbase_pro_api_order_book_data_source.py
                             snapshot_msg: OrderBookMessage = CoinbaseProOrderBook.snapshot_message_from_exchange(
                                 snapshot,
                                 snapshot_timestamp,
                                 metadata={"product_id": trading_pair}
+=======
+                            snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                                snapshot, snapshot_timestamp, metadata={"product_id": trading_pair}
+>>>>>>> resolved conflict in settings.py:hummingbot/market/bitroyal/bitroyal_api_order_book_data_source.py
                             )
                             output.put_nowait(snapshot_msg)
                             self.logger().debug(f"Saved order book snapshot for {trading_pair}")
@@ -304,7 +336,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 f"Unexpected error with WebSocket connection.",
                                 exc_info=True,
                                 app_warning_msg=f"Unexpected error with WebSocket connection. Retrying in 5 seconds. "
-                                                f"Check network connection."
+                                f"Check network connection.",
                             )
                             await asyncio.sleep(5.0)
                     this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
