@@ -608,13 +608,13 @@ class Web3WalletBackend(PubSub):
 
         contract_func = self._weth_token.contract.functions.deposit()
         self.logger().info(f"Wrapping {amount} ether from wallet address {self.address}.")
-        return self.execute_transaction(contract_func, value=int(amount * 1e18))
+        return self.execute_transaction(contract_func, value=int(amount * 10**18))
 
     def unwrap_eth(self, amount: Decimal) -> str:
         if self._weth_token is None:
             raise EnvironmentError("No WETH token address was used to initialize this wallet.")
 
-        contract_func = self._weth_token.contract.functions.withdraw(int(amount * 1e18))
+        contract_func = self._weth_token.contract.functions.withdraw(int(amount * 10**18))
         self.logger().info(f"Unwrapping {amount} ether from wallet address {self.address}.")
         return self.execute_transaction(contract_func)
 
