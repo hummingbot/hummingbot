@@ -176,7 +176,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             async with timeout(SNAPSHOT_TIMEOUT):
                 while True:
                     msg: Dict[str, any] = self._snapshot_msg.pop(trading_pair, None)
-                    if msg and msg["timestamp"] > invoke_timestamp:
+                    if msg and msg["timestamp"] >= invoke_timestamp:
                         return msg["content"]
                     await asyncio.sleep(1)
         except asyncio.TimeoutError:
@@ -194,8 +194,9 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             # Creates/Reuses connection to obtain a single snapshot of the trading_pair
             connection, hub = await self.websocket_connection()
             hub.server.invoke("queryExchangeState", trading_pair)
-            self.logger().info(f"Query {trading_pair} snapshots. {get_snapshot_attempts}/{MAX_RETRIES}")
             invoke_timestamp = int(time.time())
+            self.logger().info(f"Query {trading_pair} snapshot[{invoke_timestamp}]. "
+                               f"{get_snapshot_attempts}/{MAX_RETRIES}")
 
             try:
                 return await self.wait_for_snapshot(temp_trading_pair, invoke_timestamp)
