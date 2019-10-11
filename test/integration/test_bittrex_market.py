@@ -140,8 +140,8 @@ class BittrexMarketUnitTest(unittest.TestCase):
         amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
-        current_bid_price: float = self.market.get_price(symbol, True)
-        bid_price: Decimal = Decimal(current_bid_price + 0.005 * current_bid_price)
+        current_bid_price: Decimal = self.market.get_price(symbol, True)
+        bid_price: Decimal = current_bid_price + Decimal(0.005) * current_bid_price
         quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
         order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
@@ -149,16 +149,16 @@ class BittrexMarketUnitTest(unittest.TestCase):
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
                                                 if isinstance(t, OrderFilledEvent)]
-        base_amount_traded: float = sum(t.amount for t in trade_events)
-        quote_amount_traded: float = sum(t.amount * t.price for t in trade_events)
+        base_amount_traded: Decimal = sum(t.amount for t in trade_events)
+        quote_amount_traded: Decimal = sum(t.amount * t.price for t in trade_events)
 
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertAlmostEqual(float(quantized_amount), order_completed_event.base_asset_amount)
+        self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
         self.assertEqual("LTC", order_completed_event.base_asset)
         self.assertEqual("ETH", order_completed_event.quote_asset)
-        self.assertAlmostEqual(base_amount_traded, float(order_completed_event.base_asset_amount))
-        self.assertAlmostEqual(quote_amount_traded, float(order_completed_event.quote_asset_amount))
+        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
+        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
         # Reset the logs
@@ -168,8 +168,8 @@ class BittrexMarketUnitTest(unittest.TestCase):
         symbol = "LTC-ETH"
         amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
-        current_ask_price: float = self.market.get_price(symbol, False)
-        ask_price: Decimal = Decimal(current_ask_price - 0.005 * current_ask_price)
+        current_ask_price: Decimal = self.market.get_price(symbol, False)
+        ask_price: Decimal = current_ask_price - Decimal(0.005) * current_ask_price
         quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price)
 
         order_id = self.market.sell(symbol, amount, OrderType.LIMIT, quantize_ask_price)
@@ -181,11 +181,11 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertAlmostEqual(float(quantized_amount), order_completed_event.base_asset_amount)
+        self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
         self.assertEqual("LTC", order_completed_event.base_asset)
         self.assertEqual("ETH", order_completed_event.quote_asset)
-        self.assertAlmostEqual(base_amount_traded, float(order_completed_event.base_asset_amount))
-        self.assertAlmostEqual(quote_amount_traded, float(order_completed_event.quote_asset_amount))
+        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
+        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
         # Reset the logs
@@ -202,16 +202,16 @@ class BittrexMarketUnitTest(unittest.TestCase):
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
                                                 if isinstance(t, OrderFilledEvent)]
-        base_amount_traded: float = sum(t.amount for t in trade_events)
-        quote_amount_traded: float = sum(t.amount * t.price for t in trade_events)
+        base_amount_traded: Decimal = sum(t.amount for t in trade_events)
+        quote_amount_traded: Decimal = sum(t.amount * t.price for t in trade_events)
 
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertAlmostEqual(float(quantized_amount), order_completed_event.base_asset_amount)
+        self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
         self.assertEqual("LTC", order_completed_event.base_asset)
         self.assertEqual("ETH", order_completed_event.quote_asset)
-        self.assertAlmostEqual(base_amount_traded, float(order_completed_event.base_asset_amount))
-        self.assertAlmostEqual(quote_amount_traded, float(order_completed_event.quote_asset_amount))
+        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
+        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
         # Reset the logs
@@ -232,24 +232,23 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertAlmostEqual(float(quantized_amount), order_completed_event.base_asset_amount)
+        self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
         self.assertEqual("LTC", order_completed_event.base_asset)
         self.assertEqual("ETH", order_completed_event.quote_asset)
-        self.assertAlmostEqual(base_amount_traded, float(order_completed_event.base_asset_amount))
-        self.assertAlmostEqual(quote_amount_traded, float(order_completed_event.quote_asset_amount))
+        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
+        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
         # Reset the logs
         self.market_logger.clear()
 
     def test_cancel_order(self):
-        self.assertGreater(self.market.get_balance("ETH"), 1)
         symbol = "XRP-ETH"
 
-        current_bid_price: float = self.market.get_price(symbol, True)
-        amount: Decimal = Decimal(1 / current_bid_price)
+        current_bid_price: Decimal = self.market.get_price(symbol, True)
+        amount: Decimal = Decimal(0.1) / current_bid_price
 
-        bid_price: Decimal = Decimal(current_bid_price - 0.1 * current_bid_price)
+        bid_price: Decimal = current_bid_price - Decimal(0.1) * current_bid_price
         quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
@@ -262,16 +261,16 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
     def test_cancel_all(self):
         symbol = "XRP-ETH"
-        bid_price: float = self.market.get_price(symbol, True) * 0.5
-        ask_price: float = self.market.get_price(symbol, False) * 2
-        bid_amount: Decimal = Decimal(1 / bid_price)
+        bid_price: Decimal = self.market.get_price(symbol, True) * Decimal(0.5)
+        ask_price: Decimal = self.market.get_price(symbol, False) * Decimal(2)
+        bid_amount: Decimal = Decimal(0.01) / bid_price
         ask_amount: Decimal = Decimal('3.64495247')  # Min. trade size in XRP-ETH as of 30 Sep 2019
         quantized_bid_amount: Decimal = self.market.quantize_order_amount(symbol, bid_amount)
         quantized_ask_amount: Decimal = self.market.quantize_order_amount(symbol, ask_amount)
 
         # Intentionally setting invalid price to prevent getting filled
-        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, Decimal(bid_price * 0.7))
-        quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, Decimal(ask_price * 1.5))
+        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, Decimal(bid_price * Decimal(0.7)))
+        quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, Decimal(ask_price * Decimal(1.5)))
 
         self.market.buy(symbol, quantized_bid_amount, OrderType.LIMIT, quantize_bid_price)
         self.market.sell(symbol, quantized_ask_amount, OrderType.LIMIT, quantize_ask_price)
@@ -287,8 +286,8 @@ class BittrexMarketUnitTest(unittest.TestCase):
         amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
-        current_bid_price: float = self.market.get_price(symbol, True)
-        bid_price: Decimal = Decimal(0.7 * current_bid_price)
+        current_bid_price: Decimal = self.market.get_price(symbol, True)
+        bid_price: Decimal = Decimal(0.7) * current_bid_price
         quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
         self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
@@ -335,7 +334,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
             self.assertEqual(0, len(self.market.tracking_states))
 
             # Try to put limit buy order for 0.04 ETH, and watch for order creation event.
-            current_bid_price: float = self.market.get_price(symbol, True)
+            current_bid_price: Decimal = self.market.get_price(symbol, True)
             bid_price: Decimal = Decimal(current_bid_price * 0.8)
             quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
