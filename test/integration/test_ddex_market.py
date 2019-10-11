@@ -310,7 +310,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
         self.assertTrue(all([evt.order_type == OrderType.MARKET for evt in order_filled_events]))
         self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
+        self.assertEqual(float(quantized_amount), order_completed_event.base_asset_amount)
         self.assertEqual("HOT", order_completed_event.base_asset)
         self.assertEqual("WETH", order_completed_event.quote_asset)
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
