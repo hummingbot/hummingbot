@@ -351,7 +351,7 @@ cdef class BittrexMarket(MarketBase):
                     self.c_stop_tracking_order(client_order_id)
                     self.logger().network(
                         f"Error fetching status update for the order {client_order_id}: "
-                        f"{order}",
+                        f"{tracked_order}",
                         app_warning_msg=f"Could not fetch updates for the order {client_order_id}. "
                                         f"Check API key and network connection."
                     )
@@ -427,7 +427,8 @@ cdef class BittrexMarket(MarketBase):
                     )
                     self.c_stop_tracking_order(client_order_id)
                     self.logger().network(
-                        f"Error fetching status update for the order {client_order_id}",
+                        f"Error fetching status update for the order {client_order_id}: "
+                        f"{tracked_order}",
                         app_warning_msg=f"Could not fetch updates for the order {client_order_id}. "
                                         f"Check API key and network connection."
                     )
@@ -436,9 +437,9 @@ cdef class BittrexMarket(MarketBase):
                 order_state = order["status"]
                 order_type = "LIMIT" if tracked_order.order_type is OrderType.LIMIT else "MARKET"
                 trade_type = "BUY" if tracked_order.trade_type is TradeType.BUY else "SELL"
-                tracked_order.last_state = order_state
                 if order_state == "CLOSED":
                     if order["quantity"] == order["fillQuantity"]:  # Order COMPLETED
+                        tracked_order.last_state = "CLOSED"
                         self.logger().info(f"The {order_type}-{trade_type} "
                                            f"{client_order_id} has completed according to Bittrex order status API.")
 
@@ -467,6 +468,7 @@ cdef class BittrexMarket(MarketBase):
                                                      tracked_order.fee_paid,
                                                      tracked_order.order_type))
                     else:  # Order PARTIAL-CANCEL or CANCEL
+                        tracked_order.last_state = "CANCELLED"
                         self.logger().info(f"The {tracked_order.order_type}-{tracked_order.trade_type} "
                                            f"{client_order_id} has been cancelled according to Bittrex order status API.")
                         self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
@@ -903,11 +905,11 @@ cdef class BittrexMarket(MarketBase):
                 raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
 
             exchange_order_id = order_result["id"]
-
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None and exchange_order_id:
                 tracked_order.update_exchange_order_id(exchange_order_id)
-                self.logger().info(f"Created {order_type} sell order {order_id} for "
+                order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+                self.logger().info(f"Created {order_type_str} sell order {order_id} for "
                                    f"{decimal_amount} {symbol}.")
                 self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
                                      SellOrderCreatedEvent(
