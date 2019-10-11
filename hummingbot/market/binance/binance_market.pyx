@@ -806,7 +806,7 @@ cdef class BinanceMarket(MarketBase):
         withdraw_fee = self._withdraw_rules[currency].withdraw_fee if currency in self._withdraw_rules else s_decimal_0
         self.c_trigger_event(self.MARKET_WITHDRAW_ASSET_EVENT_TAG,
                              MarketWithdrawAssetEvent(self._current_timestamp, tracking_id, to_address, currency,
-                                                      decimal_amount, withdraw_fee))
+                                                      amount, withdraw_fee))
 
     cdef str c_withdraw(self, str address, str currency, object amount):
         cdef:

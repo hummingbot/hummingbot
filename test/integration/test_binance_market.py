@@ -276,26 +276,29 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
     @unittest.skipUnless(any("test_withdraw" in arg for arg in sys.argv), "Withdraw test requires manual action.")
     def test_withdraw(self):
+        # ZRX_ABI contract file can be found in
+        # https://etherscan.io/address/0xe41d2489571d322189246dafa5ebde1f4699f498#code
         with open(realpath(join(__file__, "../../../data/ZRXABI.json"))) as fd:
             zrx_abi: str = fd.read()
+
         local_wallet: MockWallet = MockWallet(conf.web3_test_private_key_a,
-                                              MAINNET_RPC_URL,
+                                              conf.test_web3_provider_list[0],
                                               {"0xE41d2489571d322189246DaFA5ebDe1F4699F498": zrx_abi},
                                               chain_id=1)
 
         # Ensure the market account has enough balance for withdraw testing.
-        self.assertGreaterEqual(self.market.get_balance("ZRX"), Decimal(10))
+        self.assertGreaterEqual(self.market.get_balance("ZRX"), Decimal('10'))
 
         # Withdraw ZRX from Binance to test wallet.
-        self.market.withdraw(local_wallet.address, "ZRX", 10)
+        self.market.withdraw(local_wallet.address, "ZRX", Decimal('10'))
         [withdraw_asset_event] = self.run_parallel(
             self.market_logger.wait_for(MarketWithdrawAssetEvent)
         )
         withdraw_asset_event: MarketWithdrawAssetEvent = withdraw_asset_event
         self.assertEqual(local_wallet.address, withdraw_asset_event.to_address)
         self.assertEqual("ZRX", withdraw_asset_event.asset_name)
-        self.assertEqual(10, withdraw_asset_event.amount)
-        self.assertGreater(withdraw_asset_event.fee_amount, 0)
+        self.assertEqual(Decimal('10'), withdraw_asset_event.amount)
+        self.assertGreater(withdraw_asset_event.fee_amount, Decimal(0))
 
     def test_cancel_all(self):
         symbol = "ZRXETH"
