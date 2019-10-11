@@ -423,7 +423,6 @@ cdef class IDEXMarket(MarketBase):
                                   headers=headers_with_ua,
                                   json=json) as response:
             data = await response.json()
-            self.logger().error(f"Error fetching data from {url}. HTTP status is {response.status} - {data}")
             if response.status != 200:
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status} - {data}")
             # Keep an auto-expired record of the response and the request URL for debugging and logging purpose.
