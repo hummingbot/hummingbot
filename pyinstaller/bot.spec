@@ -7,6 +7,7 @@ from PyInstaller.building.build_main import (
     COLLECT,
 )
 import os
+import platform
 import re
 from typing import (
     List,
@@ -50,7 +51,9 @@ def enumerate_data_files(path: str, pattern: str) -> Iterable[Tuple[str, str]]:
                 yield src_path, dst_dir
 
 
+
 if "SPEC" in globals():
+    system_type: str = platform.system()
     block_cipher = None
 
     hidden_imports: List[str] = list(enumerate_modules(os.path.join(project_path(), "hummingbot")))
@@ -62,13 +65,19 @@ if "SPEC" in globals():
 
     datas: List[Tuple[str, str]] = list(enumerate_data_files(
         os.path.join(project_path(), "hummingbot"),
-        r"(.+\.json|\/VERSION|templates\/.+\.yml)$"
+        r"(.+\.json|(?:\/|\\)VERSION|templates(?:\/|\\).+\.yml)$"
     ))
     datas.extend([(_strptime.__file__, ".")])
 
+    binaries: List[Tuple[str, str]] = []
+    if system_type == "Windows":
+       import coincurve
+       binaries.extend([(os.path.realpath(os.path.join(coincurve.__file__, "../libsecp256k1.dll")), "coincurve")])
+
+
     a = Analysis([os.path.join(project_path(), "bin/bot")],
                  pathex=[project_path()],
-                 binaries=[],
+                 binaries=binaries,
                  datas=datas,
                  hiddenimports=hidden_imports,
                  hookspath=[],
