@@ -331,7 +331,7 @@ cdef class BittrexMarket(MarketBase):
             for tracked_order in tracked_orders:
                 exchange_order_id = await tracked_order.get_exchange_order_id()
                 client_order_id = tracked_order.client_order_id
-                order = await self.get_order(exchange_order_id)
+                order = open_orders.get(exchange_order_id)
 
                 if order is None:  # Handles order that are currently tracked but no longer open in exchange
                     self._order_not_found_records[client_order_id] = \
@@ -409,7 +409,7 @@ cdef class BittrexMarket(MarketBase):
             for tracked_order in tracked_orders:
                 exchange_order_id = await tracked_order.get_exchange_order_id()
                 client_order_id = tracked_order.client_order_id
-                order = await self.get_order(exchange_order_id)
+                order = open_orders.get(exchange_order_id)
 
                 if order is None:  # Handles order that are currently tracked but no longer open in exchange
                     self._order_not_found_records[client_order_id] = \
@@ -427,8 +427,7 @@ cdef class BittrexMarket(MarketBase):
                     )
                     self.c_stop_tracking_order(client_order_id)
                     self.logger().network(
-                        f"Error fetching status update for the order {client_order_id}: "
-                        f"{order}",
+                        f"Error fetching status update for the order {client_order_id}",
                         app_warning_msg=f"Could not fetch updates for the order {client_order_id}. "
                                         f"Check API key and network connection."
                     )
@@ -770,6 +769,14 @@ cdef class BittrexMarket(MarketBase):
 
         try:
             order_result = None
+            self.c_start_tracking_order(
+                order_id,
+                None,
+                symbol, order_type,
+                TradeType.BUY,
+                decimal_price,
+                decimal_amount
+            )
             if order_type is OrderType.LIMIT:
 
                 order_result = await self.place_order(order_id,
@@ -791,28 +798,22 @@ cdef class BittrexMarket(MarketBase):
                 raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
 
             exchange_order_id = order_result["id"]
-            self.c_start_tracking_order(
-                order_id,
-                exchange_order_id,
-                symbol, order_type,
-                TradeType.BUY,
-                decimal_price,
-                decimal_amount
-            )
+
             tracked_order = self._in_flight_orders.get(order_id)
-            if tracked_order is not None:
+            if tracked_order is not None and exchange_order_id:
+                tracked_order.update_exchange_order_id(exchange_order_id)
                 order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
                 self.logger().info(f"Created {order_type_str} buy order {order_id} for "
                                    f"{decimal_amount} {symbol}")
-            self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
-                                 BuyOrderCreatedEvent(
-                                     self._current_timestamp,
-                                     order_type,
-                                     symbol,
-                                     decimal_amount,
-                                     decimal_price,
-                                     order_id
-                                 ))
+                self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
+                                     BuyOrderCreatedEvent(
+                                         self._current_timestamp,
+                                         order_type,
+                                         symbol,
+                                         decimal_amount,
+                                         decimal_price,
+                                         order_id
+                                     ))
 
         except asyncio.CancelledError:
             raise
@@ -823,7 +824,7 @@ cdef class BittrexMarket(MarketBase):
             order_type_str = "LIMIT" if order_type is OrderType.LIMIT else "MARKET"
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Bittrex for "
-                f"{decimal_amount} {symbol}"
+                f"{decimal_amount} {symbol} "
                 f"{decimal_price}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit buy order to Bittrex. Check API key and network connection."
@@ -872,6 +873,17 @@ cdef class BittrexMarket(MarketBase):
 
         try:
             order_result = None
+
+            self.c_start_tracking_order(
+                order_id,
+                None,
+                symbol,
+                order_type,
+                TradeType.SELL,
+                decimal_price,
+                decimal_amount
+            )
+
             if order_type is OrderType.LIMIT:
                 order_result = await self.place_order(order_id,
                                                       symbol,
@@ -891,29 +903,21 @@ cdef class BittrexMarket(MarketBase):
                 raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
 
             exchange_order_id = order_result["id"]
-            self.c_start_tracking_order(
-                order_id,
-                exchange_order_id,
-                symbol,
-                order_type,
-                TradeType.SELL,
-                decimal_price,
-                decimal_amount
-            )
 
             tracked_order = self._in_flight_orders.get(order_id)
-            if tracked_order is not None:
+            if tracked_order is not None and exchange_order_id:
+                tracked_order.update_exchange_order_id(exchange_order_id)
                 self.logger().info(f"Created {order_type} sell order {order_id} for "
                                    f"{decimal_amount} {symbol}.")
-            self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
-                                 SellOrderCreatedEvent(
-                                     self._current_timestamp,
-                                     order_type,
-                                     symbol,
-                                     decimal_amount,
-                                     decimal_price,
-                                     order_id
-                                 ))
+                self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
+                                     SellOrderCreatedEvent(
+                                         self._current_timestamp,
+                                         order_type,
+                                         symbol,
+                                         decimal_amount,
+                                         decimal_price,
+                                         order_id
+                                     ))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -923,7 +927,7 @@ cdef class BittrexMarket(MarketBase):
             order_type_str = "LIMIT" if order_type is OrderType.LIMIT else "MARKET"
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Bittrex for "
-                f"{decimal_amount} {symbol}"
+                f"{decimal_amount} {symbol} "
                 f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit sell order to Bittrex. Check API key and network connection."
@@ -945,14 +949,14 @@ cdef class BittrexMarket(MarketBase):
         return order_id
 
     async def execute_cancel(self, symbol: str, order_id: str):
-        tracked_order = self._in_flight_orders.get(order_id)
-        if tracked_order is None:
-            self.logger().error(f"The order {order_id} is not tracked. ")
-            raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-
-        path_url = f"/orders/{tracked_order.exchange_order_id}"
-
         try:
+            tracked_order = self._in_flight_orders.get(order_id)
+
+            if tracked_order is None:
+                self.logger().error(f"The order {order_id} is not tracked. ")
+                raise ValueError
+            path_url = f"/orders/{tracked_order.exchange_order_id}"
+
             cancel_result = await self._api_request("DELETE", path_url=path_url)
             if cancel_result["status"] == "CLOSED":
                 self.logger().info(f"Successfully cancelled order {order_id}.")
@@ -961,7 +965,9 @@ cdef class BittrexMarket(MarketBase):
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
-        except IOError as err:
+        except asyncio.CancelledError:
+            raise
+        except Exception as err:
             if "NOT_FOUND" in str(err):
                 # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
                 self.logger().info(f"The order {order_id} does not exist on Bittrex. No cancellation needed.")
@@ -969,9 +975,7 @@ cdef class BittrexMarket(MarketBase):
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
-        except asyncio.CancelledError:
-            raise
-        except Exception as err:
+
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(err)}.",
                 exc_info=True,
@@ -1000,7 +1004,6 @@ cdef class BittrexMarket(MarketBase):
         except Exception:
             self.logger().network(
                 f"Unexpected error cancelling orders.",
-                exc_info=True,
                 app_warning_msg="Failed to cancel order on Bittrex. Check API key and network connection."
             )
 
