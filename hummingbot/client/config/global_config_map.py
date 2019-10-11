@@ -99,9 +99,10 @@ global_config_map = {
                   required_if=lambda: True),
     "paper_trade_account_balance":
         ConfigVar(key="paper_trade_account_balance",
-                  prompt="Enter paper trade balance settings [[asset, balance], etc.] >>> ",
+                  prompt="Enter paper trade balance settings (Input must be valid json: "
+                         "e.g. [[\"ETH\", 10.0], [\"USDC\", 100]]) >>> ",
                   required_if=lambda: False,
-                  type_str="list",
+                  type_str="json",
                   default=[["USDT", 3000],
                            ["ONE", 1000],
                            ["BTC", 1],
@@ -181,9 +182,9 @@ global_config_map = {
                   default=False),
     "exchange_rate_conversion":
         ConfigVar(key="exchange_rate_conversion",
-                  prompt="Enter your custom exchange rate conversion settings >>> ",
+                  prompt="Enter your custom exchange rate conversion settings (Input must be valid json) >>> ",
                   required_if=lambda: False,
-                  type_str="list",
+                  type_str="json",
                   default=[["USD", 1.0, "manual"],
                            ["DAI", 1.0, "coin_gecko_api"],
                            ["USDT", 1.0, "coin_gecko_api"],
