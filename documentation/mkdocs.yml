@@ -158,6 +158,7 @@ nav:
           - Pure Market Making: developers/strategies/pure-market-making.md
           - Discovery: developers/strategies/discovery.md
           - Perform Trade: developers/strategies/perform-trade.md
+          - Tutorial : developers/strategies/tutorial.md
         - Connectors:
           - Adding Connectors: developers/connectors/index.md
           - Adding Connectors to Other Blockchains: developers/connectors/new-blockchain.md
