@@ -41,19 +41,19 @@ The following walks through all the steps when running `config` for the first ti
 
   | Prompt | Description |
 |-----|-----|
-| `What is your market making strategy >>>`: | Enter `pure_market_making`. <br/><br/>Currently available options: `arbitrage` or `cross_exchange_market_making` or `pure_market_making` or `discovery` or `simple_trade`  *(case sensitive)* |
-| `Import previous configs or create a new config file? (import/create) >>>`: | When running the bot for the first time, enter `create`.<br/>If you have previously initialized, enter `import`, which will then ask you to specify the config file location. |
-| `Enter your maker exchange name >>>`: | The exchange where the bot will place bid and ask orders.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, `bamboo_relay`, or `huobi` *(case sensitive)* |
-| `Enter the token symbol you would like to trade on [maker exchange name] >>>`: | Enter the token symbol for the *maker exchange*.<br/>Example input: `ETH-USD`<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Options available are based on each exchange's methodology for labeling currency pairs. Ensure that the pair is a valid pair for the selected exchange.</td></tr></tbody></table> |
-| `Enter quantity of orders per side (bid/ask) (single/multiple, default is single)>>> `: | `single` or `multiple`<br />Specify if you would like a single order per side (i.e. one bid and one ask), or multiple orders each side.<br /><br />Multiple allows for different prices and sizes for each side. See [additional configuration for multiple orders](#multiple-order-configuration). |
-| `How far away from the mid price do you want to place the first bid (Enter 0.01 to indicate 1%)? >>>`: | This sets `bid_place_threshold` (see [definition](#configuration-parameters)). |
-| `How far away from the mid price do you want to place the first ask (Enter 0.01 to indicate 1%)? >>>`: | This sets `ask_place_threshold` (see [definition](#configuration-parameters)). |
-| `How often do you want to cancel and replace bids and asks (in seconds)? >>>`: | This sets the `cancel_order_wait_time` (see [definition](#configuration-parameters)). |
-| `What is your preferred quantity per order (denominated in the base asset, default is 1)? >>>`: | This sets `order_amount` (see [definition](#configuration-parameters)). |
+| `What is your market making strategy >>>` | Enter `pure_market_making`. <br/><br/>Currently available options: `arbitrage` or `cross_exchange_market_making` or `pure_market_making` or `discovery` or `simple_trade`  *(case sensitive)* |
+| `Import previous configs or create a new config file? (import/create) >>>` | When running the bot for the first time, enter `create`.<br/>If you have previously initialized, enter `import`, which will then ask you to specify the config file location. |
+| `Enter your maker exchange name >>>` | The exchange where the bot will place bid and ask orders.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, `bamboo_relay`, or `huobi` *(case sensitive)* |
+| `Enter the token symbol you would like to trade on [maker exchange name] >>>` | Enter the token symbol for the *maker exchange*.<br/>Example input: `ETH-USD`<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Options available are based on each exchange's methodology for labeling currency pairs. Ensure that the pair is a valid pair for the selected exchange.</td></tr></tbody></table> |
+| `Enter quantity of orders per side (bid/ask) (single/multiple, default is single)>>> ` | `single` or `multiple`<br /><br />Specify if you would like a single order per side (i.e. one bid and one ask), or multiple orders each side.<br /><br />Multiple allows for different prices and sizes for each side. See [additional configuration for multiple orders](#multiple-order-configuration). |
+| `How far away from the mid price do you want to place the first bid (Enter 0.01 to indicate 1%)? >>>` | This sets `bid_place_threshold` (see [definition](#configuration-parameters)). |
+| `How far away from the mid price do you want to place the first ask (Enter 0.01 to indicate 1%)? >>>` | This sets `ask_place_threshold` (see [definition](#configuration-parameters)). |
+| `How often do you want to cancel and replace bids and asks (in seconds)? >>>` | This sets the `cancel_order_wait_time` (see [definition](#configuration-parameters)). |
+| `What is your preferred quantity per order (denominated in the base asset, default is 1)? >>>` | This sets `order_amount` (see [definition](#configuration-parameters)). |
 | `Would you like to enable inventory skew? (y/n) >>>` | This sets `inventory_skew_enabled` (see [definition](#configuration-parameters)) |
 | `What is your target base asset inventory percentage (Enter 0.01 to indicate 1%)? >>> ` | This sets `inventory_target_base_percent` (see [definition](#configuration-parameters)) |
-| `How long do you want to wait before placing the next order in case your order gets filled (in seconds). (Default is 10 seconds)? >>> " ` | This sets `filled_order_replenish_wait_time` (see [definition](#configuration-parameters)) |
-| `Do you want to enable order_filled_stop_cancellation. If enabled, when orders are completely filled, the other side remains uncanceled (Default is False)? >>> " ` | This sets `enable_order_filled_stop_cancellation` (see [definition](#configuration-parameters)) |
+| `How long do you want to wait before placing the next order in case your order gets filled (in seconds). (Default is 10 seconds)? >>>` | This sets `filled_order_replenish_wait_time` (see [definition](#configuration-parameters)) |
+| `Do you want to enable order_filled_stop_cancellation. If enabled, when orders are completely filled, the other side remains uncanceled (Default is False)? >>>` | This sets `enable_order_filled_stop_cancellation` (see [definition](#configuration-parameters)) |
 | `Would you like to enable the kill switch? (y/n) >>>` | This sets `kill_switch_enabled` (see [Kill Switch](/utilities/kill-switch) in Utilities section) |
 | `At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5% loss) >>>` | This sets `kill_switch_rate` (see [Kill Switch](/utilities/kill-switch) in Utilities section) |
 
@@ -62,10 +62,10 @@ If trading on a centralized exchange or IDEX, enter API keys. If trading on a de
 !!! note
     Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
-| `Enter your Binance API key >>>`:<br/><br/>`Enter your Binance API secret >>>`: | You must [create a Binance API key](https://docs.hummingbot.io/connectors/binance/#creating-binance-api-keys) key with trading enabled ("Enable Trading" selected).<br/><table><tbody><tr><td bgcolor="#e5f8f6">**Tip**: You can use Ctrl + R or ⌘ + V to paste from the clipboard.</td></tr></tbody></table> |
+| `Enter your Binance API key >>>`<br/><br/>`Enter your Binance API secret >>>` | You must [create a Binance API key](https://docs.hummingbot.io/connectors/binance/#creating-binance-api-keys) key with trading enabled ("Enable Trading" selected).<br/><table><tbody><tr><td bgcolor="#e5f8f6">**Tip**: You can use Ctrl + R or ⌘ + V to paste from the clipboard.</td></tr></tbody></table> |
 | `Enter your IDEX API key >>>` | On Friday August 23, IDEX released updates to its servers requiring authentication/use of API keys to access its APIs. For more information, see [IDEX API key](/connectors/idex/#api-key). |
-| `Would you like to import an existing wallet or create a new wallet? (import / create) >>>`: | Import or create an Ethereum wallet which will be used for trading on decentralized exchange.<br/><br/>Enter a valid input:<ol><li>`import`: imports a wallet from an input private key.</li><ul><li>If you select import, you will then be asked to enter your private key as well as a password to lock/unlock that wallet for use with Hummingbot</li><li>`Your wallet private key >>>`</li><li>`A password to protect your wallet key >>>`</li></ul><li>`create`: creates a new wallet with new private key.</li><ul><li>If you select create, you will only be asked for a password to protect your newly created wallet</li><li>`A password to protect your wallet key >>>`</li></ul></ol><br/><table><tbody><tr><td bgcolor="#e5f8f6">**Tip**: using a wallet that is available in your Metamask (i.e. importing a wallet from Metamask) allows you to view orders created and trades filled by Hummingbot on the decentralized exchange's website.</td></tr></tbody></table> |
-| `Which Ethereum node would you like your client to connect to? >>>`: | Enter an Ethereum node URL for Hummingbot to use when it trades on Ethereum-based decentralized exchanges.<br /><br />For more information, see: Setting up your Ethereum node](/installation/node/node).<table><tbody><tr><td bgcolor="#ecf3ff">**Tip**: if you are using an Infura endpoint, ensure that you append `https://` before the URL.</td></tr></tbody></table> |
+| `Would you like to import an existing wallet or create a new wallet? (import / create) >>>` | Import or create an Ethereum wallet which will be used for trading on decentralized exchange.<br/><br/>Enter a valid input:<ol><li>`import`: imports a wallet from an input private key.</li><ul><li>If you select import, you will then be asked to enter your private key as well as a password to lock/unlock that wallet for use with Hummingbot</li><li>`Your wallet private key >>>`</li><li>`A password to protect your wallet key >>>`</li></ul><li>`create`: creates a new wallet with new private key.</li><ul><li>If you select create, you will only be asked for a password to protect your newly created wallet</li><li>`A password to protect your wallet key >>>`</li></ul></ol><br/><table><tbody><tr><td bgcolor="#e5f8f6">**Tip**: using a wallet that is available in your Metamask (i.e. importing a wallet from Metamask) allows you to view orders created and trades filled by Hummingbot on the decentralized exchange's website.</td></tr></tbody></table> |
+| `Which Ethereum node would you like your client to connect to? >>>` | Enter an Ethereum node URL for Hummingbot to use when it trades on Ethereum-based decentralized exchanges.<br /><br />For more information, see: [Setting up your Ethereum node](/installation/node/node).<table><tbody><tr><td bgcolor="#ecf3ff">**Tip**: if you are using an Infura endpoint, ensure that you append `https://` before the URL.</td></tr></tbody></table> |
 
 
 ### Adding Transaction Costs to Prices
@@ -90,8 +90,8 @@ Multiple orders allow you to create multiple orders for each bid and ask side, e
 
  | Prompt | Description |
 |-----|-----|
-| `How many orders do you want to place on both sides, (default is 1) ? >>>`: | This sets `number_of_orders` (see [definition](#configuration-parameters)) |
-| `What is the size of the first bid and ask order, (default is 1) >>>`: | This sets `order_start_size` (see [definition](#configuration-parameters)) |
+| `How many orders do you want to place on both sides, (default is 1) ? >>>` | This sets `number_of_orders` (see [definition](#configuration-parameters)) |
+| `What is the size of the first bid and ask order, (default is 1) >>>` | This sets `order_start_size` (see [definition](#configuration-parameters)) |
 | `How much do you want to increase the order size for each additional order (default is 0) ? >>>` | This sets `order_step_size` (see [definition](#configuration-parameters)) |
 | `Enter the price increments (as percentage) for subsequent orders (Enter 0.01 to indicate 1%)? >>>` | This sets `order_interval_percent` (see [definition](#configuration-parameters)) <br/><table><tbody><tr><td bgcolor="#e5f8f6">**Warning**: If you set this to a very low number, multiple orders may be placed on the same price level. For example for an asset like SNM/BTC, if you set an order interval percent of 0.004 (~0.4%) because of low asset value the price of the next order will be rounded to the nearest price supported by the exchange, which in this case might lead to multiple orders being placed at the same price level.</td></tr></tbody></table> |
 
@@ -103,8 +103,8 @@ For example, if you are targeting a 50/50 base to quote asset ratio but the curr
 
  | Prompt | Description |
 |-----|-----|
-| `Would you like to enable inventory skew? (y/n) >>>`: | This sets `inventory_skew_enabled` (see [definition](#configuration-parameters)) |
-| `What is your target base asset inventory percentage (Enter 0.01 to indicate 1%) >>>`: | This sets `inventory_target_base_percent` (see [definition](#configuration-parameters)) |
+| `Would you like to enable inventory skew? (y/n) >>>` | This sets `inventory_skew_enabled` (see [definition](#configuration-parameters)) |
+| `What is your target base asset inventory percentage (Enter 0.01 to indicate 1%) >>>` | This sets `inventory_target_base_percent` (see [definition](#configuration-parameters)) |
 
 Here's an [inventory skew calculator](https://docs.google.com/spreadsheets/d/16oCExZyM8Wo8d0aRPmT_j7oXCzea3knQ5mmm0LlPGbU/edit#gid=690135600) that shows how it adjusts order sizes.
 
@@ -133,7 +133,7 @@ Typically, orders are placed as pairs, e.g. 1 buy order + 1 sell order (or multi
 Assume you are running pure market making in single order mode, the order size is 1 and the mid price is 100. Then,
 <ul><li> Based on bid and ask thresholds of 0.01, your bid/ask orders would be placed at 99 and 101, respectively.
 <li> Your current bid at 99 is fully filled, i.e. someone takes your order and you buy 1.
-<li> By default, after the `cancel_order_wait_time`, the ask order at 101 would be canceled normally
+<li> By default, after the `cancel_order_wait_time`, the ask order at 101 would be canceled
 <li> With the `enable_order_filled_stop_cancellation` parameter:
 <ul><li>the original 101 ask order stays outstanding
 <li> After the `cancel_order_wait_time`, a new pair of bid and ask orders are created, resulting in a total of 1 bid order and 2 ask orders (original and new).  The original ask order stays outstanding until that is filled or manually cancelled.</ul></ul>
@@ -145,8 +145,8 @@ The `enable_order_filled_stop_cancellation` can be used if there is enough volat
 
  | Prompt | Description |
 |-----|-----|
-| `How long do you want to wait before placing the next order in case your order gets filled (in seconds). (Default is 10 seconds)? >>> ` | This sets `filled_order_replenish_wait_time` (see [definition](#configuration-parameters)) |
-| `Do you want to enable order_filled_stop_cancellation. If enabled, when orders are completely filled, the other side remains uncanceled (Default is False)? >>> ` | This sets `enable_order_filled_stop_cancellation` (see [definition](#configuration-parameters)) |
+| `How long do you want to wait before placing the next order in case your order gets filled (in seconds). (Default is 10 seconds)? >>>` | This sets `filled_order_replenish_wait_time` (see [definition](#configuration-parameters)) |
+| `Do you want to enable order_filled_stop_cancellation. If enabled, when orders are completely filled, the other side remains uncanceled (Default is False)? >>>` | This sets `enable_order_filled_stop_cancellation` (see [definition](#configuration-parameters)) |
 
 #### Penny Jumping mode
 
@@ -160,8 +160,8 @@ Assume you are running pure parket making in single order mode, the order size i
 
 | Prompt | Description |
 |-----|-----|
-| `Do you want to enable jump_orders? If enabled, when the top bid price is lesser than your order price, buy order will jump to one tick above top bid price & vice versa for sell. (Default is False) >>> ` | This sets `jump_orders_enabled` (see [definition](#configuration-parameters)) |
-| `How deep do you want to go into the order book for calculating the top bid and ask, ignoring dust orders on the top (expressed in base currency)? (Default is 0) >>> "` | This sets `jump_orders_depth` (see [definition](#configuration-parameters)) |
+| `Do you want to enable jump_orders? If enabled, when the top bid price is lesser than your order price, buy order will jump to one tick above top bid price & vice versa for sell. (Default is False) >>>` | This sets `jump_orders_enabled` (see [definition](#configuration-parameters)) |
+| `How deep do you want to go into the order book for calculating the top bid and ask, ignoring dust orders on the top (expressed in base currency)? (Default is 0) >>>` | This sets `jump_orders_depth` (see [definition](#configuration-parameters)) |
 
 
 ## Configuration Parameters
