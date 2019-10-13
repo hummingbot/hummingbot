@@ -90,13 +90,15 @@ nav:
         - Source Commands: cheatsheets/source.md
         - Client Commands: cheatsheets/client.md
       - Bounties:
-        - FAQ: bounties/faq.md
+        - Liquidity Bounties FAQ: bounties/faq.md
         - Active Bounties:
           - Harmony $ONE Makers: bounties/active/harmony.md
-      - Get Help:
-        - Contact and Support: support/index.md
-        - Troubleshooting: support/troubleshooting.md
         - Bug Bounty Program: support/bug-bounty-program.md
+      - Get Help:
+        - FAQ: support/faq.md
+        - Troubleshooting: support/troubleshooting.md
+        - Common 'How To' Questions: support/how-to.md
+        - Contact and Support: support/index.md
         - 中文 Github repo: https://github.com/coinalpha/hummingbot_chinese
     - User Manual:
       - Intro: manual.md
@@ -112,20 +114,21 @@ nav:
           - MacOS: installation/from-source/macOS.md
           - Windows: installation/from-source/windows.md
         - Updating Hummingbot: installation/updating.md
+      - Operation:
+        - Using the Client: operation/client.md
+        - Running Trading Bots: operation/running-bots.md
+        - Running Multiple Bots: operation/running-multiple-bots.md
       - Configuration:
         - Configuring Hummingbot: operation/configuration.md
         - API Keys: installation/api-keys.md
         - Ethereum Wallet: installation/wallet.md
         - Ethereum Node: installation/node/node.md
         - Get a Free Ethereum Node: installation/node/infura.md
-      - Operation:
-        - Using the Client: operation/client.md
-        - Running Trading Bots: operation/running-bots.md
-        - Tips for Cloud Users: operation/running-bots-in-the-cloud.md
       - Connectors:
         - Connectors Overview: connectors/index.md
         - Binance: connectors/binance.md
         - Coinbase Pro: connectors/coinbase.md
+        - Huobi Global: connectors/huobi.md
         - DDEX: connectors/ddex.md
         - IDEX: connectors/idex.md
         - Radar Relay: connectors/radar-relay.md
@@ -141,6 +144,7 @@ nav:
       - Data Feeds:
         - Data Feeds Overview: feeds.md
       - Utilities:
+        - Paper Trading Mode: utilities/paper-trade.md
         - Kill Switch: utilities/kill-switch.md
         - Logs and Logging: utilities/logging.md
         - Using Exchange Rates: utilities/exchange-rates.md
@@ -150,14 +154,22 @@ nav:
         - Strategies:
           - Architecture: developers/strategies/index.md
           - Arbitrage: developers/strategies/arbitrage.md
-          - Pure Market Making: developers/strategies/pure-market-making.md
           - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
+          - Pure Market Making: developers/strategies/pure-market-making.md
+          - Discovery: developers/strategies/discovery.md
+          - Perform Trade: developers/strategies/perform-trade.md
+          - Tutorial : developers/strategies/tutorial.md
         - Connectors:
           - Adding Connectors: developers/connectors/index.md
           - Adding Connectors to Other Blockchains: developers/connectors/new-blockchain.md
+          - Order Lifecycle: developers/connectors/order-lifecycle.md
         - Debug Console: developers/debug.md
+        - Configuration: developers/config.md
     - Release Notes:
       - About Releases: release-notes/index.md
+      - 0.16.0: release-notes/0.16.0.md
+      - 0.15.0: release-notes/0.15.0.md
+      - 0.14.0: release-notes/0.14.0.md
       - 0.13.0: release-notes/0.13.0.md
       - 0.12.1: release-notes/0.12.1.md
       - 0.12.0: release-notes/0.12.0.md

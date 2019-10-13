@@ -16,7 +16,9 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.utils import async_ttl_cache
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.market.ddex.ddex_active_order_tracker import DDEXActiveOrderTracker
 from hummingbot.market.ddex.ddex_order_book import DDEXOrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -61,7 +63,7 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
         """
         async with aiohttp.ClientSession() as client:
-            market_response, ticker_response = await asyncio.gather(
+            market_response, ticker_response = await safe_gather(
                 client.get(MARKETS_URL),
                 client.get(TICKERS_URL)
             )
@@ -149,13 +151,12 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 try:
                     snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, 3)
                     snapshot_timestamp: float = time.time()
-                    snapshot_msg: DDEXOrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                    snapshot_msg: DDEXOrderBookMessage = DDEXOrderBook.snapshot_message_from_exchange(
                         snapshot,
                         snapshot_timestamp,
                         {"marketId": trading_pair}
                     )
-
-                    ddex_order_book: DDEXOrderBook = DDEXOrderBook()
+                    ddex_order_book: OrderBook = self.order_book_create_function()
                     ddex_active_order_tracker: DDEXActiveOrderTracker = DDEXActiveOrderTracker()
                     bids, asks = ddex_active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
                     ddex_order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
@@ -206,6 +207,10 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         finally:
             await ws.close()
 
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        # Trade messages are received from the order book web socket
+        pass
+
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
@@ -223,9 +228,12 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
                         # only process receive and done diff messages from DDEX
-                        if msg["type"] == "receive" or msg["type"] == "done":
-                            diff_msg: DDEXOrderBookMessage = self.order_book_class.diff_message_from_exchange(msg)
+                        if msg["type"] in ["receive", "done"]:
+                            diff_msg: DDEXOrderBookMessage = DDEXOrderBook.diff_message_from_exchange(msg)
                             output.put_nowait(diff_msg)
+                        elif msg["type"] == "trade":
+                            trade_msg: DDEXOrderBookMessage = DDEXOrderBook.trade_message_from_exchange(msg)
+                            output.put_nowait(trade_msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -246,7 +254,7 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         try:
                             snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
                             snapshot_timestamp: float = time.time()
-                            snapshot_msg: DDEXOrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                            snapshot_msg: DDEXOrderBookMessage = DDEXOrderBook.snapshot_message_from_exchange(
                                 snapshot,
                                 snapshot_timestamp,
                                 {"marketId": trading_pair}

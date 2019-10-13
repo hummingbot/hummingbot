@@ -11,12 +11,12 @@ from typing import (
     List,
     Optional
 )
-import re
 import time
 import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.market.idex.idex_active_order_tracker import IDEXActiveOrderTracker
@@ -120,10 +120,6 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 all_markets["USDVolume"] = usd_volume
                 return all_markets.sort_values("USDVolume", ascending=False)
 
-    @property
-    def order_book_class(self) -> IDEXOrderBook:
-        return IDEXOrderBook
-
     async def get_trading_pairs(self) -> List[str]:
         if self._symbols is None:
             active_markets: pd.DataFrame = await self.get_active_exchange_markets()
@@ -138,7 +134,7 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         base_asset: str = trading_pair.split("_")[1]
         params: Dict[str, str] = {
             "selectedMarket": quote_asset,
-            "tradeForMarket": base_asset 
+            "tradeForMarket": base_asset
         }
         orders: List[Dict[str, Any]] = []
         try:
@@ -152,7 +148,7 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         except asyncio.CancelledError:
             raise
-        except:
+        except Exception:
             self.logger().network(
                 f"Error getting snapshot for {trading_pair}.",
                 exc_info=True,
@@ -170,7 +166,7 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
             for index, trading_pair in enumerate(trading_pairs):
                 try:
                     snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
-                    snapshot_msg: IDEXOrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                    snapshot_msg: IDEXOrderBookMessage = IDEXOrderBook.snapshot_message_from_exchange(
                         msg=snapshot,
                         timestamp=None,
                         metadata={"market": trading_pair}
@@ -182,7 +178,7 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                                                                                quote_asset=quote_asset)
                     bids, asks = idex_active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
                     snapshot_timestamp: float = idex_active_order_tracker.latest_snapshot_timestamp
-                    idex_order_book: IDEXOrderBook = IDEXOrderBook()
+                    idex_order_book: OrderBook = self.order_book_create_function()
                     idex_order_book.apply_snapshot(bids, asks, snapshot_timestamp)
                     retval[trading_pair] = IDEXOrderBookTrackerEntry(
                         trading_pair,
@@ -240,9 +236,9 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         # Send subscribe message for all active market to the connection
         sid: str = decoded["sid"]
         subscribe_payload: Dict[str, Any] = {
-        "action": "subscribe",
-        "topics": markets,
-        "events": ["market_orders", "market_cancels", "market_trades"]
+            "action": "subscribe",
+            "topics": markets,
+            "events": ["market_orders", "market_cancels", "market_trades"]
         }
         subscribe_request: Dict[str, Any] = {
             "sid": sid,
@@ -251,12 +247,16 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         }
         await ws.send(ujson.dumps(subscribe_request))
 
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        # Trade messages are received from the order book web socket
+        pass
+
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
                 trading_pairs_full_list: List[str] = await self.get_trading_pairs()
                 trading_pairs_partial_lists: List[List[str]] = [
-                    trading_pairs_full_list[m : m + IDEX_WS_TRADING_PAIRS_SUBSCRIPTION_LIMIT] for m in
+                    trading_pairs_full_list[m: m + IDEX_WS_TRADING_PAIRS_SUBSCRIPTION_LIMIT] for m in
                     range(0, len(trading_pairs_full_list), IDEX_WS_TRADING_PAIRS_SUBSCRIPTION_LIMIT)]
                 for trading_pairs in trading_pairs_partial_lists:
                     async with websockets.connect(IDEX_WS_URL) as ws:
@@ -272,7 +272,7 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 continue
 
                             event: str = decoded.get("event")
-                            payload: Dict[str, Any] = ujson.loads(decoded["payload"]) # payload is stringified json
+                            payload: Dict[str, Any] = ujson.loads(decoded["payload"])  # payload is stringified json
                             if event == "market_orders":
                                 orders: List[str, Any] = payload["orders"]
                                 market: str = payload["market"]
@@ -288,7 +288,7 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 # ignore message if event is not recognized
                                 continue
                             for diff_message in diff_messages:
-                                ob_message: IDEXOrderBookMessage = self.order_book_class.diff_message_from_exchange(
+                                ob_message: IDEXOrderBookMessage = IDEXOrderBook.diff_message_from_exchange(
                                     diff_message)
                                 output.put_nowait(ob_message)
             except asyncio.CancelledError:
@@ -311,7 +311,7 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         try:
                             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
                             snapshot_timestamp: float = time.time()
-                            snapshot_msg: IDEXOrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                            snapshot_msg: IDEXOrderBookMessage = IDEXOrderBook.snapshot_message_from_exchange(
                                 snapshot,
                                 snapshot_timestamp,
                                 {"market": trading_pair}

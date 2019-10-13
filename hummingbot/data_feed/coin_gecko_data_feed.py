@@ -1,7 +1,6 @@
 import aiohttp
 import asyncio
 import logging
-import time
 from typing import (
     Dict,
     List,
@@ -11,6 +10,7 @@ from typing import (
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.logger import HummingbotLogger
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class CoinGeckoDataFeed(DataFeedBase):
@@ -61,7 +61,7 @@ class CoinGeckoDataFeed(DataFeedBase):
                 raise
             except Exception:
                 self.logger().network(f"Error getting data from {self.name}", exc_info=True,
-                                      app_warning_msg="Couldn't fetch newest prices from Coin Metrics. "
+                                      app_warning_msg="Couldn't fetch newest prices from Coin Gecko. "
                                                       "Check network connection.")
 
             await asyncio.sleep(self._update_interval)
@@ -95,7 +95,7 @@ class CoinGeckoDataFeed(DataFeedBase):
                     async with client.request("GET", price_url, params=params) as resp:
                         results: Dict[str, Dict[str, float]] = await resp.json()
                         for id, usd_price in results.items():
-                            symbol: str = id_symbol_map[id]
+                            symbol: str = id_symbol_map[id].upper()
                             price: float = float(usd_price.get("usd", 0.0))
                             price_dict[symbol] = price
                 except Exception:
@@ -116,7 +116,7 @@ class CoinGeckoDataFeed(DataFeedBase):
 
     async def start_network(self):
         await self.stop_network()
-        self.fetch_data_loop_task = asyncio.ensure_future(self.fetch_data_loop())
+        self.fetch_data_loop_task = safe_ensure_future(self.fetch_data_loop())
 
     async def stop_network(self):
         if self.fetch_data_loop_task is not None:

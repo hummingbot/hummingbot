@@ -11,6 +11,7 @@ from typing import (
 import ujson
 import websockets
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from binance.client import Client as BinanceClient
 from hummingbot.logger import HummingbotLogger
 
@@ -91,7 +92,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     self.logger().debug(f"Obtained listen key {self._current_listen_key}.")
                     if self._listen_for_user_stream_task is not None:
                         self._listen_for_user_stream_task.cancel()
-                    self._listen_for_user_stream_task = asyncio.ensure_future(self.log_user_stream(output))
+                    self._listen_for_user_stream_task = safe_ensure_future(self.log_user_stream(output))
                     await self.wait_til_next_tick(seconds=60.0)
 
                 success: bool = await self.ping_listen_key(self._current_listen_key)

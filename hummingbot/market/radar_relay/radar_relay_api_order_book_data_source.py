@@ -16,6 +16,7 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.market.radar_relay.radar_relay_order_book import RadarRelayOrderBook
 from hummingbot.market.radar_relay.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
 from hummingbot.core.utils import async_ttl_cache
@@ -91,7 +92,7 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data, index="id")
 
             weth_dai_price: float = float(all_markets.loc["WETH-DAI"]["ticker"]["price"])
-            dai_usd_price: float = ExchangeRateConversion.get_instance().adjust_token_rate("DAI", weth_dai_price)
+            dai_usd_price: float = float(ExchangeRateConversion.get_instance().adjust_token_rate("DAI", weth_dai_price))
             usd_volume: List[float] = []
             quote_volume: List[float] = []
             for row in all_markets.itertuples():
@@ -106,10 +107,6 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             all_markets.loc[:, "USDVolume"] = usd_volume
             all_markets.loc[:, "volume"] = quote_volume
             return all_markets.sort_values("USDVolume", ascending=False)
-
-    @property
-    def order_book_class(self) -> RadarRelayOrderBook:
-        return RadarRelayOrderBook
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, any]:
@@ -145,15 +142,16 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 try:
                     snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
                     snapshot_timestamp: float = time.time()
-                    snapshot_msg: RadarRelayOrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                    snapshot_msg: RadarRelayOrderBookMessage = RadarRelayOrderBook.snapshot_message_from_exchange(
                         snapshot,
                         snapshot_timestamp,
                         metadata={"symbol": trading_pair}
                     )
 
-                    radar_relay_order_book: RadarRelayOrderBook = RadarRelayOrderBook()
+                    radar_relay_order_book: OrderBook = self.order_book_create_function()
                     radar_relay_active_order_tracker: RadarRelayActiveOrderTracker = RadarRelayActiveOrderTracker()
-                    bids, asks = radar_relay_active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
+                    bids, asks = radar_relay_active_order_tracker.convert_snapshot_message_to_order_book_row(
+                        snapshot_msg)
                     radar_relay_order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
 
                     retval[trading_pair] = RadarRelayOrderBookTrackerEntry(
@@ -194,6 +192,10 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
         finally:
             await ws.close()
 
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        # Trade messages are received from the order book web socket
+        pass
+
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
@@ -211,7 +213,7 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         msg = ujson.loads(raw_msg)
                         # Valid Diff messages from RadarRelay have action key
                         if "action" in msg:
-                            diff_msg: RadarRelayOrderBookMessage = self.order_book_class.diff_message_from_exchange(
+                            diff_msg: RadarRelayOrderBookMessage = RadarRelayOrderBook.diff_message_from_exchange(
                                 msg, time.time())
                             output.put_nowait(diff_msg)
             except asyncio.CancelledError:
@@ -230,7 +232,7 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     try:
                         snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
                         snapshot_timestamp: float = time.time()
-                        snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                        snapshot_msg: OrderBookMessage = RadarRelayOrderBook.snapshot_message_from_exchange(
                             snapshot,
                             snapshot_timestamp,
                             metadata={"symbol": trading_pair}

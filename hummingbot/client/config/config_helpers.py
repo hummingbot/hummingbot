@@ -1,8 +1,6 @@
-from typing import List
-
-from hummingbot.client.settings import TOKEN_ADDRESSES_FILE_PATH
-
 import logging
+from decimal import Decimal
+
 import ruamel.yaml
 from os.path import (
     join,
@@ -11,8 +9,10 @@ from os.path import (
 from collections import OrderedDict
 import json
 from typing import (
+    Any,
     Callable,
     Dict,
+    List,
     Optional,
 )
 from os import listdir
@@ -29,33 +29,56 @@ from hummingbot.client.settings import (
     CONF_PREFIX,
     LIQUIDITY_BOUNTY_CONFIG_PATH,
     DEPRECATED_CONFIG_VALUES,
+    TOKEN_ADDRESSES_FILE_PATH,
 )
 
 # Use ruamel.yaml to preserve order and comments in .yml file
 yaml_parser = ruamel.yaml.YAML()
 
 
-def parse_cvar_value(cvar: ConfigVar, value: any):
+def parse_cvar_value(cvar: ConfigVar, value: Any) -> Any:
+    """
+    Based on the target type specified in `ConfigVar.type_str`, parses a string value into the target type.
+    :param cvar: ConfigVar object
+    :param value: User input from running session or from saved `yml` files. Type is usually string.
+    :return: value in the correct type
+    """
     if value is None:
         return None
     elif cvar.type == 'str':
         return str(value)
-    elif cvar.type in {"list", "dict"}:
+    elif cvar.type == 'list':
         if isinstance(value, str):
-            return json.loads(value)
+            if len(value) == 0:
+                return []
+            filtered: filter = filter(lambda x: x not in ['[', ']', '"', "'"], list(value))
+            value = "".join(filtered).split(",")  # create csv and generate list
+            return [s.strip() for s in value]  # remove leading and trailing whitespaces
+        else:
+            return value
+    elif cvar.type == 'dict':
+        if isinstance(value, str):
+            value_json = value.replace("'", '"')  # replace single quotes with double quotes for valid JSON
+            return json.loads(value_json)
         else:
             return value
     elif cvar.type == 'float':
         try:
             return float(value)
         except Exception:
-            logging.getLogger().error(f"\"{value}\" is not an integer.")
+            logging.getLogger().error(f"\"{value}\" is not an integer.", exc_info=True)
             return 0.0
+    elif cvar.type == 'decimal':
+        try:
+            return Decimal(str(value))
+        except Exception:
+            logging.getLogger().error(f"\"{value}\" is not valid decimal.", exc_info=True)
+            return Decimal(0)
     elif cvar.type == 'int':
         try:
             return int(value)
         except Exception:
-            logging.getLogger().error(f"\"{value}\" is not an integer.")
+            logging.getLogger().error(f"\"{value}\" is not an integer.", exc_info=True)
             return 0
     elif cvar.type == 'bool':
         if isinstance(value, str) and value.lower() in ["true", "yes", "y"]:
@@ -69,6 +92,11 @@ def parse_cvar_value(cvar: ConfigVar, value: any):
 
 
 async def copy_strategy_template(strategy: str) -> str:
+    """
+    Look up template `.yml` file for a particular strategy in `hummingbot/templates` and copy it to the `conf` folder.
+    The file name is `conf_{STRATEGY}_strategy_{INDEX}.yml`
+    :return: The newly created file name
+    """
     old_path = get_strategy_template_path(strategy)
     i = 0
     new_fname = f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_{i}.yml"
@@ -82,6 +110,9 @@ async def copy_strategy_template(strategy: str) -> str:
 
 
 def get_strategy_template_path(strategy: str) -> str:
+    """
+    Given the strategy name, return its template config `yml` file name.
+    """
     return join(TEMPLATE_PATH, f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_TEMPLATE.yml")
 
 
@@ -96,6 +127,9 @@ def get_erc20_token_addresses(symbols: List[str]):
 
 
 def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
+    """
+    Helper function to merge a few dictionaries into an ordered dictionary.
+    """
     result: OrderedDict[any] = OrderedDict()
     for d in args:
         result.update(d)
@@ -103,7 +137,9 @@ def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
 
 
 def get_strategy_config_map(strategy: str) -> Optional[Dict[str, ConfigVar]]:
-    # Get the right config map from this file by its variable name
+    """
+    Given the name of a strategy, find and load strategy-specific config map.
+    """
     if strategy is None:
         return None
     try:
@@ -116,6 +152,10 @@ def get_strategy_config_map(strategy: str) -> Optional[Dict[str, ConfigVar]]:
 
 
 def get_strategy_starter_file(strategy: str) -> Callable:
+    """
+    Given the name of a strategy, find and load the `start` function in
+    `hummingbot/strategy/{STRATEGY_NAME}/start.py` file.
+    """
     if strategy is None:
         return lambda: None
     try:
@@ -127,6 +167,10 @@ def get_strategy_starter_file(strategy: str) -> Callable:
 
 
 def load_required_configs(*args) -> OrderedDict:
+    """
+    Go through `in_memory_config_map`, `strategy_config_map`, and `global_config_map` in order to list all of the
+    config settings required by the bot.
+    """
     from hummingbot.client.config.in_memory_config_map import in_memory_config_map
     current_strategy = in_memory_config_map.get("strategy").value
     current_strategy_file_path = in_memory_config_map.get("strategy_file_path").value
@@ -135,7 +179,7 @@ def load_required_configs(*args) -> OrderedDict:
     else:
         strategy_config_map = get_strategy_config_map(current_strategy)
         # create an ordered dict where `strategy` is inserted first
-        # so that strategy-specific configs are prompted first and populate required exchanges
+        # so that strategy-specific configs are prompted first and populate required_exchanges
         return _merge_dicts(in_memory_config_map, strategy_config_map, global_config_map)
 
 
@@ -152,6 +196,10 @@ def read_configs_from_yml(strategy_file_path: str = None):
             with open(yml_path) as stream:
                 data = yaml_parser.load(stream) or {}
                 for key in data:
+                    if current_strategy == "cross_exchange_market_making" and key == "trade_size_override":
+                        logging.getLogger(__name__).error("Cross Exchange Strategy cannot be run with old config "
+                                                          "file due to changes in strategy. "
+                                                          "Please create a new config file.")
                     if key == "wallet":
                         continue
                     if key in DEPRECATED_CONFIG_VALUES:
@@ -159,8 +207,9 @@ def read_configs_from_yml(strategy_file_path: str = None):
                     cvar = cm.get(key)
                     val_in_file = data.get(key)
                     if cvar is None:
-                        raise ValueError(f"Cannot find corresponding config to key {key}.")
-                    cvar.value = val_in_file
+                        logging.getLogger().warning(f"Cannot find corresponding config to key {key}.")
+                        continue
+                    cvar.value = parse_cvar_value(cvar, val_in_file)
                     if val_in_file is not None and not cvar.validate(val_in_file):
                         raise ValueError("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
         except Exception as e:
@@ -174,12 +223,18 @@ def read_configs_from_yml(strategy_file_path: str = None):
 
 
 async def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
+    """
+    Write current config saved a single config map into each a single yml file
+    """
     try:
         with open(yml_path) as stream:
             data = yaml_parser.load(stream) or {}
             for key in cm:
                 cvar = cm.get(key)
-                data[key] = cvar.value
+                if type(cvar.value) == Decimal:
+                    data[key] = float(cvar.value)
+                else:
+                    data[key] = cvar.value
             with open(yml_path, "w+") as outfile:
                 yaml_parser.dump(data, outfile)
     except Exception as e:
@@ -188,20 +243,25 @@ async def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
 
 async def write_config_to_yml():
     """
-    Write current config saved in config maps into each corresponding yml file
+    Write current config saved in all config maps into each corresponding yml file
     """
     from hummingbot.client.config.in_memory_config_map import in_memory_config_map
     current_strategy = in_memory_config_map.get("strategy").value
-    strategy_config_map = get_strategy_config_map(current_strategy)
-    strategy_file_path = join(CONF_FILE_PATH, in_memory_config_map.get("strategy_file_path").value)
+    strategy_file_path = in_memory_config_map.get("strategy_file_path").value
+
+    if current_strategy is not None and strategy_file_path is not None:
+        strategy_config_map = get_strategy_config_map(current_strategy)
+        strategy_file_path = join(CONF_FILE_PATH, strategy_file_path)
+        await save_to_yml(strategy_file_path, strategy_config_map)
 
     await save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
-    await save_to_yml(strategy_file_path, strategy_config_map)
 
 
 async def create_yml_files():
+    """
+    Copy `hummingbot_logs.yml` and `conf_global.yml` templates to the `conf` directory on start up
+    """
     for fname in listdir(TEMPLATE_PATH):
-        # Only copy `hummingbot_logs.yml` and `conf_global.yml` on start up
         if "_TEMPLATE" in fname and CONF_POSTFIX not in fname:
             stripped_fname = fname.replace("_TEMPLATE", "")
             template_path = join(TEMPLATE_PATH, fname)
