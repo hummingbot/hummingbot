@@ -314,7 +314,7 @@ class HummingbotApplication(*commands):
                     ethereum_rpc_url=ethereum_rpc_url,
                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                     symbols=symbols,
-                    isTestNet=True,  # TODO: remove this!
+                    isTestNet=True,  # TODO: remove this! This needs to be False for release
                     trading_required=self._trading_required,
                 )
             else:

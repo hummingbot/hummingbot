@@ -156,19 +156,19 @@ cdef class DolomiteMarket(MarketBase):
         self._exchange_info = None
         self._exchange_rates = None
         self._pending_approval_tx_hashes = set()
-        self._approval_tx_polling_task = None
         self._in_flight_orders = {}
-
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        global s_logger
-        if s_logger is None:
-            s_logger = logging.getLogger(__name__)
-        return s_logger
 
     @property
     def name(self) -> str:
         return "dolomite"
+
+    # This causes it to hang when starting network
+    # @classmethod
+    # def logger(cls) -> HummingbotLogger:
+    #     global s_logger
+    #     if s_logger is None:
+    #         s_logger = logging.getLogger(__name__)
+    #     return s_logger
 
     @property
     def ready(self) -> bool:
@@ -492,15 +492,13 @@ cdef class DolomiteMarket(MarketBase):
             spender_address = exchange_info["data"]["loopring_delegate_address"]
             tx_hashes = await self.wallet.current_backend.check_and_fix_approval_amounts(spender=spender_address)
             self._pending_approval_tx_hashes.update(tx_hashes)
-            self._approval_tx_polling_task = safe_ensure_future(self._approval_tx_polling_loop())
 
     async def stop_network(self):
         if self._order_tracker_task is not None:
             self._order_tracker_task.cancel()
             self._polling_update_task.cancel()
             self._pending_approval_tx_hashes.clear()
-            self._approval_tx_polling_task.cancel()
-        self._order_tracker_task = self._polling_update_task = self._approval_tx_polling_task = None
+        self._order_tracker_task = self._polling_update_task = None
 
     async def check_network(self) -> NetworkStatus:
         if self._wallet.network_status is not NetworkStatus.CONNECTED:
@@ -539,24 +537,6 @@ cdef class DolomiteMarket(MarketBase):
     def stop_tracking(self, client_order_id):
         if client_order_id in self._in_flight_orders:
             del self._in_flight_orders[client_order_id]
-
-    async def _approval_tx_polling_loop(self):
-        while len(self._pending_approval_tx_hashes) > 0:
-            try:
-                if len(self._pending_approval_tx_hashes) > 0:
-                    for tx_hash in list(self._pending_approval_tx_hashes):
-                        receipt = self._w3.eth.getTransactionReceipt(tx_hash)
-                        if receipt is not None:
-                            self._pending_approval_tx_hashes.remove(tx_hash)
-            except Exception:
-                self.logger().network(
-                    "Unexpected error while fetching approval transactions.",
-                    exc_info=True,
-                    app_warning_msg="Could not get token approval status. "
-                                    "Check Ethereum wallet and network connection."
-                )
-            finally:
-                await asyncio.sleep(1.0)
 
     # ----------------------------------------
     # Polling Updates
@@ -721,10 +701,10 @@ cdef class DolomiteMarket(MarketBase):
     # ----------------------------------------------------------
 
     cdef object c_quantize_order_price(self, str symbol, object price):
-        return round_d(amount, 4)  # TODO get number of decimals for price for symbol (secondary symbol)
+        return round_d(price, self._trading_rules[symbol].price_decimal_places)
 
     cdef object c_quantize_order_amount(self, str symbol, object amount, object price = 0.0):
-        return round_d(amount, 4)  # TODO get number of decimals for amount for symbol
+        return round_d(amount, self._trading_rules[symbol].amount_decimal_places)
 
     cdef c_tick(self, double timestamp):
         cdef:

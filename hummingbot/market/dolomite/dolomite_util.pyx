@@ -16,6 +16,7 @@ def unpad(padded_obj):
     precision = padded_obj["currency"]["precision"]
     return Decimal(padded_obj["amount"]) * Decimal(f"1e-{precision}")
 
+
 def sha3(x):
     return keccak.new(digest_bits=256, data=x).hexdigest()
 
@@ -41,8 +42,9 @@ cdef class DolomiteTradingRule(TradingRule):
                  min_order_size: Decimal,
                  max_order_size: Decimal,
                  primary_token: DolomiteToken,
-                 secondary_token: DolomiteToken):
-        
+                 secondary_token: DolomiteToken,
+                 amount_decimal_places: int,
+                 price_decimal_places: int):
         super().__init__(
             symbol=symbol,
             min_order_size=min_order_size,
@@ -55,7 +57,8 @@ cdef class DolomiteTradingRule(TradingRule):
 
         self.primary_token = primary_token
         self.secondary_token = secondary_token
-
+        self.amount_decimal_places = amount_decimal_places
+        self.price_decimal_places = price_decimal_places
 
     @classmethod
     def build(cls, symbol, market, exchange_info, account_info, exchange_rates, token_registry):
@@ -66,16 +69,21 @@ cdef class DolomiteTradingRule(TradingRule):
             daily_max_usd = unpad(account_info["limits"]["daily_max_trade_amount_usd"])
             daily_used_usd = unpad(account_info["limits"]["daily_used_trade_amount_usd"])
             max_order_size_usd = daily_max_usd - daily_used_usd
-        
+
         primary_token = DolomiteToken(token_registry[market["primary_token"]])
         secondary_token = DolomiteToken(token_registry[market["secondary_token"]])
-        
+
+        amount_decimal_places = market["primary_ticker_decimal_places"]
+        price_decimal_places = market["secondary_ticker_price_decimal_places"]
+
         return DolomiteTradingRule(
             symbol=symbol,
             min_order_size=exchange_rates.from_base(min_order_size_usd, "USD", secondary_token.ticker),
             max_order_size=exchange_rates.from_base(max_order_size_usd, "USD", secondary_token.ticker),
             primary_token=primary_token,
             secondary_token=secondary_token,
+            amount_decimal_places=amount_decimal_places,
+            price_decimal_places=price_decimal_places
         )
 
 
@@ -96,10 +104,10 @@ class DolomiteExchangeRates:
 
 
 class DolomiteExchangeInfo:
-    def __init__(self, 
-                 spender_wallet_address, 
-                 fee_collecting_wallet_address, 
-                 maker_fee_percentage, 
+    def __init__(self,
+                 spender_wallet_address,
+                 fee_collecting_wallet_address,
+                 maker_fee_percentage,
                  taker_fee_percentage,
                  min_order_size_usd,
                  per_fill_fee_registry,
@@ -114,14 +122,13 @@ class DolomiteExchangeInfo:
         self.spot_trading_fee_premium_registry = spot_trading_fee_premium_registry
         self.fee_burn_rates_table = fee_burn_rates_table
 
-
     @classmethod
     def from_json(cls, exchange_info):
         per_fill_fee_registry = exchange_info["base_spot_trading_fee_amounts"]
         for ticker, padded_amount in per_fill_fee_registry.iteritems():
             per_fill_fee_registry[ticker] = unpad(padded_amount)
 
-        spot_trading_fee_premium_registry = exchange_info["spot_trading_fee_premium_amounts"];
+        spot_trading_fee_premium_registry = exchange_info["spot_trading_fee_premium_amounts"]
         for ticker, padded_amount in spot_trading_fee_premium_registry.iteritems():
             spot_trading_fee_premium_registry[ticker] = unpad(padded_amount)
 
@@ -142,4 +149,3 @@ class DolomiteExchangeInfo:
             spot_trading_fee_premium_registry=spot_trading_fee_premium_registry,
             fee_burn_rates_table=fee_burn_rates_table
         )
-        
