@@ -52,7 +52,7 @@ EXAMPLE_PAIRS = {
     "radar_relay": "ZRX-WETH",
     "bamboo_relay": "ZRX-WETH",
     "coinbase_pro": "ETH-USDC",
-    "dolomite": "WETH-DAI"
+    "dolomite": "WETH-DAI",
     "huobi": "ethusdt"
 }
 
