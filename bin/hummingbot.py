@@ -1,20 +1,6 @@
 #!/usr/bin/env python
 
-if "hummingbot-dist" in __file__:
-    # Dist environment.
-    import os
-    import sys
-    sys.path.append(sys.path.pop(0))
-    sys.path.insert(0, os.getcwd())
-
-    import hummingbot
-    hummingbot.set_prefix_path(os.getcwd())
-else:
-    # Dev environment.
-    from os.path import join, realpath
-    import sys
-    sys.path.insert(0, realpath(join(__file__, "../../")))
-
+import path_util        # noqa: F401
 import asyncio
 import errno
 import socket
@@ -35,6 +21,7 @@ from hummingbot import (
 )
 from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.core.management.console import start_management_console
+from hummingbot.core.utils.async_utils import safe_gather
 
 
 def detect_available_port(starting_port: int) -> int:
@@ -72,7 +59,7 @@ async def main():
         if global_config_map.get("debug_console").value:
             management_port: int = detect_available_port(8211)
             tasks.append(start_management_console(locals(), host="localhost", port=management_port))
-        await asyncio.gather(*tasks)
+        await safe_gather(*tasks)
 
 if __name__ == "__main__":
     ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()

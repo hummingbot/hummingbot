@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from os.path import join, realpath
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from decimal import Decimal
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
@@ -31,9 +31,8 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.strategy.simple_trade.simple_trade import SimpleTradeStrategy
-import sys
-sys.path.insert(0, realpath(join(__file__, "../../")))
+from hummingbot.strategy.dev_simple_trade.dev_simple_trade import SimpleTradeStrategy
+import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
 
 class SimpleTradeUnitTest(unittest.TestCase):
@@ -64,7 +63,7 @@ class SimpleTradeUnitTest(unittest.TestCase):
             )
         )
 
-        self.market_info: MarketSymbolPair = MarketSymbolPair(
+        self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             *(
                 [self.market] + self.maker_symbols
             )

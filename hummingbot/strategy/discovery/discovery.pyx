@@ -18,6 +18,8 @@ from hummingbot.strategy.arbitrage import ArbitrageStrategy
 from hummingbot.strategy.strategy_base cimport StrategyBase
 
 from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.utils.async_utils import safe_ensure_future
+
 import itertools
 
 NaN = float("nan")
@@ -80,6 +82,10 @@ cdef class DiscoveryStrategy(StrategyBase):
                                    for market_pair in self._market_pairs
                                    for market in [market_pair.market_1, market_pair.market_2]])
         self.c_add_markets(list(all_markets))
+
+    @property
+    def all_markets_ready(self):
+        return self._all_markets_ready
 
     @classmethod
     def parse_equivalent_token(cls, equivalent_token: List[List[str]]) -> Dict[str, Set[str]]:
@@ -177,14 +183,20 @@ cdef class DiscoveryStrategy(StrategyBase):
         for base_1, quote_1 in market_1_base_quote:
             # check for all equivalent base and quote token from market1 in market2
             for equivalent_base_1, equivalent_quote_1 in itertools.product(
-                    self._equivalent_token_dict.get(base_1, {base_1}),
-                    self._equivalent_token_dict.get(quote_1, {quote_1})):
-
-                if (equivalent_base_1, equivalent_quote_1) in market_2_base_quote:
+                self._equivalent_token_dict.get(base_1.upper(), {base_1}),
+                self._equivalent_token_dict.get(quote_1.upper(), {quote_1})
+            ):
+                if (equivalent_base_1.upper(), equivalent_quote_1.upper()) in market_2_base_quote:
                     matching_pair.add((
                         self._market_info[market_1]["base_quote_to_symbol"][(base_1, quote_1)],
-                        self._market_info[market_2]["base_quote_to_symbol"][(equivalent_base_1,
-                                                                             equivalent_quote_1)]
+                        self._market_info[market_2]["base_quote_to_symbol"][(equivalent_base_1.upper(),
+                                                                            equivalent_quote_1.upper())]
+                    ))
+                elif (equivalent_base_1.lower(), equivalent_quote_1.lower()) in market_2_base_quote:
+                    matching_pair.add((
+                        self._market_info[market_1]["base_quote_to_symbol"][(base_1, quote_1)],
+                        self._market_info[market_2]["base_quote_to_symbol"][(equivalent_base_1.lower(),
+                                                                            equivalent_quote_1.lower())]
                     ))
         return matching_pair
 
@@ -201,11 +213,11 @@ cdef class DiscoveryStrategy(StrategyBase):
         """
         StrategyBase.c_tick(self, timestamp)
         if not self._fetch_market_info_task_list:
-            self._fetch_market_info_task_list = [asyncio.ensure_future(self.fetch_market_info(market_pair))
-                                                for market_pair in self._market_pairs]
+            self._fetch_market_info_task_list = [safe_ensure_future(self.fetch_market_info(market_pair))
+                                                 for market_pair in self._market_pairs]
 
         for market in self._sb_markets:
-            if not market in self._market_info:
+            if market not in self._market_info:
                 self.log_with_clock(logging.INFO, f"Waiting to finish fetching trading pair from {market.name}.")
                 return
 
@@ -223,10 +235,10 @@ cdef class DiscoveryStrategy(StrategyBase):
         self._last_timestamp = timestamp
 
     cdef dict c_calculate_single_arbitrage_profitability(self,
-                                                    object market_pair,
-                                                    tuple matching_pair,
-                                                    double target_amount=float("inf"),
-                                                    double target_profitability=0.0):
+                                                         object market_pair,
+                                                         tuple matching_pair,
+                                                         double target_amount=float("inf"),
+                                                         double target_profitability=0.0):
         """
         Given a matching symbol pair and a discovery market pair, calculate the optimal order size and the buy-sell
         order of the two marktes to make the maximal arbitrage profits out of them.
@@ -240,15 +252,15 @@ cdef class DiscoveryStrategy(StrategyBase):
         :rtype: Dict[Tuple[str, str, str, str], Tuple[float, float, float]]
         """
         cdef:
-            double total_bid_value = 0 # total revenue
-            double total_ask_value = 0 # total cost
+            double total_bid_value = 0                                  # total revenue
+            double total_ask_value = 0                                  # total cost
             double total_bid_value_adjusted = 0
             double total_ask_value_adjusted = 0
             double total_profitable_base_amount = 0
             double step_amount = 0
             double profitability = 0
             double next_profitability = 0
-            object market_1 = (market_pair.market_1, matching_pair[0]) # (symbol, base_token, quote_token)
+            object market_1 = (market_pair.market_1, matching_pair[0])  # (symbol, base_token, quote_token)
             object market_2 = (market_pair.market_2, matching_pair[1])
             str buy_market_name
             str sell_market_name
@@ -264,7 +276,7 @@ cdef class DiscoveryStrategy(StrategyBase):
 
         for buy_market, sell_market in [(market_1, market_2), (market_2, market_1)]:
             try:
-                total_bid_value, total_ask_value  = 0, 0
+                total_bid_value, total_ask_value = 0, 0
                 total_profitable_base_amount = 0
                 profitability, next_profitability = 0, 0
 
@@ -335,11 +347,11 @@ cdef class DiscoveryStrategy(StrategyBase):
                                       target_profitability: float):
         return self.c_calculate_arbitrage_discovery(market_pair, matching_pairs, target_amount, target_profitability)
 
-    cdef dict c_calculate_arbitrage_discovery(self,
-                                              object market_pair,
-                                              set matching_pairs,
-                                              double target_amount,
-                                              double target_profitability):
+    cdef object c_calculate_arbitrage_discovery(self,
+                                                object market_pair,
+                                                set matching_pairs,
+                                                double target_amount,
+                                                double target_profitability):
         """
         Given a set of matching symbol pairs and a discovery market pair, calculate the optimal order sizes and the
         buy-sell orders of all the symbol pairs to make the maximal arbitrage profits out of them.
@@ -429,14 +441,20 @@ cdef class DiscoveryStrategy(StrategyBase):
                                                                                       self._target_amount,
                                                                                       self._target_profitability)
 
+    def get_status_dataframes(self) -> List[pd.DataFrame]:
+        market_stats_df = self._discovery_stats["market_stats"]
+        arbitrage_status_df = self._discovery_stats["arbitrage"]
+        conversion_rate_df = self.get_conversion_rate_df()
+        return [market_stats_df, arbitrage_status_df, conversion_rate_df]
+
     def format_status_arbitrage(self):
         cdef:
             list lines = []
             list df_lines = []
         if "arbitrage" not in self._discovery_stats or self._discovery_stats["arbitrage"].empty:
-            lines.extend(["", "Arbitrage discovery not ready yet."])
+            lines.extend(["", "  Arbitrage discovery not ready yet."])
             return lines
-        df_lines = self._discovery_stats["arbitrage"].to_string(index=False, float_format='%.6g').split("\n")
+        df_lines = self._discovery_stats["arbitrage"].to_string(index=False).split("\n")
 
         lines.extend(["", "  Arbitrage Opportunity Report:"] +
                      ["    " + line for line in df_lines])
@@ -449,7 +467,7 @@ cdef class DiscoveryStrategy(StrategyBase):
         if "market_stats" not in self._discovery_stats or self._discovery_stats["market_stats"].empty:
             lines.extend(["", "Market stats not ready yet."])
             return lines
-        df_lines = self._discovery_stats["market_stats"].to_string(index=False, float_format='%.6g').split("\n")
+        df_lines = self._discovery_stats["market_stats"].to_string(index=False).split("\n")
 
         lines.extend(["", "  Market Stats:"] +
                      ["    " + line for line in df_lines])
@@ -463,9 +481,8 @@ cdef class DiscoveryStrategy(StrategyBase):
                      [f"      {equivalent_token}" for equivalent_token in self._equivalent_token])
         return lines
 
-    def format_conversion_rate(self):
+    def get_conversion_rate_df(self) -> pd.DataFrame:
         cdef:
-            list lines = []
             list data = []
             list columns = ["asset", "conversion_rate"]
 
@@ -483,6 +500,13 @@ cdef class DiscoveryStrategy(StrategyBase):
                 data.append([asset, rate])
 
         assets_df = pd.DataFrame(data=data, columns=columns)
+        return assets_df
+
+    def format_conversion_rate(self):
+        cdef:
+            list lines = []
+
+        assets_df = self.get_conversion_rate_df()
         lines.extend(["", "  Conversion Rates:"] + ["    " + line for line in str(assets_df).split("\n")])
         return lines
 

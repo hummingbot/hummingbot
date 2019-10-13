@@ -13,7 +13,7 @@ from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.market.market_base import MarketBase
-from .market_symbol_pair import MarketSymbolPair
+from .market_trading_pair_tuple import MarketTradingPairTuple
 
 NaN = float("nan")
 
@@ -24,7 +24,6 @@ cdef class OrderTracker(TimeIterator):
     SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION = 60.0 * 3
 
     CANCEL_EXPIRY_DURATION = 60.0
-
 
     def __init__(self):
         super().__init__()
@@ -57,7 +56,7 @@ cdef class OrderTracker(TimeIterator):
         return maker_orders
 
     @property
-    def market_pair_to_active_orders(self) -> Dict[MarketSymbolPair, List[LimitOrder]]:
+    def market_pair_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         market_pair_to_orders = {}
         market_pairs = self._tracked_maker_orders.keys()
         for market_pair in market_pairs:
@@ -79,15 +78,15 @@ cdef class OrderTracker(TimeIterator):
 
     @property
     def tracked_taker_orders(self) -> List[Tuple[MarketBase, MarketOrder]]:
-        return [(market_symbol_pair[0], order) for market_symbol_pair, order_map in self._tracked_taker_orders.items()
+        return [(market_trading_pair_tuple[0], order) for market_trading_pair_tuple, order_map in self._tracked_taker_orders.items()
                 for order in order_map.values()]
 
     @property
     def tracked_taker_orders_data_frame(self) -> List[pd.DataFrame]:
-        market_orders = [[market_symbol_pair.market.name, market_symbol_pair.trading_pair, order_id, order.amount,
+        market_orders = [[market_trading_pair_tuple.market.display_name, market_trading_pair_tuple.trading_pair, order_id, order.amount,
                           pd.Timestamp(order.timestamp, unit='s', tz='UTC').strftime('%Y-%m-%d %H:%M:%S')
                           ]
-                         for market_symbol_pair, order_map in self._tracked_taker_orders.items()
+                         for market_trading_pair_tuple, order_map in self._tracked_taker_orders.items()
                          for order_id, order in order_map.items()]
 
         return pd.DataFrame(data=market_orders, columns=["market", "symbol", "order_id", "quantity", "timestamp"])
