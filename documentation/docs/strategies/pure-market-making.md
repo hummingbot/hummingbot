@@ -50,13 +50,12 @@ The following walks through all the steps when running `config` for the first ti
 | `How far away from the mid price do you want to place the first ask (Enter 0.01 to indicate 1%)? >>>`: | This sets `ask_place_threshold` (see [definition](#configuration-parameters)). |
 | `How often do you want to cancel and replace bids and asks (in seconds)? >>>`: | This sets the `cancel_order_wait_time` (see [definition](#configuration-parameters)). |
 | `What is your preferred quantity per order (denominated in the base asset, default is 1)? >>>`: | This sets `order_amount` (see [definition](#configuration-parameters)). |
-| `At what percentage of loss would you like the bot to stop trading? (Enter 0.03 to indicate 3%. Enter -1.0 to disable) >>>` | This sets `stop_loss_pct` (see [definition](#configuration-parameters)) |
-| `What type of price data would you like to use for stop loss (fixed/dynamic) ? >>>` | This sets `stop_loss_price_type` (see [definition](#configuration-parameters)) |
-| `What base token would you like to use to calculate your inventory value? (Default "USD") >>>` | This sets `stop_loss_base_token` (see [definition](#configuration-parameters)) |
 | `Would you like to enable inventory skew? (y/n) >>>` | This sets `inventory_skew_enabled` (see [definition](#configuration-parameters)) |
 | `What is your target base asset inventory percentage (Enter 0.01 to indicate 1%)? >>> ` | This sets `inventory_target_base_percent` (see [definition](#configuration-parameters)) |
 | `How long do you want to wait before placing the next order in case your order gets filled (in seconds). (Default is 10 seconds)? >>> " ` | This sets `filled_order_replenish_wait_time` (see [definition](#configuration-parameters)) |
 | `Do you want to enable order_filled_stop_cancellation. If enabled, when orders are completely filled, the other side remains uncanceled (Default is False)? >>> " ` | This sets `enable_order_filled_stop_cancellation` (see [definition](#configuration-parameters)) |
+| `Would you like to enable the kill switch? (y/n) >>>` | This sets `kill_switch_enabled` (see [Kill Switch](/utilities/kill-switch) in Utilities section) |
+| `At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5% loss) >>>` | This sets `kill_switch_rate` (see [Kill Switch](/utilities/kill-switch) in Utilities section) |
 
 If trading on a centralized exchange or IDEX, enter API keys. If trading on a decentralized exchange, enter Ethereum wallet and Ethereum node.
 
