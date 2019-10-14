@@ -118,7 +118,7 @@ class WethWatcher(BaseWatcher):
         if event_args["dst"] not in self._watch_addresses:
             return
         raw_amount: int = event_args["wad"]
-        normalized_amount: Decimal = Decimal(raw_amount) / 10 ** 18
+        normalized_amount: Decimal = Decimal(raw_amount) * Decimal("1e-18")
         address: str = event_args["dst"]
 
         self.trigger_event(WalletEvent.WrappedEth,
@@ -130,7 +130,7 @@ class WethWatcher(BaseWatcher):
         if event_args["src"] not in self._watch_addresses:
             return
         raw_amount: int = event_args["wad"]
-        normalized_amount: Decimal = Decimal(raw_amount) / 10 ** 18
+        normalized_amount: Decimal = Decimal(raw_amount) * Decimal("1e-18")
         address: str = event_args["src"]
 
         self.trigger_event(WalletEvent.UnwrappedEth,

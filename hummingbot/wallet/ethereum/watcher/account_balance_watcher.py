@@ -117,7 +117,7 @@ class AccountBalanceWatcher(BaseWatcher):
         decimals: int = self.get_decimals(asset_name)
         raw_balance: int = self._raw_account_balances[asset_name]
         raw_balance_in_decimal = Decimal(raw_balance)
-        balance_in_decimal = raw_balance_in_decimal / (10**decimals)
+        balance_in_decimal = raw_balance_in_decimal * Decimal(f"1e-{decimals}")
         return balance_in_decimal
 
     def get_decimals(self, asset_name: str) -> int:
