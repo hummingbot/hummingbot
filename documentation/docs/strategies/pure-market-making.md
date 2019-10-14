@@ -74,11 +74,15 @@ If trading on a centralized exchange or IDEX, enter API keys. If trading on a de
 
 Transaction costs are by default now added to the prices. This setting can be disabled by going to `hummingbot/strategy/pure_market_making/start.py` and setting `add_transaction_costs_to_orders` to `False`.
 
-`fee_pct` refers to the percentage maker fees per order (generally common in Centralized exchanges) while `fixed_fees` refers to the flat fees (generally common in Decentralized exchanges)
+`fee_pct` refers to the percentage maker fees per order (generally common in Centralized exchanges) while `fixed_fees` refers to the flat fees (generally common in Decentralized exchanges).
 
-- The bid order price is now calculated as (mid_price * (1 - fee_pct) * order_size - fixed_fees) / order_size
+- The bid order price is now calculated as:
 
-- The ask order price is now calculated as (mid_price * (1 + fee_pct) * order_size + fixed_fees) / order_size
+![Bid price with transaction cost](/assets/img/trans_cost_bid.PNG)
+
+- The ask order price is now calculated as:
+
+![Ask price with transaction cost](/assets/img/trans_cost_ask.PNG)
 
 Adding the transaction cost will reduce the bid order price and increase the ask order price.
 
