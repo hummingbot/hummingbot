@@ -39,7 +39,7 @@ The following walks through all the steps when running `config` for the first ti
 !!! tip "Tip: Autocomplete Inputs during Configuration"
     When going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs.
 
-  | Prompt | Description |
+| Prompt | Description |
 |-----|-----|
 | `What is your market making strategy >>>` | Enter `pure_market_making`. <br/><br/>Currently available options: `arbitrage` or `cross_exchange_market_making` or `pure_market_making` or `discovery` or `simple_trade`  *(case sensitive)* |
 | `Import previous configs or create a new config file? (import/create) >>>` | When running the bot for the first time, enter `create`.<br/>If you have previously initialized, enter `import`, which will then ask you to specify the config file location. |
@@ -50,12 +50,10 @@ The following walks through all the steps when running `config` for the first ti
 | `How far away from the mid price do you want to place the first ask (Enter 0.01 to indicate 1%)? >>>` | This sets `ask_place_threshold` (see [definition](#configuration-parameters)). |
 | `How often do you want to cancel and replace bids and asks (in seconds)? >>>` | This sets the `cancel_order_wait_time` (see [definition](#configuration-parameters)). |
 | `What is your preferred quantity per order (denominated in the base asset, default is 1)? >>>` | This sets `order_amount` (see [definition](#configuration-parameters)). |
-| `Would you like to enable inventory skew? (y/n) >>>` | This sets `inventory_skew_enabled` (see [definition](#configuration-parameters)) |
-| `What is your target base asset inventory percentage (Enter 0.01 to indicate 1%)? >>> ` | This sets `inventory_target_base_percent` (see [definition](#configuration-parameters)) |
-| `How long do you want to wait before placing the next order in case your order gets filled (in seconds). (Default is 10 seconds)? >>>` | This sets `filled_order_replenish_wait_time` (see [definition](#configuration-parameters)) |
-| `Do you want to enable order_filled_stop_cancellation. If enabled, when orders are completely filled, the other side remains uncanceled (Default is False)? >>>` | This sets `enable_order_filled_stop_cancellation` (see [definition](#configuration-parameters)) |
-| `How long do you want to wait before placing the next order in case your order gets filled (in seconds). (Default is 10 seconds)? >>>` | This sets `filled_order_replenish_wait_time` (see [definition](#configuration-parameters)) |
-| `Do you want to enable order_filled_stop_cancellation. If enabled, when orders are completely filled, the other side remains uncanceled (Default is False)? >>>` | This sets `enable_order_filled_stop_cancellation` (see [definition](#configuration-parameters)) |
+| `Would you like to enable inventory skew? (y/n) >>>` <br /><br /> `What is your target base asset inventory percentage (Enter 0.01 to indicate 1%)? >>> ` | See [Inventory-Based Dynamic Order Sizing](#inventory-based-dynamic-order-sizing) section. |
+| `How long do you want to wait before placing the next order in case your order gets filled (in seconds). (Default is 10 seconds)? >>>` | See [Order Replenish Time](#order-replenish-time) section. |
+| `Do you want to enable order_filled_stop_cancellation. If enabled, when orders are completely filled, the other side remains uncanceled (Default is False)? >>>` | See ["Hanging Orders"](#hanging-orders) section. |
+| `Do you want to enable jump_orders? If enabled, when the top bid price is lesser than your order price, buy order will jump to one tick above top bid price & vice versa for sell. (Default is False) >>>` <br /><br /> `How deep do you want to go into the order book for calculating the top bid and ask, ignoring dust orders on the top (expressed in base currency)? (Default is 0) >>>` | See [Penny Jumping Mode](#penny-jumping-mode) section. |
 | `Would you like to enable the kill switch? (y/n) >>>` | This sets `kill_switch_enabled` (see [Kill Switch](/utilities/kill-switch) in Utilities section) |
 | `At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5% loss) >>>` | This sets `kill_switch_rate` (see [Kill Switch](/utilities/kill-switch) in Utilities section) |
 
@@ -64,6 +62,8 @@ If trading on a centralized exchange or IDEX, enter API keys. If trading on a de
 !!! note
     Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
+| Prompt | Description |
+|-----|-----|
 | `Enter your Binance API key >>>`<br/><br/>`Enter your Binance API secret >>>` | You must [create a Binance API key](https://docs.hummingbot.io/connectors/binance/#creating-binance-api-keys) key with trading enabled ("Enable Trading" selected).<br/><table><tbody><tr><td bgcolor="#e5f8f6">**Tip**: You can use Ctrl + R or ⌘ + V to paste from the clipboard.</td></tr></tbody></table> |
 | `Enter your IDEX API key >>>` | On Friday August 23, IDEX released updates to its servers requiring authentication/use of API keys to access its APIs. For more information, see [IDEX API key](/connectors/idex/#api-key). |
 | `Would you like to import an existing wallet or create a new wallet? (import / create) >>>` | Import or create an Ethereum wallet which will be used for trading on decentralized exchange.<br/><br/>Enter a valid input:<ol><li>`import`: imports a wallet from an input private key.</li><ul><li>If you select import, you will then be asked to enter your private key as well as a password to lock/unlock that wallet for use with Hummingbot</li><li>`Your wallet private key >>>`</li><li>`A password to protect your wallet key >>>`</li></ul><li>`create`: creates a new wallet with new private key.</li><ul><li>If you select create, you will only be asked for a password to protect your newly created wallet</li><li>`A password to protect your wallet key >>>`</li></ul></ol><br/><table><tbody><tr><td bgcolor="#e5f8f6">**Tip**: using a wallet that is available in your Metamask (i.e. importing a wallet from Metamask) allows you to view orders created and trades filled by Hummingbot on the decentralized exchange's website.</td></tr></tbody></table> |
@@ -130,6 +130,10 @@ The `filled_order_replenish_wait_time` parameter allows for a delay when placing
 
 > Example:
 If you have a buy order that is filled at 1:00:00 and the delay is set as 10 seconds. The next orders placed wil be at 1:00:10. The sell order is also cancelled within this delay period and placed at 1:00:10 to ensure that both buy and sell orders stay in sync.
+
+| Prompt | Description |
+|-----|-----|
+| `How long do you want to wait before placing the next order in case your order gets filled (in seconds). (Default is 10 seconds)? >>>` | This sets `filled_order_replenish_wait_time` (see [definition](#configuration-parameters)) |
 
 #### "Hanging" Orders
 
