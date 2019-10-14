@@ -544,7 +544,7 @@ class Web3WalletBackend(PubSub):
             raise ValueError(f"Unrecognized asset name '{asset_name}'.")
 
         decimals: int = self._asset_decimals[asset_name]
-        return Decimal(raw_amount) / (10 ** decimals)
+        return Decimal(raw_amount) * Decimal(f"1e-{decimals}")
 
     def to_raw(self, asset_name: str, nominal_amount: Decimal) -> int:
         if asset_name not in self._asset_decimals:
