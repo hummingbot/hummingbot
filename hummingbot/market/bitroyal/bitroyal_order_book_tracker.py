@@ -2,16 +2,28 @@
 
 import asyncio
 import bisect
-from collections import defaultdict, deque
+from collections import (
+    defaultdict,
+    deque
+)
 import logging
 import time
-from typing import Deque, Dict, List, Optional, Set
+from typing import (
+    Deque,
+    Dict,
+    List,
+    Optional,
+    Set
+)
 
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.market.bitroyal.bitroyal_api_order_book_data_source import BitroyalAPIOrderBookDataSource
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType, BitroyalOrderBookMessage
+from hummingbot.core.data_type.order_book_message import (
+    OrderBookMessageType,
+    BitroyalOrderBookMessage
+)
 from hummingbot.core.data_type.order_book_tracker_entry import BitroyalOrderBookTrackerEntry
 from hummingbot.market.bitroyal.bitroyal_order_book import BitroyalOrderBook
 from hummingbot.market.bitroyal.bitroyal_active_order_tracker import BitroyalActiveOrderTracker
@@ -26,11 +38,9 @@ class BitroyalOrderBookTracker(OrderBookTracker):
             cls._cbpobt_logger = logging.getLogger(__name__)
         return cls._cbpobt_logger
 
-    def __init__(
-        self,
-        data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
-        symbols: Optional[List[str]] = None,
-    ):
+    def __init__(self,
+                 data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
+                 symbols: Optional[List[str]] = None):
         super().__init__(data_source_type=data_source_type)
 
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -64,25 +74,28 @@ class BitroyalOrderBookTracker(OrderBookTracker):
         self._order_book_snapshot_listener_task = asyncio.ensure_future(
             self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
         )
-        self._refresh_tracking_task = asyncio.ensure_future(self._refresh_tracking_loop())
-        self._order_book_diff_router_task = asyncio.ensure_future(self._order_book_diff_router())
-        self._order_book_snapshot_router_task = asyncio.ensure_future(self._order_book_snapshot_router())
-
-        await asyncio.gather(
-            self._order_book_snapshot_listener_task,
-            self._order_book_diff_listener_task,
-            self._order_book_snapshot_router_task,
-            self._order_book_diff_router_task,
-            self._refresh_tracking_task,
+        self._refresh_tracking_task = asyncio.ensure_future(
+            self._refresh_tracking_loop()
         )
+        self._order_book_diff_router_task = asyncio.ensure_future(
+            self._order_book_diff_router()
+        )
+        self._order_book_snapshot_router_task = asyncio.ensure_future(
+            self._order_book_snapshot_router()
+        )
+
+        await asyncio.gather(self._order_book_snapshot_listener_task,
+                             self._order_book_diff_listener_task,
+                             self._order_book_snapshot_router_task,
+                             self._order_book_diff_router_task,
+                             self._refresh_tracking_task)
 
     async def _refresh_tracking_tasks(self):
         """
         Starts tracking for any new trading pairs, and stop tracking for any inactive trading pairs.
         """
-        tracking_symbols: Set[str] = set(
-            [key for key in self._tracking_tasks.keys() if not self._tracking_tasks[key].done()]
-        )
+        tracking_symbols: Set[str] = set([key for key in self._tracking_tasks.keys()
+                                          if not self._tracking_tasks[key].done()])
         available_pairs: Dict[str, BitroyalOrderBookTrackerEntry] = await self.data_source.get_tracking_pairs()
         available_symbols: Set[str] = set(available_pairs.keys())
         new_symbols: Set[str] = available_symbols - tracking_symbols
@@ -134,12 +147,7 @@ class BitroyalOrderBookTracker(OrderBookTracker):
                 # Log some statistics.
                 now: float = time.time()
                 if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                    self.logger().debug(
-                        "Diff messages processed: %d, rejected: %d, queued: %d",
-                        messages_accepted,
-                        messages_rejected,
-                        messages_queued,
-                    )
+                    self.logger().debug("Diff messages processed: %d, rejected: %d, queued: %d", messages_accepted, messages_rejected, messages_queued)
                     messages_accepted = 0
                     messages_rejected = 0
                     messages_queued = 0
@@ -151,7 +159,7 @@ class BitroyalOrderBookTracker(OrderBookTracker):
                 self.logger().network(
                     f"Unexpected error routing order book messages.",
                     exc_info=True,
-                    app_warning_msg=f"Unexpected error routing order book messages. Retrying after 5 seconds.",
+                    app_warning_msg=f"Unexpected error routing order book messages. Retrying after 5 seconds."
                 )
                 await asyncio.sleep(5.0)
 
@@ -208,6 +216,6 @@ class BitroyalOrderBookTracker(OrderBookTracker):
                 self.logger().network(
                     f"Unexpected error processing order book messages for {symbol}.",
                     exc_info=True,
-                    app_warning_msg=f"Unexpected error processing order book messages. Retrying after 5 seconds.",
+                    app_warning_msg=f"Unexpected error processing order book messages. Retrying after 5 seconds."
                 )
                 await asyncio.sleep(5.0)
