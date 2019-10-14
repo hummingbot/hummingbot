@@ -58,7 +58,7 @@ dependencies:
     - 0x-order-utils==1.1.1
     - 0x-web3==4.8.2.1
     - aioconsole==0.1.14
-    - aiohttp==3.5.4
+    - aiohttp==3.6.1
     - aiokafka==0.5.2
     - async-timeout==3.0.1
     - attrdict==2.0.1
