@@ -1,4 +1,5 @@
 import aiohttp
+from aiohttp.test_utils import TestClient
 import asyncio
 from async_timeout import timeout
 import conf
@@ -144,6 +145,10 @@ cdef class HuobiMarket(MarketBase):
         return "huobi"
 
     @property
+    def order_book_tracker(self) -> HuobiOrderBookTracker:
+        return self._order_book_tracker
+
+    @property
     def order_books(self) -> Dict[str, OrderBook]:
         return self._order_book_tracker.order_books
 
@@ -174,6 +179,14 @@ cdef class HuobiMarket(MarketBase):
             key: HuobiInFlightOrder.from_json(value)
             for key, value in saved_states.items()
         })
+
+    @property
+    def shared_client(self) -> str:
+        return self._shared_client
+
+    @shared_client.setter
+    def shared_client(self, client: aiohttp.ClientSession):
+        self._shared_client = client
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         return await HuobiAPIOrderBookDataSource.get_active_exchange_markets()
@@ -246,12 +259,28 @@ cdef class HuobiMarket(MarketBase):
         client = await self._http_client()
         if is_auth_required:
             params = self._huobi_auth.add_auth_to_params(method, path_url, params)
-        async with client.request(method=method,
-                                  url=url,
-                                  headers=headers,
-                                  params=params,
-                                  data=ujson.dumps(data),
-                                  timeout=self.API_CALL_TIMEOUT) as response:
+
+        # aiohttp TestClient requires path instead of url
+        if isinstance(client, TestClient):
+            response_coro = client.request(
+                method=method.upper(),
+                path=f"/{path_url}",
+                headers=headers,
+                params=params,
+                data=ujson.dumps(data),
+                timeout=100
+            )
+        else:
+            response_coro = client.request(
+                method=method.upper(),
+                url=url,
+                headers=headers,
+                params=params,
+                data=ujson.dumps(data),
+                timeout=100
+            )
+
+        async with response_coro as response:
             if response.status != 200:
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
             try:
@@ -277,13 +306,15 @@ cdef class HuobiMarket(MarketBase):
     async def _update_balances(self):
         cdef:
             str path_url = f"account/accounts/{self._account_id}/balance"
-            dict data = await self._api_request("get", path_url=path_url, is_auth_required=True)
-            list balances = data.get("list", [])
+            dict data
+            list balances
             dict new_available_balances = {}
             dict new_balances = {}
             str asset_name
             object balance
 
+        data = await self._api_request("get", path_url=path_url, is_auth_required=True)
+        balances = data.get("list", [])
         if len(balances) > 0:
             for balance_entry in balances:
                 asset_name = balance_entry["currency"]
@@ -402,7 +433,7 @@ cdef class HuobiMarket(MarketBase):
                         self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                              OrderCancelledEvent(self._current_timestamp,
                                                                  tracked_order.client_order_id))
-                        continue
+                    continue
 
                 order_state = order_update["state"]
                 # possible order states are "submitted", "partial-filled", "cancelling", "filled", "canceled"
