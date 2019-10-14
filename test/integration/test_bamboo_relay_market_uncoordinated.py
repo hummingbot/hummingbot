@@ -56,6 +56,8 @@ from hummingbot.model.trade_fill import TradeFill
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.wallet.ethereum.web3_wallet_backend import EthereumChain
 
+s_decimal_0 = Decimal(0)
+
 
 class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
     market_events: List[MarketEvent] = [
@@ -96,7 +98,7 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.wallet = Web3Wallet(private_key=conf.web3_private_key_bamboo,
                                 backend_urls=conf.test_web3_provider_list,
-                                erc20_token_addresses=[conf.test_bamboo_relay_base_token_address, 
+                                erc20_token_addresses=[conf.test_bamboo_relay_base_token_address,
                                                        conf.test_bamboo_relay_quote_token_address],
                                 chain=chain)
         cls.market: BambooRelayMarket = BambooRelayMarket(
@@ -172,8 +174,8 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
 
     def test_get_wallet_balances(self):
         balances = self.market.get_all_balances()
-        self.assertGreaterEqual((balances["ETH"]), 0)
-        self.assertGreaterEqual((balances[self.quote_token_symbol]), 0)
+        self.assertGreaterEqual((balances["ETH"]), s_decimal_0)
+        self.assertGreaterEqual((balances[self.quote_token_symbol]), s_decimal_0)
 
     def test_single_limit_order_cancel(self):
         symbol: str = self.base_token_symbol + "-" + self.quote_token_symbol
@@ -230,13 +232,13 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
         self.assertEqual(self.base_token_symbol + "-" + self.quote_token_symbol, sell_order_opened_event.symbol)
         self.assertEqual(OrderType.LIMIT, sell_order_opened_event.type)
 
-        [cancellation_results, order_cancelled_event] = self.run_parallel(self.market.cancel_all(60 * 5), 
+        [cancellation_results, order_cancelled_event] = self.run_parallel(self.market.cancel_all(60 * 5),
                                                                           self.market_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(cancellation_results[0], CancellationResult(buy_order_id, True))
         self.assertEqual(cancellation_results[1], CancellationResult(sell_order_id, True))
 
         # Wait for the order book source to also register the cancellation
-        self.assertTrue((buy_order_opened_event.order_id == order_cancelled_event.order_id or 
+        self.assertTrue((buy_order_opened_event.order_id == order_cancelled_event.order_id or
                          sell_order_opened_event.order_id == order_cancelled_event.order_id))
         # Reset the logs
         self.market_logger.clear()
@@ -245,15 +247,14 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
         symbol: str = self.base_token_symbol + "-" + self.quote_token_symbol
         current_price: float = self.market.get_price(symbol, True)
         amount: float = 0.03
-        expires = int(time.time() + 60) # expires in 1 min
-        quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
-        buy_order_id = self.market.buy(symbol=symbol,
-                                       amount=amount,
-                                       order_type=OrderType.LIMIT,
-                                       price=current_price - 0.2 * current_price,
-                                       expiration_ts=expires)
+        expires = int(time.time() + 60)  # expires in 1 min
+        # quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+        self.market.buy(symbol=symbol,
+                        amount=amount,
+                        order_type=OrderType.LIMIT,
+                        price=current_price - 0.2 * current_price,
+                        expiration_ts=expires)
         [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
-
         self.assertEqual(self.base_token_symbol + "-" + self.quote_token_symbol, buy_order_opened_event.symbol)
         self.assertEqual(OrderType.LIMIT, buy_order_opened_event.type)
         [buy_order_expired_event] = self.run_parallel(self.market_logger.wait_for(OrderExpiredEvent, 75))
@@ -285,20 +286,20 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
         amount: float = 0.02
         current_price: float = self.market.get_price(symbol, False)
         expires = int(time.time() + 60 * 5)
-        sell_order_id = self.market.sell(symbol=symbol,
-                                         amount=amount,
-                                         order_type=OrderType.LIMIT,
-                                         price=current_price - 0.2 * current_price,
-                                         expiration_ts=expires)
-        [sell_order_opened_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
+        self.market.sell(symbol=symbol,
+                         amount=amount,
+                         order_type=OrderType.LIMIT,
+                         price=current_price - 0.2 * current_price,
+                         expiration_ts=expires)
+        self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
 
         amount: float = 0.04
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
         order_id = self.market.buy(self.base_token_symbol + "-" + self.quote_token_symbol, amount, OrderType.MARKET)
 
-        [order_completed_event, 
-         sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent),
-                                                         self.market_logger.wait_for(SellOrderCompletedEvent))
+        [order_completed_event,
+         _] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent),
+                                self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         order_filled_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
                                                        if isinstance(t, OrderFilledEvent)]
@@ -333,20 +334,19 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
         amount: float = 0.02
         current_price: float = self.market.get_price(symbol, True)
         expires = int(time.time() + 60 * 5)
-        buy_order_id = self.market.buy(symbol=symbol,
-                                         amount=amount,
-                                         order_type=OrderType.LIMIT,
-                                         price=current_price + 0.2 * current_price,
-                                         expiration_ts=expires)
-        [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+        self.market.buy(symbol=symbol,
+                        amount=amount,
+                        order_type=OrderType.LIMIT,
+                        price=current_price + 0.2 * current_price,
+                        expiration_ts=expires)
+        self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
 
         amount: float = 0.05
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
         order_id = self.market.sell(self.base_token_symbol + "-" + self.quote_token_symbol, amount, OrderType.MARKET)
 
-        [order_completed_event, 
-         buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent),
-                                                         self.market_logger.wait_for(BuyOrderCompletedEvent))
+        [order_completed_event, _] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent),
+                                                       self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         order_filled_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
                                                        if isinstance(t, OrderFilledEvent)]
@@ -359,7 +359,7 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_wrap_eth(self):
-        amount_to_wrap = 0.01
+        amount_to_wrap = Decimal("0.01")
         tx_hash = self.wallet.wrap_eth(amount_to_wrap)
         [tx_completed_event] = self.run_parallel(self.wallet_logger.wait_for(WalletWrappedEthEvent))
         tx_completed_event: WalletWrappedEthEvent = tx_completed_event
@@ -369,7 +369,7 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
         self.assertEqual(self.wallet.address, tx_completed_event.address)
 
     def test_unwrap_eth(self):
-        amount_to_unwrap = 0.01
+        amount_to_unwrap = Decimal("0.01")
         tx_hash = self.wallet.unwrap_eth(amount_to_unwrap)
         [tx_completed_event] = self.run_parallel(self.wallet_logger.wait_for(WalletUnwrappedEthEvent))
         tx_completed_event: WalletUnwrappedEthEvent = tx_completed_event
