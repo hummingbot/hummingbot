@@ -80,7 +80,7 @@ class WalletReceivedAssetEvent(NamedTuple):
     from_address: str
     to_address: str
     asset_name: str
-    amount_received: float
+    amount_received: Decimal
     raw_amount_received: int
 
 
@@ -88,7 +88,7 @@ class WalletWrappedEthEvent(NamedTuple):
     timestamp: float
     tx_hash: str
     address: str
-    amount: float
+    amount: Decimal
     raw_amount: int
 
 
@@ -96,7 +96,7 @@ class WalletUnwrappedEthEvent(NamedTuple):
     timestamp: float
     tx_hash: str
     address: str
-    amount: float
+    amount: Decimal
     raw_amount: int
 
 
@@ -173,8 +173,8 @@ class TokenApprovedEvent(NamedTuple):
 
 
 class TradeFee(NamedTuple):
-    percent: Decimal # 0.1 = 10%
-    flat_fees: List[Tuple[str, Decimal]] = [] # list of (symbol, amount) ie: ("ETH", 0.05)
+    percent: Decimal  # 0.1 = 10%
+    flat_fees: List[Tuple[str, Decimal]] = []  # list of (symbol, amount) ie: ("ETH", 0.05)
 
     @classmethod
     def to_json(cls, trade_fee: "TradeFee") -> Dict[str, any]:
