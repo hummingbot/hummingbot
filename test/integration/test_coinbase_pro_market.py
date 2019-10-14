@@ -312,18 +312,18 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
     @unittest.skipUnless(any("test_withdraw" in arg for arg in sys.argv), "Withdraw test requires manual action.")
     def test_withdraw(self):
         # Ensure the market account has enough balance for withdraw testing.
-        self.assertGreaterEqual(self.market.get_balance("ZRX"), 1)
+        self.assertGreaterEqual(self.market.get_balance("ZRX"), Decimal('1'))
 
         # Withdraw ZRX from Coinbase Pro to test wallet.
-        self.market.withdraw(self.wallet.address, "ZRX", 1)
+        self.market.withdraw(self.wallet.address, "ZRX", Decimal('1'))
         [withdraw_asset_event] = self.run_parallel(
             self.market_logger.wait_for(MarketWithdrawAssetEvent)
         )
         withdraw_asset_event: MarketWithdrawAssetEvent = withdraw_asset_event
         self.assertEqual(self.wallet.address, withdraw_asset_event.to_address)
         self.assertEqual("ZRX", withdraw_asset_event.asset_name)
-        self.assertEqual(1, withdraw_asset_event.amount)
-        self.assertEqual(withdraw_asset_event.fee_amount, 0)
+        self.assertEqual(Decimal('1'), withdraw_asset_event.amount)
+        self.assertEqual(withdraw_asset_event.fee_amount, Decimal(0))
 
     def test_orders_saving_and_restoration(self):
         config_path: str = "test_config"
