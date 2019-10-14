@@ -55,6 +55,10 @@ class HuobiOrderBookTracker(OrderBookTracker):
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source
 
+    @data_source.setter
+    def data_source(self, data_source):
+        self._data_source = data_source
+
     async def start(self):
         await super().start()
         self._order_book_trade_listener_task = safe_ensure_future(
