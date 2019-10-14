@@ -552,6 +552,10 @@ class Web3WalletBackend(PubSub):
         decimals: int = self._asset_decimals[asset_name]
         return int(nominal_amount * Decimal(f"1e{decimals}"))
 
+    @staticmethod
+    def to_raw_static(nominal_amount: Decimal) -> int:
+        return int(nominal_amount * Decimal(f"1e18"))
+
     def _received_asset_event_listener(self, received_asset_event: WalletReceivedAssetEvent):
         self.logger().info(f"Received {received_asset_event.amount_received} {received_asset_event.asset_name} at "
                            f"transaction {received_asset_event.tx_hash}.")
@@ -608,13 +612,13 @@ class Web3WalletBackend(PubSub):
 
         contract_func = self._weth_token.contract.functions.deposit()
         self.logger().info(f"Wrapping {amount} ether from wallet address {self.address}.")
-        return self.execute_transaction(contract_func, value=int(amount * Decimal("1e18")))
+        return self.execute_transaction(contract_func, value=self.to_raw_static(amount))
 
     def unwrap_eth(self, amount: Decimal) -> str:
         if self._weth_token is None:
             raise EnvironmentError("No WETH token address was used to initialize this wallet.")
 
-        contract_func = self._weth_token.contract.functions.withdraw(int(amount * Decimal("1e18")))
+        contract_func = self._weth_token.contract.functions.withdraw(self.to_raw_static(amount))
         self.logger().info(f"Unwrapping {amount} ether from wallet address {self.address}.")
         return self.execute_transaction(contract_func)
 
