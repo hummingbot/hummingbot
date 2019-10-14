@@ -8,7 +8,7 @@ import math
 from decimal import Decimal
 
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.core.data_type.order_book_row import ClientOrderBookRow
 
 s_empty_diff = np.ndarray(shape=(0, 4), dtype="float64")
 _ddaot_logger = None
@@ -33,30 +33,27 @@ cdef class DolomiteActiveOrderTracker:
     @property
     def active_bids(self):
         return self._active_bids
-           
-            
-    def currency_to_float(self, currency_amount):
-        return float(currency_amount["amount"]) / math.pow(10, currency_amount["currency"]["precision"])
 
+    def currency_to_decimal(self, currency_amount):
+        return Decimal(currency_amount["amount"]) / Decimal(math.pow(10, currency_amount["currency"]["precision"]))
 
     cdef tuple c_convert_snapshot_message_to_np_arrays(self, object message):
         cdef:
             object price
             str order_id
-            float amount
 
         # Refresh all order tracking.
         self._active_bids.clear()
         self._active_asks.clear()
-        
+
         for bid_order in message.content["data"]["buys"]:
             price = Decimal(bid_order["exchange_rate"])
             order_id = bid_order["order_hash"]
-            totalAmount = self.currency_to_float(bid_order["primary_amount"])
-            filledAmount = self.currency_to_float(bid_order["dealt_amount_primary"])
-                        
+            totalAmount = self.currency_to_decimal(bid_order["primary_amount"])
+            filledAmount = self.currency_to_decimal(bid_order["dealt_amount_primary"])
+
             order_dict = {
-                "availableAmount": float(totalAmount - filledAmount),
+                "availableAmount": Decimal(totalAmount - filledAmount),
                 "orderId": order_id
             }
 
@@ -68,14 +65,14 @@ cdef class DolomiteActiveOrderTracker:
                 }
 
         for ask_order in message.content["data"]["sells"]:
-            
+
             price = Decimal(ask_order["exchange_rate"])
             order_id = ask_order["order_hash"]
-            totalAmount = self.currency_to_float(ask_order["primary_amount"])
-            filledAmount = self.currency_to_float(ask_order["dealt_amount_primary"])
+            totalAmount = self.currency_to_decimal(ask_order["primary_amount"])
+            filledAmount = self.currency_to_decimal(ask_order["dealt_amount_primary"])
 
             order_dict = {
-                "availableAmount": float(totalAmount - filledAmount),
+                "availableAmount": Decimal(totalAmount - filledAmount),
                 "orderId": order_id
             }
 
@@ -90,17 +87,16 @@ cdef class DolomiteActiveOrderTracker:
         cdef:
             np.ndarray[np.float64_t, ndim=2] bids = np.array(
                 [[message.timestamp,
-                  float(price),
-                  sum([float(order_dict["availableAmount"])
+                  Decimal(price),
+                  sum([Decimal(order_dict["availableAmount"])
                        for order_dict in self._active_bids[price].values()]),
                   message.update_id]
                  for price in sorted(self._active_bids.keys(), reverse=True)], dtype="float64", ndmin=2)
-            
-            
+
             np.ndarray[np.float64_t, ndim=2] asks = np.array(
                 [[message.timestamp,
-                  float(price),
-                  sum([float(order_dict["availableAmount"])
+                  Decimal(price),
+                  sum([Decimal(order_dict["availableAmount"])
                        for order_dict in self._active_asks[price].values()]),
                   message.update_id]
                  for price in sorted(self._active_asks.keys(), reverse=True)], dtype="float64", ndmin=2)
@@ -113,15 +109,12 @@ cdef class DolomiteActiveOrderTracker:
             asks = asks.reshape((0, 4))
 
         return bids, asks
-    
 
     def convert_diff_message_to_order_book_row(self, message):
-        pass # Dolomite does not use DIFF, it sticks to using SNAPSHOT
+        pass  # Dolomite does not use DIFF, it sticks to using SNAPSHOT
 
-
-    def convert_snapshot_message_to_order_book_row(self, message): 
+    def convert_snapshot_message_to_order_book_row(self, message):
         np_bids, np_asks = self.c_convert_snapshot_message_to_np_arrays(message)
-        bids_row = [OrderBookRow(price, qty, update_id) for ts, price, qty, update_id in np_bids]
-        asks_row = [OrderBookRow(price, qty, update_id) for ts, price, qty, update_id in np_asks]
+        bids_row = [ClientOrderBookRow(price, qty, update_id) for ts, price, qty, update_id in np_bids]
+        asks_row = [ClientOrderBookRow(price, qty, update_id) for ts, price, qty, update_id in np_asks]
         return bids_row, asks_row
-        

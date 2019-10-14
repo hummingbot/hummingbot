@@ -9,18 +9,20 @@ from hummingbot.market.dolomite.dolomite_util import (unpad, DolomiteExchangeInf
 
 s_decimal_0 = Decimal(0)
 
+
 def now():
     return int(time.time()) * 1000
+
 
 def ticker_for(padded_obj):
     return padded_obj["currency"]["ticker"]
 
+
 def f_round(f, r):
-    return float(round(float(f), r))
+    return Decimal(round(Decimal(f), r))
 
 
 cdef class DolomiteInFlightOrder(InFlightOrderBase):
-    
     @property
     def is_done(self) -> bool:
         return self.last_state == "FILLED"
@@ -36,7 +38,7 @@ cdef class DolomiteInFlightOrder(InFlightOrderBase):
     @property
     def is_expired(self) -> bool:
         return self.last_state == "EXPIRED"
-    
+
     @property
     def description(self):
         _type = "limit" if self.order_type == OrderType.LIMIT else "market"
@@ -46,7 +48,6 @@ cdef class DolomiteInFlightOrder(InFlightOrderBase):
     @property
     def identifier(self):
         return f"{self.exchange_order_id} ({self.client_order_id})"
-
 
     @classmethod
     def from_json(cls, data: Dict[str, Any], market) -> DolomiteInFlightOrder:
@@ -62,17 +63,15 @@ cdef class DolomiteInFlightOrder(InFlightOrderBase):
             data["last_state"]
         )
 
-
     @classmethod
     def from_dolomite_order(cls, dolomite_order: Dict[str, Any], client_order_id: str, market: MarketBase) -> DolomiteInFlightOrder:
         order_type = (OrderType.MARKET, OrderType.LIMIT)[dolomite_order["order_type"] == "LIMIT"]
         order_side = (TradeType.SELL, TradeType.BUY)[dolomite_order["order_side"] == "BUY"]
 
         price = (order_type == OrderType.MARKET
-            and unpad(dolomite_order["market_order_effective_price"])
-            or Decimal(dolomite_order["exchange_rate"])
-        )
-        
+                 and unpad(dolomite_order["market_order_effective_price"])
+                 or Decimal(dolomite_order["exchange_rate"]))
+
         return DolomiteInFlightOrder(
             market_class=market,
             client_order_id=client_order_id,
@@ -85,16 +84,14 @@ cdef class DolomiteInFlightOrder(InFlightOrderBase):
             initial_state=dolomite_order["order_status"]
         )
 
-
-    def apply_update(self, 
-                     dolomite_order: Dict[str, Any], 
-                     fills: List[Dict[str, Any]], 
+    def apply_update(self,
+                     dolomite_order: Dict[str, Any],
+                     fills: List[Dict[str, Any]],
                      exchange_info,
                      exchange_rates) -> List[OrderFilledEvent]:
-        
-        if self.tracked_fill_ids is None: 
+        if self.tracked_fill_ids is None:
             self.tracked_fill_ids = []
-        
+
         fill_events = []
 
         if self.order_type is OrderType.LIMIT and len(fills) > 0:
@@ -104,15 +101,15 @@ cdef class DolomiteInFlightOrder(InFlightOrderBase):
                     secondary_fill_amount = unpad(fill["secondary_amount"])
                     execution_price = secondary_fill_amount / primary_fill_amount
                     fee_percentage = unpad(fill["fee_amount_usd"]) / unpad(fill["usd_amount"])
-                    
+
                     filled_event = OrderFilledEvent(
                         timestamp=now(),
                         order_id=self.client_order_id,
                         symbol=self.symbol,
                         trade_type=self.trade_type,
                         order_type=self.order_type,
-                        price=float(execution_price),
-                        amount=float(primary_fill_amount),
+                        price=Decimal(execution_price),
+                        amount=Decimal(primary_fill_amount),
                         trade_fee=TradeFee(percent=f_round(fee_percentage, 4))
                     )
 
@@ -152,9 +149,9 @@ cdef class DolomiteInFlightOrder(InFlightOrderBase):
                         symbol=self.symbol,
                         trade_type=self.trade_type,
                         order_type=self.order_type,
-                        price=float(execution_price),
-                        amount=float(primary_fill_amount),
-                        trade_fee=TradeFee(percent=f_round(fee_percentage, 4), flat_fees=[(fill_fee_token, float(fill_network_fee))])
+                        price=Decimal(execution_price),
+                        amount=Decimal(primary_fill_amount),
+                        trade_fee=TradeFee(percent=f_round(fee_percentage, 4), flat_fees=[(fill_fee_token, Decimal(fill_network_fee))])
                     )
 
                     fill_events.append(filled_event)
@@ -162,4 +159,3 @@ cdef class DolomiteInFlightOrder(InFlightOrderBase):
 
         self.last_state = dolomite_order["order_status"]
         return fill_events
-        

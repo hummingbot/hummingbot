@@ -26,10 +26,6 @@ from hummingbot.core.data_type.order_book_tracker_entry import DolomiteOrderBook
 from hummingbot.core.data_type.order_book_message import DolomiteOrderBookMessage
 
 
-# REST_URL = "https://exchange-api.dolomite.io"
-# REST_URL = "https://exchange-api-test.dolomite.io"
-# WS_URL = "wss://exchange-api.dolomite.io/ws-connect"
-# WS_URL = "wss://exchange-api-test.dolomite.io/ws-connect"
 MARKETS_URL = "/v1/markets"
 SNAPSHOT_URL = "/v1/orders/markets/:trading_pair/depth/unmerged"
 SNAPSHOT_WS_ROUTE = "/v1/orders/markets/-market-/depth/unmerged"
@@ -182,6 +178,10 @@ class DolomiteAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return
         finally:
             await ws.close()
+
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        # Trade messages are received from the dolomite market event loop
+        pass
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         pass  # Dolomite does not use DIFF, it sticks to using SNAPSHOT
