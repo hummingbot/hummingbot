@@ -72,12 +72,12 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return cls._client
 
     @classmethod
-    async def get_all_token_info(cls) -> Dict[str, any]:
+    async def get_all_token_info(cls, api_prefix: str = "main/0x") -> Dict[str, any]:
         """
         Returns all token information
         """
         client: aiohttp.ClientSession = cls.http_client()
-        async with client.get(f"{REST_BASE_URL}{cls._api_prefix}/tokens?perPage=1000") as response:
+        async with client.get(f"{REST_BASE_URL}{api_prefix}/tokens?perPage=1000") as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching token info. HTTP status is {response.status}.")
@@ -103,7 +103,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data, index="id")
 
             weth_dai_price: float = float(all_markets.loc["WETH-DAI"]["ticker"]["price"])
-            dai_usd_price: float = float(ExchangeRateConversion.get_instance().adjust_token_rate("DAI", weth_dai_price))
+            dai_usd_price: float = ExchangeRateConversion.get_instance().adjust_token_rate("DAI", weth_dai_price)
             usd_volume: List[float] = []
             quote_volume: List[float] = []
             for row in all_markets.itertuples():
@@ -120,8 +120,8 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return all_markets.sort_values("USDVolume", ascending=False)
 
     @staticmethod
-    async def get_snapshot(client: aiohttp.ClientSession,
-                           trading_pair: str,
+    async def get_snapshot(client: aiohttp.ClientSession, 
+                           trading_pair: str, 
                            api_prefix: str = "main/0x") -> Dict[str, any]:
         async with client.get(f"{REST_BASE_URL}{api_prefix}/markets/{trading_pair}/book") as response:
             response: aiohttp.ClientResponse = response
