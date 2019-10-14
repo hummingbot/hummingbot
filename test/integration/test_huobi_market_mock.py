@@ -1,13 +1,16 @@
 #!/usr/bin/env python
-import logging
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-
+from aiohttp import web
+from aiohttp.test_utils import (
+    AioHTTPTestCase,
+    TestClient
+)
 import asyncio
 import contextlib
 from decimal import Decimal
+import logging
 import os
 import time
 from typing import (
@@ -24,7 +27,6 @@ from hummingbot.core.clock import (
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
-    MarketWithdrawAssetEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
     OrderFilledEvent,
@@ -38,10 +40,11 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
-from hummingbot.market.deposit_info import DepositInfo
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
+from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.market_base import OrderType
 from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.market.mock_api_order_book_data_source import MockAPIOrderBookDataSource
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (
@@ -49,12 +52,13 @@ from hummingbot.model.sql_connection_manager import (
     SQLConnectionType
 )
 from hummingbot.model.trade_fill import TradeFill
-
+from hummingbot.market.huobi.huobi_order_book import HuobiOrderBook
+from huobi_mock_api import HuobiMockAPI
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class CoinbaseProMarketUnitTest(unittest.TestCase):
+class HuobiMarketUnitTest(AioHTTPTestCase):
     events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
@@ -68,44 +72,64 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderCancelled
     ]
 
-    market: CoinbaseProMarket
+    market: HuobiMarket
     market_logger: EventLogger
     stack: contextlib.ExitStack
 
     @classmethod
     def setUpClass(cls):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: CoinbaseProMarket = CoinbaseProMarket(
-            conf.coinbase_pro_api_key,
-            conf.coinbase_pro_secret_key,
-            conf.coinbase_pro_passphrase,
-            symbols=["ETH-USDC", "ETH-USD"]
-        )
-        print("Initializing Coinbase Pro market... this will take about a minute.")
-        cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.clock.add_iterator(cls.market)
         cls.stack = contextlib.ExitStack()
         cls._clock = cls.stack.enter_context(cls.clock)
-        cls.ev_loop.run_until_complete(cls.wait_til_ready())
-        print("Ready.")
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.stack.close()
 
-    @classmethod
-    async def wait_til_ready(cls):
+    async def get_application(self):
+        app = web.Application()
+        self.mock_api = HuobiMockAPI()
+        app.router.add_get("/mockSnapshot", self.mock_api.get_mock_snapshot)
+        app.router.add_get("/market/tickers", self.mock_api.get_market_tickers)
+        app.router.add_get("/account/accounts", self.mock_api.get_account_accounts)
+        app.router.add_get("/common/timestamp", self.mock_api.get_common_timestamp)
+        app.router.add_get("/common/symbols", self.mock_api.get_common_symbols)
+        app.router.add_get("/account/accounts/{user_id}/balance", self.mock_api.get_user_balance)
+        app.router.add_post("/order/orders/place", self.mock_api.post_order_place)
+        app.router.add_get("/order/orders/{order_id}", self.mock_api.get_order_update)
+        app.router.add_post("/order/orders/{order_id}/submitcancel", self.mock_api.post_submit_cancel)
+        app.router.add_post("/order/orders/batchcancel", self.mock_api.post_batch_cancel)
+        return app
+
+    @staticmethod
+    async def wait_til_ready(market, clock):
         while True:
             now = time.time()
             next_iteration = now // 1.0 + 1
-            if cls.market.ready:
+            if market.ready:
                 break
             else:
-                await cls._clock.run_til(next_iteration)
+                await clock.run_til(next_iteration)
             await asyncio.sleep(1.0)
 
-    def setUp(self):
-        self.db_path: str = realpath(join(__file__, "../coinbase_pro_test.sqlite"))
+    # setUp function from unittests is called before get_application so this needs
+    # to be called manually before every test
+    def customSetUp(self):
+        self.market: HuobiMarket = HuobiMarket(
+            conf.huobi_api_key,
+            conf.huobi_secret_key,
+            symbols=["ethusdt"]
+        )
+
+        # replace regular client with test client
+        self.market.shared_client: TestClient = self.client
+        # replace default data source with mock data source
+        mock_data_source: MockAPIOrderBookDataSource = MockAPIOrderBookDataSource(self.client, HuobiOrderBook, ["ethusdt"])
+        self.market.order_book_tracker.data_source = mock_data_source
+
+        self.clock.add_iterator(self.market)
+        self.run_parallel(self.wait_til_ready(self.market, self._clock))
+        self.db_path: str = realpath(join(__file__, "../huobi_test.sqlite"))
         try:
             os.unlink(self.db_path)
         except FileNotFoundError:
@@ -125,210 +149,195 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1
-            await self.clock.run_til(next_iteration)
+            await self._clock.run_til(next_iteration)
+            await asyncio.sleep(0.5)
         return future.result()
 
     def run_parallel(self, *tasks):
+        self.ev_loop = asyncio.get_event_loop()
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        limit_fee: TradeFee = self.market.get_fee("ETH", "USDC", OrderType.LIMIT, TradeType.BUY, 1, 1)
+        self.customSetUp()
+        limit_fee: TradeFee = self.market.get_fee("eth", "usdt", OrderType.LIMIT, TradeType.BUY, 1, 10)
         self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: TradeFee = self.market.get_fee("ETH", "USDC", OrderType.MARKET, TradeType.BUY, 1)
+        market_fee: TradeFee = self.market.get_fee("eth", "usdt", OrderType.MARKET, TradeType.BUY, 1)
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
+        sell_trade_fee: TradeFee = self.market.get_fee("eth", "usdt", OrderType.LIMIT, TradeType.SELL, 1, 10)
+        self.assertGreater(sell_trade_fee.percent, 0)
+        self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
     def test_limit_buy(self):
-        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
-        symbol = "ETH-USDC"
-        amount: Decimal = Decimal("0.02")
+        self.customSetUp()
+        self.mock_api.order_id = self.mock_api.MOCK_HUOBI_LIMIT_BUY_ORDER_ID
+        symbol = "ethusdt"
+        amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
-
         current_bid_price: Decimal = self.market.get_price(symbol, True)
-        bid_price: Decimal = current_bid_price + Decimal("0.05") * current_bid_price
+        bid_price: Decimal = current_bid_price + Decimal(0.05) * current_bid_price
         quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
         order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
                                                 if isinstance(t, OrderFilledEvent)]
-        base_amount_traded: Decimal = sum(t.amount for t in trade_events)
-        quote_amount_traded: Decimal = sum(t.amount * t.price for t in trade_events)
+        base_amount_traded: Decimal = Decimal(sum(t.amount for t in trade_events))
+        quote_amount_traded: Decimal = Decimal(sum(t.amount * t.price for t in trade_events))
 
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("USDC", order_completed_event.quote_asset)
+        self.assertEqual("eth", order_completed_event.base_asset)
+        self.assertEqual("usdt", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
+        self.assertGreater(order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
         # Reset the logs
         self.market_logger.clear()
 
     def test_limit_sell(self):
-        symbol = "ETH-USDC"
-        amount: Decimal = Decimal("0.02")
+        self.customSetUp()
+        self.mock_api.order_id = self.mock_api.MOCK_HUOBI_LIMIT_SELL_ORDER_ID
+        symbol = "ethusdt"
+        amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+
         current_ask_price: Decimal = self.market.get_price(symbol, False)
-        ask_price: Decimal = current_ask_price - Decimal("0.05") * current_ask_price
+        ask_price: Decimal = current_ask_price - Decimal(0.05) * current_ask_price
         quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price)
 
         order_id = self.market.sell(symbol, amount, OrderType.LIMIT, quantize_ask_price)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
-        trade_events = [t for t in self.market_logger.event_log if isinstance(t, OrderFilledEvent)]
+        trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
+                                                if isinstance(t, OrderFilledEvent)]
         base_amount_traded = sum(t.amount for t in trade_events)
         quote_amount_traded = sum(t.amount * t.price for t in trade_events)
 
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("USDC", order_completed_event.quote_asset)
+        self.assertEqual("eth", order_completed_event.base_asset)
+        self.assertEqual("usdt", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
+        self.assertGreater(order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
         # Reset the logs
         self.market_logger.clear()
 
-    # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
     def test_market_buy(self):
-        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
-        symbol = "ETH-USD"
-        amount: Decimal = Decimal("0.02")
+        self.customSetUp()
+        self.mock_api.order_id = self.mock_api.MOCK_HUOBI_MARKET_BUY_ORDER_ID
+        symbol = "ethusdt"
+        amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
         order_id = self.market.buy(symbol, quantized_amount, OrderType.MARKET, 0)
-        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
-        order_completed_event: BuyOrderCompletedEvent = order_completed_event
+        [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
+        buy_order_completed_event: BuyOrderCompletedEvent = buy_order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
                                                 if isinstance(t, OrderFilledEvent)]
-        base_amount_traded: Decimal = sum(t.amount for t in trade_events)
-        quote_amount_traded: Decimal = sum(t.amount * t.price for t in trade_events)
+        base_amount_traded: Decimal = Decimal(sum(t.amount for t in trade_events))
+        quote_amount_traded: Decimal = Decimal(sum(t.amount * t.price for t in trade_events))
 
-        self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
-        self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("USD", order_completed_event.quote_asset)
-        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
-        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
+        self.assertTrue([evt.order_type == OrderType.MARKET for evt in trade_events])
+        self.assertEqual(order_id, buy_order_completed_event.order_id)
+        self.assertAlmostEqual(quantized_amount, buy_order_completed_event.base_asset_amount, places=4)
+        self.assertEqual("eth", buy_order_completed_event.base_asset)
+        self.assertEqual("usdt", buy_order_completed_event.quote_asset)
+        self.assertAlmostEqual(base_amount_traded, buy_order_completed_event.base_asset_amount, places=4)
+        self.assertAlmostEqual(quote_amount_traded, buy_order_completed_event.quote_asset_amount, places=4)
+        self.assertGreater(buy_order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
         # Reset the logs
         self.market_logger.clear()
 
-    # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
     def test_market_sell(self):
-        symbol = "ETH-USD"
-        amount: Decimal = Decimal("0.02")
+        self.customSetUp()
+        self.mock_api.order_id = self.mock_api.MOCK_HUOBI_MARKET_SELL_ORDER_ID
+        symbol = "ethusdt"
+        amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
         order_id = self.market.sell(symbol, amount, OrderType.MARKET, 0)
-        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
-        order_completed_event: SellOrderCompletedEvent = order_completed_event
-        trade_events = [t for t in self.market_logger.event_log if isinstance(t, OrderFilledEvent)]
-        base_amount_traded = sum(t.amount for t in trade_events)
-        quote_amount_traded = sum(t.amount * t.price for t in trade_events)
+        [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
+        sell_order_completed_event: SellOrderCompletedEvent = sell_order_completed_event
+        trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
+                                                if isinstance(t, OrderFilledEvent)]
+        base_amount_traded = Decimal(sum(t.amount for t in trade_events))
+        quote_amount_traded = Decimal(sum(t.amount * t.price for t in trade_events))
 
-        self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
-        self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("USD", order_completed_event.quote_asset)
-        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
-        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
+        self.assertTrue([evt.order_type == OrderType.MARKET for evt in trade_events])
+        self.assertEqual(order_id, sell_order_completed_event.order_id)
+        self.assertAlmostEqual(quantized_amount, sell_order_completed_event.base_asset_amount)
+        self.assertEqual("eth", sell_order_completed_event.base_asset)
+        self.assertEqual("usdt", sell_order_completed_event.quote_asset)
+        self.assertAlmostEqual(base_amount_traded, sell_order_completed_event.base_asset_amount)
+        self.assertAlmostEqual(quote_amount_traded, sell_order_completed_event.quote_asset_amount)
+        self.assertGreater(sell_order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
         # Reset the logs
         self.market_logger.clear()
 
     def test_cancel_order(self):
-        symbol = "ETH-USDC"
+        self.customSetUp()
+        self.mock_api.order_id = self.mock_api.MOCK_HUOBI_LIMIT_CANCEL_ORDER_ID
+        symbol = "ethusdt"
 
         current_bid_price: Decimal = self.market.get_price(symbol, True)
-        amount: Decimal = 10 / current_bid_price
-        self.assertGreater(self.market.get_balance("ETH"), amount)
+        amount: Decimal = Decimal(0.02)
 
-        bid_price: Decimal = current_bid_price - Decimal("0.1") * current_bid_price
+        bid_price: Decimal = current_bid_price * Decimal(0.9)
         quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
         client_order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.market.cancel(symbol, client_order_id)
         [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
         order_cancelled_event: OrderCancelledEvent = order_cancelled_event
         self.assertEqual(order_cancelled_event.order_id, client_order_id)
 
     def test_cancel_all(self):
-        symbol = "ETH-USDC"
-        bid_price: Decimal = self.market.get_price(symbol, True) * Decimal("0.5")
-        ask_price: Decimal = self.market.get_price(symbol, False) * 2
-        amount: Decimal = 10 / bid_price
+        self.customSetUp()
+        self.mock_api.cancel_all_order_ids = [
+            self.mock_api.MOCK_HUOBI_LIMIT_BUY_ORDER_ID,
+            self.mock_api.MOCK_HUOBI_LIMIT_SELL_ORDER_ID,
+        ]
+        symbol = "ethusdt"
+
+        bid_price: Decimal = self.market.get_price(symbol, True) * Decimal(0.5)
+        ask_price: Decimal = self.market.get_price(symbol, False) * Decimal(2)
+        amount: Decimal = Decimal(0.05)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
-        # Intentionally setting invalid price to prevent getting filled
-        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price * Decimal("0.7"))
-        quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price * Decimal("1.5"))
-
+        # Intentionally setting high price to prevent getting filled
+        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price * Decimal(0.7))
+        quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price * Decimal(1.5))
+        self.mock_api.order_id = self.mock_api.MOCK_HUOBI_LIMIT_BUY_ORDER_ID
         self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        self.mock_api.order_id = self.mock_api.MOCK_HUOBI_LIMIT_SELL_ORDER_ID
         self.market.sell(symbol, quantized_amount, OrderType.LIMIT, quantize_ask_price)
         self.run_parallel(asyncio.sleep(1))
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
 
-    @unittest.skipUnless(any("test_list_orders" in arg for arg in sys.argv), "List order test requires manual action.")
-    def test_list_orders(self):
-        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
-        symbol = "ETH-USDC"
-        amount: Decimal = Decimal("0.02")
-        quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
-
-        current_bid_price: Decimal = self.market.get_price(symbol, True)
-        bid_price: Decimal = current_bid_price + Decimal("0.05") * current_bid_price
-        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
-
-        self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
-        self.run_parallel(asyncio.sleep(1))
-        [order_details] = self.run_parallel(self.market.list_orders())
-        self.assertGreaterEqual(len(order_details), 1)
-
-        self.market_logger.clear()
-
-    def test_deposit_info(self):
-        [deposit_info] = self.run_parallel(
-            self.market.get_deposit_info("ETH")
-        )
-        deposit_info: DepositInfo = deposit_info
-        self.assertIsInstance(deposit_info, DepositInfo)
-        self.assertGreater(len(deposit_info.address), 0)
-
-    @unittest.skipUnless(any("test_withdraw" in arg for arg in sys.argv), "Withdraw test requires manual action.")
-    def test_withdraw(self):
-        # Ensure the market account has enough balance for withdraw testing.
-        self.assertGreaterEqual(self.market.get_balance("ZRX"), Decimal('1'))
-
-        # Withdraw ZRX from Coinbase Pro to test wallet.
-        self.market.withdraw(self.wallet.address, "ZRX", Decimal('1'))
-        [withdraw_asset_event] = self.run_parallel(
-            self.market_logger.wait_for(MarketWithdrawAssetEvent)
-        )
-        withdraw_asset_event: MarketWithdrawAssetEvent = withdraw_asset_event
-        self.assertEqual(self.wallet.address, withdraw_asset_event.to_address)
-        self.assertEqual("ZRX", withdraw_asset_event.asset_name)
-        self.assertEqual(Decimal('1'), withdraw_asset_event.amount)
-        self.assertEqual(withdraw_asset_event.fee_amount, Decimal(0))
-
     def test_orders_saving_and_restoration(self):
+        self.customSetUp()
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        symbol: str = "ETH-USDC"
+        symbol: str = "ethusdt"
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
@@ -339,12 +348,13 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
 
             # Try to put limit buy order for 0.04 ETH, and watch for order creation event.
             current_bid_price: Decimal = self.market.get_price(symbol, True)
-            bid_price: Decimal = current_bid_price * Decimal("0.8")
+            bid_price: Decimal = current_bid_price * Decimal(0.8)
             quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
-            amount: Decimal = Decimal("0.04")
+            amount: Decimal = Decimal(0.04)
             quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
+            self.mock_api.order_id = self.mock_api.MOCK_HUOBI_LIMIT_OPEN_ORDER_ID
             order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
@@ -369,12 +379,15 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
-            self.market: CoinbaseProMarket = CoinbaseProMarket(
-                coinbase_pro_api_key=conf.coinbase_pro_api_key,
-                coinbase_pro_secret_key=conf.coinbase_pro_secret_key,
-                coinbase_pro_passphrase=conf.coinbase_pro_passphrase,
-                symbols=["ETH-USDC", "ETH-USD"]
+            self.market: HuobiMarket = HuobiMarket(
+                huobi_api_key=conf.huobi_api_key,
+                huobi_secret_key=conf.huobi_secret_key,
+                symbols=["ethusdt", "btcusdt"]
             )
+            self.market.shared_client: TestClient = self.client
+            mock_data_source: MockAPIOrderBookDataSource = MockAPIOrderBookDataSource(self.client, HuobiOrderBook, ["ethusdt"])
+            self.market.order_book_tracker.data_source = mock_data_source
+
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)
             recorder.stop()
@@ -389,6 +402,8 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             self.assertEqual(1, len(self.market.tracking_states))
 
             # Cancel the order and verify that the change is saved.
+            self.mock_api.order_id = self.mock_api.MOCK_HUOBI_LIMIT_OPEN_ORDER_ID
+            self.mock_api.order_response_dict[self.mock_api.MOCK_HUOBI_LIMIT_OPEN_ORDER_ID]["data"]["state"] = "canceled"
             self.market.cancel(symbol, order_id)
             self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
@@ -405,9 +420,10 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             os.unlink(self.db_path)
 
     def test_order_fill_record(self):
+        self.customSetUp()
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        symbol: str = "ETH-USDC"
+        symbol: str = "ethusdt"
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
@@ -415,7 +431,8 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
 
         try:
             # Try to buy 0.04 ETH from the exchange, and watch for completion event.
-            amount: Decimal = Decimal("0.04")
+            amount: Decimal = Decimal(0.04)
+            self.mock_api.order_id = self.mock_api.MOCK_HUOBI_MARKET_BUY_ORDER_ID
             order_id = self.market.buy(symbol, amount)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
@@ -423,7 +440,8 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             self.market_logger.clear()
 
             # Try to sell back the same amount of ETH to the exchange, and watch for completion event.
-            amount = buy_order_completed_event.base_asset_amount
+            self.mock_api.order_id = self.mock_api.MOCK_HUOBI_MARKET_SELL_ORDER_ID
+            amount: Decimal = Decimal(buy_order_completed_event.base_asset_amount)
             order_id = self.market.sell(symbol, amount)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 

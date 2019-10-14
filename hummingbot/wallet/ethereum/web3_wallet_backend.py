@@ -53,6 +53,8 @@ from hummingbot.wallet.ethereum.watcher import (
 from hummingbot.wallet.ethereum.erc20_token import ERC20Token
 from hummingbot.logger import HummingbotLogger
 
+s_decimal_0 = Decimal(0)
+
 
 class Web3WalletBackend(PubSub):
     DEFAULT_GAS_PRICE = 1e9  # 1 gwei = 1e9 wei
@@ -430,13 +432,13 @@ class Web3WalletBackend(PubSub):
         self._start_tx_tracking(tx_hash, gas_price)
         self._local_nonce += 1
 
-    def get_balance(self, symbol: str) -> float:
+    def get_balance(self, symbol: str) -> Decimal:
         if self._account_balance_watcher is not None:
             return self._account_balance_watcher.get_balance(symbol)
         else:
-            return 0.0
+            return s_decimal_0
 
-    def get_all_balances(self) -> Dict[str, float]:
+    def get_all_balances(self) -> Dict[str, Decimal]:
         if self._account_balance_watcher is not None:
             return self._account_balance_watcher.get_all_balances()
         return {}
@@ -490,7 +492,7 @@ class Web3WalletBackend(PubSub):
         self.schedule_eth_transaction(signed_transaction, gas_price)
         return tx_hash
 
-    def send(self, address: str, asset_name: str, amount: float) -> str:
+    def send(self, address: str, asset_name: str, amount: Decimal) -> str:
         """
         Warning: This function WILL result in immediate network calls, even though it is written in sync manner.
 
@@ -526,28 +528,33 @@ class Web3WalletBackend(PubSub):
             self.logger().info(f"Sending {amount} {asset_name} from {self.address} to {address}. tx_hash = {tx_hash}.")
             return tx_hash
 
-    def approve_token_transfer(self, asset_name: str, spender_address: str, amount: float, **kwargs) -> str:
+    def approve_token_transfer(self, asset_name: str, spender_address: str, amount: Decimal, **kwargs) -> str:
         if asset_name not in self.erc20_tokens:
             raise ValueError(f"{asset_name} is not a known ERC20 token to this wallet.")
 
         contract: Contract = self.erc20_tokens[asset_name].contract
         decimals: int = self._asset_decimals[asset_name]
         contract_func: ContractFunction = contract.functions.approve(spender_address,
-                                                                     int(Decimal(str(amount)) *
+                                                                     int(amount *
                                                                          Decimal(f"1e{decimals}")))
         return self.execute_transaction(contract_func, **kwargs)
 
-    def to_nominal(self, asset_name: str, raw_amount: int) -> float:
+    def to_nominal(self, asset_name: str, raw_amount: int) -> Decimal:
         if asset_name not in self._asset_decimals:
             raise ValueError(f"Unrecognized asset name '{asset_name}'.")
-        multiplier: float = math.pow(10, self._asset_decimals[asset_name])
-        return raw_amount / multiplier
 
-    def to_raw(self, asset_name: str, nominal_amount: float) -> int:
+        decimals: int = self._asset_decimals[asset_name]
+        return Decimal(raw_amount) * Decimal(f"1e-{decimals}")
+
+    def to_raw(self, asset_name: str, nominal_amount: Decimal) -> int:
         if asset_name not in self._asset_decimals:
             raise ValueError(f"Unrecognized asset name '{asset_name}'.")
         decimals: int = self._asset_decimals[asset_name]
-        return int(Decimal(f"{nominal_amount:.12g}") * Decimal(f"1e{decimals}"))
+        return int(nominal_amount * Decimal(f"1e{decimals}"))
+
+    @staticmethod
+    def to_raw_static(nominal_amount: Decimal) -> int:
+        return int(nominal_amount * Decimal(f"1e18"))
 
     def _received_asset_event_listener(self, received_asset_event: WalletReceivedAssetEvent):
         self.logger().info(f"Received {received_asset_event.amount_received} {received_asset_event.asset_name} at "
@@ -599,19 +606,19 @@ class Web3WalletBackend(PubSub):
             tx_hashes.append(tx_hash)
         return tx_hashes
 
-    def wrap_eth(self, amount: float) -> str:
+    def wrap_eth(self, amount: Decimal) -> str:
         if self._weth_token is None:
             raise EnvironmentError("No WETH token address was used to initialize this wallet.")
 
         contract_func = self._weth_token.contract.functions.deposit()
         self.logger().info(f"Wrapping {amount} ether from wallet address {self.address}.")
-        return self.execute_transaction(contract_func, value=int(amount * 1e18))
+        return self.execute_transaction(contract_func, value=self.to_raw_static(amount))
 
-    def unwrap_eth(self, amount: float) -> str:
+    def unwrap_eth(self, amount: Decimal) -> str:
         if self._weth_token is None:
             raise EnvironmentError("No WETH token address was used to initialize this wallet.")
 
-        contract_func = self._weth_token.contract.functions.withdraw(int(amount * 1e18))
+        contract_func = self._weth_token.contract.functions.withdraw(self.to_raw_static(amount))
         self.logger().info(f"Unwrapping {amount} ether from wallet address {self.address}.")
         return self.execute_transaction(contract_func)
 
