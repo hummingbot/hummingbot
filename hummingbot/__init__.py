@@ -105,7 +105,7 @@ def add_remote_logger_handler(loggers):
 def init_logging(conf_filename: str,
                  override_log_level: Optional[str] = None,
                  dev_mode: bool = False,
-                 strategy_file_path: str = "conf_unselected_strategy"):
+                 strategy_file_path: str = "hummingbot"):
     import io
     import logging.config
     from os.path import join
