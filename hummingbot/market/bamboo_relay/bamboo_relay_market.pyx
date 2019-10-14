@@ -217,6 +217,7 @@ cdef class BambooRelayMarket(MarketBase):
         return {
             "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
+            "account_available_balance": len(self._account_available_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True,
             "token_approval": len(self._pending_approval_tx_hashes) == 0 if self._trading_required else True
         }
@@ -313,6 +314,7 @@ cdef class BambooRelayMarket(MarketBase):
 
                 self._update_balances()
                 await safe_gather(
+                    self._update_available_balances(),
                     self._update_trading_rules(),
                     self._update_limit_order_status(),
                     self._update_market_order_status()
@@ -346,7 +348,11 @@ cdef class BambooRelayMarket(MarketBase):
         return TradeFee(percent=Decimal(0.0), flat_fees=[("ETH", transaction_cost_eth)])
 
     def _update_balances(self):
-        self._account_balances = self.wallet.get_all_balances()
+        self._account_balances = {k: Decimal(repr(v)) for k, v in self.wallet.get_all_balances().items()}
+
+    async def _update_available_balances(self):
+        # should be the same here, there are no locked balances on bamboo relay
+        self._account_available_balances = self._account_balances
 
     async def list_market(self) -> Dict[str, Any]:
         url = f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/markets?perPage=1000&include=base"
