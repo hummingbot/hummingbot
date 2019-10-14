@@ -18,6 +18,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry, BittrexOrderBookTrackerEntry
 from hummingbot.core.utils import async_ttl_cache
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.bittrex.bittrex_active_order_tracker import BittrexActiveOrderTracker
 from hummingbot.market.bittrex.bittrex_order_book import BittrexOrderBook
@@ -66,7 +67,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         async with aiohttp.ClientSession() as client:
 
-            market_response, ticker_response, summary_response = await asyncio.gather(
+            market_response, ticker_response, summary_response = await safe_gather(
                 client.get(market_path_url), client.get(ticker_path_url), client.get(summary_path_url)
             )
 
@@ -87,9 +88,9 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     f"Error fetching active Bittrex market summaries. " f"HTTP status is {summary_response.status}."
                 )
 
-            market_data = await market_response.json()
-            ticker_data = await ticker_response.json()
-            summary_data = await summary_response.json()
+            market_data, ticker_data, summary_data = await safe_gather(
+                market_response.json(), ticker_response.json(), summary_response.json()
+            )
 
             ticker_data: Dict[str, Any] = {item["symbol"]: item for item in ticker_data}
             summary_data: Dict[str, Any] = {item["symbol"]: item for item in summary_data}
