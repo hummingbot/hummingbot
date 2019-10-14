@@ -527,7 +527,14 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 #  1. Check the time to cancel for each order, and see if cancellation should be proposed.
                 #  2. Record each order id that needs to be cancelled.
                 #  3. Set action to include cancel orders.
-                if self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
+
+                # If Enable filled order stop cancellation is true and an order filled event happens when proposal is
+                # generated, then check if the order is still in time_to_cancel
+                if active_order.client_order_id not in self._time_to_cancel:
+                    self.logger().info(f"active orders are {active_orders}")
+                    self.logger().info(f"filled order is {active_order.client_order_id}")
+                if active_order.client_order_id in self._time_to_cancel and \
+                        self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
                     cancel_order_ids.append(active_order.client_order_id)
 
             if len(cancel_order_ids) > 0:
@@ -585,6 +592,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
                     # If you want to stop cancelling orders remove it from the cancel list
                     if self._enable_order_filled_stop_cancellation:
+                        self.logger().info(f"Deleting {other_order_id} from time to cancel due to buy order of {order_id}")
                         del self._time_to_cancel[other_order_id]
                     else:
                         # cancel time is minimum of current cancel time and replenish time to sync up both
@@ -592,6 +600,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
                 # Stop tracking the order
                 if self._enable_order_filled_stop_cancellation:
+                    self.logger().info(f"Stop tracking of {other_order_id}")
                     self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
 
             if not isnan(replenish_time_stamp):
@@ -624,6 +633,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
                     # If you want to stop cancelling orders remove it from the cancel list
                     if self._enable_order_filled_stop_cancellation:
+                        self.logger().info(f"Deleting {other_order_id} from time to cancel due to sell order of {order_id}")
                         del self._time_to_cancel[other_order_id]
                     else:
                         # cancel time is minimum of current cancel time and replenish time to sync up both
@@ -631,6 +641,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
                 # Stop tracking the order
                 if self._enable_order_filled_stop_cancellation:
+                    self.logger().info(f"Stop tracking of {other_order_id}")
                     self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
 
             if not isnan(replenish_time_stamp):
