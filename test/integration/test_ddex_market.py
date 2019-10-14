@@ -52,6 +52,8 @@ from hummingbot.model.trade_fill import TradeFill
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 
+s_decimal_0 = Decimal(0)
+
 
 class DDEXMarketUnitTest(unittest.TestCase):
     market_events: List[MarketEvent] = [
@@ -159,12 +161,12 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
     def test_get_wallet_balances(self):
         balances = self.market.get_all_balances()
-        self.assertGreaterEqual((balances["ETH"]), 0)
-        self.assertGreaterEqual((balances["WETH"]), 0)
+        self.assertGreaterEqual((balances["ETH"]), s_decimal_0)
+        self.assertGreaterEqual((balances["WETH"]), s_decimal_0)
 
     def test_get_available_balances(self):
         balance = self.market.get_available_balance("ETH")
-        self.assertGreaterEqual(balance, 0)
+        self.assertGreaterEqual(balance, s_decimal_0)
 
     def test_list_orders(self):
         [orders] = self.run_parallel(self.market.list_orders())
@@ -172,7 +174,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
     def test_list_locked_balances(self):
         [locked_balances] = self.run_parallel(self.market.list_locked_balances())
-        self.assertGreaterEqual(len(locked_balances), 0)
+        self.assertGreaterEqual(len(locked_balances), s_decimal_0)
 
     @unittest.skipUnless(any("test_bad_orders_are_not_tracked" in arg for arg in sys.argv),
                          "bad_orders_are_not_tracked test requires manual action.")
@@ -317,7 +319,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
     @unittest.skipUnless(any("test_wrap_eth" in arg for arg in sys.argv), "Wrap Eth test requires manual action.")
     def test_wrap_eth(self):
-        amount_to_wrap = 0.01
+        amount_to_wrap = Decimal("0.01")
         tx_hash = self.wallet.wrap_eth(amount_to_wrap)
         [tx_completed_event] = self.run_parallel(self.wallet_logger.wait_for(WalletWrappedEthEvent))
         tx_completed_event: WalletWrappedEthEvent = tx_completed_event
@@ -328,7 +330,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
     @unittest.skipUnless(any("test_unwrap_eth" in arg for arg in sys.argv), "Unwrap Eth test requires manual action.")
     def test_unwrap_eth(self):
-        amount_to_unwrap = 0.01
+        amount_to_unwrap = Decimal("0.01")
         tx_hash = self.wallet.unwrap_eth(amount_to_unwrap)
         [tx_completed_event] = self.run_parallel(self.wallet_logger.wait_for(WalletUnwrappedEthEvent))
         tx_completed_event: WalletUnwrappedEthEvent = tx_completed_event

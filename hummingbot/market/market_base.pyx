@@ -160,7 +160,7 @@ cdef class MarketBase(NetworkIterator):
         """
         return self._account_available_balances.get(currency, s_decimal_0)
 
-    cdef str c_withdraw(self, str address, str currency, double amount):
+    cdef str c_withdraw(self, str address, str currency, object amount):
         raise NotImplementedError
 
     cdef OrderBook c_get_order_book(self, str symbol):
@@ -317,7 +317,7 @@ cdef class MarketBase(NetworkIterator):
     def get_available_balance(self, currency: str) -> Decimal:
         return self.c_get_available_balance(currency)
 
-    def withdraw(self, address: str, currency: str, amount: float) -> str:
+    def withdraw(self, address: str, currency: str, amount: Decimal) -> str:
         return self.c_withdraw(address, currency, amount)
 
     def get_order_book(self, symbol: str) -> OrderBook:
