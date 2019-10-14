@@ -26,7 +26,7 @@ handlers:
         class: logging.handlers.TimedRotatingFileHandler
         level: DEBUG
         formatter: simple
-        filename: $PROJECT_DIR/logs/hummingbot_logs_$DATETIME.log
+        filename: $PROJECT_DIR/logs/logs_$STRATEGY_FILE_PATH.log
         encoding: utf8
         when: "D"
         interval: 1
