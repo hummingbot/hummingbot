@@ -2,13 +2,14 @@
 
 import asyncio
 import logging
-import math
 from typing import (
     List,
     Dict,
     Optional,
     Coroutine
 )
+from decimal import Decimal
+
 from web3 import Web3
 from web3.contract import Contract
 from web3.datastructures import AttributeDict
@@ -23,6 +24,8 @@ from hummingbot.core.utils.async_utils import (
 )
 from .base_watcher import BaseWatcher
 from .new_blocks_watcher import NewBlocksWatcher
+
+s_decimal_0 = Decimal(0)
 
 
 class AccountBalanceWatcher(BaseWatcher):
@@ -101,19 +104,21 @@ class AccountBalanceWatcher(BaseWatcher):
     def get_raw_balances(self) -> Dict[str, int]:
         return self._raw_account_balances.copy()
 
-    def get_all_balances(self) -> Dict[str, float]:
-        return dict((asset_name, self._raw_account_balances[asset_name] * math.pow(10, -self.get_decimals(asset_name)))
+    def get_all_balances(self) -> Dict[str, Decimal]:
+        return dict((asset_name, self.get_balance(asset_name))
                     for asset_name in self._raw_account_balances.keys())
 
     def get_raw_balance(self, asset_name: str) -> int:
         return self._raw_account_balances.get(asset_name, 0)
 
-    def get_balance(self, asset_name: str) -> float:
+    def get_balance(self, asset_name: str) -> Decimal:
         if asset_name not in self._raw_account_balances:
-            return 0.0
+            return s_decimal_0
         decimals: int = self.get_decimals(asset_name)
         raw_balance: int = self._raw_account_balances[asset_name]
-        return raw_balance * math.pow(10, -decimals)
+        raw_balance_in_decimal = Decimal(raw_balance)
+        balance_in_decimal = raw_balance_in_decimal * Decimal(f"1e-{decimals}")
+        return balance_in_decimal
 
     def get_decimals(self, asset_name: str) -> int:
         if asset_name == "ETH":
