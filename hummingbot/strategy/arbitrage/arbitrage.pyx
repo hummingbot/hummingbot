@@ -1,6 +1,6 @@
 # distutils: language=c++
-from decimal import Decimal
 import logging
+from decimal import Decimal
 import pandas as pd
 from typing import (
     List,
@@ -15,12 +15,14 @@ from hummingbot.core.event.events import (
 from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.strategy import market_trading_pair_tuple
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 
 NaN = float("nan")
+s_decimal_0 = Decimal(0)
 as_logger = None
 
 
@@ -44,7 +46,7 @@ cdef class ArbitrageStrategy(StrategyBase):
 
     def __init__(self,
                  market_pairs: List[ArbitrageMarketPair],
-                 min_profitability: float,
+                 min_profitability: Decimal,
                  logging_options: int = OPTION_LOG_ORDER_COMPLETED,
                  status_report_interval: float = 60.0,
                  next_trade_delay_interval: float = 15.0,
@@ -210,9 +212,10 @@ cdef class ArbitrageStrategy(StrategyBase):
             self._last_failed_market_order_timestamp = fail_event.timestamp
 
         if self._failed_market_order_count > self._failed_order_tolerance:
-            failed_order_kill_switch_log = f"Strategy is forced stop by failed order kill switch. " \
-                                           f"Failed market order count {self._failed_market_order_count} exceeded tolerance lever of " \
-                                           f"{self._failed_order_tolerance}. Please check market connectivity before restarting."
+            failed_order_kill_switch_log = \
+                f"Strategy is forced stop by failed order kill switch. " \
+                f"Failed market order count {self._failed_market_order_count} exceeded tolerance lever of " \
+                f"{self._failed_order_tolerance}. Please check market connectivity before restarting."
 
             self.logger().network(failed_order_kill_switch_log, app_warning_msg=failed_order_kill_switch_log)
             self.c_stop(self._clock)
@@ -245,14 +248,14 @@ cdef class ArbitrageStrategy(StrategyBase):
         :return: (double, double) that indicates profitability of arbitraging on each side
         """
         cdef:
-            double market_1_bid_price = ExchangeRateConversion.get_instance().adjust_token_rate(
-                market_pair.first.quote_asset, market_pair.first.order_book.get_price(False))
-            double market_1_ask_price = ExchangeRateConversion.get_instance().adjust_token_rate(
-                market_pair.first.quote_asset, market_pair.first.order_book.get_price(True))
-            double market_2_bid_price = ExchangeRateConversion.get_instance().adjust_token_rate(
-                market_pair.second.quote_asset, market_pair.second.order_book.get_price(False))
-            double market_2_ask_price = ExchangeRateConversion.get_instance().adjust_token_rate(
-                market_pair.second.quote_asset, market_pair.second.order_book.get_price(True))
+            object market_1_bid_price = ExchangeRateConversion.get_instance().adjust_token_rate(
+                market_pair.first.quote_asset, market_pair.first.get_price(False))
+            object market_1_ask_price = ExchangeRateConversion.get_instance().adjust_token_rate(
+                market_pair.first.quote_asset, market_pair.first.get_price(True))
+            object market_2_bid_price = ExchangeRateConversion.get_instance().adjust_token_rate(
+                market_pair.second.quote_asset, market_pair.second.get_price(False))
+            object market_2_ask_price = ExchangeRateConversion.get_instance().adjust_token_rate(
+                market_pair.second.quote_asset, market_pair.second.get_price(True))
         profitability_buy_2_sell_1 = market_1_bid_price / market_2_ask_price - 1
         profitability_buy_1_sell_2 = market_2_bid_price / market_1_ask_price - 1
         return profitability_buy_2_sell_1, profitability_buy_1_sell_2
@@ -353,8 +356,8 @@ cdef class ArbitrageStrategy(StrategyBase):
             object quantized_buy_amount
             object quantized_sell_amount
             object quantized_order_amount
-            double best_amount = 0.0  # best profitable order amount
-            double best_profitability = 0.0  # best profitable order amount
+            object best_amount = s_decimal_0  # best profitable order amount
+            object best_profitability = s_decimal_0  # best profitable order amount
             MarketBase buy_market = buy_market_trading_pair_tuple.market
             MarketBase sell_market = sell_market_trading_pair_tuple.market
 
@@ -385,36 +388,13 @@ cdef class ArbitrageStrategy(StrategyBase):
 
     @classmethod
     def find_profitable_arbitrage_orders(cls,
-                                         min_profitability,
-                                         sell_order_book: OrderBook,
-                                         buy_order_book: OrderBook,
-                                         buy_market_quote_asset,
-                                         sell_market_quote_asset):
+                                         min_profitability: Decimal,
+                                         buy_market_symbol_pair: MarketTradingPairTuple,
+                                         sell_market_symbol_pair: MarketTradingPairTuple):
 
         return c_find_profitable_arbitrage_orders(min_profitability,
-                                                  sell_order_book,
-                                                  buy_order_book,
-                                                  buy_market_quote_asset,
-                                                  sell_market_quote_asset)
-
-    cdef double c_sum_flat_fees(self, str quote_asset, list flat_fees):
-        """
-        Converts flat fees to quote token and sums up all flat fees
-        """
-        cdef:
-            double total_flat_fees = 0.0
-
-        for flat_fee_currency, flat_fee_amount in flat_fees:
-            if flat_fee_currency == quote_asset:
-                total_flat_fees += flat_fee_amount
-            else:
-                # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
-                total_flat_fees += ExchangeRateConversion.get_instance().convert_token_value(
-                    amount=flat_fee_amount,
-                    from_currency=flat_fee_currency,
-                    to_currency=quote_asset
-                )
-        return total_flat_fees
+                                                  buy_market_symbol_pair,
+                                                  sell_market_symbol_pair)
 
     cdef tuple c_find_best_profitable_amount(self, object buy_market_trading_pair_tuple, object sell_market_trading_pair_tuple):
         """
@@ -428,33 +408,31 @@ cdef class ArbitrageStrategy(StrategyBase):
         :rtype: Tuple[float, float]
         """
         cdef:
-            double total_bid_value = 0  # total revenue
-            double total_ask_value = 0  # total cost
-            double total_bid_value_adjusted = 0  # total revenue adjusted with exchange rate conversion
-            double total_ask_value_adjusted = 0  # total cost adjusted with exchange rate conversion
-            double total_previous_step_base_amount = 0
-            double profitability
-            double best_profitable_order_amount = 0.0
-            double best_profitable_order_profitability = 0.0
+            object total_bid_value = s_decimal_0  # total revenue
+            object total_ask_value = s_decimal_0  # total cost
+            object total_bid_value_adjusted = s_decimal_0  # total revenue adjusted with exchange rate conversion
+            object total_ask_value_adjusted = s_decimal_0  # total cost adjusted with exchange rate conversion
+            object total_previous_step_base_amount = s_decimal_0
+            object profitability
+            object best_profitable_order_amount = s_decimal_0
+            object best_profitable_order_profitability = s_decimal_0
             object buy_fee
             object sell_fee
-            double total_sell_flat_fees
-            double total_buy_flat_fees
-            double quantized_profitable_base_amount
-            double net_sell_proceeds
-            double net_buy_costs
-            double buy_market_quote_balance
-            double sell_market_base_balance
+            object total_sell_flat_fees
+            object total_buy_flat_fees
+            object quantized_profitable_base_amount
+            object net_sell_proceeds
+            object net_buy_costs
+            object buy_market_quote_balance
+            object sell_market_base_balance
             MarketBase buy_market = buy_market_trading_pair_tuple.market
             MarketBase sell_market = sell_market_trading_pair_tuple.market
             OrderBook buy_order_book = buy_market_trading_pair_tuple.order_book
             OrderBook sell_order_book = sell_market_trading_pair_tuple.order_book
 
         profitable_orders = c_find_profitable_arbitrage_orders(self._min_profitability,
-                                                               buy_order_book,
-                                                               sell_order_book,
-                                                               buy_market_trading_pair_tuple.quote_asset,
-                                                               sell_market_trading_pair_tuple.quote_asset)
+                                                               buy_market_trading_pair_tuple,
+                                                               sell_market_trading_pair_tuple)
 
         # check if each step meets the profit level after fees, and is within the wallet balance
         # fee must be calculated at every step because fee might change a potentially profitable order to unprofitable
@@ -468,16 +446,16 @@ cdef class ArbitrageStrategy(StrategyBase):
                 buy_market_trading_pair_tuple.quote_asset,
                 OrderType.MARKET,
                 TradeType.BUY,
-                Decimal(total_previous_step_base_amount + amount),
-                Decimal(ask_price)
+                total_previous_step_base_amount + amount,
+                ask_price
             )
             sell_fee = sell_market.c_get_fee(
                 sell_market_trading_pair_tuple.base_asset,
                 sell_market_trading_pair_tuple.quote_asset,
                 OrderType.MARKET,
                 TradeType.SELL,
-                Decimal(total_previous_step_base_amount + amount),
-                Decimal(bid_price)
+                total_previous_step_base_amount + amount,
+                bid_price
             )
             # accumulated flat fees of exchange
             total_buy_flat_fees = self.c_sum_flat_fees(buy_market_trading_pair_tuple.quote_asset, buy_fee.flat_fees)
@@ -553,17 +531,14 @@ cdef class ArbitrageStrategy(StrategyBase):
     # ---------------------------------------------------------------
 
 
-def find_profitable_arbitrage_orders(min_profitability: float, buy_order_book: OrderBook, sell_order_book: OrderBook,
-                                     buy_market_quote_asset: str, sell_market_quote_asset: str):
-    return c_find_profitable_arbitrage_orders(min_profitability, buy_order_book, sell_order_book,
-                                              buy_market_quote_asset, sell_market_quote_asset)
+def find_profitable_arbitrage_orders(min_profitability: Decimal, buy_market_symbol_pair: market_trading_pair_tuple,
+                                     sell_market_symbol_pair: market_trading_pair_tuple):
+    return c_find_profitable_arbitrage_orders(min_profitability, buy_market_symbol_pair, sell_market_symbol_pair)
 
 
-cdef list c_find_profitable_arbitrage_orders(double min_profitability,
-                                             OrderBook buy_order_book,
-                                             OrderBook sell_order_book,
-                                             str buy_market_quote_asset,
-                                             str sell_market_quote_asset):
+cdef list c_find_profitable_arbitrage_orders(object min_profitability,
+                                             object buy_market_trading_pair_tuple,
+                                             object sell_market_trading_pair_tuple):
     """
     Iterates through sell and buy order books and returns a list of matched profitable sell and buy order
     pairs with sizes.
@@ -571,24 +546,25 @@ cdef list c_find_profitable_arbitrage_orders(double min_profitability,
     If no profitable trades can be done between the buy and sell order books, then returns an empty list.
 
     :param min_profitability: Minimum profit ratio
-    :param buy_order_book: Order book for the buy order
-    :param sell_order_book: Order book for the sell order
-    :param buy_market_quote_asset: Quote asset for the buy side
-    :param sell_market_quote_asset: Quote asset for the sell side
-    :return: ordered list of (bid_price, ask_price, amount)
+    :param buy_market_symbol_pair: symbol pair for buy side
+    :param sell_market_symbol_pair: symbol pair for sell side
+    :return: ordered list of (bid_price:Decimal, ask_price:Decimal, amount:Decimal)
     """
     cdef:
-        double step_amount = 0
-        double bid_leftover_amount = 0
-        double ask_leftover_amount = 0
+        object step_amount = s_decimal_0
+        object bid_leftover_amount = s_decimal_0
+        object ask_leftover_amount = s_decimal_0
         object current_bid = None
         object current_ask = None
-        double current_bid_price_adjusted
-        double current_ask_price_adjusted
+        object current_bid_price_adjusted
+        object current_ask_price_adjusted
+        str sell_market_quote_asset = sell_market_trading_pair_tuple.quote_asset
+        str buy_market_quote_asset = buy_market_trading_pair_tuple.quote_asset
 
     profitable_orders = []
-    bid_it = sell_order_book.bid_entries()
-    ask_it = buy_order_book.ask_entries()
+    bid_it = sell_market_trading_pair_tuple.order_book_bid_entries()
+    ask_it = buy_market_trading_pair_tuple.order_book_ask_entries()
+
     try:
         while True:
             if bid_leftover_amount == 0 and ask_leftover_amount == 0:

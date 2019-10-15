@@ -58,9 +58,11 @@ def start(self):
                                                                       order_step_size,
                                                                       number_of_orders)
         else:  # mode == "single"
-            pricing_delegate = ConstantSpreadPricingDelegate(bid_place_threshold, ask_place_threshold)
+            pricing_delegate = ConstantSpreadPricingDelegate(bid_place_threshold,
+                                                             ask_place_threshold)
             if inventory_skew_enabled:
-                sizing_delegate = InventorySkewSingleSizeSizingDelegate(order_size, inventory_target_base_percent)
+                sizing_delegate = InventorySkewSingleSizeSizingDelegate(order_size,
+                                                                        inventory_target_base_percent)
             else:
                 sizing_delegate = ConstantSizeSizingDelegate(order_size)
 
