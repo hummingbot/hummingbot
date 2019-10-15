@@ -424,8 +424,9 @@ cdef class HuobiMarket(MarketBase):
 
                 order_state = order_update["state"]
                 # possible order states are "submitted", "partial-filled", "cancelling", "filled", "canceled"
-                if order_state == "submitted":
-                    continue
+
+                if order_state not in ["submitted", "partial-filled", "cancelling", "filled", "canceled"]:
+                    self.logger().debug(f"Unrecognized order update response - {order_update}")
 
                 # Calculate the newly executed amount for this update.
                 tracked_order.last_state = order_state
@@ -461,6 +462,9 @@ cdef class HuobiMarket(MarketBase):
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"order {tracked_order.client_order_id}.")
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
+
+                if order_state == "submitted" or order_state == "cancelling":
+                    continue
 
                 if order_state == "filled":
                     self.c_stop_tracking_order(tracked_order.client_order_id)
