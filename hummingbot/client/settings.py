@@ -32,6 +32,7 @@ EXCHANGES = {
     "huobi",
     "idex",
     "radar_relay",
+    "bittrex"
 }
 
 DEXES = {

@@ -229,4 +229,12 @@ global_config_map = {
                   prompt="What is your default exchange rate data feed name? >>> ",
                   required_if=lambda: False,
                   default="coin_gecko_api"),
+    "bittrex_api_key": ConfigVar(key="bittrex_api_key",
+                                 prompt="Enter your Bittrex API key >>> ",
+                                 required_if=using_exchange("bittrex"),
+                                 is_secure=True),
+    "bittrex_secret_key": ConfigVar(key="bittrex_secret_key",
+                                    prompt="Enter your Bittrex secret key >>> ",
+                                    required_if=using_exchange("bittrex"),
+                                    is_secure=True),
 }
