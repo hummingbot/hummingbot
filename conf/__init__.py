@@ -53,6 +53,10 @@ web3_test_private_key_idex = os.getenv("IDEX_WALLET_PRIVATE_KEY")
 huobi_api_key = os.getenv("HUOBI_API_KEY")
 huobi_secret_key = os.getenv("HUOBI_SECRET_KEY")
 
+# Bittrex Tests
+bittrex_api_key = os.getenv("BITTREX_API_KEY")
+bittrex_secret_key = os.getenv("BITTREX_SECRET_KEY")
+
 test_web3_provider_list = [os.getenv("WEB3_PROVIDER")]
 
 # Wallet Tests
