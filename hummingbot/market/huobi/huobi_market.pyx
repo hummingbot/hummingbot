@@ -421,19 +421,6 @@ cdef class HuobiMarket(MarketBase):
                                         f"The order has either been filled or canceled."
                     )
                     continue
-                if order_update.get("error") is not None:
-                    error_code = order_update.get("error").get("err-code")
-                    if error_code == "base-record-invalid" or error_code == "order-orderstate-error":
-                        # 'base-record-invalid' - order no longer exists
-                        # 'order-orderstate-error' - order is either partial-canceled, filled, canceled, or cancelling
-                        # Huobi seems to return error if an order has been "partial-canceled"
-                        self.c_stop_tracking_order(tracked_order.client_order_id)
-                        self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled according"
-                                           f" to order status API. error code - {error_code}")
-                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                             OrderCancelledEvent(self._current_timestamp,
-                                                                 tracked_order.client_order_id))
-                    continue
 
                 order_state = order_update["state"]
                 # possible order states are "submitted", "partial-filled", "cancelling", "filled", "canceled"
@@ -504,7 +491,7 @@ cdef class HuobiMarket(MarketBase):
                                                                      tracked_order.fee_paid,
                                                                      tracked_order.order_type))
 
-                if order_state == "canceled":
+                if order_state == "canceled" or order_state == "partial-filled":
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                     self.logger().info(f"The market order {tracked_order.client_order_id} has been cancelled according"
                                        f" to order status API.")
@@ -743,23 +730,7 @@ cdef class HuobiMarket(MarketBase):
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
             path_url = f"order/orders/{tracked_order.exchange_order_id}/submitcancel"
-            response = await self._api_request("post", path_url=path_url, is_auth_required=True)
-            if response.get("error") is not None:
-                error_code = response.get("error").get("err-code")
-                if error_code == "base-record-invalid" or error_code == "order-orderstate-error":
-                    # 'base-record-invalid' - order no longer exists
-                    # 'order-orderstate-error' - order is either partial-canceled, filled, canceled, or cancelling
-                    # Huobi seems to return error if an order has been "partial-canceled"
-                    self.c_stop_tracking_order(tracked_order.client_order_id)
-                    self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled according"
-                                       f" to order status API. error code - {error_code}")
-                    self.c_trigger_event(
-                        self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                        OrderCancelledEvent(
-                            self._current_timestamp,
-                            tracked_order.client_order_id
-                        )
-                    )
+            await self._api_request("post", path_url=path_url, is_auth_required=True)
         except Exception as e:
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(e)}",
