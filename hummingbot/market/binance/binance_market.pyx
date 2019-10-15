@@ -550,7 +550,7 @@ cdef class BinanceMarket(MarketBase):
                     else:
                         # check if its a cancelled order
                         # if its a cancelled order, issue cancel and stop tracking order
-                        if tracked_order.last_state == "CANCELED":
+                        if tracked_order.is_cancelled:
                             self.logger().info(f"Successfully cancelled order {client_order_id}.")
                             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                                  OrderCancelledEvent(
@@ -673,7 +673,7 @@ cdef class BinanceMarket(MarketBase):
                             # check if its a cancelled order
                             # if its a cancelled order, check in flight orders
                             # if present in in flight orders issue cancel and stop tracking order
-                            if tracked_order.last_state == "CANCELED":
+                            if tracked_order.is_cancelled:
                                 if tracked_order.client_order_id in self._in_flight_orders:
                                     self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
                                     self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
