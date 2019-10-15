@@ -290,7 +290,7 @@ cdef class HuobiMarket(MarketBase):
 
             data = parsed_response.get("data")
             if data is None:
-                self.logger().error(f"Error received from {url}. Response is {parsed_response}.")
+                self.logger().debug(f"Error received from {url}. Response is {parsed_response}.")
                 return {"error": parsed_response}
             return data
 
@@ -421,24 +421,12 @@ cdef class HuobiMarket(MarketBase):
                                         f"The order has either been filled or canceled."
                     )
                     continue
-                if order_update.get("error") is not None:
-                    error_code = order_update.get("error").get("err-code")
-                    if error_code == "base-record-invalid" or error_code == "order-orderstate-error":
-                        # 'base-record-invalid' - order no longer exists
-                        # 'order-orderstate-error' - order is either partial-canceled, filled, canceled, or cancelling
-                        # Huobi seems to return error if an order has been "partial-canceled"
-                        self.c_stop_tracking_order(tracked_order.client_order_id)
-                        self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled according"
-                                           f" to order status API. error code - {error_code}")
-                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                             OrderCancelledEvent(self._current_timestamp,
-                                                                 tracked_order.client_order_id))
-                    continue
 
                 order_state = order_update["state"]
                 # possible order states are "submitted", "partial-filled", "cancelling", "filled", "canceled"
-                if order_state == "submitted":
-                    continue
+
+                if order_state not in ["submitted", "partial-filled", "cancelling", "filled", "canceled"]:
+                    self.logger().debug(f"Unrecognized order update response - {order_update}")
 
                 # Calculate the newly executed amount for this update.
                 tracked_order.last_state = order_state
@@ -475,6 +463,9 @@ cdef class HuobiMarket(MarketBase):
                                        f"order {tracked_order.client_order_id}.")
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
+                if order_state == "submitted" or order_state == "cancelling":
+                    continue
+
                 if order_state == "filled":
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                     if tracked_order.trade_type is TradeType.BUY:
@@ -504,7 +495,7 @@ cdef class HuobiMarket(MarketBase):
                                                                      tracked_order.fee_paid,
                                                                      tracked_order.order_type))
 
-                if order_state == "canceled":
+                if order_state == "canceled" or order_state == "partial-filled":
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                     self.logger().info(f"The market order {tracked_order.client_order_id} has been cancelled according"
                                        f" to order status API.")
