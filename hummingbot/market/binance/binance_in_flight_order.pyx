@@ -86,11 +86,14 @@ cdef class BinanceInFlightOrder(InFlightOrderBase):
 
     def update_with_trade_update(self, trade_update: Dict[str, Any]):
         trade_id = trade_update["id"]
-        if trade_update["orderId"] != self.exchange_order_id or trade_id in self.trade_id_set:
+        # trade_update["orderId"] is type int
+        if str(trade_update["orderId"]) != self.exchange_order_id or trade_id in self.trade_id_set:
             # trade already recorded
             return
         self.trade_id_set.add(trade_id)
-        self.executed_amount_quote += Decimal(trade_update["qty"])
+        self.executed_amount_base += Decimal(trade_update["qty"])
         self.fee_paid += Decimal(trade_update["commission"])
         self.executed_amount_quote += Decimal(trade_update["quoteQty"])
+        if not self.fee_asset:
+            self.fee_asset = trade_update["commissionAsset"]
         return trade_update
