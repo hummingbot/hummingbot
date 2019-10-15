@@ -582,18 +582,23 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             # Set the replenish time as current_timestamp + order replenish time
             replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
 
-            # if order_id not in [x.client_order_id for x in self.active_bids]:
-            #     return
+            active_orders = self.market_info_to_active_orders.get(market_info, [])
+            active_buy_orders = [x.client_order_id for x in active_orders if x.is_buy]
+            active_sell_orders = [x.client_order_id for x in active_orders if not x.is_buy]
+
+            if self._enable_order_filled_stop_cancellation:
+                # If the filled order is a hanging order (not an active buy order)
+                # do nothing
+                if order_id not in active_buy_orders:
+                    return
 
             # if filled order is buy, adjust the cancel time for sell order
             # For syncing buy and sell orders during order completed events
-            for _, ask_order in self.active_asks:
-                other_order_id = ask_order.client_order_id
+            for other_order_id in active_sell_orders:
                 if other_order_id in self._time_to_cancel:
 
                     # If you want to stop cancelling orders remove it from the cancel list
                     if self._enable_order_filled_stop_cancellation:
-                        self.logger().info(f"Deleting {other_order_id} from time to cancel due to buy order of {order_id}")
                         del self._time_to_cancel[other_order_id]
                     else:
                         # cancel time is minimum of current cancel time and replenish time to sync up both
@@ -601,7 +606,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
                 # Stop tracking the order
                 if self._enable_order_filled_stop_cancellation:
-                    self.logger().info(f"Stop tracking of {other_order_id}")
                     self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
 
             if not isnan(replenish_time_stamp):
@@ -626,15 +630,23 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             # Set the replenish time as current_timestamp + order replenish time
             replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
 
+            active_orders = self.market_info_to_active_orders.get(market_info, [])
+            active_buy_orders = [x.client_order_id for x in active_orders if x.is_buy]
+            active_sell_orders = [x.client_order_id for x in active_orders if not x.is_buy]
+
+            if self._enable_order_filled_stop_cancellation:
+                # If the filled order is a hanging order (not an active sell order)
+                # do nothing
+                if order_id not in active_sell_orders:
+                    return
+
             # if filled order is sell, adjust the cancel time for buy order
             # For syncing buy and sell orders during order completed events
-            for _, bid_order in self.active_bids:
-                other_order_id = bid_order.client_order_id
+            for other_order_id in active_buy_orders:
                 if other_order_id in self._time_to_cancel:
 
                     # If you want to stop cancelling orders remove it from the cancel list
                     if self._enable_order_filled_stop_cancellation:
-                        self.logger().info(f"Deleting {other_order_id} from time to cancel due to sell order of {order_id}")
                         del self._time_to_cancel[other_order_id]
                     else:
                         # cancel time is minimum of current cancel time and replenish time to sync up both
@@ -642,7 +654,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
                 # Stop tracking the order
                 if self._enable_order_filled_stop_cancellation:
-                    self.logger().info(f"Stop tracking of {other_order_id}")
                     self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
 
             if not isnan(replenish_time_stamp):
