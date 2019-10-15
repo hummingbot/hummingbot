@@ -152,7 +152,6 @@ cdef class StrategyBase(TimeIterator):
     def market_status_data_frame(self, market_trading_pair_tuples: List[MarketTradingPairTuple]) -> pd.DataFrame:
         cdef:
             MarketBase market
-            double market_1_ask_price
             str trading_pair
             str base_asset
             str quote_asset
@@ -200,8 +199,8 @@ cdef class StrategyBase(TimeIterator):
                 quote_balance = float(market.get_balance(quote_asset))
                 available_base_balance = float(market.get_available_balance(base_asset))
                 available_quote_balance = float(market.get_available_balance(quote_asset))
-                base_asset_conversion_rate = ExchangeRateConversion.get_instance().adjust_token_rate(base_asset, 1)
-                quote_asset_conversion_rate = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, 1)
+                base_asset_conversion_rate = ExchangeRateConversion.get_instance().adjust_token_rate(base_asset, Decimal(1))
+                quote_asset_conversion_rate = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, Decimal(1))
                 assets_data.extend([
                     [market.display_name, base_asset, base_balance, available_base_balance, base_asset_conversion_rate],
                     [market.display_name, quote_asset, quote_balance, available_quote_balance, quote_asset_conversion_rate]
