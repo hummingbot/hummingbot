@@ -530,10 +530,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
                 # If Enable filled order stop cancellation is true and an order filled event happens when proposal is
                 # generated, then check if the order is still in time_to_cancel
-                if active_order.client_order_id not in self._time_to_cancel:
-                    self._sb_order_tracker.c_stop_tracking_limit_order(market_info, active_order.client_order_id)
-                    continue
-                if self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
+
+                if active_order.client_order_id in self._time_to_cancel and \
+                        self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
                     cancel_order_ids.append(active_order.client_order_id)
 
             if len(cancel_order_ids) > 0:
@@ -582,6 +581,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         if isinstance(self.sizing_delegate, self.SINGLE_ORDER_SIZING_DELEGATES):
             # Set the replenish time as current_timestamp + order replenish time
             replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
+
+            # if order_id not in [x.client_order_id for x in self.active_bids]:
+            #     return
 
             # if filled order is buy, adjust the cancel time for sell order
             # For syncing buy and sell orders during order completed events
