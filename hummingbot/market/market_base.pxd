@@ -21,7 +21,7 @@ cdef class MarketBase(NetworkIterator):
     cdef c_cancel(self, str symbol, str client_order_id)
     cdef object c_get_balance(self, str currency)
     cdef object c_get_available_balance(self, str currency)
-    cdef str c_withdraw(self, str address, str currency, double amount)
+    cdef str c_withdraw(self, str address, str currency, object amount)
     cdef OrderBook c_get_order_book(self, str symbol)
     cdef object c_get_price(self, str symbol, bint is_buy)
     cdef object c_get_order_price_quantum(self, str symbol, object price)

@@ -56,6 +56,8 @@ from hummingbot.model.trade_fill import TradeFill
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.wallet.ethereum.web3_wallet_backend import EthereumChain
 
+s_decimal_0 = Decimal(0)
+
 
 class RadarRelayMarketUnitTest(unittest.TestCase):
     market_events: List[MarketEvent] = [
@@ -163,8 +165,8 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
 
     def test_get_wallet_balances(self):
         balances = self.market.get_all_balances()
-        self.assertGreaterEqual((balances["ETH"]), 0)
-        self.assertGreaterEqual((balances["WETH"]), 0)
+        self.assertGreaterEqual((balances["ETH"]), s_decimal_0)
+        self.assertGreaterEqual((balances["WETH"]), s_decimal_0)
 
     def test_single_limit_order_cancel(self):
         symbol: str = "ZRX-WETH"
@@ -281,7 +283,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_wrap_eth(self):
-        amount_to_wrap = 0.01
+        amount_to_wrap = Decimal("0.01")
         tx_hash = self.wallet.wrap_eth(amount_to_wrap)
         [tx_completed_event] = self.run_parallel(self.wallet_logger.wait_for(WalletWrappedEthEvent))
         tx_completed_event: WalletWrappedEthEvent = tx_completed_event
@@ -291,7 +293,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
         self.assertEqual(self.wallet.address, tx_completed_event.address)
 
     def test_unwrap_eth(self):
-        amount_to_unwrap = 0.01
+        amount_to_unwrap = Decimal("0.01")
         tx_hash = self.wallet.unwrap_eth(amount_to_unwrap)
         [tx_completed_event] = self.run_parallel(self.wallet_logger.wait_for(WalletUnwrappedEthEvent))
         tx_completed_event: WalletUnwrappedEthEvent = tx_completed_event
