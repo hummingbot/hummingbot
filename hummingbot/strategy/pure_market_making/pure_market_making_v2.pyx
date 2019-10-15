@@ -531,10 +531,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 # If Enable filled order stop cancellation is true and an order filled event happens when proposal is
                 # generated, then check if the order is still in time_to_cancel
                 if active_order.client_order_id not in self._time_to_cancel:
-                    self.logger().info(f"active orders are {active_orders}")
-                    self.logger().info(f"filled order is {active_order.client_order_id}")
-                if active_order.client_order_id in self._time_to_cancel and \
-                        self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
+                    self._sb_order_tracker.c_stop_tracking_limit_order(market_info, active_order.client_order_id)
+                    continue
+                if self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
                     cancel_order_ids.append(active_order.client_order_id)
 
             if len(cancel_order_ids) > 0:
