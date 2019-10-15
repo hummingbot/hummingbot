@@ -66,7 +66,7 @@ class HistoryCommand:
                              float(current_balance),
                              float(current_balance - starting_balance),
                              float(asset_delta["delta"]),
-                             ERC.adjust_token_rate(asset, 1)])
+                             ERC.adjust_token_rate(asset, Decimal(1))])
         df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Net_Delta",
                                                      "Trade_Delta", "Conversion_Rate"])
         return df
