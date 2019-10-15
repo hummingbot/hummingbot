@@ -897,13 +897,30 @@ cdef class BinanceMarket(MarketBase):
             order_decimal_amount = f"{decimal_amount:f}"
             if order_type is OrderType.LIMIT:
                 order_decimal_price = f"{decimal_price:f}"
+                self.c_start_tracking_order(
+                    order_id,
+                    "",
+                    symbol,
+                    TradeType.BUY,
+                    decimal_price,
+                    decimal_amount,
+                    order_type
+                )
                 order_result = await self.query_api(self._binance_client.order_limit_buy,
                                                     symbol=symbol,
                                                     quantity=order_decimal_amount,
                                                     price=order_decimal_price,
                                                     newClientOrderId=order_id)
             elif order_type is OrderType.MARKET:
-
+                self.c_start_tracking_order(
+                    order_id,
+                    "",
+                    symbol,
+                    TradeType.BUY,
+                    Decimal("NaN"),
+                    decimal_amount,
+                    order_type
+                )
                 order_result = await self.query_api(self._binance_client.order_market_buy,
                                                     symbol=symbol,
                                                     quantity=order_decimal_amount,
@@ -926,15 +943,6 @@ cdef class BinanceMarket(MarketBase):
                                      decimal_price,
                                      order_id
                                  ))
-            self.c_start_tracking_order(
-                exchange_order_id,
-                "",
-                symbol,
-                TradeType.BUY,
-                Decimal("NaN") if order_type is OrderType.MARKET else decimal_price,
-                decimal_amount,
-                order_type
-            )
 
         except asyncio.CancelledError:
             raise
@@ -982,12 +990,30 @@ cdef class BinanceMarket(MarketBase):
             order_decimal_amount = f"{decimal_amount:f}"
             if order_type is OrderType.LIMIT:
                 order_decimal_price = f"{decimal_price:f}"
+                self.c_start_tracking_order(
+                    order_id,
+                    "",
+                    symbol,
+                    TradeType.SELL,
+                    decimal_price,
+                    decimal_amount,
+                    order_type
+                )
                 order_result = await self.query_api(self._binance_client.order_limit_sell,
                                                     symbol=symbol,
                                                     quantity=order_decimal_amount,
                                                     price=order_decimal_price,
                                                     newClientOrderId=order_id)
             elif order_type is OrderType.MARKET:
+                self.c_start_tracking_order(
+                    order_id,
+                    "",
+                    symbol,
+                    TradeType.SELL,
+                    Decimal("NaN"),
+                    decimal_amount,
+                    order_type
+                )
                 order_result = await self.query_api(self._binance_client.order_market_sell,
                                                     symbol=symbol,
                                                     quantity=order_decimal_amount,
@@ -1011,15 +1037,7 @@ cdef class BinanceMarket(MarketBase):
                                      decimal_price,
                                      order_id
                                  ))
-            self.c_start_tracking_order(
-                exchange_order_id,
-                "",
-                symbol,
-                TradeType.SELL,
-                Decimal("NaN") if order_type is OrderType.MARKET else decimal_price,
-                decimal_amount,
-                order_type
-            )
+
         except asyncio.CancelledError:
             raise
         except Exception:
