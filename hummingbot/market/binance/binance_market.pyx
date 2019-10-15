@@ -717,8 +717,8 @@ cdef class BinanceMarket(MarketBase):
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self._update_balances(),
+                    self._update_order_fills_from_trades(),
                     self._update_order_status(),
-                    self._update_order_fills_from_trades()
                 )
                 self._last_pull_timestamp = self._current_timestamp
             except asyncio.CancelledError:
