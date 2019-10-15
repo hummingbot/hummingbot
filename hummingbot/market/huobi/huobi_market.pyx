@@ -1,4 +1,5 @@
 import aiohttp
+from aiohttp.test_utils import TestClient
 import asyncio
 from async_timeout import timeout
 import conf
@@ -56,8 +57,8 @@ from hummingbot.market.huobi.huobi_order_book_tracker import HuobiOrderBookTrack
 from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.market.market_base import (
     MarketBase,
-    NaN
-)
+    NaN,
+    s_decimal_NaN)
 
 hm_logger = None
 s_decimal_0 = Decimal(0)
@@ -109,8 +110,6 @@ cdef class HuobiMarket(MarketBase):
                  trading_required: bool = True):
 
         super().__init__()
-        self._account_available_balances = {}
-        self._account_balances = {}
         self._account_id = ""
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._data_source_type = order_book_tracker_data_source_type
@@ -146,6 +145,10 @@ cdef class HuobiMarket(MarketBase):
         return "huobi"
 
     @property
+    def order_book_tracker(self) -> HuobiOrderBookTracker:
+        return self._order_book_tracker
+
+    @property
     def order_books(self) -> Dict[str, OrderBook]:
         return self._order_book_tracker.order_books
 
@@ -176,6 +179,14 @@ cdef class HuobiMarket(MarketBase):
             key: HuobiInFlightOrder.from_json(value)
             for key, value in saved_states.items()
         })
+
+    @property
+    def shared_client(self) -> str:
+        return self._shared_client
+
+    @shared_client.setter
+    def shared_client(self, client: aiohttp.ClientSession):
+        self._shared_client = client
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         return await HuobiAPIOrderBookDataSource.get_active_exchange_markets()
@@ -240,7 +251,7 @@ cdef class HuobiMarket(MarketBase):
                            method,
                            path_url,
                            params: Optional[Dict[str, Any]] = None,
-                           data = None,
+                           data=None,
                            is_auth_required: bool = False) -> Dict[str, Any]:
         content_type = "application/json" if method == "post" else "application/x-www-form-urlencoded"
         headers = {"Content-Type": content_type}
@@ -248,12 +259,28 @@ cdef class HuobiMarket(MarketBase):
         client = await self._http_client()
         if is_auth_required:
             params = self._huobi_auth.add_auth_to_params(method, path_url, params)
-        async with client.request(method=method,
-                                  url=url,
-                                  headers=headers,
-                                  params=params,
-                                  data=ujson.dumps(data),
-                                  timeout=self.API_CALL_TIMEOUT) as response:
+
+        # aiohttp TestClient requires path instead of url
+        if isinstance(client, TestClient):
+            response_coro = client.request(
+                method=method.upper(),
+                path=f"/{path_url}",
+                headers=headers,
+                params=params,
+                data=ujson.dumps(data),
+                timeout=100
+            )
+        else:
+            response_coro = client.request(
+                method=method.upper(),
+                url=url,
+                headers=headers,
+                params=params,
+                data=ujson.dumps(data),
+                timeout=100
+            )
+
+        async with response_coro as response:
             if response.status != 200:
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
             try:
@@ -279,13 +306,15 @@ cdef class HuobiMarket(MarketBase):
     async def _update_balances(self):
         cdef:
             str path_url = f"account/accounts/{self._account_id}/balance"
-            dict data = await self._api_request("get", path_url=path_url, is_auth_required=True)
-            list balances = data.get("list", [])
+            dict data
+            list balances
             dict new_available_balances = {}
             dict new_balances = {}
             str asset_name
             object balance
 
+        data = await self._api_request("get", path_url=path_url, is_auth_required=True)
+        balances = data.get("list", [])
         if len(balances) > 0:
             for balance_entry in balances:
                 asset_name = balance_entry["currency"]
@@ -314,7 +343,7 @@ cdef class HuobiMarket(MarketBase):
                           object amount,
                           object price):
         # https://www.hbg.com/en-us/about/fee/
-        return TradeFee(percent=0.002)
+        return TradeFee(percent=Decimal("0.002"))
 
     async def _update_trading_rules(self):
         cdef:
@@ -404,7 +433,7 @@ cdef class HuobiMarket(MarketBase):
                         self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                              OrderCancelledEvent(self._current_timestamp,
                                                                  tracked_order.client_order_id))
-                        continue
+                    continue
 
                 order_state = order_update["state"]
                 # possible order states are "submitted", "partial-filled", "cancelling", "filled", "canceled"
@@ -427,20 +456,20 @@ cdef class HuobiMarket(MarketBase):
                         tracked_order.symbol,
                         tracked_order.trade_type,
                         tracked_order.order_type,
-                        float(execute_price),
-                        float(execute_amount_diff),
+                        execute_price,
+                        execute_amount_diff,
                         self.c_get_fee(
                             tracked_order.base_asset,
                             tracked_order.quote_asset,
                             tracked_order.order_type,
                             tracked_order.trade_type,
-                            float(execute_price),
-                            float(execute_amount_diff),
+                            execute_price,
+                            execute_amount_diff,
                         ),
                         # Unique exchange trade ID not available in client order status
                         # But can use validate an order using exchange order ID:
                         # https://huobiapi.github.io/docs/spot/v1/en/#query-order-by-order-id
-                        exchange_trade_id=exchange_order_id,
+                        exchange_trade_id=exchange_order_id
                     )
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"order {tracked_order.client_order_id}.")
@@ -457,9 +486,9 @@ cdef class HuobiMarket(MarketBase):
                                                                     tracked_order.base_asset,
                                                                     tracked_order.quote_asset,
                                                                     tracked_order.fee_asset or tracked_order.base_asset,
-                                                                    float(tracked_order.executed_amount_base),
-                                                                    float(tracked_order.executed_amount_quote),
-                                                                    float(tracked_order.fee_paid),
+                                                                    tracked_order.executed_amount_base,
+                                                                    tracked_order.executed_amount_quote,
+                                                                    tracked_order.fee_paid,
                                                                     tracked_order.order_type))
                     else:
                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
@@ -470,9 +499,9 @@ cdef class HuobiMarket(MarketBase):
                                                                      tracked_order.base_asset,
                                                                      tracked_order.quote_asset,
                                                                      tracked_order.fee_asset or tracked_order.quote_asset,
-                                                                     float(tracked_order.executed_amount_base),
-                                                                     float(tracked_order.executed_amount_quote),
-                                                                     float(tracked_order.fee_paid),
+                                                                     tracked_order.executed_amount_base,
+                                                                     tracked_order.executed_amount_quote,
+                                                                     tracked_order.fee_paid,
                                                                      tracked_order.order_type))
 
                 if order_state == "canceled":
@@ -530,9 +559,6 @@ cdef class HuobiMarket(MarketBase):
     def ready(self) -> bool:
         return all(self.status_dict.values())
 
-    def get_all_balances(self) -> Dict[str, Decimal]:
-        return self._account_balances.copy()
-
     async def place_order(self,
                           order_id: str,
                           symbol: str,
@@ -552,13 +578,17 @@ cdef class HuobiMarket(MarketBase):
         }
         if order_type is OrderType.LIMIT:
             params["price"] = str(price)
-        exchange_order_id = await self._api_request(
-            "post",
-            path_url=path_url,
-            params=params,
-            data=params,
-            is_auth_required=True
-        )
+        try:
+            exchange_order_id = await self._api_request(
+                "post",
+                path_url=path_url,
+                params=params,
+                data=params,
+                is_auth_required=True
+            )
+        except Exception:
+            raise
+
         return str(exchange_order_id)
 
     async def execute_buy(self,
@@ -566,18 +596,17 @@ cdef class HuobiMarket(MarketBase):
                           symbol: str,
                           amount: Decimal,
                           order_type: OrderType,
-                          price: Decimal):
+                          price: Optional[Decimal] = s_decimal_0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
-            double quote_amount
+            object quote_amount
             object decimal_amount
             object decimal_price
             str exchange_order_id
             object tracked_order
 
         if order_type is OrderType.MARKET:
-            quote_amount = (<OrderBook>self.c_get_order_book(symbol)).c_get_quote_volume_for_base_amount(
-                True, float(amount)).result_volume
+            quote_amount = self.c_get_quote_volume_for_base_amount(symbol, True, amount).result_volume
             # Quantize according to price rules, not base token amount rules.
             decimal_amount = self.c_quantize_order_price(symbol, Decimal(quote_amount))
             decimal_price = s_decimal_0
@@ -606,8 +635,8 @@ cdef class HuobiMarket(MarketBase):
                                      self._current_timestamp,
                                      order_type,
                                      symbol,
-                                     float(decimal_amount),
-                                     float(decimal_price),
+                                     decimal_amount,
+                                     decimal_price,
                                      order_id
                                  ))
         except asyncio.CancelledError:
@@ -628,9 +657,9 @@ cdef class HuobiMarket(MarketBase):
     cdef str c_buy(self,
                    str symbol,
                    object amount,
-                   object order_type = OrderType.MARKET,
-                   object price = s_decimal_0,
-                   dict kwargs = {}):
+                   object order_type=OrderType.MARKET,
+                   object price=s_decimal_0,
+                   dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = f"buy-{symbol}-{tracking_nonce}"
@@ -643,7 +672,7 @@ cdef class HuobiMarket(MarketBase):
                            symbol: str,
                            amount: Decimal,
                            order_type: OrderType,
-                           price: Decimal):
+                           price: Optional[Decimal] = s_decimal_0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
             object decimal_amount
@@ -678,8 +707,8 @@ cdef class HuobiMarket(MarketBase):
                                      self._current_timestamp,
                                      order_type,
                                      symbol,
-                                     float(decimal_amount),
-                                     float(decimal_price),
+                                     decimal_amount,
+                                     decimal_price,
                                      order_id
                                  ))
         except asyncio.CancelledError:
@@ -700,9 +729,8 @@ cdef class HuobiMarket(MarketBase):
     cdef str c_sell(self,
                     str symbol,
                     object amount,
-                    object order_type = OrderType.MARKET,
-                    object price = s_decimal_0,
-                    dict kwargs = {}):
+                    object order_type=OrderType.MARKET, object price=s_decimal_0,
+                    dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
             str order_id = f"sell-{symbol}-{tracking_nonce}"
@@ -733,6 +761,7 @@ cdef class HuobiMarket(MarketBase):
         if len(open_orders) == 0:
             return []
         cancel_order_ids = [o.exchange_order_id for o in open_orders]
+        self.logger().debug(f"cancel_order_ids {cancel_order_ids} {open_orders}")
         path_url = "order/orders/batchcancel"
         params = {"order-ids": ujson.dumps(cancel_order_ids)}
         data = {"order-ids": cancel_order_ids}
@@ -745,9 +774,10 @@ cdef class HuobiMarket(MarketBase):
                 data=data,
                 is_auth_required=True
             )
-            for oid in cancel_all_results["success"]:
+
+            for oid in cancel_all_results.get("success", []):
                 cancellation_results.append(CancellationResult(oid, True))
-            for cancel_error in cancel_all_results["failed"]:
+            for cancel_error in cancel_all_results.get("failed", []):
                 oid = cancel_error["order-id"]
                 cancellation_results.append(CancellationResult(oid, False))
         except Exception as e:
@@ -757,18 +787,6 @@ cdef class HuobiMarket(MarketBase):
                 app_warning_msg=f"Failed to cancel all orders on Huobi. Check API key and network connection."
             )
         return cancellation_results
-
-    cdef double c_get_balance(self, str currency) except? -1:
-        return float(self._account_balances.get(currency, 0.0))
-
-    cdef double c_get_available_balance(self, str currency) except? -1:
-        return float(self._account_available_balances.get(currency, 0.0))
-
-    cdef double c_get_price(self, str symbol, bint is_buy) except? -1:
-        cdef:
-            OrderBook order_book = self.c_get_order_book(symbol)
-
-        return order_book.c_get_price(is_buy)
 
     cdef OrderBook c_get_order_book(self, str symbol):
         cdef:
@@ -814,11 +832,11 @@ cdef class HuobiMarket(MarketBase):
             TradingRule trading_rule = self._trading_rules[symbol]
         return Decimal(trading_rule.min_base_amount_increment)
 
-    cdef object c_quantize_order_amount(self, str symbol, object amount, object price = s_decimal_0):
+    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=s_decimal_0):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
             object quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
-            object current_price = Decimal(self.c_get_price(symbol, False))
+            object current_price = self.c_get_price(symbol, False)
             object notional_size
 
         # Check against min_order_size. If not passing check, return 0.
