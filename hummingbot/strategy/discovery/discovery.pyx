@@ -481,8 +481,8 @@ cdef class DiscoveryStrategy(StrategyBase):
                 asset_set.add(q)
 
         for asset in asset_set:
-            rate = ExchangeRateConversion.get_instance().adjust_token_rate(asset, Decimal(1.0))
-            if rate != Decimal(1.0):
+            rate = ExchangeRateConversion.get_instance().adjust_token_rate(asset, Decimal("1.0"))
+            if rate != Decimal("1.0"):
                 data.append([asset, rate])
 
         assets_df = pd.DataFrame(data=data, columns=columns)
