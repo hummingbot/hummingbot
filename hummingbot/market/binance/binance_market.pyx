@@ -26,7 +26,6 @@ from typing import (
     Tuple,
 )
 import conf
-import hummingbot
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -511,8 +510,13 @@ cdef class BinanceMarket(MarketBase):
                             app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
                         )
                     continue
+
+                # Update order execution status
                 tracked_order.last_state = order_update["status"]
                 order_type = OrderType.LIMIT if order_update["type"] == "LIMIT" else OrderType.MARKET
+                executed_amount_base = Decimal(order_update["executedQty"])
+                executed_amount_quote = Decimal(order_update["cummulativeQuoteQty"])
+
                 if tracked_order.is_done:
                     if not tracked_order.is_failure:
                         if tracked_order.trade_type is TradeType.BUY:
@@ -525,8 +529,8 @@ cdef class BinanceMarket(MarketBase):
                                                                         tracked_order.quote_asset,
                                                                         (tracked_order.fee_asset
                                                                          or tracked_order.base_asset),
-                                                                        tracked_order.executed_amount_base,
-                                                                        tracked_order.executed_amount_quote,
+                                                                        executed_amount_base,
+                                                                        executed_amount_quote,
                                                                         tracked_order.fee_paid,
                                                                         order_type))
                         else:
@@ -539,8 +543,8 @@ cdef class BinanceMarket(MarketBase):
                                                                          tracked_order.quote_asset,
                                                                          (tracked_order.fee_asset
                                                                           or tracked_order.quote_asset),
-                                                                         tracked_order.executed_amount_base,
-                                                                         tracked_order.executed_amount_quote,
+                                                                         executed_amount_base,
+                                                                         executed_amount_quote,
                                                                          tracked_order.fee_paid,
                                                                          order_type))
                     else:
