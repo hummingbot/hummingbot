@@ -61,7 +61,14 @@ cdef class DDEXInFlightOrder(InFlightOrderBase):
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"canceled"}
+        return self.last_state in {"partially_filled", "canceled"}
+
+    @property
+    def is_failure(self) -> bool:
+        # Does not have any 'expiry" or "rejected" order statuses
+        # Ref: https://docs.ddex.io/#place-order-synchronously
+        # Currently not in use
+        return self.last_state in {"partially_filled", "canceled"}
 
     def to_json(self) -> Dict[str, Any]:
         return {
