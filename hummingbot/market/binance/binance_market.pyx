@@ -1037,7 +1037,6 @@ cdef class BinanceMarket(MarketBase):
                                      decimal_price,
                                      order_id
                                  ))
-
         except asyncio.CancelledError:
             raise
         except Exception:
