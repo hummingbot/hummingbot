@@ -33,7 +33,6 @@ from hummingbot.core.event.events import (
     WalletWrappedEthEvent,
     WalletUnwrappedEthEvent,
     OrderCancelledEvent,
-    OrderExpiredEvent,
     OrderFilledEvent,
     TradeType,
     TradeFee,
@@ -55,6 +54,8 @@ from hummingbot.model.sql_connection_manager import (
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.wallet.ethereum.web3_wallet_backend import EthereumChain
+
+s_decimal_0 = Decimal(0)
 
 
 class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
@@ -96,7 +97,7 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.wallet = Web3Wallet(private_key=conf.web3_private_key_bamboo,
                                 backend_urls=conf.test_web3_provider_list,
-                                erc20_token_addresses=[conf.test_bamboo_relay_base_token_address, 
+                                erc20_token_addresses=[conf.test_bamboo_relay_base_token_address,
                                                        conf.test_bamboo_relay_quote_token_address],
                                 chain=chain)
         cls.market: BambooRelayMarket = BambooRelayMarket(
@@ -172,8 +173,8 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
 
     def test_get_wallet_balances(self):
         balances = self.market.get_all_balances()
-        self.assertGreaterEqual((balances["ETH"]), 0)
-        self.assertGreaterEqual((balances[self.quote_token_symbol]), 0)
+        self.assertGreaterEqual((balances["ETH"]), s_decimal_0)
+        self.assertGreaterEqual((balances[self.quote_token_symbol]), s_decimal_0)
 
     def test_single_limit_order_cancel(self):
         symbol: str = self.base_token_symbol + "-" + self.quote_token_symbol
@@ -236,7 +237,7 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
         self.assertEqual(cancellation_results[1], CancellationResult(sell_order_id, True))
 
         # Wait for the order book source to also register the cancellation
-        self.assertTrue((buy_order_opened_event.order_id == order_cancelled_event.order_id or 
+        self.assertTrue((buy_order_opened_event.order_id == order_cancelled_event.order_id or
                          sell_order_opened_event.order_id == order_cancelled_event.order_id))
         # Reset the logs
         self.market_logger.clear()
@@ -290,15 +291,15 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
                                          order_type=OrderType.LIMIT,
                                          price=current_price - Decimal("0.2") * current_price,
                                          expiration_ts=expires)
-        [sell_order_opened_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
+        self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
 
         amount = Decimal("0.004")
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
         order_id = self.market.buy(self.base_token_symbol + "-" + self.quote_token_symbol, amount, OrderType.MARKET)
 
-        [order_completed_event, 
-         sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent),
-                                                         self.market_logger.wait_for(SellOrderCompletedEvent))
+        [order_completed_event,
+         _] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent),
+                                self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         order_filled_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
                                                        if isinstance(t, OrderFilledEvent)]
@@ -339,15 +340,15 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
                                          order_type=OrderType.LIMIT,
                                          price=current_price + Decimal("0.2") * current_price,
                                          expiration_ts=expires)
-        [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+        self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
 
         amount = Decimal("0.005")
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
         order_id = self.market.sell(self.base_token_symbol + "-" + self.quote_token_symbol, amount, OrderType.MARKET)
 
-        [order_completed_event, 
-         buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent),
-                                                         self.market_logger.wait_for(BuyOrderCompletedEvent))
+        [order_completed_event,
+         _] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent),
+                                self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         order_filled_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
                                                        if isinstance(t, OrderFilledEvent)]
@@ -361,7 +362,7 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_wrap_eth(self):
-        amount_to_wrap = 0.01
+        amount_to_wrap = Decimal("0.01")
         tx_hash = self.wallet.wrap_eth(amount_to_wrap)
         [tx_completed_event] = self.run_parallel(self.wallet_logger.wait_for(WalletWrappedEthEvent))
         tx_completed_event: WalletWrappedEthEvent = tx_completed_event
@@ -371,7 +372,7 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
         self.assertEqual(self.wallet.address, tx_completed_event.address)
 
     def test_unwrap_eth(self):
-        amount_to_unwrap = 0.01
+        amount_to_unwrap = Decimal("0.01")
         tx_hash = self.wallet.unwrap_eth(amount_to_unwrap)
         [tx_completed_event] = self.run_parallel(self.wallet_logger.wait_for(WalletUnwrappedEthEvent))
         tx_completed_event: WalletUnwrappedEthEvent = tx_completed_event
