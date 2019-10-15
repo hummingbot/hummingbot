@@ -48,6 +48,7 @@ from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 
 ETH_QNT = "ETH_QNT"
+s_decimal_0 = Decimal(0)
 
 
 class IDEXMarketUnitTest(unittest.TestCase):
@@ -149,7 +150,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
 
     def test_get_wallet_balances(self):
         balances = self.market.get_all_balances()
-        self.assertGreaterEqual((balances["ETH"]), 0)
+        self.assertGreaterEqual((balances["ETH"]), s_decimal_0)
 
     def test_quantize_order_amount(self):
         amount = self.market.quantize_order_amount("ETH_QNT", Decimal(0.01))
