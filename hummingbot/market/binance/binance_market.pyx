@@ -897,31 +897,6 @@ cdef class BinanceMarket(MarketBase):
             order_decimal_amount = f"{decimal_amount:f}"
             if order_type is OrderType.LIMIT:
                 order_decimal_price = f"{decimal_price:f}"
-
-                order_result = await self.query_api(self._binance_client.order_limit_buy,
-                                                    symbol=symbol,
-                                                    quantity=order_decimal_amount,
-                                                    price=order_decimal_price,
-                                                    newClientOrderId=order_id)
-            elif order_type is OrderType.MARKET:
-                order_result = await self.query_api(self._binance_client.order_market_buy,
-                                                    symbol=symbol,
-                                                    quantity=order_decimal_amount,
-                                                    newClientOrderId=order_id)
-            else:
-                raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
-
-            self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
-                                 BuyOrderCreatedEvent(
-                                     self._current_timestamp,
-                                     order_type,
-                                     symbol,
-                                     decimal_amount,
-                                     decimal_price,
-                                     order_id
-                                 ))
-
-            if order_type is OrderType.LIMIT:
                 self.c_start_tracking_order(
                     order_id,
                     "",
@@ -931,7 +906,12 @@ cdef class BinanceMarket(MarketBase):
                     decimal_amount,
                     order_type
                 )
-            if order_type is OrderType.MARKET:
+                order_result = await self.query_api(self._binance_client.order_limit_buy,
+                                                    symbol=symbol,
+                                                    quantity=order_decimal_amount,
+                                                    price=order_decimal_price,
+                                                    newClientOrderId=order_id)
+            elif order_type is OrderType.MARKET:
                 self.c_start_tracking_order(
                     order_id,
                     "",
@@ -941,6 +921,12 @@ cdef class BinanceMarket(MarketBase):
                     decimal_amount,
                     order_type
                 )
+                order_result = await self.query_api(self._binance_client.order_market_buy,
+                                                    symbol=symbol,
+                                                    quantity=order_decimal_amount,
+                                                    newClientOrderId=order_id)
+            else:
+                raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
 
             exchange_order_id = str(order_result["orderId"])
             tracked_order = self._in_flight_orders.get(order_id)
@@ -948,6 +934,15 @@ cdef class BinanceMarket(MarketBase):
                 self.logger().info(f"Created {order_type} buy order {order_id} for "
                                    f"{decimal_amount} {symbol}.")
                 tracked_order.exchange_order_id = exchange_order_id
+            self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
+                                 BuyOrderCreatedEvent(
+                                     self._current_timestamp,
+                                     order_type,
+                                     symbol,
+                                     decimal_amount,
+                                     decimal_price,
+                                     order_id
+                                 ))
 
         except asyncio.CancelledError:
             raise
@@ -995,6 +990,15 @@ cdef class BinanceMarket(MarketBase):
             order_decimal_amount = f"{decimal_amount:f}"
             if order_type is OrderType.LIMIT:
                 order_decimal_price = f"{decimal_price:f}"
+                self.c_start_tracking_order(
+                    order_id,
+                    "",
+                    symbol,
+                    TradeType.SELL,
+                    decimal_price,
+                    decimal_amount,
+                    order_type
+                )
                 order_result = await self.query_api(self._binance_client.order_limit_sell,
                                                     symbol=symbol,
                                                     quantity=order_decimal_amount,
@@ -1017,6 +1021,13 @@ cdef class BinanceMarket(MarketBase):
             else:
                 raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
 
+            exchange_order_id = str(order_result["orderId"])
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is not None:
+                self.logger().info(f"Created {order_type} sell order {order_id} for "
+                                   f"{decimal_amount} {symbol}.")
+                tracked_order.exchange_order_id = exchange_order_id
+
             self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
                                  SellOrderCreatedEvent(
                                      self._current_timestamp,
@@ -1026,36 +1037,6 @@ cdef class BinanceMarket(MarketBase):
                                      decimal_price,
                                      order_id
                                  ))
-
-            if order_type is OrderType.LIMIT:
-                self.c_start_tracking_order(
-                    order_id,
-                    "",
-                    symbol,
-                    TradeType.SELL,
-                    decimal_price,
-                    decimal_amount,
-                    order_type
-                )
-
-            if order_type is OrderType.MARKET:
-                self.c_start_tracking_order(
-                    order_id,
-                    "",
-                    symbol,
-                    TradeType.SELL,
-                    Decimal("NaN"),
-                    decimal_amount,
-                    order_type
-                )
-
-            exchange_order_id = str(order_result["orderId"])
-            tracked_order = self._in_flight_orders.get(order_id)
-            if tracked_order is not None:
-                self.logger().info(f"Created {order_type} sell order {order_id} for "
-                                   f"{decimal_amount} {symbol}.")
-                tracked_order.exchange_order_id = exchange_order_id
-
         except asyncio.CancelledError:
             raise
         except Exception:
