@@ -91,7 +91,9 @@ cdef class BinanceInFlightOrder(InFlightOrderBase):
             # trade already recorded
             return
         self.trade_id_set.add(trade_id)
-        self.executed_amount_quote += Decimal(trade_update["qty"])
+        self.executed_amount_base += Decimal(trade_update["qty"])
         self.fee_paid += Decimal(trade_update["commission"])
         self.executed_amount_quote += Decimal(trade_update["quoteQty"])
+        if not self.fee_asset:
+            self.fee_asset = trade_update["commissionAsset"]
         return trade_update
