@@ -89,7 +89,10 @@ async def quick_start():
                 hb.app.log("Running from dev branches. Full remote logging will be enabled.")
 
             log_level = global_config_map.get("log_level").value
-            init_logging("hummingbot_logs.yml", override_log_level=log_level, dev_mode=dev_mode)
+            init_logging("hummingbot_logs.yml",
+                         override_log_level=log_level,
+                         dev_mode=dev_mode,
+                         strategy_file_path=config_file_name)
             hb.start(log_level)
 
             tasks: List[Coroutine] = [hb.run()]
