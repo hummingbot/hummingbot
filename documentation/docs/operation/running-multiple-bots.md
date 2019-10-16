@@ -36,7 +36,12 @@ conda activate hummingbot
 
 ### Running in the background (from source)
 
-#### Install screen
+!!! note
+    The screen package is pre-installed on most Linux distros nowadays. To learn more about `screen` please visit [how-to-use-linux-screen](https://linuxize.com/post/how-to-use-linux-screen/). You can check if it is installed on your system by typing:
+    ```
+    screen --version
+    ```
+If not installed here's how to install screen
 
 ```bash tab="Ubuntu / Debian"
 sudo apt-get update
@@ -46,9 +51,6 @@ sudo apt-get install -y screen
 ```bash tab="CentOS"
 sudo yum -y install screen
 ```
-
-!!! note
-    To learn more about `screen` please visit [how-to-use-linux-screen](https://linuxize.com/post/how-to-use-linux-screen/).
 
 To run an instance in the background, run either of the following commands: `screen` or `screen -S $NAME`, where `$NAME` is what you wish to call this background instance. Use the latter to be more explicit if you want to run multiple bots.
 
