@@ -45,6 +45,7 @@ sudo apt-get install -y screen
 
 ```bash tab="CentOS"
 sudo yum -y install screen
+```
 
 !!! note
     To learn more about `screen` please visit [how-to-use-linux-screen](https://linuxize.com/post/how-to-use-linux-screen/).
