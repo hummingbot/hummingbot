@@ -2,6 +2,7 @@
 
 import asyncio
 import aiohttp
+from decimal import Decimal
 import logging
 import pandas as pd
 from typing import (
@@ -91,7 +92,7 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             ]
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data, index="id")
 
-            weth_dai_price: float = float(all_markets.loc["WETH-DAI"]["ticker"]["price"])
+            weth_dai_price: Decimal = Decimal(all_markets.loc["WETH-DAI"]["ticker"]["price"])
             dai_usd_price: float = float(ExchangeRateConversion.get_instance().adjust_token_rate("DAI", weth_dai_price))
             usd_volume: List[float] = []
             quote_volume: List[float] = []
