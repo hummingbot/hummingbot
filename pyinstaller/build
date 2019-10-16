@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
 import logging
+import os
 from os.path import (
     realpath,
-    join
+    join,
+    exists
 )
 import platform
 import shutil
@@ -11,6 +13,7 @@ from subprocess import (
     check_call,
     check_output
 )
+import sys
 
 
 def project_dir() -> str:
@@ -28,20 +31,39 @@ def generate_app_bundle():
 
 
 def main():
-    shutil.move(join(project_dir(), "bin", "hummingbot.py"), join(project_dir(), "bin", "bot"))
     system_type: str = platform.system()
+
+    if not check_call([join(project_dir(), "compile")], shell=True):
+        if system_type == "Windows":
+            check_call([join(project_dir(), "compile")], shell=True)
+        else:
+            print("Error: compile failed.", file=sys.stderr)
+            sys.exit(1)
+    shutil.move(join(project_dir(), "bin", "hummingbot.py"), join(project_dir(), "bin", "bot"))
     try:
         spec_file_path: str = join(project_dir(), "pyinstaller", "bot.spec")
         path_cmd: str = "which pyinstaller"
         if system_type == "Windows":
             path_cmd = "where pyinstaller"
         pyinstaller_path: str = check_output(path_cmd, shell=True).decode("utf8").strip()
-        check_call([pyinstaller_path, spec_file_path])
+        check_call([pyinstaller_path, "-y", spec_file_path])
     finally:
         shutil.move(join(project_dir(), "bin", "bot"), join(project_dir(), "bin", "hummingbot.py"))
 
-    if platform.system() == "Darwin":
+    if system_type == "Darwin":
         generate_app_bundle()
+    elif system_type == "Windows":
+        search_paths: List[str] = [f"{program_files}\\NSIS\\makensisw.exe" for program_files in
+                                   [os.environ["ProgramFiles"], os.environ["ProgramFiles(x86)"]]]
+        nsis_compiler: Optional[str] = None
+        for path in search_paths:
+            if exists(path):
+                nsis_compiler = path
+                break
+        if nsis_compiler is None:
+            print("Error: NSIS compiler not found.", file=sys.stderr)
+            sys.exit(1)
+        check_call([nsis_compiler, join(project_dir(), "pyinstaller/windows_installer.nsi")])
 
     logging.info("Done!")
 
