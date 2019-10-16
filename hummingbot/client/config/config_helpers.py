@@ -56,7 +56,7 @@ def parse_cvar_value(cvar: ConfigVar, value: Any) -> Any:
             return [s.strip() for s in value]  # remove leading and trailing whitespaces
         else:
             return value
-    elif cvar.type == 'dict':
+    elif cvar.type == 'json':
         if isinstance(value, str):
             value_json = value.replace("'", '"')  # replace single quotes with double quotes for valid JSON
             return json.loads(value_json)

@@ -1,16 +1,22 @@
 #!/usr/bin/env python
-import time
-from os.path import join, realpath
+from os.path import (
+    join,
+    realpath,
+)
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
-import asyncio
-from hummingbot.data_feed.data_feed_base import DataFeedBase
 import logging; logging.basicConfig(level=logging.ERROR)
+
+import asyncio
+import time
 import unittest
+from decimal import Decimal
+from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 
 
 class MockDataFeed1(DataFeedBase):
     _mdf_shared_instance: "MockDataFeed1" = None
+
     @classmethod
     def get_instance(cls) -> "MockDataFeed1":
         if cls._mdf_shared_instance is None:
@@ -94,8 +100,8 @@ class ExchangeRateConverterUnitTest(unittest.TestCase):
         async_run(ExchangeRateConversion.get_instance().update_exchange_rates_from_data_feeds())
 
     def test_adjust_token_rate(self):
-        adjusted_cat = ExchangeRateConversion.get_instance().adjust_token_rate("cat", 10)
-        self.assertEqual(adjusted_cat, 50)
+        adjusted_cat = ExchangeRateConversion.get_instance().adjust_token_rate("cat", Decimal(10))
+        self.assertEqual(adjusted_cat, Decimal(50))
 
     def test_convert_token_value(self):
         coin_alpha_to_cat = ExchangeRateConversion.get_instance().convert_token_value(

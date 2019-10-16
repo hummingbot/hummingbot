@@ -1,42 +1,29 @@
 #!/usr/bin/env python
-from decimal import Decimal
-from os.path import join, realpath
-import sys;
-
-sys.path.insert(0, realpath(join(__file__, "../../../")))
+import sys
 from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.core.event.event_reporter import EventReporter
 from hummingbot.market.binance.binance_market import BinanceMarket
-
 import asyncio
 import contextlib
 import unittest
 import os
-from os.path import join, realpath
 import time
-
+from os.path import join, realpath
 from hummingbot.core.clock import (
     ClockMode,
     Clock
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
-    MarketReceivedAssetEvent,
-    MarketWithdrawAssetEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
     OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeFee,
     TradeType,
-    MarketOrderFailureEvent,
     OrderBookTradeEvent,
-    OrderBookEvent,
 )
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
@@ -48,8 +35,10 @@ from hummingbot.market.paper_trade.paper_trade_market import PaperTradeMarket, Q
 from hummingbot.market.paper_trade.trading_pair import TradingPair
 from hummingbot.market.paper_trade.market_config import MarketConfig
 import pandas as pd
-from typing import List, Tuple, Iterator, NamedTuple, Dict
-import logging; logging.basicConfig(level=logging.INFO)
+from typing import List, Iterator, NamedTuple, Dict
+import logging
+logging.basicConfig(level=logging.INFO)
+sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 
 class TestUtils:
@@ -66,7 +55,7 @@ class TestUtils:
                 try:
                     event_value = getattr(e, k)
                     if type(v) in [float]:
-                        if abs(v - float(event_value)) <= 1*10**(-8):
+                        if abs(v - float(event_value)) <= 1 * 10 ** (-8):
                             continue
                     elif event_value != v:
                         match = False
@@ -316,7 +305,7 @@ class PaperTradeMarketTest(unittest.TestCase):
         self.assertAlmostEqual(float(self.market.on_hold_balances[trading_pair.quote_asset]),
                                base_quantity * best_bid_price)
         # Market should reflect on hold balance in available balance
-        self.assertAlmostEqual(self.market.get_available_balance(trading_pair.quote_asset),
+        self.assertAlmostEqual(float(self.market.get_available_balance(trading_pair.quote_asset)),
                                starting_quote_balance - base_quantity * best_bid_price)
 
         matched_order_create_events = TestUtils.get_match_events(self.market_logger.event_log, BuyOrderCreatedEvent, {
@@ -331,7 +320,7 @@ class PaperTradeMarketTest(unittest.TestCase):
         async def delay_trigger_event1():
             await asyncio.sleep(1)
             trade_event1 = OrderBookTradeEvent(
-                symbol="ETHUSDT", timestamp=time.time(), type=TradeType.SELL, price=best_bid_price+1,
+                symbol="ETHUSDT", timestamp=time.time(), type=TradeType.SELL, price=best_bid_price + 1,
                 amount=1.0)
             self.market.order_books['ETHUSDT'].apply_trade(trade_event1)
 
@@ -347,7 +336,7 @@ class PaperTradeMarketTest(unittest.TestCase):
                 "order_type": OrderType.LIMIT,
                 "quote_asset_amount": base_quantity * best_bid_price,
                 "order_id": client_order_id
-        })
+            })
         # Market should emit BuyOrderCompletedEvent
         self.assertEqual(1, len(matched_order_complete_events))
 
@@ -364,7 +353,7 @@ class PaperTradeMarketTest(unittest.TestCase):
         # Market should have no more on hold balance
         self.assertAlmostEqual(float(self.market.on_hold_balances[trading_pair.quote_asset]), 0)
         # Market should update balance for the filled order
-        self.assertAlmostEqual(self.market.get_available_balance(trading_pair.quote_asset),
+        self.assertAlmostEqual(float(self.market.get_available_balance(trading_pair.quote_asset)),
                                starting_quote_balance - base_quantity * best_bid_price)
 
     def test_ask_limit_order_trade_match(self):
@@ -412,7 +401,7 @@ class PaperTradeMarketTest(unittest.TestCase):
             await asyncio.sleep(1)
             trade_event = OrderBookTradeEvent(
                 symbol=trading_pair.trading_pair, timestamp=time.time(), type=TradeType.BUY,
-                price=best_ask_price-1, amount=base_quantity)
+                price=best_ask_price - 1, amount=base_quantity)
             self.market.order_books[trading_pair.trading_pair].apply_trade(trade_event)
 
         safe_ensure_future(delay_trigger_event2())
@@ -429,7 +418,7 @@ class PaperTradeMarketTest(unittest.TestCase):
                 "order_type": OrderType.LIMIT,
                 "quote_asset_amount": base_quantity * base_quantity,
                 "order_id": client_order_id
-        })
+            })
         # Market should emit BuyOrderCompletedEvent
         self.assertEqual(1, len(matched_order_complete_events))
 
@@ -460,7 +449,7 @@ class PaperTradeMarketTest(unittest.TestCase):
         ask_client_order_id = self.market.sell(trading_pair.trading_pair, base_quantity,
                                                OrderType.LIMIT, best_ask_price)
         best_bid_price = self.market.order_books[trading_pair.trading_pair].get_price(True)
-        bid_client_order_id = self.market.buy(trading_pair.trading_pair, base_quantity, OrderType.LIMIT, best_bid_price)
+        self.market.buy(trading_pair.trading_pair, base_quantity, OrderType.LIMIT, best_bid_price)
 
         # Market should track limit orders
         self.assertEqual(2, len(self.market.limit_orders))
@@ -482,7 +471,7 @@ class PaperTradeMarketTest(unittest.TestCase):
         matched_order_cancel_events = TestUtils.get_match_events(
             self.market_logger.event_log, OrderCancelledEvent, {
                 "order_id": ask_client_order_id
-        })
+            })
         # Market should emit cancel event
         self.assertEqual(1, len(matched_order_cancel_events))
 
@@ -495,7 +484,7 @@ class PaperTradeMarketTest(unittest.TestCase):
         self.market.set_balance(trading_pair.quote_asset, starting_quote_balance)
         best_ask_price = self.market.order_books[trading_pair.trading_pair].get_price(False)
         self.market.sell(trading_pair.trading_pair, base_quantity,
-                                               OrderType.LIMIT, best_ask_price)
+                         OrderType.LIMIT, best_ask_price)
         best_bid_price = self.market.order_books[trading_pair.trading_pair].get_price(True)
         self.market.buy(trading_pair.trading_pair, base_quantity, OrderType.LIMIT, best_bid_price)
 
@@ -511,4 +500,3 @@ class PaperTradeMarketTest(unittest.TestCase):
             self.market_logger.event_log, OrderCancelledEvent, {})
         # Market should emit cancel event
         self.assertEqual(2, len(matched_order_cancel_events))
-
