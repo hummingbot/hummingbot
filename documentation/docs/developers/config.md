@@ -45,7 +45,7 @@ The ConfigVar Class is located in `hummingbot/client/config/config_var.py`. It s
 | `prompt`      | str or callable | Question displayed in the client when the bot collects user input for this config setting. You can modify the string in run time by passing a function rather than a static string. |
 | `is_secure`   | bool            | Whether the user input needs to be masked with "***". |
 | `default`     | any             | Default value for this variable if user input is None. |
-| `type-str`    | str             | One of {"str", "list", "dict", "float", "int", "bool"}. Defaults to "str". This is used by `parse_cvar_value` to parse user input into correct data type. |
+| `type_str`    | str             | One of {"str", "list", "dict", "float", "int", "bool"}. Defaults to "str". This is used by `parse_cvar_value` to parse user input into correct data type. |
 | `required_if` | callable        | A condition check for whether this config setting needs to be prompted during the configuration flow. |
 | `validator`   | callable        | A condition check for whether an input is a valid value for this config setting. |
 | `on_validated`| callable        | A function hook that gets activated if an input passes the validation check (e.g. set wallet requirement to True when a valid DEX name is entered.) |

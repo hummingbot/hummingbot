@@ -34,11 +34,7 @@ from hummingbot.core.event.events import (
     TradeFee,
     TradeType,
 )
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
-from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
+from hummingbot.market.bittrex.bittrex_market import BittrexMarket
 from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import OrderType
 from hummingbot.market.markets_recorder import MarketsRecorder
@@ -54,7 +50,7 @@ from hummingbot.model.trade_fill import TradeFill
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class CoinbaseProMarketUnitTest(unittest.TestCase):
+class BittrexMarketUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
@@ -68,20 +64,19 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderCancelled
     ]
 
-    market: CoinbaseProMarket
+    market: BittrexMarket
     market_logger: EventLogger
     stack: contextlib.ExitStack
 
     @classmethod
     def setUpClass(cls):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: CoinbaseProMarket = CoinbaseProMarket(
-            conf.coinbase_pro_api_key,
-            conf.coinbase_pro_secret_key,
-            conf.coinbase_pro_passphrase,
-            symbols=["ETH-USDC", "ETH-USD"]
+        cls.market: BittrexMarket = BittrexMarket(
+            bittrex_api_key=conf.bittrex_api_key,
+            bittrex_secret_key=conf.bittrex_secret_key,
+            symbols=["LTC-ETH", "XRP-ETH"]
         )
-        print("Initializing Coinbase Pro market... this will take about a minute.")
+        print("Initializing Bittrex market... this will take about a minute. ")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.market)
         cls.stack = contextlib.ExitStack()
@@ -105,7 +100,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             await asyncio.sleep(1.0)
 
     def setUp(self):
-        self.db_path: str = realpath(join(__file__, "../coinbase_pro_test.sqlite"))
+        self.db_path: str = realpath(join(__file__, "../bittrex_test.sqlite"))
         try:
             os.unlink(self.db_path)
         except FileNotFoundError:
@@ -121,7 +116,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         self.market_logger = None
 
     async def run_parallel_async(self, *tasks):
-        future: asyncio.Future = safe_ensure_future(safe_gather(*tasks))
+        future: asyncio.Future = asyncio.ensure_future(asyncio.gather(*tasks))
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1
@@ -132,21 +127,21 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        limit_fee: TradeFee = self.market.get_fee("ETH", "USDC", OrderType.LIMIT, TradeType.BUY, 1, 1)
+        limit_fee: TradeFee = self.market.get_fee("LTC", "ETH", OrderType.LIMIT, TradeType.BUY, 1, 1)
         self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: TradeFee = self.market.get_fee("ETH", "USDC", OrderType.MARKET, TradeType.BUY, 1)
+        market_fee: TradeFee = self.market.get_fee("LTC", "ETH", OrderType.MARKET, TradeType.BUY, 1)
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
 
     def test_limit_buy(self):
-        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
-        symbol = "ETH-USDC"
-        amount: Decimal = Decimal("0.02")
+        self.assertGreater(self.market.get_balance("ETH"), 0.1)
+        symbol = "LTC-ETH"
+        amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
         current_bid_price: Decimal = self.market.get_price(symbol, True)
-        bid_price: Decimal = current_bid_price + Decimal("0.05") * current_bid_price
+        bid_price: Decimal = current_bid_price + Decimal(0.005) * current_bid_price
         quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
         order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
@@ -160,8 +155,8 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("USDC", order_completed_event.quote_asset)
+        self.assertEqual("LTC", order_completed_event.base_asset)
+        self.assertEqual("ETH", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
@@ -170,11 +165,11 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_limit_sell(self):
-        symbol = "ETH-USDC"
-        amount: Decimal = Decimal("0.02")
+        symbol = "LTC-ETH"
+        amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
         current_ask_price: Decimal = self.market.get_price(symbol, False)
-        ask_price: Decimal = current_ask_price - Decimal("0.05") * current_ask_price
+        ask_price: Decimal = current_ask_price - Decimal(0.005) * current_ask_price
         quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price)
 
         order_id = self.market.sell(symbol, amount, OrderType.LIMIT, quantize_ask_price)
@@ -187,8 +182,8 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("USDC", order_completed_event.quote_asset)
+        self.assertEqual("LTC", order_completed_event.base_asset)
+        self.assertEqual("ETH", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
@@ -196,11 +191,10 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         # Reset the logs
         self.market_logger.clear()
 
-    # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
     def test_market_buy(self):
-        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
-        symbol = "ETH-USD"
-        amount: Decimal = Decimal("0.02")
+        self.assertGreater(self.market.get_balance("ETH"), 0.1)
+        symbol = "LTC-ETH"
+        amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
         order_id = self.market.buy(symbol, quantized_amount, OrderType.MARKET, 0)
@@ -214,8 +208,8 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("USD", order_completed_event.quote_asset)
+        self.assertEqual("LTC", order_completed_event.base_asset)
+        self.assertEqual("ETH", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
@@ -223,10 +217,10 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         # Reset the logs
         self.market_logger.clear()
 
-    # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
     def test_market_sell(self):
-        symbol = "ETH-USD"
-        amount: Decimal = Decimal("0.02")
+        symbol = "LTC-ETH"
+        self.assertGreater(self.market.get_balance("LTC"), 0.01)
+        amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
         order_id = self.market.sell(symbol, amount, OrderType.MARKET, 0)
@@ -239,8 +233,8 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("USD", order_completed_event.quote_asset)
+        self.assertEqual("LTC", order_completed_event.base_asset)
+        self.assertEqual("ETH", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
@@ -249,49 +243,51 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_cancel_order(self):
-        symbol = "ETH-USDC"
+        symbol = "XRP-ETH"
 
         current_bid_price: Decimal = self.market.get_price(symbol, True)
-        amount: Decimal = 10 / current_bid_price
-        self.assertGreater(self.market.get_balance("ETH"), amount)
+        amount: Decimal = Decimal(0.1) / current_bid_price
 
-        bid_price: Decimal = current_bid_price - Decimal("0.1") * current_bid_price
+        bid_price: Decimal = current_bid_price - Decimal(0.1) * current_bid_price
         quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
         client_order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.market.cancel(symbol, client_order_id)
         [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
         order_cancelled_event: OrderCancelledEvent = order_cancelled_event
         self.assertEqual(order_cancelled_event.order_id, client_order_id)
 
     def test_cancel_all(self):
-        symbol = "ETH-USDC"
-        bid_price: Decimal = self.market.get_price(symbol, True) * Decimal("0.5")
-        ask_price: Decimal = self.market.get_price(symbol, False) * 2
-        amount: Decimal = 10 / bid_price
-        quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+        symbol = "XRP-ETH"
+        bid_price: Decimal = self.market.get_price(symbol, True) * Decimal(0.5)
+        ask_price: Decimal = self.market.get_price(symbol, False) * Decimal(2)
+        bid_amount: Decimal = Decimal(0.01) / bid_price
+        ask_amount: Decimal = Decimal('3.64495247')  # Min. trade size in XRP-ETH as of 30 Sep 2019
+        quantized_bid_amount: Decimal = self.market.quantize_order_amount(symbol, bid_amount)
+        quantized_ask_amount: Decimal = self.market.quantize_order_amount(symbol, ask_amount)
 
         # Intentionally setting invalid price to prevent getting filled
-        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price * Decimal("0.7"))
-        quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price * Decimal("1.5"))
+        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, Decimal(bid_price * Decimal(0.7)))
+        quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, Decimal(ask_price * Decimal(1.5)))
 
-        self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
-        self.market.sell(symbol, quantized_amount, OrderType.LIMIT, quantize_ask_price)
+        self.market.buy(symbol, quantized_bid_amount, OrderType.LIMIT, quantize_bid_price)
+        self.market.sell(symbol, quantized_ask_amount, OrderType.LIMIT, quantize_ask_price)
         self.run_parallel(asyncio.sleep(1))
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
 
-    @unittest.skipUnless(any("test_list_orders" in arg for arg in sys.argv), "List order test requires manual action.")
+    # @unittest.skipUnless(any("test_list_orders" in arg for arg in sys.argv), "List order test requires manual action.")
     def test_list_orders(self):
-        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
-        symbol = "ETH-USDC"
-        amount: Decimal = Decimal("0.02")
+        self.assertGreater(self.market.get_balance("ETH"), 0.1)
+        symbol = "LTC-ETH"
+        amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
         current_bid_price: Decimal = self.market.get_price(symbol, True)
-        bid_price: Decimal = current_bid_price + Decimal("0.05") * current_bid_price
+        bid_price: Decimal = Decimal(0.7) * current_bid_price
         quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
         self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
@@ -312,23 +308,23 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
     @unittest.skipUnless(any("test_withdraw" in arg for arg in sys.argv), "Withdraw test requires manual action.")
     def test_withdraw(self):
         # Ensure the market account has enough balance for withdraw testing.
-        self.assertGreaterEqual(self.market.get_balance("ZRX"), Decimal('1'))
+        self.assertGreaterEqual(self.market.get_balance("ZRX"), 1)
 
-        # Withdraw ZRX from Coinbase Pro to test wallet.
-        self.market.withdraw(self.wallet.address, "ZRX", Decimal('1'))
+        # Withdraw ZRX from Bittrex to test wallet.
+        self.market.withdraw(self.wallet.address, "ZRX", 1)
         [withdraw_asset_event] = self.run_parallel(
             self.market_logger.wait_for(MarketWithdrawAssetEvent)
         )
         withdraw_asset_event: MarketWithdrawAssetEvent = withdraw_asset_event
         self.assertEqual(self.wallet.address, withdraw_asset_event.to_address)
         self.assertEqual("ZRX", withdraw_asset_event.asset_name)
-        self.assertEqual(Decimal('1'), withdraw_asset_event.amount)
-        self.assertEqual(withdraw_asset_event.fee_amount, Decimal(0))
+        self.assertEqual(1, withdraw_asset_event.amount)
+        self.assertEqual(withdraw_asset_event.fee_amount, 0)
 
     def test_orders_saving_and_restoration(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        symbol: str = "ETH-USDC"
+        symbol: str = "LTC-ETH"
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
@@ -339,10 +335,10 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
 
             # Try to put limit buy order for 0.04 ETH, and watch for order creation event.
             current_bid_price: Decimal = self.market.get_price(symbol, True)
-            bid_price: Decimal = current_bid_price * Decimal("0.8")
+            bid_price: Decimal = Decimal(current_bid_price * 0.8)
             quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
-            amount: Decimal = Decimal("0.04")
+            amount: Decimal = Decimal(0.04)
             quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
             order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
@@ -369,11 +365,10 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
-            self.market: CoinbaseProMarket = CoinbaseProMarket(
-                coinbase_pro_api_key=conf.coinbase_pro_api_key,
-                coinbase_pro_secret_key=conf.coinbase_pro_secret_key,
-                coinbase_pro_passphrase=conf.coinbase_pro_passphrase,
-                symbols=["ETH-USDC", "ETH-USD"]
+            self.market: BittrexMarket = BittrexMarket(
+                bittrex_api_key=conf.bittrex_api_key,
+                bittrex_secret_key=conf.bittrex_secret_key,
+                symbols=["LTC-ETH", "XRP-ETH"]
             )
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)
@@ -407,7 +402,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
     def test_order_fill_record(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        symbol: str = "ETH-USDC"
+        symbol: str = "LTC-ETH"
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
@@ -415,7 +410,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
 
         try:
             # Try to buy 0.04 ETH from the exchange, and watch for completion event.
-            amount: Decimal = Decimal("0.04")
+            amount: Decimal = Decimal(0.04)
             order_id = self.market.buy(symbol, amount)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
@@ -423,7 +418,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             self.market_logger.clear()
 
             # Try to sell back the same amount of ETH to the exchange, and watch for completion event.
-            amount = buy_order_completed_event.base_asset_amount
+            amount = Decimal(buy_order_completed_event.base_asset_amount)
             order_id = self.market.sell(symbol, amount)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 

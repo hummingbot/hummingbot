@@ -10,6 +10,7 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.binance.binance_market import BinanceMarket
+from hummingbot.market.bittrex.bittrex_market import BittrexMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
@@ -23,7 +24,8 @@ MARKETS = {
     "bamboo_relay": BambooRelayMarket,
     "radar_relay": RadarRelayMarket,
     "idex": IDEXMarket,
-    "huobi": HuobiMarket
+    "huobi": HuobiMarket,
+    "bittrex": BittrexMarket
 }
 
 
@@ -36,14 +38,14 @@ class ReportAggregator:
             cls.ra_logger = logging.getLogger(__name__)
         return cls.ra_logger
 
-    def __init__(self, hummingbot_app: "HummingbotApplication",
+    def __init__(self, hummingbot_app: "HummingbotApplication",  # noqa: F821
                  report_aggregation_interval: float = 60.0,
                  log_report_interval: float = 60.0):
 
         self.log_report_interval: float = log_report_interval
         self.report_aggregation_interval: float = report_aggregation_interval
         self.stats: dict = defaultdict(list)
-        self.hummingbot_app: "HummingbotApplication" = hummingbot_app
+        self.hummingbot_app: "HummingbotApplication" = hummingbot_app  # noqa: F821
         self.get_open_order_stats_task: Optional[asyncio.Task] = None
         self.get_event_task: Optional[asyncio.Task] = None
         self.log_report_task: Optional[asyncio.Task] = None
