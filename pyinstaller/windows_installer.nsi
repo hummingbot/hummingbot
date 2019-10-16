@@ -26,7 +26,7 @@
 ; Instfiles page
 !insertmacro MUI_PAGE_INSTFILES
 ; Finish page
-!define MUI_FINISHPAGE_RUN "$INSTDIR\bot.exe"
+;!define MUI_FINISHPAGE_RUN "$INSTDIR\bot.exe"
 !insertmacro MUI_PAGE_FINISH
 
 ; Uninstaller pages
@@ -96,8 +96,8 @@ Section "MainSection" SEC01
   File "..\dist\bot\blosc.dll"
   File "..\dist\bot\bot.exe"
   CreateDirectory "$SMPROGRAMS\Hummingbot"
-  CreateShortCut "$SMPROGRAMS\Hummingbot\Hummingbot.lnk" "$INSTDIR\bot.exe"
-  CreateShortCut "$DESKTOP\Hummingbot.lnk" "$INSTDIR\bot.exe"
+  CreateShortCut "$SMPROGRAMS\Hummingbot\Hummingbot.lnk" "$INSTDIR\bot.exe" "" "" 0 SW_SHOWMAXIMIZED
+  CreateShortCut "$DESKTOP\Hummingbot.lnk" "$INSTDIR\bot.exe" "" "" 0 SW_SHOWMAXIMIZED
   File "..\dist\bot\bot.exe.manifest"
   SetOutPath "$INSTDIR\certifi"
   File "..\dist\bot\certifi\cacert.pem"
