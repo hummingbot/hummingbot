@@ -131,7 +131,10 @@ def add_remote_logger_handler(loggers):
         root_logger.error("Error adding remote log handler.", exc_info=True)
 
 
-def init_logging(conf_filename: str, override_log_level: Optional[str] = None, dev_mode: bool = False):
+def init_logging(conf_filename: str,
+                 override_log_level: Optional[str] = None,
+                 dev_mode: bool = False,
+                 strategy_file_path: str = "hummingbot"):
     import io
     import logging.config
     from os.path import join
@@ -159,6 +162,7 @@ def init_logging(conf_filename: str, override_log_level: Optional[str] = None, d
         yml_source: str = fd.read()
         yml_source = yml_source.replace("$PROJECT_DIR", prefix_path())
         yml_source = yml_source.replace("$DATETIME", pd.Timestamp.now().strftime("%Y-%m-%d-%H-%M-%S"))
+        yml_source = yml_source.replace("$STRATEGY_FILE_PATH", strategy_file_path.replace(".yml", ""))
         io_stream: io.StringIO = io.StringIO(yml_source)
         config_dict: Dict = yaml_parser.load(io_stream)
         if override_log_level is not None and "loggers" in config_dict:
