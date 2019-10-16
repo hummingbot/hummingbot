@@ -92,19 +92,23 @@ if "SPEC" in globals():
               cipher=block_cipher)
     exe = EXE(pyz,
               a.scripts,
+	      a.binaries,
+	      a.zipfiles,
+	      a.datas,
               [],
-              exclude_binaries=True,
               name='bot',
+	      icon="hummingbot.ico",
               debug=False,
               bootloader_ignore_signals=False,
               strip=False,
               upx=True,
               console=True)
-    coll = COLLECT(exe,
-                   a.binaries,
-                   a.zipfiles,
-                   a.datas,
-                   strip=False,
-                   upx=True,
-                   upx_exclude=[],
-                   name='bot')
+    if system_type != "Windows":
+        coll = COLLECT(exe,
+                       a.binaries,
+                       a.zipfiles,
+                       a.datas,
+                       strip=False,
+                       upx=True,
+                       upx_exclude=[],
+                       name='bot')
