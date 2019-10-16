@@ -12,6 +12,7 @@ from hummingbot.core.clock cimport Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
+from libc.stdint cimport int64_t
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.market_base cimport MarketBase
@@ -116,7 +117,7 @@ cdef class HelloWorldStrategy(StrategyBase):
             warning_lines.extend(self.network_warning([market_info]))
 
             lines.extend(["", "  Assets:"] + ["    " + str(self._asset_symbol) + "    " +
-                         str((market_info.market).get_balance(self._asset_symbol))])
+                                              str(market_info.market.get_balance(self._asset_symbol))])
 
             warning_lines.extend(self.balance_warning([market_info]))
 

@@ -68,7 +68,7 @@ dependencies:
     - 0x-order-utils==1.1.1
     - 0x-web3==4.8.2.1
     - aioconsole==0.1.14
-    - aiohttp==3.5.4
+    - aiohttp==3.6.1
     - aiokafka==0.5.1
     - altgraph==0.16.1
     - appdirs==1.4.3
@@ -97,7 +97,7 @@ dependencies:
     - flake8==3.7.8
     - future==0.18.0
     - hexbytes==0.1.0
-    - hummingsim==20190917
+    - https://hummingbot-python.s3-us-west-2.amazonaws.com/hummingsim-20191002-cp36-cp36m-macosx_10_7_x86_64.whl
     - hyperlink==18.0.0
     - hypothesis==4.14.2
     - identify==1.4.7
@@ -146,4 +146,5 @@ dependencies:
     - yarl==1.3.0
     - zipp==0.6.0
     - zope-interface==4.6.0
+    - git+https://github.com/CoinAlpha/python-signalr-client.git
 prefix: /Users/martin_kou/anaconda3/envs/hummingbot
