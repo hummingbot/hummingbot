@@ -61,7 +61,7 @@ cdef class DDEXInFlightOrder(InFlightOrderBase):
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"partially_filled", "canceled"}
+        return self.last_state in {"canceled"}
 
     @property
     def is_failure(self) -> bool:
