@@ -32,7 +32,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Application Stub</string>
 	<key>CFBundleIconFile</key>
-	<string>AutomatorApplet</string>
+	<string>Hummingbot</string>
 	<key>CFBundleIdentifier</key>
 	<string>io.hummingbot.hummingbot</string>
 	<key>CFBundleInfoDictionaryVersion</key>
