@@ -40,6 +40,10 @@ cdef class HuobiInFlightOrder(InFlightOrderBase):
         return self.last_state in {"filled", "canceled", "partial-canceled"}
 
     @property
+    def is_cancelled(self) -> bool:
+        return self.last_state in {"partial-canceled", "canceled"}
+
+    @property
     def is_failure(self) -> bool:
         return self.last_state in {"canceled"}
 
