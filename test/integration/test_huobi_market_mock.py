@@ -90,6 +90,7 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
     def tearDownClass(cls) -> None:
         cls.stack.close()
 
+    # get_application overrides the aiohttp.web and allows mocking api endpoints
     async def get_application(self):
         app = web.Application()
         self.mock_api = HuobiMockAPI()
@@ -125,7 +126,7 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
             symbols=["ethusdt"]
         )
 
-        # replace regular client with test client
+        # replace regular aiohttp client with test client
         self.market.shared_client: TestClient = self.client
         # replace default data source with mock data source
         mock_data_source: MockAPIOrderBookDataSource = MockAPIOrderBookDataSource(self.client, HuobiOrderBook, ["ethusdt"])
