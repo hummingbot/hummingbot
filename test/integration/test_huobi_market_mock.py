@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-from os.path import join, realpath
+from os.path import (
+    join,
+    realpath
+)
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 from aiohttp import web
@@ -19,7 +22,6 @@ from typing import (
 )
 import unittest
 
-import conf
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -42,6 +44,7 @@ from hummingbot.core.utils.async_utils import (
 )
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.market.huobi.huobi_market import HuobiMarket
+from hummingbot.market.huobi.huobi_order_book import HuobiOrderBook
 from hummingbot.market.market_base import OrderType
 from hummingbot.market.markets_recorder import MarketsRecorder
 from hummingbot.market.mock_api_order_book_data_source import MockAPIOrderBookDataSource
@@ -52,10 +55,11 @@ from hummingbot.model.sql_connection_manager import (
     SQLConnectionType
 )
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.market.huobi.huobi_order_book import HuobiOrderBook
-from huobi_mock_api import HuobiMockAPI
+from test.integration.huobi_mock_api import HuobiMockAPI
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
+MOCK_HUOBI_API_KEY = "zzzzzzzzzz-xxxxxxxx-55555555-xxxxx"
+MOCK_HUOBI_SECRET_KEY = "11111111-aaaaaaaa-22222222-bbbbb"
 
 
 class HuobiMarketUnitTest(AioHTTPTestCase):
@@ -86,6 +90,7 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
     def tearDownClass(cls) -> None:
         cls.stack.close()
 
+    # get_application overrides the aiohttp.web and allows mocking api endpoints
     async def get_application(self):
         app = web.Application()
         self.mock_api = HuobiMockAPI()
@@ -116,12 +121,12 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
     # to be called manually before every test
     def customSetUp(self):
         self.market: HuobiMarket = HuobiMarket(
-            conf.huobi_api_key,
-            conf.huobi_secret_key,
+            MOCK_HUOBI_API_KEY,
+            MOCK_HUOBI_SECRET_KEY,
             symbols=["ethusdt"]
         )
 
-        # replace regular client with test client
+        # replace regular aiohttp client with test client
         self.market.shared_client: TestClient = self.client
         # replace default data source with mock data source
         mock_data_source: MockAPIOrderBookDataSource = MockAPIOrderBookDataSource(self.client, HuobiOrderBook, ["ethusdt"])
@@ -380,8 +385,8 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
             self.market: HuobiMarket = HuobiMarket(
-                huobi_api_key=conf.huobi_api_key,
-                huobi_secret_key=conf.huobi_secret_key,
+                huobi_api_key=MOCK_HUOBI_API_KEY,
+                huobi_secret_key=MOCK_HUOBI_SECRET_KEY,
                 symbols=["ethusdt", "btcusdt"]
             )
             self.market.shared_client: TestClient = self.client
