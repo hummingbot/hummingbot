@@ -46,6 +46,10 @@ cdef class BinanceInFlightOrder(InFlightOrderBase):
     def is_failure(self) -> bool:
         return self.last_state in {"CANCELED", "PENDING_CANCEL", "REJECTED", "EXPIRED"}
 
+    @property
+    def is_cancelled(self) -> bool:
+        return self.last_state in {"CANCELED"}
+
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         cdef:
