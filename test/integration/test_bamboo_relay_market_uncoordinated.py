@@ -368,7 +368,7 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
         tx_completed_event: WalletWrappedEthEvent = tx_completed_event
 
         self.assertEqual(tx_hash, tx_completed_event.tx_hash)
-        self.assertEqual(amount_to_wrap, tx_completed_event.amount)
+        self.assertEqual(float(amount_to_wrap), float(tx_completed_event.amount))
         self.assertEqual(self.wallet.address, tx_completed_event.address)
 
     def test_unwrap_eth(self):
@@ -378,7 +378,7 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
         tx_completed_event: WalletUnwrappedEthEvent = tx_completed_event
 
         self.assertEqual(tx_hash, tx_completed_event.tx_hash)
-        self.assertEqual(amount_to_unwrap, tx_completed_event.amount)
+        self.assertEqual(float(amount_to_unwrap), float(tx_completed_event.amount))
         self.assertEqual(self.wallet.address, tx_completed_event.address)
 
     def test_z_orders_saving_and_restoration(self):
@@ -404,7 +404,7 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
             quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
             expires = int(time.time() + 60 * 3)
-            order_id = self.market.buy(symbol, float(quantized_amount), OrderType.LIMIT, float(quantize_bid_price),
+            order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price,
                                        expiration_ts=expires)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
