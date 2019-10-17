@@ -14,6 +14,7 @@ import re
 import time
 import ujson
 import websockets
+from decimal import Decimal
 from websockets.exceptions import ConnectionClosed
 
 from hummingbot.core.data_type.order_book import OrderBook
@@ -102,13 +103,13 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             ]
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data, index="id")
 
-            weth_dai_price: float = float(all_markets.loc["WETH-DAI"]["ticker"]["price"])
-            dai_usd_price: float = ExchangeRateConversion.get_instance().adjust_token_rate("DAI", weth_dai_price)
-            usd_volume: List[float] = []
-            quote_volume: List[float] = []
+            weth_dai_price = Decimal(all_markets.loc["WETH-DAI"]["ticker"]["price"])
+            dai_usd_price: Decimal = ExchangeRateConversion.get_instance().adjust_token_rate("DAI", weth_dai_price)
+            usd_volume: List[Decimal] = []
+            quote_volume: List[Decimal] = []
             for row in all_markets.itertuples():
                 product_name: str = row.Index
-                base_volume: float = float(row.stats["volume24Hour"])
+                base_volume = Decimal(row.stats["volume24Hour"])
                 quote_volume.append(base_volume)
                 if product_name.endswith("WETH"):
                     usd_volume.append(dai_usd_price * base_volume)
