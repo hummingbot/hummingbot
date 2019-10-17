@@ -463,7 +463,7 @@ cdef class HuobiMarket(MarketBase):
                                        f"order {tracked_order.client_order_id}.")
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
-                if order_state == "submitted" or order_state == "partial-filled":
+                if tracked_order.is_open:
                     continue
 
                 if tracked_order.is_done:
