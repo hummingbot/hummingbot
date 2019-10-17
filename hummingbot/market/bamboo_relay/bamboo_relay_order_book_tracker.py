@@ -57,6 +57,18 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
         self._active_order_trackers: Dict[str, BambooRelayActiveOrderTracker] = defaultdict(BambooRelayActiveOrderTracker)
         self._symbols: Optional[List[str]] = symbols
         self._chain = chain
+        if chain is EthereumChain.ROPSTEN:
+            self._api_prefix = "ropsten/0x"
+            self._network_id = 3
+        elif chain is EthereumChain.RINKEBY:
+            self._api_prefix = "rinkeby/0x"
+            self._network_id = 4
+        elif chain is EthereumChain.KOVAN:
+            self._api_prefix = "kovan/0x"
+            self._network_id = 42
+        else:
+            self._api_prefix = "main/0x"
+            self._network_id = 1
 
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
@@ -124,7 +136,7 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
         messages_queued: int = 0
         messages_accepted: int = 0
         messages_rejected: int = 0
-        address_token_map: Dict[str, any] = await self._data_source.get_all_token_info()
+        address_token_map: Dict[str, any] = await self._data_source.get_all_token_info(self._api_prefix)
         while True:
             try:
                 ob_message: BambooRelayOrderBookMessage = await self._order_book_diff_stream.get()
@@ -149,15 +161,15 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
                 await message_queue.put(ob_message)
 
                 if ob_message.content["action"] == "FILL":  # put FILL messages to trade queue
-                    trade_type = float(TradeType.BUY.value) if ob_message.content["type"] == "BUY" \
+                    trade_type = float(TradeType.BUY.value) if ob_message.content["event"]["type"] == "BUY" \
                         else float(TradeType.SELL.value)
                     self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
                         "symbol": trading_pair_symbol,
                         "trade_type": trade_type,
                         "trade_id": ob_message.update_id,
                         "update_id": ob_message.timestamp,
-                        "price": ob_message.content["order"]["price"],
-                        "amount": ob_message.content["order"]["filledBaseTokenAmount"]
+                        "price": ob_message.content["event"]["order"]["price"],
+                        "amount": ob_message.content["event"]["filledBaseTokenAmount"]
                     }, timestamp=ob_message.timestamp))
 
                 messages_accepted += 1
@@ -206,20 +218,8 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
                     message = await message_queue.get()
 
                 if message.type is OrderBookMessageType.DIFF:
-                    bids, asks = active_order_tracker.convert_diff_message_to_order_book_row(message)
-                    order_book.apply_diffs(bids, asks, message.update_id)
-                    past_diffs_window.append(message)
-                    while len(past_diffs_window) > self.PAST_DIFF_WINDOW_SIZE:
-                        past_diffs_window.popleft()
-                    diff_messages_accepted += 1
-
-                    # Output some statistics periodically.
-                    now: float = time.time()
-                    if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                        self.logger().debug("Processed %d order book diffs for %s.",
-                                           diff_messages_accepted, symbol)
-                        diff_messages_accepted = 0
-                    last_message_timestamp = now
+                    # bamboo relay does not support order book diffs
+                    last_message_timestamp = time.time()
                 elif message.type is OrderBookMessageType.SNAPSHOT:
                     past_diffs: List[BambooRelayOrderBookMessage] = list(past_diffs_window)
                     # only replay diffs later than snapshot, first update active order with snapshot then replay diffs
