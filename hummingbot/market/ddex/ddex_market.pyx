@@ -54,7 +54,6 @@ from hummingbot.market.trading_rule cimport TradingRule
 
 s_logger = None
 s_decimal_0 = Decimal(0)
-NaN = float("nan")
 HYDRO_MAINNET_PROXY = "0x74622073a4821dbfd046E9AA2ccF691341A076e1"
 
 
@@ -316,8 +315,8 @@ cdef class DDEXMarket(MarketBase):
                     applied_trade = order_map[order_id].update_with_trade_update(trade)
                     if applied_trade:
                         client_order_id = tracked_order.client_order_id
-                        fill_size = float(trade["amount"])
-                        execute_price = float(trade["price"])
+                        fill_size = Decimal(trade["amount"])
+                        execute_price = Decimal(trade["price"])
                         order_type_description = (
                             ("market" if tracked_order.order_type == OrderType.MARKET else "limit") + " " +
                             ("buy" if tracked_order.trade_type is TradeType.BUY else "sell")
