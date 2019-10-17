@@ -77,9 +77,7 @@ class ERC20Token:
             if self._address == KOVAN_WETH_ADDRESS:
                 self._abi = w_abi
 
-        # By default token_overrides will be assigned an empty dictionary
-        # This helps prevent breaking of market unit tests
-        token_overrides: Dict[str, str] = global_config_map["ethereum_token_overrides"].value or {}
+        token_overrides: Dict[str, str] = global_config_map["ethereum_token_overrides"].value
         override_addr_to_token_name: Dict[str, str] = {value: key for key, value in token_overrides.items()}
         override_token_name: Optional[str] = override_addr_to_token_name.get(address)
         if override_token_name == "WETH":
