@@ -606,10 +606,6 @@ cdef class DDEXMarket(MarketBase):
         if isinstance(response_data, dict) and response_data.get("desc") == "success":
             self.logger().info(f"Successfully cancelled order {exchange_order_id}.")
 
-            # Simulate cancelled state earlier.
-            order.available_amount_base = s_decimal_0
-            order.pending_amount_base = s_decimal_0
-
             # Notify listeners.
             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                  OrderCancelledEvent(self._current_timestamp, client_order_id))
