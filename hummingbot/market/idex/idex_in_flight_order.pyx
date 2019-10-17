@@ -63,7 +63,12 @@ cdef class IDEXInFlightOrder(InFlightOrderBase):
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state == "cancelled"
+        return self.last_state in {"canceled"}
+
+    @property
+    def is_failure(self) -> bool:
+        # Currently not in use
+        return self.last_state in {"canceled"}
 
     def to_json(self) -> Dict[str, Any]:
         return {
