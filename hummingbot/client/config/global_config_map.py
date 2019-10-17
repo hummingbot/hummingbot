@@ -172,7 +172,16 @@ global_config_map = {
         ConfigVar(key="ethereum_rpc_url",
                   prompt="Which Ethereum node would you like your client to connect to? >>> ",
                   required_if=using_wallet),
-
+    "ethereum_chain_name":
+        ConfigVar(key="ethereum_chain_name",
+                  prompt=None,
+                  type_str="str",
+                  default="MAIN_NET"),
+    "ethereum_token_overrides":
+        ConfigVar(key="ethereum_token_overrides",
+                  prompt=None,
+                  type_str="json",
+                  default={}),
     # Whether or not to invoke cancel_all on exit if marketing making on a open order book DEX (e.g. Radar Relay)
     "on_chain_cancel_on_exit":
         ConfigVar(key="on_chain_cancel_on_exit",
