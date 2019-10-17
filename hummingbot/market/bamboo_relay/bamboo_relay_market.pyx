@@ -348,7 +348,7 @@ cdef class BambooRelayMarket(MarketBase):
         return TradeFee(percent=Decimal(0.0), flat_fees=[("ETH", transaction_cost_eth)])
 
     def _update_balances(self):
-        self._account_balances = {k: Decimal(repr(v)) for k, v in self.wallet.get_all_balances().items()}
+        self._account_balances = self.wallet.get_all_balances().copy()
 
     async def _update_available_balances(self):
         # should be the same here, there are no locked balances on bamboo relay
