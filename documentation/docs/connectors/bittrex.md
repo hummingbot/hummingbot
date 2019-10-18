@@ -2,7 +2,7 @@
 
 ## About Bittrex International
 
-Bittrex is also a global cryptocurrency centralized exchange based in Seattle, USA founded in 2013 and started off its operations in 2014. It is an intuitive and easy to navigate exchange platform often finding its way into the top 3 US exchanges in terms of trading volume.
+Bittrex is a global, centralized cryptocurrency exchange based in Seattle, USA.  It was founded in 2013 and began its operations in 2014. It is an intuitive and easy to navigate exchange platform often finding its way into the top 3 US exchanges in terms of trading volume.
 
 
 ## Using the Connector
