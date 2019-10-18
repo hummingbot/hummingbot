@@ -14,7 +14,7 @@ Bittrex is also a global cryptocurrency centralized exchange based in Seattle, U
 
 1 - Log in to https://international.bittrex.com/ or create an account in [this page](https://international.bittrex.com/account/register).
 
-!!! Note:
+!!! note
     Ensure first that 2FA is enabled to proceed with the next steps. Refer to [this page](https://bittrex.zendesk.com/hc/en-us/articles/115000198612-Two-Factor-Authentication-2FA-) for more information.
 
 2 - Click **Account** then select **API Keys** under the site settings section.
