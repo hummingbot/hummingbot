@@ -65,7 +65,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 We welcome contributions from the community:
 - **Code contributions** via [pull requests](./pulls).
 - **Bug reports** / **feature requests** through [github issues](./issues).
-- **Development discussion**: visit the [Hummingbot Dev Forum](https://forum.hummingbot.io).
+- **Development discussions**: visit the [Hummingbot Dev Forum](https://forum.hummingbot.io).
 - [**Hummingbot code base**](./hummingbot): located in the `hummingbot/` folder
 - When contributing, please review the [contributing guidelines](CONTRIBUTING.md).
 
