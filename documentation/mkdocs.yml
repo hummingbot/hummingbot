@@ -129,6 +129,7 @@ nav:
         - Binance: connectors/binance.md
         - Coinbase Pro: connectors/coinbase.md
         - Huobi Global: connectors/huobi.md
+        - Bittrex International: connectors/bittrex.md
         - DDEX: connectors/ddex.md
         - IDEX: connectors/idex.md
         - Radar Relay: connectors/radar-relay.md
