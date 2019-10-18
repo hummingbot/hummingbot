@@ -11,6 +11,9 @@ If you already have Docker installed, use the following commands to install and 
 
 #### Install tmux
 
+!!! note
+    To learn more about `tmux` please visit [getting-started-with-tmux](https://linuxize.com/post/getting-started-with-tmux/).
+
 ```bash tab="Ubuntu / Debian"
 sudo apt-get update
 sudo apt-get install -y tmux

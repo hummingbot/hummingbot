@@ -68,3 +68,10 @@ The minimum acceptable order size is 0.00000001 normalized units of price, amoun
 ### Transaction Fees
 
 Currently Bamboo Relay does not charge trading or withdrawal fees, and the only additional cost for transactions is the gas network costs. This may change in the future as the exchange develops a larger user base.
+
+## Contact
+
+This connector is maintained by [Bamboo Relay](https://bamboorelay.com), which can be contacted at:
+
+- [dex@bamboorelay.com](dex@bamboorelay.com)
+- [Twitter](https://twitter.com/bamboorelay) | [Telegram](https://t.me/bamboorelay) | [Discord](https://discord.gg/6tMFa5E)
