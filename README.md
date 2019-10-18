@@ -1,7 +1,9 @@
 ![Hummingbot](https://i.ibb.co/X5zNkKw/blacklogo-with-text.png)
 
 ----
-[![Jenkins](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb-test_branch&subject=jenkins:stable)](https://jenkins-hb.coinalpha.com/job/hb-test_branch)
+[![Jenkins](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb-test_branch&subject=jenkins:master)](https://jenkins-hb.coinalpha.com/job/hb-test_branch)
+[![Jenkins](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb-test_development&subject=:development)](https://jenkins-hb.coinalpha.com/job/hb-test_development)
+[![Jenkins](https://jenkins-hb.coinalpha.com/buildStatus/icon?job=hb-test_pull-request&subject=:pull-request)](https://jenkins-hb.coinalpha.com/job/hb-test_pull-request)
 [![Discord](https://img.shields.io/discord/530578568154054663.svg?color=768AD4&label=discord&logo=https%3A%2F%2Fdiscordapp.com%2Fassets%2F8c9701b98ad4372b58f13fd9f65f966e.svg)](https://discord.hummingbot.io/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-informational.svg)](https://github.com/CoinAlpha/hummingbot/blob/master/LICENSE)
 [![Twitter Follow](https://img.shields.io/twitter/follow/hummingbot_io.svg?style=social&label=hummingbot)](https://twitter.com/hummingbot_io)
@@ -46,7 +48,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 
 ### Learn more about Hummingbot
 
-- [Humminbot website](https://hummingbot.io)
+- [Hummingbot website](https://hummingbot.io)
 - [Documentation](https://docs.hummingbot.io)
 - [Read our blog](https://www.hummingbot.io/blog)
 - [Whitepaper](https://hummingbot.io/whitepaper.pdf)
@@ -55,14 +57,15 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 
 ### Install Hummingbot
 
-- [Installation Guide](https://docs.hummingbot.io/installation/)
-- [Installation Scripts](./installation/)
+- [Installation guide](https://docs.hummingbot.io/installation/)
+- [Installation scripts](./installation/)
 
 ## Contributions
 
 We welcome contributions from the community:
 - **Code contributions** via [pull requests](./pulls).
 - **Bug reports** / **feature requests** through [github issues](./issues).
+- **Development discussion**: visit the [Hummingbot Dev Forum](https://forum.hummingbot.io).
 - [**Hummingbot code base**](./hummingbot): located in the `hummingbot/` folder
 - When contributing, please review the [contributing guidelines](CONTRIBUTING.md).
 
@@ -76,7 +79,7 @@ We welcome contributions from the community:
 
 Hummingbot was created and is maintained by [CoinAlpha](https://www.coinalpha.com).
 
-- **General**: contact us at [dev@coinalpha.com](mailto:dev@coinalpha.com) or join our [Discord server](https://discord.coinalpha.com).
+- **General**: contact us at [dev@hummingbot.io](mailto:dev@hummingbot.io) or join our [Discord server](https://discord.coinalpha.com).
 - **Business inquiries**: contact us at [partnerships@hummingbot.io](mailto:partnerships@hummingbot.io).
 
 ## Legal
