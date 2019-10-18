@@ -30,8 +30,8 @@ The following walks through all the steps when running `config` for the first ti
 |-----|-----|
 | `What is your market making strategy >>>`: | Enter `arbitrage`.<br/><br/>Currently available options: `arbitrage` or `cross_exchange_market_making` or `pure_market_making` or `discovery` or `simple_trade` *(case sensitive)* |
 | `Import previous configs or create a new config file? (import/create) >>>`: | When running the bot for the first time, enter `create`. <br/>If you have previously initialized, enter `import`, which will then ask you to specify the config file location. |
-| `Enter your primary exchange name >>>`: | Enter an exchange you would like to trade on.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, `bamboo_relay`, or `huobi` *(case sensitive)* |
-| `Enter your secondary exchange name >>>`: | Enter another exchange you would like to trade on.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, `bamboo_relay`, or `huobi` *(case sensitive)* |
+| `Enter your primary exchange name >>>`: | Enter an exchange you would like to trade on.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, `bamboo_relay`, `huobi`, `bittrex` *(case sensitive)* |
+| `Enter your secondary exchange name >>>`: | Enter another exchange you would like to trade on.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, `bamboo_relay`, `huobi`, `bittrex` *(case sensitive)* |
 | `Enter the token symbol you would like to trade on [primary exchange name] >>>`: | Enter the token symbol for the *primary exchange*. |
 | `Enter the token symbol you would like to trade on [secondary exchange name] >>>`: | Enter the token symbol for the *secondary exchange*. |
 | `What is the minimum profitability for your to make a trade? (Enter 0.01 to indicate 1%) >>>`: | This sets `min_profitability` (see [definition](/strategies/arbitrage/#configuration-parameters)). |
