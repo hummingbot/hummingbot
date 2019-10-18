@@ -2,7 +2,7 @@
 
 ## About Huobi Global
 
-Huobi is a global cryptocurrency centralized exchange based in Singapore and has expanded its offices in Hong Kong, Korea, Japan and the United States. As of March 2018, Huobi processed around US $1 billion in trades daily.
+Huobi is a global, centralized cryptocurrency exchange that was started in Singapore, and has since expanded its offices to Hong Kong, Korea, Japan, and the United States. As of March 2018, Huobi processed around US $1 billion in trades daily.
 
 
 ## Using the Connector
