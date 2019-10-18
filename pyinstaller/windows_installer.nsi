@@ -2,7 +2,7 @@
 
 ; HM NIS Edit Wizard helper defines
 !define PRODUCT_NAME "Hummingbot"
-!define PRODUCT_VERSION "0.17"
+!define /file PRODUCT_VERSION "..\hummingbot\VERSION"
 !define PRODUCT_PUBLISHER "hummingbot.io"
 !define PRODUCT_WEB_SITE "https://hummingbot.io"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\bot.exe"
