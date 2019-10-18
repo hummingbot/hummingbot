@@ -2,19 +2,19 @@
 
 ## About Bittrex International
 
-Bittrex is also a global cryptocurrency centralized exchange based in Seattle, USA which was founded in 2013. It is an intuitive and easy to navigate exchange platform often finding its way into the top 3 US exchanges in terms of trading volume.
+Bittrex is also a global cryptocurrency centralized exchange based in Seattle, USA founded in 2013 and started off its operations in 2014. It is an intuitive and easy to navigate exchange platform often finding its way into the top 3 US exchanges in terms of trading volume.
 
 
 ## Using the Connector
 
-Because [Bittrex](https://international.bittrex.com/) is a centralized exchange, an API key is required in order to trade using Hummingbot.
+[Bittrex](https://international.bittrex.com/) is a centralized exchange and an API key is required in order to trade using Hummingbot.
 
 
 ### Creating Bittrex API Keys
 
 1 - Log in to https://international.bittrex.com/ or create an account in [this page](https://international.bittrex.com/account/register).
 
-!!! note
+!!! Note:
     Ensure first that 2FA is enabled to proceed with the next steps. Refer to [this page](https://bittrex.zendesk.com/hc/en-us/articles/115000198612-Two-Factor-Authentication-2FA-) for more information.
 
 2 - Click **Account** then select **API Keys** under the site settings section.
@@ -39,7 +39,7 @@ Minimum order size varies per market. All minimum trade quantities can be found 
 https://bittrex.com/api/v1.1/public/getmarkets
 ```
 
-"MinTradeSize" denotes the minimum order size for each market. For example, trading pair ETH-ZRX minimum order size is 5.81577937.
+"MinTradeSize" denotes the minimum order size for each market. For example, trading pair ETH-ZRX minimum order size is 5.81577937 ZRX.
 
 ```
 "MarketCurrency": "ZRX",
@@ -58,3 +58,5 @@ https://bittrex.com/api/v1.1/public/getmarkets
 
 
 ## Transaction Fees
+
+Bittrex charges 0.25% in both maker and taker fees for most users. However, those who trade in high volumes can trade at discounted rates. Refer to [Fee Schedule](https://bittrex.zendesk.com/hc/en-us/articles/115000199651-What-fees-does-Bittrex-charge-/fee-schedule) section for more details.
