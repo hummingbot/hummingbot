@@ -37,7 +37,7 @@ def start(self):
             "enable_order_filled_stop_cancellation").value
         jump_orders_enabled = pure_market_making_config_map.get("jump_orders_enabled").value
         jump_orders_depth = pure_market_making_config_map.get("jump_orders_depth").value
-        add_transaction_costs_to_orders: bool = False
+        add_transaction_costs_to_orders: bool = True
 
         pricing_delegate = None
         sizing_delegate = None
@@ -77,7 +77,6 @@ def start(self):
         self._initialize_wallet(token_symbols=list(set(maker_assets)))
         self._initialize_markets(market_names)
         self.assets = set(maker_assets)
-        self.logger().info("Initialized wallets")
 
         maker_data = [self.markets[maker_market], raw_maker_symbol] + list(maker_assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]

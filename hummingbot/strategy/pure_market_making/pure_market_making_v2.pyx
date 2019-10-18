@@ -128,7 +128,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._enable_order_filled_stop_cancellation = enable_order_filled_stop_cancellation
         self._jump_orders_enabled = jump_orders_enabled
         self._jump_orders_depth = jump_orders_depth
-        self.logger().info("Initialized STRATEGY")
 
         self.limit_order_min_expiration = limit_order_min_expiration
 
@@ -284,7 +283,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             for market_info in self._market_infos.values():
                 self._sb_delegate_lock = True
                 orders_proposal = None
-                self.logger().info("Getting order proposals")
                 try:
                     orders_proposal = self.c_get_orders_proposal_for_market_info(
                         market_info,
@@ -358,8 +356,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         higher_sell_price = max(updated_sell_order_prices[0], price_below_ask)
         updated_sell_order_prices[0] = maker_market.c_quantize_order_price(market_info.trading_pair,
                                                                            higher_sell_price)
-
-        self.logger().info(f"{updated_buy_order_prices[0]}, {updated_sell_order_prices[0]}")
 
         return PricingProposal(updated_buy_order_prices, updated_sell_order_prices)
 
@@ -506,22 +502,18 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             pricing_proposal = self.c_get_penny_jumped_pricing_proposal(market_info,
                                                                         pricing_proposal,
                                                                         active_orders)
-            self.logger().info("got penny jumped proposal")
 
         sizing_proposal = self._sizing_delegate.c_get_order_size_proposal(self,
                                                                           market_info,
                                                                           active_orders,
                                                                           pricing_proposal)
         if self._add_transaction_costs_to_orders:
-            self.logger().info("this should not run")
-            self.logger().info(self._add_transaction_costs_to_orders)
             no_order_placement, pricing_proposal = self.c_check_and_add_transaction_costs_to_pricing_proposal(
                 market_info,
                 pricing_proposal,
                 sizing_proposal)
 
         if sizing_proposal.buy_order_sizes[0] > 0 or sizing_proposal.sell_order_sizes[0] > 0:
-            self.logger().info("Creating orders")
             actions |= ORDER_PROPOSAL_ACTION_CREATE_ORDERS
 
         if no_order_placement:
@@ -692,7 +684,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         # Create orders.
         if actions & ORDER_PROPOSAL_ACTION_CREATE_ORDERS:
-            self.logger().info("Creating orders")
             if orders_proposal.buy_order_sizes[0] > 0:
                 if orders_proposal.buy_order_type is OrderType.LIMIT and orders_proposal.buy_order_prices[0] > 0:
                     if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
