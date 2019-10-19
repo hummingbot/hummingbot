@@ -2,7 +2,12 @@
 
 import asyncio
 import logging
-from typing import AsyncIterable, Dict, Optional, List
+from typing import (
+    AsyncIterable,
+    Dict,
+    Optional,
+    List,
+)
 import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
@@ -50,7 +55,7 @@ class BitroyalAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     subscribe_request: Dict[str, any] = {
                         "type": "subscribe",
                         "product_ids": self._symbols,
-                        "channels": ["user"],
+                        "channels": ["user"]
                     }
                     auth_dict: Dict[str] = self._bitroyal_auth.generate_auth_dict("get", "Authenticate", "")
                     subscribe_request.update(auth_dict)
@@ -73,13 +78,12 @@ class BitroyalAPIUserStreamDataSource(UserStreamTrackerDataSource):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(
-                    "Unexpected error with Bitroyal WebSocket connection. " "Retrying after 30 seconds...",
-                    exc_info=True,
-                )
+                self.logger().error("Unexpected error with Bitroyal WebSocket connection. "
+                                    "Retrying after 30 seconds...", exc_info=True)
                 await asyncio.sleep(30.0)
 
-    async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+    async def _inner_messages(self,
+                              ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
