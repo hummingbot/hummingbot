@@ -2,10 +2,16 @@
 
 import asyncio
 import logging
-from typing import Optional, List
+from typing import (
+    Optional,
+    List,
+)
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType, UserStreamTracker
+from hummingbot.core.data_type.user_stream_tracker import (
+    UserStreamTrackerDataSourceType,
+    UserStreamTracker
+)
 from hummingbot.market.bitroyal.bitroyal_api_user_stream_data_source import BitroyalAPIUserStreamDataSource
 from hummingbot.market.bitroyal.bitroyal_auth import BitroyalAuth
 
@@ -19,12 +25,10 @@ class BitroyalUserStreamTracker(UserStreamTracker):
             cls._bust_logger = logging.getLogger(__name__)
         return cls._bust_logger
 
-    def __init__(
-        self,
-        data_source_type: UserStreamTrackerDataSourceType = UserStreamTrackerDataSourceType.EXCHANGE_API,
-        bitroyal_auth: Optional[BitroyalAuth] = None,
-        symbols: Optional[List[str]] = [],
-    ):
+    def __init__(self,
+                 data_source_type: UserStreamTrackerDataSourceType = UserStreamTrackerDataSourceType.EXCHANGE_API,
+                 bitroyal_auth: Optional[BitroyalAuth] = None,
+                 symbols: Optional[List[str]] = []):
         super().__init__(data_source_type=data_source_type)
         self._bitroyal_auth: BitroyalAuth = bitroyal_auth
         self._symbols: List[str] = symbols
@@ -36,9 +40,7 @@ class BitroyalUserStreamTracker(UserStreamTracker):
     def data_source(self) -> UserStreamTrackerDataSource:
         if not self._data_source:
             if self._data_source_type is UserStreamTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = BitroyalAPIUserStreamDataSource(
-                    bitroyal_auth=self._bitroyal_auth, symbols=self._symbols
-                )
+                self._data_source = BitroyalAPIUserStreamDataSource(bitroyal_auth=self._bitroyal_auth, symbols=self._symbols)
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source
