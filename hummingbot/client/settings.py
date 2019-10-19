@@ -26,7 +26,6 @@ EXCHANGES = {"bamboo_relay", "binance", "coinbase_pro", "ddex", "huobi", "idex",
 DEXES = {"bamboo_relay", "ddex", "idex", "radar_relay"}
 
 STRATEGIES: List[str] = get_strategy_list()
-STRATEGIES = {"cross_exchange_market_making", "arbitrage", "discovery", "pure_market_making", "simple_trade"}
 
 EXAMPLE_PAIRS = {
     "binance": "ZRXETH",
