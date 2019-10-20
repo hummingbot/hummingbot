@@ -172,8 +172,7 @@ class BitroyalAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     self.logger().error(f"Error initializing order book for {trading_pair}. ", exc_info=True)
             return retval
 
-    async def _inner_messages(self,
-                              ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+    async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
