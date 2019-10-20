@@ -35,7 +35,7 @@ class BitroyalOrderBookTracker(OrderBookTracker):
     def logger(cls) -> HummingbotLogger:
         if cls._cbpobt_logger is None:
             cls._cbpobt_logger = logging.getLogger(__name__)
-        return cls._cbpobt_logger
+            return cls._cbpobt_logger
 
     def __init__(self,
                  data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
