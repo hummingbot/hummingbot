@@ -90,7 +90,7 @@ cdef class InFlightDeposit:
         self.has_tx_receipt = False
 
     def __repr__(self) -> str:
-        return f"InFlightDeposit(tracking_id='{self.tracking_id}', timestamp_ms={self.timestamp_ms}, " \f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
+        return f"InFlightDeposit(tracking_id='{self.tracking_id}', timestamp_ms={self.timestamp_ms}, tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
 
 
 cdef class BitroyalMarket(MarketBase):
@@ -365,12 +365,28 @@ cdef class BitroyalMarket(MarketBase):
             # Calculate the newly executed amount for this update.
             new_confirmed_amount = Decimal(order_update["filled_size"])
             execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-            execute_price = s_decimal_0 if new_confirmed_amount == s_decimal_0 else Decimal(order_update["executed_value"]) / new_confirmed_amountclient_order_id = tracked_order.client_order_id
+            execute_price = s_decimal_0
+            if new_confirmed_amount == s_decimal_0 else Decimal(order_update["executed_value"]) / new_confirmed_amount
+            client_order_id = tracked_order.client_order_id
             order_type_description = tracked_order.order_type_description
             order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
             # Emit event if executed amount is greater than 0.
             if execute_amount_diff > s_decimal_0:
-                order_filled_event = OrderFilledEvent(self._current_timestamp, tracked_order.client_order_id, tracked_order.symbol, tracked_order.trade_type, order_type, float(execute_price), float(execute_amount_diff), self.c_get_fee(tracked_order.base_asset, tracked_order.quote_asset, order_type, tracked_order.trade_type, float(execute_price), float(execute_amount_diff),))
+                order_filled_event = OrderFilledEvent(
+                    self._current_timestamp,
+                    tracked_order.client_order_id,
+                    tracked_order.symbol,
+                    tracked_order.trade_type,
+                    order_type,
+                    float(execute_price),
+                    float(execute_amount_diff),
+                    self.c_get_fee(tracked_order.base_asset,
+                                   tracked_order.quote_asset,
+                                   order_type,
+                                   tracked_order.trade_type,
+                                   float(execute_price),
+                                   float(execute_amount_diff),
+                                   ))
                 self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                    f"{order_type_description} order {client_order_id}.")
                 self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
@@ -498,7 +514,7 @@ cdef class BitroyalMarket(MarketBase):
                                                                          float(tracked_order.executed_amount_quote),
                                                                          float(tracked_order.fee_paid),
                                                                          tracked_order.order_type))
-                    else:       # reason == "canceled":
+                    else:  # reason == "canceled":
                         execute_amount_diff = 0
                         tracked_order.last_state = "canceled"
                         self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG, OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
@@ -527,7 +543,13 @@ cdef class BitroyalMarket(MarketBase):
                         tracked_order.order_type,
                         float(execute_price),
                         float(execute_amount_diff),
-                        self.c_get_fee(tracked_order.base_asset, tracked_order.quote_asset, tracked_order.order_type, tracked_order.trade_type, float(execute_price), float(execute_amount_diff), )
+                        self.c_get_fee(tracked_order.base_asset,
+                                       tracked_order.quote_asset,
+                                       tracked_order.order_type,
+                                       tracked_order.trade_type,
+                                       float(execute_price),
+                                       float(execute_amount_diff),
+                                       )
                     )
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"{order_type_description} order {tracked_order.client_order_id}.")
@@ -834,7 +856,6 @@ cdef class BitroyalMarket(MarketBase):
 
     cdef double c_get_balance(self, str currency) except? -1:
         return float(self._account_balances.get(currency, 0.0))
-
     cdef double c_get_available_balance(self, str currency) except? -1:
         return float(self._account_available_balances.get(currency, 0.0))
 
