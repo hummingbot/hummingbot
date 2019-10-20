@@ -279,6 +279,7 @@ cdef class BitroyalMarket(MarketBase):
                           double amount,
                           double price):
         # There is no API for checking user's fee tier
+        # Fee info from https://pro.bitroyal.com/fees
         cdef:
             double maker_fee = 0.0015
             double taker_fee = 0.0025
