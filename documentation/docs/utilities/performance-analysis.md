@@ -1,13 +1,13 @@
 # Performance Analysis
 
-Sending `history` command in Hummingbot will show current session's past trades, inventory, market trading pair performance and portfolio performance. Profit percentage is calculated by assets spent and acquired during trades i.e. balance changes to the inventory like deposits, withdrawals and manual trades does not affect the calculation.
+The `history` command in Hummingbot will show the current session's past trades, inventory, market trading pair performance, and portfolio performance. Profit percentage is calculated based on assets spent and acquired during trades, i.e. balance changes due to the inventory like deposits, withdrawals, and manual trades outside of Hummingbot do not affect the calculation.
 
-As an example let's say we are trading on ETH-DAI token pair and made 4 trades.
+As an example, let's say we are trading on ETH-DAI token pair and made 4 trades.
 
 ```
-trade1: buy 1 ETH (acquired) with 100 DAI (spent)
+trade1: buy 1 ETH (acquired) for 100 DAI (spent)
 trade2: sell 0.9 ETH (spent) for 100 DAI (acquired)
-trade3: buy 0.1 ETH (acquired) with 10 DAI (spent)
+trade3: buy 0.1 ETH (acquired) for 10 DAI (spent)
 trade4: sell 1 ETH (spent) for 100 DAI (acquired)
 ```
 
