@@ -145,6 +145,7 @@ nav:
       - Data Feeds:
         - Data Feeds Overview: feeds.md
       - Utilities:
+        - Performance Analysis: utilities/performance-analysis.md
         - Paper Trading Mode: utilities/paper-trade.md
         - Kill Switch: utilities/kill-switch.md
         - Logs and Logging: utilities/logging.md
@@ -169,6 +170,7 @@ nav:
         - Configuration: developers/config.md
     - Release Notes:
       - About Releases: release-notes/index.md
+      - 0.17.0: release-notes/0.17.0.md
       - 0.16.0: release-notes/0.16.0.md
       - 0.15.0: release-notes/0.15.0.md
       - 0.14.0: release-notes/0.14.0.md
