@@ -1,15 +1,35 @@
-########################################################
-###       Get Order Book strategy config               ###
-########################################################
+#####################################
+###   Discovery strategy config   ###
+#####################################
 
 template_version: 1
 
-# The following configuations are only required for the
-# simple trade strategy
+# The following configuations are only required for the discovery strategy
 
 # Exchange and token parameters
-market: null
-market_symbol_pair: null
+primary_market: null
+secondary_market: null
+target_symbol_1: []
+target_symbol_2: []
+
+# Minimum profitability target required to place an order
+# Expressed in decimals: 0.01 = 1% target profit
+target_profitability: null
+target_amount: null
+
+# Tokens that the bot assumes are equivalent
+equivalent_tokens:
+- - USDT
+  - USDC
+  - USDS
+  - DAI
+  - PAX
+  - TUSD
+  - USD
+- - ETH
+  - WETH
+- - BTC
+  - WBTC
 
 # For more detailed information, see:
-# https://docs.hummingbot.io/strategies/simple-trade/#configuration-parameters
+# https://docs.hummingbot.io/strategies/discovery/
