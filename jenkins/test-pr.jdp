@@ -194,28 +194,6 @@ pipeline {
           }
         }
 
-        stage('Run huobi_market_mock test') {
-          steps {
-            echo 'Run huobi_market_mock test'
-            sh "${envPath}/bin/nosetests -d -v test/integration/test_huobi_market_mock.py"
-          }
-          post {
-            success {
-              echo '=> [Run tests: huobi_market_mock]: SUCCESS'
-            }
-            unstable {
-              script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Unstable: huobi_market_mock test'
-              }
-            }
-            failure {
-              script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Failed: huobi_market_mock test'
-              }
-            }
-          }
-        }
-
       } // End parallel
     }
 
