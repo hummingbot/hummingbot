@@ -47,6 +47,9 @@ ShowUnInstDetails show
 Section "MainSection" SEC01
   SetOutPath "$INSTDIR"
   File /a /r "..\dist\bot\*.*"
+  CreateDirectory "$SMPROGRAMS\Hummingbot"
+  CreateShortCut "$SMPROGRAMS\Hummingbot\Hummingbot.lnk" "$INSTDIR\bot.exe" "" "" 0 SW_SHOWMAXIMIZED
+  CreateShortCut "$DESKTOP\Hummingbot.lnk" "$INSTDIR\bot.exe" "" "" 0 SW_SHOWMAXIMIZED
 SectionEnd
 
 Section -AdditionalIcons
@@ -80,14 +83,20 @@ FunctionEnd
 Section Uninstall
   RMDir /r "$INSTDIR"
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> Added back shortcut creation and uninstall instructions.
   Delete "$SMPROGRAMS\Hummingbot\Uninstall.lnk"
   Delete "$SMPROGRAMS\Hummingbot\Website.lnk"
   Delete "$DESKTOP\Hummingbot.lnk"
   Delete "$SMPROGRAMS\Hummingbot\Hummingbot.lnk"
 
   RMDir "$SMPROGRAMS\Hummingbot"
+<<<<<<< HEAD
 =======
 >>>>>>> Fixed "file not found" errors while generating Windows installer after version updates.
+=======
+>>>>>>> Added back shortcut creation and uninstall instructions.
 
   DeleteRegKey ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}"
   DeleteRegKey HKLM "${PRODUCT_DIR_REGKEY}"
