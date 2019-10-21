@@ -30,6 +30,8 @@ The timeline below shows the past milestones we have completed, along with the f
 * Support for user defined strategies
 
 ## Q4 2019
-* More connectors for decentralized and centralized exchanges: Bittrex, Bitfinex, Kraken, Bitmex, Binance DEX
+* Released connector for [Bittrex International](/connectors/bittrex)
+* Connector for [Liquid](https://liquid.com/) ([in progress](https://gitcoin.co/issue/CoinAlpha/hummingbot/909/3556))
+* More connectors for decentralized and centralized exchanges: Bitfinex, Kraken, Bitmex, Binance DEX
 * Graphical user interface
 * Connectors to automated market makers
