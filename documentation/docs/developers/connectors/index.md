@@ -20,7 +20,7 @@ There are [existing connectors](https://github.com/CoinAlpha/hummingbot/tree/mas
 
 Building a new exchange connector requires conforming to the template code to the new exchange's APIs, identifying and handling any differences in functions/behaviors, and testing the new exchange connector on that exchange.
 
-- Centralized exchange: [Binance](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/binance), [Coinbase Pro](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/coinbase_pro)
+- Centralized exchange: [Binance](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/binance), [Coinbase Pro](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/coinbase_pro), [Huobi](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/huobi), [Bittrex](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/bittrex)
 - Ethereum DEX (0x open order book): [Radar Relay](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/radar_relay)
 - Ethereum DEX (0x open order book w/coordinator support): [Bamboo Relay](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/bamboo_relay)
 - Ethereum DEX (matcher model): [DDEX](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/ddex)
