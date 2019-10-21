@@ -368,6 +368,7 @@ cdef class BitroyalMarket(MarketBase):
             execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
             execute_price = s_decimal_0
             if new_confirmed_amount == s_decimal_0 else Decimal(order_update["executed_value"]) / new_confirmed_amount
+
             client_order_id = tracked_order.client_order_id
             order_type_description = tracked_order.order_type_description
             order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
