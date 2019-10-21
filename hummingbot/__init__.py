@@ -10,6 +10,8 @@ from os import (
     listdir,
     path,
 )
+import sys
+
 from hummingbot.logger.struct_logger import (
     StructLogRecord,
     StructLogger
@@ -75,8 +77,21 @@ def set_data_path(path: str):
     _data_path = path
 
 
+_independent_package: Optional[bool] = None
+
+
+def is_independent_package() -> bool:
+    global _independent_package
+    import os
+    if _independent_package is None:
+        _independent_package = (os.path.basename(sys.executable) != "python")
+    return _independent_package
+
+
 def check_dev_mode():
     try:
+        if is_independent_package():
+            return False
         if not path.isdir(".git"):
             return False
         current_branch = subprocess.check_output(["git", "symbolic-ref", "--short", "HEAD"]).decode("utf8").rstrip()
@@ -84,6 +99,20 @@ def check_dev_mode():
             return True
     except Exception:
         return False
+
+
+def chdir_to_data_directory():
+    if not is_independent_package():
+        # Do nothing.
+        return
+
+    import appdirs
+    import os
+    app_data_dir: str = appdirs.user_data_dir("Hummingbot", "hummingbot.io")
+    os.makedirs(os.path.join(app_data_dir, "logs"), 0o711, exist_ok=True)
+    os.makedirs(os.path.join(app_data_dir, "conf"), 0o711, exist_ok=True)
+    os.chdir(app_data_dir)
+    set_prefix_path(app_data_dir)
 
 
 def add_remote_logger_handler(loggers):
@@ -102,7 +131,10 @@ def add_remote_logger_handler(loggers):
         root_logger.error("Error adding remote log handler.", exc_info=True)
 
 
-def init_logging(conf_filename: str, override_log_level: Optional[str] = None, dev_mode: bool = False):
+def init_logging(conf_filename: str,
+                 override_log_level: Optional[str] = None,
+                 dev_mode: bool = False,
+                 strategy_file_path: str = "hummingbot"):
     import io
     import logging.config
     from os.path import join
@@ -130,6 +162,7 @@ def init_logging(conf_filename: str, override_log_level: Optional[str] = None, d
         yml_source: str = fd.read()
         yml_source = yml_source.replace("$PROJECT_DIR", prefix_path())
         yml_source = yml_source.replace("$DATETIME", pd.Timestamp.now().strftime("%Y-%m-%d-%H-%M-%S"))
+        yml_source = yml_source.replace("$STRATEGY_FILE_PATH", strategy_file_path.replace(".yml", ""))
         io_stream: io.StringIO = io.StringIO(yml_source)
         config_dict: Dict = yaml_parser.load(io_stream)
         if override_log_level is not None and "loggers" in config_dict:

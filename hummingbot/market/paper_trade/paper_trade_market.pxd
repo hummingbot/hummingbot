@@ -16,7 +16,6 @@ from .market_config import (
     MarketConfig,
     AssetType
 )
-
 ctypedef cpp_set[CPPLimitOrder] SingleSymbolLimitOrders
 ctypedef unordered_map[string, SingleSymbolLimitOrders].iterator LimitOrdersIterator
 ctypedef pair[string, SingleSymbolLimitOrders] LimitOrdersPair
@@ -33,8 +32,6 @@ cdef class PaperTradeMarket(MarketBase):
         LimitOrders _ask_limit_orders
         bint _paper_trade_market_initialized
         dict _trading_pairs
-        dict _account_balance
-        object _order_book_tracker
         object _config
         object _queued_orders
         dict _quantization_params
@@ -44,10 +41,17 @@ cdef class PaperTradeMarket(MarketBase):
         object _order_tracker_task
         object _target_market
 
-    cdef c_execute_buy(self, str order_id, str trading_pair, double amount)
-    cdef c_execute_sell(self, str order_id, str trading_pair, double amount)
+    cdef c_execute_buy(self, str order_id, str trading_pair, object amount)
+    cdef c_execute_sell(self, str order_id, str trading_pair, object amount)
     cdef c_process_market_orders(self)
-    cdef c_set_balance(self, str currency, double amount)
+    cdef c_set_balance(self, str currency, object amount)
+    cdef object c_get_fee(self,
+                          str base_asset,
+                          str quote_asset,
+                          object order_type,
+                          object order_side,
+                          object amount,
+                          object price)
     cdef c_delete_limit_order(self,
                               LimitOrders *limit_orders_map_ptr,
                               LimitOrdersIterator *map_it_ptr,
@@ -74,5 +78,5 @@ cdef class PaperTradeMarket(MarketBase):
     cdef object c_cancel_order_from_orders_map(self,
                                                LimitOrders *orders_map,
                                                str trading_pair_str,
-                                               bint cancel_all = *,
-                                               str client_order_id = *)
+                                               bint cancel_all=*,
+                                               str client_order_id=*)

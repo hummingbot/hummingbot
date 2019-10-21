@@ -159,3 +159,22 @@ AttributeError: 'NoneType' object has no attribute 'actions'
 ```
 
 In this case, ZRX is not yet added to the list. See [this page](/utilities/paper-trade/#account-balance) on how to add balances.
+
+#### Cross-Exchange Market Making error in logs
+
+Errors will appear if the token value is unable to convert `{from_currency}` to `{to_currency}` are not listed on the exchange rate class.
+
+```
+2019-09-30 05:42:42,000 - hummingbot.core.clock - ERROR - Unexpected error running clock tick.
+Traceback (most recent call last):
+  File "clock.pyx", line 119, in hummingbot.core.clock.Clock.run_til
+  File "cross_exchange_market_making.pyx", line 302, in hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making.CrossExchangeMarketMakingStrategy.c_tick
+  File "cross_exchange_market_making.pyx", line 387, in hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making.CrossExchangeMarketMakingStrategy.c_process_market_pair
+  File "cross_exchange_market_making.pyx", line 1088, in hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making.CrossExchangeMarketMakingStrategy.c_check_and_create_new_orders
+  File "cross_exchange_market_making.pyx", line 781, in hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making.CrossExchangeMarketMakingStrategy.c_get_market_making_price
+  File "/hummingbot/core/utils/exchange_rate_conversion.py", line 190, in convert_token_value
+    raise ValueError(f"Unable to convert '{from_currency}' to '{to_currency}'. Aborting.")
+ValueError: Unable to convert 'BTC' to 'BTC'. Aborting.
+```
+
+In this case, BTC is not yet added to the list of exchange rate class. See [this page](/utilities/exchange-rates/#exchange-rate-class) the correct format on adding exchange rate.

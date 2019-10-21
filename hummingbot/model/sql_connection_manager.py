@@ -63,7 +63,9 @@ class SQLConnectionManager:
             cls._scm_trade_fills_instance = SQLConnectionManager(SQLConnectionType.TRADE_FILLS)
         return cls._scm_trade_fills_instance
 
-    def __init__(self, connection_type: SQLConnectionType, db_path: Optional[str] = None):
+    def __init__(self,
+                 connection_type: SQLConnectionType,
+                 db_path: Optional[str] = None):
         if db_path is None:
             db_path = join(data_path(), "hummingbot_trades.sqlite")
 
