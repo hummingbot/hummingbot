@@ -50,6 +50,7 @@ from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.market.bitroyal.bitroyal_in_flight_order import BitroyalInFlightOrder
 from hummingbot.market.bitroyal.bitroyal_in_flight_order cimport BitroyalInFlightOrder
 
+
 s_logger = None
 s_decimal_0 = Decimal(0)
 

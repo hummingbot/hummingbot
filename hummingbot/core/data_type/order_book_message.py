@@ -449,22 +449,15 @@ class BittrexOrderBookMessage(OrderBookMessage):
             """
             return self.type.value < other.type.value
 
+
 class BitroyalOrderBookMessage(OrderBookMessage):
-    def __new__(
-            cls,
-            message_type: OrderBookMessageType,
-            content: Dict[str, any],
-            timestamp: Optional[float] = None,
-            *args,
-            **kwargs,
-    ):
+    def __new__(cls, message_type: OrderBookMessageType, content: Dict[str, any], timestamp: Optional[float] = None,
+                *args, **kwargs):
         if timestamp is None:
             if message_type is OrderBookMessageType.SNAPSHOT:
                 raise ValueError("timestamp must not be None when initializing snapshot messages.")
             timestamp = pd.Timestamp(content["time"], tz="UTC").timestamp()
-        return super(BitroyalOrderBookMessage, cls).__new__(
-                cls, message_type, content, timestamp=timestamp, *args, **kwargs
-        )
+        return super(BitroyalOrderBookMessage, cls).__new__(cls, message_type, content, timestamp=timestamp, *args, **kwargs)
 
     @property
     def update_id(self) -> int:
@@ -488,8 +481,8 @@ class BitroyalOrderBookMessage(OrderBookMessage):
 
     @property
     def asks(self) -> List[OrderBookRow]:
-        raise   NotImplementedError("Bitroyal order book messages have different semantics.")
+        raise NotImplementedError("Bitroyal order book messages have different semantics.")
 
     @property
-    def bids(self)-> List[OrderBookRow]:
+    def bids(self) -> List[OrderBookRow]:
         raise NotImplementedError("Bitroyal order book messages have different semantics.")

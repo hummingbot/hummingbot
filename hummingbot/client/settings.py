@@ -21,17 +21,7 @@ CONF_FILE_PATH = "conf/"
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
 
-EXCHANGES = {
-    "bamboo_relay",
-    "binance",
-    "coinbase_pro",
-    "ddex",
-    "huobi",
-    "idex",
-    "radar_relay",
-    "bittrex",
-    "bitroyal"
-}
+EXCHANGES = {"bamboo_relay", "binance", "coinbase_pro", "ddex", "huobi", "idex", "radar_relay", "bittrex", "bitroyal"}
 
 DEXES = {"bamboo_relay", "ddex", "idex", "radar_relay"}
 
@@ -55,7 +45,7 @@ EXAMPLE_ASSETS = {
     "radar_relay": "ZRX",
     "bamboo_relay": "ZRX",
     "coinbase_pro": "ETH",
-    "huobi": "eth"
+    "huobi": "eth",
     "bitroyal": "ETH"
 }
 

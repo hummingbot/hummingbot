@@ -59,7 +59,7 @@ MARKET_CLASSES = {
     "huobi": HuobiMarket,
     "idex": IDEXMarket,
     "radar_relay": RadarRelayMarket,
-    "bittrex": BittrexMarket
+    "bittrex": BittrexMarket,
     "bitroyal": BitroyalMarket,
 }
 
@@ -304,11 +304,13 @@ class HummingbotApplication(*commands):
             elif market_name == "huobi":
                 huobi_api_key = global_config_map.get("huobi_api_key").value
                 huobi_secret_key = global_config_map.get("huobi_secret_key").value
-                market = HuobiMarket(huobi_api_key,
-                                     huobi_secret_key,
-                                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                     symbols=symbols,
-                                     trading_required=self._trading_required)
+                market = HuobiMarket(
+                    huobi_api_key,
+                    huobi_secret_key,
+                    order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                    symbols=symbols,
+                    trading_required=self._trading_required
+                )
             elif market_name == "bittrex":
                 bittrex_api_key = global_config_map.get("bittrex_api_key").value
                 bittrex_secret_key = global_config_map.get("bittrex_secret_key").value
@@ -316,7 +318,8 @@ class HummingbotApplication(*commands):
                                        bittrex_secret_key,
                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                        symbols=symbols,
-                                       trading_required=self._trading_required)
+                                       trading_required=self._trading_required
+                                       )
             elif market_name == "bitroyal":
                 bitroyal_api_key = global_config_map.get("bitroyal_api_key").value
                 bitroyal_secret_key = global_config_map.get("bitroyal_secret_key").value
