@@ -738,8 +738,8 @@ cdef class HuobiMarket(MarketBase):
             response = await self._api_request("post", path_url=path_url, is_auth_required=True)
             if response.get("error") is not None:
                 order_state = response.get("error").get("order-state")
-                if order_state in [-1, 5, 7]:
-                    # order-state was already closed, partial-canceled, or canceled
+                if order_state in [5, 7]:
+                    # order-state is partial-canceled or canceled
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                     self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled according"
                                        f" to order status API. order_state - {order_state}")
