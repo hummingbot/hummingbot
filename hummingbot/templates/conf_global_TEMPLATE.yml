@@ -2,6 +2,8 @@
 ###   Global configurations   ###
 #################################
 
+template_version: 1
+
 # Exchange configs
 # Only fill out the credentials for the markets you are trading on
 binance_api_key: null
