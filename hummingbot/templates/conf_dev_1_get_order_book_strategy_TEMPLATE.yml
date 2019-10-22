@@ -1,13 +1,14 @@
-#####################################
-###   Discovery strategy config   ###
-#####################################
+#####################################################
+###       Get order book strategy config          ###
+#####################################################
 
 template_version: 1
 
 # The following configuations are only required for the
-# discovery strategy
+# hello world strategy
 
 # Exchange and token parameters
+<<<<<<< HEAD
 primary_market: null
 secondary_market: null
 target_symbol_1: []
@@ -17,6 +18,10 @@ target_symbol_2: []
 # Expressed in decimals: 0.01 = 1% target profit
 target_profitability: null
 target_amount: null
+=======
+market: null
+market_symbol_pair: null
+>>>>>>> (feat) add unit tests to make sure config templates are up to date
 
 # Tokens that the bot assumes are equivalent
 equivalent_tokens:
@@ -33,4 +38,4 @@ equivalent_tokens:
   - WBTC
 
 # For more detailed information, see:
-# https://docs.hummingbot.io/strategies/discovery/
+# https://docs.hummingbot.io/strategies/simple-trade/#configuration-parameters
