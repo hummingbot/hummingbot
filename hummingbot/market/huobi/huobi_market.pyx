@@ -734,7 +734,18 @@ cdef class HuobiMarket(MarketBase):
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
             path_url = f"order/orders/{tracked_order.exchange_order_id}/submitcancel"
-            await self._api_request("post", path_url=path_url, is_auth_required=True)
+
+            response = await self._api_request("post", path_url=path_url, is_auth_required=True)
+            if response.get("error") is not None:
+                order_state = response.get("error").get("order-state")
+                if order_state == 7:
+                    # order-state is canceled
+                    self.c_stop_tracking_order(tracked_order.client_order_id)
+                    self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled according"
+                                       f" to order status API. order_state - {order_state}")
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                         OrderCancelledEvent(self._current_timestamp,
+                                                             tracked_order.client_order_id))
         except Exception as e:
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(e)}",
