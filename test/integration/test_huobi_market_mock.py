@@ -309,6 +309,7 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
         client_order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.market.cancel(symbol, client_order_id)
+        self.mock_api.order_response_dict[self.mock_api.MOCK_HUOBI_LIMIT_CANCEL_ORDER_ID]["data"]["state"] = "canceled"
         [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
         order_cancelled_event: OrderCancelledEvent = order_cancelled_event
         self.assertEqual(order_cancelled_event.order_id, client_order_id)
