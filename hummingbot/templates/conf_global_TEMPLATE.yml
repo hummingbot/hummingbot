@@ -2,6 +2,7 @@
 ###   Global configurations   ###
 #################################
 
+# For more detailed information: https://docs.hummingbot.io
 template_version: 1
 
 # Exchange configs
