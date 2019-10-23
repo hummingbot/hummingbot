@@ -162,9 +162,11 @@ nav:
           - Perform Trade: developers/strategies/perform-trade.md
           - Tutorial : developers/strategies/tutorial.md
         - Connectors:
-          - Adding Connectors: developers/connectors/index.md
-          - Adding Connectors to Other Blockchains: developers/connectors/new-blockchain.md
+          - Introduction: developers/connectors/index.md
+          - Architecture: developers/connectors/architecture.md
+          - Tutorial: developers/connectors/tutorial.md
           - Order Lifecycle: developers/connectors/order-lifecycle.md
+          - Miscellaneous: developers/connectors/miscellaneous.md
         - Debug Console: developers/debug.md
         - Configuration: developers/config.md
     - Release Notes:
