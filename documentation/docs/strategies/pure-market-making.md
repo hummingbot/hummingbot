@@ -169,7 +169,7 @@ The `enable_order_filled_stop_cancellation` can be used if there is enough volat
 Users now have the option to automatically adjust the prices to just above top bid and just below top ask using `jump_orders_enabled`. The user can specify how deep to go into the orderbook for calculating the top bid and top ask price using `jump_orders_depth`. This is available in single order mode.
 
 > Example:
-Assume you are running pure parket making in single order mode, the order size is 1 and the mid price is 100. Then if you set jump_order_depth to 0,
+Assume you are running pure market making in single order mode, the order size is 1 and the mid price is 100. Then if you set jump_order_depth to 0,
 <ul><li> Based on bid and ask thresholds of 0.01, your bid/ask orders might originally have been placed at 99 and 101, respectively.
 <li> If the current top bid in the market is 98, now the buy order is automatically adjusted to just above 98, say 98.001 and placed at this price.
 <li> If the current top ask in the market is 102, now the sell order is automatically adjusted to just below 102, say 101.999 and placed at this price.
