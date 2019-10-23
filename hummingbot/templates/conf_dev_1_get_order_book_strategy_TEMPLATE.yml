@@ -1,8 +1,6 @@
-#####################################################
-###       Get order book strategy config          ###
-#####################################################
-
-template_version: 1
+########################################################
+###       Get Order Book strategy config               ###
+########################################################
 
 # The following configuations are only required for the
 # hello world strategy
@@ -21,6 +19,7 @@ target_amount: null
 =======
 market: null
 market_symbol_pair: null
+<<<<<<< HEAD
 >>>>>>> (feat) add unit tests to make sure config templates are up to date
 
 # Tokens that the bot assumes are equivalent
@@ -36,6 +35,8 @@ equivalent_tokens:
   - WETH
 - - BTC
   - WBTC
+=======
+>>>>>>> (feat) change template header
 
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/simple-trade/#configuration-parameters
