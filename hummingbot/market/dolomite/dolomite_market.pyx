@@ -748,12 +748,13 @@ cdef class DolomiteMarket(MarketBase):
             data = json.dumps(data).encode('utf8')
             headers = {"Content-Type": "application/json"}
 
-        async with self._shared_client.request(http_method, url=f"{self.API_REST_ENDPOINT}{url}",
+        full_url = f"{self.API_REST_ENDPOINT}{url}"
+        async with self._shared_client.request(http_method, url=full_url,
                                                timeout=API_CALL_TIMEOUT,
                                                data=data, params=params, headers=headers) as response:
             if response.status != 200:
-                self.logger().info("Issue with Dolomite API, response: ")
-                self.logger().info(await response.json())
+                self.logger().info(f"Issue with Dolomite API {http_method} to {url}, response: ")
+                self.logger().info(await response.text())
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
             data = await response.json()
             return data

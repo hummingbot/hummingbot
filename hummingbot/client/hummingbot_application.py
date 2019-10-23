@@ -210,11 +210,12 @@ class HummingbotApplication(*commands):
         erc20_token_addresses = get_erc20_token_addresses(token_symbols)
 
         if self.acct is not None:
+            chain_name: str = global_config_map.get("ethereum_chain_name").value
             self.wallet: Web3Wallet = Web3Wallet(
                 private_key=self.acct.privateKey,
                 backend_urls=[ethereum_rpc_url],
                 erc20_token_addresses=erc20_token_addresses,
-                chain=EthereumChain.MAIN_NET,
+                chain=getattr(EthereumChain, chain_name),
             )
 
     def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
