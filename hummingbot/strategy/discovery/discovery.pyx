@@ -1,8 +1,7 @@
 # distutils: language=c++
-import asyncio
 import logging
+import itertools
 from decimal import Decimal
-
 import pandas as pd
 from typing import (
     List,
@@ -18,11 +17,9 @@ from hummingbot.strategy.discovery.discovery_market_pair import DiscoveryMarketP
 from hummingbot.strategy.arbitrage import ArbitrageStrategy
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base cimport StrategyBase
-
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
-import itertools
 
 NaN = float("nan")
 s_decimal_0 = Decimal(0)
@@ -484,8 +481,8 @@ cdef class DiscoveryStrategy(StrategyBase):
                 asset_set.add(q)
 
         for asset in asset_set:
-            rate = ExchangeRateConversion.get_instance().adjust_token_rate(asset, 1.0)
-            if rate != 1.0:
+            rate = ExchangeRateConversion.get_instance().adjust_token_rate(asset, Decimal("1.0"))
+            if rate != Decimal("1.0"):
                 data.append([asset, rate])
 
         assets_df = pd.DataFrame(data=data, columns=columns)

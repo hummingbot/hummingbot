@@ -217,6 +217,7 @@ cdef class BambooRelayMarket(MarketBase):
         return {
             "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
+            "account_available_balance": len(self._account_available_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True,
             "token_approval": len(self._pending_approval_tx_hashes) == 0 if self._trading_required else True
         }
@@ -313,6 +314,7 @@ cdef class BambooRelayMarket(MarketBase):
 
                 self._update_balances()
                 await safe_gather(
+                    self._update_available_balances(),
                     self._update_trading_rules(),
                     self._update_limit_order_status(),
                     self._update_market_order_status()
@@ -346,7 +348,11 @@ cdef class BambooRelayMarket(MarketBase):
         return TradeFee(percent=Decimal(0.0), flat_fees=[("ETH", transaction_cost_eth)])
 
     def _update_balances(self):
-        self._account_balances = self.wallet.get_all_balances()
+        self._account_balances = self.wallet.get_all_balances().copy()
+
+    async def _update_available_balances(self):
+        # should be the same here, there are no locked balances on bamboo relay
+        self._account_available_balances = self._account_balances
 
     async def list_market(self) -> Dict[str, Any]:
         url = f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/markets?perPage=1000&include=base"
@@ -746,7 +752,8 @@ cdef class BambooRelayMarket(MarketBase):
 
         # Sanity check
         if total_base_quantity > Decimal(amount):
-            raise ValueError(f"API returned incorrect values for market order")
+            raise ValueError(f"API returned incorrect values for market order, totalBaseQuantity {total_base_quantity} is "
+                             f"higher than requested amount {amount}")
 
         # Single orders to use fillOrder, multiple to use batchFill
         if len(signed_market_orders) == 1:
@@ -763,7 +770,8 @@ cdef class BambooRelayMarket(MarketBase):
                 )
                 taker_asset_fill_amount = total_quote_amount
                 if calculated_maker_amount > max_base_amount_with_decimals:
-                    raise ValueError(f"API returned incorrect values for market order")
+                    raise ValueError(f"API returned incorrect values for market order, calculated maker amount "
+                                     f"{calculated_maker_amount} is greater than requested amount {max_base_amount_with_decimals}")
             else:
                 taker_asset_fill_amount = total_base_amount
 
@@ -801,17 +809,19 @@ cdef class BambooRelayMarket(MarketBase):
                     remaining_taker_amount = target_taker_amount - total_taker_asset_fill_amount
                     taker_asset_fill_amounts.append(remaining_taker_amount)
                     order_maker_fill_amount = math.floor(
-                        (remaining_taker_amount * Decimal(order["makerAssetAmount"])) / Decimal(order["takerAssetAmount"])
+                        remaining_taker_amount * (Decimal(order["makerAssetAmount"]) / Decimal(order["takerAssetAmount"]))
                     )
                     total_maker_asset_fill_amount = total_maker_asset_fill_amount + order_maker_fill_amount
-                    total_taker_asset_fill_amount = remaining_taker_amount
+                    total_taker_asset_fill_amount = total_taker_asset_fill_amount + remaining_taker_amount
                     break
 
             # Sanity check on rates returned
             if trade_type is TradeType.BUY and total_maker_asset_fill_amount > max_base_amount_with_decimals:
-                raise ValueError(f"API returned incorrect values for market order")
-            elif total_taker_asset_fill_amount > max_base_amount_with_decimals:
-                raise ValueError(f"API returned incorrect values for market order")
+                raise ValueError(f"API returned incorrect values for market order, total maker amount {total_maker_asset_fill_amount} "
+                                 f"is greater than requested amount {max_base_amount_with_decimals}")
+            elif trade_type is TradeType.SELL and total_taker_asset_fill_amount > max_base_amount_with_decimals:
+                raise ValueError(f"API returned incorrect values for market order, total taker amount {total_taker_asset_fill_amount} "
+                                 f" is greater than requested amount {max_base_amount_with_decimals}")
 
             if is_coordinated:
                 tx_hash = await self._coordinator.batch_fill_orders(orders, taker_asset_fill_amounts, signatures)
