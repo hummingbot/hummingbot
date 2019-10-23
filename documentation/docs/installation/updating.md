@@ -54,8 +54,8 @@ chmod a+x update.sh
 ```
 
 
-## Installing from specific version via docker
-`$TAG` = hummingbot version eg. `version-0.16.0` Fore more information visit the list of versions of [hummingbot tags](https://hub.docker.com/r/coinalpha/hummingbot/tags).
+## Installing from specific version via Docker
+`$TAG` = Hummingbot version e.g. `version-0.16.0` For more information, visit the list of versions of [Hummingbot tags](https://hub.docker.com/r/coinalpha/hummingbot/tags).
 
 ```
 $ ./create.sh 
