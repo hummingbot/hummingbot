@@ -13,6 +13,7 @@ from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSou
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.market.binance.binance_market import BinanceMarket
+from hummingbot.market.bittrex.bittrex_market import BittrexMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
@@ -59,6 +60,7 @@ MARKET_CLASSES = {
     "idex": IDEXMarket,
     "radar_relay": RadarRelayMarket,
     "dolomite": DolomiteMarket,
+    "bittrex": BittrexMarket
 }
 
 
@@ -317,6 +319,14 @@ class HummingbotApplication(*commands):
                     isTestNet=True,  # TODO: remove this! This needs to be False for release
                     trading_required=self._trading_required,
                 )
+            elif market_name == "bittrex":
+                bittrex_api_key = global_config_map.get("bittrex_api_key").value
+                bittrex_secret_key = global_config_map.get("bittrex_secret_key").value
+                market = BittrexMarket(bittrex_api_key,
+                                       bittrex_secret_key,
+                                       order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                       symbols=symbols,
+                                       trading_required=self._trading_required)
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
 

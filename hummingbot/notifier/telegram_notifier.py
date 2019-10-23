@@ -157,7 +157,8 @@ class TelegramNotifier(NotifierBase):
         while True:
             try:
                 new_msg: str = await self._msg_queue.get()
-                await self.send_msg_async(new_msg)
+                if isinstance(new_msg, str) and len(new_msg) > 0:
+                    await self.send_msg_async(new_msg)
             except Exception as e:
                 self.logger().error(str(e))
             await asyncio.sleep(1)
@@ -183,7 +184,7 @@ class TelegramNotifier(NotifierBase):
                     text=formatted_msg,
                     parse_mode=ParseMode.MARKDOWN,
                     reply_markup=reply_markup
-                ), app_warning_msg=None)
+                ))
             except NetworkError as network_err:
                 # Sometimes the telegram server resets the current connection,
                 # if this is the case we send the message again.
@@ -194,7 +195,7 @@ class TelegramNotifier(NotifierBase):
                     text=msg,
                     parse_mode=ParseMode.MARKDOWN,
                     reply_markup=reply_markup
-                ), app_warning_msg=None)
+                ))
         except TelegramError as telegram_err:
             self.logger().network(f"TelegramError: {telegram_err.message}! Giving up on that message.",
                                   exc_info=True)

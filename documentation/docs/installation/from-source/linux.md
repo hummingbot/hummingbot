@@ -8,6 +8,14 @@ You can install Hummingbot with ***either*** of the following options:
 1. **Easy Install**: download and use automated install scripts.
 2. **Manual Installation**: run install commands manually.
 
+!!! warning
+    There is a [known issue](https://github.com/conda/conda/issues/9345) with the latest miniconda version `Miniconda3-latest-Linux-x86_64.sh` that freezes when unpacking payload. Workaround is to use an earlier version of miniconda installation script `Miniconda3-4.7.10-Linux-x86_64.sh`. This message will be removed when fix is released.
+    
+    ```
+    wget https://repo.continuum.io/miniconda/Miniconda3-4.7.10-Linux-x86_64.sh
+    sh Miniconda3-4.7.10-Linux-x86_64.sh
+    ```
+
 
 ## Ubuntu
 
