@@ -33,16 +33,11 @@ Function | Input Parameters | Expected Output | Description
 `listen_for_order_nook_snapshots` | ev_loop: `asyncio.BaseEventLoop`, output: `asyncio.Queue` | None | Fetches or Subscribes to the order book deltas(diffs) for each trading pair. Additionally, parses the incoming message into a `OrderBookMessage` and appends it into the `output` Queue.
 
 ### ActiveOrderTracker
-
+Coming soon...
 
 
 ### OrderBookTracker
- The `OrderBookTracker` class is responsible for applying the `OrderBookMessage` in the respective 
- 
- The table below details the required functions in `OrderBookTrackerDataSource`:
-
-Function | Input Parameters | Expected Output | Description
----|---|---|---
+Coming soon...
 
 
 ## Task 2. User Stream Tracker
