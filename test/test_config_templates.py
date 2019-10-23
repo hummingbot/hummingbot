@@ -47,7 +47,7 @@ class ConfigTemplatesUnitTest(unittest.TestCase):
             with open(strategy_template_path, "r") as template_fd:
                 template_data = yaml_parser.load(template_fd)
                 template_version = template_data.get("template_version", 0)
-                self.assertGreaterEqual(template_version, 1)
+                self.assertGreaterEqual(template_version, 1, f"Template version too low at {strategy_template_path}")
                 for key in template_data:
                     if key == "template_version":
                         continue
