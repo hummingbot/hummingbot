@@ -73,4 +73,8 @@ Coming soon...
 
 ### Option 3. Unit Test Cases
 
+## Examples / Templates
+
+Please refer to [Examples / Templates](/developers/connectors/#examples-templates) for some existing reference when implementing a connector.
+
 
