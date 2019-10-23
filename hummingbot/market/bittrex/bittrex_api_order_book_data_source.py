@@ -14,6 +14,7 @@ from signalr_aio import Connection
 from signalr_aio.hubs import Hub
 from async_timeout import timeout
 
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry, BittrexOrderBookTrackerEntry
@@ -132,10 +133,6 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             await client.close()
             return all_markets.sort_values("USDVolume", ascending=False)
 
-    @property
-    def order_book_class(self) -> BittrexOrderBook:
-        return BittrexOrderBook
-
     async def get_trading_pairs(self) -> List[str]:
         if not self._symbols:
             try:
@@ -227,7 +224,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 snapshot: OrderBookMessage = await self.get_snapshot(temp_trading_pair)
 
-                order_book: BittrexOrderBook = BittrexOrderBook()
+                order_book: OrderBook = self.order_book_create_function()
                 active_order_tracker: BittrexActiveOrderTracker = BittrexActiveOrderTracker()
 
                 bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot)
@@ -355,7 +352,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     if decoded["type"] == "snapshot":
                         snapshot: Dict[str, any] = decoded
                         snapshot_timestamp = snapshot["nonce"]
-                        snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                        snapshot_msg: OrderBookMessage = BittrexOrderBook.snapshot_message_from_exchange(
                             snapshot["results"], snapshot_timestamp, metadata={"product_id": symbol}
                         )
                         snapshot_queue.put_nowait(snapshot_msg)
@@ -368,7 +365,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     if decoded["type"] == "update":
                         diff: Dict[str, any] = decoded
                         diff_timestamp = diff["nonce"]
-                        diff_msg: OrderBookMessage = self.order_book_class.diff_message_from_exchange(
+                        diff_msg: OrderBookMessage = BittrexOrderBook.diff_message_from_exchange(
                             diff["results"], diff_timestamp, metadata={"product_id": symbol}
                         )
                         diff_queue.put_nowait(diff_msg)
