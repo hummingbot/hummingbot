@@ -22,7 +22,7 @@ This file contains type declaration about some variables that are specified in t
 * **{strategy name}.pyx**  
 This file contains a bulk of functions that define the behavior of strategy. The `__init__` function defines the variables that were declared in the `{strategy name}.pxd` file and initializes fields inherited from `StrategyBase` class. All other functions can be customized depending on the behavior that the developer wants to create. A function that is especially important is `format_status()` because this function chooses which data to render when `status` is called on the client.
 * **{strategy name}_config_map.py**  
-This file handles prompting user for config values when the strategy is called. Each key value of the `config_map` has a `ConfigVal` assigned where developer can specify the prompt and assign validators to check for accepted values.
+This file handles prompting user for config values when the strategy is called. Each key value of the `config_map` has a `ConfigVar` assigned where developer can specify the prompt and assign validators to check for accepted values.
 * **start.py**  
 The `start()` function is what gets called when user calls the strategy on client side. This function should handle initialization of configs by calling `config_map`, set market names and wallets, and eventually execute the strategy.
 

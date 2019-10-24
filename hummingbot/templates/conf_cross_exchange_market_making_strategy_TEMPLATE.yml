@@ -2,6 +2,8 @@
 ###   Cross exchange market making strategy config   ###
 ########################################################
 
+template_version: 1
+
 # The following configuations are only required for the
 # cross exchange market making strategy
 
