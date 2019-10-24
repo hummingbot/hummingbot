@@ -52,3 +52,18 @@ wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installa
 chmod a+x update.sh
 ./update.sh
 ```
+
+
+## Installing from specific version via Docker
+`$TAG` = Hummingbot version e.g. `version-0.16.0` For more information, visit the list of versions of [Hummingbot tags](https://hub.docker.com/r/coinalpha/hummingbot/tags).
+
+```
+$ ./create.sh 
+
+** ✏️  Creating a new Hummingbot instance **
+
+ℹ️  Press [enter] for default values.
+
+➡️  Enter Hummingbot version: [latest|development] (default = "latest")
+$TAG
+```
