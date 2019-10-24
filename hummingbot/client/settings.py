@@ -32,6 +32,7 @@ EXCHANGES = {
     "huobi",
     "idex",
     "radar_relay",
+    "dolomite",
     "bittrex"
 }
 
@@ -40,6 +41,7 @@ DEXES = {
     "ddex",
     "idex",
     "radar_relay",
+    "dolomite"
 }
 
 STRATEGIES: List[str] = get_strategy_list()
@@ -51,6 +53,7 @@ EXAMPLE_PAIRS = {
     "radar_relay": "ZRX-WETH",
     "bamboo_relay": "ZRX-WETH",
     "coinbase_pro": "ETH-USDC",
+    "dolomite": "WETH-DAI",
     "huobi": "ethusdt"
 }
 
@@ -61,7 +64,8 @@ EXAMPLE_ASSETS = {
     "radar_relay": "ZRX",
     "bamboo_relay": "ZRX",
     "coinbase_pro": "ETH",
-    "huobi": "eth"
+    "huobi": "eth",
+    "dolomite": "LRC"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
