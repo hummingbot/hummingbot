@@ -184,13 +184,15 @@ global_config_map = {
                   required_if=using_wallet),
     "ethereum_chain_name":
         ConfigVar(key="ethereum_chain_name",
-                  prompt=None,
+                  prompt="What is your preferred ethereum chain name? >>> ",
                   type_str="str",
+                  required_if=using_exchange("dolomite"),
                   default="MAIN_NET"),
     "ethereum_token_overrides":
         ConfigVar(key="ethereum_token_overrides",
-                  prompt=None,
+                  prompt="What is your preferred ethereum token overrides? >>> ",
                   type_str="json",
+                  required_if=using_exchange("dolomite"),
                   default={}),
     # Whether or not to invoke cancel_all on exit if marketing making on a open order book DEX (e.g. Radar Relay)
     "on_chain_cancel_on_exit":
