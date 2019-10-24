@@ -118,9 +118,13 @@ def get_strategy_template_path(strategy: str) -> str:
 
 
 def get_erc20_token_addresses(symbols: List[str]):
+
     with open(TOKEN_ADDRESSES_FILE_PATH) as f:
         try:
-            data = json.load(f)
+            data: Dict[str, str] = json.load(f)
+            overrides: Dict[str, str] = global_config_map.get("ethereum_token_overrides").value
+            if overrides is not None:
+                data.update(overrides)
             addresses = [data[symbol] for symbol in symbols if symbol in data]
             return addresses
         except Exception as e:
