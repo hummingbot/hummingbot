@@ -22,8 +22,9 @@ yaml_parser = ruamel.yaml.YAML()
 
 class ConfigTemplatesUnitTest(unittest.TestCase):
 
-    def test_global_config_template(self):
-        global_config_template_path: str = realpath(join(__file__, "../../hummingbot/templates/conf_global_TEMPLATE.yml"))
+    def test_global_config_template_complete(self):
+        global_config_template_path: str = realpath(join(__file__,
+                                                         "../../hummingbot/templates/conf_global_TEMPLATE.yml"))
 
         with open(global_config_template_path, "r") as template_fd:
             template_data = yaml_parser.load(template_fd)
@@ -34,7 +35,10 @@ class ConfigTemplatesUnitTest(unittest.TestCase):
                     continue
                 self.assertTrue(key in global_config_map, f"{key} not in global_config_map")
 
-    def test_strategy_config_template(self):
+            for key in global_config_map:
+                self.assertTrue(key in template_data, f"{key} not in {global_config_template_path}")
+
+    def test_strategy_config_template_complete(self):
         folder = realpath(join(__file__, "../../hummingbot/strategy"))
         # Only include valid directories
         strategies = [d for d in listdir(folder) if isdir(join(folder, d)) and not d.startswith("__")]
@@ -52,3 +56,12 @@ class ConfigTemplatesUnitTest(unittest.TestCase):
                     if key == "template_version":
                         continue
                     self.assertTrue(key in strategy_config_map, f"{key} not in {strategy}_config_map")
+
+                for key in strategy_config_map:
+                    self.assertTrue(key in template_data, f"{key} not in {strategy_template_path}")
+
+    def test_global_config_prompt_exists(self):
+        for key in global_config_map:
+            cvar = global_config_map[key]
+            if cvar.required:
+                self.assertTrue(cvar.prompt is not None)
