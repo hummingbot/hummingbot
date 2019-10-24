@@ -163,6 +163,16 @@ global_config_map = {
                   required_if=using_exchange("bamboo_relay"),
                   type_str="bool",
                   default=True),
+    "bittrex_api_key":
+        ConfigVar(key="bittrex_api_key",
+                  prompt="Enter your Bittrex API key >>> ",
+                  required_if=using_exchange("bittrex"),
+                  is_secure=True),
+    "bittrex_secret_key":
+        ConfigVar(key="bittrex_secret_key",
+                  prompt="Enter your Bittrex secret key >>> ",
+                  required_if=using_exchange("bittrex"),
+                  is_secure=True),
     "wallet":
         ConfigVar(key="wallet",
                   prompt="Would you like to import an existing wallet or create a new wallet? (import/create) >>> ",
@@ -174,13 +184,15 @@ global_config_map = {
                   required_if=using_wallet),
     "ethereum_chain_name":
         ConfigVar(key="ethereum_chain_name",
-                  prompt=None,
+                  prompt="What is your preferred ethereum chain name? >>> ",
                   type_str="str",
+                  required_if=using_exchange("dolomite"),
                   default="MAIN_NET"),
     "ethereum_token_overrides":
         ConfigVar(key="ethereum_token_overrides",
-                  prompt=None,
+                  prompt="What is your preferred ethereum token overrides? >>> ",
                   type_str="json",
+                  required_if=using_exchange("dolomite"),
                   default={}),
     # Whether or not to invoke cancel_all on exit if marketing making on a open order book DEX (e.g. Radar Relay)
     "on_chain_cancel_on_exit":
@@ -238,12 +250,4 @@ global_config_map = {
                   prompt="What is your default exchange rate data feed name? >>> ",
                   required_if=lambda: False,
                   default="coin_gecko_api"),
-    "bittrex_api_key": ConfigVar(key="bittrex_api_key",
-                                 prompt="Enter your Bittrex API key >>> ",
-                                 required_if=using_exchange("bittrex"),
-                                 is_secure=True),
-    "bittrex_secret_key": ConfigVar(key="bittrex_secret_key",
-                                    prompt="Enter your Bittrex secret key >>> ",
-                                    required_if=using_exchange("bittrex"),
-                                    is_secure=True),
 }
