@@ -107,7 +107,7 @@ Running pre-create checks...
 Error with pre-create check: 
 ```
 
-This appears to be the installation isn't able to find the boot2docker.iso file in the Docker Toolbox installation folder or the user may behind a firewall or a proxy. The solution is download the boot2docker.iso manually and place it to the correct path then re-run docker quickstart terminal. 
+This can arise if the installation is unable to find the `boot2docker.iso` file in the Docker Toolbox installation folder or if the user is behind a firewall or a proxy. The solution is to download the `boot2docker.iso` manually and place it in the correct path, then re-run docker quickstart terminal. 
 
 ```bash
 # Docker Cache Path, change `YOUR_USERNAME` 
@@ -116,7 +116,7 @@ C:/Users/YOUR_USERNAME/.docker/machine/cache/boot2docker.iso
 # Download link
 https://github.com/boot2docker/boot2docker/releases/download/v19.03.4/boot2docker.iso
 ```
-Or you can use `curl` under command prompt with administrative rights.
+Alternatively, you can use `curl` in the command prompt. This method requires [administrative rights](https://windows101tricks.com/open-command-prompt-as-administrator-windows-10/).
 
 ```bash
 # Docker Cache Path, change `YOUR_USERNAME` 
@@ -124,7 +124,7 @@ curl -Lo C:/Users/YOUR_USERNAME/.docker/machine/cache/boot2docker.iso https://gi
 ```
 
 !!! note
-    If your Windows 10 build is 17063(or later) curl is included by default. All you need to do is run Command Prompt with administrative rights and you can use curl. The curl.exe is located at C:\Windows\System32. If you want to be able to use curl from anywhere, consider adding it to Path Environment Variables.
+    If your Windows 10 build is 17063(or later) curl is installed by default. All you need to do is run Command Prompt with administrative rights and you can use curl. The curl.exe is located at C:\Windows\System32. If you want to be able to use curl from anywhere, consider adding it to Path Environment Variables.
 
 ## Running Hummingbot
 
