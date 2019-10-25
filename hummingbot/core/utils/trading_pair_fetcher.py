@@ -167,28 +167,7 @@ class TradingPairFetcher:
                 return []
 
     @staticmethod
-<<<<<<< HEAD
-    async def fetch_bittrex_trading_pairs() -> List[str]:
-        async with aiohttp.ClientSession() as client:
-            async with client.get(BITTREX_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
-                if response.status == 200:
-                    try:
-                        all_trading_pairs: List[Dict[str, any]] = await response.json()
-                        return [item["symbol"]
-                                for item in all_trading_pairs
-                                if item["status"] == "ONLINE"]
-                    except Exception:
-                        pass
-                        # Do nothing if the request fails -- there will be no autocomplete for bittrex trading pairs
-                return []
-
-    @staticmethod
     async def fetch_dolomite_trading_pairs() -> List[str]:
-        from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
-
-=======
-    async def fetch_dolomite_trading_pairs() -> List[str]:
->>>>>>> Fixed merge conflicts and got rid of float usage in dolomite_market.pyx. Zack will finish up one of the missing part pertaining to the # of decimals
         async with aiohttp.ClientSession() as client:
             async with client.get(DOLOMITE_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
@@ -197,11 +176,7 @@ class TradingPairFetcher:
                         valid_trading_pairs: list = []
                         for item in all_trading_pairs["data"]:
                             valid_trading_pairs.append(item["market"])
-<<<<<<< HEAD
-                        return [DolomiteMarket.convert_from_exchange_trading_pair(p) for p in valid_trading_pairs]
-=======
                         return valid_trading_pairs
->>>>>>> Fixed merge conflicts and got rid of float usage in dolomite_market.pyx. Zack will finish up one of the missing part pertaining to the # of decimals
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for dolomite trading pairs
