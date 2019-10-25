@@ -33,6 +33,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | logo | id | name | ver | doc| maintainer |
 |:---:|:---:|:---:|:---:|:---:|:---:|
 | [![Bamboo Relay](https://i.ibb.co/1sPt940/Screen-Shot-2019-06-06-at-17-50-04.png)](https://bamboorelay.com/) | bamboo_relay | [Bamboo Relay](https://bamboorelay.com/) | * | [API](https://sra.bamboorelay.com/) | [dex@bamboorelay.com](mailto:dex@bamboorelay.com)
+| [![Veridex](https://dex.verisafe.io/)](https://dex.verisafe.io/) | veridex | [Veridex](https://dex.verisafe.io/) | * | [API](https://verisafe.github.io/veridex-api-spec/) | [dev@verisafe.io](mailto:dev@verisafe.io)
 
 ## Currently available strategies
 
