@@ -6,7 +6,7 @@ The Windows setup package is the easiest way for Windows users to setup and run 
 
 #### Step 1. Download Setup.exe
 
-You can download the Windows installer binary from our [releases page](https://hummingbot.io/). (!!!TODO: add URL for the release page)
+You can download the Windows installer binary from our [download page](https://hummingbot.io/download).
 
 #### Step 2. Run installer
 
