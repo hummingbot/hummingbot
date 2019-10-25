@@ -103,7 +103,7 @@ class HuobiMockAPI:
             "field-fees": "0.0",
             "finished-at": 1570575423650,
             "source": "spot-api",
-            "state": "canceled",
+            "state": "submitted",
             "canceled-at": 1570575423600
         }
     }
