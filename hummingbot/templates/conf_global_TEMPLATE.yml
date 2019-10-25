@@ -2,48 +2,40 @@
 ###   Global configurations   ###
 #################################
 
+# For more detailed information: https://docs.hummingbot.io
+template_version: 1
+
 # Exchange configs
-# Only fill out the credentials for the markets you are trading on
+bamboo_relay_use_coordinator: null
+bamboo_relay_pre_emptive_soft_cancels: null
+
 binance_api_key: null
 binance_api_secret: null
+
+bittrex_api_key: null
+bittrex_secret_key: null
+
 coinbase_pro_api_key: null
 coinbase_pro_secret_key: null
 coinbase_pro_passphrase: null
+
+huobi_api_key: null
+huobi_secret_key: null
+
 idex_api_key: null
-bamboo_relay_use_coordinator: null
-bamboo_relay_pre_emptive_soft_cancels: null
 
 # Ethereum wallet address: required for trading on a DEX
 wallet: null
 ethereum_rpc_url: null
+ethereum_chain_name: MAIN_NET
+ethereum_token_overrides: {}
 
-# Advanced configs: Do NOT touch unless you understand what you are changing
-client_id: null
-log_level: INFO
-debug_console: false
-strategy_report_interval: 900.0
-reporting_aggregation_interval: 60.0
-reporting_log_interval: 60.0
-logger_override_whitelist:
-- hummingbot.strategy.arbitrage
-- hummingbot.strategy.cross_exchange_market_making
-- conf
-key_file_path: conf/
-log_file_path: logs/
-on_chain_cancel_on_exit: false
-
-# kill switch
+# Kill switch
 kill_switch_enabled: null
-# The rate of performance at which you would want the bot to stop trading (-0.2 = 20%)
+## The rate of performance at which you would want the bot to stop trading (-0.2 = 20%)
 kill_switch_rate: null
 
-# telegram integration
-telegram_enabled: false
-telegram_token: null
-telegram_chat_id: null
-
-exchange_rate_default_data_feed: coin_gecko_api
-# paper trade template
+# Paper Trading
 paper_trade_enabled: false
 paper_trade_account_balance:
 - - USDT
@@ -62,5 +54,30 @@ paper_trade_account_balance:
   - 1000
 - - DAI
   - 1000
-# For more detailed information: https://docs.hummingbot.io
+
+# Telegram integration
+telegram_enabled: false
+telegram_token: null
+telegram_chat_id: null
+
+# Exchange rate
+exchange_rate_default_data_feed: coin_gecko_api
+exchange_rate_conversion:
+exchange_rate_fetcher:
+
+# Advanced configs: Do NOT touch unless you understand what you are changing
+client_id: null
+log_level: INFO
+debug_console: false
+strategy_report_interval: 900.0
+reporting_aggregation_interval: 60.0
+reporting_log_interval: 60.0
+logger_override_whitelist:
+- hummingbot.strategy.arbitrage
+- hummingbot.strategy.cross_exchange_market_making
+- conf
+key_file_path: conf/
+log_file_path: logs/
+on_chain_cancel_on_exit: false
+
 

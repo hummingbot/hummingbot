@@ -32,6 +32,7 @@ EXCHANGES = {
     "huobi",
     "idex",
     "radar_relay",
+    "dolomite",
     "bittrex"
 }
 
@@ -40,6 +41,7 @@ DEXES = {
     "ddex",
     "idex",
     "radar_relay",
+    "dolomite"
 }
 
 STRATEGIES: List[str] = get_strategy_list()
@@ -51,6 +53,7 @@ EXAMPLE_PAIRS = {
     "radar_relay": "ZRX-WETH",
     "bamboo_relay": "ZRX-WETH",
     "coinbase_pro": "ETH-USDC",
+    "dolomite": "WETH-DAI",
     "huobi": "ethusdt"
 }
 
@@ -61,7 +64,8 @@ EXAMPLE_ASSETS = {
     "radar_relay": "ZRX",
     "bamboo_relay": "ZRX",
     "coinbase_pro": "ETH",
-    "huobi": "eth"
+    "huobi": "eth",
+    "dolomite": "LRC"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
@@ -70,13 +74,3 @@ MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT = 100
 
 # Liquidity Bounties:
 LIQUIDITY_BOUNTY_CONFIG_PATH = "conf/conf_liquidity_bounty.yml"
-
-
-# Values that were once a part of configuration but no longer needed.
-# Keep them for reference in case a user is using outdated config files
-DEPRECATED_CONFIG_VALUES = {
-    "stop_loss_pct",
-    "stop_loss_price_type",
-    "stop_loss_base_token",
-    "trade_size_override",
-}

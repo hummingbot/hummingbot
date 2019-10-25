@@ -207,10 +207,6 @@ class ConfigCommand:
             self._notify('Invalid choice. Please enter "create" or "import".')
             strategy_path = await self._import_or_create_strategy_config()
 
-        # Validate response
-        if not strategy_file_path_cv.validate(strategy_path):
-            self._notify(f"Invalid path {strategy_path}. Please enter \"create\" or \"import\".")
-            strategy_path = await self._import_or_create_strategy_config()
         return strategy_path
 
     async def prompt_single_variable(self,  # type: HummingbotApplication
@@ -238,6 +234,7 @@ class ConfigCommand:
             if not cvar.validate(val):
                 self._notify("%s is not a valid %s value" % (val, cvar.key))
                 val = await self.prompt_single_variable(cvar, requirement_overwrite)
+
         else:
             val = cvar.value
         if val is None or (isinstance(val, string_types) and len(val) == 0):
