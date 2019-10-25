@@ -11,15 +11,15 @@ Below are the general tasks that each class component has to fulfil.
 
 Class | Task(s)
 ----|----
-**(1) OrderBookTrackerDataSource** | Responsible for retrieving all the data from the connector's API server. Does initital parsing before being processed by `OrderBookTracker`.
-**(2) OrderBookTracker** | Responsible for processing the data obtained from the data source. Maintains a copy of the market's real-time order book.
-**(3) UserStreamTracker** | Responsible for processing orders and account balances data specific to the user on a particular exchange.
-**(4) Market** | Responsible for executing buy, sell and cancel orders. 
-**(5) InFlightOrder** | Stores all details and state of an order.
-**(6) MarketAuth** | Responsible for signing certain requests to authenticate the user requests.
-**(7) OrderBookTrackerEntry** | Stores the order book of a particular market.
-**(8) OrderBookMessage** | Represents a message response from the exchange API servers.
-**(9) ActiveOrderTracker** | Mainly used by DEXes to keep track of orders. Also converts API responses to a `OrderBookRow` that would be used to maintain the real-time order book.
+**OrderBookTrackerDataSource**<br/>*REQUIRED* | Responsible for retrieving all the data from the connector's API server. Does initital parsing before being processed by `OrderBookTracker`.
+**OrderBookTracker**<br/>*REQUIRED* | Responsible for processing the data obtained from the data source. Maintains a copy of the market's real-time order book.
+**Market**<br/>*REQUIRED* | Responsible for executing buy, sell and cancel orders. 
+**InFlightOrder**<br/>*REQUIRED* | Stores all details and state of an order.
+**UserStreamTracker** | Responsible for processing orders and account balances data specific to the user on a particular exchange.
+**MarketAuth** | Responsible for signing certain requests to authenticate the user requests.
+**OrderBookTrackerEntry**<br/>*REQUIRED* | Stores the order book of a particular market.
+**OrderBookMessage**<br/>*REQUIRED* | Represents a message response from the exchange API servers.
+**ActiveOrderTracker** | Mainly used by DEXes to keep track of orders. Also converts API responses to a `OrderBookRow` that would be used to maintain the real-time order book.
 
 ## Directory and File Structure
 
@@ -27,17 +27,19 @@ Each exchange connector consists of the following files:
 
 ```
 hummingbot/market/<market_name> # folder for specific exchange
-├── *_market.pyx                    
+├── *_market.[pyx,pxd]                    
 ├── *_auth.py                      
 ├── *_data_source.py               
-├── *_order_book.pyx                
+├── *_order_book.[pyx,pxd]                
 ├── *_order_book_tracker.py        
-├── *_active_order_tracker.pyx 
+├── *_active_order_tracker.[pyx,pxd]
 ├── *_user_stream_tracker.py 
-└── *_in_flight_order.pyx
+└── *_in_flight_order.[pyx,pxd]
 ```
 
 ## Component Overview
+
+Below 
 
 Component<div style="width: 210px"/>                     | Description
 :--------------------------------------------------------|-------------
