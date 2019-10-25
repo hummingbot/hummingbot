@@ -8,7 +8,6 @@ from sqlalchemy.engine import RowProxy
 
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.core.data_type.order_book_message import LiquidOrderBookMessage
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 
 
@@ -31,15 +30,16 @@ cdef class LiquidOrderBook(OrderBook):
         Convert json snapshot data into standard OrderBookMessage format
         :param msg: json snapshot data from live web socket stream
         :param timestamp: timestamp attached to incoming data
-        :return: LiquidOrderBookMessage
+        :return: OrderBookMessage
         """
         if metadata:
             msg.update(metadata)
-        return LiquidOrderBookMessage(
-            message_type=OrderBookMessageType.SNAPSHOT,
-            content=msg,
-            timestamp=timestamp
-        )
+        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
+            "symbol": msg["symbol"],
+            "update_id": msg["lastUpdateId"],
+            "bids": msg["bids"],
+            "asks": msg["asks"]
+        }, timestamp=timestamp)
 
     @classmethod
     def diff_message_from_exchange(cls,
@@ -57,7 +57,7 @@ cdef class LiquidOrderBook(OrderBook):
             msg.update(metadata)
         if "time" in msg:
             msg_time = pd.Timestamp(msg["time"]).timestamp()
-        return LiquidOrderBookMessage(
+        return OrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=msg,
             timestamp=timestamp or msg_time)

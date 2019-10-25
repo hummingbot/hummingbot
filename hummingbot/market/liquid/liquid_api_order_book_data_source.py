@@ -10,13 +10,13 @@ from typing import List
 from typing import Optional
 
 from hummingbot.core.utils import async_ttl_cache
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.liquid.liquid_order_book import LiquidOrderBook
-from hummingbot.market.liquid.liquid_active_order_tracker import LiquidActiveOrderTracker
 from hummingbot.market.liquid.constants import Constants
 
 
@@ -34,7 +34,7 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__()
 
         self._symbols: Optional[List[str]] = symbols
-        self._order_book_create_function = lambda: OrderBook()
+        # self._order_book_create_function = lambda: OrderBook()
     
         self.symbol_id_conversion_dict: Dict[str, int] = {}
     
@@ -58,8 +58,8 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         # Build the data frame
         all_markets_df: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index='currency_pair_code')
 
-        btc_price: float = float(all_markets_df.loc['BTCUSDC'].last_traded_price)
-        eth_price: float = float(all_markets_df.loc['ETHUSDC'].last_traded_price)
+        btc_price: float = float(all_markets_df.loc['BTCUSD'].last_traded_price)
+        eth_price: float = float(all_markets_df.loc['ETHUSD'].last_traded_price)
         usd_volume: float = [
             (
                 quoteVolume * btc_price if trading_pair.endswith('BTC') else
@@ -71,10 +71,10 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 all_markets_df.volume_24h.astype('float')
             )
         ]
-        
-        all_markets_df.loc[:, 'USDVolume'] = usd_volume
+
+        all_markets_df.loc[:, 'usd_volume'] = usd_volume
         all_markets_df.loc[:, 'volume'] = all_markets_df.volume_24h
-        return all_markets_df.sort_values("USDVolume", ascending=False)
+        return all_markets_df
 
     @classmethod
     async def get_exchange_markets_data(cls) -> (List):
@@ -129,8 +129,8 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         * Market with 'disabled' field set to True
         """
         return [
-            item for item in exchange_markets_data
-            if item['disabled'] is False
+            item for item in exchange_markets_data 
+            if item['disabled'] is False and item['symbol'] is not None
         ]
 
     async def get_trading_pairs(self) -> List[str]:
@@ -161,12 +161,13 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 )
         return self._symbols
     
-    async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str, full: int = 1) -> Dict[str, Any]:
+    @staticmethod
+    async def get_snapshot(client: aiohttp.ClientSession, id: int, full: int = 1) -> Dict[str, Any]:
         """
         Method designed to fetch individual trading_pair corresponded order book, aka snapshot
 
         param: client - aiohttp client session
-        param: trading_pair - used to identify different order book, will be converted to id
+        param: id - used to identify different order book
         param: full - with full set to 1, return full order book, otherwise return 20 records
                       if 0 is selected
 
@@ -174,11 +175,7 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         |-- buy_price_levels: list[str, str]  # [price, amount]
         |-- sell_price_levels: list[str, str]  # [price, amount]
         """
-        product_id = self.symbol_id_conversion_dict.get(trading_pair, None)
-        if not product_id:
-            raise ValueError(f"Invalid trading pair {trading_pair} and product id {product_id} found")
-
-        async with client.get(Constants.GET_SNAPSHOT_URL.format(id=product_id, full=full)) as response:
+        async with client.get(Constants.GET_SNAPSHOT_URL.format(id=id, full=full)) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching Liquid market snapshot for {id}. "
@@ -193,14 +190,12 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         # Get the currently active markets
         async with aiohttp.ClientSession() as client:
-
             trading_pairs: List[str] = await self.get_trading_pairs()
-
             retval: Dict[str, OrderBookTrackerEntry] = {}
+
             number_of_pairs: int = len(trading_pairs)
 
             for index, trading_pair in enumerate(trading_pairs):
-
                 try:
                     snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, 1)
                     snapshot_timestamp: float = time.time()
@@ -209,13 +204,8 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         snapshot_timestamp,
                         metadata={"symbol": trading_pair}
                     )
-
                     order_book: OrderBook = self.order_book_create_function()
-                    active_order_tracker: LiquidActiveOrderTracker = LiquidActiveOrderTracker()
-                    bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
-
-                    order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
-
+                    order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
                     retval[trading_pair] = OrderBookTrackerEntry(trading_pair, snapshot_timestamp, order_book)
 
                     self.logger().info(f"Initialized order book for {trading_pair}." 
