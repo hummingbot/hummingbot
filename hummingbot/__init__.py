@@ -84,7 +84,7 @@ def is_independent_package() -> bool:
     global _independent_package
     import os
     if _independent_package is None:
-        _independent_package = (os.path.basename(sys.executable) != "python")
+        _independent_package = not os.path.basename(sys.executable).startswith("python")
     return _independent_package
 
 
