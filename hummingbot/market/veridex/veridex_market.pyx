@@ -64,7 +64,7 @@ s_decimal_0 = Decimal(0)
 
 ZERO_EX_MAINNET_ERC20_PROXY = "0x95E6F48254609A6ee006F7D493c8e5fB97094ceF"
 ZERO_EX_MAINNET_EXCHANGE_ADDRESS = "0x080bf510FCbF18b91105470639e9561022937712"
-veridex_REST_ENDPOINT = "https://api.Veridex.com/v2"
+VERIDEX_REST_ENDPOINT = "https://localhost/v2/0x"
 
 
 cdef class VeridexTransactionTracker(TransactionTracker):
@@ -117,7 +117,7 @@ cdef class VeridexMarket(MarketBase):
         super().__init__()
         self._trading_required = trading_required
         self._order_book_tracker = VeridexOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                              symbols=symbols)
+                                                           symbols=symbols)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
@@ -267,7 +267,7 @@ cdef class VeridexMarket(MarketBase):
         self._account_balances = self.wallet.get_all_balances()
 
     async def list_market(self) -> Dict[str, Any]:
-        url = f"{veridex_REST_ENDPOINT}/markets?include=base"
+        url = f"{VERIDEX_REST_ENDPOINT}/markets?include=base"
         return await self._api_request(http_method="get", url=url)
 
     async def _update_trading_rules(self):
@@ -299,11 +299,11 @@ cdef class VeridexMarket(MarketBase):
         return retval
 
     async def get_account_orders(self) -> List[Dict[str, Any]]:
-        list_account_orders_url = f"{veridex_REST_ENDPOINT}/accounts/{self._wallet.address}/orders"
+        list_account_orders_url = f"{VERIDEX_REST_ENDPOINT}/accounts/{self._wallet.address}/orders"
         return await self._api_request(http_method="get", url=list_account_orders_url)
 
     async def get_order(self, order_hash: str) -> Dict[str, Any]:
-        order_url = f"{veridex_REST_ENDPOINT}/orders/{order_hash}"
+        order_url = f"{VERIDEX_REST_ENDPOINT}/orders/{order_hash}"
         return await self._api_request("get", url=order_url)
 
     async def _get_order_updates(self, tracked_limit_orders: List[VeridexInFlightOrder]) -> List[Dict[str, Any]]:
@@ -577,7 +577,7 @@ cdef class VeridexMarket(MarketBase):
             order_type = "SELL"
         else:
             raise ValueError("Invalid trade_type. Aborting.")
-        url = f"{veridex_REST_ENDPOINT}/markets/{symbol}/order/market"
+        url = f"{VERIDEX_REST_ENDPOINT}/markets/{symbol}/order/market"
         data = {
             "type": order_type,
             "quantity": amount
@@ -593,7 +593,7 @@ cdef class VeridexMarket(MarketBase):
             order_type = "SELL"
         else:
             raise ValueError("Invalid trade_type. Aborting.")
-        url = f"{veridex_REST_ENDPOINT}/markets/{symbol}/order/limit"
+        url = f"{VERIDEX_REST_ENDPOINT}/markets/{symbol}/order/limit"
         data = {
             "type": order_type,
             "quantity": amount,
@@ -647,7 +647,7 @@ cdef class VeridexMarket(MarketBase):
                                  amount: Decimal,
                                  price: Decimal,
                                  expires: int) -> Tuple[str, ZeroExOrder]:
-        url = f"{veridex_REST_ENDPOINT}/orders"
+        url = f"{VERIDEX_REST_ENDPOINT}/orders"
         unsigned_limit_order = await self.request_unsigned_limit_order(symbol=symbol,
                                                                        trade_type=trade_type,
                                                                        amount=str(amount),
@@ -843,7 +843,7 @@ cdef class VeridexMarket(MarketBase):
         return self._w3.eth.getTransactionReceipt(tx_hash)
 
     async def list_account_orders(self) -> List[Dict[str, Any]]:
-        url = f"{veridex_REST_ENDPOINT}/accounts/{self._wallet.address}/orders"
+        url = f"{VERIDEX_REST_ENDPOINT}/accounts/{self._wallet.address}/orders"
         response_data = await self._api_request("get", url=url)
         return response_data
 
@@ -893,7 +893,7 @@ cdef class VeridexMarket(MarketBase):
             return NetworkStatus.NOT_CONNECTED
 
         try:
-            await self._api_request("GET", f"{veridex_REST_ENDPOINT}/tokens")
+            await self._api_request("GET", f"{VERIDEX_REST_ENDPOINT}/tokens")
         except asyncio.CancelledError:
             raise
         except Exception:

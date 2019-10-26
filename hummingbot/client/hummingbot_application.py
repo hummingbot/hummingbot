@@ -27,11 +27,11 @@ from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.paper_trade import create_paper_trade_market
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
+from hummingbot.market.veridex.veridex_market import VeridexMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
-from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.client.ui.keybindings import load_key_bindings
 from hummingbot.client.ui.parser import (
@@ -71,6 +71,7 @@ MARKET_CLASSES = {
     "huobi": HuobiMarket,
     "idex": IDEXMarket,
     "radar_relay": RadarRelayMarket,
+    "veridex": VeridexMarket,
     "bittrex": BittrexMarket
 }
 
@@ -181,7 +182,7 @@ class HummingbotApplication(*commands):
                     kill_timeout = self.IDEX_KILL_TIMEOUT
                 # By default, the bot does not cancel orders on exit on Radar Relay or Bamboo Relay,
                 # since all open orders will expire in a short window
-                if not on_chain_cancel_on_exit and (market_name == "radar_relay" or (market_name == "bamboo_relay" and not bamboo_relay_use_coordinator)):
+                if not on_chain_cancel_on_exit and (market_name == "radar_relay" or (market_name == "bamboo_relay" and not bamboo_relay_use_coordinator) or market_name == "veridex"):
                     continue
                 cancellation_results = await market.cancel_all(kill_timeout)
                 uncancelled = list(filter(lambda cr: cr.success is False, cancellation_results))
@@ -218,13 +219,13 @@ class HummingbotApplication(*commands):
 
     def _initialize_wallet(self, token_symbols: List[str]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
+        ethereum_chain = global_config_map.get("ethereum_network_id").value
         erc20_token_addresses = get_erc20_token_addresses(token_symbols)
-
         if self.acct is not None:
             self.wallet: Web3Wallet = Web3Wallet(private_key=self.acct.privateKey,
                                                  backend_urls=[ethereum_rpc_url],
                                                  erc20_token_addresses=erc20_token_addresses,
-                                                 chain=EthereumChain.MAIN_NET)
+                                                 chain=ethereum_chain)
 
     def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
@@ -280,6 +281,11 @@ class HummingbotApplication(*commands):
                                           ethereum_rpc_url=ethereum_rpc_url,
                                           symbols=symbols,
                                           trading_required=self._trading_required)
+            elif market_name == "veridex" and self.wallet:
+                market = VeridexMarket(wallet=self.wallet,
+                                       ethereum_rpc_url=ethereum_rpc_url,
+                                       symbols=symbols,
+                                       trading_required=self._trading_required)
 
             elif market_name == "bamboo_relay" and self.wallet:
                 use_coordinator = global_config_map.get("bamboo_relay_use_coordinator").value

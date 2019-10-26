@@ -6,6 +6,7 @@ from hummingbot.market.coinbase_pro.coinbase_pro_active_order_tracker import Coi
 from hummingbot.market.ddex.ddex_active_order_tracker import DDEXActiveOrderTracker
 from hummingbot.market.idex.idex_active_order_tracker import IDEXActiveOrderTracker
 from hummingbot.market.radar_relay.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
+from hummingbot.market.veridex.veridex_active_order_tracker import VeridexActiveOrderTracker
 from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
 
 
@@ -90,7 +91,7 @@ class RadarRelayOrderBookTrackerEntry(OrderBookTrackerEntry):
 
 class VeridexOrderBookTrackerEntry(OrderBookTrackerEntry):
     def __init__(
-        self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: RadarRelayActiveOrderTracker
+        self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: VeridexActiveOrderTracker
     ):
         self._active_order_tracker = active_order_tracker
         super(VeridexOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
@@ -102,7 +103,7 @@ class VeridexOrderBookTrackerEntry(OrderBookTrackerEntry):
         )
 
     @property
-    def active_order_tracker(self) -> RadarRelayActiveOrderTracker:
+    def active_order_tracker(self) -> VeridexActiveOrderTracker:
         return self._active_order_tracker
 
 

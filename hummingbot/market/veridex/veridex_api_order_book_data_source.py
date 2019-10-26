@@ -84,7 +84,7 @@ class VeridexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with client.get(f"{MARKETS_URL}?include=ticker,stats") as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
-                raise IOError(f"Error fetching active Radar Relay markets. HTTP status is {response.status}.")
+                raise IOError(f"Error fetching active Veridex markets. HTTP status is {response.status}.")
             data = await response.json()
             data: List[Dict[str, any]] = [
                 {**item, **{"baseAsset": item["id"].split("-")[0], "quoteAsset": item["id"].split("-")[1]}}
@@ -114,7 +114,7 @@ class VeridexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with client.get(f"{REST_BASE_URL}/markets/{trading_pair}/book") as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
-                raise IOError(f"Error fetching Radar Relay market snapshot for {trading_pair}. "
+                raise IOError(f"Error fetching Veridex market snapshot for {trading_pair}. "
                               f"HTTP status is {response.status}.")
             return await response.json()
 
@@ -207,7 +207,8 @@ class VeridexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         request: Dict[str, str] = {
                             "type": "SUBSCRIBE",
                             "topic": "BOOK",
-                            "market": trading_pair
+                            "market": trading_pair,
+                            "requedId": "humming_bot"
                         }
                         await ws.send(ujson.dumps(request))
                     async for raw_msg in self._inner_messages(ws):

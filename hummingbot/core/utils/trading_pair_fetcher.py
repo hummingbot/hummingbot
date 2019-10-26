@@ -11,6 +11,7 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 BINANCE_ENDPOINT = "https://api.binance.com/api/v1/exchangeInfo"
 DDEX_ENDPOINT = "https://api.ddex.io/v3/markets"
 RADAR_RELAY_ENDPOINT = "https://api.radarrelay.com/v2/markets"
+VERIDEX_ENDPOINT = "https://veridex.herokuapp.com/v2/0x/markets"
 BAMBOO_RELAY_ENDPOINT = "https://rest.bamboorelay.com/main/0x/markets"
 COINBASE_PRO_ENDPOINT = "https://api.pro.coinbase.com/products/"
 IDEX_REST_ENDPOINT = "https://api.idex.market/returnTicker"
@@ -69,6 +70,28 @@ class TradingPairFetcher:
         while True:
             async with aiohttp.ClientSession() as client:
                 async with client.get(f"{RADAR_RELAY_ENDPOINT}?perPage=100&page={page_count}", timeout=API_CALL_TIMEOUT) \
+                        as response:
+                    if response.status == 200:
+                        try:
+                            markets = await response.json()
+                            new_trading_pairs = set(map(lambda details: details.get('id'), markets))
+                            if len(new_trading_pairs) == 0:
+                                break
+                            else:
+                                trading_pairs = trading_pairs.union(new_trading_pairs)
+                            page_count += 1
+                        except Exception:
+                            # Do nothing if the request fails -- there will be no autocomplete for radar trading pairs
+                            break
+        return list(trading_pairs)
+
+    @staticmethod
+    async def fetch_veridex_trading_pairs() -> List[str]:
+        trading_pairs = set()
+        page_count = 1
+        while True:
+            async with aiohttp.ClientSession() as client:
+                async with client.get(f"{VERIDEX_ENDPOINT}?perPage=100&page={page_count}", timeout=API_CALL_TIMEOUT) \
                         as response:
                     if response.status == 200:
                         try:
@@ -153,6 +176,7 @@ class TradingPairFetcher:
         binance_trading_pairs = await self.fetch_binance_trading_pairs()
         ddex_trading_pairs = await self.fetch_ddex_trading_pairs()
         radar_relay_trading_pairs = await self.fetch_radar_relay_trading_pairs()
+        veridex_trading_pairs = await self.fetch_veridex_trading_pairs()
         bamboo_relay_trading_pairs = await self.fetch_bamboo_relay_trading_pairs()
         coinbase_pro_trading_pairs = await self.fetch_coinbase_pro_trading_pairs()
         huobi_trading_pairs = await self.fetch_huobi_trading_pairs()
@@ -165,5 +189,6 @@ class TradingPairFetcher:
             "bamboo_relay": bamboo_relay_trading_pairs,
             "coinbase_pro": coinbase_pro_trading_pairs,
             "huobi": huobi_trading_pairs,
+            "veridex": veridex_trading_pairs,
         }
         self.ready = True

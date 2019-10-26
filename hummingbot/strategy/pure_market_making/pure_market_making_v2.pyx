@@ -73,7 +73,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                            [])
 
     # These are exchanges where you're expected to expire orders instead of actively cancelling them.
-    RADAR_RELAY_TYPE_EXCHANGES = {"radar_relay", "bamboo_relay"}
+    RADAR_RELAY_TYPE_EXCHANGES = {"radar_relay", "bamboo_relay", "veridex"}
 
     # This is a temporary way to check if the mode of the strategy is of single order type,
     # for the replenish delay & enable_order_filled_stop_cancellation feature
