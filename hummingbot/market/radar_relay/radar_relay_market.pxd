@@ -15,6 +15,7 @@ cdef class RadarRelayMarket(MarketBase):
         double _last_update_limit_order_timestamp
         double _last_update_market_order_timestamp
         double _last_update_trading_rules_timestamp
+        double _last_update_available_balance_timestamp
         double _poll_interval
         dict _in_flight_limit_orders
         dict _in_flight_market_orders
