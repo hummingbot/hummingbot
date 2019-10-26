@@ -124,6 +124,7 @@ cdef class RadarRelayMarket(MarketBase):
         self._last_update_limit_order_timestamp = 0
         self._last_update_market_order_timestamp = 0
         self._last_update_trading_rules_timestamp = 0
+        self._last_update_available_balance_timestamp = 0
         self._poll_interval = poll_interval
         self._in_flight_limit_orders = {}  # limit orders are off chain
         self._in_flight_market_orders = {}  # market orders are on chain
@@ -235,8 +236,8 @@ cdef class RadarRelayMarket(MarketBase):
                 await self._poll_notifier.wait()
 
                 self._update_balances()
+                self._update_available_balances()
                 await safe_gather(
-                    self._update_available_balances(),
                     self._update_trading_rules(),
                     self._update_limit_order_status(),
                     self._update_market_order_status()
@@ -272,17 +273,25 @@ cdef class RadarRelayMarket(MarketBase):
     def _update_balances(self):
         self._account_balances = self.wallet.get_all_balances().copy()
 
-    async def _update_available_balances(self):
+    def _update_available_balances(self):
         cdef:
             double current_timestamp = self._current_timestamp
 
         if current_timestamp - self._last_update_available_balance_timestamp > 10.0:
-            locked_balances = await self.list_locked_balances()
-            total_balances = self.get_all_balances()
 
-            for currency, balance in total_balances.items():
-                self._account_available_balances[currency] = \
-                    Decimal(total_balances[currency]) - locked_balances.get(currency, s_decimal_0)
+            if len(self._in_flight_limit_orders) != 0:
+                locked_balances = {}
+                total_balances = self._account_balances
+
+                for order in self._in_flight_limit_orders.values():
+                    locked_balances[order['symbol']] = locked_balances.get(order['symbol'], s_decimal_0) + order['amount']
+
+                for currency, balance in total_balances.items():
+                    self._account_available_balances[currency] = \
+                        Decimal(total_balances[currency]) - locked_balances.get(currency, s_decimal_0)
+            else:
+                self._account_available_balances = self._account_balances.copy()
+
             self._last_update_available_balance_timestamp = current_timestamp
 
     async def list_market(self) -> Dict[str, Any]:
