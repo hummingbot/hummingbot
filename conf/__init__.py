@@ -53,6 +53,10 @@ web3_test_private_key_idex = os.getenv("IDEX_WALLET_PRIVATE_KEY")
 huobi_api_key = os.getenv("HUOBI_API_KEY")
 huobi_secret_key = os.getenv("HUOBI_SECRET_KEY")
 
+# Dolomite Tests
+dolomite_test_web3_private_key = os.getenv("DOLOMITE_TEST_PK")
+dolomite_test_web3_address = os.getenv("DOLOMITE_TEST_ADDR")
+
 # Bittrex Tests
 bittrex_api_key = os.getenv("BITTREX_API_KEY")
 bittrex_secret_key = os.getenv("BITTREX_SECRET_KEY")

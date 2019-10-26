@@ -13,6 +13,10 @@ from subprocess import (
     check_call,
     check_output
 )
+from typing import (
+    List,
+    Optional,
+)
 import sys
 
 
@@ -33,13 +37,16 @@ def generate_app_bundle():
 def main():
     system_type: str = platform.system()
 
-    if not check_call([join(project_dir(), "compile")], shell=True):
+    try:
+        check_call([join(project_dir(), "compile")], shell=True)
         if system_type == "Windows":
             check_call([join(project_dir(), "compile")], shell=True)
-        else:
-            print("Error: compile failed.", file=sys.stderr)
-            sys.exit(1)
+    except Exception:
+        print("Error: compile failed.", file=sys.stderr)
+        sys.exit(1)
+
     shutil.move(join(project_dir(), "bin", "hummingbot.py"), join(project_dir(), "bin", "bot"))
+
     try:
         spec_file_path: str = join(project_dir(), "pyinstaller", "bot.spec")
         path_cmd: str = "which pyinstaller"
