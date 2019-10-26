@@ -208,7 +208,7 @@ class VeridexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             "type": "SUBSCRIBE",
                             "topic": "BOOK",
                             "market": trading_pair,
-                            "requedId": "humming_bot"
+                            "requestId": "humming_bot"
                         }
                         await ws.send(ujson.dumps(request))
                     async for raw_msg in self._inner_messages(ws):

@@ -64,7 +64,7 @@ s_decimal_0 = Decimal(0)
 
 ZERO_EX_MAINNET_ERC20_PROXY = "0x95E6F48254609A6ee006F7D493c8e5fB97094ceF"
 ZERO_EX_MAINNET_EXCHANGE_ADDRESS = "0x080bf510FCbF18b91105470639e9561022937712"
-VERIDEX_REST_ENDPOINT = "https://localhost/v2/0x"
+VERIDEX_REST_ENDPOINT = "https://veridex.herokuapp.com/v2/0x"
 
 
 cdef class VeridexTransactionTracker(TransactionTracker):

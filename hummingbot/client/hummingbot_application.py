@@ -32,6 +32,7 @@ from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
+from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.client.ui.keybindings import load_key_bindings
 from hummingbot.client.ui.parser import (
@@ -219,13 +220,12 @@ class HummingbotApplication(*commands):
 
     def _initialize_wallet(self, token_symbols: List[str]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
-        ethereum_chain = global_config_map.get("ethereum_network_id").value
         erc20_token_addresses = get_erc20_token_addresses(token_symbols)
         if self.acct is not None:
             self.wallet: Web3Wallet = Web3Wallet(private_key=self.acct.privateKey,
                                                  backend_urls=[ethereum_rpc_url],
                                                  erc20_token_addresses=erc20_token_addresses,
-                                                 chain=ethereum_chain)
+                                                 chain=EthereumChain.MAIN_NET)
 
     def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
