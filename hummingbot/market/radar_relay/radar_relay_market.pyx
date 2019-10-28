@@ -124,6 +124,7 @@ cdef class RadarRelayMarket(MarketBase):
         self._last_update_limit_order_timestamp = 0
         self._last_update_market_order_timestamp = 0
         self._last_update_trading_rules_timestamp = 0
+        self._last_update_available_balance_timestamp = 0
         self._poll_interval = poll_interval
         self._in_flight_limit_orders = {}  # limit orders are off chain
         self._in_flight_market_orders = {}  # market orders are on chain
@@ -151,6 +152,7 @@ cdef class RadarRelayMarket(MarketBase):
         return {
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
+            "account_available_balance": len(self._account_available_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True,
             "token_approval": len(self._pending_approval_tx_hashes) == 0 if self._trading_required else True
         }
@@ -158,6 +160,10 @@ cdef class RadarRelayMarket(MarketBase):
     @property
     def ready(self) -> bool:
         return all(self.status_dict.values())
+
+    @property
+    def name(self) -> str:
+        return "radar_relay"
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -230,6 +236,7 @@ cdef class RadarRelayMarket(MarketBase):
                 await self._poll_notifier.wait()
 
                 self._update_balances()
+                self._update_available_balances()
                 await safe_gather(
                     self._update_trading_rules(),
                     self._update_limit_order_status(),
@@ -264,7 +271,28 @@ cdef class RadarRelayMarket(MarketBase):
         return TradeFee(percent=Decimal(0.0), flat_fees=[("ETH", transaction_cost_eth)])
 
     def _update_balances(self):
-        self._account_balances = self.wallet.get_all_balances()
+        self._account_balances = self.wallet.get_all_balances().copy()
+
+    def _update_available_balances(self):
+        cdef:
+            double current_timestamp = self._current_timestamp
+
+        if current_timestamp - self._last_update_available_balance_timestamp > 10.0:
+
+            if len(self._in_flight_limit_orders) >= 0:
+                locked_balances = {}
+                total_balances = self._account_balances
+
+                for order in self._in_flight_limit_orders.values():
+                    locked_balances[order.symbol] = locked_balances.get(order.symbol, s_decimal_0) + order.amount
+
+                for currency, balance in total_balances.items():
+                    self._account_available_balances[currency] = \
+                        Decimal(total_balances[currency]) - locked_balances.get(currency, s_decimal_0)
+            else:
+                self._account_available_balances = self._account_balances.copy()
+
+            self._last_update_available_balance_timestamp = current_timestamp
 
     async def list_market(self) -> Dict[str, Any]:
         url = f"{RADAR_RELAY_REST_ENDPOINT}/markets?include=base"
