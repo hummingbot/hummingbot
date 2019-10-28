@@ -1,11 +1,13 @@
 import requests
 
-class Hitbtc:
+class HitbtcAuth:
     """
     Auth Class required by HitBTC API
     Learn more at https://api.hitbtc.com/#authentication
     """
-    def _init_(self, url: str, publicKey: str, secretKey: str):
+    url = "https://api.hitbtc.com"
+    
+    def _init_(self, publicKey: str, secretKey: str):
         self.url = url + "/api/2"
         self.publicKey = publicKey
         self.secretKey = secretKey
