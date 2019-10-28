@@ -77,7 +77,7 @@ class ERC20Token:
             if self._address == KOVAN_WETH_ADDRESS:
                 self._abi = w_abi
 
-        token_overrides: Dict[str, str] = global_config_map["ethereum_token_overrides"].value
+        token_overrides: Dict[str, str] = global_config_map["ethereum_token_overrides"].value or {}
         override_addr_to_token_name: Dict[str, str] = {value: key for key, value in token_overrides.items()}
         override_token_name: Optional[str] = override_addr_to_token_name.get(address)
         if override_token_name == "WETH":
