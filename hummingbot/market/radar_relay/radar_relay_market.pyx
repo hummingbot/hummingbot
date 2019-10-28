@@ -279,12 +279,11 @@ cdef class RadarRelayMarket(MarketBase):
 
         if current_timestamp - self._last_update_available_balance_timestamp > 10.0:
 
-            if len(self._in_flight_limit_orders) != 0:
+            if len(self._in_flight_limit_orders) >= 0:
                 locked_balances = {}
                 total_balances = self._account_balances
 
                 for order in self._in_flight_limit_orders.values():
-                    self.logger().info(order)
                     locked_balances[order.symbol] = locked_balances.get(order.symbol, s_decimal_0) + order.amount
 
                 for currency, balance in total_balances.items():
