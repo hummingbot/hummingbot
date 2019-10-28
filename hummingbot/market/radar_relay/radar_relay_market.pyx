@@ -284,7 +284,8 @@ cdef class RadarRelayMarket(MarketBase):
                 total_balances = self._account_balances
 
                 for order in self._in_flight_limit_orders.values():
-                    locked_balances[order['symbol']] = locked_balances.get(order['symbol'], s_decimal_0) + order['amount']
+                    self.logger().info(order)
+                    locked_balances[order.symbol] = locked_balances.get(order.symbol, s_decimal_0) + order.amount
 
                 for currency, balance in total_balances.items():
                     self._account_available_balances[currency] = \
