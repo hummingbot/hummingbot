@@ -34,7 +34,7 @@ Function<div style="width:200px"/> | Input Parameters | Expected Output | Descri
 
 ### ActiveOrderTracker
 
-The `ActiveOrderTracker` class is responsible for parsing raw data responses from the exchanges API servers. This is not necessarily required on all exchange connectors depending on API responses from the exchanges. 
+The `ActiveOrderTracker` class is responsible for parsing raw data responses from the exchanges API servers. This is not required on all exchange connectors depending on API responses from the exchanges. This class is mainly used by DEXes to facilitate the tracking of orders
 
 The table below details the **required** functions in `ActiveOrderTracker`:
 
@@ -42,7 +42,14 @@ Function | Input Parameters | Expected Output | Description
 ---|---|---|---
 `active_asks` | None | `Dict[Decimal, Dict[str, Dict[str, any]]]` | Get all asks on the order book in dictionary format
 `active_bids` | None | `Dict[Decimal, Dict[str, Dict[str, any]]]` | Get all bids on the order book in dictionary format
+`convert_snapshot_message_to_order_book_row` | `object`: message | ```Tuple[List[OrderBookRow],List[OrderBookRow]]``` | Get all bids on the order book in dictionary format
+`convert_diff_message_to_order_book_row` | `object`: message | `Tuple[List[OrderBookRow],List[OrderBookRow]]` | Get all bids on the order book in dictionary format
+`convert_trade_message_to_order_book_row` | `object`: message | `Tuple[List[OrderBookRow],List[OrderBookRow]]` | Get all bids on the order book in dictionary format
+`c_convert_snapshot_message_to_np_arrays` | `object`: message | `Tuple[numpy.array, numpy.array]` | Parses an incoming snapshot messages into `numpy.array` data type to be used by `convert_snapshot_message_to_order_book_row()`.
+`c_convert_diff_message_to_np_arrays` | `object`: message | `Tuple[numpy.array, numpy.array]` | Parses an incoming delta("diff") messages into `numpy.array` data type to be used by `convert_diff_message_to_order_book_row()`.
+`c_convert_trade_message_to_np_arrays` | `object`: message | `numpy.array` | Parses an incoming trade messages into `numpy.array` data type to be used by `convert_diff_message_to_order_book_row()`.
 
+> Note: `OrderBookRow` should only be used in the `ActiveOrderTracker` class, while `ClientOrderBookRow` should only be used in the `Market` class. The reason for this has to do with performance when dealing with the `OrderBook` and we will only convert the `float` to a `Decimal` when the Hummingbot client uses it.
 
 ### OrderBookTracker
 Coming soon...
