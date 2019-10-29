@@ -335,7 +335,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
             # Try to put limit buy order for 0.04 ETH, and watch for order creation event.
             current_bid_price: Decimal = self.market.get_price(symbol, True)
-            bid_price: Decimal = Decimal(current_bid_price * 0.8)
+            bid_price: Decimal = current_bid_price * Decimal(0.8)
             quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
             amount: Decimal = Decimal(0.04)
