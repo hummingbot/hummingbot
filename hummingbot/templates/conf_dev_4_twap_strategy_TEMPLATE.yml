@@ -2,13 +2,11 @@
 ###       Execution4 strategy config               ###
 ########################################################
 
-template_version: 1
 # The following configuations are only required for the
 # twap strategy
 
 # Exchange and token parameters
 market: null
-market_trading_pair_tuple: null
 
 # Type of Order (Limit/Market)
 order_type: null
