@@ -25,3 +25,5 @@ web3_test_private_key_c = "<INSERT_HERE>"
 test_web3_provider_list = ["<INSERT_HERE>"]
 test_erc20_token_address = "<INSERT_HERE>"
 
+# Stablecoinswap test
+web3_private_key_stablecoinswap = "<INSERT_HERE>"

@@ -129,6 +129,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             if response.status != 200:
                 raise IOError(f"Error fetching Bamboo Relay market snapshot for {trading_pair}. "
                               f"HTTP status is {response.status}.")
+
             return await response.json()
 
     async def get_trading_pairs(self) -> List[str]:

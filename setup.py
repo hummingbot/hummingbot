@@ -41,6 +41,7 @@ def main():
         "hummingbot.market.huobi",
         "hummingbot.market.idex",
         "hummingbot.market.radar_relay",
+        "hummingbot.market.stablecoinswap",
         "hummingbot.strategy",
         "hummingbot.strategy.arbitrage",
         "hummingbot.strategy.cross_exchange_market_making",
@@ -63,7 +64,9 @@ def main():
             "wallet/ethereum/token_abi/*.json",
             "wallet/ethereum/erc20_tokens.json",
             "VERSION",
-            "templates/*TEMPLATE.yml"
+            "templates/*TEMPLATE.yml",
+            "market/stablecoinswap/stablecoinswap_abi.json",
+            "market/stablecoinswap/price_oracle_abi.json"
         ],
     }
     install_requires = [

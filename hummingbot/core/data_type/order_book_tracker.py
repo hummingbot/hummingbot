@@ -33,6 +33,7 @@ class OrderBookTrackerDataSourceType(Enum):
     # LOCAL_CLUSTER = 1 deprecated
     REMOTE_API = 2
     EXCHANGE_API = 3
+    BLOCKCHAIN = 4
 
 
 class OrderBookTracker(ABC):

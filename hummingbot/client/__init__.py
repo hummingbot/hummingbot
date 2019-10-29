@@ -1,5 +1,4 @@
 import logging
-import numpy
 
 import pandas as pd
 import decimal

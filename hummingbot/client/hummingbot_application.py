@@ -22,6 +22,7 @@ from hummingbot.market.paper_trade import create_paper_trade_market
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
+from hummingbot.market.stablecoinswap.stablecoinswap_market import StablecoinswapMarket
 from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
@@ -59,6 +60,7 @@ MARKET_CLASSES = {
     "huobi": HuobiMarket,
     "idex": IDEXMarket,
     "radar_relay": RadarRelayMarket,
+    "stablecoinswap": StablecoinswapMarket,
     "dolomite": DolomiteMarket,
     "bittrex": BittrexMarket
 }
@@ -303,6 +305,7 @@ class HummingbotApplication(*commands):
                                            coinbase_pro_passphrase,
                                            symbols=symbols,
                                            trading_required=self._trading_required)
+
             elif market_name == "huobi":
                 huobi_api_key = global_config_map.get("huobi_api_key").value
                 huobi_secret_key = global_config_map.get("huobi_secret_key").value
@@ -311,6 +314,11 @@ class HummingbotApplication(*commands):
                                      order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                      symbols=symbols,
                                      trading_required=self._trading_required)
+            elif market_name == "stablecoinswap" and self.wallet:
+                market = StablecoinswapMarket(wallet=self.wallet,
+                                              ethereum_rpc_url=ethereum_rpc_url,
+                                              symbols=symbols,
+                                              trading_required=self._trading_required)
             elif market_name == "dolomite" and self.wallet:
                 is_test_net: bool = global_config_map.get("ethereum_chain_name").value == "DOLOMITE_TEST"
                 market = DolomiteMarket(
