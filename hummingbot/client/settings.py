@@ -54,7 +54,8 @@ EXAMPLE_PAIRS = {
     "bamboo_relay": "ZRX-WETH",
     "coinbase_pro": "ETH-USDC",
     "dolomite": "WETH-DAI",
-    "huobi": "ethusdt"
+    "huobi": "ethusdt",
+    "bittrex": "ZRX-ETH"
 }
 
 EXAMPLE_ASSETS = {
@@ -65,7 +66,8 @@ EXAMPLE_ASSETS = {
     "bamboo_relay": "ZRX",
     "coinbase_pro": "ETH",
     "huobi": "eth",
-    "dolomite": "LRC"
+    "dolomite": "LRC",
+    "bittrex": "ZRX"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
