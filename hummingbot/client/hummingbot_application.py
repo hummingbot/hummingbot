@@ -201,9 +201,14 @@ class HummingbotApplication(*commands):
 
     @staticmethod
     def _initialize_market_assets(market_name: str, symbols: List[str]) -> List[Tuple[str, str]]:
-        market: MarketBase = MARKET_CLASSES.get(market_name, MarketBase)
-        market_symbols: List[Tuple[str, str]] = [market.split_symbol(symbol) for symbol in symbols]
+        market_class: MarketBase = MARKET_CLASSES.get(market_name, MarketBase)
+        market_symbols: List[Tuple[str, str]] = [market_class.split_symbol(symbol) for symbol in symbols]
         return market_symbols
+
+    @staticmethod
+    def _convert_to_exchange_trading_pair(market_name: str, hb_trading_pair: List[str]) -> List[str]:
+        market_class: MarketBase = MARKET_CLASSES.get(market_name, MarketBase)
+        return [market_class.convert_to_exchange_trading_pair(symbol) for symbol in hb_trading_pair]
 
     def _initialize_wallet(self, token_symbols: List[str]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
@@ -226,7 +231,10 @@ class HummingbotApplication(*commands):
         for market_name, symbols in market_names:
             if market_name not in market_symbols_map:
                 market_symbols_map[market_name] = []
-            market_symbols_map[market_name] += symbols
+            market_class: MarketBase = MARKET_CLASSES.get(market_name, MarketBase)
+            for symbol in symbols:
+                exchange_trading_pair: str = market_class.convert_to_exchange_trading_pair(symbol)
+                market_symbols_map[market_name].append(exchange_trading_pair)
 
         for market_name, symbols in market_symbols_map.items():
             if global_config_map.get("paper_trade_enabled").value:
