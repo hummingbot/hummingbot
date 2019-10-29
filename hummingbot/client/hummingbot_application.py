@@ -320,12 +320,13 @@ class HummingbotApplication(*commands):
                                      symbols=symbols,
                                      trading_required=self._trading_required)
             elif market_name == "dolomite" and self.wallet:
+                is_test_net: bool = global_config_map.get("ethereum_chain_name").value == "DOLOMITE_TEST"
                 market = DolomiteMarket(
                     wallet=self.wallet,
                     ethereum_rpc_url=ethereum_rpc_url,
                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                     symbols=symbols,
-                    isTestNet=True,  # TODO: remove this! This needs to be False for release
+                    isTestNet=is_test_net,
                     trading_required=self._trading_required,
                 )
             elif market_name == "bittrex":
