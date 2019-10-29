@@ -107,6 +107,7 @@ nav:
         - Setup a Cloud Server: installation/cloud.md
         - Install via Binary:
           - Windows: installation/from-binary/windows.md
+          - macOS: installation/from-binary/macos.md
         - Install via Docker:
           - Linux: installation/via-docker/linux.md
           - macOS: installation/via-docker/macOS.md
