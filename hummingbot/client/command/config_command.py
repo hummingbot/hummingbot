@@ -234,6 +234,7 @@ class ConfigCommand:
             if not cvar.validate(val):
                 self._notify("%s is not a valid %s value" % (val, cvar.key))
                 val = await self.prompt_single_variable(cvar, requirement_overwrite)
+
         else:
             val = cvar.value
         if val is None or (isinstance(val, string_types) and len(val) == 0):

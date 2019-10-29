@@ -30,7 +30,7 @@ bin/hummingbot.py
 
 Hummingbot can automatically start the execution of a previously configured trading strategy upon launch without requiring the Hummingbot interface `config` and `start` commands.  Any parameters that are required for `config` can be passed into the Hummingbot launch command.
 
-**Launch command**
+**Launch command from docker**
 
 ```bash tab="Docker command"
 docker run -it \
@@ -43,6 +43,27 @@ docker run -it \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
 coinalpha/hummingbot:latest
 ```
+```bash tab="Example"
+docker run -it \
+-e STRATEGY=discovery \
+-e CONFIG_FILE_NAME=conf_discovery_strategy_1.yml \
+-e WALLET=<INSERT_WALLET_ADDRESS> \
+-e WALLET_PASSWORD=<INSERT_WALLET_PASSWORD> \
+--name hummingbot-instance \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
+coinalpha/hummingbot:latest
+```
+
+**Other Docker options:**
+```bash
+# start Hummingbot after system reboot
+docker run -it --restart=always \...
+# start Hummingbot on background
+docker run -it -d \...
+```
+
+**Launch command from source**
 
 ```bash tab="Installed from source"
 bin/hummingbot_quickstart.py \
@@ -51,6 +72,14 @@ bin/hummingbot_quickstart.py \
 --wallet ${WALLET} \
 --wallet-password ${WALLET-PASSWORD}
 ```
+```bash tab="Example"
+bin/hummingbot_quickstart.py \
+--strategy discovery \
+--config-file-name conf_discovery_strategy_0.yml \
+--wallet <INSERT_WALLET_ADDRESS> \
+--wallet-password <INSERT_WALLET_PASSWORD>
+```
+
 
 ## User Interface
 
