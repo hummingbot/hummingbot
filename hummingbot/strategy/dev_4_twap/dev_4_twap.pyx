@@ -32,7 +32,7 @@ NaN = float("nan")
 s_decimal_zero = Decimal(0)
 ds_logger = None
 
-cdef class Execution4TradeStrategy(StrategyBase):
+cdef class Dev4TwapTradeStrategy(StrategyBase):
     OPTION_LOG_NULL_ORDER_SIZE = 1 << 0
     OPTION_LOG_REMOVING_ORDER = 1 << 1
     OPTION_LOG_ADJUST_ORDER = 1 << 2
@@ -81,6 +81,8 @@ cdef class Execution4TradeStrategy(StrategyBase):
         self._order_type = order_type
         self._is_buy = is_buy
         self._order_amount = order_amount
+        self._first_order = True
+
         if order_price is not None:
             self._order_price = order_price
         if cancel_order_wait_time is not None:
@@ -203,14 +205,14 @@ cdef class Execution4TradeStrategy(StrategyBase):
                     logging.INFO,
                     f"({market_info.trading_pair}) Limit buy order {order_id} "
                     f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
-                    f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+                    f"{limit_order_record.price} {limit_order_record.quote_currency}) has been filled."
                 )
             else:
                 market_order_record = self._sb_order_tracker.c_get_market_order(market_info, order_id)
                 self.log_with_clock(
                     logging.INFO,
                     f"({market_info.trading_pair}) Market buy order {order_id} "
-                    f"({market_order_record.amount} {market_order_record.base_asset}) has been completely filled."
+                    f"({market_order_record.amount} {market_order_record.base_asset}) has been filled."
                 )
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
@@ -227,14 +229,14 @@ cdef class Execution4TradeStrategy(StrategyBase):
                     logging.INFO,
                     f"({market_info.trading_pair}) Limit sell order {order_id} "
                     f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
-                    f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+                    f"{limit_order_record.price} {limit_order_record.quote_currency}) has been filled."
                 )
             else:
                 market_order_record = self._sb_order_tracker.c_get_market_order(market_info, order_id)
                 self.log_with_clock(
                     logging.INFO,
                     f"({market_info.trading_pair}) Market sell order {order_id} "
-                    f"({market_order_record.amount} {market_order_record.base_asset}) has been completely filled."
+                    f"({market_order_record.amount} {market_order_record.base_asset}) has been filled."
                 )
 
     cdef c_start(self, Clock clock, double timestamp):
@@ -281,41 +283,40 @@ cdef class Execution4TradeStrategy(StrategyBase):
         self.logger().info(f"Checking to see if the incremental order size is possible")
         self.logger().info(f"Checking to see if the user has enough balance to place orders")
 
-        if (quantized_amount != 0):
-          if self.c_has_enough_balance(market_info):
+        if quantized_amount != 0:
+            if self.c_has_enough_balance(market_info):
 
-              if self._order_type == "market":
-                  if self._is_buy:
-                      order_id = self.c_buy_with_specific_market(market_info,
-                                                                 amount = quantized_amount)
-                      self.logger().info("Market buy order has been executed")
-                  else:
-                      order_id = self.c_sell_with_specific_market(market_info,
-                                                                  amount = quantized_amount)
-                      self.logger().info("Market sell order has been executed")
-              else:
-                  if self._is_buy:
-                      order_id = self.c_buy_with_specific_market(market_info,
-                                                                 amount = quantized_amount,
-                                                                 order_type = OrderType.LIMIT,
-                                                                 price = quantized_price)
-                      self.logger().info("Limit buy order has been placed")
+                if self._order_type == "market":
+                    if self._is_buy:
+                        order_id = self.c_buy_with_specific_market(market_info,
+                                                                   amount = quantized_amount)
+                        self.logger().info("Market buy order has been executed")
+                    else:
+                        order_id = self.c_sell_with_specific_market(market_info,
+                                                                    amount = quantized_amount)
+                        self.logger().info("Market sell order has been executed")
+                else:
+                    if self._is_buy:
+                        order_id = self.c_buy_with_specific_market(market_info,
+                                                                   amount = quantized_amount,
+                                                                   order_type = OrderType.LIMIT,
+                                                                   price = quantized_price)
+                        self.logger().info("Limit buy order has been placed")
 
-                  else:
-                      order_id = self.c_sell_with_specific_market(market_info,
-                                                                  amount = quantized_amount,
-                                                                  order_type = OrderType.LIMIT,
-                                                                  price = quantized_price)
-                      self.logger().info("Limit sell order has been placed")
-                  self._time_to_cancel[order_id] = self._current_timestamp + self._cancel_order_wait_time
+                    else:
+                        order_id = self.c_sell_with_specific_market(market_info,
+                                                                    amount = quantized_amount,
+                                                                    order_type = OrderType.LIMIT,
+                                                                    price = quantized_price)
+                        self.logger().info("Limit sell order has been placed")
+                    self._time_to_cancel[order_id] = self._current_timestamp + self._cancel_order_wait_time
 
-              self._quantity_remaining = Decimal(self._quantity_remaining) - quantized_amount
+                self._quantity_remaining = Decimal(self._quantity_remaining) - quantized_amount
 
-          else:
-              self.logger().info(f"Not enough balance to run the strategy. Please check balances and try again.")
+            else:
+                self.logger().info(f"Not enough balance to run the strategy. Please check balances and try again.")
         else:
-          self.logger().warning(f"Not possible to break the order into the desired number of segments.")
-
+            self.logger().warning(f"Not possible to break the order into the desired number of segments.")
 
     cdef c_has_enough_balance(self, object market_info):
         cdef:
@@ -332,9 +333,18 @@ cdef class Execution4TradeStrategy(StrategyBase):
             MarketBase maker_market = market_info.market
             set cancel_order_ids = set()
 
-        if (self._quantity_remaining > 0):
+        if self._quantity_remaining > 0:
+
+            # If current timestamp is greater than the start timestamp and its the first order
+            if (self._current_timestamp > self._start_timestamp) and (self._first_order):
+
+                self.logger().info(f"Trying to place orders now. ")
+                self._start_timestamp = self._current_timestamp
+                self.c_place_orders(market_info)
+                self._first_order = False
+
             # If current timestamp is greater than the start timestamp + time delay place orders
-            if (self._current_timestamp > self._start_timestamp + self._time_delay):
+            elif (self._current_timestamp > self._start_timestamp + self._time_delay) and (self._first_order is False):
 
                 self.logger().info(f"Current time: "
                                    f"{datetime.fromtimestamp(self._current_timestamp).strftime('%Y-%m-%d %H:%M:%S')} "
