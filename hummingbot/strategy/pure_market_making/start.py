@@ -79,7 +79,7 @@ def start(self):
         self._initialize_markets(market_names)
         self.assets = set(maker_assets)
 
-        maker_data = [self.markets[maker_market], trading_pair + list(maker_assets)]
+        maker_data = [self.markets[maker_market], trading_pair] + list(maker_assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
 
         strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
