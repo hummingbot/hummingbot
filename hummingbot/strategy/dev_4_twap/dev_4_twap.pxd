@@ -15,7 +15,7 @@ cdef class Dev4TwapTradeStrategy(StrategyBase):
         double _cancel_order_wait_time
         double _status_report_interval
         double _last_timestamp
-        double _start_timestamp
+        double _previous_timestamp
         double _time_delay
         int _num_individual_orders
         double _order_price

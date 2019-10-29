@@ -242,7 +242,7 @@ cdef class Dev4TwapTradeStrategy(StrategyBase):
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
         self.logger().info(f"Waiting for {self._time_delay} to place orders")
-        self._start_timestamp = timestamp
+        self._previous_timestamp = timestamp
         self._last_timestamp = timestamp
 
     cdef c_tick(self, double timestamp):
@@ -336,23 +336,23 @@ cdef class Dev4TwapTradeStrategy(StrategyBase):
         if self._quantity_remaining > 0:
 
             # If current timestamp is greater than the start timestamp and its the first order
-            if (self._current_timestamp > self._start_timestamp) and (self._first_order):
+            if (self._current_timestamp > self._previous_timestamp) and (self._first_order):
 
                 self.logger().info(f"Trying to place orders now. ")
-                self._start_timestamp = self._current_timestamp
+                self._previous_timestamp = self._current_timestamp
                 self.c_place_orders(market_info)
                 self._first_order = False
 
             # If current timestamp is greater than the start timestamp + time delay place orders
-            elif (self._current_timestamp > self._start_timestamp + self._time_delay) and (self._first_order is False):
+            elif (self._current_timestamp > self._previous_timestamp + self._time_delay) and (self._first_order is False):
 
                 self.logger().info(f"Current time: "
                                    f"{datetime.fromtimestamp(self._current_timestamp).strftime('%Y-%m-%d %H:%M:%S')} "
                                    f"is now greater than "
-                                   f"Starting time: "
-                                   f"{datetime.fromtimestamp(self._start_timestamp).strftime('%Y-%m-%d %H:%M:%S')} "
+                                   f"Previous time: "
+                                   f"{datetime.fromtimestamp(self._previous_timestamp).strftime('%Y-%m-%d %H:%M:%S')} "
                                    f" with time delay: {self._time_delay}. Trying to place orders now. ")
-                self._start_timestamp = self._current_timestamp
+                self._previous_timestamp = self._current_timestamp
                 self.c_place_orders(market_info)
 
         active_orders = self.market_info_to_active_orders.get(market_info, [])
