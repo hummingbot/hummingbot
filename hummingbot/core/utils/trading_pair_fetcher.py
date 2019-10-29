@@ -168,6 +168,8 @@ class TradingPairFetcher:
 
     @staticmethod
     async def fetch_dolomite_trading_pairs() -> List[str]:
+        from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
+
         async with aiohttp.ClientSession() as client:
             async with client.get(DOLOMITE_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
@@ -176,7 +178,7 @@ class TradingPairFetcher:
                         valid_trading_pairs: list = []
                         for item in all_trading_pairs["data"]:
                             valid_trading_pairs.append(item["market"])
-                        return valid_trading_pairs
+                        return [DolomiteMarket.convert_from_exchange_trading_pair(p) for p in valid_trading_pairs]
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for dolomite trading pairs
