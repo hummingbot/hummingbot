@@ -107,13 +107,14 @@ nav:
         - Setup a Cloud Server: installation/cloud.md
         - Install via Binary:
           - Windows: installation/from-binary/windows.md
+          - macOS: installation/from-binary/macos.md
         - Install via Docker:
           - Linux: installation/via-docker/linux.md
-          - MacOS: installation/via-docker/macOS.md
+          - macOS: installation/via-docker/macOS.md
           - Windows: installation/via-docker/windows.md
         - Install from Source:
           - Linux: installation/from-source/linux.md
-          - MacOS: installation/from-source/macOS.md
+          - macOS: installation/from-source/macOS.md
           - Windows: installation/from-source/windows.md
         - Updating Hummingbot: installation/updating.md
       - Operation:
