@@ -124,7 +124,7 @@ cross_exchange_market_making_config_map = {
         required_if=lambda: False,
     ),
     "order_size_portfolio_ratio_limit": ConfigVar(
-        key="order_size_taker_balance_factor",
+        key="order_size_portfolio_ratio_limit",
         prompt="",
         default=0.1667,
         type_str="decimal",
