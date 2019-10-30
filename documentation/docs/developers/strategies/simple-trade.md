@@ -28,7 +28,7 @@ Ensure that there is a given amount of time in between the trades.
 
 NOTE : Can change delay interval by specifying `_time_delay`. Default = `10.0`
 
-![Figure 1: Processing a new order](/assets/img/Simple_trade_processOrder.svg)
+![Figure 1: Processing a new order](/assets/img/Simple_Trade_OrderPlacedRevised.svg)
 
 #### Set time to cancel order
 Cancel orders once their elapsed times go over a certain amount.
@@ -40,7 +40,7 @@ Cancel orders once their elapsed times go over a certain amount.
 
 NOTE : Can change cancel interval by specifying `_cancel_order_wait_time`. Default = `60.0`
 
-![Figure 2: Cancelling an order](/assets/img/Simple_trade_cancelOrder.svg)
+![Figure 2: Cancelling an order](/assets/img/Simple_Trade_OrderCancelledRevised.svg)
  
 ## Logging
 When a specific event about the order is triggered, the event handler calls these logging methods to provide helpful information to the users.
