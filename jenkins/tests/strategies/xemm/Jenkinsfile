@@ -6,8 +6,6 @@ node {
     def envPath = "${hbPath}/bin"
 
     try {
-      notifyBuild('STARTED', testName)
-
       stage('Clone repository') {
         /* Clone repository to jenkins workspace */
         checkout scm
@@ -61,8 +59,8 @@ def notifyBuild(String buildStatus = 'STARTED', String testName = 'not defined')
     buildStatus = 'TEST FAILED'
   }
 
-  def subject = "${buildStatus}: [${env.JOB_NAME}_${env.BUILD_NUMBER}]"
-  def description = "${subject}\n(${env.BUILD_URL})"
+  def subject = "**${buildStatus}**: [${env.JOB_NAME}_${env.BUILD_NUMBER}]"
+  def description = "${subject} *${env.GIT_BRANCH}*\n(${env.BUILD_URL})"
 
   // Send notifications
   discordSend (webhookURL: env.DISCORD_URL, description: description, result: result)
