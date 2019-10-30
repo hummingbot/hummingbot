@@ -152,6 +152,18 @@ cdef class IDEXMarket(MarketBase):
         except Exception:
             raise ValueError(f"Error parsing symbol {symbol}")
 
+    @staticmethod
+    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
+        # IDEX uses QUOTE_BASE (USDT_BTC)
+        quote_asset, base_asset = exchange_trading_pair.split("_")
+        return f"{base_asset}-{quote_asset}"
+
+    @staticmethod
+    def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
+        assets = hb_trading_pair.split("-")
+        assets.reverse()
+        return "_".join(assets)
+
     @property
     def status_dict(self):
         return {
