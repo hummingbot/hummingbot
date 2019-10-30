@@ -51,7 +51,8 @@ Function<div style="width:150px"/> | Input Parameters | Expected Output | Descri
 `c_convert_diff_message_to_np_arrays` | `object`: message | `Tuple[numpy.array, numpy.array]` | Parses an incoming delta("diff") messages into `numpy.array` data type to be used by `convert_diff_message_to_order_book_row()`.
 `c_convert_trade_message_to_np_arrays` | `object`: message | `numpy.array` | Parses an incoming trade messages into `numpy.array` data type to be used by `convert_diff_message_to_order_book_row()`.
 
-> **Note:** `OrderBookRow` should only be used in the `ActiveOrderTracker` class, while `ClientOrderBookRow` should only be used in the `Market` class. The reason for this has to do with performance when dealing with the `OrderBook` and we will only convert the `float` to a `Decimal` when the Hummingbot client uses it.
+!!! warning
+    `OrderBookRow` should only be used in the `ActiveOrderTracker` class, while `ClientOrderBookRow` should only be used in the `Market` class. The reason for this has to do with performance when dealing with the `OrderBook` and we will only convert the `float` to a `Decimal` when the Hummingbot client uses it.
 
 ### OrderBookTracker
 
@@ -84,11 +85,79 @@ Function<div style="width:150px"/> | Input Parameters | Expected Output | Descri
 `stop` | None | None | Stops all tasks in `OrderBookTracker`.
 `_emit_trade_event_loop` | None | None | Attempts to retrieve trade_messages from the Queue `_order_book_trade_stream` and apply the trade onto the respective order book.
 
-
 ## Task 2. User Stream Tracker
-Coming soon...
+
+The `UserStreamTracker` main responsibility is to fetch user account data and process it accordingly since the Hummingbot client has to manage each user's available balances and their open orders on the various exchanges to effective manage orders.
+
+`UserStreamTracker` contains subsidiary classes that help maintain the real-time wallet/holdings balance and open orders of a user. Namely, the classes required are `UserStreamTrackerDataSource`, `UserStreamTracker` and `MarketAuth`(if applicable).
+
+!!! note
+    This is only required in **Centralized Exchanges**.
+
+### UserStreamTrackerDataSource
+
+The `UserStreamTrackerDataSource` class is responsible for making API calls and/or WebSocket queries to obtain order book snapshots, order book deltas and miscellaneous information on order book.
+
+Integrating your own data source component would require you to extend from the OrderBookTrackerDataSource base class here.
+
+The table below details the **required** functions in `UserStreamTrackerDataSource`:
+
+Function<div style="width:200px"/> | Input Parameters | Expected Output | Description
+---|---|---|---
+`order_book_class` | None | `OrderBook` | Get relevant order book class ot access class specific methods.<br/><br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: You are also required to implement your own `OrderBook` class that converts JSON data into a standard `OrderBookMessage` format.</td></tr></tbody></table>
+`listen_for_user_stream` | ev_loop: `asyncio.BaseEventLoop`<br/>output: `asyncio.Queue` | None | TBA
+
+### UserStreamTracker
+
+The `UserStreamTracker` class is responsible for maintaining the real-time account balances and orders of the user. 
+
+This can be achieved in 2 ways(depending on the available API on the exchange):
+
+1. **REST API**
+
+    In this scenario, we would have to periodically make API requests to the exchange to retrieve information on the user's **account balances** and **order statuses**.
+    An example of this can be seen in the [Huobi](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/huobi/huobi_market.pyx) connector.
+
+2. **WebSocket API**
+
+    When the exchange does have WebSocket API support for retrieve user account details and order statuses, it would be ideal to have incorporate it into the Hummingbot client when managing account balances and updating order statuses. This is especially important since Hummingbot needs knows what are the available account balances and order statuses at all times. 
+    
+    !!! tip 
+        In most scenarios, as seen in most other Centralized Exchanges([Binance](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/binance/binance_user_stream_tracker.py), [Coinbase Pro](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/coinbase_pro/coinbase_pro_user_stream_tracker.py), [Bittrex](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/bittrex/bittrex_user_stream_tracker.py)), a simple WebSocket integration is used to listen on selected topics and retrieving messages to be processed in `Market` class, where the messages are applied to `_available_balances`, `_account_available_balances` and triggering the necessary `Events`.
+
+The table below details the **required** functions to be implemented in `UserStreamTracker`:
+
+Function<div style="width:200px"/> | Input Parameters | Expected Output | Description
+---|---|---|---
+`data_source` | None | `UserStreamTrackerDataSource` | Initializes a user stream data source (user specific order deltas from a websocket stream)
+`start` | None | None | Starts all listeners and tasks
+`user_stream` | None | `asyncio.Queue` | Returns the message queue containing all the messages pertaining to user account balances and order statues.
+ 
+### Authentication
+
+The `Auth` class is responsible for crafting the request parameters and bodies that are necessary for certain API requests.
+
+For a more detailed explanation and implementation details, please refer to the [Authentication](#task-3-market-connector) section in the Task 3.
 
 ## Task 3. Market Connector
+
+The primary bulk of integrating a new exchange connector is in the section. 
+
+The role of the `Market` class can be broken down into several other subtasks; namely they are placing and tracking orders, albeit a short list, it do require a certain level of understanding and knowing the expected side-effect(s) of certain functions.
+
+### Authentication
+
+Placing and tracking of orders on the exchange normally requiring a form of authentication tied to every requests to ensure protected access/actions to the assets that users have on the respective exchanges. As such, it is would only make sense to have a module dedicated to handling authentication.
+
+As briefly mentioned, the `Auth` class is responsible for creating the request parameters and/or data bodies necessary to authenticate an API request.
+
+
+Function<div style="width:150px"/> | Input Parameters | Expected Output | Description
+---|---|---|---
+`generate_auth_dict` | http_method: `str`,<br/>url: `str`,<br/>params: `Dict[str, any]`,<br/>body: `Dict[str, any]` | `Dict[str, any]` | Generates the url and the valid signature to authenticate a particular API request.
+
+!!! tip
+    This the **inputs** and **return** value(s) can be modified accordingly to suit the exchange connectors.
 
 ### Placing and tracking orders
 
@@ -109,10 +178,8 @@ The `execute_buy` and `execute_sell` methods verify that the trades would be leg
 
 `InFlightOrders` are stored within a list in the `Market` class, and are Hummingbot’s internal records of orders it has placed that remain open on the market. When such orders are either filled or canceled, they are removed from the list and the relevant event completion flag is passed to the strategy module.
 
-### Authentication
-Coming soon...
-
 ## Task 4. Hummingbot Client
+Coming soon...
 
 ## Additional: Debugging & Testing
 Coming soon...
