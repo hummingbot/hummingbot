@@ -65,7 +65,7 @@ class TradeFill(HummingbotBase):
     def get_trades(sql_session: Session,
                    strategy: str = None,
                    market: str = None,
-                   symbol: str = None,
+                   trading_pair: str = None,
                    base_asset: str = None,
                    quote_asset: str = None,
                    trade_type: str = None,
@@ -78,8 +78,8 @@ class TradeFill(HummingbotBase):
             filters.append(TradeFill.strategy == strategy)
         if market is not None:
             filters.append(TradeFill.market == market)
-        if symbol is not None:
-            filters.append(TradeFill.symbol == symbol)
+        if trading_pair is not None:
+            filters.append(TradeFill.symbol == trading_pair)
         if base_asset is not None:
             filters.append(TradeFill.base_asset == base_asset)
         if quote_asset is not None:
