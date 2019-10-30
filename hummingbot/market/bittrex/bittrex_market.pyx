@@ -62,7 +62,6 @@ cdef class BittrexMarket(MarketBase):
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
 
-    DEPOSIT_TIMEOUT = 1800.0
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
@@ -312,12 +311,11 @@ cdef class BittrexMarket(MarketBase):
         result = await self._api_request("GET", path_url=path_url)
         return result
 
-    async def _update_order_fills_from_trades(self):
+    async def _update_order_status(self):
         cdef:
-            # This is intended to be a backup measure to get filled events with trade ID for orders,
-            # in case Bittrex's user stream events are not working.
-            # This is separated from _update_order_status which only updates the order status without producing filled
-            # events, since Bittrex's get order endpoint does not return trade IDs.
+            # This is intended to be a backup measure to close straggler orders, in case Bittrex's user stream events
+            # are not capturing the updates as intended. Also handles filled events that are not captured by
+            # _user_stream_event_listener
             # The poll interval for order status is 10 seconds.
             int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
             int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDERS_INTERVAL)
@@ -332,6 +330,10 @@ cdef class BittrexMarket(MarketBase):
                 exchange_order_id = await tracked_order.get_exchange_order_id()
                 client_order_id = tracked_order.client_order_id
                 order = open_orders.get(exchange_order_id)
+
+                # Do nothing, if the order has already been cancelled or has failed
+                if client_order_id not in self._in_flight_orders:
+                    continue
 
                 if order is None:  # Handles order that are currently tracked but no longer open in exchange
                     self._order_not_found_records[client_order_id] = \
@@ -358,8 +360,9 @@ cdef class BittrexMarket(MarketBase):
                     continue
 
                 order_state = order["status"]
+                order_type = "LIMIT" if tracked_order.order_type is OrderType.LIMIT else "MARKET"
+                trade_type = "BUY" if tracked_order.trade_type is TradeType.BUY else "SELL"
                 order_type_description = tracked_order.order_type_description
-                tracked_order.last_state = order_state
 
                 executed_price = Decimal(order["limit"])
                 executed_amount_diff = s_decimal_0
@@ -392,51 +395,6 @@ cdef class BittrexMarket(MarketBase):
                                              )
                                          ))
 
-    async def _update_order_status(self):
-        cdef:
-            # This is intended to be a backup measure to close straggler orders, in case Bittrex's user stream events
-            # are not capturing the updates as intended.
-            # The poll interval for order status is 10 seconds.
-            int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
-            int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDERS_INTERVAL)
-
-        if current_tick > last_tick and len(self._in_flight_orders) > 0:
-
-            tracked_orders = list(self._in_flight_orders.values())
-            open_orders = await self.list_orders()
-            open_orders = dict((entry["id"], entry) for entry in open_orders)
-
-            for tracked_order in tracked_orders:
-                exchange_order_id = await tracked_order.get_exchange_order_id()
-                client_order_id = tracked_order.client_order_id
-                order = open_orders.get(exchange_order_id)
-
-                if order is None:  # Handles order that are currently tracked but no longer open in exchange
-                    self._order_not_found_records[client_order_id] = \
-                        self._order_not_found_records.get(client_order_id, 0) + 1
-
-                    if self._order_not_found_records[client_order_id] < self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
-                        # Wait until the order not found error have repeated for a few times before actually treating
-                        # it as a fail. See: https://github.com/CoinAlpha/hummingbot/issues/601
-                        continue
-                    self.c_trigger_event(
-                        self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                        MarketOrderFailureEvent(self._current_timestamp,
-                                                client_order_id,
-                                                tracked_order.order_type)
-                    )
-                    self.c_stop_tracking_order(client_order_id)
-                    self.logger().network(
-                        f"Error fetching status update for the order {client_order_id}: "
-                        f"{tracked_order}",
-                        app_warning_msg=f"Could not fetch updates for the order {client_order_id}. "
-                                        f"Check API key and network connection."
-                    )
-                    continue
-
-                order_state = order["status"]
-                order_type = "LIMIT" if tracked_order.order_type is OrderType.LIMIT else "MARKET"
-                trade_type = "BUY" if tracked_order.trade_type is TradeType.BUY else "SELL"
                 if order_state == "CLOSED":
                     if order["quantity"] == order["fillQuantity"]:  # Order COMPLETED
                         tracked_order.last_state = "CLOSED"
@@ -613,7 +571,6 @@ cdef class BittrexMarket(MarketBase):
                 await safe_gather(
                     self._update_balances(),
                     self._update_order_status(),
-                    self._update_order_fills_from_trades()
                 )
                 self._last_poll_timestamp = self._current_timestamp
             except asyncio.CancelledError:
