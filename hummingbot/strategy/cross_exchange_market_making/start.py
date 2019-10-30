@@ -33,21 +33,25 @@ def start(self):
         self._notify("Current config is not compatible with cross exchange market making strategy. Please reconfigure")
         return
 
-    market_names: List[Tuple[str, List[str]]] = [
-        (maker_market, [raw_maker_trading_pair]),
-        (taker_market, [raw_taker_trading_pair]),
-    ]
     try:
-        maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_trading_pair])[0]
-        taker_assets: Tuple[str, str] = self._initialize_market_assets(taker_market, [raw_taker_trading_pair])[0]
+        maker_trading_pair: str = self._convert_to_exchange_trading_pair(maker_market, [raw_maker_trading_pair])[0]
+        taker_trading_pair: str = self._convert_to_exchange_trading_pair(maker_market, [raw_taker_trading_pair])[0]
+        maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [maker_trading_pair])[0]
+        taker_assets: Tuple[str, str] = self._initialize_market_assets(taker_market, [taker_trading_pair])[0]
     except ValueError as e:
         self._notify(str(e))
         return
+
+    market_names: List[Tuple[str, List[str]]] = [
+        (maker_market, [maker_trading_pair]),
+        (taker_market, [taker_trading_pair]),
+    ]
+
     self._initialize_wallet(token_symbols=list(set(maker_assets + taker_assets)))
     self._initialize_markets(market_names)
     self.assets = set(maker_assets + taker_assets)
-    maker_data = [self.markets[maker_market], raw_maker_trading_pair] + list(maker_assets)
-    taker_data = [self.markets[taker_market], raw_taker_trading_pair] + list(taker_assets)
+    maker_data = [self.markets[maker_market], maker_trading_pair] + list(maker_assets)
+    taker_data = [self.markets[taker_market], taker_trading_pair] + list(taker_assets)
     maker_market_trading_pair_tuple = MarketTradingPairTuple(*maker_data)
     taker_market_trading_pair_tuple = MarketTradingPairTuple(*taker_data)
     self.market_trading_pair_tuples = [maker_market_trading_pair_tuple, taker_market_trading_pair_tuple]
