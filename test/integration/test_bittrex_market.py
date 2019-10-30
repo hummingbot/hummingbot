@@ -137,11 +137,11 @@ class BittrexMarketUnitTest(unittest.TestCase):
     def test_limit_buy(self):
         self.assertGreater(self.market.get_balance("ETH"), 0.1)
         symbol = "LTC-ETH"
-        amount: Decimal = Decimal(0.02)
+        amount: Decimal = Decimal('0.02')
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
         current_bid_price: Decimal = self.market.get_price(symbol, True)
-        bid_price: Decimal = current_bid_price + Decimal(0.005) * current_bid_price
+        bid_price: Decimal = current_bid_price + Decimal('0.005') * current_bid_price
         quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
         order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
@@ -166,10 +166,10 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
     def test_limit_sell(self):
         symbol = "LTC-ETH"
-        amount: Decimal = Decimal(0.02)
+        amount: Decimal = Decimal('0.02')
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
         current_ask_price: Decimal = self.market.get_price(symbol, False)
-        ask_price: Decimal = current_ask_price - Decimal(0.005) * current_ask_price
+        ask_price: Decimal = current_ask_price - Decimal('0.005') * current_ask_price
         quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price)
 
         order_id = self.market.sell(symbol, amount, OrderType.LIMIT, quantize_ask_price)
@@ -194,7 +194,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
     def test_market_buy(self):
         self.assertGreater(self.market.get_balance("ETH"), 0.1)
         symbol = "LTC-ETH"
-        amount: Decimal = Decimal(0.02)
+        amount: Decimal = Decimal('0.02')
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
         order_id = self.market.buy(symbol, quantized_amount, OrderType.MARKET, 0)
@@ -220,7 +220,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
     def test_market_sell(self):
         symbol = "LTC-ETH"
         self.assertGreater(self.market.get_balance("LTC"), 0.01)
-        amount: Decimal = Decimal(0.02)
+        amount: Decimal = Decimal('0.02')
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
         order_id = self.market.sell(symbol, amount, OrderType.MARKET, 0)
@@ -246,9 +246,9 @@ class BittrexMarketUnitTest(unittest.TestCase):
         symbol = "XRP-ETH"
 
         current_bid_price: Decimal = self.market.get_price(symbol, True)
-        amount: Decimal = Decimal(0.1) / current_bid_price
+        amount: Decimal = Decimal('0.1') / current_bid_price
 
-        bid_price: Decimal = current_bid_price - Decimal(0.1) * current_bid_price
+        bid_price: Decimal = current_bid_price - Decimal('0.1') * current_bid_price
         quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
@@ -261,16 +261,16 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
     def test_cancel_all(self):
         symbol = "XRP-ETH"
-        bid_price: Decimal = self.market.get_price(symbol, True) * Decimal(0.5)
-        ask_price: Decimal = self.market.get_price(symbol, False) * Decimal(2)
-        bid_amount: Decimal = Decimal(0.01) / bid_price
+        bid_price: Decimal = self.market.get_price(symbol, True) * Decimal('0.5')
+        ask_price: Decimal = self.market.get_price(symbol, False) * Decimal('2')
+        bid_amount: Decimal = Decimal('0.01') / bid_price
         ask_amount: Decimal = Decimal('3.64495247')  # Min. trade size in XRP-ETH as of 30 Sep 2019
         quantized_bid_amount: Decimal = self.market.quantize_order_amount(symbol, bid_amount)
         quantized_ask_amount: Decimal = self.market.quantize_order_amount(symbol, ask_amount)
 
         # Intentionally setting invalid price to prevent getting filled
-        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, Decimal(bid_price * Decimal(0.7)))
-        quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, Decimal(ask_price * Decimal(1.5)))
+        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, Decimal(bid_price * Decimal('0.7')))
+        quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, Decimal(ask_price * Decimal('1.5')))
 
         self.market.buy(symbol, quantized_bid_amount, OrderType.LIMIT, quantize_bid_price)
         self.market.sell(symbol, quantized_ask_amount, OrderType.LIMIT, quantize_ask_price)
@@ -283,11 +283,11 @@ class BittrexMarketUnitTest(unittest.TestCase):
     def test_list_orders(self):
         self.assertGreater(self.market.get_balance("ETH"), 0.1)
         symbol = "LTC-ETH"
-        amount: Decimal = Decimal(0.02)
+        amount: Decimal = Decimal('0.02')
         quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
         current_bid_price: Decimal = self.market.get_price(symbol, True)
-        bid_price: Decimal = Decimal(0.7) * current_bid_price
+        bid_price: Decimal = Decimal('0.7') * current_bid_price
         quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
         self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
@@ -335,10 +335,10 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
             # Try to put limit buy order for 0.04 ETH, and watch for order creation event.
             current_bid_price: Decimal = self.market.get_price(symbol, True)
-            bid_price: Decimal = Decimal(current_bid_price * 0.8)
+            bid_price: Decimal = current_bid_price * Decimal('0.8')
             quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
-            amount: Decimal = Decimal(0.04)
+            amount: Decimal = Decimal('0.04')
             quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
             order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
@@ -410,7 +410,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
         try:
             # Try to buy 0.04 ETH from the exchange, and watch for completion event.
-            amount: Decimal = Decimal(0.04)
+            amount: Decimal = Decimal('0.04')
             order_id = self.market.buy(symbol, amount)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
