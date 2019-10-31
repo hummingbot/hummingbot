@@ -24,6 +24,7 @@ from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.kucoin.kucoin_order_book import KucoinOrderBook
+from urllib.parse import urlencode
 
 KUCOIN_SYMBOLS_URL = "https://api.kucoin.com/api/v1/symbols"
 KUCOIN_TICKER_URL = "https://api.kucoin.com/api/v1/market/allTickers"
@@ -70,6 +71,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                               f"HTTP status is {exchange_response.status}.")
 
             market_data = await market_response.json()
+			market_data_copy = market_data
             exchange_data = await exchange_response.json()
 
             attr_name_map = {"baseCurrency": "baseAsset", "quoteCurrency": "quoteAsset"}
@@ -88,10 +90,25 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             # Build the data frame.
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index="symbol")
-            all_markets.loc[:, "USDVolume"] = all_markets.volvalue
+			#calculating the correct USDVolume by multiplying or diving with necessary USD pair
+			split_symbol = all_markets.split('-')
+			if split_symbol[0] == "USDT":
+				all_markets.loc[:, "USDVolume"] = 1/all_markets.volvalue
+			elif split_symbol[1] == "USDT":
+				all_markets.loc[:, "USDVolume"] = all_markets.volvalue
+			else:
+				for item2 in market_data_copy["data"]["ticker"]:
+					split_symbol2 = item2["symbol"].split('-')
+					if split_symbol[1] == split_symbol2[0] and split_symbol2[1] == "USDT":
+					#Note: USDvolume is only calculated if a usdt pair with the quote currency exists
+						all_markets.loc[:, "USDVolume"] = all_markets.volvalue*item2["volValue"]
+					elif split_symbol[1] == split_symbol2[1] and split_symbol2[0] == "USDT":
+						all_markets.loc[:, "USDVolume"] = all_markets.volvalue/item2["volValue"]
             all_markets.loc[:, "volume"] = all_markets.vol
 
             return all_markets.sort_values("USDVolume", ascending=False)
+			
+		
 
     async def get_trading_pairs(self) -> List[str]:
         if not self._symbols:
@@ -109,14 +126,14 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
-        params: str = "?symbol=" + trading_pair
+	#urlencode(params) is not proper as it will give  '%3Fsymbol%3DBTC-USDT' which is not a proper GET argument 
+        params: str = "?symbol=" + urllib.parse.quote(trading_pair)
         async with client.get(KUCOIN_DEPTH_URL + params) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching Kucoin market snapshot for {trading_pair}. "
                               f"HTTP status is {response.status}.")
-            api_data = await response.read()
-            data: Dict[str, Any] = json.loads(api_data)
+            data: Dict[str, Any] = await response.json()
             return data
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
@@ -175,8 +192,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 				if response.status != 200:
 					raise IOError(f"Error fetching Kucoin websocket connection data."
 								  f"HTTP status is {response.status}.")
-				api_data = await response.read()
-				data: Dict[str, Any] = json.loads(api_data)
+				data: Dict[str, Any] = await response.json()
 				return data
 			
 
