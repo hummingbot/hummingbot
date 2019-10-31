@@ -57,25 +57,6 @@ The following walks through all the steps when running `config` for the first ti
 | `Would you like to enable the kill switch? (y/n) >>>` <br /><br /> `At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5% loss) >>>` | This sets `kill_switch_enabled` and `kill_switch_rate`. Refer to [Kill Switch](/utilities/kill-switch) under Utilities section. |
 
 
-### Additional Configuration
-
-In addition to the prompts during the initial walkthrough specific to each strategy, other information may be required depending on the exchange.
-
-| Prompt | Description |
-|-----|-----|
-| `Enter your [exchange name] API key >>>`<br/><br/>`Enter your [exchange name] secret key >>>` | Trading on centralized exchanges and IDEX requires an API and secret key with trading enabled. Refer to [API keys](https://docs.hummingbot.io/installation/api-keys/) section for more information.<br/><table><tbody><tr><td bgcolor="#e5f8f6">**Tip**: You can use Ctrl + R or ⌘ + V to paste from the clipboard or for more information, see [How to: Copy and Paste](https://docs.hummingbot.io/support/how-to/#how-do-i-copy-and-paste-in-docker-toolbox-windows)</td></tr></tbody></table> |
-
-!!! note
-    Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
-
-If trading on a decentralized exchange, enter Ethereum wallet and Ethereum node.
-
-| Prompt | Description |
-|-----|-----|
-| `Would you like to import an existing wallet or create a new wallet? (import / create) >>>` | Import or create an Ethereum wallet which will be used for trading on decentralized exchange.<br/><br/>Enter a valid input:<ol><li>`import`: imports a wallet from an input private key.</li><ul><li>If you select import, you will then be asked to enter your private key as well as a password to lock/unlock that wallet for use with Hummingbot</li><li>`Your wallet private key >>>`</li><li>`A password to protect your wallet key >>>`</li></ul><li>`create`: creates a new wallet with new private key.</li><ul><li>If you select create, you will only be asked for a password to protect your newly created wallet</li><li>`A password to protect your wallet key >>>`</li></ul></ol><br/><table><tbody><tr><td bgcolor="#e5f8f6">**Tip**: Using a wallet that is available in your Metamask (i.e. importing a wallet from Metamask) allows you to view orders created and trades filled by Hummingbot on the decentralized exchange's website.</td></tr></tbody></table> |
-| `Which Ethereum node would you like your client to connect to? >>>` | Enter an Ethereum node URL for Hummingbot to use when it trades on Ethereum-based decentralized exchanges.<br /><br />For more information, see: [Setting up your Ethereum node](/installation/node/node).<table><tbody><tr><td bgcolor="#ecf3ff">**Tip**: If using an Infura endpoint, ensure to append `https://` before the URL.</td></tr></tbody></table> |
-
-
 ## Adding Transaction Costs to Prices
 
 Transaction costs are by default now added to the prices. This setting can be disabled by going to `hummingbot/strategy/pure_market_making/start.py` and setting `add_transaction_costs_to_orders` to `False`.
