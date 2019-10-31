@@ -16,6 +16,7 @@ cdef class BambooRelayMarket(MarketBase):
         double _last_update_limit_order_timestamp
         double _last_update_market_order_timestamp
         double _last_update_trading_rules_timestamp
+        double _last_update_available_balance_timestamp
         double _poll_interval
         dict _in_flight_limit_orders
         dict _in_flight_market_orders
@@ -61,5 +62,6 @@ cdef class BambooRelayMarket(MarketBase):
                                        object amount,
                                        str tx_hash)
     cdef c_expire_order(self, str order_id)
+    cdef c_expire_order_fast(self, str order_id)
     cdef c_check_and_remove_expired_orders(self)
     cdef c_stop_tracking_order(self, str order_id)
