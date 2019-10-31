@@ -54,6 +54,7 @@ The following walks through all the steps when running `config` for the first ti
 | `How long do you want to wait before placing the next order in case your order gets filled (in seconds). (Default is 10 seconds)? >>>` | More information in [Order Replenish Time](#order-replenish-time) section. |
 | `Do you want to enable order_filled_stop_cancellation. If enabled, when orders are completely filled, the other side remains uncanceled (Default is False)? >>>` | More information in ["Hanging Orders"](#hanging-orders) section. |
 | `Do you want to enable jump_orders? If enabled, when the top bid price is lesser than your order price, buy order will jump to one tick above top bid price & vice versa for sell. (Default is False) >>>` <br /><br /> `How deep do you want to go into the order book for calculating the top bid and ask, ignoring dust orders on the top (expressed in base currency)? (Default is 0) >>>` | More information in [Penny Jumping Mode](#penny-jumping-mode) section. |
+| `Would you like to enable the kill switch? (y/n) >>>` <br /><br /> `At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5% loss) >>>` | This sets `kill_switch_enabled` and `kill_switch_rate`. Refer to [Kill Switch](/utilities/kill-switch) under Utilities section. |
 
 
 ## Adding Transaction Costs to Prices
