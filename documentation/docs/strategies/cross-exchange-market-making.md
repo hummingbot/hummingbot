@@ -1,10 +1,10 @@
 # Cross Exchange Market Making
 
-## How it Works
+## How It Works
 
 Cross exchange market making is described in [Strategies](/strategies/), with a further discussion in the Hummingbot [white paper](https://hummingbot.io/whitepaper.pdf).
 
-!!! warning
+!!! warning "Updates to strategy"
     The cross exchange market making strategy has been updated as of v0.15.0, so that it will always place the order at the minimum profitability level. If the sell price for the specified volume on the taker exchange is 100, and you set the min_profitability as 0.01, it will place the maker buy order at 99. The top depth tolerance is also now specified by the user in base currency units. Please do not use old configuration files for running this strategy.
 
 ### Schematic
@@ -47,10 +47,10 @@ and as per market conditions we have the following,
 Sell price on Taker: 100 USDT (on a volume weighted average basis) <br/>
 Top Bid price on Maker: 90 USDT (existing order on the order book, which is not the user's current order) <br/>
 
-If adjust_order_enabled is set to True:
+If `adjust_order_enabled` is set to `True`:
 The bid price according to min profitability is 95 (100*(1-0.05)). However as top bid price is 90, the strategy will place the bid order above the existing top bid at 90.01 USDT
 
-If adjust_order_enabled is set to False:
+If `adjust_order_enabled` is set to `False`:
 The bid price according to min profitability is 95 (100*(1-0.05)). Here the strategy will place the bid order at 95.
 
 ## Configuration Walkthrough
@@ -62,17 +62,15 @@ The following walks through all the steps when running `config` for the first ti
 
 | Prompt | Description |
 |-----|-----|
-| `What is your market making strategy >>>`: | Enter `cross_exchange_market_making`.<br/><br/>Currently available options: `arbitrage` or `cross_exchange_market_making` or `pure_market_making` or `discovery` or `simple_trade` *(case sensitive)* |
-| `Import previous configs or create a new config file? (import/create) >>>`: | When running the bot for the first time, enter `create`.<br/>If you have previously initialized, enter `import`, which will then ask you to specify the config file location. |
-| `Enter your maker exchange name >>>`: | In the cross-exchange market making strategy, the *maker exchange* is the exchange where the bot will place maker orders.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, `bamboo_relay`, `huobi`, `bittrex` *(case sensitive)* |
-| `Enter your taker exchange name >>>`: | In the cross-exchange market making strategy, the *taker exchange* is the exchange where the bot will place taker orders.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, `bamboo_relay`, `huobi`, `bittrex` *(case sensitive)*|
-| `Enter the token symbol you would like to trade on [maker exchange name] >>>`: | Enter the token symbol for the *maker exchange*.<br/>Example input: `ZRX-WETH`<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: ensure that the pair is a valid pair for the exchange, for example, use `WETH` instead of `ETH`.</td></tr></tbody></table> |
-| `Enter the token symbol you would like to trade on [taker exchange name] >>>`: | Enter the token symbol for the *taker exchange*.<br/>Example input: `ZRX-ETH`<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: ensure that (1) the pair corresponds with the token symbol entered for the maker exchange, and that (2) is a valid pair for the exchange.  *Note in the example, the use of `ETH` instead of `WETH`*.</td></tr></tbody></table>|
-| `What is the minimum profitability for your to make a trade? (Enter 0.01 to indicate 1%) >>>`: | This sets `min_profitability` (see [definition](/strategies/cross-exchange-market-making/#configuration-parameters)). |
-| `What is the quantity of each order, denominated in the base asset? (Enter 0 to allow Hummingbot to automatically size orders) >>>`: | This sets `order_amount` (see [definition](/strategies/cross-exchange-market-making/#configuration-parameters)). |
-| `Enter your Binance API key >>>`:<br/><br/>`Enter your Binance API secret >>>`: | You must [create a Binance API key](https://docs.hummingbot.io/connectors/binance/#creating-binance-api-keys) key with trading enabled ("Enable Trading" selected).<br/><table><tbody><tr><td bgcolor="#e5f8f6">**Tip**: You can use Ctrl + R or ⌘ + V to paste from the clipboard or for more information, see [How to: Copy and Paste](https://docs.hummingbot.io/support/how-to/#how-do-i-copy-and-paste-in-docker-toolbox-windows)</td></tr></tbody></table> |
-| `Would you like to import an existing wallet or create a new wallet? (import / create) >>>`: | Import or create an Ethereum wallet which will be used for trading on DDEX.<br/><br/>Enter a valid input:<ol><li>`import`: imports a wallet from an input private key.</li><ul><li>If you select import, you will then be asked to enter your private key as well as a password to lock/unlock that wallet for use with Hummingbot</li><li>`Your wallet private key >>>`</li><li>`A password to protect your wallet key >>>`</li></ul><li>`create`: creates a new wallet with new private key.</li><ul><li>If you select create, you will only be asked for a password to protect your newly created wallet</li><li>`A password to protect your wallet key >>>`</li></ul></ol><br/><table><tbody><tr><td bgcolor="#e5f8f6">**Tip**: using a wallet that is available in your Metamask (i.e. importing a wallet from Metamask) allows you to view orders created and trades filled by Hummingbot on the decentralized exchange's website.</td></tr></tbody></table> |
-| `Which Ethereum node would you like your client to connect to? >>>`: | Enter an Ethereum node URL for Hummingbot to use when it trades on Ethereum-based decentralized exchanges.<br /><br />For more information, see: Setting up your Ethereum Node](/installation/node/node).<table><tbody><tr><td bgcolor="#ecf3ff">**Tip**: if you are using an Infura endpoint, ensure that you append `https://` before the URL.</td></tr></tbody></table> |
+| `What is your market making strategy >>>` | Enter `cross_exchange_market_making`. |
+| `Import previous configs or create a new config file? (import/create) >>>` | When running the bot for the first time, enter `create`. If you have previously initialized, enter `import`, which will then ask you to specify the config file location. |
+| `Enter your maker exchange name >>>` | In the cross-exchange market making strategy, the *maker exchange* is the exchange where the bot will place maker orders.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, `bamboo_relay`, `huobi`, `bittrex` *(case sensitive)* |
+| `Enter your taker exchange name >>>` | In the cross-exchange market making strategy, the *taker exchange* is the exchange where the bot will place taker orders.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, `bamboo_relay`, `huobi`, `bittrex` *(case sensitive)*|
+| `Enter the token symbol you would like to trade on [maker exchange name] >>>` | Enter the token symbol for the *maker exchange*.<br/>Example input: `ZRX-WETH`<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: ensure that the pair is a valid pair for the exchange, for example, use `WETH` instead of `ETH`.</td></tr></tbody></table> |
+| `Enter the token symbol you would like to trade on [taker exchange name] >>>` | Enter the token symbol for the *taker exchange*.<br/>Example input: `ZRX-ETH`<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: ensure that (1) the pair corresponds with the token symbol entered for the maker exchange, and that (2) is a valid pair for the exchange.  *Note in the example, the use of `ETH` instead of `WETH`*.</td></tr></tbody></table>|
+| `What is the minimum profitability for your to make a trade? (Enter 0.01 to indicate 1%) >>>` | This sets `min_profitability` ([definition](/strategies/cross-exchange-market-making/#configuration-parameters)). |
+| `What is the quantity of each order, denominated in the base asset? (Enter 0 to allow Hummingbot to automatically size orders) >>>` | This sets `order_amount` ([definition](/strategies/cross-exchange-market-making/#configuration-parameters)). |
+
 
 ## Configuration Parameters
 
