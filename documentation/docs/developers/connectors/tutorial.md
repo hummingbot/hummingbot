@@ -24,7 +24,7 @@ Integrating your own data source component would require you to extend from the 
 
 The table below details the **required** functions in `OrderBookTrackerDataSource`:
 
-Function<div style="width:200px"/> | Input Parameters | Expected Output | Description
+Function<div style="width:200px"/> | Input Parameter(s) | Expected Output(s) | Description
 ---|---|---|---
 `get_active_exchange_markets` | None | `pandas.DataFrame` | Performs the necessary API request(s) to get all currently active trading pairs on the exchange and returns a `pandas.DataFrame` with each row representing one active trading pair.<br/><br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: If none of the API requests returns a traded `USDVolume` of a trading pair, you are required to calculate it and include it as a column in the `DataFrame`.<br/><br/>Also the the base and quote currency should be represented under the `baseAsset` and `quoteAsset` columns respectively in the `DataFrame`</td></tr></tbody></table>
 `get_trading_pairs` | None | `List[str]` | Calls `get_active_exchange_market` to retrieve a list of active trading pairs.<br/><br/>Ensure that all trading pairs are in the right format.
@@ -40,7 +40,7 @@ The `ActiveOrderTracker` class is responsible for parsing raw data responses fro
 
 The table below details the **required** functions in `ActiveOrderTracker`:
 
-Function<div style="width:150px"/> | Input Parameters | Expected Output | Description
+Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | Description
 ---|---|---|---
 `active_asks` | None | `Dict[Decimal, Dict[str, Dict[str, any]]]` | Get all asks on the order book in dictionary format.
 `active_bids` | None | `Dict[Decimal, Dict[str, Dict[str, any]]]` | Get all bids on the order book in dictionary format.
@@ -62,7 +62,7 @@ Integrating your own tracker would require you to extend from the `OrderBookTrac
 
 The table below details the **required** functions to be implemented in `OrderBookTracker`:
 
-Function<div style="width:200px"/> | Input Parameters | Expected Output | Description
+Function<div style="width:200px"/> | Input Parameter(s) | Expected Output(s) | Description
 ---|---|---|---
 `data_source` | None | `OrderBookTrackerDataSource` | Retrieves the `OrderBookTrackerDataSource` object for this `OrderBookTracker`.
 `exchange_name` | None | `str` | Returns the exchange name.
@@ -76,12 +76,12 @@ Function<div style="width:200px"/> | Input Parameters | Expected Output | Descri
 
 The table below details some functions already implemented in the [`OrderBookTracker`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/data_type/order_book_tracker.py) base class:
 
-Function<div style="width:150px"/> | Input Parameters | Expected Output | Description
+Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | Description
 ---|---|---|---
 `order_books` | None | `Dict[str, OrderBook]` | Retrieves all the order books being tracked by `OrderBookTracker`.
 `ready` | None | `bool` | Returns a boolean variable to determine if the `OrderBookTracker` is in a state such that the Hummingbot client can begin its operations.
 `snapshot` | None | `Dict[str, Tuple[pd.DataFrame, pd.DataFrame]]` | Returns the bids and asks entries in the order book of the respective trading pairs.
-`start` | None | None | Start listening on trade messages. <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: This is to be overridden and called by using `super().start()` in the custom implementation of `start`.</td></tr></tbody></table>
+`start` | None | None | Start listening on trade messages. <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: This is to be overridden and called by running `super().start()` in the custom implementation of `start`.</td></tr></tbody></table>
 `stop` | None | None | Stops all tasks in `OrderBookTracker`.
 `_emit_trade_event_loop` | None | None | Attempts to retrieve trade_messages from the Queue `_order_book_trade_stream` and apply the trade onto the respective order book.
 
@@ -102,10 +102,10 @@ Integrating your own data source component would require you to extend from the 
 
 The table below details the **required** functions in `UserStreamTrackerDataSource`:
 
-Function<div style="width:200px"/> | Input Parameters | Expected Output | Description
+Function<div style="width:200px"/> | Input Parameter(s) | Expected Output(s) | Description
 ---|---|---|---
 `order_book_class` | None | `OrderBook` | Get relevant order book class ot access class specific methods.<br/><br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: You are also required to implement your own `OrderBook` class that converts JSON data into a standard `OrderBookMessage` format.</td></tr></tbody></table>
-`listen_for_user_stream` | ev_loop: `asyncio.BaseEventLoop`<br/>output: `asyncio.Queue` | None | TBA
+`listen_for_user_stream` | ev_loop: `asyncio.BaseEventLoop`<br/>output: `asyncio.Queue` | None | Subscribe to user stream via web socket, and keep the connection open for incoming messages
 
 ### UserStreamTracker
 
@@ -127,7 +127,7 @@ This can be achieved in 2 ways(depending on the available API on the exchange):
 
 The table below details the **required** functions to be implemented in `UserStreamTracker`:
 
-Function<div style="width:200px"/> | Input Parameters | Expected Output | Description
+Function<div style="width:200px"/> | Input Parameter(s) | Expected Output(s)(s) | Description
 ---|---|---|---
 `data_source` | None | `UserStreamTrackerDataSource` | Initializes a user stream data source (user specific order deltas from a websocket stream)
 `start` | None | None | Starts all listeners and tasks
@@ -143,40 +143,82 @@ For a more detailed explanation and implementation details, please refer to the 
 
 The primary bulk of integrating a new exchange connector is in the section. 
 
-The role of the `Market` class can be broken down into several other subtasks; namely they are placing and tracking orders, albeit a short list, it do require a certain level of understanding and knowing the expected side-effect(s) of certain functions.
+The role of the `Market` class can be broken down into placing and tracking orders. Although this might seem pretty straightforward, it does require a certain level of understanding and knowing the expected side-effect(s) of certain functions.
+
+Before we get started, placing of orders and other user specific interactions require `Authentication`.
 
 ### Authentication
 
-Placing and tracking of orders on the exchange normally requiring a form of authentication tied to every requests to ensure protected access/actions to the assets that users have on the respective exchanges. As such, it is would only make sense to have a module dedicated to handling authentication.
+Placing and tracking of orders on the exchange normally requiring a form of authentication tied to every requests to ensure protected access/actions to the assets that users have on the respective exchanges. 
+
+As such, it is would only make sense to have a module dedicated to handling authentication.
 
 As briefly mentioned, the `Auth` class is responsible for creating the request parameters and/or data bodies necessary to authenticate an API request.
 
+!!! note
+    Mainly used in the `Market` class, but may be required in the `UserStreamTrackerDataSource` to authenticate subscribing to a WebSocket connection in [`listen_for_user_stream`](#userstreamtrackerdatasource).
 
-Function<div style="width:150px"/> | Input Parameters | Expected Output | Description
+Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s)(s) | Description
 ---|---|---|---
 `generate_auth_dict` | http_method: `str`,<br/>url: `str`,<br/>params: `Dict[str, any]`,<br/>body: `Dict[str, any]` | `Dict[str, any]` | Generates the url and the valid signature to authenticate a particular API request.
 
 !!! tip
-    This the **inputs** and **return** value(s) can be modified accordingly to suit the exchange connectors.
+    The **input parameters** and **return** value(s) can be modified accordingly to suit the exchange connectors. In most cases, the above parameters are required when creating a signature.
 
-### Placing and tracking orders
+### Market
 
-`Market` classes place orders via `execute_buy` and `execute_sell` commands, which require the following arguments:
+The section below will describe the in detail what is required for the `Market` class to place and track orders.
 
-- The order ID
-- The market symbol
-- The amount of the order
-- The type (limit or market)
-- The price, if limit order
+#### Placing Orders
+ 
+The `execute_buy` and `execute_sell` are the crucial functions when placing orders on the exchange, below will describe the task of these function.
 
-The `execute_buy` and `execute_sell` methods verify that the trades would be legal given the trading rules pulled from the exchange and calculate applicable trading fees. They then must do the following:
+Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | Description
+---|---|---|---
+`execute_buy` | order_id: `str`,<br/>symbol: `str`,<br/>amount: `Decimal`,<br/>order_type: `OrderType`,<br/>price: `Optional[Decimal] = s_decimal_0`| None | Function that takes the strategy inputs, auto corrects itself with trading rules, and places a buy order by calling the `place_order` function.<br/><br/>This function also begins to track the order by calling the `c_start_tracking_order` and `c_trigger_event` function.<br/>
+`execute_buy` | order_id: `str`,<br/>symbol: `str`,<br/>amount: `Decimal`,<br/>order_type: `OrderType`,<br/>price: `Optional[Decimal] = s_decimal_0` | None | Function that takes the strategy inputs, auto corrects itself with trading rules, and places a buy order by calling the `place_order` function.
 
-- Quantize the order amount to ensure that the precision is as required by the exchange
-- Create a `params` dictionary with the necessary parameters for the desired order
-- Pass the `params` to an `Auth` object to generate the signature and place the order
-- Pass the resulting order ID and status along with the details of the order to an `InFlightOrder`
+!!! warning
+    The `execute_buy` and `execute_sell` methods verify that the trades would be legal given the trading rules pulled from the exchange and calculate applicable trading fees. They then must do the following:
+    
+    - Quantize the order amount to ensure that the precision is as required by the exchange
+    - Create a `params` dictionary with the necessary parameters for the desired order
+    - Pass the `params` to an `Auth` object to generate the signature and place the order
+    - Pass the resulting order ID and status along with the details of the order to an `InFlightOrder`
+    
+    `InFlightOrders` are stored within a list in the `Market` class, and are Hummingbot’s internal records of orders it has placed that remain open on the market. When such orders are either filled or canceled, they are removed from the list and the relevant event completion flag is passed to the strategy module.
 
-`InFlightOrders` are stored within a list in the `Market` class, and are Hummingbot’s internal records of orders it has placed that remain open on the market. When such orders are either filled or canceled, they are removed from the list and the relevant event completion flag is passed to the strategy module.
+Considering that placing of orders normally involves a `POST` request to a particular buy/sell order REST API endpoint. This would **require** additional parameters like :
+
+Variable(s)<div style="width:100px"/>  | Type                | Description
+-------------|---------------------|-------------
+`order-id`   | `str`               | A generated, client-side order ID that will be used to identify an order by the Hummingbot client.<br/> The `order_id` is generated in the `c_buy` function.
+`symbol`     | `str`               | The trading pair string representing the market on which the order should be placed. i.e. (ZRX-ETH) <br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Some exchanges have the trading pair symbol in `Quote-Base` format. Hummingbot requires that all trading pairs to be in `Base-Quote` format.</td></tr></tbody></table>
+`amount`     | `Decimal`           | The total value, in base currency, to buy/sell.
+`order_type` | `OrderType`         | OrderType.LIMIT or OrderType.MARKET
+`price`      | `Optional[Decimal]` | If `order_type` is `LIMIT`, it represents the rate at which the `amount` base currency is being bought/sold at. `s_decimal_0` <br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: `s_decimal_0 = Decimal(0)` </td></tr></tbody></table>
+
+#### Cancelling Orders
+
+The `execute_cancel` function is the primary function used to cancel any particular tracked order. Below is a quick overview of the `execute_cancel` function
+
+Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | Description
+---|---|---|---
+`execute_cancel` | symbol: `str`,<br/>order_id: `str` | order_id: `str` | Function that makes API request to cancel an active order and returns the order_id if it has been successfully cancelled.<br/><br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: This function also stops tracking the order by calling the `c_stop_tracking_order` and `c_trigger_event` functions.</td></tr></tbody></table>
+
+!!! note
+    The `execute_cancel` function also stops tracking orders(`c_stop_tracking_order`) that are **not open** on the exchange.
+   
+
+#### Tracking Orders
+
+#### Additional Function(s)
+
+Below are a list of `required` functions for the `Market` class to be fully functional.
+
+Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | Description
+---|---|---|---
+
 
 ## Task 4. Hummingbot Client
 Coming soon...
