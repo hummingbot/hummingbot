@@ -165,6 +165,7 @@ nav:
           - Tutorial: developers/strategies/tutorial.md
           - Perform Trade: developers/strategies/perform-trade.md
           - Simple Trade: developers/strategies/simple-trade.md
+          - TWAP : developers/strategies/twap.md
         - Connectors:
           - Adding Connectors: developers/connectors/index.md
           - Adding Connectors to Other Blockchains: developers/connectors/new-blockchain.md
