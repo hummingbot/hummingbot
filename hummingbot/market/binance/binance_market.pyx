@@ -69,7 +69,7 @@ from hummingbot.market.trading_rule cimport TradingRule
 
 s_logger = None
 s_decimal_0 = Decimal(0)
-SYMBOL_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD)$")
+SYMBOL_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN)$")
 
 
 cdef class BinanceMarketTransactionTracker(TransactionTracker):
@@ -195,6 +195,17 @@ cdef class BinanceMarket(MarketBase):
             return m.group(1), m.group(2)
         except Exception as e:
             raise ValueError(f"Error parsing symbol {symbol}: {str(e)}")
+
+    @staticmethod
+    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
+        # Binance does not split BASEQUOTE (BTCUSDT)
+        base_asset, quote_asset = BinanceMarket.split_symbol(exchange_trading_pair)
+        return f"{base_asset}-{quote_asset}"
+
+    @staticmethod
+    def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
+        # Binance does not split BASEQUOTE (BTCUSDT)
+        return hb_trading_pair.replace("-", "")
 
     @property
     def name(self) -> str:

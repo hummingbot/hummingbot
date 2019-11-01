@@ -43,7 +43,8 @@ docker run -it \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
 coinalpha/hummingbot:latest
 ```
-```bash tab="Example"
+
+```bash tab="Sample entry"
 docker run -it \
 -e STRATEGY=discovery \
 -e CONFIG_FILE_NAME=conf_discovery_strategy_1.yml \
@@ -72,7 +73,8 @@ bin/hummingbot_quickstart.py \
 --wallet ${WALLET} \
 --wallet-password ${WALLET-PASSWORD}
 ```
-```bash tab="Example"
+
+```bash tab="Sample entry"
 bin/hummingbot_quickstart.py \
 --strategy discovery \
 --config-file-name conf_discovery_strategy_0.yml \
