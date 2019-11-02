@@ -143,23 +143,6 @@ class BittrexOrderBookTrackerEntry(OrderBookTrackerEntry):
     def active_order_tracker(self) -> BittrexActiveOrderTracker:
         return self._active_order_tracker
 
-class BitcoinComOrderBookTrackerEntry(OrderBookTrackerEntry):
-    def __init__(
-        self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: BitcoinComActiveOrderTracker
-    ):
-        self._active_order_tracker = active_order_tracker
-        super(BitcoinComOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
-
-    def __repr__(self) -> str:
-        return (
-            f"BitcoinComOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', "
-            f"order_book='{self._order_book}')"
-        )
-
-    @property
-    def active_order_tracker(self) -> BitcoinComActiveOrderTracker:
-        return self._active_order_tracker
-
 class HitbtcOrderBookTrackerEntry(OrderBookTrackerEntry):
     def __init__(
         self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: HitbtcActiveOrderTracker
