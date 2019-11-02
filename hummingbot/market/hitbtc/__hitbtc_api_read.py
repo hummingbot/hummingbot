@@ -95,10 +95,4 @@ class hitbtc_data_source:
         
     def get_transaction(self, transaction_id):
         """Get transaction info."""
-        return self.session.get("%s/account/transactions/%s" % (self.url, transaction_id)).json()    
-
-    
-
-
-
-
+        return self.session.get("%s/account/transactions/%s" % (self.url, transaction_id)).json()
