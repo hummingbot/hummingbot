@@ -146,6 +146,17 @@ cdef class HuobiMarket(MarketBase):
         except Exception as e:
             raise ValueError(f"Error parsing symbol {symbol}: {str(e)}")
 
+    @staticmethod
+    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
+        # Huobi uses lowercase (btcusdt)
+        base_asset, quote_asset = HuobiMarket.split_symbol(exchange_trading_pair)
+        return f"{base_asset.upper()}-{quote_asset.upper()}"
+
+    @staticmethod
+    def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
+        # Huobi uses lowercase (btcusdt)
+        return hb_trading_pair.replace("-", "").lower()
+
     @property
     def name(self) -> str:
         return "huobi"
