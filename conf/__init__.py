@@ -62,9 +62,9 @@ bittrex_api_key = os.getenv("BITTREX_API_KEY")
 bittrex_secret_key = os.getenv("BITTREX_SECRET_KEY")
 
 # KuCoin Tests
-coinbase_pro_api_key = os.getenv("KUCOIN_API_KEY")
-coinbase_pro_secret_key = os.getenv("KUCOIN_SECRET_KEY")
-coinbase_pro_passphrase = os.getenv("KUCOIN_PASSPHRASE")
+kucoin_api_key = os.getenv("KUCOIN_API_KEY")
+kucoin_secret_key = os.getenv("KUCOIN_SECRET_KEY")
+kucoin_passphrase = os.getenv("KUCOIN_PASSPHRASE")
 
 test_web3_provider_list = [os.getenv("WEB3_PROVIDER")]
 
