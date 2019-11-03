@@ -27,8 +27,12 @@ Modifications for the following fields have to be made to the `config_map` file 
 * If `self._first_order` is true, we want to place order as soon as `self._current_timestamp > self._previous_timestamp` because we don't need to have a time delay for the first order - we only need delays in between inndividual orders. 
 * If it isn't the first order, check that `self._current_timestamp > self._previous_timestamp + self._time_delay` to ensure there is a delay between individual orders.
 
+![Figure 1: Processing orders](/assets/img/TWAP1.svg)
+
 `c_place_orders()`:
 
 * `curr_order_amount` : Decide the amount of the individual order. This should be equal to either the *(total order amount)/(number of orders)* or `self._quantity_remaining` depending on which one gives a smaller value because we don't want to overplace an order.
 * `quantized_amount` : Calculate quantized order amount by passing in the individual order amount to `c_quantize_order_amount()`
 * Once order is placed, update `self._quantity_remaining` by subtracting the quantized amount of individual order placed from original quantity remaining.
+
+![Figure 2: Placing orders](/assets/img/TWAP2.svg)
