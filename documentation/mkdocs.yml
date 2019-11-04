@@ -137,6 +137,7 @@ nav:
         - IDEX: connectors/idex.md
         - Radar Relay: connectors/radar-relay.md
         - Bamboo Relay: connectors/bamboo-relay.md
+        - Dolomite: connectors/dolomite.md
         - 0x Relayers: connectors/0x.md
       - Strategies:
         - Strategies Overview: strategies/index.md
@@ -173,6 +174,7 @@ nav:
         - Configuration: developers/config.md
     - Release Notes:
       - About Releases: release-notes/index.md
+      - 0.18.0: release-notes/0.18.0.md
       - 0.17.1: release-notes/0.17.1.md
       - 0.17.0: release-notes/0.17.0.md
       - 0.16.0: release-notes/0.16.0.md
