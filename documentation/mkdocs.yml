@@ -105,13 +105,16 @@ nav:
       - Installation:
         - Installation Overview: installation/index.md
         - Setup a Cloud Server: installation/cloud.md
+        - Install via Binary:
+          - Windows: installation/from-binary/windows.md
+          - macOS: installation/from-binary/macos.md
         - Install via Docker:
           - Linux: installation/via-docker/linux.md
-          - MacOS: installation/via-docker/macOS.md
+          - macOS: installation/via-docker/macOS.md
           - Windows: installation/via-docker/windows.md
         - Install from Source:
           - Linux: installation/from-source/linux.md
-          - MacOS: installation/from-source/macOS.md
+          - macOS: installation/from-source/macOS.md
           - Windows: installation/from-source/windows.md
         - Updating Hummingbot: installation/updating.md
       - Operation:
@@ -134,6 +137,7 @@ nav:
         - IDEX: connectors/idex.md
         - Radar Relay: connectors/radar-relay.md
         - Bamboo Relay: connectors/bamboo-relay.md
+        - Dolomite: connectors/dolomite.md
         - 0x Relayers: connectors/0x.md
       - Strategies:
         - Strategies Overview: strategies/index.md
@@ -159,8 +163,9 @@ nav:
           - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
           - Pure Market Making: developers/strategies/pure-market-making.md
           - Discovery: developers/strategies/discovery.md
+          - Tutorial: developers/strategies/tutorial.md
           - Perform Trade: developers/strategies/perform-trade.md
-          - Tutorial : developers/strategies/tutorial.md
+          - Simple Trade: developers/strategies/simple-trade.md
         - Connectors:
           - Adding Connectors: developers/connectors/index.md
           - Adding Connectors to Other Blockchains: developers/connectors/new-blockchain.md
@@ -169,6 +174,7 @@ nav:
         - Configuration: developers/config.md
     - Release Notes:
       - About Releases: release-notes/index.md
+      - 0.18.0: release-notes/0.18.0.md
       - 0.17.1: release-notes/0.17.1.md
       - 0.17.0: release-notes/0.17.0.md
       - 0.16.0: release-notes/0.16.0.md
