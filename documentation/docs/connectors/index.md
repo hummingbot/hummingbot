@@ -50,6 +50,8 @@ Please contact the support contact listed in the above table for support questio
 1. Create a Github issue and tag the Github contact to inform them of the issue.
 1. Report the issue to the exchange connector support contact.
 
+* [Bamboo Relay](/connectors/bamboo-relay)
+* [Dolomite](/connectors/dolomite)
 
 ## Coming Soon to Hummingbot
 
