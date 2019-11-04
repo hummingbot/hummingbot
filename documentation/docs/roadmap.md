@@ -32,6 +32,8 @@ The timeline below shows the past milestones we have completed, along with the f
 ## Q4 2019
 * Released connector for [Bittrex International](/connectors/bittrex)
 * Connector for [Liquid](https://liquid.com/) ([in progress](https://gitcoin.co/issue/CoinAlpha/hummingbot/909/3556))
-* More connectors for decentralized and centralized exchanges: Bitfinex, Kraken, Bitmex, Binance DEX
+* Connector for [Bitcoin Exchange](https://exchange.bitcoin.com/) ([in progress](https://gitcoin.co/issue/CoinAlpha/hummingbot/991/3588))
+* Community contributed connector for [Dolomite](/connectors/dolomite)
 * Graphical user interface
+* More connectors for decentralized and centralized exchanges: Bitfinex, Kraken, Bitmex, Binance DEX
 * Connectors to automated market makers
