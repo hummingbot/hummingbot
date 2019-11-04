@@ -388,13 +388,44 @@ MARKET = {
 ```
 
 ## Additional: Debugging & Testing
-Coming soon...
 
-### Option 1. aiopython console
+This section will breakdown some of the ways to debug and test the code. You are not entirely required to use the options during your development process.
 
-### Option 2. Custom Scripts
+!!! warning
+    As part of the QA process, for each tasks(Task 1 through 3) you are **required** to include the unit test cases for the code review process to begin. Refer to [Option 1: Unit Test Cases](#option-3-unit-test-cases) to build your unit tests.
+    
+### Option 1. Unit Test Cases
 
-### Option 3. Unit Test Cases
+For each tasks(1->3), you are required to create a unit test case. Namely they are `test_*_order_book_tracker.py`, `test_*_user_stream_tracker.py` and `test_*_market.py`. 
+Examples can be found in the [test/integration](https://github.com/CoinAlpha/hummingbot/tree/master/test/integration) folder.
+
+Below are a list of items required for the Unit Tests:
+
+1. Data Source & Order Tracker | `test_*_order_book_tracker.py`<br/>
+The purpose of this test is to ensure that the `OrderBookTrackerDataSource` and `OrderBookTracker` and all its functions are working as intended.
+Another way to its functionality is using a Debugger to ensure that the contents `OrderBook` mirrors that on the exchange.
+
+2. User Stream Tracker | `test_*_user_stream_tracker.py`<br/>
+The purpose of this test is to ensure that the `UserStreamTrackerDataSource` and `UserStreamTracker` components are working as intended.
+This only applies to exchanges that has a WebSocket API. As seen in the examples for this test, it simply outputs all the user stream messages. 
+It is still required that certain actions(buy and cancelling orders) be performed for the tracker to capture. Manual checking would be required.
+
+3. Market Connector | `test_*_market.py`<br/>
+The purpose of this test is to ensure that all components and the order life cycle is working as intended. 
+This test determines if the connector is able to place and manage orders.  
+
+### Option 2. aiopython console
+This option is mainly used to test for specific functions. Considering that many of the functions are asynchronous functions, 
+it would be easier to test for these in the aiopython console. Click [here](https://aioconsole.readthedocs.io/en/latest/) for some documentation on how to use aiopython.
+
+Writing short code snippets to examine API responses and/or how certain functions in the code base work would help you understand the expected side-effects of these functions and the overall logic of the Hummingbot client. 
+
+i.e. A short function to mimic a API request to place an order and displaying the response received.
+
+### Option 3. Custom Scripts
+This option, like in Option 2, is mainly used to test specific functions. This is mainly useful when debugging how various functions/classes interact with one another.
+
+i.e. Initializing a simple websocket connection to listen and output all captured messages to examine the user stream message when placing/cancelling an order. 
 
 ## Examples / Templates
 
