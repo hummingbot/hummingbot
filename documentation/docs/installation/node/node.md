@@ -2,7 +2,11 @@
 
 ## Do I need an Ethereum node?
 
-You need an Ethereum node for strategies that trade on Ethereum-based decentralized exchanges, such as 0x open order book relayers such as Radar Relay, as well as DDEX.
+You need an Ethereum node for strategies that trade on Ethereum-based decentralized exchanges, such as Radar Relay, DDEX, Bamboo Relay, and Dolomite.
+
+| Prompt |
+|-----|
+| `Which Ethereum node would you like your client to connect to? >>>`
 
 ## Option 1. Run your own local node
 
@@ -17,7 +21,8 @@ Running your own node may require dedicated storage and compute, as well as some
     These may require several hours to days to sync and may require some troubleshooting when first running.
 
 ## Option 2. Third-party providers
-1. [Infura](https://infura.io/) provides free and the most widely used Ethereum nodes.
+1. [Infura](https://infura.io/)
+    - Provides free and the most widely used Ethereum nodes.
 2. [Quiknode](https://quiknode.io)
 
 !!! note "Important for Infura users"
