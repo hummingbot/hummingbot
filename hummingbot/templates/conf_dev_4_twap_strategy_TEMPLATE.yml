@@ -8,6 +8,7 @@ template_version: 1
 
 # Exchange and token parameters
 market: null
+market_trading_pair_tuple: null
 
 # Type of Order (Limit/Market)
 order_type: null
