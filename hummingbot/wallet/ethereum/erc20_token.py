@@ -16,6 +16,7 @@ from web3.contract import (
     Contract,
 )
 
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -75,6 +76,18 @@ class ERC20Token:
         elif chain is EthereumChain.KOVAN:
             if self._address == KOVAN_WETH_ADDRESS:
                 self._abi = w_abi
+
+        # By default token_overrides will be assigned an empty dictionary
+        # This helps prevent breaking of market unit tests
+        token_overrides: Dict[str, str] = global_config_map["ethereum_token_overrides"].value or {}
+        override_addr_to_token_name: Dict[str, str] = {value: key for key, value in token_overrides.items()}
+        override_token_name: Optional[str] = override_addr_to_token_name.get(address)
+        if override_token_name == "WETH":
+            self._abi = w_abi
+        elif override_token_name == "DAI":
+            self._abi = d_abi
+        elif override_token_name == "MKR":
+            self._abi = m_abi
 
         self._contract: Contract = self._w3.eth.contract(address=self._address, abi=self._abi)
         self._name: Optional[str] = None

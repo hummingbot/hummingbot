@@ -153,7 +153,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
         self.assertGreaterEqual((balances["ETH"]), s_decimal_0)
 
     def test_quantize_order_amount(self):
-        amount = self.market.quantize_order_amount("ETH_QNT", Decimal(0.01))
+        amount = self.market.quantize_order_amount("ETH_QNT", Decimal('0.01'))
         self.assertEqual(amount, 0)
         amount = self.market.quantize_order_amount("ETH_QNT", Decimal(100000))
         self.assertEqual(amount, 100000)
@@ -216,7 +216,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
     def test_market_buy(self):
         symbol = ETH_QNT
         current_price: Decimal = Decimal(self.market.get_price(symbol, True))
-        buy_amount: Decimal = Decimal(0.16) / current_price
+        buy_amount: Decimal = Decimal('0.16') / current_price
         buy_order_id: str = self.market.buy(symbol, buy_amount, OrderType.MARKET)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
@@ -225,7 +225,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
     def test_market_sell(self):
         symbol = ETH_QNT
         current_price: Decimal = Decimal(self.market.get_price(symbol, False))
-        sell_amount: Decimal = Decimal(0.155) / current_price
+        sell_amount: Decimal = Decimal('0.155') / current_price
         sell_order_id: str = self.market.sell(symbol, sell_amount, OrderType.MARKET)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
