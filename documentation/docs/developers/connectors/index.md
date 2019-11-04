@@ -72,6 +72,30 @@ We encourage and welcome contributions from the community, subject to the guidel
 1. Address any comments or issues raised by the Hummingbot development team during the code review process.
 1. Notify the Hummingbot team and community of any known issues are bugs that are discovered.
 
+### Acceptance
+1. The best way to create a connector that adheres to Hummingbot’s standard is by cloning the logic of existing connectors. We’ve done a lot of work to build our core connectors, so no need to reinvent the wheel.
+1. Existing connector files to use as code samples are in [Exchange connector requirements](#exchange-connector-requirements).
+1. While we don't require developers to have every file (You don’t need to implement a user stream if the exchange doesn’t support user stream, for instance), some general guidelines are:
+    - Websocket > Rest. Hummingbot is a high-frequency trading bot, which means it’d perform better when it has all the information in real-time.
+    - Adhere to conventions. Using the same naming pattern / code structure will help our developers review your code and get your connector approved faster.
+    - Always add in-code comments for your custom logic.
+1. Required functionalities;
+    - Tracking real-time order book snapshots / diffs / trades
+    - Getting prices from top of the order book
+    - Order parameter quantization (Adjust any order price / quantity inputs into values accepted by the exchange, taking into account min / max order size requirement, number of digits, etc)
+    - Submitting limit buy and sell orders
+    - Submitting market buy and sell orders
+    - Cancelling a single order
+    - Cancelling all orders that the bot submitted
+    - Tracking all in-flight orders
+    - Updating statuses of in-flight orders
+    - Updating user balance (all balance & balance available for trading)
+    - Any other functionalities / error handling required in order to trade on the exchange
+    - Extensive unit tests that cover all functionalities above
+1. Once the PR is submitted, our developers will review your code and likely request changes. Please expect the review process to take 2-3 weeks before the PR is merged.
+1. After the requirements above are fulfilled, we will merge the PR to `development` branch, which will be merged into `master` in the next release.
+1. In the future, we may separate community-contributed connectors and strategies from the core Hummingbot codebase, so that users can choose to install exchange connectors that they are using. However, we will not do that right now.
+
 ### Expectations for the Hummingbot team
 1. Make available a dedicated channel on discord (https://discord.hummingbot.io) during the initial development process.
 1. Provide a main point of contact for the developer.
