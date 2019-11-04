@@ -403,16 +403,161 @@ Below are a list of items required for the Unit Tests:
 
 1. Data Source & Order Tracker | `test_*_order_book_tracker.py`<br/>
 The purpose of this test is to ensure that the `OrderBookTrackerDataSource` and `OrderBookTracker` and all its functions are working as intended.
-Another way to its functionality is using a Debugger to ensure that the contents `OrderBook` mirrors that on the exchange.
+Another way to test its functionality is using a Debugger to ensure that the contents `OrderBook` mirrors that on the exchange.
 
 2. User Stream Tracker | `test_*_user_stream_tracker.py`<br/>
 The purpose of this test is to ensure that the `UserStreamTrackerDataSource` and `UserStreamTracker` components are working as intended.
 This only applies to exchanges that has a WebSocket API. As seen in the examples for this test, it simply outputs all the user stream messages. 
-It is still required that certain actions(buy and cancelling orders) be performed for the tracker to capture. Manual checking would be required.
+It is still required that certain actions(buy and cancelling orders) be performed for the tracker to capture. Manual message comparison would be required.
+
+i.e. Placing a single LIMIT-BUY order on Bittrex Exchange should return the following(some details are omitted)
+
+```Bash tab="Order Detail(s)"
+Trading Pair: ZRX-ETH
+Order Type: LIMIT-BUY
+Amount: 100ZRX
+Price: 0.00160699ETH
+```
+
+```Bash tab="Action(s) Performed"
+1. Placed LIMIT BUY order.
+2. Cancel order.
+```
+
+```Bash tab="Expected output"
+# Below is the outcome of the test. Determining if this is accurate would still be necessaru.
+
+<Queue maxsize=0 _queue=[
+    BittrexOrderBookMessage(
+        type=<OrderBookMessageType.DIFF: 2>, 
+        content={
+            'event_type': 'uB',
+            'content': {
+                'N': 4,
+                'd': {
+                    'U': '****', 
+                    'W': 3819907,
+                    'c': 'ETH',
+                    'b': 1.13183357, 
+                    'a': 0.96192245, 
+                    'z': 0.0,
+                    'p': '0x****',
+                    'r': False, 
+                    'u': 1572909608900,
+                    'h': None
+                }
+            }, 
+            'error': None, 
+            'time': '2019-11-04T23:20:08'
+        },
+        timestamp=1572909608.0
+    ), 
+    BittrexOrderBookMessage(
+        type=<OrderBookMessageType.DIFF: 2>,
+        content={
+            'event_type': 'uO',
+            'content': {
+                'w': '****',
+                'N': 44975,
+                'TY': 0,
+                'o': {
+                    'U': '****',
+                    'I': 3191361360,
+                    'OU': '****',
+                    'E': 'XRP-ETH',
+                    'OT': 'LIMIT_BUY',
+                    'Q': 100.0,
+                    'q': 100.0,
+                    'X': 0.00160699,
+                    'n': 0.0,
+                    'P': 0.0,
+                    'PU': 0.0,
+                    'Y': 1572909608900,
+                    'C': None,
+                    'i': True,
+                    'CI': False,
+                    'K': False,
+                    'k': False,
+                    'J': None,
+                    'j': None,
+                    'u': 1572909608900,
+                    'PassthroughUuid': None
+                }
+            },
+            'error': None,
+            'time': '2019-11-04T23:20:08'
+        }, 
+        timestamp=1572909608.0
+    ),
+    BittrexOrderBookMessage(
+        type=<OrderBookMessageType.DIFF: 2>,
+        content={
+            'event_type': 'uB',
+            'content': {
+                'N': 5,
+                'd': {
+                    'U': '****',
+                    'W': 3819907,
+                    'c': 'ETH', 
+                    'b': 1.13183357, 
+                    'a': 1.1230232,
+                    'z': 0.0,
+                    'p': '****',
+                    'r': False,
+                    'u': 1572909611750,
+                    'h': None
+                }
+            }, 
+            'error': None, 
+            'time': '2019-11-04T23:20:11'
+        }, 
+        timestamp=1572909611.0
+    ), 
+    BittrexOrderBookMessage(
+        type=<OrderBookMessageType.DIFF: 2>,
+        content={
+            'event_type': 'uO',
+            'content': {
+                'w': '****',
+                'N': 44976, 
+                'TY': 3, 
+                'o': {
+                    'U': '****', 
+                    'I': 3191361360, 
+                    'OU': '****', 
+                    'E': 'XRP-ETH', 
+                    'OT': 'LIMIT_BUY', 
+                    'Q': 100.0, 
+                    'q': 100.0, 
+                    'X': 0.00160699, 
+                    'n': 0.0, 
+                    'P': 0.0, 
+                    'PU': 0.0, 
+                    'Y': 1572909608900, 
+                    'C': 1572909611750, 
+                    'i': False, 
+                    'CI': True,
+                    'K': False,
+                    'k': False, 
+                    'J': None, 
+                    'j': None, 
+                    'u': 1572909611750, 
+                    'PassthroughUuid': None
+                }
+            }, 
+            'error': None, 
+            'time': '2019-11-04T23:20:11'
+        }, 
+        timestamp=1572909611.0
+    )
+] tasks=4>
+```
 
 3. Market Connector | `test_*_market.py`<br/>
 The purpose of this test is to ensure that all components and the order life cycle is working as intended. 
-This test determines if the connector is able to place and manage orders.  
+This test determines if the connector is able to place and manage orders. Below are a list of tests that are **required**:
+
+
 
 ### Option 2. aiopython console
 This option is mainly used to test for specific functions. Considering that many of the functions are asynchronous functions, 
