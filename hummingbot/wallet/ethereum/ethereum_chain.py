@@ -8,3 +8,4 @@ class EthereumChain(Enum):
     UBIQ = 8
     KOVAN = 42
     SOKOL = 77
+    DOLOMITE_TEST = 1001

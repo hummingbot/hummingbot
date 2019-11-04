@@ -97,6 +97,35 @@ docker-machine restart default
 eval $(docker-machine env default)
 ```
 
+Windows users may encounter the following error when running the Docker Toolbox for Windows for the first time:
+
+```
+Running pre-create checks...
+(default) No default Boot2Docker ISO found locally, downloading the latest release...
+(default) Latest release for github.com/boot2docker/boot2docker is v19.03.4
+(default) Downloading C:\Users\YOUR_USERNAME\.docker\machine\cache\boot2docker.iso from https://github.com/boot2docker/boot2docker/releases/download/v19.03.4/boot2docker.iso...
+Error with pre-create check: 
+```
+
+This can arise if the installation is unable to find the `boot2docker.iso` file in the Docker Toolbox installation folder or if the user is behind a firewall or a proxy. The solution is to download the `boot2docker.iso` manually and place it in the correct path, then re-run docker quickstart terminal. 
+
+```bash
+# Docker Cache Path, change `YOUR_USERNAME` 
+C:/Users/YOUR_USERNAME/.docker/machine/cache/boot2docker.iso
+
+# Download link
+https://github.com/boot2docker/boot2docker/releases/download/v19.03.4/boot2docker.iso
+```
+Alternatively, you can use `curl` in the command prompt. This method requires [administrative rights](https://windows101tricks.com/open-command-prompt-as-administrator-windows-10/).
+
+```bash
+# Docker Cache Path, change `YOUR_USERNAME` 
+curl -Lo C:/Users/YOUR_USERNAME/.docker/machine/cache/boot2docker.iso https://github.com/boot2docker/boot2docker/releases/download/v19.03.4/boot2docker.iso
+```
+
+!!! note
+    If your Windows 10 build is 17063(or later) curl is installed by default. All you need to do is run Command Prompt with administrative rights and you can use curl. The curl.exe is located at C:\Windows\System32. If you want to be able to use curl from anywhere, consider adding it to Path Environment Variables.
+
 ## Running Hummingbot
 
 #### Binance errors in logs
