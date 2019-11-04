@@ -273,7 +273,119 @@ Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | D
 
 
 ## Task 4. Hummingbot Client
-Coming soon...
+
+This section will define the necessary files that need to be modified to allow users configure Hummingbot to use the new exchange connector.
+
+Below are the files and the respective changes that **require** to be modified.
+
+- `conf/__init_.py`
+```python
+new_market_api_key = os.getenv("NEW_MARKET_API_KEY")
+new_market_secret_key = os.getenv("NEW_MARKET_SECRET_KEY")
+```
+
+- `hummingbot/client/config/global_config_map.py`
+```python
+"new_market_api_key": ConfigVar(key="new_market_api_key",
+                             prompt="Enter your NewMarket API key >>> ",
+                             required_if=using_exchange("new_market"),
+                             is_secure=True),
+"new_market_secret_key": ConfigVar(key="new_market_secret_key",
+                                prompt="Enter your NewMarket secret key >>> ",
+                                required_if=using_exchange("new_market"),
+                                is_secure=True),
+```
+
+- `hummingbot/client/hummingbot_application.py`
+```python
+MARKET_CLASSES = {
+    .
+    .
+    .
+    "new_market": NewMarket
+}	}
+```
+
+- `hummingbot/client/settings.py`
+```python
+EXCHANGES = {
+    "bamboo_relay",
+    .
+    .
+    .
+    "new_market",
+}	}
+
+DEXES = {
+    "bamboo_relay",
+    .
+    .
+    .
+    "new_market", # if it is a DEX
+}
+
+EXAMPLE_PAIRS = {
+    "binance": "ZRXETH",
+    .
+    .
+    .
+    "new_market": "EXAMPLE_PAIR",
+}
+
+EXAMPLE_ASSETS = {
+    "binance": "ZRX",
+    .
+    .
+    .
+    "new_market": "EXAMPLE_ASSET",
+}
+```
+
+- `hummingbot/core/utils/trading_pair_fetcher.py`
+```python
+@staticmethod
+async def fetch_new_market_trading_pairs() -> List[str]:
+    # Returns a List of str, representing each active trading pair on the exchange.
+    async with aiohttp.ClientSession() as client:
+            async with client.get(NEW_MARKET_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                if response.status == 200:
+                    try:
+                        all_trading_pairs: List[Dict[str, any]] = await response.json()
+                        return [item["symbol"]
+                                for item in all_trading_pairs
+                                if item["status"] == "ONLINE"]  # Only returns active trading pairs
+                    except Exception:
+                        pass
+                        # Do nothing if the request fails -- there will be no autocomplete available
+                return []
+.
+.
+.
+
+async def fetch_all(self):
+    binance_trading_pairs = await self.fetch_binance_trading_pairs()
+    .
+    .
+    .
+    new_market_trading_pairs = await self.fetch_new_market_trading_pairs()
+    self.trading_pairs = {}
+        "binance": binance_trading_pairs,
+        .
+        .
+        .
+        "new_market": new_market_trading_pairs,
+```
+
+- `hummingbot/logger/report_aggregator.py`
+```python
+MARKET = {
+    "ddex": DDEXMarket,
+    .
+    .
+    .
+    "new_market": NewMarket,
+}
+```
 
 ## Additional: Debugging & Testing
 Coming soon...
