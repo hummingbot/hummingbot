@@ -43,6 +43,7 @@ docker run -it \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
 coinalpha/hummingbot:latest
 ```
+
 ```bash tab="Sample entry"
 docker run -it \
 -e STRATEGY=discovery \
@@ -72,6 +73,7 @@ bin/hummingbot_quickstart.py \
 --wallet ${WALLET} \
 --wallet-password ${WALLET-PASSWORD}
 ```
+
 ```bash tab="Sample entry"
 bin/hummingbot_quickstart.py \
 --strategy discovery \
