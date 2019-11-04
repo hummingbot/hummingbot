@@ -127,31 +127,6 @@ We encourage and welcome contributions from the community, subject to the guidel
 
 The Hummingbot team reserves the right to withhold community code contributions and excluding them from the Hummingbot code base should any such contributions fail to meet the above requirements.
 
-## Community-Contributed Exchange Connectors
-
-| Exchange | Gitcoin Bounty | Github Contact | Support Contact | Last Version Tested | Last Updated | Status | Known Issues |
-| --- |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| Bamboo Relay | NA | [Arctek](https://github.com/Arctek) | [Online Chat](https://bamboorelay.com/) | 0.15.0 | 0.14.0 | <span style="color:green">⬤ | [782](https://github.com/CoinAlpha/hummingbot/issues/782) |
-| Dolomite | NA | [zrubenst](https://github.com/zrubenst) | [Telegram](https://t.me/dolomite_official) | 0.15.0 | 0.15.0 | <span style="color:red"> ⬤ | |
-
-### Last Version Tested
-
-Last reported Hummingbot version that the exchange connector maintainer has confirmed has been tested and is operational.
-
-### Last Updated
-
-Last Hummingbot release which included an update to the exchange connector code.
-
-### Exchange Connector Specific Support
-
-Please contact the support contact listed in the above table for support questions that are specific for that exchange.
-
-### Reporting an Issue with a Community-Contributed Connector
-
-1. Create a Github issue and tag the Github contact to inform them of the issue.
-1. Report the issue to the exchange connector support contact.
-
-
 ## Required skills
 - Python
 - Prior Cython experience is a plus
