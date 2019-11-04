@@ -30,3 +30,11 @@ Dolomite has a competitive fee structure, charging 0.5% for takers and -0.1% for
 There are no transaction fees required in order to place or cancel trades.
 
 Some additional small flat fees may be applied to your trades. More information can be found in [this page](https://dolomite.io/support/fees).
+
+
+## Contact
+
+This connector is maintained by [Dolomite](https://beta.dolomite.io/), which can be contacted at:
+
+- [Support Site](https://dolomite.io/support)
+- [Twitter](https://twitter.com/dolomite_io?lang=en) | [Telegram](https://t.me/dolomite_official) | 
