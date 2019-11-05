@@ -61,6 +61,10 @@ dolomite_test_web3_address = os.getenv("DOLOMITE_TEST_ADDR")
 bittrex_api_key = os.getenv("BITTREX_API_KEY")
 bittrex_secret_key = os.getenv("BITTREX_SECRET_KEY")
 
+# HitBTC Tests
+hitbtc_api_key = os.getenv("HITBTC_API_KEY")
+hitbtc_secret_key = os.getenv("HITBTC_SECRET_KEY")
+
 test_web3_provider_list = [os.getenv("WEB3_PROVIDER")]
 
 # Wallet Tests
