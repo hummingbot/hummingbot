@@ -555,9 +555,27 @@ Price: 0.00160699ETH
 
 3. Market Connector | `test_*_market.py`<br/>
 The purpose of this test is to ensure that all components and the order life cycle is working as intended. 
-This test determines if the connector is able to place and manage orders. Below are a list of tests that are **required**:
+This test determines if the connector is able to place and manage orders.<br/>
+Below are a list of tests that are **required**:
 
+Function<div style="width:200px"/> | Description 
+---|---
+`test_get_fee` | Tests the `get_fee` function in the `Market` class. Ensures that calculation of fees are accurate.
+`test_limit_buy` | Utilizes the `place_order` function in the `Market` class and tests if the market connector is capable of placing a LIMIT buy order on the respective exchange. Asserts that a `BuyOrderCompletedEvent` and `OrderFilledEvent`(s) have been captured.<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Important to ensure that the amount specified in the order has been completely filled.</td></tr></tbody></table>
+`test_limit_sell` | Utilizes the `place_order` function in the `Market` class and tests if the market connector is capable of placing a LIMIT sell order on the respective exchange.
+`test_market_buy` | Utilizes the `place_order` function in the `Market` class and tests if the market connector is capable of placing a MARKET buy order on the respective exchange.
+`test_market_sell` | Utilizes the `place_order` function in the `Market` class and tests if the market connector is capable of placing a MARKET sell order on the respective exchange.
+`test_cancel_order` | Utilizes the `cancel_order` function in the `Market` class and tests if the market connector is capable of cancelling an order. <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Ensures that the Hummingbot client is capable of resolving the `client_order_id` to obtain the `exchange_order_id` before posting the cancel order request. </td></tr></tbody></table>
+`test_cancel_all` | Tests the `cancel_all` function in the `Market` class. All orders(being tracked by Hummingbot) would be cancelled.
+`test_list_orders` | Places an order before checking calling the `list_orders` function in the `Market` class. Checks the number of orders and the details of the order. 
+`test_order_saving_and_restoration` | Tests if **tracked orders** are being recorded locally and determines if the Hummingbot client is able to restore the orders.
+`test_order_fill_record` | Tests if **trades** are being recorded locally.
+`test_get_wallet_balances` (DEXes only) | Tests the `get_all_balances` function in the `Market` class.<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: This is only required in Decentralized Exchanges.</td></tr></tbody></table>
+`test_wrap_eth` (DEXes only) | Tests the `wrap_eth` function in the `Wallet` class. <br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: This is only required in Decentralized Exchanges that support WETH wrapping and unwrapping.</td></tr></tbody></table>
+`test_unwrap_eth` (DEXes only)| Tests the `unwrap_eth` function in the `Wallet class.<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: This is only required in Decentralized Exchanges that support WETH wrapping and unwrapping.</td></tr></tbody></table>
 
+!!! note
+    Ensure that you have enough asset balance before testing. Also document the **minimum** and **recommended** asset balance to run the tests. This is to aid testing during the PR review process.
 
 ### Option 2. aiopython console
 This option is mainly used to test for specific functions. Considering that many of the functions are asynchronous functions, 
@@ -567,10 +585,32 @@ Writing short code snippets to examine API responses and/or how certain function
 
 i.e. A short function to mimic a API request to place an order and displaying the response received.
 
+```python3
+# Prints the response of a sample LIMIT-BUY Order
+
+BUY_ORDER_URL="api.test.com/buyOrder"
+params = {
+    symbol: "ZRXETH",
+    amount: "1000",
+    price: "0.001",
+    order_type: "LIMIT"
+}
+async with aiohttp.ClientSession() as client:
+    async with client.request("POST",
+                              url=BUY_ORDER_URL,
+                              params=params) as response:
+        if response == 200:
+            print(await response.json())
+
+```
+
 ### Option 3. Custom Scripts
 This option, like in Option 2, is mainly used to test specific functions. This is mainly useful when debugging how various functions/classes interact with one another.
 
 i.e. Initializing a simple websocket connection to listen and output all captured messages to examine the user stream message when placing/cancelling an order. 
+This is helpful when determining the exact response fields to use.
+
+i.e. A simple function to craft the Authentication signature of a request. This together with [POSTMAN](https://www.getpostman.com/) can be used to check if the you are generating the appropriate authentication signature for the respective requests.
 
 ## Examples / Templates
 
