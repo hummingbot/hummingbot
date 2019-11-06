@@ -20,7 +20,7 @@ For users who wish to locate and submit log files, generally they are located in
 - Installed via Docker: `hummingbot_files/hummingbot_logs`
     - `hummingbot_files` is the default name of the parent directory. This can be different depending on the setup when the instance was created.
 - Installed via Binary (Windows): `%localappdata%\hummingbot.io\Hummingbot\logs`
-- Installed via Binary (MacOS): `~/Library/Application\ Support/Hummingbot`
+- Installed via Binary (MacOS): `~/Library/Application\ Support/Hummingbot/Logs`
 
 ## Log File Management
 
