@@ -53,14 +53,14 @@ EXAMPLE_PAIRS = {
     "bamboo_relay": "ZRX-WETH",
     "coinbase_pro": "ETH-USDC",
     "dolomite": "WETH-DAI",
-    "huobi": "ethusdt",
+    "huobi": "ETH-USDT",
     "bittrex": "ZRX-ETH"
 }
 
 EXAMPLE_ASSETS = {
     "binance": "ZRX",
     "ddex": "ZRX",
-    "idex": "ETH=",
+    "idex": "ETH",
     "radar_relay": "ZRX",
     "bamboo_relay": "ZRX",
     "coinbase_pro": "ETH",
