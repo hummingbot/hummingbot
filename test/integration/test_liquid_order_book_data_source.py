@@ -1,5 +1,7 @@
 import asyncio
 import aiohttp
+import concurrent
+import inspect
 import pandas as pd
 import mock
 from mock import patch
@@ -7,6 +9,8 @@ from unittest import TestCase
 
 from test.integration.assets.mock_data.fixture_liquid import FixtureLiquid
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType
+from hummingbot.core.data_type.order_book_message import LiquidOrderBookMessage
 from hummingbot.market.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
 from hummingbot.market.liquid.constants import Constants
 
@@ -206,7 +210,7 @@ class TestLiquidOrderBookDataSource(TestCase):
         snapshot = loop.run_until_complete(
             liquid_data_source.get_snapshot(client=aiohttp.ClientSession(), trading_pair='BTCETH', full=1))
 
-        self.assertEqual(list(snapshot.keys()), ['buy_price_levels', 'sell_price_levels'])
+        self.assertEqual(list(snapshot.keys()), ['buy_price_levels', 'sell_price_levels', 'symbol', 'product_id'])
         self.assertEqual(len(snapshot['buy_price_levels']), 2)
         self.assertEqual(len(snapshot['sell_price_levels']), 20)
         #TODO: need to test exception handling when inputs are invalid
@@ -268,3 +272,98 @@ class TestLiquidOrderBookDataSource(TestCase):
         # Validate the order book tracker entry symbols are valid
         for trading_pair, order_book_tracker_entry in zip(mocked_trading_pairs, tracking_pairs.values()):
             self.assertEqual(order_book_tracker_entry.symbol, trading_pair)
+
+    @patch(PATCH_BASE_PATH.format(method='get_snapshot'))
+    @patch(PATCH_BASE_PATH.format(method='get_trading_pairs'))
+    def test_listen_for_order_book_snapshots(self, mock_get_trading_pairs, mock_get_snapshot):
+        """
+        Example order book message added to the queue:
+
+        LiquidOrderBookMessage(
+            type = < OrderBookMessageType.SNAPSHOT: 1 > ,
+            content = {
+                'buy_price_levels': [
+                    ['181.95138', '0.69772000'],
+                    ...
+                ],
+                'sell_price_levels': [
+                    ['182.11620', '0.32400000'],
+                    ...
+                ],
+                'symbol': 'BTCUSDC',
+                'product_id': 'ETHUSDC'
+            },
+            timestamp = 1573041256.2376761)
+        """
+        loop = asyncio.get_event_loop()
+
+        # Instantiate empty async queue and make sure the initial size is 0
+        q = asyncio.Queue()
+        self.assertEqual(q.qsize(), 0)
+
+        # Mock Future() object return value as the request response
+        f1 = asyncio.Future()
+        f1.set_result(
+            {
+                **FixtureLiquid.SNAPSHOT_2,
+                'symbol': 'ETHUSD',
+                'product_id': 27
+            }
+        )
+        f2 = asyncio.Future()
+        f2.set_result(
+            {
+                **FixtureLiquid.SNAPSHOT_1,
+                'symbol': 'LCXBTC',
+                'product_id': 538
+            }
+        )
+
+        mock_get_snapshot.side_effect = [f1, f2]
+
+        # Mock get trading pairs
+        mocked_trading_pairs = ['ETHUSD', 'LCXBTC']
+
+        f = asyncio.Future()
+        f.set_result(mocked_trading_pairs)
+        mock_get_trading_pairs.return_value = f
+
+        # Listening for tracking pairs within the set timeout timeframe
+        timeout = 6
+
+        print('{class_name} test {test_name} is going to run for {timeout} seconds, starting now'.format(
+            class_name=self.__class__.__name__,
+            test_name=inspect.stack()[0][3],
+            timeout=timeout))
+
+        try:
+            loop.run_until_complete(
+                # Force exit from event loop after set timeout seconds
+                asyncio.wait_for(
+                    LiquidAPIOrderBookDataSource().listen_for_order_book_snapshots(ev_loop=loop, output=q),
+                    timeout=timeout
+                )
+            )
+        except concurrent.futures.TimeoutError as e:
+            print(e)
+
+        # Make sure that the number of items in the queue after certain seconds make sense
+        # For instance, when the asyncio sleep time is set to 5 seconds in the method
+        # If we configure timeout to be the same length, only 1 item has enough time to be received
+        self.assertGreaterEqual(q.qsize(), 1)
+
+        # Validate received response has correct data types
+        first_item = q.get_nowait()
+        self.assertIsInstance(first_item, LiquidOrderBookMessage)
+        self.assertIsInstance(first_item.type, OrderBookMessageType)
+
+        # Validate order book message type
+        self.assertEqual(first_item.type, OrderBookMessageType.SNAPSHOT)
+
+        # Validate snapshot received matches with the original snapshot received from API
+        self.assertEqual(first_item.content['buy_price_levels'], FixtureLiquid.SNAPSHOT_2['buy_price_levels'])
+        self.assertEqual(first_item.content['sell_price_levels'], FixtureLiquid.SNAPSHOT_2['sell_price_levels'])
+
+        # Validate the rest of the content
+        self.assertEqual(first_item.content['symbol'], mocked_trading_pairs[0])
+        self.assertEqual(first_item.content['product_id'], 27)

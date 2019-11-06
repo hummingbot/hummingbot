@@ -530,16 +530,13 @@ class LiquidOrderBookMessage(OrderBookMessage):
     #     return -1
 
     @property
-    def symbol(self) -> str:
-        if "product_id" in self.content:
-            return self.content["product_id"]
-        elif "symbol" in self.content:
-            return self.content["symbol"]
+    def symbol(self) -> (str):
+        return self.content.get('symbol', None)
 
     @property
-    def asks(self) -> List[OrderBookRow]:
+    def asks(self) -> (List[OrderBookRow]):
         raise NotImplementedError("Liquid order book messages have different semantics.")
 
     @property
-    def bids(self) -> List[OrderBookRow]:
+    def bids(self) -> (List[OrderBookRow]):
         raise NotImplementedError("Liquid order book messages have different semantics.")
