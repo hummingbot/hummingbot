@@ -4,9 +4,13 @@ import logging
 import pandas as pd
 import time
 from typing import Any
+from typing import AsyncIterable
 from typing import Dict
 from typing import List
 from typing import Optional
+import ujson
+import websockets
+from websockets.exceptions import ConnectionClosed
 
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.data_type.order_book import OrderBook
@@ -179,7 +183,11 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 raise IOError(f"Error fetching Liquid market snapshot for {id}. "
                               f"HTTP status is {response.status}.")
             snapshot: Dict[str, Any] = await response.json()
-            return snapshot
+            return {
+                **snapshot,
+                'symbol': trading_pair,
+                'product_id': product_id
+            }
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         """
@@ -225,11 +233,68 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         pass
 
+    async def _inner_messages(self,
+                              ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+        """
+        Generator function that returns messages from the web socket stream
+        :param ws: current web socket connection
+        :returns: message in AsyncIterable format
+        """
+        pass
+
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
-        Liquid API does not have incremental snapshot (order book diff) feature as of Oct. 2019
+        Subscribe to diff channel via web socket, and keep the connection open for incoming messages
+        :param ev_loop: ev_loop to execute this function in
+        :param output: an async queue where the incoming messages are stored
         """
         pass
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        pass
+        """
+        Fetches order book snapshots for each trading pair, and use them to update the local order book
+        :param ev_loop: ev_loop to execute this function in
+        :param output: an async queue where the incoming messages are stored
+
+        TODO: This method needs to be further break down, otherwise, whenever error occurs, the only message
+        getting is something similar to `Unexpected error with WebSocket connection.`
+        """
+        while True:
+            try:
+                trading_pairs: List[str] = await self.get_trading_pairs()
+                async with aiohttp.ClientSession() as client:
+                    for trading_pair in trading_pairs:
+                        try:
+                            snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
+                            snapshot_timestamp: float = time.time()
+                            snapshot_msg: OrderBookMessage = LiquidOrderBook.snapshot_message_from_exchange(
+                                msg=snapshot,
+                                timestamp=snapshot_timestamp,
+                                metadata={
+                                    'product_id': snapshot['product_id'],
+                                    'symbol': trading_pair
+                                }
+                            )
+                            output.put_nowait(snapshot_msg)
+                            self.logger().debug(f"Saved order book snapshot for {trading_pair}")
+                            # Be careful not to go above API rate limits.
+                            await asyncio.sleep(5.0)
+                        except asyncio.CancelledError:
+                            raise
+                        except Exception:
+                            self.logger().network(
+                                f"Unexpected error with WebSocket connection.",
+                                exc_info=True,
+                                app_warning_msg=f"Unexpected error with WebSocket connection. Retrying in 5 seconds. "
+                                                f"Check network connection."
+                            )
+                            await asyncio.sleep(5.0)
+                    this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
+                    next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
+                    delta: float = next_hour.timestamp() - time.time()
+                    await asyncio.sleep(delta)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error.", exc_info=True)
+                await asyncio.sleep(5.0)
