@@ -683,7 +683,7 @@ cdef class BittrexMarket(MarketBase):
                 "marketSymbol": str(symbol),
                 "direction": "BUY" if is_buy else "SELL",
                 "type": "LIMIT",
-                "quantity": str(amount),
+                "quantity": f"{amount:f}",
                 "limit": f"{price:f}",
                 "timeInForce": "GOOD_TIL_CANCELLED"
                 # Available options [GOOD_TIL_CANCELLED, IMMEDIATE_OR_CANCEL,
