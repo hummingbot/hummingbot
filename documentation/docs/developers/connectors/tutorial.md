@@ -637,6 +637,70 @@ This is helpful when determining the exact response fields to use.
 
 i.e. A simple function to craft the Authentication signature of a request. This together with [POSTMAN](https://www.getpostman.com/) can be used to check if the you are generating the appropriate authentication signature for the respective requests.
 
+#### API Request: POST Order
+
+Below is a sample code for POST-ing a LIMIT-BUY order on Bittrex. This script not only tests the `BittrexAuth` class but also outputs the response from the API server. 
+
+```python
+#!/usr/bin/env python3
+
+import asyncio
+import aiohttp
+from typing import Dict
+from hummingbot.market.bittrex.bittrex_auth import BittrexAuth
+
+BITTREX_API_ENDPOINT = "https://api.bittrex.com/v3"
+
+async def _api_request(http_method: str,
+                       path_url: str = None,
+                       params: Dict[str, any] = None,
+                       body: Dict[str, any] = None,
+                       ):
+    url = f"{BITTREX_API_ENDPOINT}{path_url}"
+
+    auth = BittrexAuth(
+        "****",
+        "****"
+    )
+
+    auth_dict = auth.generate_auth_dict(http_method, url, params, body, '')
+
+    headers = auth_dict["headers"]
+
+    if body:
+        body = auth_dict["body"]
+
+    client = aiohttp.ClientSession()
+
+    async with client.request(http_method,
+                              url=url,
+                              headers=headers,
+                              params=params,
+                              data=body) as response:
+        data: Dict[str, any] = await response.json()
+        if response.status not in [200,201]:
+            print(f"Error occured. HTTP Status {response.status}: {data}")
+        print(data)
+
+# POST order
+path_url = "/orders"
+
+body = {
+    "marketSymbol": "FXC-BTC",
+    "direction": "BUY",
+    "type": "LIMIT",
+    "quantity": "1800",
+    "limit": "3.17E-7",  # Note: This will throw an error
+    "timeInForce": "GOOD_TIL_CANCELLED"
+}
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(_api_request("POST",path_url=path_url,body=body))
+loop.close()
+
+
+```
+
 ## Examples / Templates
 
 Please refer to [Examples / Templates](/developers/connectors/#examples-templates) for some existing reference when implementing a connector.
