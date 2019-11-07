@@ -60,7 +60,8 @@ The `execute_buy` and `execute_sell` methods verify that the trades would be leg
 
 ## Requirements for community-developed connectors
 
-<pre><b>If you would like to create a connector for a currently unsupported exchange, please contact the Hummingbot team to discuss beforehand and for approval. Due to the large amount of work in reviewing, testing, and maintaining exchange connectors, we will only merge in connectors that will have a meaningful benefit and impact to the Hummingbot community.</b></pre>
+!!! note "Approval Required"
+    If you would like to create a connector for a currently unsupported exchange, please contact the Hummingbot team to discuss beforehand and for approval. Due to the large amount of work in reviewing, testing, and maintaining exchange connectors, we will only merge in connectors that will have a meaningful benefit and impact to the Hummingbot community.
 
 Introducing an exchange connector into the Hummingbot code base requires a mutual commitment from the Hummingbot team and community developers to maintaining a high standard of code quality and software reliability.
 
