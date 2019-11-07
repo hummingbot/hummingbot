@@ -163,15 +163,16 @@ nav:
           - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
           - Pure Market Making: developers/strategies/pure-market-making.md
           - Discovery: developers/strategies/discovery.md
-          - Tutorial: developers/strategies/tutorial.md
-          - Perform Trade: developers/strategies/perform-trade.md
-          - Simple Trade: developers/strategies/simple-trade.md
         - Connectors:
-          - Introduction: developers/connectors/index.md
+          - Intro: developers/connectors/index.md
           - Architecture: developers/connectors/architecture.md
           - Order Lifecycle: developers/connectors/order-lifecycle.md
-          - Tutorial: developers/connectors/tutorial.md
+          - Building Connectors: developers/connectors/tutorial.md
           - Miscellaneous: developers/connectors/miscellaneous.md
+        - Tutorial (WIP):
+          - Intro: developers/tutorial/index.md
+          - Perform Trade: developers/tutorial/perform-trade.md
+          - Simple Trade: developers/tutorial/simple-trade.md
         - Debug Console: developers/debug.md
         - Configuration: developers/config.md
     - Release Notes:
