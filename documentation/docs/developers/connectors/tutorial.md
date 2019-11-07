@@ -583,25 +583,50 @@ it would be easier to test for these in the aiopython console. Click [here](http
 
 Writing short code snippets to examine API responses and/or how certain functions in the code base work would help you understand the expected side-effects of these functions and the overall logic of the Hummingbot client. 
 
-i.e. A short function to mimic a API request to place an order and displaying the response received.
+
+#### Issue a API Request
+Below is just a short example on how to write a short asynchronous function to mimic a API request to place an order and displaying the response received.
+
 
 ```python3
 # Prints the response of a sample LIMIT-BUY Order
+# Replace the URL and params accordingly.
 
-BUY_ORDER_URL="api.test.com/buyOrder"
-params = {
-    symbol: "ZRXETH",
-    amount: "1000",
-    price: "0.001",
-    order_type: "LIMIT"
-}
-async with aiohttp.ClientSession() as client:
-    async with client.request("POST",
-                              url=BUY_ORDER_URL,
-                              params=params) as response:
-        if response == 200:
-            print(await response.json())
+>>> import aiohttp
+>>> URL="api.test.com/buyOrder"
+>>> params = {
+...     "symbol": "ZRXETH",
+...     "amount": "1000",
+...     "price": "0.001",
+...     "order_type": "LIMIT"
+... }
+>>> async with aiohttp.ClientSession() as client:
+...    async with client.request("POST",
+...                              url=URL,
+...                              params=params) as response:
+...        if response == 200:
+...            print(await response.json())
 
+```
+
+#### Calling a Class Method
+i.e. Printing the output from `get_active_exchange_markets()` function in `OrderBookTrackerDataSource`.
+
+```python3
+# In this example, we will be using BittrexAPIOrderBookDataSource
+
+>>> from hummingbot.market.bittrex.BittrexAPIOrderBookDataSource import BittrexAPIOrderBookDataSource as b
+>>> await b.get_active_exchange_markets() 
+
+                 askRate baseAsset        baseVolume  ...             volume     USDVolume old_symbol
+symbol                                                ...
+BTC-USD    9357.49900000       BTC  2347519.11072768  ...       251.26097386  2.351174e+06    USD-BTC
+XRP-BTC       0.00003330       XRP       83.81218622  ...   2563786.10102864  7.976883e+05    BTC-XRP
+BTC-USDT   9346.88236735       BTC   538306.04864142  ...        57.59973765  5.379616e+05   USDT-BTC
+.
+.
+.
+[339 rows x 18 columns]
 ```
 
 ### Option 3. Custom Scripts
