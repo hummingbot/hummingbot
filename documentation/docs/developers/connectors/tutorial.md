@@ -26,7 +26,7 @@ The table below details the **required** functions in `OrderBookTrackerDataSourc
 
 Function<div style="width:200px"/> | Input Parameter(s) | Expected Output(s) | Description
 ---|---|---|---
-`get_active_exchange_markets` | None | `pandas.DataFrame` | Performs the necessary API request(s) to get all currently active trading pairs on the exchange and returns a `pandas.DataFrame` with each row representing one active trading pair.<br/><br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: If none of the API requests returns a traded `USDVolume` of a trading pair, you are required to calculate it and include it as a column in the `DataFrame`.<br/><br/>Also the the base and quote currency should be represented under the `baseAsset` and `quoteAsset` columns respectively in the `DataFrame`</td></tr></tbody></table>
+`get_active_exchange_markets` | None | `pandas.DataFrame` | Performs the necessary API request(s) to get all currently active trading pairs on the exchange and returns a `pandas.DataFrame` with each row representing one active trading pair.<br/><br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: If none of the API requests returns a traded `USDVolume` of a trading pair, you are required to calculate it and include it as a column in the `DataFrame`.<br/><br/>Also the the base and quote currency should be represented under the `baseAsset` and `quoteAsset` columns respectively in the `DataFrame`.<br/><br/> Refer to [Calling a Class method](#calling-a-class-method) for an example on how to test this particular function.</td></tr></tbody></table>
 `get_trading_pairs` | None | `List[str]` | Calls `get_active_exchange_market` to retrieve a list of active trading pairs.<br/><br/>Ensure that all trading pairs are in the right format.
 `get_snapshot` | client: `aiohttp.ClientSession`, trading_pair: `str` | `Dict[str, any]` | Fetches order book snapshot for a particular trading pair from the exchange REST API. <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Certain exchanges do not add a timestamp/nonce to the snapshot response. In this case, to maintain a real-time order book would require generating a timestamp for every order book snapshot and delta messages received and applying them accordingly.<br/><br/>In [Bittrex](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/bittrex/bittrex_api_order_book_data_source.py), this is performed by invoking the `queryExchangeState` topic on the SignalR WebSocket client.</td></tr></tbody></table>
 `get_tracking_pairs` | None | `Dict[str, OrderBookTrackerEntry]` | Initializes order books and order book trackers for the list of trading pairs. 
@@ -583,25 +583,50 @@ it would be easier to test for these in the aiopython console. Click [here](http
 
 Writing short code snippets to examine API responses and/or how certain functions in the code base work would help you understand the expected side-effects of these functions and the overall logic of the Hummingbot client. 
 
-i.e. A short function to mimic a API request to place an order and displaying the response received.
+
+#### Issue a API Request
+Below is just a short example on how to write a short asynchronous function to mimic a API request to place an order and displaying the response received.
+
 
 ```python3
 # Prints the response of a sample LIMIT-BUY Order
+# Replace the URL and params accordingly.
 
-BUY_ORDER_URL="api.test.com/buyOrder"
-params = {
-    symbol: "ZRXETH",
-    amount: "1000",
-    price: "0.001",
-    order_type: "LIMIT"
-}
-async with aiohttp.ClientSession() as client:
-    async with client.request("POST",
-                              url=BUY_ORDER_URL,
-                              params=params) as response:
-        if response == 200:
-            print(await response.json())
+>>> import aiohttp
+>>> URL="api.test.com/buyOrder"
+>>> params = {
+...     "symbol": "ZRXETH",
+...     "amount": "1000",
+...     "price": "0.001",
+...     "order_type": "LIMIT"
+... }
+>>> async with aiohttp.ClientSession() as client:
+...    async with client.request("POST",
+...                              url=URL,
+...                              params=params) as response:
+...        if response == 200:
+...            print(await response.json())
 
+```
+
+#### Calling a Class Method
+i.e. Printing the output from `get_active_exchange_markets()` function in `OrderBookTrackerDataSource`.
+
+```python3
+# In this example, we will be using BittrexAPIOrderBookDataSource
+
+>>> from hummingbot.market.bittrex.BittrexAPIOrderBookDataSource import BittrexAPIOrderBookDataSource as b
+>>> await b.get_active_exchange_markets() 
+
+                 askRate baseAsset        baseVolume  ...             volume     USDVolume old_symbol
+symbol                                                ...
+BTC-USD    9357.49900000       BTC  2347519.11072768  ...       251.26097386  2.351174e+06    USD-BTC
+XRP-BTC       0.00003330       XRP       83.81218622  ...   2563786.10102864  7.976883e+05    BTC-XRP
+BTC-USDT   9346.88236735       BTC   538306.04864142  ...        57.59973765  5.379616e+05   USDT-BTC
+.
+.
+.
+[339 rows x 18 columns]
 ```
 
 ### Option 3. Custom Scripts
@@ -611,6 +636,70 @@ i.e. Initializing a simple websocket connection to listen and output all capture
 This is helpful when determining the exact response fields to use.
 
 i.e. A simple function to craft the Authentication signature of a request. This together with [POSTMAN](https://www.getpostman.com/) can be used to check if the you are generating the appropriate authentication signature for the respective requests.
+
+#### API Request: POST Order
+
+Below is a sample code for POST-ing a LIMIT-BUY order on Bittrex. This script not only tests the `BittrexAuth` class but also outputs the response from the API server. 
+
+```python
+#!/usr/bin/env python3
+
+import asyncio
+import aiohttp
+from typing import Dict
+from hummingbot.market.bittrex.bittrex_auth import BittrexAuth
+
+BITTREX_API_ENDPOINT = "https://api.bittrex.com/v3"
+
+async def _api_request(http_method: str,
+                       path_url: str = None,
+                       params: Dict[str, any] = None,
+                       body: Dict[str, any] = None,
+                       ):
+    url = f"{BITTREX_API_ENDPOINT}{path_url}"
+
+    auth = BittrexAuth(
+        "****",
+        "****"
+    )
+
+    auth_dict = auth.generate_auth_dict(http_method, url, params, body, '')
+
+    headers = auth_dict["headers"]
+
+    if body:
+        body = auth_dict["body"]
+
+    client = aiohttp.ClientSession()
+
+    async with client.request(http_method,
+                              url=url,
+                              headers=headers,
+                              params=params,
+                              data=body) as response:
+        data: Dict[str, any] = await response.json()
+        if response.status not in [200,201]:
+            print(f"Error occured. HTTP Status {response.status}: {data}")
+        print(data)
+
+# POST order
+path_url = "/orders"
+
+body = {
+    "marketSymbol": "FXC-BTC",
+    "direction": "BUY",
+    "type": "LIMIT",
+    "quantity": "1800",
+    "limit": "3.17E-7",  # Note: This will throw an error
+    "timeInForce": "GOOD_TIL_CANCELLED"
+}
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(_api_request("POST",path_url=path_url,body=body))
+loop.close()
+
+
+```
 
 ## Examples / Templates
 
