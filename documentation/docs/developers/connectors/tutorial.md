@@ -1,14 +1,17 @@
-# Developer Tutorial
+# Building Connectors
 ## Introduction
-This tutorial is intended to get you familiarized with basic structure of a connector in Hummingbot. It will guide you through the scope of creating/modifying the necessary components to implement a connector.
+This guide is intended to get you familiarized with basic structure of a connector in Hummingbot. It will guide you through the scope of creating/modifying the necessary components to implement a connector.
 
-By the end of this tutorial, you should: 
+By the end of this guide, you should: 
 
 * Have a general understanding of the base classes that serve as building blocks of a connector
 * Be able to integrate new connectors from scratch
 
-Implementing a new connector can generally be split into 3 major tasks, namely:<br/>
-[Data Source & Order Book Tracker](#task-1-data-source-order-book-tracker), [User Stream Tracker](#task-2-user-stream-tracker) and [Market Connector](#task-3-market-connector)
+Implementing a new connector can generally be split into 3 major tasks:
+
+1. [Data Source & Order Book Tracker](#task-1-data-source-order-book-tracker)
+2. [User Stream Tracker](#task-2-user-stream-tracker)
+3. [Market Connector](#task-3-market-connector)
 
 ## Task 1. Data Source & Order Book Tracker
 
