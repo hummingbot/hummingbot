@@ -11,7 +11,6 @@ from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 _logger = None
 s_empty_diff = np.ndarray(shape=(0, 4), dtype="float64")
-
 BitcoinComOrderBookTrackingDictionary = Dict[Decimal, Dict[str, Dict[str, any]]]
 
 cdef class BitcoinComActiveOrderTracker:
@@ -45,9 +44,8 @@ cdef class BitcoinComActiveOrderTracker:
     def volume_for_bid_price(self, price) -> float:
         return sum([float(msg["remaining_size"]) for msg in self._active_bids[price].values()])
 
-    # TODO: WIP
     def get_rates_and_quantities(self, entry) -> tuple:
-        return entry["price"], entry["size"]
+        return float(entry["price"]), float(entry["size"])
 
     cdef tuple c_convert_diff_message_to_np_arrays(self, object message):
         cdef:

@@ -91,6 +91,7 @@ class BitcoinComOrderBookTrackerUnitTest(unittest.TestCase):
         self.ev_loop.run_until_complete(asyncio.sleep(5.0))
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
         btc_usd: OrderBook = order_books["BTCUSD"]
+        self.assertIsNot(btc_usd.last_diff_uid, 0)
         self.assertGreaterEqual(btc_usd.get_price_for_volume(True, 10).result_price,
                                 btc_usd.get_price(True))
         self.assertLessEqual(btc_usd.get_price_for_volume(False, 10).result_price,
