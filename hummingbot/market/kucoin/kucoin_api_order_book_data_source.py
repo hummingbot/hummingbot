@@ -29,7 +29,7 @@ from hummingbot.market.kucoin.kucoin_order_book import KucoinOrderBook
 
 TRADING_PAIR_FILTER = re.compile(r"(BTC|ETH|USDT)$")
 
-SNAPSHOT_REST_URL = "https://api.kucoin.com/api/v1/market/orderbook/level2_100"
+SNAPSHOT_REST_URL = "https://api.kucoin.com/api/v2/market/orderbook/level2"
 DIFF_STREAM_URL = ""
 TICKER_PRICE_CHANGE_URL = "https://api.kucoin.com/api/v1/market/allTickers"
 EXCHANGE_INFO_URL = "https://api.kucoin.com/api/v1/symbols"
@@ -80,7 +80,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
             
             attr_name_map = {"baseCurrency": "baseAsset", "quoteCurrency": "quoteAsset"}
 
-            trading_pairs: Dict[str, Any] = {item["symbol"]: {attr_name_map[k]: item[k] for k in ["baseAsset", "quoteAsset"]}
+            trading_pairs: Dict[str, Any] = {item["symbol"]: {attr_name_map[k]: item[k] for k in ["baseCurrency", "quoteCurrency"]}
                                              for item in exchange_data["data"]
                                              if item["enableTrading"] == True}
 
@@ -91,23 +91,21 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
             # Build the data frame.
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index="symbol")
             # calculating the correct USDVolume by multiplying or diving with necessary USD pair
-            # split_symbol = all_markets.split('-')
-            if all_markets.symbol.startswith("USDT"):
-                all_markets.loc[:, "USDVolume"] = 1 / all_markets.volvalue
-            elif all_markets.symbol.endswith("USDT"):
-                all_markets.loc[:, "USDVolume"] = all_markets.volvalue
-            else:
-                try:
-                    quote_currency: str = symbol.split('-')[1]
-                    mul: str = quote_currency + "-USDT"
-                    div: str = "USDT-" + quote_currency
-                    if all_markets.loc[mul]:
-                        all_markets.loc[:, "USDVolume"] = all_markets.volvalue * all_markets.loc[mul].last
-                    else:
-                        all_markets.loc[:, "USDVolume"] = all_markets.volvalue / all_markets.loc[div].last
-                except Exception:
-                    self.logger().error(f"Unable to get USD Volume for {trading_pair}. ", exc_info=True)
-            all_markets.loc[:, "volume"] = all_markets.quoteVolume
+            for row in all_markets.itertuples():
+                product_name: str = row.Index
+                if product_name.startswith("USDT"):
+                    all_markets.loc[product_name, "USDVolume"] = 1 / float(row.volValue)
+                elif product_name.endswith("USDT"):
+                    all_markets.loc[product_name, "USDVolume"] = float(row.volValue)
+                else:
+                        quote_currency: str = product_name.split('-')[1]
+                        mul: str = quote_currency + "-USDT"
+                        div: str = "USDT-" + quote_currency
+                        if mul in all_markets.index:
+                            all_markets.loc[product_name, "USDVolume"] = float(row.volValue) * float(all_markets.loc[mul, "last"])
+                        elif div in all_markets.index:
+                            all_markets.loc[product_name, "USDVolume"] = float(row.volValue) / float(all_markets.loc[div, "last"])
+            all_markets.loc[:, "volume"] = all_markets.vol
             return all_markets.sort_values("USDVolume", ascending=False)
 
     async def get_trading_pairs(self) -> List[str]:
