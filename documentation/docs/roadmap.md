@@ -36,6 +36,7 @@ The timeline below shows the past milestones we have completed, along with the f
 * Connector for [Liquid](https://liquid.com/) ([in progress](https://gitcoin.co/issue/CoinAlpha/hummingbot/909/3556))
 * Connector for [Bitcoin Exchange](https://exchange.bitcoin.com/) ([in progress](https://gitcoin.co/issue/CoinAlpha/hummingbot/991/3588))
 * Connector for [KuCoin](https://www.kucoin.com/) ([in progress](https://github.com/CoinAlpha/hummingbot/pull/1011))
+* Connector for [HitBTC](https://hitbtc.com/) ([in progress](https://github.com/CoinAlpha/hummingbot/pull/1039))
 * Add support for 0x v3
 
 ## Q1 2020
