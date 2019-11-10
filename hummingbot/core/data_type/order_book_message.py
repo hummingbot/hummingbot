@@ -535,8 +535,12 @@ class LiquidOrderBookMessage(OrderBookMessage):
 
     @property
     def asks(self) -> (List[OrderBookRow]):
-        raise NotImplementedError("Liquid order book messages have different semantics.")
+        return [
+            OrderBookRow(float(price), float(amount), self.update_id) for price, amount, *trash in self.content["sell_price_levels"]
+        ]
 
     @property
     def bids(self) -> (List[OrderBookRow]):
-        raise NotImplementedError("Liquid order book messages have different semantics.")
+        return [
+            OrderBookRow(float(price), float(amount), self.update_id) for price, amount, *trash in self.content["buy_price_levels"]
+        ]

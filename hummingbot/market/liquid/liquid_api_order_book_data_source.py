@@ -19,7 +19,6 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.liquid.liquid_order_book import LiquidOrderBook
-from hummingbot.market.liquid.liquid_active_order_tracker import LiquidActiveOrderTracker
 from hummingbot.market.liquid.constants import Constants
 
 
@@ -214,10 +213,7 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     )
 
                     order_book: OrderBook = self.order_book_create_function()
-                    active_order_tracker: LiquidActiveOrderTracker = LiquidActiveOrderTracker()
-                    bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
-
-                    order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
+                    order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
 
                     retval[trading_pair] = OrderBookTrackerEntry(trading_pair, snapshot_timestamp, order_book)
 
