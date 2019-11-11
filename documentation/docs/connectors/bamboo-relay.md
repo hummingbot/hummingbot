@@ -73,5 +73,5 @@ Currently Bamboo Relay does not charge trading or withdrawal fees, and the only 
 
 This connector is maintained by [Bamboo Relay](https://bamboorelay.com), which can be contacted at:
 
-- [dex@bamboorelay.com](dex@bamboorelay.com)
+- [dex@bamboorelay.com](mailto:dex@bamboorelay.com)
 - [Twitter](https://twitter.com/bamboorelay) | [Telegram](https://t.me/bamboorelay) | [Discord](https://discord.gg/6tMFa5E)
