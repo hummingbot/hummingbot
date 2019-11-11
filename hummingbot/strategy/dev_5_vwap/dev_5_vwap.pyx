@@ -331,14 +331,15 @@ cdef class Dev5TwapTradeStrategy(StrategyBase):
             OrderBook order_book = market_info.order_book
 
         if self._is_vwap:
-            slippage_amount = self._order_price * self._percent_slippage * 0.01
+            order_price = order_book.c_get_price(self._is_buy) if self._order_type == "market" else self._order_price
+            slippage_amount = order_price * self._percent_slippage * 0.01
             if self._is_buy:
-                slippage_price = self._order_price + slippage_amount
+                slippage_price = order_price + slippage_amount
             else:
-                slippage_price = self._order_price - slippage_amount
+                slippage_price = order_price - slippage_amount
 
             total_order_volume = order_book.c_get_volume_for_price(self._is_buy, float(slippage_price))
-            order_cap = self._order_percent_of_volume * total_order_volume.result_price
+            order_cap = self._order_percent_of_volume * total_order_volume.result_volume * 0.01
 
             quantized_amount = quantized_amount.min(Decimal.from_float(order_cap))
 
