@@ -9,14 +9,13 @@ cdef class RadarRelayMarket(MarketBase):
         object _wallet
         object _provider
         object _weth_token
-        object _order_book_tracker
-        dict _account_balances
         object _ev_loop
         object _poll_notifier
         double _last_timestamp
         double _last_update_limit_order_timestamp
         double _last_update_market_order_timestamp
         double _last_update_trading_rules_timestamp
+        double _last_update_available_balance_timestamp
         double _poll_interval
         dict _in_flight_limit_orders
         dict _in_flight_market_orders

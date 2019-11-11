@@ -1,7 +1,9 @@
 #!/usr/bin/env python
-from os.path import join, realpath
+from os.path import (
+    join,
+    realpath
+)
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
-
 import asyncio
 import conf
 import contextlib
@@ -46,6 +48,7 @@ from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 
 ETH_QNT = "ETH_QNT"
+s_decimal_0 = Decimal(0)
 
 
 class IDEXMarketUnitTest(unittest.TestCase):
@@ -147,22 +150,22 @@ class IDEXMarketUnitTest(unittest.TestCase):
 
     def test_get_wallet_balances(self):
         balances = self.market.get_all_balances()
-        self.assertGreaterEqual((balances["ETH"]), 0)
+        self.assertGreaterEqual((balances["ETH"]), s_decimal_0)
 
     def test_quantize_order_amount(self):
-        amount = self.market.quantize_order_amount("ETH_QNT", Decimal(0.01))
+        amount = self.market.quantize_order_amount("ETH_QNT", Decimal('0.01'))
         self.assertEqual(amount, 0)
         amount = self.market.quantize_order_amount("ETH_QNT", Decimal(100000))
         self.assertEqual(amount, 100000)
 
     def test_place_limit_buy_and_cancel(self):
         symbol = ETH_QNT
-        buy_amount: Decimal = Decimal(16000000)
-        buy_price = Decimal(0.00000001)
+        buy_amount: Decimal = Decimal("16000000")
+        buy_price = Decimal("0.00000001")
         buy_order_id: str = self.market.buy(symbol, buy_amount, OrderType.LIMIT, buy_price)
         [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.assertEqual(buy_order_id, buy_order_opened_event.order_id)
-        self.assertEqual(buy_amount, float(buy_order_opened_event.amount))
+        self.assertEqual(buy_amount, buy_order_opened_event.amount)
         self.assertEqual(ETH_QNT, buy_order_opened_event.symbol)
         self.assertEqual(OrderType.LIMIT, buy_order_opened_event.type)
 
@@ -188,7 +191,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
     def test_cancel_all_happy_case(self):
         symbol = ETH_QNT
         buy_amount: Decimal = Decimal(17000000)
-        buy_price = Decimal(0.00000001)
+        buy_price = Decimal("0.00000001")
         buy_order_id: str = self.market.buy(symbol, buy_amount, OrderType.LIMIT, buy_price)
         [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.assertEqual(buy_order_id, buy_order_opened_event.order_id)
@@ -213,7 +216,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
     def test_market_buy(self):
         symbol = ETH_QNT
         current_price: Decimal = Decimal(self.market.get_price(symbol, True))
-        buy_amount: Decimal = Decimal(0.16) / current_price
+        buy_amount: Decimal = Decimal('0.16') / current_price
         buy_order_id: str = self.market.buy(symbol, buy_amount, OrderType.MARKET)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
@@ -222,7 +225,7 @@ class IDEXMarketUnitTest(unittest.TestCase):
     def test_market_sell(self):
         symbol = ETH_QNT
         current_price: Decimal = Decimal(self.market.get_price(symbol, False))
-        sell_amount: Decimal = Decimal(0.155) / current_price
+        sell_amount: Decimal = Decimal('0.155') / current_price
         sell_order_id: str = self.market.sell(symbol, sell_amount, OrderType.MARKET)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
@@ -241,10 +244,10 @@ class IDEXMarketUnitTest(unittest.TestCase):
             self.assertEqual(0, len(self.market.tracking_states))
 
             # Try to put limit buy order for 0.05 ETH worth of QNT, and watch for order creation event.
-            bid_price = Decimal(0.00000002)
+            bid_price = Decimal("0.00000002")
             quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
 
-            amount: Decimal = Decimal(18000000)
+            amount: Decimal = Decimal("18000000")
             quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
 
             expires = int(time.time() + 60 * 5)

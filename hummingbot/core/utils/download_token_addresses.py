@@ -12,6 +12,7 @@ from hummingbot.core.utils.async_utils import safe_gather
 DDEX_ENDPOINT = "https://api.ddex.io/v3/markets"
 RADAR_RELAY_ENDPOINT = "https://api.radarrelay.com/v2/markets"
 BAMBOO_RELAY_ENDPOINT = "https://rest.bamboorelay.com/main/0x/markets"
+DOLOMITE_ENDPOINT = "https://exchange-api.dolomite.io/v1/tokens"
 API_CALL_TIMEOUT = 5
 
 
@@ -31,6 +32,25 @@ async def download_ddex_token_addresses(token_dict: Dict[str, str]):
                             token_dict[quote] = Web3.toChecksumAddress(market.get("quoteTokenAddress"))
                 except Exception as err:
                     logging.getLogger().error(err)
+
+
+async def download_dolomite_token_addresses(token_dict: Dict[str, str]):
+    async with aiohttp.ClientSession() as client:
+        async with client.get(DOLOMITE_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+            if response.status == 200:
+                try:
+                    response = await response.json()
+                    tokens = response.get("data")
+                    for token in tokens:
+                        symbol = token["ticker"]
+                        if symbol not in token_dict:
+                            token_dict[symbol] = Web3.toChecksumAddress(token["identifier"])
+                        elif symbol == "LRC":
+                            # Other integrations use the wrong address for LRC
+                            token_dict[symbol] = Web3.toChecksumAddress(token["identifier"])
+                            
+                except Exception as err:
+                    logging.getLogger().error(err)                              
 
 
 async def download_radar_relay_token_addresses(token_dict: Dict[str, str]):
@@ -97,6 +117,7 @@ def download_erc20_token_addresses():
                 download_radar_relay_token_addresses(td),
                 download_ddex_token_addresses(td),
                 download_bamboo_relay_token_addresses(td),
+                download_dolomite_token_addresses(td),
             ))
             new_len = len(td.keys())
             with open(os.path.join(os.path.dirname(__file__), TOKEN_ADDRESS_PATH), "w+") as new_erc20:

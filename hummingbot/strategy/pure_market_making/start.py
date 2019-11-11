@@ -58,25 +58,28 @@ def start(self):
                                                                       order_step_size,
                                                                       number_of_orders)
         else:  # mode == "single"
-            pricing_delegate = ConstantSpreadPricingDelegate(bid_place_threshold, ask_place_threshold)
+            pricing_delegate = ConstantSpreadPricingDelegate(bid_place_threshold,
+                                                             ask_place_threshold)
             if inventory_skew_enabled:
-                sizing_delegate = InventorySkewSingleSizeSizingDelegate(order_size, inventory_target_base_percent)
+                sizing_delegate = InventorySkewSingleSizeSizingDelegate(order_size,
+                                                                        inventory_target_base_percent)
             else:
                 sizing_delegate = ConstantSizeSizingDelegate(order_size)
 
         try:
-            maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [raw_maker_symbol])[0]
+            trading_pair: str = self._convert_to_exchange_trading_pair(maker_market, [raw_maker_symbol])[0]
+            maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [trading_pair])[0]
         except ValueError as e:
             self._notify(str(e))
             return
 
-        market_names: List[Tuple[str, List[str]]] = [(maker_market, [raw_maker_symbol])]
+        market_names: List[Tuple[str, List[str]]] = [(maker_market, [trading_pair])]
 
         self._initialize_wallet(token_symbols=list(set(maker_assets)))
         self._initialize_markets(market_names)
         self.assets = set(maker_assets)
 
-        maker_data = [self.markets[maker_market], raw_maker_symbol] + list(maker_assets)
+        maker_data = [self.markets[maker_market], trading_pair] + list(maker_assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
 
         strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
