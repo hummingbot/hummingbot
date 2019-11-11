@@ -20,11 +20,12 @@ def str2bool(value: str):
 
 
 dev_0_hello_world_config_map = {
-    "market": ConfigVar(key="market",
-                        prompt="Enter the name of the exchange >>> ",
-                        validator=is_exchange,
-                        on_validated=lambda value: required_exchanges.append(value)),
-    "asset_symbol": ConfigVar(key="asset_symbol",
-                              prompt=symbol_prompt,
-                              ),
+    "market":
+        ConfigVar(key="market",
+                  prompt="Enter the name of the exchange >>> ",
+                  validator=is_exchange,
+                  on_validated=lambda value: required_exchanges.append(value)),
+    "asset_symbol":
+        ConfigVar(key="asset_symbol",
+                  prompt=symbol_prompt),
 }
