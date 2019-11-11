@@ -31,7 +31,7 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.strategy.dev_4_twap import Dev4TwapTradeStrategy
+from hummingbot.strategy.dev_5_vwap import Dev5TwapTradeStrategy
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
 
@@ -40,14 +40,14 @@ class TWAPUnitTest(unittest.TestCase):
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
     end_timestamp: float = end.timestamp()
-    maker_trading_pairs: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
+    maker_symbols: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
     clock_tick_size = 10
 
     def setUp(self):
 
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
         self.market: BacktestMarket = BacktestMarket()
-        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_trading_pairs)
+        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_symbols)
         self.mid_price = 100
         self.time_delay = 15
         self.cancel_order_wait_time = 45
@@ -55,66 +55,73 @@ class TWAPUnitTest(unittest.TestCase):
                                                 max_price=200, price_step_size=1, volume_step_size=10)
         self.market.add_data(self.maker_data)
         self.market.set_balance("COINALPHA", 500)
-        self.market.set_balance("WETH", 5000)
+        self.market.set_balance("WETH", 500000000000)
         self.market.set_balance("QETH", 500)
         self.market.set_quantization_param(
             QuantizationParams(
-                self.maker_trading_pairs[0], 6, 6, 6, 6
+                self.maker_symbols[0], 6, 6, 6, 6
             )
         )
 
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             *(
-                [self.market] + self.maker_trading_pairs
+                [self.market] + self.maker_symbols
             )
         )
 
-        logging_options: int = (Dev4TwapTradeStrategy.OPTION_LOG_ALL &
-                                (~Dev4TwapTradeStrategy.OPTION_LOG_NULL_ORDER_SIZE))
+        logging_options: int = (Dev5TwapTradeStrategy.OPTION_LOG_ALL &
+                                (~Dev5TwapTradeStrategy.OPTION_LOG_NULL_ORDER_SIZE))
 
         # Define strategies to test
-        self.limit_buy_strategy: Dev4TwapTradeStrategy = Dev4TwapTradeStrategy(
+        self.limit_buy_strategy: Dev5TwapTradeStrategy = Dev5TwapTradeStrategy(
             [self.market_info],
             order_type="limit",
             order_price=Decimal("99"),
             cancel_order_wait_time=self.cancel_order_wait_time,
             is_buy=True,
             time_delay=self.time_delay,
-            num_individual_orders=2,
-            order_amount=Decimal("2.0"),
+            is_vwap=True,
+            percent_slippage=50.0,
+            order_percent_of_volume=0.5,
+            order_amount=Decimal("100.0"),
             logging_options=logging_options
         )
-        self.limit_sell_strategy: Dev4TwapTradeStrategy = Dev4TwapTradeStrategy(
+        self.limit_sell_strategy: Dev5TwapTradeStrategy = Dev5TwapTradeStrategy(
             [self.market_info],
             order_type="limit",
             order_price=Decimal("101"),
             cancel_order_wait_time=self.cancel_order_wait_time,
             is_buy=False,
             time_delay=self.time_delay,
-            num_individual_orders=3,
-            order_amount=Decimal("5.0"),
+            is_vwap=True,
+            percent_slippage=50.0,
+            order_percent_of_volume=0.5,
+            order_amount=Decimal("100.0"),
             logging_options=logging_options
         )
-        self.market_buy_strategy: Dev4TwapTradeStrategy = Dev4TwapTradeStrategy(
+        self.market_buy_strategy: Dev5TwapTradeStrategy = Dev5TwapTradeStrategy(
             [self.market_info],
             order_type="market",
             order_price=None,
             cancel_order_wait_time=self.cancel_order_wait_time,
             is_buy=True,
             time_delay=self.time_delay,
-            num_individual_orders=4,
-            order_amount=Decimal("1.0"),
+            is_vwap=True,
+            percent_slippage=50.0,
+            order_percent_of_volume=0.5,
+            order_amount=Decimal("100.0"),
             logging_options=logging_options
         )
-        self.market_sell_strategy: Dev4TwapTradeStrategy = Dev4TwapTradeStrategy(
+        self.market_sell_strategy: Dev5TwapTradeStrategy = Dev5TwapTradeStrategy(
             [self.market_info],
             order_type="market",
             order_price=None,
             cancel_order_wait_time=self.cancel_order_wait_time,
             is_buy=False,
             time_delay=self.time_delay,
-            num_individual_orders=4,
-            order_amount=Decimal("1.0"),
+            is_vwap=True,
+            percent_slippage=50.0,
+            order_amount=Decimal("5.0"),
             logging_options=logging_options
         )
         self.logging_options = logging_options
@@ -143,7 +150,7 @@ class TWAPUnitTest(unittest.TestCase):
             market.trigger_event(MarketEvent.OrderFilled, OrderFilledEvent(
                 market.current_timestamp,
                 limit_order.client_order_id,
-                limit_order.trading_pair,
+                limit_order.symbol,
                 TradeType.BUY,
                 OrderType.LIMIT,
                 limit_order.price,
@@ -167,7 +174,7 @@ class TWAPUnitTest(unittest.TestCase):
             market.trigger_event(MarketEvent.OrderFilled, OrderFilledEvent(
                 market.current_timestamp,
                 limit_order.client_order_id,
-                limit_order.trading_pair,
+                limit_order.symbol,
                 TradeType.SELL,
                 OrderType.LIMIT,
                 limit_order.price,
@@ -198,33 +205,39 @@ class TWAPUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.limit_buy_strategy.active_bids))
         bid_order: LimitOrder = self.limit_buy_strategy.active_bids[0][1]
         self.assertEqual(Decimal("99"), bid_order.price)
-        self.assertEqual(1, bid_order.quantity)
+        self.assertLessEqual(bid_order.quantity, 100)
+
+        # Simulate market fill for limit buy and limit sell
+        self.simulate_limit_order_fill(self.market, bid_order)
+
+        fill_events = self.maker_order_fill_logger.event_log
+        self.assertEqual(1, len(fill_events))
+        bid_fills: List[OrderFilledEvent] = [evt for evt in fill_events if evt.trade_type is TradeType.BUY]
+        self.assertEqual(1, len(bid_fills))
 
         # test whether number of orders is two after time delay
         # check whether the order is buy
         # check whether the price is correct
         # check whether amount is correct
-        order_time_2 = order_time_1 + self.clock_tick_size * math.ceil(self.time_delay / self.clock_tick_size)
-        self.clock.backtest_til(order_time_2)
-        self.assertEqual(2, len(self.limit_buy_strategy.active_bids))
-        bid_order: LimitOrder = self.limit_buy_strategy.active_bids[0][1]
-        self.assertEqual(Decimal("99"), bid_order.price)
-        self.assertEqual(1, bid_order.quantity)
+        if bid_order.quantity < 100:
+            # self.assertTrue(False)
+            order_time_2 = order_time_1 + self.clock_tick_size * math.ceil(self.time_delay / self.clock_tick_size)
+            self.clock.backtest_til(order_time_2)
+            self.assertEqual(1, len(self.limit_buy_strategy.active_bids))
+            bid_order_2: LimitOrder = self.limit_buy_strategy.active_bids[0][1]
+            self.assertEqual(Decimal("99"), bid_order_2.price)
+            self.assertLessEqual(bid_order_2.quantity, 100 - bid_order.quantity)
 
-        # Check whether order is cancelled after cancel_order_wait_time
-        cancel_time_1 = order_time_1 + self.cancel_order_wait_time
-        self.clock.backtest_til(cancel_time_1)
-        self.assertEqual(1, len(self.limit_buy_strategy.active_bids))
-
-        cancel_time_2 = order_time_2 + self.cancel_order_wait_time
-        self.clock.backtest_til(cancel_time_2)
-        self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
+            # Check whether order is cancelled after cancel_order_wait_time
+            cancel_time_2 = order_time_2 + self.cancel_order_wait_time
+            self.clock.backtest_til(cancel_time_2)
+            self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
 
     def test_limit_sell_order(self):
         self.clock.add_iterator(self.limit_sell_strategy)
         # check no orders are placed before time delay
-        self.clock.backtest_til(self.start_timestamp)
-        self.assertEqual(0, len(self.limit_sell_strategy.active_asks))
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(0, len(self.limit_buy_strategy.active_asks))
 
         # test whether number of orders is one at start
         # check whether the order is sell
@@ -235,29 +248,33 @@ class TWAPUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.limit_sell_strategy.active_asks))
         ask_order: LimitOrder = self.limit_sell_strategy.active_asks[0][1]
         self.assertEqual(Decimal("101"), ask_order.price)
-        self.assertEqual(Decimal("1.66666"), ask_order.quantity)
+        self.assertLessEqual(ask_order.quantity, 100)
+
+        # Simulate market fill for limit buy and limit sell
+        self.simulate_limit_order_fill(self.market, ask_order)
+
+        fill_events = self.maker_order_fill_logger.event_log
+        self.assertEqual(1, len(fill_events))
+        ask_fills: List[OrderFilledEvent] = [evt for evt in fill_events if evt.trade_type is TradeType.SELL]
+        self.assertEqual(1, len(ask_fills))
 
         # test whether number of orders is two after time delay
-        # check whether the order is sell
+        # check whether the order is buy
         # check whether the price is correct
         # check whether amount is correct
-        order_time_2 = order_time_1 + self.clock_tick_size * math.ceil(self.time_delay / self.clock_tick_size)
-        self.clock.backtest_til(order_time_2)
-        self.assertEqual(2, len(self.limit_sell_strategy.active_asks))
-        ask_order: LimitOrder = self.limit_sell_strategy.active_asks[1][1]
-        self.assertEqual(Decimal("101"), ask_order.price)
-        self.assertEqual(Decimal("1.66666"), ask_order.quantity)
+        if ask_order.quantity < 100:
+            # self.assertTrue(False)
+            order_time_2 = order_time_1 + self.clock_tick_size * math.ceil(self.time_delay / self.clock_tick_size)
+            self.clock.backtest_til(order_time_2)
+            self.assertEqual(1, len(self.limit_sell_strategy.active_asks))
+            ask_order_2: LimitOrder = self.limit_sell_strategy.active_asks[0][1]
+            self.assertEqual(Decimal("101"), ask_order_2.price)
+            self.assertLessEqual(ask_order_2.quantity, 100 - ask_order.quantity)
 
-        # test whether number of orders is three after two time delays
-        # check whether the order is sell
-        # check whether the price is correct
-        # check whether amount is correct
-        order_time_3 = order_time_2 + self.clock_tick_size * math.ceil(self.time_delay / self.clock_tick_size)
-        self.clock.backtest_til(order_time_3)
-        self.assertEqual(3, len(self.limit_sell_strategy.active_asks))
-        ask_order: LimitOrder = self.limit_sell_strategy.active_asks[2][1]
-        self.assertEqual(Decimal("101"), ask_order.price)
-        self.assertEqual(Decimal("1.66666"), ask_order.quantity)
+            # Check whether order is cancelled after cancel_order_wait_time
+            cancel_time_2 = order_time_2 + self.cancel_order_wait_time
+            self.clock.backtest_til(cancel_time_2)
+            self.assertEqual(0, len(self.limit_sell_strategy.active_asks))
 
     def test_market_buy_order(self):
         self.clock.add_iterator(self.market_buy_strategy)
@@ -275,7 +292,7 @@ class TWAPUnitTest(unittest.TestCase):
                                                            if isinstance(t, BuyOrderCompletedEvent)]
         self.assertEqual(1, len(market_buy_events))
         amount: Decimal = sum(t.base_asset_amount for t in market_buy_events)
-        self.assertEqual(Decimal("0.25"), amount)
+        self.assertLessEqual(amount, Decimal("100"))
         self.buy_order_completed_logger.clear()
 
     def test_market_sell_order(self):
@@ -294,7 +311,7 @@ class TWAPUnitTest(unittest.TestCase):
                                                              if isinstance(t, SellOrderCompletedEvent)]
         self.assertEqual(1, len(market_sell_events))
         amount: Decimal = sum(t.base_asset_amount for t in market_sell_events)
-        self.assertEqual(Decimal("0.25"), amount)
+        self.assertLessEqual(amount, Decimal("100"))
         self.sell_order_completed_logger.clear()
 
     def test_order_filled_events(self):
@@ -312,12 +329,12 @@ class TWAPUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.limit_sell_strategy.active_asks))
         ask_order: LimitOrder = self.limit_sell_strategy.active_asks[0][1]
         self.assertEqual(Decimal("101"), ask_order.price)
-        self.assertEqual(Decimal("1.66666"), ask_order.quantity)
+        self.assertLessEqual(ask_order.price, Decimal("101"))
 
         self.assertEqual(1, len(self.limit_buy_strategy.active_bids))
         bid_order: LimitOrder = self.limit_buy_strategy.active_bids[0][1]
         self.assertEqual(Decimal("99"), bid_order.price)
-        self.assertEqual(1, bid_order.quantity)
+        self.assertLessEqual(bid_order.price, Decimal("100"))
 
         # Simulate market fill for limit buy and limit sell
         self.simulate_limit_order_fill(self.market, bid_order)
