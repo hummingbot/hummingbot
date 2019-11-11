@@ -76,13 +76,13 @@ dev_5_vwap_config_map = {
                   prompt="What percent of price do you want to calculate open order volume? (default is 0 percent slippage) >>> ",
                   required_if=lambda: dev_5_vwap_config_map.get("is_vwap").value is True,
                   type_str="float",
-                  default=0),
+                  default=0.1),
     "order_percent_of_volume":
         ConfigVar(key="order_percent_of_volume",
                   prompt=order_percent_of_volume_prompt,
                   required_if=lambda: dev_5_vwap_config_map.get("is_vwap").value is True,
                   type_str="float",
-                  default=100),
+                  default=0.01),
     "time_delay":
         ConfigVar(key="time_delay",
                   prompt="How many seconds do you want to wait between each individual order? (Enter 10 to indicate 10 seconds. "
