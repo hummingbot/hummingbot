@@ -1005,8 +1005,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         else:
             cancel_order_threshold = self._min_profitability
 
-        # TODO: Check if a Order[Buy|Sell]]OrderCreatedEvent has been created
-
         if current_hedging_price is None:
             if self._logging_options & self.OPTION_LOG_REMOVING_ORDER:
                 self.log_with_clock(
