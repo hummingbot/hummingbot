@@ -306,7 +306,24 @@ MARKET_CLASSES = {
     .
     .
     "new_market": NewMarket
-}	}
+}
+.
+.
+.
+  def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
+    ...
+    ...
+       ...
+       elif market_name == "new_market":
+         new_market_api_key = global_config_map.get("coinbase_pro_api_key").value
+         new_market_secret_key = global_config_map.get("coinbase_pro_secret_key").value
+         new_market_passphrase = global_config_map.get("coinbase_pro_passphrase").value
+
+         market = NewMarket(new_market_api_key,
+                            new_market_secret_key,
+                            new_market_passphrase,
+                            symbols=symbols,
+                            trading_required=self._trading_required)
 ```
 
 - `hummingbot/client/settings.py`
