@@ -45,9 +45,9 @@ DEXES = {
 STRATEGIES: List[str] = get_strategy_list()
 
 EXAMPLE_PAIRS = {
-    "binance": "ZRXETH",
+    "binance": "ZRX-ETH",
     "ddex": "ZRX-WETH",
-    "idex": "ETH_ZRX",
+    "idex": "ZRX-ETH",
     "radar_relay": "ZRX-WETH",
     "bamboo_relay": "ZRX-WETH",
     "coinbase_pro": "ETH-USDC",
@@ -60,7 +60,7 @@ EXAMPLE_PAIRS = {
 EXAMPLE_ASSETS = {
     "binance": "ZRX",
     "ddex": "ZRX",
-    "idex": "ETH=",
+    "idex": "ETH",
     "radar_relay": "ZRX",
     "bamboo_relay": "ZRX",
     "coinbase_pro": "ETH",
