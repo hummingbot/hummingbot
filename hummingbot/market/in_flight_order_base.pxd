@@ -3,7 +3,7 @@ cdef class InFlightOrderBase:
         public object market_class
         public str client_order_id
         public str exchange_order_id
-        public str symbol
+        public str trading_pair
         public object order_type
         public object trade_type
         public object price

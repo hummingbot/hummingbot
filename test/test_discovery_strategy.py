@@ -31,8 +31,8 @@ class DiscoveryUnitTest(unittest.TestCase):
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
     end_timestamp: float = end.timestamp()
-    maker_symbols: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
-    taker_symbols: List[str] = ["coinalpha/eth", "COINALPHA", "ETH"]
+    maker_trading_pairs: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
+    taker_trading_pairs: List[str] = ["coinalpha/eth", "COINALPHA", "ETH"]
 
     @classmethod
     def setUpClass(cls):
@@ -56,7 +56,7 @@ class DiscoveryUnitTest(unittest.TestCase):
         async def mock_binance_active_markets_func():
             return pd.DataFrame.from_dict(self.mock_binance_active_markets)
 
-        self.target_symbols = [('WETH', 'TUSD'), ('WETH', 'DAI'), ('ETH', 'USDC'), ('ETH', 'TUSD')]
+        self.target_trading_pairs = [('WETH', 'TUSD'), ('WETH', 'DAI'), ('ETH', 'USDC'), ('ETH', 'TUSD')]
         self.equivalent_token = [['USDT', 'USDC', 'USDS', 'DAI', 'PAX', 'TUSD', 'USD'],
                                  ['ETH', 'WETH'],
                                  ['BTC', 'WBTC']]
@@ -70,7 +70,7 @@ class DiscoveryUnitTest(unittest.TestCase):
         )
 
         self.strategy = DiscoveryStrategy(market_pairs=[self.market_pair],
-                                          target_symbols=self.target_symbols,
+                                          target_trading_pairs=self.target_trading_pairs,
                                           equivalent_token=self.equivalent_token
                                           )
 

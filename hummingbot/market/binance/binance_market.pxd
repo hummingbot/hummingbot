@@ -34,7 +34,7 @@ cdef class BinanceMarket(MarketBase):
     cdef c_start_tracking_order(self,
                                 str order_id,
                                 str exchange_order_id,
-                                str symbol,
+                                str trading_pair,
                                 object trade_type,
                                 object price,
                                 object amount,

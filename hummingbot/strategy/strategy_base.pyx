@@ -133,7 +133,7 @@ cdef class StrategyBase(TimeIterator):
     @property
     def trades(self) -> List[Trade]:
         def event_to_trade(order_filled_event: OrderFilledEvent, market_name: str):
-            return Trade(order_filled_event.symbol,
+            return Trade(order_filled_event.trading_pair,
                          order_filled_event.trade_type,
                          order_filled_event.price,
                          order_filled_event.amount,
@@ -160,7 +160,7 @@ cdef class StrategyBase(TimeIterator):
             object bid_price_adjusted
             object ask_price_adjusted
             list markets_data = []
-            list markets_columns = ["Market", "Symbol", "Bid Price", "Ask Price", "Adjusted Bid", "Adjusted Ask"]
+            list markets_columns = ["Market", "Trading Pair", "Bid Price", "Ask Price", "Adjusted Bid", "Adjusted Ask"]
         try:
             for market_trading_pair_tuple in market_trading_pair_tuples:
                 market, trading_pair, base_asset, quote_asset = market_trading_pair_tuple
@@ -302,7 +302,7 @@ cdef class StrategyBase(TimeIterator):
             if flat_fee_currency == quote_asset:
                 total_flat_fees += flat_fee_amount
             else:
-                # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
+                # if the flat fee currency asset does not match quote asset, convert to quote currency value
                 total_flat_fees += ExchangeRateConversion.get_instance().convert_token_value_decimal(
                     amount=flat_fee_amount,
                     from_currency=flat_fee_currency,
