@@ -1,7 +1,7 @@
 # distutils: language=c++
 cimport numpy as np
 
-cdef class bitroyalActiveOrderTracker:
+cdef class BitroyalActiveOrderTracker:
     cdef dict _active_bids
     cdef dict _active_asks
 

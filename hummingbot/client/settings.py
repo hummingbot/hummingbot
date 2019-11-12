@@ -1,7 +1,4 @@
-from os.path import (
-    realpath,
-    join,
-)
+from os.path import realpath, join
 from typing import List
 
 from hummingbot import get_strategy_list
@@ -33,7 +30,8 @@ EXCHANGES = {
     "idex",
     "radar_relay",
     "dolomite",
-    "bittrex"
+    "bittrex",
+    "bitroyal"
 }
 
 DEXES = {
@@ -54,8 +52,9 @@ EXAMPLE_PAIRS = {
     "bamboo_relay": "ZRX-WETH",
     "coinbase_pro": "ETH-USDC",
     "dolomite": "WETH-DAI",
-    "huobi": "ETH-USDT",
-    "bittrex": "ZRX-ETH"
+    "huobi": "ethusdt",
+    "bittrex": "ZRX-ETH",
+    "bitroyal": "ETHUSD"
 }
 
 EXAMPLE_ASSETS = {
@@ -67,7 +66,8 @@ EXAMPLE_ASSETS = {
     "coinbase_pro": "ETH",
     "huobi": "eth",
     "dolomite": "LRC",
-    "bittrex": "ZRX"
+    "bittrex": "ZRX",
+    "bitroyal": "ETH"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000

@@ -9,11 +9,11 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.bitroyal.bitroyal_market import bitroyalMarket
+from hummingbot.market.bitroyal.bitroyal_market import BitroyalMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
 
-cdef class bitroyalInFlightOrder(InFlightOrderBase):
+cdef class BitroyalInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: Optional[str],
@@ -24,7 +24,7 @@ cdef class bitroyalInFlightOrder(InFlightOrderBase):
                  amount: Decimal,
                  initial_state: str = "open"):
         super().__init__(
-            bitroyalMarket,
+            BitroyalMarket,
             client_order_id,
             exchange_order_id,
             symbol,
@@ -50,21 +50,14 @@ cdef class bitroyalInFlightOrder(InFlightOrderBase):
 
     @property
     def order_type_description(self) -> str:
-        """
-        :return: Order description string . One of ["limit buy" / "limit sell" / "market buy" / "market sell"]
-        """
         order_type = "market" if self.order_type is OrderType.MARKET else "limit"
         side = "buy" if self.trade_type == TradeType.BUY else "sell"
         return f"{order_type} {side}"
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        """
-        :param data: json data from API
-        :return: formatted InFlightOrder
-        """
         cdef:
-            bitroyalInFlightOrder retval = bitroyalInFlightOrder(
+            BitroyalInFlightOrder retval = BitroyalInFlightOrder(
                 data["client_order_id"],
                 data["exchange_order_id"],
                 data["symbol"],

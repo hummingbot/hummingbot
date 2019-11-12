@@ -3,6 +3,7 @@
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.market.bittrex.bittrex_active_order_tracker import BittrexActiveOrderTracker
 from hummingbot.market.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
+from hummingbot.market.bitroyal.bitroyal_active_order_tracker import BitroyalActiveOrderTracker
 from hummingbot.market.ddex.ddex_active_order_tracker import DDEXActiveOrderTracker
 from hummingbot.market.idex.idex_active_order_tracker import IDEXActiveOrderTracker
 from hummingbot.market.radar_relay.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
@@ -39,6 +40,7 @@ class DDEXOrderBookTrackerEntry(OrderBookTrackerEntry):
     def __init__(
         self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: DDEXActiveOrderTracker
     ):
+
         self._active_order_tracker = active_order_tracker
         super(DDEXOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
 
@@ -57,6 +59,7 @@ class IDEXOrderBookTrackerEntry(OrderBookTrackerEntry):
     def __init__(
         self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: IDEXActiveOrderTracker
     ):
+
         self._active_order_tracker = active_order_tracker
         super(IDEXOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
 
@@ -75,6 +78,7 @@ class RadarRelayOrderBookTrackerEntry(OrderBookTrackerEntry):
     def __init__(
         self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: RadarRelayActiveOrderTracker
     ):
+
         self._active_order_tracker = active_order_tracker
         super(RadarRelayOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
 
@@ -93,6 +97,7 @@ class BambooRelayOrderBookTrackerEntry(OrderBookTrackerEntry):
     def __init__(
         self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: BambooRelayActiveOrderTracker
     ):
+
         self._active_order_tracker = active_order_tracker
         super(BambooRelayOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
 
@@ -156,4 +161,22 @@ class BittrexOrderBookTrackerEntry(OrderBookTrackerEntry):
 
     @property
     def active_order_tracker(self) -> BittrexActiveOrderTracker:
+        return self._active_order_tracker
+
+
+class BitroyalOrderBookTrackerEntry(OrderBookTrackerEntry):
+    def __init__(
+        self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: BitroyalActiveOrderTracker
+    ):
+        self._active_order_tracker = active_order_tracker
+        super(BitroyalOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
+
+    def __repr__(self) -> str:
+        return (
+            f"BitroyalOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', "
+            f"order_book='{self._order_book}')"
+        )
+
+    @property
+    def active_order_tracker(self) -> BitroyalActiveOrderTracker:
         return self._active_order_tracker

@@ -21,6 +21,7 @@ from hummingbot.market.market_base import MarketBase
 from hummingbot.market.paper_trade import create_paper_trade_market
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
+from hummingbot.market.bitroyal.bitroyal_market import BitroyalMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
@@ -60,7 +61,8 @@ MARKET_CLASSES = {
     "idex": IDEXMarket,
     "radar_relay": RadarRelayMarket,
     "dolomite": DolomiteMarket,
-    "bittrex": BittrexMarket
+    "bittrex": BittrexMarket,
+    "bitroyal": BitroyalMarket,
 }
 
 
@@ -184,7 +186,6 @@ class HummingbotApplication(*commands):
         except Exception:
             self.logger().error(f"Error canceling outstanding orders.", exc_info=True)
             success = False
-
         if success:
             self._notify("All outstanding orders cancelled.")
         return success
@@ -306,11 +307,13 @@ class HummingbotApplication(*commands):
                 coinbase_pro_secret_key = global_config_map.get("coinbase_pro_secret_key").value
                 coinbase_pro_passphrase = global_config_map.get("coinbase_pro_passphrase").value
 
-                market = CoinbaseProMarket(coinbase_pro_api_key,
-                                           coinbase_pro_secret_key,
-                                           coinbase_pro_passphrase,
-                                           symbols=symbols,
-                                           trading_required=self._trading_required)
+                market = CoinbaseProMarket(
+                    coinbase_pro_api_key,
+                    coinbase_pro_secret_key,
+                    coinbase_pro_passphrase,
+                    symbols=symbols,
+                    trading_required=self._trading_required,
+                )
             elif market_name == "huobi":
                 huobi_api_key = global_config_map.get("huobi_api_key").value
                 huobi_secret_key = global_config_map.get("huobi_secret_key").value
@@ -337,6 +340,12 @@ class HummingbotApplication(*commands):
                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                        symbols=symbols,
                                        trading_required=self._trading_required)
+            elif market_name == "bitroyal":
+                bitroyal_api_key = global_config_map.get("bitroyal_api_key").value
+                bitroyal_secret_key = global_config_map.get("bitroyal_secret_key").value
+                market = BitroyalMarket(
+                    bitroyal_api_key, bitroyal_secret_key, symbols=symbols, trading_required=self._trading_required
+                )
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
 
