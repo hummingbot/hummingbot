@@ -45,8 +45,8 @@ class MockDataFeed1(DataFeedBase):
             "USD": 1.0
         }
 
-    def get_price(self, symbol):
-        return self.mock_price_dict.get(symbol.upper())
+    def get_price(self, trading_pair):
+        return self.mock_price_dict.get(trading_pair.upper())
 
     async def start_network(self):
         pass
@@ -133,7 +133,7 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
                 "config_file_path": "path",
                 "strategy": strategy,
                 "market": market_trading_pair_tuple.market.display_name,
-                "symbol": market_trading_pair_tuple.trading_pair,
+                "trading_pair": market_trading_pair_tuple.trading_pair,
                 "base_asset": market_trading_pair_tuple.base_asset,
                 "quote_asset": market_trading_pair_tuple.quote_asset,
                 "timestamp": start_time + i + 1,

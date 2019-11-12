@@ -44,7 +44,7 @@ cdef class DiscoveryStrategy(StrategyBase):
                  target_profitability: float = 0.0,
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900,
-                 target_symbols: list = [],
+                 target_trading_pairs: list = [],
                  equivalent_token: list = []):
         """
         :param market_pairs: list of discovery market pairs. Currently, the strategy only supports one market pair.
@@ -53,8 +53,8 @@ cdef class DiscoveryStrategy(StrategyBase):
         :param target_profitability: the minimum profitability ratio required for an opportunity to be printed
         :param logging_options: select the types of logs to output
         :param status_report_interval: not used
-        :param target_symbols: List of token pairs, or single tokens
-        :param equivalent_token: List of lists of equivalent token symbols
+        :param target_trading_pairs: List of token pairs, or single tokens
+        :param equivalent_token: List of lists of equivalent token trading pairs
         """
         if len(market_pairs) < 0:
             raise ValueError(f"market_pairs must not be empty.")
@@ -73,7 +73,7 @@ cdef class DiscoveryStrategy(StrategyBase):
         self._market_info = {}
         self._matching_pairs = set()
         self._equivalent_token = equivalent_token
-        self._target_symbols = target_symbols
+        self._target_trading_pairs = target_trading_pairs
         self._equivalent_token_dict = self.parse_equivalent_token(self._equivalent_token)
         self._fetch_market_info_task_list = None
 
@@ -118,28 +118,28 @@ cdef class DiscoveryStrategy(StrategyBase):
         if not target_tokens or (len(target_tokens) == 1 and not target_tokens[0]):
             return markets
 
-        filtered_symbol = set()
+        filtered_trading_pairs = set()
         equivalent_token = cls.parse_equivalent_token(equivalent_token)
 
-        for trading_symbol, b, q in zip(markets.index, markets.baseAsset, markets.quoteAsset):
+        for trading_pair, b, q in zip(markets.index, markets.baseAsset, markets.quoteAsset):
             b, q = b.upper(), q.upper()
             for target_token_pair in target_tokens:
                 # single token, any trading pair consisting the token will match
                 if len(target_token_pair) == 1:
                     for equal_token in equivalent_token.get(target_token_pair[0], {target_token_pair[0]}):
                         if equal_token.upper() in {b, q}:
-                            filtered_symbol.add(trading_symbol)
+                            filtered_trading_pairs.add(trading_pair)
                 # match base and quote with equivalent tokens
                 if len(target_token_pair) == 2:
                     t_b, t_q = target_token_pair[0].upper(), target_token_pair[1].upper()
                     if b in equivalent_token.get(t_b, {t_b}) and q in equivalent_token.get(t_q, {t_q}):
-                        filtered_symbol.add(trading_symbol)
+                        filtered_trading_pairs.add(trading_pair)
 
-        return markets[[i in filtered_symbol for i in markets.index]].copy()
+        return markets[[i in filtered_trading_pairs for i in markets.index]].copy()
 
     async def fetch_market_info(self, market_pair: DiscoveryMarketPair):
         """
-        Fetches and calculates all the matching symbol pairs between two exchanges. Saved the fetched and processed
+        Fetches and calculates all the matching trading pairs between two exchanges. Saved the fetched and processed
         market info and matched trading pairs to `self._market_info` and `self._matching_pairs`.
 
         :param market_pair: discovery market pair
@@ -147,14 +147,14 @@ cdef class DiscoveryStrategy(StrategyBase):
         try:
             for market, fetch_market_info in [(market_pair.market_1, market_pair.market_1_fetch_market_info),
                                               (market_pair.market_2, market_pair.market_2_fetch_market_info)]:
-                markets = self.filter_trading_pairs(self._target_symbols,
+                markets = self.filter_trading_pairs(self._target_trading_pairs,
                                                     await fetch_market_info(),
                                                     self._equivalent_token)
                 self._market_info[market] = {"markets": markets,
-                                             "base_quote_to_symbol": {},
+                                             "base_quote_to_trading_pair": {},
                                              "timestamp": self._current_timestamp}
-                for trading_symbol, b, q in zip(markets.index, markets.baseAsset, markets.quoteAsset):
-                    self._market_info[market]["base_quote_to_symbol"][(b, q)] = (trading_symbol, b, q)
+                for trading_pair, b, q in zip(markets.index, markets.baseAsset, markets.quoteAsset):
+                    self._market_info[market]["base_quote_to_trading_pair"][(b, q)] = (trading_pair, b, q)
 
             self._matching_pairs = self.get_matching_pairs(market_pair)
 
@@ -165,12 +165,12 @@ cdef class DiscoveryStrategy(StrategyBase):
 
     def get_matching_pairs(self, market_pair: DiscoveryMarketPair) -> Set[Tuple[str, str]]:
         """
-        Given a discovery market pair, find out all the matching symbol pairs for the two exchanges.
+        Given a discovery market pair, find out all the matching trading pairs for the two exchanges.
 
         XXX: this function takes O(n^2), need to optimize.
 
         :param market_pair: discovery market pair
-        :return: all matching symbols in the two exchanges
+        :return: all matching trading pairs in the two exchanges
         """
         market_1 = market_pair.market_1
         market_2 = market_pair.market_2
@@ -188,14 +188,14 @@ cdef class DiscoveryStrategy(StrategyBase):
             ):
                 if (equivalent_base_1.upper(), equivalent_quote_1.upper()) in market_2_base_quote:
                     matching_pair.add((
-                        self._market_info[market_1]["base_quote_to_symbol"][(base_1, quote_1)],
-                        self._market_info[market_2]["base_quote_to_symbol"][(equivalent_base_1.upper(),
+                        self._market_info[market_1]["base_quote_to_trading_pair"][(base_1, quote_1)],
+                        self._market_info[market_2]["base_quote_to_trading_pair"][(equivalent_base_1.upper(),
                                                                             equivalent_quote_1.upper())]
                     ))
                 elif (equivalent_base_1.lower(), equivalent_quote_1.lower()) in market_2_base_quote:
                     matching_pair.add((
-                        self._market_info[market_1]["base_quote_to_symbol"][(base_1, quote_1)],
-                        self._market_info[market_2]["base_quote_to_symbol"][(equivalent_base_1.lower(),
+                        self._market_info[market_1]["base_quote_to_trading_pair"][(base_1, quote_1)],
+                        self._market_info[market_2]["base_quote_to_trading_pair"][(equivalent_base_1.lower(),
                                                                             equivalent_quote_1.lower())]
                     ))
         return matching_pair
@@ -240,11 +240,11 @@ cdef class DiscoveryStrategy(StrategyBase):
                                                          double target_amount=float("inf"),
                                                          double target_profitability=0.0):
         """
-        Given a matching symbol pair and a discovery market pair, calculate the optimal order size and the buy-sell
+        Given a matching trading pair and a discovery market pair, calculate the optimal order size and the buy-sell
         order of the two marktes to make the maximal arbitrage profits out of them.
 
         :param market_pair: discovery market pair
-        :param matching_pair: a matching symbol pair between the two exchanges
+        :param matching_pair: a matching trading pair between the two exchanges
         :param target_amount: (optional) maximum limit for arbitrage order size
         :param target_profitability: (optional) minimum limit for the profitability ratio
         :return: a dictionary mapping from a 4-tuple of buy and sell market descriptions, to a 3-tuple of
@@ -263,11 +263,11 @@ cdef class DiscoveryStrategy(StrategyBase):
             OrderBook buy_market_order_book
             OrderBook sell_market_order_book
             dict ret = {}
-            object market_symbol_pair_1 = MarketTradingPairTuple(market_pair.market_1, *matching_pair[0])
-            object market_symbol_pair_2 = MarketTradingPairTuple(market_pair.market_2, *matching_pair[1])
+            object market_trading_pair_1 = MarketTradingPairTuple(market_pair.market_1, *matching_pair[0])
+            object market_trading_pair_2 = MarketTradingPairTuple(market_pair.market_2, *matching_pair[1])
 
-        for buy_market_symbol_pair, sell_market_symbol_pair in [(market_symbol_pair_1, market_symbol_pair_2),
-                                                                (market_symbol_pair_2, market_symbol_pair_1)]:
+        for buy_market_trading_pair, sell_market_trading_pair in [(market_trading_pair_1, market_trading_pair_2),
+                                                                (market_trading_pair_2, market_trading_pair_1)]:
             try:
                 total_bid_value, total_ask_value = s_decimal_0, s_decimal_0
                 total_profitable_base_amount = s_decimal_0
@@ -275,8 +275,8 @@ cdef class DiscoveryStrategy(StrategyBase):
 
                 profitable_orders = ArbitrageStrategy.find_profitable_arbitrage_orders(
                     target_profitability,
-                    buy_market_symbol_pair,
-                    sell_market_symbol_pair
+                    buy_market_trading_pair,
+                    sell_market_trading_pair
                 )
                 for bid_price_adjusted, ask_price_adjusted, bid_price, ask_price, amount in profitable_orders:
                     if total_profitable_base_amount + amount >= target_amount:
@@ -305,24 +305,24 @@ cdef class DiscoveryStrategy(StrategyBase):
                 # or for profitability lower than targeted, calculate with the best bid and ask
                 if not profitable_orders or profitability == 0:
                     sell_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(
-                        sell_market_symbol_pair.quote_asset,
-                        sell_market_symbol_pair.get_price(False)
+                        sell_market_trading_pair.quote_asset,
+                        sell_market_trading_pair.get_price(False)
                     )
                     buy_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(
-                        buy_market_symbol_pair.quote_asset,
-                        buy_market_symbol_pair.get_price(True)
+                        buy_market_trading_pair.quote_asset,
+                        buy_market_trading_pair.get_price(True)
                     )
                     profitability = sell_price_adjusted / buy_price_adjusted
 
-                ret[(buy_market_symbol_pair.market.name,
-                     buy_market_symbol_pair.trading_pair,
-                     sell_market_symbol_pair.market.name,
-                     sell_market_symbol_pair.trading_pair)] = \
+                ret[(buy_market_trading_pair.market.name,
+                     buy_market_trading_pair.trading_pair,
+                     sell_market_trading_pair.market.name,
+                     sell_market_trading_pair.trading_pair)] = \
                     (total_profitable_base_amount, total_ask_value, (profitability - 1) * 100)
 
             except Exception:
                 self.logger().debug(f"Error calculating arbitrage profitability: "
-                                    f"{buy_market_symbol_pair} v.s {sell_market_symbol_pair}.",
+                                    f"{buy_market_trading_pair} v.s {sell_market_trading_pair}.",
                                     exc_info=True)
         return ret
 
@@ -339,11 +339,11 @@ cdef class DiscoveryStrategy(StrategyBase):
                                                 double target_amount,
                                                 double target_profitability):
         """
-        Given a set of matching symbol pairs and a discovery market pair, calculate the optimal order sizes and the
-        buy-sell orders of all the symbol pairs to make the maximal arbitrage profits out of them.
+        Given a set of matching trading pairs and a discovery market pair, calculate the optimal order sizes and the
+        buy-sell orders of all the trading pairs to make the maximal arbitrage profits out of them.
 
         :param market_pair: discovery market pair
-        :param matching_pairs: set of matching symbol pairs between the two exchanges
+        :param matching_pairs: set of matching trading pairs between the two exchanges
         :param target_amount: maximum limit for arbitrage order size
         :param target_profitability: minimum limit for the profitability ratio
         :rtype: pd.DataFrame
@@ -393,18 +393,18 @@ cdef class DiscoveryStrategy(StrategyBase):
         for exchange_class, market_info in exchange_market_info.items():
             trading_pairs = market_info["markets"]
             exchange_name = exchange_class.name
-            for symbol, usd_volume, base_asset, quote_asset in zip(trading_pairs.index,
+            for trading_pair, usd_volume, base_asset, quote_asset in zip(trading_pairs.index,
                                                                    trading_pairs.USDVolume,
                                                                    trading_pairs.baseAsset,
                                                                    trading_pairs.quoteAsset):
                 try:
-                    order_book = exchange_class.get_order_book(symbol)
+                    order_book = exchange_class.get_order_book(trading_pair)
                     ask, bid = order_book.get_price(True), order_book.get_price(False)
                     spread, mid_price = ask/bid, (ask + bid)/2
-                    market_stats[(exchange_name, symbol)] = (
+                    market_stats[(exchange_name, trading_pair)] = (
                         base_asset, quote_asset, mid_price, (spread - 1) * 100, float(usd_volume))
                 except Exception:
-                    self.logger().debug(f"Error calculating market stats: {exchange_name}, {symbol}.", exc_info=True)
+                    self.logger().debug(f"Error calculating market stats: {exchange_name}, {trading_pair}.", exc_info=True)
 
         market_stats_discovery_df = pd.DataFrame(
             data=[(name[0], stats[0], stats[1], stats[2], stats[3], stats[4]) for name, stats in market_stats.items()],
@@ -475,7 +475,7 @@ cdef class DiscoveryStrategy(StrategyBase):
         asset_set = set()
         for market in self._market_info:
             market_info = self._market_info[market]
-            for asset_tuple in market_info["base_quote_to_symbol"].keys():
+            for asset_tuple in market_info["base_quote_to_trading_pair"].keys():
                 b, q = asset_tuple
                 asset_set.add(b)
                 asset_set.add(q)

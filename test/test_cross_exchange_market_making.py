@@ -50,8 +50,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
     end_timestamp: float = end.timestamp()
-    maker_symbols: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
-    taker_symbols: List[str] = ["coinalpha/eth", "COINALPHA", "ETH"]
+    maker_trading_pairs: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
+    taker_trading_pairs: List[str] = ["coinalpha/eth", "COINALPHA", "ETH"]
 
     @classmethod
     def setUpClass(cls):
@@ -74,8 +74,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.min_profitbality = Decimal("0.005")
         self.maker_market: BacktestMarket = BacktestMarket()
         self.taker_market: BacktestMarket = BacktestMarket()
-        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_symbols)
-        self.taker_data: MockOrderBookLoader = MockOrderBookLoader(*self.taker_symbols)
+        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_trading_pairs)
+        self.taker_data: MockOrderBookLoader = MockOrderBookLoader(*self.taker_trading_pairs)
         self.maker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.01, 10)
         self.taker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.001, 4)
         self.maker_market.add_data(self.maker_data)
@@ -85,12 +85,12 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.maker_market.set_balance("QETH", 5)
         self.taker_market.set_balance("COINALPHA", 5)
         self.taker_market.set_balance("ETH", 5)
-        self.maker_market.set_quantization_param(QuantizationParams(self.maker_symbols[0], 5, 5, 5, 5))
-        self.taker_market.set_quantization_param(QuantizationParams(self.taker_symbols[0], 5, 5, 5, 5))
+        self.maker_market.set_quantization_param(QuantizationParams(self.maker_trading_pairs[0], 5, 5, 5, 5))
+        self.taker_market.set_quantization_param(QuantizationParams(self.taker_trading_pairs[0], 5, 5, 5, 5))
 
         self.market_pair: CrossExchangeMarketPair = CrossExchangeMarketPair(
-            MarketTradingPairTuple(self.maker_market, *self.maker_symbols),
-            MarketTradingPairTuple(self.taker_market, *self.taker_symbols),
+            MarketTradingPairTuple(self.maker_market, *self.maker_trading_pairs),
+            MarketTradingPairTuple(self.taker_market, *self.taker_trading_pairs),
         )
 
         logging_options: int = (
@@ -123,10 +123,10 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.maker_market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
     def simulate_maker_market_trade(self, is_buy: bool, quantity: Decimal, price: Decimal):
-        maker_symbol: str = self.maker_symbols[0]
-        order_book: OrderBook = self.maker_market.get_order_book(maker_symbol)
+        maker_trading_pair: str = self.maker_trading_pairs[0]
+        order_book: OrderBook = self.maker_market.get_order_book(maker_trading_pair)
         trade_event: OrderBookTradeEvent = OrderBookTradeEvent(
-            maker_symbol, self.clock.current_timestamp, TradeType.BUY if is_buy else TradeType.SELL, price, quantity
+            maker_trading_pair, self.clock.current_timestamp, TradeType.BUY if is_buy else TradeType.SELL, price, quantity
         )
         order_book.apply_trade(trade_event)
 
@@ -163,7 +163,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 OrderFilledEvent(
                     market.current_timestamp,
                     limit_order.client_order_id,
-                    limit_order.symbol,
+                    limit_order.trading_pair,
                     TradeType.BUY,
                     OrderType.LIMIT,
                     limit_order.price,
@@ -193,7 +193,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 OrderFilledEvent(
                     market.current_timestamp,
                     limit_order.client_order_id,
-                    limit_order.symbol,
+                    limit_order.trading_pair,
                     TradeType.SELL,
                     OrderType.LIMIT,
                     limit_order.price,
@@ -344,7 +344,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(1, len(bid_hedges))
         self.assertEqual(1, len(ask_hedges))
         self.assertGreater(
-            self.maker_market.get_balance(self.maker_symbols[2]) + self.taker_market.get_balance(self.taker_symbols[2]),
+            self.maker_market.get_balance(self.maker_trading_pairs[2]) + self.taker_market.get_balance(self.taker_trading_pairs[2]),
             Decimal("10"),
         )
         self.assertEqual(2, len(self.taker_order_fill_logger.event_log))
@@ -361,7 +361,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.clock.remove_iterator(self.strategy)
         self.market_pair: CrossExchangeMarketPair = CrossExchangeMarketPair(
             MarketTradingPairTuple(self.maker_market, *["COINALPHA-QETH", "COINALPHA", "QETH"]),
-            MarketTradingPairTuple(self.taker_market, *self.taker_symbols),
+            MarketTradingPairTuple(self.taker_market, *self.taker_trading_pairs),
         )
         self.maker_data: MockOrderBookLoader = MockOrderBookLoader("COINALPHA-QETH", "COINALPHA", "QETH")
         self.maker_data.set_balanced_order_book(1.05, 0.55, 1.55, 0.01, 10)
@@ -404,12 +404,12 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.clock.remove_iterator(self.maker_market)
         self.maker_market: BacktestMarket = BacktestMarket()
 
-        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_symbols)
+        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_trading_pairs)
         self.maker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.1, 10)
         self.maker_market.add_data(self.maker_data)
         self.market_pair: CrossExchangeMarketPair = CrossExchangeMarketPair(
-            MarketTradingPairTuple(self.maker_market, *self.maker_symbols),
-            MarketTradingPairTuple(self.taker_market, *self.taker_symbols),
+            MarketTradingPairTuple(self.maker_market, *self.maker_trading_pairs),
+            MarketTradingPairTuple(self.taker_market, *self.taker_trading_pairs),
         )
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
             [self.market_pair],
@@ -420,7 +420,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.maker_market.set_balance("COINALPHA", 5)
         self.maker_market.set_balance("WETH", 5)
         self.maker_market.set_balance("QETH", 5)
-        self.maker_market.set_quantization_param(QuantizationParams(self.maker_symbols[0], 4, 4, 4, 4))
+        self.maker_market.set_quantization_param(QuantizationParams(self.maker_trading_pairs[0], 4, 4, 4, 4))
         self.clock.add_iterator(self.strategy)
         self.clock.add_iterator(self.maker_market)
         self.clock.backtest_til(self.start_timestamp + 5)
@@ -440,13 +440,13 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.clock.remove_iterator(self.maker_market)
         self.maker_market: BacktestMarket = BacktestMarket()
 
-        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_symbols)
+        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_trading_pairs)
         self.maker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.1, 10)
         self.taker_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.001, 20)
         self.maker_market.add_data(self.maker_data)
         self.market_pair: CrossExchangeMarketPair = CrossExchangeMarketPair(
-            MarketTradingPairTuple(self.maker_market, *self.maker_symbols),
-            MarketTradingPairTuple(self.taker_market, *self.taker_symbols),
+            MarketTradingPairTuple(self.maker_market, *self.maker_trading_pairs),
+            MarketTradingPairTuple(self.taker_market, *self.taker_trading_pairs),
         )
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
             [self.market_pair],
@@ -458,7 +458,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.maker_market.set_balance("COINALPHA", 5)
         self.maker_market.set_balance("WETH", 5)
         self.maker_market.set_balance("QETH", 5)
-        self.maker_market.set_quantization_param(QuantizationParams(self.maker_symbols[0], 4, 4, 4, 4))
+        self.maker_market.set_quantization_param(QuantizationParams(self.maker_trading_pairs[0], 4, 4, 4, 4))
         self.clock.add_iterator(self.strategy)
         self.clock.add_iterator(self.maker_market)
         self.clock.backtest_til(self.start_timestamp + 5)
@@ -485,12 +485,12 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.clock.remove_iterator(self.maker_market)
         self.maker_market: BacktestMarket = BacktestMarket()
 
-        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_symbols)
+        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_trading_pairs)
         # Orderbook is empty
         self.maker_market.add_data(self.maker_data)
         self.market_pair: CrossExchangeMarketPair = CrossExchangeMarketPair(
-            MarketTradingPairTuple(self.maker_market, *self.maker_symbols),
-            MarketTradingPairTuple(self.taker_market, *self.taker_symbols),
+            MarketTradingPairTuple(self.maker_market, *self.maker_trading_pairs),
+            MarketTradingPairTuple(self.taker_market, *self.taker_trading_pairs),
         )
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
             [self.market_pair],
@@ -502,7 +502,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.maker_market.set_balance("COINALPHA", 5)
         self.maker_market.set_balance("WETH", 5)
         self.maker_market.set_balance("QETH", 5)
-        self.maker_market.set_quantization_param(QuantizationParams(self.maker_symbols[0], 4, 4, 4, 4))
+        self.maker_market.set_quantization_param(QuantizationParams(self.maker_trading_pairs[0], 4, 4, 4, 4))
         self.clock.add_iterator(self.strategy)
         self.clock.add_iterator(self.maker_market)
         self.clock.backtest_til(self.start_timestamp + 5)

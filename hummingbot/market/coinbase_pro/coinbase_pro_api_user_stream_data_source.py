@@ -36,9 +36,9 @@ class CoinbaseProAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._cbpausds_logger = logging.getLogger(__name__)
         return cls._cbpausds_logger
 
-    def __init__(self, coinbase_pro_auth: CoinbaseProAuth, symbols: Optional[List[str]] = []):
+    def __init__(self, coinbase_pro_auth: CoinbaseProAuth, trading_pairs: Optional[List[str]] = []):
         self._coinbase_pro_auth: CoinbaseProAuth = coinbase_pro_auth
-        self._symbols = symbols
+        self._trading_pairs = trading_pairs
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         super().__init__()
@@ -65,7 +65,7 @@ class CoinbaseProAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     ws: websockets.WebSocketClientProtocol = ws
                     subscribe_request: Dict[str, any] = {
                         "type": "subscribe",
-                        "product_ids": self._symbols,
+                        "product_ids": self._trading_pairs,
                         "channels": ["user"]
                     }
                     auth_dict: Dict[str] = self._coinbase_pro_auth.generate_auth_dict("get", "/users/self/verify", "")

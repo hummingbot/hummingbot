@@ -10,18 +10,16 @@ from hummingbot.market.market_base cimport MarketBase
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.event.events import MarketEvent, OrderType
 
-from hummingbot.market.paper_trade.trading_pair import SymbolPair
-
 from .market_config import (
     MarketConfig,
     AssetType
 )
-ctypedef cpp_set[CPPLimitOrder] SingleSymbolLimitOrders
-ctypedef unordered_map[string, SingleSymbolLimitOrders].iterator LimitOrdersIterator
-ctypedef pair[string, SingleSymbolLimitOrders] LimitOrdersPair
-ctypedef unordered_map[string, SingleSymbolLimitOrders] LimitOrders
-ctypedef cpp_set[CPPLimitOrder].iterator SingleSymbolLimitOrdersIterator
-ctypedef cpp_set[CPPLimitOrder].reverse_iterator SingleSymbolLimitOrdersRIterator
+ctypedef cpp_set[CPPLimitOrder] SingleTradingPairLimitOrders
+ctypedef unordered_map[string, SingleTradingPairLimitOrders].iterator LimitOrdersIterator
+ctypedef pair[string, SingleTradingPairLimitOrders] LimitOrdersPair
+ctypedef unordered_map[string, SingleTradingPairLimitOrders] LimitOrders
+ctypedef cpp_set[CPPLimitOrder].iterator SingleTradingPairLimitOrdersIterator
+ctypedef cpp_set[CPPLimitOrder].reverse_iterator SingleTradingPairLimitOrdersRIterator
 ctypedef cpp_set[CPPOrderExpirationEntry] LimitOrderExpirationSet
 ctypedef cpp_set[CPPOrderExpirationEntry].iterator LimitOrderExpirationSetIterator
 
@@ -55,24 +53,24 @@ cdef class PaperTradeMarket(MarketBase):
     cdef c_delete_limit_order(self,
                               LimitOrders *limit_orders_map_ptr,
                               LimitOrdersIterator *map_it_ptr,
-                              const SingleSymbolLimitOrdersIterator orders_it)
+                              const SingleTradingPairLimitOrdersIterator orders_it)
     cdef c_process_limit_order(self,
                                bint is_buy,
                                LimitOrders *limit_orders_map_ptr,
                                LimitOrdersIterator *map_it_ptr,
-                               SingleSymbolLimitOrdersIterator orders_it)
+                               SingleTradingPairLimitOrdersIterator orders_it)
     cdef c_process_limit_bid_order(self,
                                    LimitOrders *limit_orders_map_ptr,
                                    LimitOrdersIterator *map_it_ptr,
-                                   SingleSymbolLimitOrdersIterator orders_it)
+                                   SingleTradingPairLimitOrdersIterator orders_it)
     cdef c_process_limit_ask_order(self,
                                    LimitOrders *limit_orders_map_ptr,
                                    LimitOrdersIterator *map_it_ptr,
-                                   SingleSymbolLimitOrdersIterator orders_it)
-    cdef c_process_crossed_limit_orders_for_symbol(self,
-                                                   bint is_buy,
-                                                   LimitOrders *limit_orders_map_ptr,
-                                                   LimitOrdersIterator *map_it_ptr)
+                                   SingleTradingPairLimitOrdersIterator orders_it)
+    cdef c_process_crossed_limit_orders_for_trading_pair(self,
+                                                         bint is_buy,
+                                                         LimitOrders *limit_orders_map_ptr,
+                                                         LimitOrdersIterator *map_it_ptr)
     cdef c_process_crossed_limit_orders(self)
     cdef c_match_trade_to_limit_orders(self, object order_book_trade_event)
     cdef object c_cancel_order_from_orders_map(self,

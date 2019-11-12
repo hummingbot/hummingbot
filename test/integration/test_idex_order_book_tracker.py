@@ -34,7 +34,7 @@ class IDEXOrderBookTrackerUnitTest(unittest.TestCase):
         cls.order_book_tracker: IDEXOrderBookTracker = IDEXOrderBookTracker(
             idex_api_key=conf.idex_api_key,
             data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-            symbols=TEST_PAIRS
+            trading_pairs=TEST_PAIRS
         )
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())

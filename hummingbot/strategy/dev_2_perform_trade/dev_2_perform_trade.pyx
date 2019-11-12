@@ -113,13 +113,6 @@ cdef class PerformTradeStrategy(StrategyBase):
 
     def format_status(self) -> str:
         cdef:
-            MarketBase maker_market
-            OrderBook maker_order_book
-            str maker_symbol
-            str maker_base
-            str maker_quote
-            double maker_base_balance
-            double maker_quote_balance
             list lines = []
             list warning_lines = []
             dict market_info_to_active_orders = self.market_info_to_active_orders

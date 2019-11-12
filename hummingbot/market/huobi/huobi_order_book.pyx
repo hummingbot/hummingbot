@@ -37,7 +37,7 @@ cdef class HuobiOrderBook(OrderBook):
             msg.update(metadata)
         msg_ts = int(msg["ts"] * 1e-3)
         content = {
-            "symbol": msg["symbol"],
+            "trading_pair": msg["trading_pair"],
             "update_id": msg_ts,
             "bids": msg["tick"]["bids"],
             "asks": msg["tick"]["asks"]
@@ -53,7 +53,7 @@ cdef class HuobiOrderBook(OrderBook):
             msg.update(metadata)
         msg_ts = int(msg["ts"] * 1e-3)
         content = {
-            "symbol": msg["trading_pair"],
+            "trading_pair": msg["trading_pair"],
             "trade_type": float(TradeType.SELL.value) if msg["direction"] == "buy" else float(TradeType.BUY.value),
             "trade_id": msg["id"],
             "update_id": msg_ts,
@@ -71,7 +71,7 @@ cdef class HuobiOrderBook(OrderBook):
             msg.update(metadata)
         msg_ts = int(msg["ts"] * 1e-3)
         content = {
-            "symbol": msg["ch"].split(".")[1],
+            "trading_pair": msg["ch"].split(".")[1],
             "update_id": msg_ts,
             "bids": msg["tick"]["bids"],
             "asks": msg["tick"]["asks"]
@@ -86,7 +86,7 @@ cdef class HuobiOrderBook(OrderBook):
             msg.update(metadata)
 
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "symbol": msg["ch"].split(".")[1],
+            "trading_pair": msg["ch"].split(".")[1],
             "update_id": int(ts),
             "bids": msg["tick"]["bids"],
             "asks": msg["tick"]["asks"]
@@ -99,7 +99,7 @@ cdef class HuobiOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "symbol": msg["s"],
+            "trading_pair": msg["s"],
             "update_id": int(ts),
             "bids": msg["b"],
             "asks": msg["a"]
@@ -112,7 +112,7 @@ cdef class HuobiOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "symbol": msg["ch"].split(".")[1],
+            "trading_pair": msg["ch"].split(".")[1],
             "update_id": ts,
             "bids": msg["tick"]["bids"],
             "asks": msg["tick"]["asks"]
@@ -126,7 +126,7 @@ cdef class HuobiOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "symbol": msg["s"],
+            "trading_pair": msg["s"],
             "update_id": ts,
             "bids": msg["bids"],
             "asks": msg["asks"]
@@ -140,7 +140,7 @@ cdef class HuobiOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "symbol": msg["ch"].split(".")[1],
+            "trading_pair": msg["ch"].split(".")[1],
             "trade_type": float(TradeType.BUY.value) if data["direction"] == "sell"
                             else float(TradeType.SELL.value),
             "trade_id": ts,

@@ -24,15 +24,15 @@ class CoinbaseProUserStreamTrackerUnitTest(unittest.TestCase):
         cls.coinbase_pro_auth = CoinbaseProAuth(conf.coinbase_pro_api_key,
                                                 conf.coinbase_pro_secret_key,
                                                 conf.coinbase_pro_passphrase)
-        cls.symbols = ["ETH-USDC"]
+        cls.trading_pairs = ["ETH-USDC"]
         cls.user_stream_tracker: CoinbaseProUserStreamTracker = CoinbaseProUserStreamTracker(
-            coinbase_pro_auth=cls.coinbase_pro_auth, symbols=cls.symbols)
+            coinbase_pro_auth=cls.coinbase_pro_auth, trading_pairs=cls.trading_pairs)
         cls.user_stream_tracker_task: asyncio.Task = safe_ensure_future(cls.user_stream_tracker.start())
 
     def test_user_stream(self):
-            # Wait process some msgs.
-            self.ev_loop.run_until_complete(asyncio.sleep(120.0))
-            print(self.user_stream_tracker.user_stream)
+        # Wait process some msgs.
+        self.ev_loop.run_until_complete(asyncio.sleep(120.0))
+        print(self.user_stream_tracker.user_stream)
 
 
 def main():

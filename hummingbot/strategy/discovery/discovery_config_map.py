@@ -9,8 +9,8 @@ from hummingbot.client.settings import EXAMPLE_PAIRS, required_exchanges
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
 
-def discovery_symbol_list_prompt(market_name):
-    return "Enter list of trading pairs or token names on %s (e.g. [%s] or press ENTER for all symbols) >>> " % (
+def discovery_trading_pair_list_prompt(market_name):
+    return "Enter list of trading pairs or token names on %s (e.g. [%s] or press ENTER for all trading pairs) >>> " % (
         market_name,
         EXAMPLE_PAIRS.get(market_name, ""),
     )
@@ -44,7 +44,7 @@ def valid_token_or_trading_pair_array(market: str, input_list: Any):
             known_trading_pairs = HummingbotApplication._convert_to_exchange_trading_pair(market, known_trading_pairs)
             for known_trading_pair in known_trading_pairs:
                 try:
-                    base, quote = market_class.split_symbol(known_trading_pair)
+                    base, quote = market_class.split_trading_pair(known_trading_pair)
                     valid_token_set.update([base, quote])
                 except Exception:
                     # Add this catch to prevent trading_pairs with bad format to break the validator
@@ -68,17 +68,17 @@ discovery_config_map = {
         validator=is_exchange,
         on_validated=lambda value: required_exchanges.append(value),
     ),
-    "target_symbol_1": ConfigVar(
-        key="target_symbol_1",
-        prompt=lambda: discovery_symbol_list_prompt(discovery_config_map.get("primary_market").value),
+    "target_trading_pair_1": ConfigVar(
+        key="target_trading_pair_1",
+        prompt=lambda: discovery_trading_pair_list_prompt(discovery_config_map.get("primary_market").value),
         validator=lambda value: valid_token_or_trading_pair_array(discovery_config_map.get("primary_market").value,
                                                                   value),
         type_str="list",
         default=[],
     ),
-    "target_symbol_2": ConfigVar(
-        key="target_symbol_2",
-        prompt=lambda: discovery_symbol_list_prompt(discovery_config_map.get("secondary_market").value),
+    "target_trading_pair_2": ConfigVar(
+        key="target_trading_pair_2",
+        prompt=lambda: discovery_trading_pair_list_prompt(discovery_config_map.get("secondary_market").value),
         validator=lambda value: valid_token_or_trading_pair_array(discovery_config_map.get("secondary_market").value,
                                                                   value),
         type_str="list",

@@ -145,7 +145,7 @@ class PaperTradeMarketTest(unittest.TestCase):
 
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: PaperTradeMarket = PaperTradeMarket(
-            order_book_tracker=BinanceOrderBookTracker(symbols=["ETHUSDT", "BTCUSDT"]),
+            order_book_tracker=BinanceOrderBookTracker(trading_pairs=["ETHUSDT", "BTCUSDT"]),
             config=MarketConfig.default_config(),
             target_market=BinanceMarket
         )
@@ -208,7 +208,7 @@ class PaperTradeMarketTest(unittest.TestCase):
         list_queued_orders: List[QueuedOrder] = self.market.queued_orders
         first_queued_order: QueuedOrder = list_queued_orders[0]
         self.assertFalse(first_queued_order.is_buy, msg="Market order is not sell")
-        self.assertEqual(first_queued_order.trading_pair, "ETHUSDT", msg="Symbol is incorrect")
+        self.assertEqual(first_queued_order.trading_pair, "ETHUSDT", msg="Trading pair is incorrect")
         self.assertEqual(first_queued_order.amount, 30, msg="Quantity is incorrect")
         self.assertEqual(len(list_queued_orders), 1, msg="First market order did not get added")
 
@@ -217,7 +217,7 @@ class PaperTradeMarketTest(unittest.TestCase):
         list_queued_orders: List[QueuedOrder] = self.market.queued_orders
         second_queued_order: QueuedOrder = list_queued_orders[1]
         self.assertTrue(second_queued_order.is_buy, msg="Market order is not buy")
-        self.assertEqual(second_queued_order.trading_pair, "BTCUSDT", msg="Symbol is incorrect")
+        self.assertEqual(second_queued_order.trading_pair, "BTCUSDT", msg="Trading pair is incorrect")
         self.assertEqual(second_queued_order.amount, 30, msg="Quantity is incorrect")
         self.assertEqual(second_queued_order.amount, 30, msg="Quantity is incorrect")
         self.assertEqual(len(list_queued_orders), 2, msg="Second market order did not get added")
@@ -291,7 +291,7 @@ class PaperTradeMarketTest(unittest.TestCase):
 
         matched_limit_orders = TestUtils.get_match_limit_orders(self.market.limit_orders, {
             "client_order_id": client_order_id,
-            "symbol": trading_pair.trading_pair,
+            "trading_pair": trading_pair.trading_pair,
             "is_buy": True,
             "base_currency": trading_pair.base_asset,
             "quote_currency": trading_pair.quote_asset,
@@ -320,7 +320,7 @@ class PaperTradeMarketTest(unittest.TestCase):
         async def delay_trigger_event1():
             await asyncio.sleep(1)
             trade_event1 = OrderBookTradeEvent(
-                symbol="ETHUSDT", timestamp=time.time(), type=TradeType.SELL, price=best_bid_price + 1,
+                trading_pair="ETHUSDT", timestamp=time.time(), type=TradeType.SELL, price=best_bid_price + 1,
                 amount=1.0)
             self.market.order_books['ETHUSDT'].apply_trade(trade_event1)
 
@@ -344,7 +344,7 @@ class PaperTradeMarketTest(unittest.TestCase):
             self.market_logger.event_log, OrderFilledEvent, {
                 "order_type": OrderType.LIMIT,
                 "trade_type": TradeType.BUY,
-                "symbol": trading_pair.trading_pair,
+                "trading_pair": trading_pair.trading_pair,
                 "order_id": client_order_id
             })
         # Market should emit OrderFilledEvent
@@ -372,7 +372,7 @@ class PaperTradeMarketTest(unittest.TestCase):
 
         matched_limit_orders = TestUtils.get_match_limit_orders(self.market.limit_orders, {
             "client_order_id": client_order_id,
-            "symbol": trading_pair.trading_pair,
+            "trading_pair": trading_pair.trading_pair,
             "is_buy": False,
             "base_currency": trading_pair.base_asset,
             "quote_currency": trading_pair.quote_asset,
@@ -400,7 +400,7 @@ class PaperTradeMarketTest(unittest.TestCase):
         async def delay_trigger_event2():
             await asyncio.sleep(1)
             trade_event = OrderBookTradeEvent(
-                symbol=trading_pair.trading_pair, timestamp=time.time(), type=TradeType.BUY,
+                trading_pair=trading_pair.trading_pair, timestamp=time.time(), type=TradeType.BUY,
                 price=best_ask_price - 1, amount=base_quantity)
             self.market.order_books[trading_pair.trading_pair].apply_trade(trade_event)
 
@@ -426,7 +426,7 @@ class PaperTradeMarketTest(unittest.TestCase):
             self.market_logger.event_log, OrderFilledEvent, {
                 "order_type": OrderType.LIMIT,
                 "trade_type": TradeType.SELL,
-                "symbol": trading_pair.trading_pair,
+                "trading_pair": trading_pair.trading_pair,
                 "order_id": client_order_id
             })
         # Market should emit OrderFilledEvent
@@ -457,7 +457,7 @@ class PaperTradeMarketTest(unittest.TestCase):
 
         matched_limit_orders = TestUtils.get_match_limit_orders(self.market.limit_orders, {
             "client_order_id": ask_client_order_id,
-            "symbol": trading_pair.trading_pair,
+            "trading_pair": trading_pair.trading_pair,
             "is_buy": False,
             "base_currency": trading_pair.base_asset,
             "quote_currency": trading_pair.quote_asset,
