@@ -40,6 +40,7 @@ class DDEXOrderBookTrackerEntry(OrderBookTrackerEntry):
     def __init__(
         self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: DDEXActiveOrderTracker
     ):
+
         self._active_order_tracker = active_order_tracker
         super(DDEXOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
 
@@ -58,6 +59,7 @@ class IDEXOrderBookTrackerEntry(OrderBookTrackerEntry):
     def __init__(
         self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: IDEXActiveOrderTracker
     ):
+
         self._active_order_tracker = active_order_tracker
         super(IDEXOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
 
@@ -76,6 +78,7 @@ class RadarRelayOrderBookTrackerEntry(OrderBookTrackerEntry):
     def __init__(
         self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: RadarRelayActiveOrderTracker
     ):
+
         self._active_order_tracker = active_order_tracker
         super(RadarRelayOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
 
@@ -89,10 +92,12 @@ class RadarRelayOrderBookTrackerEntry(OrderBookTrackerEntry):
     def active_order_tracker(self) -> RadarRelayActiveOrderTracker:
         return self._active_order_tracker
 
+
 class BambooRelayOrderBookTrackerEntry(OrderBookTrackerEntry):
     def __init__(
         self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: BambooRelayActiveOrderTracker
     ):
+
         self._active_order_tracker = active_order_tracker
         super(BambooRelayOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
 
@@ -123,6 +128,7 @@ class CoinbaseProOrderBookTrackerEntry(OrderBookTrackerEntry):
     @property
     def active_order_tracker(self) -> CoinbaseProActiveOrderTracker:
         return self._active_order_tracker
+
 
 class DolomiteOrderBookTrackerEntry(OrderBookTrackerEntry):
     def __init__(self, symbol: str, timestamp: float, order_book: OrderBook,
@@ -156,6 +162,7 @@ class BittrexOrderBookTrackerEntry(OrderBookTrackerEntry):
     @property
     def active_order_tracker(self) -> BittrexActiveOrderTracker:
         return self._active_order_tracker
+
 
 class BitroyalOrderBookTrackerEntry(OrderBookTrackerEntry):
     def __init__(

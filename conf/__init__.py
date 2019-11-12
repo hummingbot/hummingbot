@@ -3,6 +3,7 @@
 import os
 
 import logging as _logging
+
 _logger = _logging.getLogger(__name__)
 
 master_host = "***REMOVED***"
@@ -25,12 +26,7 @@ mysql_db = "***REMOVED***"
 order_book_db = "***REMOVED***"
 sparrow_db = "***REMOVED***"
 
-order_books_db_2 = {
-    "host": "***REMOVED***",
-    "user": "***REMOVED***",
-    "password": "***REMOVED***",
-    "db": "**REMOVED***",
-}
+order_books_db_2 = {"host": "***REMOVED***", "user": "***REMOVED***", "password": "***REMOVED***", "db": "**REMOVED***"}
 
 kafka_bootstrap_server = "***REMOVED***"
 
@@ -42,6 +38,10 @@ binance_api_secret = os.getenv("BINANCE_API_SECRET")
 coinbase_pro_api_key = os.getenv("COINBASE_PRO_API_KEY")
 coinbase_pro_secret_key = os.getenv("COINBASE_PRO_SECRET_KEY")
 coinbase_pro_passphrase = os.getenv("COINBASE_PRO_PASSPHRASE")
+
+# Bitroyal Tests
+bitroyal_api_key = os.getenv("BITROYAL_API_KEY")
+bitroyal_secret_key = os.getenv("BITROYAL_SECRET_KEY")
 
 # IDEX Tests
 idex_api_key = os.getenv("IDEX_API_KEY")
@@ -72,28 +72,25 @@ web3_test_private_key_c = os.getenv("TEST_WALLET_PRIVATE_KEY_C")
 coinalpha_order_book_api_username = "***REMOVED***"
 coinalpha_order_book_api_password = "***REMOVED***"
 
-kafka_2 = {
-    "bootstrap_servers": "***REMOVED***",
-    "zookeeper_servers": "***REMOVED***"
-}
+kafka_2 = {"bootstrap_servers": "***REMOVED***", "zookeeper_servers": "***REMOVED***"}
 
 
 try:
-    from .config_local import *             # noqa: F401, F403
+    from .config_local import *  # noqa: F401, F403
 except ModuleNotFoundError:
     pass
 
 try:
-    from .web3_wallet_secret import *       # noqa: F401, F403
+    from .web3_wallet_secret import *  # noqa: F401, F403
 except ModuleNotFoundError:
     pass
 
 try:
-    from .binance_secret import *           # noqa: F401, F403
+    from .binance_secret import *  # noqa: F401, F403
 except ModuleNotFoundError:
     pass
 
 try:
-    from .coinbase_pro_secrets import *     # noqa: F401, F403
+    from .coinbase_pro_secrets import *  # noqa: F401, F403
 except ModuleNotFoundError:
     pass

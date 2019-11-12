@@ -37,6 +37,7 @@ def main():
         "hummingbot.market.binance",
         "hummingbot.market.bittrex",
         "hummingbot.market.coinbase_pro",
+        "hummingbot.market.bitroyal",
         "hummingbot.market.ddex",
         "hummingbot.market.huobi",
         "hummingbot.market.idex",
@@ -63,8 +64,8 @@ def main():
             "wallet/ethereum/token_abi/*.json",
             "wallet/ethereum/erc20_tokens.json",
             "VERSION",
-            "templates/*TEMPLATE.yml"
-        ],
+            "templates/*TEMPLATE.yml",
+        ]
     }
     install_requires = [
         "aioconsole",
@@ -111,9 +112,7 @@ def main():
 
     if "DEV_MODE" in os.environ:
         version += ".dev1"
-        package_data[""] = [
-            "*.pxd", "*.pyx", "*.h"
-        ]
+        package_data[""] = ["*.pxd", "*.pyx", "*.h"]
         package_data["hummingbot"].append("core/cpp/*.cpp")
 
     if len(sys.argv) > 1 and sys.argv[1] == "build_ext":

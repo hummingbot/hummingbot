@@ -82,5 +82,3 @@ logger_override_whitelist:
 key_file_path: conf/
 log_file_path: logs/
 on_chain_cancel_on_exit: false
-
-

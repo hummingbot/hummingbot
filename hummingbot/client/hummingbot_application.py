@@ -61,7 +61,7 @@ MARKET_CLASSES = {
     "idex": IDEXMarket,
     "radar_relay": RadarRelayMarket,
     "dolomite": DolomiteMarket,
-    "bittrex": BittrexMarket
+    "bittrex": BittrexMarket,
     "bitroyal": BitroyalMarket,
 }
 

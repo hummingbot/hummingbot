@@ -29,62 +29,39 @@ def using_wallet() -> bool:
 # Main global config store
 global_config_map = {
     # The variables below are usually not prompted during setup process
-    "client_id":
-        ConfigVar(key="client_id",
-                  prompt=None,
-                  required_if=lambda: False,
-                  default=generate_client_id()),
-    "log_level":
-        ConfigVar(key="log_level",
-                  prompt=None,
-                  required_if=lambda: False,
-                  default="INFO"),
-    "debug_console":
-        ConfigVar(key="debug_console",
-                  prompt=None,
-                  type_str="bool",
-                  required_if=lambda: False,
-                  default=False),
-    "strategy_report_interval":
-        ConfigVar(key="strategy_report_interval",
-                  prompt=None,
-                  type_str="float",
-                  required_if=lambda: False,
-                  default=900),
-    "reporting_aggregation_interval":
-        ConfigVar(key="reporting_aggregation_interval",
-                  prompt=None,
-                  default=60.0,
-                  required_if=lambda: False,
-                  type_str="float"),
-    "reporting_log_interval":
-        ConfigVar(key="reporting_log_interval",
-                  prompt=None,
-                  default=60.0,
-                  required_if=lambda: False,
-                  type_str="float"),
-    "logger_override_whitelist":
-        ConfigVar(key="logger_override_whitelist",
-                  prompt=None,
-                  required_if=lambda: False,
-                  default=["hummingbot.strategy",
-                           "hummingbot.market",
-                           "hummingbot.wallet",
-                           "conf"
-                           ],
-                  type_str="list"),
-    "key_file_path":
-        ConfigVar(key="key_file_path",
-                  prompt=f"Where would you like to save your private key file? "
-                         f"(default '{DEFAULT_KEY_FILE_PATH}') >>> ",
-                  required_if=lambda: False,
-                  default=DEFAULT_KEY_FILE_PATH),
-    "log_file_path":
-        ConfigVar(key="log_file_path",
-                  prompt=f"Where would you like to save your logs? (default '{DEFAULT_LOG_FILE_PATH}') >>> ",
-                  required_if=lambda: False,
-                  default=DEFAULT_LOG_FILE_PATH),
-
+    "client_id": ConfigVar(key="client_id", prompt=None, required_if=lambda: False, default=generate_client_id()),
+    "log_level": ConfigVar(key="log_level", prompt=None, required_if=lambda: False, default="INFO"),
+    "debug_console": ConfigVar(
+        key="debug_console", prompt=None, type_str="bool", required_if=lambda: False, default=False
+    ),
+    "strategy_report_interval": ConfigVar(
+        key="strategy_report_interval", prompt=None, type_str="float", required_if=lambda: False, default=900
+    ),
+    "reporting_aggregation_interval": ConfigVar(
+        key="reporting_aggregation_interval", prompt=None, default=60.0, required_if=lambda: False, type_str="float"
+    ),
+    "reporting_log_interval": ConfigVar(
+        key="reporting_log_interval", prompt=None, default=60.0, required_if=lambda: False, type_str="float"
+    ),
+    "logger_override_whitelist": ConfigVar(
+        key="logger_override_whitelist",
+        prompt=None,
+        required_if=lambda: False,
+        default=["hummingbot.strategy", "hummingbot.market", "hummingbot.wallet", "conf"],
+        type_str="list",
+    ),
+    "key_file_path": ConfigVar(
+        key="key_file_path",
+        prompt="Where would you like to save your private key file? (default " "'%s') >>> " % (DEFAULT_KEY_FILE_PATH,),
+        required_if=lambda: False,
+        default=DEFAULT_KEY_FILE_PATH,
+    ),
+    "log_file_path": ConfigVar(
+        key="log_file_path",
+        prompt="Where would you like to save your logs? (default '%s') >>> " % (DEFAULT_LOG_FILE_PATH,),
+        required_if=lambda: False,
+        default=DEFAULT_LOG_FILE_PATH,
+    ),
     # Required by chosen CEXes or DEXes
     "paper_trade_enabled":
         ConfigVar(key="paper_trade_enabled",
