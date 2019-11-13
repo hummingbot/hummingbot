@@ -79,7 +79,6 @@ class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
             for trading_pair, order_book in self.order_book_tracker.order_books.items():
                 order_book.add_listener(event_tag, self.event_logger)
 
-    @unittest.skip
     def test_order_book_trade_event_emission(self):
         """
         Test if order book tracker is able to retrieve order book trade message from exchange and
@@ -97,7 +96,6 @@ class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
             self.assertTrue(ob_trade_event.amount > 0)
             self.assertTrue(ob_trade_event.price > 0)
 
-    @unittest.skip
     def test_tracker_integrity(self):
         # Wait 5 seconds to process some diffs.
         self.ev_loop.run_until_complete(asyncio.sleep(5.0))
@@ -114,11 +112,9 @@ class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
         self.assertTrue(len(test_active_order_tracker.active_asks) > 0)
         self.assertTrue(len(test_active_order_tracker.active_bids) > 0)
 
-    @unittest.skip
     def test_order_book_data_source(self):
         self.assertTrue(isinstance(self.order_book_tracker.data_source, OrderBookTrackerDataSource))
 
-    @unittest.skip
     def test_get_active_exchange_markets(self):
         [active_markets_df] = self.run_parallel(self.order_book_tracker.data_source.get_active_exchange_markets())
         # print(active_markets_df)
@@ -127,7 +123,6 @@ class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
         self.assertTrue("quoteAsset" in active_markets_df)
         self.assertTrue("USDVolume" in active_markets_df)
 
-    @unittest.skip
     def test_get_trading_pairs(self):
         [trading_pairs] = self.run_parallel(self.order_book_tracker.data_source.get_trading_pairs())
         # print(trading_pairs)
@@ -141,7 +136,8 @@ class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
         product_id = "BTC-USD"
         remaining_size = "1.00"
 
-        raw_message = {
+        # Test open message diff
+        raw_open_message = {
             "type": "open",
             "time": datetime.now().isoformat(),
             "product_id": product_id,
@@ -151,13 +147,73 @@ class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
             "remaining_size": remaining_size,
             "side": "buy"
         }
-
-        open_message = CoinbaseProOrderBook.diff_message_from_exchange(raw_message)
+        open_message = CoinbaseProOrderBook.diff_message_from_exchange(raw_open_message)
         self.order_book_tracker._order_book_diff_stream.put_nowait(open_message)
         self.run_parallel(asyncio.sleep(5))
 
         test_order_book_row = test_active_order_tracker.active_bids[Decimal(price)]
         self.assertEqual(test_order_book_row[order_id]["remaining_size"], remaining_size)
+
+        # Test change message diff
+        new_size = "2.00"
+        raw_change_message = {
+            "type": "change",
+            "time": datetime.now().isoformat(),
+            "product_id": product_id,
+            "sequence": 20000000001,
+            "order_id": order_id,
+            "price": price,
+            "new_size": new_size,
+            "old_size": remaining_size,
+            "side": "buy",
+        }
+        change_message = CoinbaseProOrderBook.diff_message_from_exchange(raw_change_message)
+        self.order_book_tracker._order_book_diff_stream.put_nowait(change_message)
+        self.run_parallel(asyncio.sleep(5))
+
+        test_order_book_row = test_active_order_tracker.active_bids[Decimal(price)]
+        self.assertEqual(test_order_book_row[order_id]["remaining_size"], new_size)
+
+        # Test match message diff
+        match_size = "0.50"
+        raw_match_message = {
+            "type": "match",
+            "trade_id": 10,
+            "sequence": 20000000002,
+            "maker_order_id": order_id,
+            "taker_order_id": "test_order_id_2",
+            "time": datetime.now().isoformat(),
+            "product_id": "BTC-USD",
+            "size": match_size,
+            "price": price,
+            "side": "buy"
+        }
+        match_message = CoinbaseProOrderBook.diff_message_from_exchange(raw_match_message)
+        self.order_book_tracker._order_book_diff_stream.put_nowait(match_message)
+        self.run_parallel(asyncio.sleep(5))
+
+        test_order_book_row = test_active_order_tracker.active_bids[Decimal(price)]
+        self.assertEqual(Decimal(test_order_book_row[order_id]["remaining_size"]),
+                         Decimal(new_size) - Decimal(match_size))
+
+        # Test done message diff
+        raw_done_message = {
+            "type": "done",
+            "time": datetime.now().isoformat(),
+            "product_id": "BTC-USD",
+            "sequence": 20000000003,
+            "price": price,
+            "order_id": order_id,
+            "reason": "filled",
+            "remaining_size": 0,
+            "side": "buy",
+        }
+        done_message = CoinbaseProOrderBook.diff_message_from_exchange(raw_done_message)
+        self.order_book_tracker._order_book_diff_stream.put_nowait(done_message)
+        self.run_parallel(asyncio.sleep(5))
+
+        test_order_book_row = test_active_order_tracker.active_bids[Decimal(price)]
+        self.assertTrue(order_id not in test_order_book_row)
 
 
 def main():
