@@ -25,8 +25,8 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     OrderExpiredEvent,
     MarketEvent,
-    TradeFee,
-    TradeType)
+    TradeFee
+)
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.market.market_base import MarketBase
 from hummingbot.model.market_state import MarketState
@@ -173,7 +173,7 @@ class MarketsRecorder:
                                     config_file_path=self._config_file_path,
                                     strategy=self._strategy_name,
                                     market=market.display_name,
-                                    trading_pair=evt.trading_pair,
+                                    symbol=evt.trading_pair,
                                     base_asset=base_asset,
                                     quote_asset=quote_asset,
                                     creation_timestamp=timestamp,
@@ -218,7 +218,7 @@ class MarketsRecorder:
         trade_fill_record: TradeFill = TradeFill(config_file_path=self.config_file_path,
                                                  strategy=self.strategy_name,
                                                  market=market.display_name,
-                                                 trading_pair=evt.trading_pair,
+                                                 symbol=evt.trading_pair,
                                                  base_asset=base_asset,
                                                  quote_asset=quote_asset,
                                                  timestamp=timestamp,

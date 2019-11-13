@@ -30,7 +30,7 @@ class TradeFill(HummingbotBase):
     __table_args__ = (Index("tf_config_timestamp_index",
                             "config_file_path", "timestamp"),
                       Index("tf_market_trading_pair_timestamp_index",
-                            "market", "trading_pair", "timestamp"),
+                            "market", "symbol", "timestamp"),
                       Index("tf_market_base_asset_timestamp_index",
                             "market", "base_asset", "timestamp"),
                       Index("tf_market_quote_asset_timestamp_index",
@@ -41,7 +41,7 @@ class TradeFill(HummingbotBase):
     config_file_path = Column(Text, nullable=False)
     strategy = Column(Text, nullable=False)
     market = Column(Text, nullable=False)
-    trading_pair = Column(Text, nullable=False)
+    symbol = Column(Text, nullable=False)
     base_asset = Column(Text, nullable=False)
     quote_asset = Column(Text, nullable=False)
     timestamp = Column(BigInteger, nullable=False)
@@ -56,7 +56,7 @@ class TradeFill(HummingbotBase):
 
     def __repr__(self) -> str:
         return f"TradeFill(id={self.id}, config_file_path='{self.config_file_path}', strategy='{self.strategy}', " \
-            f"market='{self.market}', trading_pair='{self.trading_pair}', base_asset='{self.base_asset}', " \
+            f"market='{self.market}', symbol='{self.symbol}', base_asset='{self.base_asset}', " \
             f"quote_asset='{self.quote_asset}', timestamp={self.timestamp}, order_id='{self.order_id}', " \
             f"trade_type='{self.trade_type}', order_type='{self.order_type}', price={self.price}, " \
             f"amount={self.amount}, trade_fee={self.trade_fee}, exchange_trade_id={self.exchange_trade_id})"
@@ -79,7 +79,7 @@ class TradeFill(HummingbotBase):
         if market is not None:
             filters.append(TradeFill.market == market)
         if trading_pair is not None:
-            filters.append(TradeFill.trading_pair == trading_pair)
+            filters.append(TradeFill.symbol == trading_pair)
         if base_asset is not None:
             filters.append(TradeFill.base_asset == base_asset)
         if quote_asset is not None:
@@ -102,7 +102,7 @@ class TradeFill(HummingbotBase):
 
     @classmethod
     def to_pandas(cls, trades: List):
-        columns: List[str] = ["trading_pair",
+        columns: List[str] = ["symbol",
                               "price",
                               "amount",
                               "order_type",
@@ -141,7 +141,7 @@ class TradeFill(HummingbotBase):
             "trade_id": trade_fill.exchange_trade_id,
             "price": numpy.format_float_positional(trade_fill.price),
             "quantity": numpy.format_float_positional(trade_fill.amount),
-            "trading_pair": trade_fill.trading_pair,
+            "symbol": trade_fill.symbol,
             "trade_timestamp": trade_fill.timestamp,
             "trade_type": trade_fill.trade_type,
             "base_asset": trade_fill.base_asset,

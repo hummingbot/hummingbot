@@ -133,7 +133,7 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
                 "config_file_path": "path",
                 "strategy": strategy,
                 "market": market_trading_pair_tuple.market.display_name,
-                "trading_pair": market_trading_pair_tuple.trading_pair,
+                "symbol": market_trading_pair_tuple.trading_pair,
                 "base_asset": market_trading_pair_tuple.base_asset,
                 "quote_asset": market_trading_pair_tuple.quote_asset,
                 "timestamp": start_time + i + 1,
