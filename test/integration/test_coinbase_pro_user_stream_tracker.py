@@ -30,9 +30,9 @@ class CoinbaseProUserStreamTrackerUnitTest(unittest.TestCase):
         cls.user_stream_tracker_task: asyncio.Task = safe_ensure_future(cls.user_stream_tracker.start())
 
     def test_user_stream(self):
-            # Wait process some msgs.
-            self.ev_loop.run_until_complete(asyncio.sleep(120.0))
-            print(self.user_stream_tracker.user_stream)
+        # Wait process some msgs.
+        self.ev_loop.run_until_complete(asyncio.sleep(120.0))
+        print(self.user_stream_tracker.user_stream)
 
 
 def main():

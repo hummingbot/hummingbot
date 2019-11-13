@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import math
-import time
 from os.path import (
     join,
     realpath
@@ -15,13 +14,20 @@ from hummingbot.core.event.events import (
 import asyncio
 import logging
 import unittest
+from datetime import datetime
+from decimal import Decimal
 from typing import (
     Dict,
     Optional,
-    List)
+    List,
+)
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
+from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.order_book_tracker import (
+    OrderBookTrackerDataSource,
+    OrderBookTrackerDataSourceType,
+)
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
@@ -61,8 +67,6 @@ class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
             if timeout and timer > timeout:
                 raise Exception("Time out running parallel async task in tests.")
             timer += 1
-            now = time.time()
-            next_iteration = now // 1.0 + 1
             await asyncio.sleep(1.0)
         return future.result()
 
@@ -75,6 +79,7 @@ class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
             for trading_pair, order_book in self.order_book_tracker.order_books.items():
                 order_book.add_listener(event_tag, self.event_logger)
 
+    @unittest.skip
     def test_order_book_trade_event_emission(self):
         """
         Test if order book tracker is able to retrieve order book trade message from exchange and
@@ -92,6 +97,7 @@ class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
             self.assertTrue(ob_trade_event.amount > 0)
             self.assertTrue(ob_trade_event.price > 0)
 
+    @unittest.skip
     def test_tracker_integrity(self):
         # Wait 5 seconds to process some diffs.
         self.ev_loop.run_until_complete(asyncio.sleep(5.0))
@@ -107,6 +113,51 @@ class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
         test_active_order_tracker = self.order_book_tracker._active_order_trackers["BTC-USD"]
         self.assertTrue(len(test_active_order_tracker.active_asks) > 0)
         self.assertTrue(len(test_active_order_tracker.active_bids) > 0)
+
+    @unittest.skip
+    def test_order_book_data_source(self):
+        self.assertTrue(isinstance(self.order_book_tracker.data_source, OrderBookTrackerDataSource))
+
+    @unittest.skip
+    def test_get_active_exchange_markets(self):
+        [active_markets_df] = self.run_parallel(self.order_book_tracker.data_source.get_active_exchange_markets())
+        # print(active_markets_df)
+        self.assertGreater(active_markets_df.size, 0)
+        self.assertTrue("baseAsset" in active_markets_df)
+        self.assertTrue("quoteAsset" in active_markets_df)
+        self.assertTrue("USDVolume" in active_markets_df)
+
+    @unittest.skip
+    def test_get_trading_pairs(self):
+        [trading_pairs] = self.run_parallel(self.order_book_tracker.data_source.get_trading_pairs())
+        # print(trading_pairs)
+        self.assertEqual(len(trading_pairs), len(self.trading_pairs))
+
+    def test_diff_msg_get_added_to_order_book(self):
+        test_active_order_tracker = self.order_book_tracker._active_order_trackers["BTC-USD"]
+
+        price = "200"
+        order_id = "test_order_id"
+        product_id = "BTC-USD"
+        remaining_size = "1.00"
+
+        raw_message = {
+            "type": "open",
+            "time": datetime.now().isoformat(),
+            "product_id": product_id,
+            "sequence": 20000000000,
+            "order_id": order_id,
+            "price": price,
+            "remaining_size": remaining_size,
+            "side": "buy"
+        }
+
+        open_message = CoinbaseProOrderBook.diff_message_from_exchange(raw_message)
+        self.order_book_tracker._order_book_diff_stream.put_nowait(open_message)
+        self.run_parallel(asyncio.sleep(5))
+
+        test_order_book_row = test_active_order_tracker.active_bids[Decimal(price)]
+        self.assertEqual(test_order_book_row[order_id]["remaining_size"], remaining_size)
 
 
 def main():
