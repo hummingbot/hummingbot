@@ -145,7 +145,6 @@ nav:
         - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
         - Pure Market Making: strategies/pure-market-making.md
         - Discovery: strategies/discovery.md
-        - Simple Trade: strategies/simple-trade.md
       - Data Feeds:
         - Data Feeds Overview: feeds.md
       - Utilities:
