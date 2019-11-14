@@ -121,7 +121,7 @@ class TradeFill(HummingbotBase):
                 flat_fee_str = ",".join(fee_strs)
 
             data.append([
-                trade.trading_pair,
+                trade.symbol,
                 trade.price,
                 trade.amount,
                 trade.order_type.lower(),
