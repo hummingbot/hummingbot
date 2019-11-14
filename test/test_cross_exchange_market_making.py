@@ -25,6 +25,8 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
     TradeFee,
+    BuyOrderCreatedEvent,
+    SellOrderCreatedEvent,
 )
 from math import floor, ceil
 from hummingbot.core.data_type.order_book import OrderBook
@@ -118,9 +120,15 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.maker_order_fill_logger: EventLogger = EventLogger()
         self.taker_order_fill_logger: EventLogger = EventLogger()
         self.cancel_order_logger: EventLogger = EventLogger()
+        self.maker_order_created_logger: EventLogger = EventLogger()
+        self.taker_order_created_logger: EventLogger = EventLogger()
         self.maker_market.add_listener(MarketEvent.OrderFilled, self.maker_order_fill_logger)
         self.taker_market.add_listener(MarketEvent.OrderFilled, self.taker_order_fill_logger)
         self.maker_market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
+        self.maker_market.add_listener(MarketEvent.BuyOrderCreated, self.maker_order_created_logger)
+        self.maker_market.add_listener(MarketEvent.SellOrderCreated, self.maker_order_created_logger)
+        self.taker_market.add_listener(MarketEvent.BuyOrderCreated, self.taker_order_created_logger)
+        self.taker_market.add_listener(MarketEvent.SellOrderCreated, self.taker_order_created_logger)
 
     def simulate_maker_market_trade(self, is_buy: bool, quantity: Decimal, price: Decimal):
         maker_trading_pair: str = self.maker_trading_pairs[0]
@@ -159,6 +167,17 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             market.set_balance(quote_currency, market.get_balance(quote_currency) - quote_currency_traded)
             market.set_balance(base_currency, market.get_balance(base_currency) + base_currency_traded)
             market.trigger_event(
+                MarketEvent.BuyOrderCreated,
+                BuyOrderCreatedEvent(
+                    market.current_timestamp,
+                    OrderType.LIMIT,
+                    limit_order.symbol,
+                    limit_order.quantity,
+                    limit_order.price,
+                    limit_order.client_order_id
+                )
+            )
+            market.trigger_event(
                 MarketEvent.OrderFilled,
                 OrderFilledEvent(
                     market.current_timestamp,
@@ -188,6 +207,17 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         else:
             market.set_balance(quote_currency, market.get_balance(quote_currency) + quote_currency_traded)
             market.set_balance(base_currency, market.get_balance(base_currency) - base_currency_traded)
+            market.trigger_event(
+                MarketEvent.BuyOrderCreated,
+                SellOrderCreatedEvent(
+                    market.current_timestamp,
+                    OrderType.LIMIT,
+                    limit_order.symbol,
+                    limit_order.quantity,
+                    limit_order.price,
+                    limit_order.client_order_id
+                )
+            )
             market.trigger_event(
                 MarketEvent.OrderFilled,
                 OrderFilledEvent(
@@ -243,12 +273,37 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal("3.0"), maker_fill.amount)
         self.assertAlmostEqual(Decimal("3.0"), taker_fill.amount)
 
-    def test_top_depth_tolerance(self):
+    def test_top_depth_tolerance(self):  # TODO
         self.clock.remove_iterator(self.strategy)
         self.clock.add_iterator(self.strategy_with_top_depth_tolerance)
         self.clock.backtest_til(self.start_timestamp + 5)
         bid_order: LimitOrder = self.strategy_with_top_depth_tolerance.active_bids[0][1]
         ask_order: LimitOrder = self.strategy_with_top_depth_tolerance.active_asks[0][1]
+
+        self.taker_market.trigger_event(
+            MarketEvent.BuyOrderCreated,
+            BuyOrderCreatedEvent(
+                self.start_timestamp + 5,
+                OrderType.LIMIT,
+                bid_order.symbol,
+                bid_order.quantity,
+                bid_order.price,
+                bid_order.client_order_id
+            )
+        )
+
+        self.taker_market.trigger_event(
+            MarketEvent.SellOrderCreated,
+            SellOrderCreatedEvent(
+                self.start_timestamp + 5,
+                OrderType.LIMIT,
+                ask_order.symbol,
+                ask_order.quantity,
+                ask_order.price,
+                ask_order.client_order_id
+            )
+        )
+
         self.assertEqual(Decimal("0.99452"), bid_order.price)
         self.assertEqual(Decimal("1.0056"), ask_order.price)
         self.assertEqual(Decimal("3.0"), bid_order.quantity)
@@ -267,7 +322,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("0.98457"), bid_order.price)
         self.assertEqual(Decimal("1.0156"), ask_order.price)
 
-    def test_market_became_wider(self):
+    def test_market_became_wider(self):  # TODO
         self.clock.backtest_til(self.start_timestamp + 5)
 
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
@@ -276,6 +331,30 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.0056"), ask_order.price)
         self.assertEqual(Decimal("3.0"), bid_order.quantity)
         self.assertEqual(Decimal("3.0"), ask_order.quantity)
+
+        self.taker_market.trigger_event(
+            MarketEvent.BuyOrderCreated,
+            BuyOrderCreatedEvent(
+                self.start_timestamp + 5,
+                OrderType.LIMIT,
+                bid_order.symbol,
+                bid_order.quantity,
+                bid_order.price,
+                bid_order.client_order_id
+            )
+        )
+
+        self.taker_market.trigger_event(
+            MarketEvent.SellOrderCreated,
+            SellOrderCreatedEvent(
+                self.start_timestamp + 5,
+                OrderType.LIMIT,
+                ask_order.symbol,
+                ask_order.quantity,
+                ask_order.price,
+                ask_order.client_order_id
+            )
+        )
 
         self.simulate_order_book_widening(self.taker_data.order_book, 0.99, 1.01)
 
@@ -311,7 +390,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("0.99452"), bid_order.price)
         self.assertEqual(Decimal("1.0056"), ask_order.price)
 
-    def test_order_fills_after_cancellation(self):
+    def test_order_fills_after_cancellation(self):  # TODO
         self.clock.backtest_til(self.start_timestamp + 5)
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_asks[0][1]
@@ -319,6 +398,30 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.0056"), ask_order.price)
         self.assertEqual(Decimal("3.0"), bid_order.quantity)
         self.assertEqual(Decimal("3.0"), ask_order.quantity)
+
+        self.taker_market.trigger_event(
+            MarketEvent.BuyOrderCreated,
+            BuyOrderCreatedEvent(
+                self.start_timestamp + 5,
+                OrderType.LIMIT,
+                bid_order.symbol,
+                bid_order.quantity,
+                bid_order.price,
+                bid_order.client_order_id
+            )
+        )
+
+        self.taker_market.trigger_event(
+            MarketEvent.SellOrderCreated,
+            SellOrderCreatedEvent(
+                self.start_timestamp + 5,
+                OrderType.LIMIT,
+                ask_order.symbol,
+                ask_order.quantity,
+                ask_order.price,
+                ask_order.client_order_id
+            )
+        )
 
         self.simulate_order_book_widening(self.taker_data.order_book, 0.99, 1.01)
 
