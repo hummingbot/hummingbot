@@ -71,9 +71,10 @@ def start(self: "hummingbot.client.hummingbot_application.HummingbotApplication"
         target_amount = float(discovery_config_map.get("target_amount").value)
         equivalent_token: List[List[str]] = list(discovery_config_map.get("equivalent_tokens").value)
 
-        def filter_trading_pair_by_single_token(market_name, single_token_list):
+        def filter_trading_pair_by_single_token(self, market_name, single_token_list):
             matched_trading_pairs = set()
             all_trading_pairs: List[str] = TradingPairFetcher.get_instance().trading_pairs.get(market_name, [])
+            all_trading_pairs = self._convert_to_exchange_trading_pair(market_name, all_trading_pairs)
             for t in all_trading_pairs:
                 try:
                     base_token, quote_token = MARKET_CLASSES[market_name].split_symbol(t)
@@ -94,19 +95,23 @@ def start(self: "hummingbot.client.hummingbot_application.HummingbotApplication"
                     single_tokens.append(t[1:-1])
                 else:
                     filtered_trading_pair.append(t)
-            return filtered_trading_pair + filter_trading_pair_by_single_token(market_name, single_tokens)
+            return filtered_trading_pair + filter_trading_pair_by_single_token(self, market_name, single_tokens)
 
         if not target_symbol_1:
             target_symbol_1 = TradingPairFetcher.get_instance().trading_pairs.get(market_1, [])
         if not target_symbol_2:
             target_symbol_2 = TradingPairFetcher.get_instance().trading_pairs.get(market_2, [])
 
-        target_symbol_1 = process_symbol_list(market_1, target_symbol_1)
-        target_symbol_2 = process_symbol_list(market_2, target_symbol_2)
-        market_names: List[Tuple[str, List[str]]] = [(market_1, target_symbol_1), (market_2, target_symbol_2)]
+        target_trading_pairs_1: List[str] = self._convert_to_exchange_trading_pair(market_1, target_symbol_1)
+        target_trading_pairs_2: List[str] = self._convert_to_exchange_trading_pair(market_2, target_symbol_2)
 
-        target_base_quote_1: List[Tuple[str, str]] = self._initialize_market_assets(market_1, target_symbol_1)
-        target_base_quote_2: List[Tuple[str, str]] = self._initialize_market_assets(market_2, target_symbol_2)
+        target_trading_pairs_1 = process_symbol_list(market_1, target_trading_pairs_1)
+        target_trading_pairs_2 = process_symbol_list(market_2, target_trading_pairs_2)
+
+        target_base_quote_1: List[Tuple[str, str]] = self._initialize_market_assets(market_1, target_trading_pairs_1)
+        target_base_quote_2: List[Tuple[str, str]] = self._initialize_market_assets(market_2, target_trading_pairs_2)
+
+        market_names: List[Tuple[str, List[str]]] = [(market_1, target_trading_pairs_1), (market_2, target_trading_pairs_2)]
 
         self._trading_required = False
         self._initialize_wallet(token_symbols=[])  # wallet required only for dex hard dependency
