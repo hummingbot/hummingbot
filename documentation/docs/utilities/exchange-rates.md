@@ -57,7 +57,7 @@ exchange_rate_conversion:
   - coin_gecko_api
 ```
 
-In the example above, 1 DAI is assumed to equal $0.97 USD, and 1 USDT is assumed to equal $1.00. We set a **fixed exchange rate** by replacing `coin_gecko_api` with `OVERRIDE` and setting the desired exchange rate.
+In the example above, 1 DAI is assumed to equal $0.97 USD, and 1 USDT is assumed to equal $1.00. We set a **fixed exchange rate** by replacing `coin_gecko_api` with `OVERRIDE` or `manual` and setting the desired exchange rate.
 
 You can also add new crypto-assets. As shown in the exchange rate class above, PAX has been added which allows Hummingbot to use the PAX/USD exchange rate from CoinGecko.
 
