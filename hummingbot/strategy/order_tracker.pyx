@@ -33,6 +33,7 @@ cdef class OrderTracker(TimeIterator):
         self._shadow_tracked_maker_orders = {}
         self._shadow_order_id_to_market_pair = {}
         self._shadow_gc_requests = deque()
+        self._in_flight_pending_created = set()
         self._in_flight_cancels = OrderedDict()
 
     @property
@@ -95,6 +96,10 @@ cdef class OrderTracker(TimeIterator):
     def in_flight_cancels(self) -> Dict[str, float]:
         return self._in_flight_cancels
 
+    @property
+    def in_flight_pending_created(self) -> Dict[str, float]:
+        return self._in_flight_pending_created
+
     cdef c_tick(self, double timestamp):
         TimeIterator.c_tick(self, timestamp)
         self.c_check_and_cleanup_shadow_records()
@@ -118,6 +123,9 @@ cdef class OrderTracker(TimeIterator):
         """
         cdef:
             list keys_to_delete = []
+
+        if order_id in self._in_flight_pending_created:  # Checks if a Buy/SellOrderCreatedEvent has been received
+            return False
 
         # Maintain the cancel expiry time invariant.
         for k, cancel_timestamp in self._in_flight_cancels.items():
@@ -222,3 +230,9 @@ cdef class OrderTracker(TimeIterator):
                     del self._shadow_tracked_maker_orders[market_pair]
             if order_id in self._shadow_order_id_to_market_pair:
                 del self._shadow_order_id_to_market_pair[order_id]
+
+    cdef c_add_create_order_pending(self, str order_id):
+        self.in_flight_pending_created.add(order_id)
+
+    cdef c_remove_create_order_pending(self, str order_id):
+        self._in_flight_pending_created.discard(order_id)
