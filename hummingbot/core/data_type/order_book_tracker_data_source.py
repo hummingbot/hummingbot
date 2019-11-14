@@ -5,7 +5,12 @@ from abc import (
     abstractmethod
 )
 import asyncio
-from typing import Dict, Callable
+import pandas as pd
+from typing import (
+    Callable,
+    Dict,
+    List,
+)
 
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
@@ -23,6 +28,14 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
     @order_book_create_function.setter
     def order_book_create_function(self, func: Callable[[], OrderBook]):
         self._order_book_create_function = func
+
+    @classmethod
+    async def get_active_exchange_markets(cls) -> pd.DataFrame:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_trading_pairs(self) -> List[str]:
+        raise NotImplementedError
 
     @abstractmethod
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
