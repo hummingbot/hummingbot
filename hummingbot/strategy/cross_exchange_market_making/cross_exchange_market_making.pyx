@@ -1197,6 +1197,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             str order_id = StrategyBase.c_buy_with_specific_market(self, market_trading_pair_tuple, amount,
                                                                    order_type=order_type, price=price,
                                                                    expiration_seconds=expiration_seconds)
+        self._sb_order_tracker.c_add_create_order_pending(order_id)
         self._market_pair_tracker.c_start_tracking_order_id(order_id, market_pair)
         return order_id
 
@@ -1216,6 +1217,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             str order_id = StrategyBase.c_sell_with_specific_market(self, market_trading_pair_tuple, amount,
                                                                     order_type=order_type, price=price,
                                                                     expiration_seconds=expiration_seconds)
+        self._sb_order_tracker.c_add_create_order_pending(order_id)
         self._market_pair_tracker.c_start_tracking_order_id(order_id, market_pair)
         return order_id
 
@@ -1237,3 +1239,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         StrategyBase.c_stop_tracking_market_order(self, market_trading_pair_tuple, order_id)
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
+
+    # Removes orders from pending_create
+    cdef c_did_create_buy_order(self, object order_created_event):
+        order_id = order_created_event.order_id
+        self._sb_order_tracker.c_remove_create_order_pending(order_id)
+
+    cdef c_did_create_sell_order(self, object order_created_event):
+        order_id = order_created_event.order_id
+        self._sb_order_tracker.c_remove_create_order_pending(order_id)
