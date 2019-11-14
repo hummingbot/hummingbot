@@ -171,7 +171,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 BuyOrderCreatedEvent(
                     market.current_timestamp,
                     OrderType.LIMIT,
-                    limit_order.symbol,
+                    limit_order.trading_pair,
                     limit_order.quantity,
                     limit_order.price,
                     limit_order.client_order_id
@@ -212,7 +212,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 SellOrderCreatedEvent(
                     market.current_timestamp,
                     OrderType.LIMIT,
-                    limit_order.symbol,
+                    limit_order.trading_pair,
                     limit_order.quantity,
                     limit_order.price,
                     limit_order.client_order_id
@@ -285,7 +285,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             BuyOrderCreatedEvent(
                 self.start_timestamp + 5,
                 OrderType.LIMIT,
-                bid_order.symbol,
+                bid_order.trading_pair,
                 bid_order.quantity,
                 bid_order.price,
                 bid_order.client_order_id
@@ -297,7 +297,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             SellOrderCreatedEvent(
                 self.start_timestamp + 5,
                 OrderType.LIMIT,
-                ask_order.symbol,
+                ask_order.trading_pair,
                 ask_order.quantity,
                 ask_order.price,
                 ask_order.client_order_id
@@ -337,7 +337,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             BuyOrderCreatedEvent(
                 self.start_timestamp + 5,
                 OrderType.LIMIT,
-                bid_order.symbol,
+                bid_order.trading_pair,
                 bid_order.quantity,
                 bid_order.price,
                 bid_order.client_order_id
@@ -349,7 +349,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             SellOrderCreatedEvent(
                 self.start_timestamp + 5,
                 OrderType.LIMIT,
-                ask_order.symbol,
+                ask_order.trading_pair,
                 ask_order.quantity,
                 ask_order.price,
                 ask_order.client_order_id
@@ -404,7 +404,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             BuyOrderCreatedEvent(
                 self.start_timestamp + 5,
                 OrderType.LIMIT,
-                bid_order.symbol,
+                bid_order.trading_pair,
                 bid_order.quantity,
                 bid_order.price,
                 bid_order.client_order_id
@@ -416,7 +416,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             SellOrderCreatedEvent(
                 self.start_timestamp + 5,
                 OrderType.LIMIT,
-                ask_order.symbol,
+                ask_order.trading_pair,
                 ask_order.quantity,
                 ask_order.price,
                 ask_order.client_order_id
