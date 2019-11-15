@@ -18,7 +18,7 @@ PATCH_BASE_PATH = \
     'hummingbot.market.liquid.liquid_api_order_book_data_source.LiquidAPIOrderBookDataSource.{method}'
 
 
-class TestLiquidOrderBookDataSource(TestCase):
+class TestLiquidAPIOrderBookDataSource(TestCase):
 
     class AsyncIterator:
         def __init__(self, seq):

@@ -268,7 +268,7 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                         for side in [Constants.SIDE_BID, Constants.SIDE_ASK]:
                             subscribe_request: Dict[str, Any] = {
-                                "event": Constants.WS_PUSHER_SUBSCRIBE_STR,
+                                "event": Constants.WS_PUSHER_SUBSCRIBE_EVENT,
                                 "data": {
                                     "channel": Constants.WS_ORDER_BOOK_DIFF_SUBSCRIPTION.format(
                                         currency_pair_code=trading_pair.lower(), side=side)

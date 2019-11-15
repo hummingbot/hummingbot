@@ -8,13 +8,18 @@ class Constants:
 
     GET_EXCHANGE_MARKETS_URL = BASE_URL + '/products'
     GET_SNAPSHOT_URL = BASE_URL + '/products/{id}/price_levels?full={full}'
+    GET_USER_STREAM_URL = BASE_URL + ''
 
     # Web socket endpoints
     BAEE_WS_URL = 'wss://tap.liquid.com/app/LiquidTapClient'
+    WS_REQUEST_PATH = '/realtime'
     WS_ORDER_BOOK_DIFF_SUBSCRIPTION = 'price_ladders_cash_{currency_pair_code}_{side}'
+    WS_USER_TRADES_SUBSCRIPTION = 'user_account_{funding_currency}_trades'
+    WS_USER_EXECUTIONS_SUBSCRIPTION = 'user_executions_cash_{currency_pair_code}'
 
-    # Web socket others
-    WS_PUSHER_SUBSCRIBE_STR = 'pusher:subscribe'
+    # Web socket events
+    WS_AUTH_REQUEST_EVENT = 'quoine:auth_request'
+    WS_PUSHER_SUBSCRIBE_EVENT = 'pusher:subscribe'
 
     # Timeouts
     MESSAGE_TIMEOUT = 30.0
