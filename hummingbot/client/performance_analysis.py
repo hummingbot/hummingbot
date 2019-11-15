@@ -133,18 +133,18 @@ class PerformanceAnalysis:
         return net_base_delta, net_quote_delta
 
     def calculate_asset_delta_from_trades(self,
-                                          analysis_start_time: int,
-                                          current_startegy_name: str,
-                                          market_trading_pair_tuples: List[MarketTradingPairTuple]
+                                          current_strategy_name: str,
+                                          market_trading_pair_tuples: List[MarketTradingPairTuple],
+                                          raw_queried_trades: List[TradeFill],
                                           ) -> Dict[MarketTradingPairTuple, Dict[str, Decimal]]:
         """
         Calculate spent and acquired amount for each asset from trades.
         Example:
         A buy trade of ETH_USD for price 100 and amount 1, will have 1 ETH as acquired and 100 USD as spent amount.
 
-        :param analysis_start_time: Start timestamp for the trades to be quired
-        :param current_startegy_name: Name of the currently configured strategy
+        :param current_strategy_name: Name of the currently configured strategy
         :param market_trading_pair_tuples: Current MarketTradingPairTuple
+        :param raw_queried_trades: List of queried trades
         :return: Dictionary consisting of spent and acquired amount for each assets
         """
         market_trading_pair_stats: Dict[MarketTradingPairTuple, Dict[str, Decimal]] = {}
@@ -155,17 +155,18 @@ class PerformanceAnalysis:
             asset_stats[market_trading_pair_tuple.base_asset.upper()] = {"spent": s_decimal_0, "acquired": s_decimal_0}
             asset_stats[market_trading_pair_tuple.quote_asset.upper()] = {"spent": s_decimal_0, "acquired": s_decimal_0}
 
-            queried_trades: List[TradeFill] = TradeFill.get_trades(self.sql_manager.get_shared_session(),
-                                                                   start_time=analysis_start_time,
-                                                                   market=market_trading_pair_tuple.market.display_name,
-                                                                   strategy=current_startegy_name,
-                                                                   trading_pair=market_trading_pair_tuple.trading_pair)
-            if not queried_trades:
+            if not raw_queried_trades:
                 market_trading_pair_stats[market_trading_pair_tuple] = {
                     "starting_quote_rate": market_trading_pair_tuple.get_mid_price(),
                     "asset": asset_stats
                 }
                 continue
+
+            queried_trades: List[TradeFill] = [t for t in raw_queried_trades if (
+                t.strategy == current_strategy_name
+                and t.market == market_trading_pair_tuple.market.display_name
+                and t.symbol == market_trading_pair_tuple.trading_pair
+            )]
 
             for trade in queried_trades:
                 # For each trade, calculate the spent and acquired amount of the corresponding base and quote asset
@@ -188,15 +189,15 @@ class PerformanceAnalysis:
         return market_trading_pair_stats
 
     def calculate_trade_performance(self,
-                                    analysis_start_time: int,
-                                    current_startegy_name: str,
-                                    market_trading_pair_tuples: List[MarketTradingPairTuple]) -> Tuple[Dict, Dict]:
+                                    current_strategy_name: str,
+                                    market_trading_pair_tuples: List[MarketTradingPairTuple],
+                                    raw_queried_trades: List[TradeFill]) -> Tuple[Dict, Dict]:
         """
         Calculate total spent and acquired amount for the whole portfolio in quote value.
 
-        :param analysis_start_time: Start timestamp for the trades to be quired
-        :param current_startegy_name: Name of the currently configured strategy
+        :param current_strategy_name: Name of the currently configured strategy
         :param market_trading_pair_tuples: Current MarketTradingPairTuple
+        :param raw_queried_trades: List of queried trades
         :return: Dictionary consisting of total spent and acquired across whole portfolio in quote value,
                  as well as individual assets
         """
@@ -204,9 +205,9 @@ class PerformanceAnalysis:
         # The final stats will be in primary quote unit
         primary_quote_asset: str = market_trading_pair_tuples[0].quote_asset
         market_trading_pair_stats: Dict[str, Dict[str, Decimal]] = self.calculate_asset_delta_from_trades(
-            analysis_start_time,
-            current_startegy_name,
-            market_trading_pair_tuples)
+            current_strategy_name,
+            market_trading_pair_tuples,
+            raw_queried_trades)
 
         # Calculate total spent and acquired amount for each trading pair in primary quote value
         for market_trading_pair_tuple, trading_pair_stats in market_trading_pair_stats.items():
