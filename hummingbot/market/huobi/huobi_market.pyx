@@ -595,13 +595,13 @@ cdef class HuobiMarket(MarketBase):
         order_type_str = "limit" if order_type is OrderType.LIMIT else "market"
         params = {
             "account-id": self._account_id,
-            "amount": str(amount),
+            "amount": f"{amount:f}",
             "client-order-id": order_id,
             "symbol": symbol,
             "type": f"{side}-{order_type_str}",
         }
         if order_type is OrderType.LIMIT:
-            params["price"] = str(price)
+            params["price"] = f"{price:f}"
         exchange_order_id = await self._api_request(
             "post",
             path_url=path_url,
