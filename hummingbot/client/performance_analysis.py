@@ -155,18 +155,21 @@ class PerformanceAnalysis:
             asset_stats[market_trading_pair_tuple.base_asset.upper()] = {"spent": s_decimal_0, "acquired": s_decimal_0}
             asset_stats[market_trading_pair_tuple.quote_asset.upper()] = {"spent": s_decimal_0, "acquired": s_decimal_0}
 
-            if not raw_queried_trades:
+            if raw_queried_trades is not None:
+                queried_trades: List[TradeFill] = [t for t in raw_queried_trades if (
+                    t.strategy == current_strategy_name
+                    and t.market == market_trading_pair_tuple.market.display_name
+                    and t.symbol == market_trading_pair_tuple.trading_pair
+                )]
+            else:
+                queried_trades = []
+
+            if not queried_trades:
                 market_trading_pair_stats[market_trading_pair_tuple] = {
                     "starting_quote_rate": market_trading_pair_tuple.get_mid_price(),
                     "asset": asset_stats
                 }
                 continue
-
-            queried_trades: List[TradeFill] = [t for t in raw_queried_trades if (
-                t.strategy == current_strategy_name
-                and t.market == market_trading_pair_tuple.market.display_name
-                and t.symbol == market_trading_pair_tuple.trading_pair
-            )]
 
             for trade in queried_trades:
                 # For each trade, calculate the spent and acquired amount of the corresponding base and quote asset
