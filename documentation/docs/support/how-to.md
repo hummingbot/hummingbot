@@ -33,6 +33,9 @@ Look for a field `Mounts`, which will describe where the folders are on you loca
 ],
 ```
 
+!!! note
+    To learn more about Hummingbot Log File Management visit this [page](https://docs.hummingbot.io/utilities/logging/).
+
 #### How do I edit the conf files or access the log files used by my docker instance?
 
 If Hummingbot is installed on your local machine, you can access the files from your local file system in the `hummingbot_conf` and `hummingbot_logs` folder. The docker instance reads from/writes to these local files.
@@ -78,6 +81,21 @@ You should be able to paste items from your clipboard by doing mouse right-click
 
   ![](/assets/img/putty_3.png)
 
+#### Alternative ways of copy and paste
+
+```bash
+# Windows / Linux
+
+# Copy
+Ctrl + C 
+Ctrl + Insert
+Ctrl + Shift + C
+
+# Paste
+Ctrl + V
+Shift + Insert
+Ctrl + Shift + V
+```
 
 #### How do I use the same email and ETH address for liquidity bounty when running multiple bots?
 
