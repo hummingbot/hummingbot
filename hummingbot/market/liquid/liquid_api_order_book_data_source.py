@@ -3,14 +3,10 @@ import aiohttp
 import logging
 import pandas as pd
 import time
-from typing import Any
-from typing import AsyncIterable
-from typing import Dict
-from typing import List
-from typing import Optional
-# import ujson
+from typing import Any, AsyncIterable, Dict, List, Optional
+import ujson
 import websockets
-# from websockets.exceptions import ConnectionClosed
+from websockets.exceptions import ConnectionClosed
 
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.data_type.order_book import OrderBook
@@ -24,13 +20,13 @@ from hummingbot.market.liquid.constants import Constants
 
 class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
-    _baobds_logger: Optional[HummingbotLogger] = None
+    _laobds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> (HummingbotLogger):
-        if cls._baobds_logger is None:
-            cls._baobds_logger = logging.getLogger(__name__)
-        return cls._baobds_logger
+        if cls._laobds_logger is None:
+            cls._laobds_logger = logging.getLogger(__name__)
+        return cls._laobds_logger
 
     def __init__(self, symbols: Optional[List[str]] = None):
         super().__init__()
@@ -236,7 +232,25 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :param ws: current web socket connection
         :returns: message in AsyncIterable format
         """
-        pass
+        # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
+        try:
+            while True:
+                try:
+                    msg: str = await asyncio.wait_for(ws.recv(), timeout=Constants.MESSAGE_TIMEOUT)
+                    yield msg
+                except asyncio.TimeoutError:
+                    try:
+                        pong_waiter = await ws.ping()
+                        await asyncio.wait_for(pong_waiter, timeout=Constants.PING_TIMEOUT)
+                    except asyncio.TimeoutError:
+                        raise
+        except asyncio.TimeoutError:
+            self.logger().warning("WebSocket ping timed out. Going to reconnect...")
+            return
+        except ConnectionClosed:
+            return
+        finally:
+            await ws.close()
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
@@ -244,7 +258,50 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :param ev_loop: ev_loop to execute this function in
         :param output: an async queue where the incoming messages are stored
         """
-        pass
+        while True:
+            try:
+                trading_pairs: List[str] = await self.get_trading_pairs()
+
+                async with websockets.connect(Constants.BAEE_WS_URL) as ws:
+                    ws: websockets.WebSocketClientProtocol = ws
+                    for trading_pair in trading_pairs:
+
+                        for side in [Constants.SIDE_BID, Constants.SIDE_ASK]:
+                            subscribe_request: Dict[str, Any] = {
+                                "event": Constants.WS_PUSHER_SUBSCRIBE_STR,
+                                "data": {
+                                    "channel": Constants.WS_ORDER_BOOK_DIFF_SUBSCRIPTION.format(
+                                        currency_pair_code=trading_pair.lower(), side=side)
+                                }
+                            }
+
+                            await ws.send(ujson.dumps(subscribe_request))
+
+                    async for raw_msg in self._inner_messages(ws):
+                        diff_msg: Dict[str, Any] = ujson.loads(raw_msg)
+
+                        event_type = diff_msg.get('event', None)
+                        if event_type == 'updated':
+
+                            # Channel example: 'price_ladders_cash_ethusd_sell'
+                            symbol = diff_msg.get('channel').split('_')[-2].upper()
+
+                            diff_timestamp: float = time.time()
+                            diff_msg: OrderBookMessage = LiquidOrderBook.diff_message_from_exchange(
+                                diff_msg,
+                                diff_timestamp,
+                                metadata={"symbol": symbol}
+                            )
+                            output.put_nowait(diff_msg)
+                        elif not event_type:
+                            raise ValueError(f"Liquid Websocket message does not contain an event type - {diff_msg}")
+
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
+                                    exc_info=True)
+                await asyncio.sleep(30.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """

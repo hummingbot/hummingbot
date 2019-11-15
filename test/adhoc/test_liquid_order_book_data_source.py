@@ -6,10 +6,11 @@ import pandas as pd
 from mock import patch
 from unittest import TestCase
 
-from test.integration.assets.mock_data.fixture_liquid import FixtureLiquid
+from test.adhoc.assets.mock_data.fixture_liquid import FixtureLiquid
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.core.data_type.order_book_message import LiquidOrderBookMessage
+# from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
 
 
@@ -18,6 +19,19 @@ PATCH_BASE_PATH = \
 
 
 class TestLiquidOrderBookDataSource(TestCase):
+
+    class AsyncIterator:
+        def __init__(self, seq):
+            self.iter = iter(seq)
+
+        async def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            try:
+                return next(self.iter)
+            except StopIteration:
+                raise StopAsyncIteration
 
     @patch(PATCH_BASE_PATH.format(method='get_exchange_markets_data'))
     def test_get_active_exchange_markets(self, mock_get_exchange_markets_data):
@@ -364,3 +378,61 @@ class TestLiquidOrderBookDataSource(TestCase):
         # Validate the rest of the content
         self.assertEqual(first_item.content['symbol'], mocked_trading_pairs[0])
         self.assertEqual(first_item.content['product_id'], 27)
+
+    @patch(PATCH_BASE_PATH.format(method='_inner_messages'))
+    def test_listen_for_order_book_diffs(self, mock_inner_messages):
+        timeout = 2
+        loop = asyncio.get_event_loop()
+
+        q = asyncio.Queue()
+
+        #  Socket events receiving in the order from top to bottom
+        mocked_socket_responses = [
+            FixtureLiquid.DIFF_BUY_1,
+            FixtureLiquid.DIFF_SELL_2,
+            FixtureLiquid.WS_PUSHER_SUBSCRIPTION_SUCCESS_RESPONSE,
+            FixtureLiquid.WS_CLIENT_CONNECTION_SUCCESS_RESPONSE,
+            FixtureLiquid.DIFF_BUY_2,
+            FixtureLiquid.DIFF_SELL_1
+        ]
+
+        mock_inner_messages.return_value = self.AsyncIterator(seq=mocked_socket_responses)
+
+        print('{class_name} test {test_name} is going to run for {timeout} seconds, starting now'.format(
+            class_name=self.__class__.__name__,
+            test_name=inspect.stack()[0][3],
+            timeout=timeout))
+
+        try:
+            loop.run_until_complete(
+                # Force exit from event loop after set timeout seconds
+                asyncio.wait_for(
+                    LiquidAPIOrderBookDataSource().listen_for_order_book_diffs(ev_loop=loop, output=q),
+                    timeout=timeout
+                )
+            )
+        except concurrent.futures.TimeoutError as e:
+            print(e)
+
+        first_event = q.get_nowait()
+        second_event = q.get_nowait()
+        third_event = q.get_nowait()
+        fourth_event = q.get_nowait()
+
+        recv_events = [first_event, second_event, third_event, fourth_event]
+
+        for event in recv_events:
+            # Validate the data inject into async queue is in Liquid order book message type
+            self.assertIsInstance(event, LiquidOrderBookMessage)
+
+            # Validate the event type is equal to DIFF
+            self.assertEqual(event.type, OrderBookMessageType.DIFF)
+
+            # Validate the actual content injected is dict type
+            self.assertIsInstance(event.content, dict)
+
+            # Validate up to this step, the data inside diff message content is still string type
+            self.assertIsInstance(event.content['data'], str)
+
+            # Validate that only `updated` event type gets parse and injected into order book
+            self.assertEqual(event.content['event'], 'updated')

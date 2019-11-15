@@ -5,10 +5,7 @@ import logging
 import time
 from collections import defaultdict
 from collections import deque
-from typing import Deque
-from typing import Dict
-from typing import List
-from typing import Optional
+from typing import Deque, Dict, List, Optional
 
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book import OrderBook
@@ -16,28 +13,32 @@ from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.core.data_type.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.market.liquid.liquid_order_book import LiquidOrderBook
 from hummingbot.market.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
 from hummingbot.logger import HummingbotLogger
 
 
 class LiquidOrderBookTracker(OrderBookTracker):
-    _bobt_logger: Optional[HummingbotLogger] = None
+    _lobt_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> (HummingbotLogger):
-        if cls._bobt_logger is None:
-            cls._bobt_logger = logging.getLogger(__name__)
-        return cls._bobt_logger
+        if cls._lobt_logger is None:
+            cls._lobt_logger = logging.getLogger(__name__)
+        return cls._lobt_logger
 
     def __init__(self,
                  data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
                  symbols: Optional[List[str]] = None):
         super().__init__(data_source_type=data_source_type)
 
+        self._order_books: Dict[str, LiquidOrderBook] = {}
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
+
+        self._process_msg_deque_task: Optional[asyncio.Task] = None
+        self._past_diffs_windows: Dict[str, Deque] = {}
 
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[OrderBookTrackerDataSource] = None
@@ -47,13 +48,11 @@ class LiquidOrderBookTracker(OrderBookTracker):
     @property
     def data_source(self) -> (OrderBookTrackerDataSource):
         if not self._data_source:
-            if self._data_source_type is OrderBookTrackerDataSourceType.REMOTE_API:
-                self._data_source = RemoteAPIOrderBookDataSource()
-            elif self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
+            if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
                 self._data_source = LiquidAPIOrderBookDataSource(symbols=self._symbols)
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
-            return self._data_source
+        return self._data_source
 
     @property
     def exchange_name(self) -> (str):
@@ -61,9 +60,7 @@ class LiquidOrderBookTracker(OrderBookTracker):
 
     async def start(self):
         await super().start()
-        self._order_book_trade_listener_task = safe_ensure_future(
-            self.data_source.listen_for_trades(self._ev_loop, self._order_book_trade_stream)
-        )
+
         self._order_book_diff_listener_task = safe_ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
@@ -97,12 +94,16 @@ class LiquidOrderBookTracker(OrderBookTracker):
                 if symbol not in self._tracking_message_queues:
                     messages_queued += 1
                     # Save diff messages received before snapshots are ready
-                    self._saved_messages_queues[symbol].append(ob_message)
+                    self._saved_message_queues[symbol].append(ob_message)
+                    print(self._saved_message_queues)
                     continue
                 message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
                 # Check the order book's initial update ID. If it's larger, don't bother.
                 order_book: OrderBook = self._order_books[symbol]
-
+                print("Diff messages processed: %d, rejected %d, queued: %d" % (
+                    messages_accepted,
+                    messages_rejected,
+                    messages_queued))
                 if order_book.snapshot_uid > ob_message.update_id:
                     messages_rejected += 1
                     continue
@@ -123,9 +124,9 @@ class LiquidOrderBookTracker(OrderBookTracker):
                 last_message_timestamp = now
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except Exception as e:
                 self.logger().network(
-                    f"Unexpected error routing order book messages.",
+                    f"Unexpected error routing order book messages. {e}",
                     exec_info=True,
                     app_warning_msg=f"Unexpected error routing order book messages. Retrying after 5 seconds."
                 )
