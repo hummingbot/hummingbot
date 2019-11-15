@@ -566,8 +566,8 @@ cdef class DDEXMarket(MarketBase):
         url = "%s/orders/build" % (self.DDEX_REST_ENDPOINT,)
         headers = self._generate_auth_headers()
         data = {
-            "amount": str(amount),
-            "price": str(price) if price != s_decimal_NaN else "0",
+            "amount": f"{amount:f}",
+            "price": f"{price:f}" if price != s_decimal_NaN else "0",
             "side": side,
             "marketId": symbol,
             "orderType": "market" if order_type is OrderType.MARKET else "limit",
