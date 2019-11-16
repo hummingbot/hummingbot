@@ -2,6 +2,7 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     is_strategy,
     is_path,
+    is_valid_password
 )
 from hummingbot.client.settings import (
     CONF_POSTFIX,
@@ -28,6 +29,11 @@ def default_strategy_conf_path_prompt():
 # These configs are never saved and prompted every time
 in_memory_config_map = {
     # Always required
+    "password":
+        ConfigVar(key="password",
+                  prompt="Password please >>> ",
+                  is_secure=True,
+                  validator=is_valid_password),
     "strategy":
         ConfigVar(key="strategy",
                   prompt="What is your market making strategy? >>> ",
