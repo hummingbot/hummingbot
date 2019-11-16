@@ -32,6 +32,12 @@ from hummingbot.client.settings import (
     TOKEN_ADDRESSES_FILE_PATH,
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.client.config.config_crypt import (
+    encrypt_n_save_config_value,
+    decrypt_config_value_from_file,
+    get_encrypted_config_path,
+    encrypted_config_file_exists
+)
 
 # Use ruamel.yaml to preserve order and comments in .yml file
 yaml_parser = ruamel.yaml.YAML()
@@ -216,8 +222,16 @@ def read_configs_from_yml(strategy_file_path: Optional[str] = None):
                     logging.getLogger().error(f"Cannot find corresponding config to key {key} in template.")
                     continue
 
-                val_in_file = data.get(key)
-                cvar.value = parse_cvar_value(cvar, val_in_file)
+
+                #todo: decrypt secure config variable here.
+                if cvar.is_secure:
+                    if encrypted_config_file_exists(cvar):
+                        password = in_memory_config_map.get("password").value
+                        if password:
+                            cvar.value = decrypt_config_value_from_file(cvar, password)
+                else:
+                    val_in_file = data.get(key)
+                    cvar.value = parse_cvar_value(cvar, val_in_file)
                 if val_in_file is not None and not cvar.validate(val_in_file):
                     raise ValueError("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
 
@@ -251,7 +265,14 @@ async def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
             data = yaml_parser.load(stream) or {}
             for key in cm:
                 cvar = cm.get(key)
-                if type(cvar.value) == Decimal:
+                #todo: save secure config variable here
+                if cvar.is_secure:
+                    if cvar.value:
+                        from hummingbot.client.config.in_memory_config_map import in_memory_config_map
+                        password = in_memory_config_map.get("password").value
+                        encrypt_n_save_config_value(cvar, password)
+                    data.pop(key)
+                elif type(cvar.value) == Decimal:
                     data[key] = float(cvar.value)
                 else:
                     data[key] = cvar.value
