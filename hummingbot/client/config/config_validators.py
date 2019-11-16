@@ -9,7 +9,6 @@ from hummingbot.client.settings import (
     CONF_FILE_PATH,
 )
 
-
 # Validators
 def is_exchange(value: str) -> bool:
     return value in EXCHANGES
@@ -40,3 +39,16 @@ def is_valid_market_trading_pair(market: str, value: str) -> bool:
         return value in trading_pair_fetcher.trading_pairs.get(market) if len(trading_pairs) > 0 else True
     else:
         return True
+
+
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.config_crypt import encrypted_config_file_exists, decrypt_config_value_from_file
+def is_valid_password(value:str) -> bool:
+    secures = [cv for cv in global_config_map.values() if cv.is_secure and encrypted_config_file_exists(cv)]
+    if secures:
+        try:
+            decrypt_config_value_from_file(secures[0], value)
+        except ValueError as err:
+            if str(err) == "MAC mismatch":
+                return False
+    return True
