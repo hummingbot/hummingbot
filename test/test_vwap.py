@@ -121,7 +121,8 @@ class TWAPUnitTest(unittest.TestCase):
             time_delay=self.time_delay,
             is_vwap=True,
             percent_slippage=50.0,
-            order_amount=Decimal("5.0"),
+            order_percent_of_volume=0.5,
+            order_amount=Decimal("100.0"),
             logging_options=logging_options
         )
         self.logging_options = logging_options
@@ -219,19 +220,18 @@ class TWAPUnitTest(unittest.TestCase):
         # check whether the order is buy
         # check whether the price is correct
         # check whether amount is correct
-        if bid_order.quantity < 100:
-            # self.assertTrue(False)
-            order_time_2 = order_time_1 + self.clock_tick_size * math.ceil(self.time_delay / self.clock_tick_size)
-            self.clock.backtest_til(order_time_2)
-            self.assertEqual(1, len(self.limit_buy_strategy.active_bids))
-            bid_order_2: LimitOrder = self.limit_buy_strategy.active_bids[0][1]
-            self.assertEqual(Decimal("99"), bid_order_2.price)
-            self.assertLessEqual(bid_order_2.quantity, 100 - bid_order.quantity)
+        self.assertLess(bid_order.quantity, 100)
+        order_time_2 = order_time_1 + self.clock_tick_size * math.ceil(self.time_delay / self.clock_tick_size)
+        self.clock.backtest_til(order_time_2)
+        self.assertEqual(1, len(self.limit_buy_strategy.active_bids))
+        bid_order_2: LimitOrder = self.limit_buy_strategy.active_bids[0][1]
+        self.assertEqual(Decimal("99"), bid_order_2.price)
+        self.assertLessEqual(bid_order_2.quantity, 100 - bid_order.quantity)
 
-            # Check whether order is cancelled after cancel_order_wait_time
-            cancel_time_2 = order_time_2 + self.cancel_order_wait_time
-            self.clock.backtest_til(cancel_time_2)
-            self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
+        # Check whether order is cancelled after cancel_order_wait_time
+        cancel_time_2 = order_time_2 + self.cancel_order_wait_time
+        self.clock.backtest_til(cancel_time_2)
+        self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
 
     def test_limit_sell_order(self):
         self.clock.add_iterator(self.limit_sell_strategy)
@@ -262,19 +262,18 @@ class TWAPUnitTest(unittest.TestCase):
         # check whether the order is buy
         # check whether the price is correct
         # check whether amount is correct
-        if ask_order.quantity < 100:
-            # self.assertTrue(False)
-            order_time_2 = order_time_1 + self.clock_tick_size * math.ceil(self.time_delay / self.clock_tick_size)
-            self.clock.backtest_til(order_time_2)
-            self.assertEqual(1, len(self.limit_sell_strategy.active_asks))
-            ask_order_2: LimitOrder = self.limit_sell_strategy.active_asks[0][1]
-            self.assertEqual(Decimal("101"), ask_order_2.price)
-            self.assertLessEqual(ask_order_2.quantity, 100 - ask_order.quantity)
+        self.assertLess(ask_order.quantity, 100)
+        order_time_2 = order_time_1 + self.clock_tick_size * math.ceil(self.time_delay / self.clock_tick_size)
+        self.clock.backtest_til(order_time_2)
+        self.assertEqual(1, len(self.limit_sell_strategy.active_asks))
+        ask_order_2: LimitOrder = self.limit_sell_strategy.active_asks[0][1]
+        self.assertEqual(Decimal("101"), ask_order_2.price)
+        self.assertLessEqual(ask_order_2.quantity, 100 - ask_order.quantity)
 
-            # Check whether order is cancelled after cancel_order_wait_time
-            cancel_time_2 = order_time_2 + self.cancel_order_wait_time
-            self.clock.backtest_til(cancel_time_2)
-            self.assertEqual(0, len(self.limit_sell_strategy.active_asks))
+        # Check whether order is cancelled after cancel_order_wait_time
+        cancel_time_2 = order_time_2 + self.cancel_order_wait_time
+        self.clock.backtest_til(cancel_time_2)
+        self.assertEqual(0, len(self.limit_sell_strategy.active_asks))
 
     def test_market_buy_order(self):
         self.clock.add_iterator(self.market_buy_strategy)
@@ -287,7 +286,7 @@ class TWAPUnitTest(unittest.TestCase):
         # test whether number of orders is one after one time delay
         # check whether the order is buy
         # check whether the size is correct
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size + self.time_delay)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size * 2)
         market_buy_events: List[BuyOrderCompletedEvent] = [t for t in self.buy_order_completed_logger.event_log
                                                            if isinstance(t, BuyOrderCompletedEvent)]
         self.assertEqual(1, len(market_buy_events))
@@ -306,7 +305,7 @@ class TWAPUnitTest(unittest.TestCase):
         # test whether number of orders is one
         # check whether the order is sell
         # check whether the size is correct
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size + self.time_delay)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size * 2)
         market_sell_events: List[SellOrderCompletedEvent] = [t for t in self.sell_order_completed_logger.event_log
                                                              if isinstance(t, SellOrderCompletedEvent)]
         self.assertEqual(1, len(market_sell_events))

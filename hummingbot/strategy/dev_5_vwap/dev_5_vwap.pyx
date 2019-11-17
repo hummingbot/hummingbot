@@ -214,7 +214,6 @@ cdef class Dev5TwapTradeStrategy(StrategyBase):
                         f"({market_info.trading_pair}) Limit sell order of "
                         f"{order_filled_event.amount} {market_info.base_asset} filled."
                     )
-            self._has_outstanding_order = False
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
         """
@@ -244,6 +243,7 @@ cdef class Dev5TwapTradeStrategy(StrategyBase):
                     f"({market_info.trading_pair}) Market buy order {order_id} "
                     f"({market_order_record.amount} {market_order_record.base_asset}) has been filled."
                 )
+            self._has_outstanding_order = False
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
         """
@@ -273,6 +273,7 @@ cdef class Dev5TwapTradeStrategy(StrategyBase):
                     f"({market_info.trading_pair}) Market sell order {order_id} "
                     f"({market_order_record.amount} {market_order_record.base_asset}) has been filled."
                 )
+            self._has_outstanding_order = False
 
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
