@@ -522,31 +522,37 @@ class BitcoinComOrderBookMessage(OrderBookMessage):
 
     @property
     def update_id(self) -> int:
-        return int(self.timestamp * 1e3)
+        if self.type in [OrderBookMessageType.DIFF, OrderBookMessageType.SNAPSHOT]:
+            # TODO: switch into using this
+            # return int(self.content["sequence"])
+            return int(self.timestamp * 1e3)
+        else:
+            return -1
 
     @property
     def trade_id(self) -> int:
-        return int(self.timestamp * 1e3)
+        if self.type is OrderBookMessageType.TRADE:
+            return int(self.content["id"])
+        return -1
 
     @property
     def symbol(self) -> str:
-        return self.content["symbol"]
+        if "trading_pair" in self.content:
+            return self.content["trading_pair"]
+        elif "symbol" in self.content:
+            return self.content["symbol"]
 
     @property
     def asks(self) -> List[OrderBookRow]:
-        raise self.content["ask"]
+        return [
+            OrderBookRow(float(price), float(size), self.update_id) for price, size, *trash in self.content["ask"]
+        ]
 
     @property
     def bids(self) -> List[OrderBookRow]:
-        raise self.content["bid"]
-
-    @property
-    def has_update_id(self) -> bool:
-        return True
-
-    @property
-    def has_trade_id(self) -> bool:
-        return True
+        return [
+            OrderBookRow(float(price), float(size), self.update_id) for price, size, *trash in self.content["bid"]
+        ]
 
     def __eq__(self, other) -> bool:
         return self.type == other.type and self.timestamp == other.timestamp

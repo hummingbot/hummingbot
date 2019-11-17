@@ -25,8 +25,8 @@ class BitcoinComWebsocket():
         return cls._logger
 
     def __init__(self):
+        self._client: Optional[websockets.WebSocketClientProtocol] = None
         self._events: Dict[str, bool] = {}
-        self._ws: Optional[websockets.WebSocketClientProtocol] = None
         self._nonce = 0
 
     def _get_event(self, name: str):
@@ -35,32 +35,44 @@ class BitcoinComWebsocket():
     def _set_event(self, name: str):
         self._events[name] = True
 
-    async def _get_ws(self) -> (websockets.WebSocketClientProtocol):
-        if self._ws:
-            return self._ws
-
+    # connect to exchange
+    async def connect(self):
         try:
-            self._ws = await websockets.connect(constants.WSS_URL)
+            self._client = await websockets.connect(constants.WSS_URL)
+            return self._client
         except Exception as e:
+            print(str(e))
             self.logger().error(f"Websocket error: '{str(e)}'", exc_info=True)
-        finally:
-            return self._ws
 
-    # receive messages
+    # disconnect from exchange
+    async def disconnect(self):
+        if self._client is None:
+            return
+
+        self._client.close()
+
+    # receive & parse messages
     async def _messages(self) -> AsyncIterable[Any]:
         try:
             while True:
                 try:
-                    raw_msg: str = await asyncio.wait_for(self._ws.recv(), timeout=self.MESSAGE_TIMEOUT)
+                    raw_msg: str = await asyncio.wait_for(self._client.recv(), timeout=self.MESSAGE_TIMEOUT)
                     msg = ujson.loads(raw_msg)
-                    method: str = msg.get("method", None)
 
-                    if method in self._events.keys():
-                        yield msg
+                    id = msg.get("id", None)
+                    method = msg.get("method", None)
+                    data = msg.get("params", msg.get("result", None))
+                    error = msg.get("error", None)
 
+                    yield {
+                        "id": id,
+                        "method": method,
+                        "data": data,
+                        "error": error
+                    }
                 except asyncio.TimeoutError:
                     try:
-                        pong_waiter = await self._ws.ping()
+                        pong_waiter = await self._client.ping()
                         await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
                     except asyncio.TimeoutError:
                         raise
@@ -70,29 +82,49 @@ class BitcoinComWebsocket():
         except ConnectionClosed:
             return
         finally:
-            await self._ws.close()
+            await self.disconnect()
 
-    # subscribe to a method
-    async def subscribe(self, name: str, data):
+    # emit messages
+    async def _emit(self, name: str, data) -> int:
         self._nonce += 1
 
-        await self._get_ws()
-        await self._ws.send(ujson.dumps({
+        await self._client.send(ujson.dumps({
             "method": name,
             "id": self._nonce,
             "params": data
         }))
 
-    # yield only specified method name
+        return self._nonce
+
+    # request data and return result
+    async def request(self, name: str, data) -> Any:
+        nonce = await self._emit(name, data)
+
+        async for msg in self._messages():
+            id: int = msg.get("id", None)
+
+            if (id == nonce):
+                yield msg
+
+    # subscribe to a method
+    async def subscribe(self, name: str, data) -> int:
+        return await self._emit(name, data)
+
+    # listen to messages by method
     async def on(self, name: str) -> AsyncIterable[Any]:
         self._set_event(name)
 
-        while True:
-            try:
-                async for msg in self._messages():
-                    method: str = msg.get("method", None)
+        async for msg in self._messages():
+            method: str = msg.get("method", None)
 
-                    if (method == name):
-                        yield msg["params"]
-            except Exception as e:
-                self.logger().error(f"Error reading message '{str(e)}'", exc_info=True)
+            if (method == name):
+                yield msg
+
+    # authenticate connection and return result
+    async def authenticate(self, api_key: str, secret_key: str) -> bool:
+        async for result in self.request("login", {
+            "algo": "BASIC",
+            "pKey": api_key,
+            "sKey": secret_key
+        }):
+            yield result

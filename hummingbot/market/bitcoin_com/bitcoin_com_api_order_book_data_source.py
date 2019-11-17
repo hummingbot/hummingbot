@@ -103,15 +103,7 @@ class BitcoinComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                                 )
             ]
 
-            old_symbols: List[str] = [
-                (
-                    f"{quoteAsset}-{baseAsset}"
-                )
-                for baseAsset, quoteAsset in zip(all_markets.baseAsset, all_markets.quoteAsset)
-            ]
-
             all_markets.loc[:, "USDVolume"] = usd_volume
-            all_markets.loc[:, "old_symbol"] = old_symbols
             await client.close()
 
             return all_markets.sort_values("USDVolume", ascending=False)
@@ -202,6 +194,8 @@ class BitcoinComAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 ws = BitcoinComWebsocket()
+                await ws.connect()
+
                 trading_pairs: List[str] = await self.get_trading_pairs()
 
                 for trading_pair in trading_pairs:
@@ -210,19 +204,23 @@ class BitcoinComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         "limit": 1  # we only care about updates, this sets the initial snapshot limit
                     })
 
-                    async for msg in ws.on("updateTrades"):
-                        trades = msg["data"]
+                    async for response in ws.on("updateTrades"):
+                        if (response["error"] is not None):
+                            raise response["error"]
+
+                        trades = response["data"]["data"]
 
                         for trade in trades:
                             trade_timestamp: float = pd.Timestamp(trade["timestamp"]).timestamp()
                             trade_msg: OrderBookMessage = BitcoinComOrderBook.trade_message_from_exchange(trade, trade_timestamp, metadata={"trading_pair": trading_pair})
                             output.put_nowait(trade_msg)
-
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
                 await asyncio.sleep(5.0)
+            finally:
+                ws.disconnect()
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
@@ -231,6 +229,8 @@ class BitcoinComAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 ws = BitcoinComWebsocket()
+                await ws.connect()
+
                 trading_pairs: List[str] = await self.get_trading_pairs()
 
                 for trading_pair in trading_pairs:
@@ -238,9 +238,13 @@ class BitcoinComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         "symbol": trading_pair
                     })
 
-                    async for msg in ws.on("updateOrderbook"):
-                        orderbook_timestamp: float = pd.Timestamp(msg["timestamp"]).timestamp()
-                        orderbook_msg: OrderBookMessage = BitcoinComOrderBook.diff_message_from_exchange(msg, orderbook_timestamp)
+                    async for response in ws.on("updateOrderbook"):
+                        if (response["error"] is not None):
+                            raise response["error"]
+
+                        diff = response["data"]
+                        diff_timestamp: float = pd.Timestamp(diff["timestamp"]).timestamp()
+                        orderbook_msg: OrderBookMessage = BitcoinComOrderBook.diff_message_from_exchange(diff, diff_timestamp)
                         output.put_nowait(orderbook_msg)
 
             except asyncio.CancelledError:
@@ -253,6 +257,8 @@ class BitcoinComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     f"Check network connection."
                 )
                 await asyncio.sleep(30.0)
+            finally:
+                ws.disconnect()
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """

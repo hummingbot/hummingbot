@@ -50,8 +50,8 @@ cdef class BitcoinComActiveOrderTracker:
     cdef tuple c_convert_diff_message_to_np_arrays(self, object message):
         cdef:
             dict content = message.content
-            list bid_entries = content["bids"]
-            list ask_entries = content["asks"]
+            list bid_entries = content["bid"]
+            list ask_entries = content["ask"]
             str order_id
             str order_side
             str price_raw
@@ -99,7 +99,7 @@ cdef class BitcoinComActiveOrderTracker:
         self._active_asks.clear()
         timestamp = message.timestamp
 
-        for snapshot_orders, active_orders in [(message.content["bids"], self._active_bids), (message.content["asks"], self.active_asks)]:
+        for snapshot_orders, active_orders in [(message.content["bid"], self._active_bids), (message.content["ask"], self.active_asks)]:
 
             for order in snapshot_orders:
                 price = order["price"]
