@@ -271,7 +271,8 @@ async def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
                         from hummingbot.client.config.in_memory_config_map import in_memory_config_map
                         password = in_memory_config_map.get("password").value
                         encrypt_n_save_config_value(cvar, password)
-                    data.pop(key)
+                    if key in data:
+                        data.pop(key)
                 elif type(cvar.value) == Decimal:
                     data[key] = float(cvar.value)
                 else:
