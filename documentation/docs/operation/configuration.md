@@ -16,7 +16,6 @@ File | Description
 `conf_cross_exchange_market_making_strategy_[#].yml` | Settings for the [cross-exchange market making](/strategies/cross-exchange-market-making/) strategy.
 `conf_pure_market_making_strategy_[#].yml` | Settings for the [pure market making](/strategies/pure-market-making/) strategy.
 `conf_discovery_strategy_[#].yml` | Settings for the [discovery](/strategies/discovery/) strategy.
-`conf_simple_trade_strategy_[#].yml` | Settings for the [simple trade](/strategies/simple-trade/) strategy.
 
 !!! tip "Editing Configuration Files Directly"
     Once they are created, you may find it easier to edit the configuration files in the `conf/` folder. Simply open them with a text editor and make any desired modifications.
@@ -29,7 +28,6 @@ When running `config`, you are asked to select a strategy and enter strategy-spe
 * [Cross-exchange market making](/strategies/cross-exchange-market-making#configuration-walkthrough)
 * [Pure market making](/strategies/pure-market-making#configuration-walkthrough)
 * [Discovery](/strategies/discovery#configuration-walkthrough)
-* [Simple Trade](/strategies/simple-trade#configuration-walkthrough)
 
 !!! note "Essential Trading Considerations"
     When configuring your bot, make sure you are aware of your exchange's minimum order sizes and fees, and check that your trading pair has sufficient order book and trading volumes. You can find more info about specific exchanges in the [connector section](/connectors).

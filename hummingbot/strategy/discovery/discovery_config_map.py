@@ -93,14 +93,14 @@ discovery_config_map = {
     ),
     "target_profitability": ConfigVar(
         key="target_profitability",
-        prompt="What is the target profitability for discovery? (default to "
+        prompt="What is the target profitability for discovery? (Default to "
         "0.0 to list maximum profitable amounts) >>> ",
         default=0.0,
         type_str="float",
     ),
     "target_amount": ConfigVar(
         key="target_amount",
-        prompt="What is the max order size for discovery? " "(default to infinity) >>> ",
+        prompt="What is the max order size for discovery? " "(Default to infinity) >>> ",
         default=float("inf"),
         type_str="float",
     ),
