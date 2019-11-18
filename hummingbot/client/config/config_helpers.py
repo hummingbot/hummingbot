@@ -221,17 +221,14 @@ def read_configs_from_yml(strategy_file_path: Optional[str] = None):
                 if cvar is None:
                     logging.getLogger().error(f"Cannot find corresponding config to key {key} in template.")
                     continue
-
-
-                #todo: decrypt secure config variable here.
+                val_in_file = data.get(key)
+                cvar.value = parse_cvar_value(cvar, val_in_file)
                 if cvar.is_secure:
                     if encrypted_config_file_exists(cvar):
                         password = in_memory_config_map.get("password").value
-                        if password:
+                        if password is not None:
                             cvar.value = decrypt_config_value_from_file(cvar, password)
-                else:
-                    val_in_file = data.get(key)
-                    cvar.value = parse_cvar_value(cvar, val_in_file)
+
                 if val_in_file is not None and not cvar.validate(val_in_file):
                     raise ValueError("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
 
@@ -267,7 +264,7 @@ async def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
                 cvar = cm.get(key)
                 #todo: save secure config variable here
                 if cvar.is_secure:
-                    if cvar.value:
+                    if cvar.value is not None and not encrypted_config_file_exists(cvar):
                         from hummingbot.client.config.in_memory_config_map import in_memory_config_map
                         password = in_memory_config_map.get("password").value
                         encrypt_n_save_config_value(cvar, password)
