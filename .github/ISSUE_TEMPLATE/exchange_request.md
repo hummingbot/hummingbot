@@ -1,7 +1,7 @@
 ---
 name: Exchange connector request
 about: Suggest a new exchange connector for hummingbot
-title: "[New Exchange Connector]"
+title: "[New Exchange Connector] <NAME_OF_EXCHANGE> "
 labels: new exchange
 assignees: ''
 
