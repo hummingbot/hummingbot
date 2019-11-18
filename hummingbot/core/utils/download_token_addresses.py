@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+
+from os.path import join, realpath
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../../")))
+
 import os
 import json
 import aiohttp
@@ -48,9 +53,9 @@ async def download_dolomite_token_addresses(token_dict: Dict[str, str]):
                         elif symbol == "LRC":
                             # Other integrations use the wrong address for LRC
                             token_dict[symbol] = Web3.toChecksumAddress(token["identifier"])
-                            
+
                 except Exception as err:
-                    logging.getLogger().error(err)                              
+                    logging.getLogger().error(err)
 
 
 async def download_radar_relay_token_addresses(token_dict: Dict[str, str]):
