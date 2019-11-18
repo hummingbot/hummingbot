@@ -16,11 +16,11 @@ from eth_keyfile.keyfile import (
     keccak,
     int_to_big_endian
 )
-KEYFILE_PREFIX = "encrypted_"
-KEYFILE_POSTFIX = ".json"
+from hummingbot.client.settings import ENCYPTED_CONF_PREFIX, ENCYPTED_CONF_POSTFIX
+
 
 def get_encrypted_config_path(config_var):
-    return "%s%s%s%s" % (get_key_file_path(), KEYFILE_PREFIX, config_var.key, KEYFILE_POSTFIX)
+    return "%s%s%s%s" % (get_key_file_path(), ENCYPTED_CONF_PREFIX, config_var.key, ENCYPTED_CONF_POSTFIX)
 
 
 def encrypted_config_file_exists(config_var):
@@ -28,6 +28,9 @@ def encrypted_config_file_exists(config_var):
 
 
 def encrypt_n_save_config_value(config_var, password):
+    """
+    encrypt configuration value and store in a file, file name is derived from config_var key (in conf folder)
+    """
     password_bytes = password.encode()
     message = config_var.value.encode()
     encrypted = _create_v3_keyfile_json(message, password_bytes)
@@ -37,6 +40,9 @@ def encrypt_n_save_config_value(config_var, password):
 
 
 def decrypt_config_value_from_file(config_var, password):
+    """
+    decrypt configuration value from file, file name is derived from config_var key (in conf folder)
+    """
     if not encrypted_config_file_exists(config_var):
         return None
     file_path = get_encrypted_config_path(config_var)
@@ -47,6 +53,10 @@ def decrypt_config_value_from_file(config_var, password):
 
 
 def _create_v3_keyfile_json(message_to_encrypt, password, kdf="pbkdf2", work_factor=None):
+    """
+    Encrypt message by a given password.
+    Most of this code is copied from eth_key_file.key_file, removed address and is from json result.
+    """
     salt = Random.get_random_bytes(16)
 
     if work_factor is None:
@@ -103,15 +113,3 @@ def _create_v3_keyfile_json(message_to_encrypt, password, kdf="pbkdf2", work_fac
         },
         'version': 3,
     }
-
-#
-#
-# var = ConfigVar(key="binance_api_key",
-#                   prompt="Enter your Binance API key >>> ",
-#                   is_secure=True)
-# var.value = "GuemEqPgaPCgPd18o8KnO5HCR2Ak1SCtif3Aw3kwr3jBgbmDvib952AOWEg4psLg"
-# password = "something"
-# save_secure_config_var(var, password)
-# # password = "ssss"
-# decrypted = unlock_config_var_value(var, password)
-# print(decrypted)
