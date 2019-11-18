@@ -64,11 +64,11 @@ class DataFeedBase(NetworkBase):
         try:
             loop = asyncio.get_event_loop()
             async with aiohttp.ClientSession(loop=loop,
-                                             connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+                                             connector=aiohttp.TCPConnector(ssl=False)) as session:
                 async with session.get(self.health_check_endpoint) as resp:
                     status_text = await resp.text()
                     if resp.status != 200:
-                        raise Exception(f"Data feed {self.name} server is down.")
+                        raise Exception(f"Data feed {self.name} server is down. Status is {status_text}")
         except asyncio.CancelledError:
             raise
         except Exception:
