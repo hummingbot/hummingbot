@@ -116,6 +116,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_trading_pairs(self) -> List[str]:
         """
+        *required
         Get a list of active trading pairs
         (if the market class already specifies a list of trading pairs,
         returns that list instead of all active trading pairs)
