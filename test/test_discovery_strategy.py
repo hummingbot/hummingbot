@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 
 from os.path import join, realpath
-import sys;
-from unittest.mock import create_autospec
-
-sys.path.insert(0, realpath(join(__file__, "../../")))
-
+import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from nose.plugins.attrib import attr
-
 from hummingbot.strategy.discovery import DiscoveryStrategy, DiscoveryMarketPair
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
@@ -19,6 +15,7 @@ from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source impo
 from hummingbot.market.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.market.ddex.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
 import asyncio
+logging.basicConfig(level=logging.DEBUG)
 
 
 def run(coro):
@@ -36,7 +33,8 @@ class DiscoveryUnitTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        pass
+        ExchangeRateConversion.get_instance().start()
+        run(ExchangeRateConversion.get_instance().ready_notifier.wait())
 
     def setUp(self):
         self.mock_ddex_active_markets = {
@@ -133,3 +131,7 @@ class DiscoveryUnitTest(unittest.TestCase):
 
         run(self.strategy.fetch_market_info(self.market_pair))
         self.assertTrue(self.strategy.get_matching_pairs(self.market_pair) == expected_pair)
+
+
+if __name__ == '__main__':
+    unittest.main()
