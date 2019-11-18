@@ -61,7 +61,7 @@ cross_exchange_market_making_config_map = {
     ),
     "order_amount": ConfigVar(
         key="order_amount",
-        prompt="What is your preferred trade size? (denominated in the base asset) >>> ",
+        prompt="What is your preferred trade size? (Denominated in the base asset) >>> ",
         default=0.0,
         type_str="decimal",
     ),
