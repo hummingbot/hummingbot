@@ -650,7 +650,8 @@ cdef class CoinbaseProMarket(MarketBase):
                                                                      tracked_order.fee_paid,
                                                                      tracked_order.order_type))
                     self.c_stop_tracking_order(tracked_order.client_order_id)
-                else:  # reason == "canceled":
+
+                elif content.get("reason") == "canceled":  # reason == "canceled":
                     execute_amount_diff = 0
                     tracked_order.last_state = "canceled"
                     self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
@@ -672,8 +673,8 @@ cdef class CoinbaseProMarket(MarketBase):
         """
         path_url = "/orders"
         data = {
-            "price": float(price),
-            "size": float(amount),
+            "price": f"{price:f}",
+            "size": f"{amount:f}",
             "product_id": symbol,
             "side": "buy" if is_buy else "sell",
             "type": "limit" if order_type is OrderType.LIMIT else "market",
