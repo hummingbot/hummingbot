@@ -69,7 +69,7 @@ The following walks through all the steps when running `config` for the first ti
 | `Enter the token symbol you would like to trade on [maker exchange name] >>>` | Enter the token symbol for the *maker exchange*.<br/>Example input: `ZRX-WETH`<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: ensure that the pair is a valid pair for the exchange, for example, use `WETH` instead of `ETH`.</td></tr></tbody></table> |
 | `Enter the token symbol you would like to trade on [taker exchange name] >>>` | Enter the token symbol for the *taker exchange*.<br/>Example input: `ZRX-ETH`<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: ensure that (1) the pair corresponds with the token symbol entered for the maker exchange, and that (2) is a valid pair for the exchange.  *Note in the example, the use of `ETH` instead of `WETH`*.</td></tr></tbody></table>|
 | `What is the minimum profitability for your to make a trade? (Enter 0.01 to indicate 1%) >>>` | This sets `min_profitability` ([definition](/strategies/cross-exchange-market-making/#configuration-parameters)). |
-| `What is the quantity of each order, denominated in the base asset? (Enter 0 to allow Hummingbot to automatically size orders) >>>` | This sets `order_amount` ([definition](/strategies/cross-exchange-market-making/#configuration-parameters)). |
+| `What is your preferred trade size? (Denominated in the base asset) >>>` | This sets `order_amount` ([definition](/strategies/cross-exchange-market-making/#configuration-parameters)). |
 
 
 ## Configuration Parameters
