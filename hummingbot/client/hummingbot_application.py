@@ -200,14 +200,19 @@ class HummingbotApplication(*commands):
         self._app_warnings.clear()
 
     @staticmethod
-    def _initialize_market_assets(market_name: str, symbols: List[str]) -> List[Tuple[str, str]]:
-        market: MarketBase = MARKET_CLASSES.get(market_name, MarketBase)
-        market_symbols: List[Tuple[str, str]] = [market.split_symbol(symbol) for symbol in symbols]
-        return market_symbols
+    def _initialize_market_assets(market_name: str, trading_pairs: List[str]) -> List[Tuple[str, str]]:
+        market_class: MarketBase = MARKET_CLASSES.get(market_name, MarketBase)
+        market_trading_pairs: List[Tuple[str, str]] = [market_class.split_trading_pair(trading_pair) for trading_pair in trading_pairs]
+        return market_trading_pairs
 
-    def _initialize_wallet(self, token_symbols: List[str]):
+    @staticmethod
+    def _convert_to_exchange_trading_pair(market_name: str, hb_trading_pair: List[str]) -> List[str]:
+        market_class: MarketBase = MARKET_CLASSES.get(market_name, MarketBase)
+        return [market_class.convert_to_exchange_trading_pair(trading_pair) for trading_pair in hb_trading_pair]
+
+    def _initialize_wallet(self, token_trading_pairs: List[str]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
-        erc20_token_addresses = get_erc20_token_addresses(token_symbols)
+        erc20_token_addresses = get_erc20_token_addresses(token_trading_pairs)
 
         if self.acct is not None:
             chain_name: str = global_config_map.get("ethereum_chain_name").value
@@ -221,18 +226,21 @@ class HummingbotApplication(*commands):
     def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
 
-        # aggregate symbols if there are duplicate markets
-        market_symbols_map = {}
-        for market_name, symbols in market_names:
-            if market_name not in market_symbols_map:
-                market_symbols_map[market_name] = []
-            market_symbols_map[market_name] += symbols
+        # aggregate trading_pairs if there are duplicate markets
+        market_trading_pairs_map = {}
+        for market_name, trading_pairs in market_names:
+            if market_name not in market_trading_pairs_map:
+                market_trading_pairs_map[market_name] = []
+            market_class: MarketBase = MARKET_CLASSES.get(market_name, MarketBase)
+            for trading_pair in trading_pairs:
+                exchange_trading_pair: str = market_class.convert_to_exchange_trading_pair(trading_pair)
+                market_trading_pairs_map[market_name].append(exchange_trading_pair)
 
-        for market_name, symbols in market_symbols_map.items():
+        for market_name, trading_pairs in market_trading_pairs_map.items():
             if global_config_map.get("paper_trade_enabled").value:
                 self._notify(f"\nPaper trade is enabled for market {market_name}")
                 try:
-                    market = create_paper_trade_market(market_name, symbols)
+                    market = create_paper_trade_market(market_name, trading_pairs)
                 except Exception:
                     raise
                 paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
@@ -244,7 +252,7 @@ class HummingbotApplication(*commands):
                     wallet=self.wallet,
                     ethereum_rpc_url=ethereum_rpc_url,
                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                    symbols=symbols,
+                    trading_pairs=trading_pairs,
                     trading_required=self._trading_required,
                 )
 
@@ -256,7 +264,7 @@ class HummingbotApplication(*commands):
                         wallet=self.wallet,
                         ethereum_rpc_url=ethereum_rpc_url,
                         order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                        symbols=symbols,
+                        trading_pairs=trading_pairs,
                         trading_required=self._trading_required,
                     )
                 except Exception as e:
@@ -269,7 +277,7 @@ class HummingbotApplication(*commands):
                     binance_api_key,
                     binance_api_secret,
                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                    symbols=symbols,
+                    trading_pairs=trading_pairs,
                     trading_required=self._trading_required,
                 )
 
@@ -277,7 +285,7 @@ class HummingbotApplication(*commands):
                 market = RadarRelayMarket(
                     wallet=self.wallet,
                     ethereum_rpc_url=ethereum_rpc_url,
-                    symbols=symbols,
+                    trading_pairs=trading_pairs,
                     trading_required=self._trading_required,
                 )
 
@@ -287,7 +295,7 @@ class HummingbotApplication(*commands):
                 market = BambooRelayMarket(
                     wallet=self.wallet,
                     ethereum_rpc_url=ethereum_rpc_url,
-                    symbols=symbols,
+                    trading_pairs=trading_pairs,
                     use_coordinator=use_coordinator,
                     pre_emptive_soft_cancels=pre_emptive_soft_cancels,
                     trading_required=self._trading_required,
@@ -301,7 +309,7 @@ class HummingbotApplication(*commands):
                 market = CoinbaseProMarket(coinbase_pro_api_key,
                                            coinbase_pro_secret_key,
                                            coinbase_pro_passphrase,
-                                           symbols=symbols,
+                                           trading_pairs=trading_pairs,
                                            trading_required=self._trading_required)
             elif market_name == "huobi":
                 huobi_api_key = global_config_map.get("huobi_api_key").value
@@ -309,15 +317,16 @@ class HummingbotApplication(*commands):
                 market = HuobiMarket(huobi_api_key,
                                      huobi_secret_key,
                                      order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                     symbols=symbols,
+                                     trading_pairs=trading_pairs,
                                      trading_required=self._trading_required)
             elif market_name == "dolomite" and self.wallet:
+                is_test_net: bool = global_config_map.get("ethereum_chain_name").value == "DOLOMITE_TEST"
                 market = DolomiteMarket(
                     wallet=self.wallet,
                     ethereum_rpc_url=ethereum_rpc_url,
                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                    symbols=symbols,
-                    isTestNet=True,  # TODO: remove this! This needs to be False for release
+                    trading_pairs=trading_pairs,
+                    isTestNet=is_test_net,
                     trading_required=self._trading_required,
                 )
             elif market_name == "bittrex":
@@ -326,7 +335,7 @@ class HummingbotApplication(*commands):
                 market = BittrexMarket(bittrex_api_key,
                                        bittrex_secret_key,
                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                       symbols=symbols,
+                                       trading_pairs=trading_pairs,
                                        trading_required=self._trading_required)
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
