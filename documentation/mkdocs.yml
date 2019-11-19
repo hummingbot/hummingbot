@@ -137,6 +137,7 @@ nav:
         - IDEX: connectors/idex.md
         - Radar Relay: connectors/radar-relay.md
         - Bamboo Relay: connectors/bamboo-relay.md
+        - Dolomite: connectors/dolomite.md
         - 0x Relayers: connectors/0x.md
       - Strategies:
         - Strategies Overview: strategies/index.md
@@ -144,7 +145,6 @@ nav:
         - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
         - Pure Market Making: strategies/pure-market-making.md
         - Discovery: strategies/discovery.md
-        - Simple Trade: strategies/simple-trade.md
       - Data Feeds:
         - Data Feeds Overview: feeds.md
       - Utilities:
@@ -162,17 +162,23 @@ nav:
           - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
           - Pure Market Making: developers/strategies/pure-market-making.md
           - Discovery: developers/strategies/discovery.md
-          - Tutorial: developers/strategies/tutorial.md
-          - Perform Trade: developers/strategies/perform-trade.md
-          - Simple Trade: developers/strategies/simple-trade.md
         - Connectors:
-          - Adding Connectors: developers/connectors/index.md
-          - Adding Connectors to Other Blockchains: developers/connectors/new-blockchain.md
+          - Intro: developers/connectors/index.md
+          - Architecture: developers/connectors/architecture.md
           - Order Lifecycle: developers/connectors/order-lifecycle.md
+          - Building Connectors: developers/connectors/tutorial.md
+          - Miscellaneous: developers/connectors/miscellaneous.md
+        - Tutorial (WIP):
+          - Intro: developers/tutorial/index.md
+          - Perform Trade: developers/tutorial/perform-trade.md
+          - Simple Trade: developers/tutorial/simple-trade.md
         - Debug Console: developers/debug.md
         - Configuration: developers/config.md
     - Release Notes:
       - About Releases: release-notes/index.md
+      - 0.19.0: release-notes/0.19.0.md
+      - 0.18.1: release-notes/0.18.1.md
+      - 0.18.0: release-notes/0.18.0.md
       - 0.17.1: release-notes/0.17.1.md
       - 0.17.0: release-notes/0.17.0.md
       - 0.16.0: release-notes/0.16.0.md

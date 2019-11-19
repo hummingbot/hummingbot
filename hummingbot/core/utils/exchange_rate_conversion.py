@@ -192,7 +192,6 @@ class ExchangeRateConversion:
         """
         if not self._started:
             self.start()
-
         exchange_rate = self.get_exchange_rate(source)
         from_currency = from_currency.upper()
         to_currency = to_currency.upper()
@@ -237,6 +236,7 @@ class ExchangeRateConversion:
     async def wait_till_ready(self):
         for data_feed in self._data_feeds:
             try:
+                self.logger().debug(f"Waiting for {data_feed.name} to get ready.")
                 await asyncio.wait_for(data_feed.get_ready(), timeout=self._data_feed_timeout)
             except asyncio.TimeoutError:
                 if self._show_wait_till_ready_errors:

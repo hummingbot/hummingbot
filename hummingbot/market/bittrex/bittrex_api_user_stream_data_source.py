@@ -37,9 +37,9 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._btausds_logger = logging.getLogger(__name__)
         return cls._btausds_logger
 
-    def __init__(self, bittrex_auth: BittrexAuth, symbols: Optional[List[str]] = []):
+    def __init__(self, bittrex_auth: BittrexAuth, trading_pairs: Optional[List[str]] = []):
         self._bittrex_auth: BittrexAuth = bittrex_auth
-        self._symbols = symbols
+        self._trading_pairs = trading_pairs
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         super().__init__()
@@ -100,7 +100,7 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             output["time"] = time.strftime(timestamp_patten, time.gmtime(output["content"]['o']['u'] / 1000))
 
             # TODO: Refactor accordingly when V3 WebSocket API is released
-            # WebSocket API returns market symbols in 'Quote-Base' format
+            # WebSocket API returns market trading_pairs in 'Quote-Base' format
             # Code below converts 'Quote-Base' -> 'Base-Quote'
             output["content"]["o"].update({
                 "E": f"{output['content']['o']['E'].split('-')[1]}-{output['content']['o']['E'].split('-')[0]}"

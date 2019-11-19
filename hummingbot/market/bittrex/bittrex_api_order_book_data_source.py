@@ -49,9 +49,9 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._bittrexaobds_logger = logging.getLogger(__name__)
         return cls._bittrexaobds_logger
 
-    def __init__(self, symbols: Optional[List[str]] = None):
+    def __init__(self, trading_pairs: Optional[List[str]] = None):
         super().__init__()
-        self._symbols: Optional[List[str]] = symbols
+        self._trading_pairs: Optional[List[str]] = trading_pairs
         self._websocket_connection: Optional[Connection] = None
         self._websocket_hub: Optional[Hub] = None
         self._snapshot_msg: Dict[str, any] = {}
@@ -60,7 +60,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         """
-        Returned data frame should have symbol as index and include USDVolume, baseAsset and quoteAsset
+        Returned data frame should have trading pair as index and include USDVolume, baseAsset and quoteAsset
         """
         market_path_url = f"{BITTREX_REST_URL}{BITTREX_EXCHANGE_INFO_PATH}"
         summary_path_url = f"{BITTREX_REST_URL}{BITTREX_MARKET_SUMMARY_PATH}"
@@ -112,16 +112,16 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             usd_volume: List[float] = [
                 (
-                    volume * quote_price if symbol.endswith(("USD", "USDT")) else
-                    volume * quote_price * btc_usd_price if symbol.endswith("BTC") else
-                    volume * quote_price * eth_usd_price if symbol.endswith("ETH") else
+                    volume * quote_price if trading_pair.endswith(("USD", "USDT")) else
+                    volume * quote_price * btc_usd_price if trading_pair.endswith("BTC") else
+                    volume * quote_price * eth_usd_price if trading_pair.endswith("ETH") else
                     volume
                 )
-                for symbol, volume, quote_price in zip(all_markets.index,
-                                                       all_markets.volume.astype("float"),
-                                                       all_markets.lastTradeRate.astype("float"))
+                for trading_pair, volume, quote_price in zip(all_markets.index,
+                                                             all_markets.volume.astype("float"),
+                                                             all_markets.lastTradeRate.astype("float"))
             ]
-            old_symbols: List[str] = [
+            old_trading_pairs: List[str] = [
                 (
                     f"{quoteAsset}-{baseAsset}"
                 )
@@ -129,23 +129,23 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             ]
 
             all_markets.loc[:, "USDVolume"] = usd_volume
-            all_markets.loc[:, "old_symbol"] = old_symbols
+            all_markets.loc[:, "old_trading_pair"] = old_trading_pairs
             await client.close()
             return all_markets.sort_values("USDVolume", ascending=False)
 
     async def get_trading_pairs(self) -> List[str]:
-        if not self._symbols:
+        if not self._trading_pairs:
             try:
                 active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                self._symbols = active_markets.index.tolist()
+                self._trading_pairs = active_markets.index.tolist()
             except Exception:
-                self._symbols = []
+                self._trading_pairs = []
                 self.logger().network(
                     f"Error getting active exchange information.",
                     exc_info=True,
                     app_warning_msg=f"Error getting active exchange information. Check network connection.",
                 )
-        return self._symbols
+        return self._trading_pairs
 
     async def websocket_connection(self) -> (signalr_aio.Connection, signalr_aio.hubs.Hub):
         if self._websocket_connection and self._websocket_hub:
@@ -217,7 +217,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         for index, trading_pair in enumerate(trading_pairs):
 
             # TODO: Refactor accordingly when V3 WebSocket API is released
-            # get_snapshot() utilizes WebSocket API. Requires market symbols in 'Quote-Base' format
+            # get_snapshot() utilizes WebSocket API. Requires market trading pairs in 'Quote-Base' format
             # Code below converts 'Base-Quote' -> 'Quote-Base'
             temp_trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
 
@@ -289,7 +289,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             output["results"] = _decode_message(msg["R"])
 
             # TODO: Refactor accordingly when V3 WebSocket API is released
-            # WebSocket API returns market symbols in 'Quote-Base' format
+            # WebSocket API returns market trading pairs in 'Quote-Base' format
             # Code below converts 'Quote-Base' -> 'Base-Quote'
             output["results"].update({
                 "M": f"{output['results']['M'].split('-')[1]}-{output['results']['M'].split('-')[0]}"
@@ -302,7 +302,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             output["results"] = _decode_message(msg["M"][0]["A"][0])
 
             # TODO: Refactor accordingly when V3 WebSocket API is released
-            # WebSocket API returns market symbols in 'Quote-Base' format
+            # WebSocket API returns market trading pairs in 'Quote-Base' format
             # Code below converts 'Quote-Base' -> 'Base-Quote'
             output["results"].update({
                 "M": f"{output['results']['M'].split('-')[1]}-{output['results']['M'].split('-')[0]}"
@@ -343,9 +343,9 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 async for raw_message in self._socket_stream():
                     decoded: Dict[str, Any] = await self._transform_raw_message(raw_message)
-                    symbol: str = decoded["results"].get("M")
+                    trading_pair: str = decoded["results"].get("M")
 
-                    if not symbol:  # Ignores any other websocket response messages
+                    if not trading_pair:  # Ignores any other websocket response messages
                         continue
 
                     # Processes snapshot messages
@@ -353,10 +353,10 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         snapshot: Dict[str, any] = decoded
                         snapshot_timestamp = snapshot["nonce"]
                         snapshot_msg: OrderBookMessage = BittrexOrderBook.snapshot_message_from_exchange(
-                            snapshot["results"], snapshot_timestamp, metadata={"product_id": symbol}
+                            snapshot["results"], snapshot_timestamp
                         )
                         snapshot_queue.put_nowait(snapshot_msg)
-                        self._snapshot_msg[symbol] = {
+                        self._snapshot_msg[trading_pair] = {
                             "timestamp": int(time.time()),
                             "content": snapshot_msg
                         }
@@ -366,7 +366,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         diff: Dict[str, any] = decoded
                         diff_timestamp = diff["nonce"]
                         diff_msg: OrderBookMessage = BittrexOrderBook.diff_message_from_exchange(
-                            diff["results"], diff_timestamp, metadata={"product_id": symbol}
+                            diff["results"], diff_timestamp
                         )
                         diff_queue.put_nowait(diff_msg)
 
