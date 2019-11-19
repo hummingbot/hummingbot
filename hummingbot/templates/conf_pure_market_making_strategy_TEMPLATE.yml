@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 1
+template_version: 2
 
 # The following configuations are only required for the
 # pure market making strategy
