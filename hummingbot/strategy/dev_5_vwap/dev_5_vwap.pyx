@@ -285,7 +285,7 @@ cdef class Dev5TwapTradeStrategy(StrategyBase):
         """
         Clock tick entry point.
 
-        For the TWAP strategy, this function simply checks for the readiness and connection status of markets, and
+        For this strategy, this function simply checks for the readiness and connection status of markets, and
         then delegates the processing of each market info to c_process_market().
 
         :param timestamp: current tick timestamp
@@ -319,8 +319,10 @@ cdef class Dev5TwapTradeStrategy(StrategyBase):
 
     cdef c_place_orders(self, object market_info):
         """
-        Places an individual order specified by the user input if the user has enough balance and if the order quantity
+        If TWAP, places an individual order specified by the user input if the user has enough balance and if the order quantity
         can be broken up to the number of desired orders
+        
+        Else, places an individual order capped at order_percent_of_volume * open order volume up to percent_slippage
 
         :param market_info: a market trading pair
         """
@@ -400,9 +402,11 @@ cdef class Dev5TwapTradeStrategy(StrategyBase):
 
     cdef c_process_market(self, object market_info):
         """
-        Checks if enough time has elapsed from previous order to place order and if so, calls c_place_orders() and
+        If the user selected TWAP, checks if enough time has elapsed from previous order to place order and if so, calls c_place_orders() and
         cancels orders if they are older than self._cancel_order_wait_time.
-
+        
+        Otherwise, if there is not an outstanding order, calls c_place_orders().
+        
         :param market_info: a market trading pair
         """
         cdef:
