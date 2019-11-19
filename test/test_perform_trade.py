@@ -39,14 +39,14 @@ class PerformTradeUnitTest(unittest.TestCase):
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
     end_timestamp: float = end.timestamp()
-    maker_symbols: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
+    maker_trading_pairs: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
     clock_tick_size = 10
 
     def setUp(self):
 
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
         self.market: BacktestMarket = BacktestMarket()
-        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_symbols)
+        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_trading_pairs)
         self.mid_price = 100
         self.time_delay = 15
         self.cancel_order_wait_time = 45
@@ -58,13 +58,13 @@ class PerformTradeUnitTest(unittest.TestCase):
         self.market.set_balance("QETH", 500)
         self.market.set_quantization_param(
             QuantizationParams(
-                self.maker_symbols[0], 6, 6, 6, 6
+                self.maker_trading_pairs[0], 6, 6, 6, 6
             )
         )
 
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             *(
-                [self.market] + self.maker_symbols
+                [self.market] + self.maker_trading_pairs
             )
         )
 
@@ -130,7 +130,7 @@ class PerformTradeUnitTest(unittest.TestCase):
             market.trigger_event(MarketEvent.OrderFilled, OrderFilledEvent(
                 market.current_timestamp,
                 limit_order.client_order_id,
-                limit_order.symbol,
+                limit_order.trading_pair,
                 TradeType.BUY,
                 OrderType.LIMIT,
                 limit_order.price,
@@ -154,7 +154,7 @@ class PerformTradeUnitTest(unittest.TestCase):
             market.trigger_event(MarketEvent.OrderFilled, OrderFilledEvent(
                 market.current_timestamp,
                 limit_order.client_order_id,
-                limit_order.symbol,
+                limit_order.trading_pair,
                 TradeType.SELL,
                 OrderType.LIMIT,
                 limit_order.price,

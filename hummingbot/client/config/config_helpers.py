@@ -117,7 +117,7 @@ def get_strategy_template_path(strategy: str) -> str:
     return join(TEMPLATE_PATH, f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_TEMPLATE.yml")
 
 
-def get_erc20_token_addresses(symbols: List[str]):
+def get_erc20_token_addresses(trading_pairs: List[str]):
 
     with open(TOKEN_ADDRESSES_FILE_PATH) as f:
         try:
@@ -125,7 +125,7 @@ def get_erc20_token_addresses(symbols: List[str]):
             overrides: Dict[str, str] = global_config_map.get("ethereum_token_overrides").value
             if overrides is not None:
                 data.update(overrides)
-            addresses = [data[symbol] for symbol in symbols if symbol in data]
+            addresses = [data[trading_pair] for trading_pair in trading_pairs if trading_pair in data]
             return addresses
         except Exception as e:
             logging.getLogger().error(e, exc_info=True)

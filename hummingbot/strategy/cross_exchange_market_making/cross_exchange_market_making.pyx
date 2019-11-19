@@ -288,11 +288,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             market_pair_to_active_orders = defaultdict(list)
 
             for maker_market, limit_order in active_maker_orders:
-                market_pair = self._market_pairs.get((maker_market, limit_order.symbol))
+                market_pair = self._market_pairs.get((maker_market, limit_order.trading_pair))
                 if market_pair is None:
                     self.log_with_clock(logging.WARNING,
-                                        f"The in-flight maker order in for the symbol '{limit_order.symbol}' "
-                                        f"does not correspond to any whitelisted market pairs. Skipping.")
+                                        f"The in-flight maker order in for the trading pair '{limit_order.trading_pair}' "
+                                        f"does not correspond to any whitelisted trading pairs. Skipping.")
                     continue
 
                 if not self._sb_order_tracker.c_has_in_flight_cancel(limit_order.client_order_id):
@@ -558,7 +558,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         """
         cdef:
             MarketBase taker_market = market_pair.taker.market
-            str taker_symbol = market_pair.taker.trading_pair
+            str taker_trading_pair = market_pair.taker.trading_pair
             OrderBook taker_order_book = market_pair.taker.order_book
             list buy_fill_records = self._order_fill_buy_events.get(market_pair, [])
             list sell_fill_records = self._order_fill_sell_events.get(market_pair, [])
@@ -576,8 +576,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 taker_market.c_get_available_balance(market_pair.taker.base_asset) *
                 self._order_size_taker_balance_factor
             )
-            quantized_hedge_amount = taker_market.c_quantize_order_amount(taker_symbol, Decimal(hedged_order_quantity))
-            taker_top = taker_market.c_get_price(taker_symbol, False)
+            quantized_hedge_amount = taker_market.c_quantize_order_amount(taker_trading_pair, Decimal(hedged_order_quantity))
+            taker_top = taker_market.c_get_price(taker_trading_pair, False)
             avg_fill_price = (sum([r.price * r.amount for _, r in buy_fill_records]) /
                               sum([r.amount for _, r in buy_fill_records]))
 
@@ -607,8 +607,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 market_pair.taker.get_price_for_volume(True, sell_fill_quantity).result_price *
                 self._order_size_taker_balance_factor
             )
-            quantized_hedge_amount = taker_market.c_quantize_order_amount(taker_symbol, Decimal(hedged_order_quantity))
-            taker_top = taker_market.c_get_price(taker_symbol, True)
+            quantized_hedge_amount = taker_market.c_quantize_order_amount(taker_trading_pair, Decimal(hedged_order_quantity))
+            taker_top = taker_market.c_get_price(taker_trading_pair, True)
             avg_fill_price = (sum([r.price * r.amount for _, r in sell_fill_records]) /
                               sum([r.amount for _, r in sell_fill_records]))
 
@@ -645,10 +645,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         """
         cdef:
             MarketBase maker_market = market_pair.maker.market
-            str symbol = market_pair.maker.trading_pair
+            str trading_pair = market_pair.maker.trading_pair
         if self._order_amount and self._order_amount > 0:
             base_order_size = self._order_amount
-            return maker_market.c_quantize_order_amount(symbol, Decimal(base_order_size))
+            return maker_market.c_quantize_order_amount(trading_pair, Decimal(base_order_size))
         else:
             return self.c_get_order_size_after_portfolio_ratio_limit(market_pair)
 
@@ -665,15 +665,15 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         """
         cdef:
             MarketBase maker_market = market_pair.maker.market
-            str symbol = market_pair.maker.trading_pair
+            str trading_pair = market_pair.maker.trading_pair
             object base_balance = maker_market.c_get_balance(market_pair.maker.base_asset)
             object quote_balance = maker_market.c_get_balance(market_pair.maker.quote_asset)
-            object current_price = (maker_market.c_get_price(symbol, True) +
-                                    maker_market.c_get_price(symbol, False)) * Decimal(0.5)
+            object current_price = (maker_market.c_get_price(trading_pair, True) +
+                                    maker_market.c_get_price(trading_pair, False)) * Decimal(0.5)
             object maker_portfolio_value = base_balance + quote_balance / current_price
             object adjusted_order_size = maker_portfolio_value * self._order_size_portfolio_ratio_limit
 
-        return maker_market.c_quantize_order_amount(symbol, Decimal(adjusted_order_size))
+        return maker_market.c_quantize_order_amount(trading_pair, Decimal(adjusted_order_size))
 
     cdef object c_get_market_making_size(self,
                                          object market_pair,
@@ -1055,7 +1055,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             object order_size_limit
 
         order_size_limit = min(base_asset_amount, quote_asset_amount / order_price)
-        quantized_size_limit = maker_market.c_quantize_order_amount(active_order.symbol, order_size_limit)
+        quantized_size_limit = maker_market.c_quantize_order_amount(active_order.trading_pair, order_size_limit)
 
         if active_order.quantity > quantized_size_limit:
             if self._logging_options & self.OPTION_LOG_ADJUST_ORDER:
@@ -1197,6 +1197,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             str order_id = StrategyBase.c_buy_with_specific_market(self, market_trading_pair_tuple, amount,
                                                                    order_type=order_type, price=price,
                                                                    expiration_seconds=expiration_seconds)
+        self._sb_order_tracker.c_add_create_order_pending(order_id)
         self._market_pair_tracker.c_start_tracking_order_id(order_id, market_pair)
         return order_id
 
@@ -1216,6 +1217,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             str order_id = StrategyBase.c_sell_with_specific_market(self, market_trading_pair_tuple, amount,
                                                                     order_type=order_type, price=price,
                                                                     expiration_seconds=expiration_seconds)
+        self._sb_order_tracker.c_add_create_order_pending(order_id)
         self._market_pair_tracker.c_start_tracking_order_id(order_id, market_pair)
         return order_id
 
@@ -1237,3 +1239,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         StrategyBase.c_stop_tracking_market_order(self, market_trading_pair_tuple, order_id)
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
+
+    # Removes orders from pending_create
+    cdef c_did_create_buy_order(self, object order_created_event):
+        order_id = order_created_event.order_id
+        self._sb_order_tracker.c_remove_create_order_pending(order_id)
+
+    cdef c_did_create_sell_order(self, object order_created_event):
+        order_id = order_created_event.order_id
+        self._sb_order_tracker.c_remove_create_order_pending(order_id)
