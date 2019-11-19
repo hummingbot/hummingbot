@@ -46,8 +46,8 @@ class OrderBookMessage(namedtuple("_OrderBookMessage", "type, content, timestamp
         return -1
 
     @property
-    def symbol(self) -> str:
-        return self.content["symbol"]
+    def trading_pair(self) -> str:
+        return self.content["trading_pair"]
 
     @property
     def asks(self) -> List[OrderBookRow]:
@@ -116,7 +116,7 @@ class DDEXOrderBookMessage(OrderBookMessage):
         return int(self.timestamp * 1e3)
 
     @property
-    def symbol(self) -> str:
+    def trading_pair(self) -> str:
         return self.content["marketId"]
 
     @property
@@ -167,7 +167,7 @@ class DolomiteOrderBookMessage(OrderBookMessage):
         return int(self.timestamp * 1e3)
 
     @property
-    def symbol(self) -> str:
+    def trading_pair(self) -> str:
         return self.content["data"]["market"]
 
     @property
@@ -229,7 +229,7 @@ class IDEXOrderBookMessage(OrderBookMessage):
         return int(self.timestamp * 1e3)
 
     @property
-    def symbol(self) -> str:
+    def trading_pair(self) -> str:
         return self.content["market"]
 
     @property
@@ -300,7 +300,7 @@ class RadarRelayOrderBookMessage(OrderBookMessage):
         return int(self.timestamp * 1e3)
 
     @property
-    def symbol(self) -> str:
+    def trading_pair(self) -> str:
         return self.content["symbol"]
 
     @property
@@ -366,7 +366,7 @@ class BambooRelayOrderBookMessage(OrderBookMessage):
         return int(self.timestamp * 1e3)
 
     @property
-    def symbol(self) -> str:
+    def trading_pair(self) -> str:
         return self.content["symbol"]
 
     @property
@@ -429,7 +429,7 @@ class CoinbaseProOrderBookMessage(OrderBookMessage):
         return -1
 
     @property
-    def symbol(self) -> str:
+    def trading_pair(self) -> str:
         if "product_id" in self.content:
             return self.content["product_id"]
         elif "symbol" in self.content:
@@ -470,7 +470,7 @@ class BittrexOrderBookMessage(OrderBookMessage):
         return int(self.timestamp * 1e3)
 
     @property
-    def symbol(self) -> str:
+    def trading_pair(self) -> str:
         return self.content["M"]
 
     @property

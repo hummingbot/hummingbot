@@ -1,7 +1,7 @@
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     is_exchange,
-    is_valid_market_symbol,
+    is_valid_market_trading_pair,
     is_valid_percent
 )
 from hummingbot.client.settings import (
@@ -10,17 +10,17 @@ from hummingbot.client.settings import (
 )
 
 
-def maker_symbol_prompt():
+def maker_trading_pair_prompt():
     maker_market = pure_market_making_config_map.get("maker_market").value
     example = EXAMPLE_PAIRS.get(maker_market)
-    return "Enter the token symbol you would like to trade on %s%s >>> " \
+    return "Enter the token trading pair you would like to trade on %s%s >>> " \
            % (maker_market, f" (e.g. {example})" if example else "")
 
 
 # strategy specific validators
-def is_valid_maker_market_symbol(value: str) -> bool:
+def is_valid_maker_market_trading_pair(value: str) -> bool:
     maker_market = pure_market_making_config_map.get("maker_market").value
-    return is_valid_market_symbol(maker_market, value)
+    return is_valid_market_trading_pair(maker_market, value)
 
 
 pure_market_making_config_map = {
@@ -28,9 +28,9 @@ pure_market_making_config_map = {
                               prompt="Enter your maker exchange name >>> ",
                               validator=is_exchange,
                               on_validated=lambda value: required_exchanges.append(value)),
-    "maker_market_symbol": ConfigVar(key="primary_market_symbol",
-                                     prompt=maker_symbol_prompt,
-                                     validator=is_valid_maker_market_symbol),
+    "maker_market_trading_pair": ConfigVar(key="primary_market_trading_pair",
+                                           prompt=maker_trading_pair_prompt,
+                                           validator=is_valid_maker_market_trading_pair),
     "mode": ConfigVar(key="mode",
                       prompt="Enter quantity of bid/ask orders per side (single/multiple) >>> ",
                       type_str="str",

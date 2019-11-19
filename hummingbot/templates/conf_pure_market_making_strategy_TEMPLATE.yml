@@ -9,7 +9,7 @@ template_version: 1
 
 # Exchange and token parameters
 maker_market: null
-maker_market_symbol: null
+maker_market_trading_pair: null
 
 # size of each order
 order_amount: null
