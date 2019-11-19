@@ -754,8 +754,8 @@ cdef class RadarRelayMarket(MarketBase):
                     q_price = self.c_quantize_order_price(trading_pair, price)
                     exchange_order_id, zero_ex_order = await self.submit_limit_order(trading_pair=trading_pair,
                                                                                      trade_type=trade_type,
-                                                                                     amount=str(q_amt),
-                                                                                     price=str(q_price),
+                                                                                     amount=q_amt,
+                                                                                     price=q_price,
                                                                                      expires=expires)
                     self.c_start_tracking_limit_order(order_id=order_id,
                                                       exchange_order_id=exchange_order_id,
@@ -864,7 +864,7 @@ cdef class RadarRelayMarket(MarketBase):
     cdef c_cancel(self, str trading_pair, str client_order_id):
         safe_ensure_future(self.cancel_order(client_order_id))
 
-    def get_price(self, trading_pair: str, is_buy: bool) -> float:
+    def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
         return self.c_get_price(trading_pair, is_buy)
 
     def get_tx_hash_receipt(self, tx_hash: str) -> Dict[str, Any]:
