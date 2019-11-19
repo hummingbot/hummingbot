@@ -48,7 +48,7 @@ class PerformanceAnalysis:
             return self._current_quote
 
     def add_balances(self, asset_name: str, amount: float, is_base: bool, is_starting: bool):
-        """ Adds the balance of either the base or the quote in the given market symbol pair token to the corresponding
+        """ Adds the balance of either the base or the quote in the given market trading pair token to the corresponding
         CurrencyAmount object.
 
         NOTE: This is not to say that base / quote pairs between different markets are equivalent because that is NOT
@@ -115,7 +115,7 @@ class PerformanceAnalysis:
             if flat_fee_currency == trade.quote_asset:
                 total_flat_fees += Decimal(flat_fee_amount)
             else:
-                # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
+                # if the flat fee asset does not match quote asset, convert to quote asset value
                 total_flat_fees += ExchangeRateConversion.get_instance().convert_token_value_decimal(
                     amount=Decimal(flat_fee_amount),
                     from_currency=flat_fee_currency,

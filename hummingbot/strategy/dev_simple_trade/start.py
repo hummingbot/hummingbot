@@ -14,7 +14,7 @@ def start(self):
         is_buy = dev_simple_trade_config_map.get("is_buy").value
         time_delay = dev_simple_trade_config_map.get("time_delay").value
         market = dev_simple_trade_config_map.get("market").value.lower()
-        raw_market_symbol = dev_simple_trade_config_map.get("market_trading_pair_tuple").value
+        raw_market_trading_pair = dev_simple_trade_config_map.get("market_trading_pair_tuple").value
         order_price = None
         cancel_order_wait_time = None
 
@@ -23,7 +23,7 @@ def start(self):
             cancel_order_wait_time = dev_simple_trade_config_map.get("cancel_order_wait_time").value
 
         try:
-            trading_pair: str = self._convert_to_exchange_trading_pair(market, [raw_market_symbol])[0]
+            trading_pair: str = self._convert_to_exchange_trading_pair(market, [raw_market_trading_pair])[0]
             assets: Tuple[str, str] = self._initialize_market_assets(market, [trading_pair])[0]
         except ValueError as e:
             self._notify(str(e))
@@ -31,7 +31,7 @@ def start(self):
 
         market_names: List[Tuple[str, List[str]]] = [(market, [trading_pair])]
 
-        self._initialize_wallet(token_symbols=list(set(assets)))
+        self._initialize_wallet(token_trading_pairs=list(set(assets)))
         self._initialize_markets(market_names)
         self.assets = set(assets)
 
