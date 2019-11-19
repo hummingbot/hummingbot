@@ -88,7 +88,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
             conf.binance_api_key, conf.binance_api_secret,
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-            symbols=["ZRXETH", "IOSTETH"]
+            trading_pairs=["ZRXETH", "IOSTETH"]
         )
         print("Initializing Binance market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -301,18 +301,18 @@ class BinanceMarketUnitTest(unittest.TestCase):
         self.assertGreater(withdraw_asset_event.fee_amount, Decimal(0))
 
     def test_cancel_all(self):
-        symbol = "ZRXETH"
-        bid_price: Decimal = self.market.get_price(symbol, True)
-        ask_price: Decimal = self.market.get_price(symbol, False)
+        trading_pair = "ZRXETH"
+        bid_price: Decimal = self.market.get_price(trading_pair, True)
+        ask_price: Decimal = self.market.get_price(trading_pair, False)
         amount: Decimal = Decimal("0.02") / bid_price
-        quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         # Intentionally setting invalid price to prevent getting filled
-        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price * Decimal("0.7"))
-        quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price * Decimal("1.5"))
+        quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price * Decimal("0.7"))
+        quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.5"))
 
-        self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
-        self.market.sell(symbol, quantized_amount, OrderType.LIMIT, quantize_ask_price)
+        self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        self.market.sell(trading_pair, quantized_amount, OrderType.LIMIT, quantize_ask_price)
 
         self.run_parallel(asyncio.sleep(1))
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
@@ -322,9 +322,9 @@ class BinanceMarketUnitTest(unittest.TestCase):
     def test_order_price_precision(self):
         # As of the day this test was written, the min order size (base) is 1 IOST, the min order size (quote) is
         # 0.01 ETH, and order step size is 1 IOST.
-        symbol = "IOSTETH"
-        bid_price: Decimal = self.market.get_price(symbol, True)
-        ask_price: Decimal = self.market.get_price(symbol, False)
+        trading_pair = "IOSTETH"
+        bid_price: Decimal = self.market.get_price(trading_pair, True)
+        ask_price: Decimal = self.market.get_price(trading_pair, False)
         mid_price: Decimal = (bid_price + ask_price) / 2
         amount: Decimal = Decimal("0.02") / mid_price
         binance_client = self.market.binance_client
@@ -344,7 +344,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
         # Test bid order
         bid_order_id: str = self.market.buy(
-            symbol,
+            trading_pair,
             Decimal(bid_amount),
             OrderType.LIMIT,
             Decimal(bid_price)
@@ -355,17 +355,17 @@ class BinanceMarketUnitTest(unittest.TestCase):
             self.market_logger.wait_for(BuyOrderCreatedEvent, timeout_seconds=10)
         )
         order_data: Dict[str, any] = binance_client.get_order(
-            symbol=symbol,
+            symbol=trading_pair,
             origClientOrderId=bid_order_id
         )
-        quantized_bid_price: Decimal = self.market.quantize_order_price(symbol, Decimal(bid_price))
-        bid_size_quantum: Decimal = self.market.get_order_size_quantum(symbol, Decimal(bid_amount))
+        quantized_bid_price: Decimal = self.market.quantize_order_price(trading_pair, Decimal(bid_price))
+        bid_size_quantum: Decimal = self.market.get_order_size_quantum(trading_pair, Decimal(bid_amount))
         self.assertEqual(quantized_bid_price, Decimal(order_data["price"]))
         self.assertTrue(Decimal(order_data["origQty"]) % bid_size_quantum == 0)
 
         # Test ask order
         ask_order_id: str = self.market.sell(
-            symbol,
+            trading_pair,
             Decimal(amount),
             OrderType.LIMIT,
             Decimal(ask_price)
@@ -376,11 +376,11 @@ class BinanceMarketUnitTest(unittest.TestCase):
             self.market_logger.wait_for(SellOrderCreatedEvent, timeout_seconds=10)
         )
         order_data = binance_client.get_order(
-            symbol=symbol,
+            symbol=trading_pair,
             origClientOrderId=ask_order_id
         )
-        quantized_ask_price: Decimal = self.market.quantize_order_price(symbol, Decimal(ask_price))
-        quantized_ask_size: Decimal = self.market.quantize_order_amount(symbol, Decimal(amount))
+        quantized_ask_price: Decimal = self.market.quantize_order_price(trading_pair, Decimal(ask_price))
+        quantized_ask_size: Decimal = self.market.quantize_order_amount(trading_pair, Decimal(amount))
         self.assertEqual(quantized_ask_price, Decimal(order_data["price"]))
         self.assertEqual(quantized_ask_size, Decimal(order_data["origQty"]))
 
@@ -459,7 +459,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
                 binance_api_secret=conf.binance_api_secret,
                 order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                 user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-                symbols=["ZRXETH", "IOSTETH"]
+                trading_pairs=["ZRXETH", "IOSTETH"]
             )
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)

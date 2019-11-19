@@ -25,6 +25,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 
+
 class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
     order_book_tracker: Optional[BinanceOrderBookTracker] = None
     events: List[OrderBookEvent] = [
@@ -39,7 +40,7 @@ class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.order_book_tracker: BinanceOrderBookTracker = BinanceOrderBookTracker(
             data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-            symbols=cls.trading_pairs)
+            trading_pairs=cls.trading_pairs)
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
 
@@ -54,8 +55,6 @@ class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
     async def run_parallel_async(self, *tasks):
         future: asyncio.Future = safe_ensure_future(safe_gather(*tasks))
         while not future.done():
-            now = time.time()
-            next_iteration = now // 1.0 + 1
             await asyncio.sleep(1.0)
         return future.result()
 
@@ -76,7 +75,7 @@ class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
         self.run_parallel(self.event_logger.wait_for(OrderBookTradeEvent))
         for ob_trade_event in self.event_logger.event_log:
             self.assertTrue(type(ob_trade_event) == OrderBookTradeEvent)
-            self.assertTrue(ob_trade_event.symbol in self.trading_pairs)
+            self.assertTrue(ob_trade_event.trading_pair in self.trading_pairs)
             self.assertTrue(type(ob_trade_event.timestamp) == float)
             self.assertTrue(type(ob_trade_event.amount) == float)
             self.assertTrue(type(ob_trade_event.price) == float)
@@ -102,6 +101,7 @@ class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
                                 xrpusdt_book.get_price(True))
         self.assertLessEqual(xrpusdt_book.get_price_for_volume(False, 10000).result_price,
                              xrpusdt_book.get_price(False))
+
 
 def main():
     logging.basicConfig(level=logging.INFO)

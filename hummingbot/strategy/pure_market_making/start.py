@@ -29,7 +29,7 @@ def start(self):
         order_step_size = pure_market_making_config_map.get("order_step_size").value
         order_interval_percent = pure_market_making_config_map.get("order_interval_percent").value
         maker_market = pure_market_making_config_map.get("maker_market").value.lower()
-        raw_maker_symbol = pure_market_making_config_map.get("maker_market_symbol").value
+        raw_maker_trading_pair = pure_market_making_config_map.get("maker_market_trading_pair").value
         inventory_skew_enabled = pure_market_making_config_map.get("inventory_skew_enabled").value
         inventory_target_base_percent = pure_market_making_config_map.get("inventory_target_base_percent").value
         filled_order_replenish_wait_time = pure_market_making_config_map.get("filled_order_replenish_wait_time").value
@@ -67,7 +67,7 @@ def start(self):
                 sizing_delegate = ConstantSizeSizingDelegate(order_size)
 
         try:
-            trading_pair: str = self._convert_to_exchange_trading_pair(maker_market, [raw_maker_symbol])[0]
+            trading_pair: str = self._convert_to_exchange_trading_pair(maker_market, [raw_maker_trading_pair])[0]
             maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [trading_pair])[0]
         except ValueError as e:
             self._notify(str(e))
@@ -75,7 +75,7 @@ def start(self):
 
         market_names: List[Tuple[str, List[str]]] = [(maker_market, [trading_pair])]
 
-        self._initialize_wallet(token_symbols=list(set(maker_assets)))
+        self._initialize_wallet(token_trading_pairs=list(set(maker_assets)))
         self._initialize_markets(market_names)
         self.assets = set(maker_assets)
 
