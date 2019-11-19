@@ -76,13 +76,13 @@ class HuobiMarketUnitTest(unittest.TestCase):
         cls.market: HuobiMarket = HuobiMarket(
             conf.huobi_api_key,
             conf.huobi_secret_key,
-            symbols=["ethusdt"]
+            trading_pairs=["ethusdt"]
         )
         # Need 2nd instance of market to prevent events mixing up across tests
         cls.market_2: HuobiMarket = HuobiMarket(
             conf.huobi_api_key,
             conf.huobi_secret_key,
-            symbols=["ethusdt"]
+            trading_pairs=["ethusdt"]
         )
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.market)
@@ -150,15 +150,15 @@ class HuobiMarketUnitTest(unittest.TestCase):
         self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
     def test_limit_buy(self):
-        symbol = "ethusdt"
+        trading_pair = "ethusdt"
         amount: Decimal = Decimal("0.02")
-        quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        current_bid_price: Decimal = self.market.get_price(symbol, True)
+        current_bid_price: Decimal = self.market.get_price(trading_pair, True)
         bid_price: Decimal = current_bid_price + Decimal("0.05") * current_bid_price
-        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
+        quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
 
-        order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -180,15 +180,15 @@ class HuobiMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_limit_sell(self):
-        symbol = "ethusdt"
+        trading_pair = "ethusdt"
         amount: Decimal = Decimal("0.02")
-        quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        current_ask_price: Decimal = self.market.get_price(symbol, False)
+        current_ask_price: Decimal = self.market.get_price(trading_pair, False)
         ask_price: Decimal = current_ask_price - Decimal("0.05") * current_ask_price
-        quantize_ask_price: Decimal = self.market.quantize_order_price(symbol, ask_price)
+        quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price)
 
-        order_id = self.market.sell(symbol, amount, OrderType.LIMIT, quantize_ask_price)
+        order_id = self.market.sell(trading_pair, amount, OrderType.LIMIT, quantize_ask_price)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -210,11 +210,11 @@ class HuobiMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_market_buy(self):
-        symbol = "ethusdt"
+        trading_pair = "ethusdt"
         amount: Decimal = Decimal("0.02")
-        quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        order_id = self.market.buy(symbol, quantized_amount, OrderType.MARKET, 0)
+        order_id = self.market.buy(trading_pair, quantized_amount, OrderType.MARKET, 0)
         [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         buy_order_completed_event: BuyOrderCompletedEvent = buy_order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -236,11 +236,11 @@ class HuobiMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_market_sell(self):
-        symbol = "ethusdt"
+        trading_pair = "ethusdt"
         amount: Decimal = Decimal("0.02")
-        quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        order_id = self.market.sell(symbol, amount, OrderType.MARKET, 0)
+        order_id = self.market.sell(trading_pair, amount, OrderType.MARKET, 0)
         [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         sell_order_completed_event: SellOrderCompletedEvent = sell_order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -262,36 +262,36 @@ class HuobiMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_cancel_order(self):
-        symbol = "ethusdt"
+        trading_pair = "ethusdt"
 
-        current_bid_price: Decimal = self.market.get_price(symbol, True)
+        current_bid_price: Decimal = self.market.get_price(trading_pair, True)
         amount: Decimal = Decimal("0.02")
 
         bid_price: Decimal = current_bid_price - Decimal("0.1") * current_bid_price
-        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
-        quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+        quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
+        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        client_order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        client_order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
-        self.market.cancel(symbol, client_order_id)
+        self.market.cancel(trading_pair, client_order_id)
         [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
         order_cancelled_event: OrderCancelledEvent = order_cancelled_event
         self.assertEqual(order_cancelled_event.order_id, client_order_id)
 
     def test_cancel_all(self):
-        symbol = "ethusdt"
+        trading_pair = "ethusdt"
 
-        bid_price: Decimal = self.market_2.get_price(symbol, True) * Decimal("0.5")
-        ask_price: Decimal = self.market_2.get_price(symbol, False) * 2
+        bid_price: Decimal = self.market_2.get_price(trading_pair, True) * Decimal("0.5")
+        ask_price: Decimal = self.market_2.get_price(trading_pair, False) * 2
         amount: Decimal = Decimal("0.05")
-        quantized_amount: Decimal = self.market_2.quantize_order_amount(symbol, amount)
+        quantized_amount: Decimal = self.market_2.quantize_order_amount(trading_pair, amount)
 
         # Intentionally setting invalid price to prevent getting filled
-        quantize_bid_price: Decimal = self.market_2.quantize_order_price(symbol, bid_price * Decimal("0.7"))
-        quantize_ask_price: Decimal = self.market_2.quantize_order_price(symbol, ask_price * Decimal("1.5"))
+        quantize_bid_price: Decimal = self.market_2.quantize_order_price(trading_pair, bid_price * Decimal("0.7"))
+        quantize_ask_price: Decimal = self.market_2.quantize_order_price(trading_pair, ask_price * Decimal("1.5"))
 
-        self.market_2.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
-        self.market_2.sell(symbol, quantized_amount, OrderType.LIMIT, quantize_ask_price)
+        self.market_2.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        self.market_2.sell(trading_pair, quantized_amount, OrderType.LIMIT, quantize_ask_price)
         self.run_parallel(asyncio.sleep(1))
         [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
         for cr in cancellation_results:
@@ -300,7 +300,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
     def test_orders_saving_and_restoration(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        symbol: str = "ethusdt"
+        trading_pair: str = "ethusdt"
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
@@ -310,14 +310,14 @@ class HuobiMarketUnitTest(unittest.TestCase):
             self.assertEqual(0, len(self.market.tracking_states))
 
             # Try to put limit buy order for 0.04 ETH, and watch for order creation event.
-            current_bid_price: Decimal = self.market.get_price(symbol, True)
+            current_bid_price: Decimal = self.market.get_price(trading_pair, True)
             bid_price: Decimal = current_bid_price * Decimal("0.8")
-            quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
+            quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
 
             amount: Decimal = Decimal("0.04")
-            quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+            quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-            order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+            order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
             self.assertEqual(order_id, order_created_event.order_id)
@@ -344,7 +344,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
             self.market: HuobiMarket = HuobiMarket(
                 huobi_api_key=conf.huobi_api_key,
                 huobi_secret_key=conf.huobi_secret_key,
-                symbols=["ethusdt", "btcusdt"]
+                trading_pairs=["ethusdt", "btcusdt"]
             )
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)
@@ -360,7 +360,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
             self.assertEqual(1, len(self.market.tracking_states))
 
             # Cancel the order and verify that the change is saved.
-            self.market.cancel(symbol, order_id)
+            self.market.cancel(trading_pair, order_id)
             self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
@@ -369,7 +369,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
             self.assertEqual(0, len(saved_market_states.saved_state))
         finally:
             if order_id is not None:
-                self.market.cancel(symbol, order_id)
+                self.market.cancel(trading_pair, order_id)
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
@@ -378,7 +378,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
     def test_order_fill_record(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        symbol: str = "ethusdt"
+        trading_pair: str = "ethusdt"
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
@@ -387,7 +387,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
         try:
             # Try to buy 0.04 ETH from the exchange, and watch for completion event.
             amount: Decimal = Decimal("0.04")
-            order_id = self.market.buy(symbol, amount)
+            order_id = self.market.buy(trading_pair, amount)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
             # Reset the logs
@@ -395,7 +395,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
 
             # Try to sell back the same amount of ETH to the exchange, and watch for completion event.
             amount = buy_order_completed_event.base_asset_amount
-            order_id = self.market.sell(symbol, amount)
+            order_id = self.market.sell(trading_pair, amount)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
             # Query the persisted trade logs
@@ -410,7 +410,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
 
         finally:
             if order_id is not None:
-                self.market.cancel(symbol, order_id)
+                self.market.cancel(trading_pair, order_id)
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()

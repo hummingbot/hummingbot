@@ -84,15 +84,15 @@ class OrderBookTracker(ABC):
 
     @property
     def ready(self) -> bool:
-        symbols: List[str] = self.data_source._symbols or []
-        # if no symbols wait for at least 1 order book else wait for symbols
-        return len(symbols) <= len(self._order_books) and len(self._order_books) > 0
+        trading_pairs: List[str] = self.data_source._trading_pairs or []
+        # if no trading_pairs wait for at least 1 order book else wait for trading_pairs
+        return len(trading_pairs) <= len(self._order_books) and len(self._order_books) > 0
 
     @property
     def snapshot(self) -> Dict[str, Tuple[pd.DataFrame, pd.DataFrame]]:
         return {
-            symbol: order_book.snapshot
-            for symbol, order_book in self._order_books.items()
+            trading_pair: order_book.snapshot
+            for trading_pair, order_book in self._order_books.items()
         }
 
     async def start(self):
@@ -124,25 +124,25 @@ class OrderBookTracker(ABC):
         """
         Starts tracking for any new trading pairs, and stop tracking for any inactive trading pairs.
         """
-        tracking_symbols: Set[str] = set([key for key in self._tracking_tasks.keys()
+        tracking_trading_pairs: Set[str] = set([key for key in self._tracking_tasks.keys()
                                           if not self._tracking_tasks[key].done()])
         available_pairs: Dict[str, OrderBookTrackerEntry] = await self.data_source.get_tracking_pairs()
-        available_symbols: Set[str] = set(available_pairs.keys())
-        new_symbols: Set[str] = available_symbols - tracking_symbols
-        deleted_symbols: Set[str] = tracking_symbols - available_symbols
+        available_trading_pairs: Set[str] = set(available_pairs.keys())
+        new_trading_pairs: Set[str] = available_trading_pairs - tracking_trading_pairs
+        deleted_trading_pairs: Set[str] = tracking_trading_pairs - available_trading_pairs
 
-        for symbol in new_symbols:
-            self._order_books[symbol] = available_pairs[symbol].order_book
-            self._tracking_message_queues[symbol] = asyncio.Queue()
-            self._tracking_tasks[symbol] = safe_ensure_future(self._track_single_book(symbol))
-            self.logger().info("Started order book tracking for %s.", symbol)
+        for trading_pair in new_trading_pairs:
+            self._order_books[trading_pair] = available_pairs[trading_pair].order_book
+            self._tracking_message_queues[trading_pair] = asyncio.Queue()
+            self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
+            self.logger().info("Started order book tracking for %s.", trading_pair)
 
-        for symbol in deleted_symbols:
-            self._tracking_tasks[symbol].cancel()
-            del self._tracking_tasks[symbol]
-            del self._order_books[symbol]
-            del self._tracking_message_queues[symbol]
-            self.logger().info("Stopped order book tracking for %s.", symbol)
+        for trading_pair in deleted_trading_pairs:
+            self._tracking_tasks[trading_pair].cancel()
+            del self._tracking_tasks[trading_pair]
+            del self._order_books[trading_pair]
+            del self._tracking_message_queues[trading_pair]
+            self.logger().info("Stopped order book tracking for %s.", trading_pair)
 
     async def _refresh_tracking_loop(self):
         """
@@ -169,14 +169,14 @@ class OrderBookTracker(ABC):
         while True:
             try:
                 ob_message: OrderBookMessage = await self._order_book_diff_stream.get()
-                symbol: str = ob_message.symbol
+                trading_pair: str = ob_message.trading_pair
 
-                if symbol not in self._tracking_message_queues:
+                if trading_pair not in self._tracking_message_queues:
                     messages_rejected += 1
                     continue
-                message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
+                message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
                 # Check the order book's initial update ID. If it's larger, don't bother.
-                order_book: OrderBook = self._order_books[symbol]
+                order_book: OrderBook = self._order_books[trading_pair]
 
                 if order_book.snapshot_uid > ob_message.update_id:
                     messages_rejected += 1
@@ -207,10 +207,10 @@ class OrderBookTracker(ABC):
         while True:
             try:
                 ob_message: OrderBookMessage = await self._order_book_snapshot_stream.get()
-                symbol: str = ob_message.symbol
-                if symbol not in self._tracking_message_queues:
+                trading_pair: str = ob_message.trading_pair
+                if trading_pair not in self._tracking_message_queues:
                     continue
-                message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
+                message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
                 await message_queue.put(ob_message)
             except asyncio.CancelledError:
                 raise
@@ -218,12 +218,12 @@ class OrderBookTracker(ABC):
                 self.logger().error("Unknown error. Retrying after 5 seconds.", exc_info=True)
                 await asyncio.sleep(5.0)
 
-    async def _track_single_book(self, symbol: str):
+    async def _track_single_book(self, trading_pair: str):
         past_diffs_window: Deque[OrderBookMessage] = deque()
-        self._past_diffs_windows[symbol] = past_diffs_window
+        self._past_diffs_windows[trading_pair] = past_diffs_window
 
-        message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
-        order_book: OrderBook = self._order_books[symbol]
+        message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
+        order_book: OrderBook = self._order_books[trading_pair]
         last_message_timestamp: float = time.time()
         diff_messages_accepted: int = 0
 
@@ -241,13 +241,13 @@ class OrderBookTracker(ABC):
                     now: float = time.time()
                     if int(now / 60.0) > int(last_message_timestamp / 60.0):
                         self.logger().debug("Processed %d order book diffs for %s.",
-                                            diff_messages_accepted, symbol)
+                                            diff_messages_accepted, trading_pair)
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                 elif message.type is OrderBookMessageType.SNAPSHOT:
                     past_diffs: List[OrderBookMessage] = list(past_diffs_window)
                     order_book.restore_from_snapshot_and_diffs(message, past_diffs)
-                    self.logger().debug("Processed order book snapshot for %s.", symbol)
+                    self.logger().debug("Processed order book snapshot for %s.", trading_pair)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -261,15 +261,15 @@ class OrderBookTracker(ABC):
         while True:
             try:
                 trade_message: OrderBookMessage = await self._order_book_trade_stream.get()
-                symbol: str = trade_message.symbol
+                trading_pair: str = trade_message.trading_pair
 
-                if symbol not in self._order_books:
+                if trading_pair not in self._order_books:
                     messages_rejected += 1
                     continue
 
-                order_book: OrderBook = self._order_books[symbol]
+                order_book: OrderBook = self._order_books[trading_pair]
                 order_book.apply_trade(OrderBookTradeEvent(
-                    symbol=trade_message.symbol,
+                    trading_pair=trade_message.trading_pair,
                     timestamp=trade_message.timestamp,
                     price=float(trade_message.content["price"]),
                     amount=float(trade_message.content["amount"]),

@@ -36,31 +36,31 @@ class MockAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._maobds_logger = logging.getLogger(__name__)
         return cls._maobds_logger
 
-    def __init__(self, client: TestClient, order_book_class: OrderBook, symbols: Optional[List[str]] = None):
+    def __init__(self, client: TestClient, order_book_class: OrderBook, trading_pairs: Optional[List[str]] = None):
         super().__init__()
         self._client: TestClient = client
         self._order_book_class = order_book_class
-        self._symbols: Optional[List[str]] = symbols
+        self._trading_pairs: Optional[List[str]] = trading_pairs
         self._diff_messages: asyncio.Queue = asyncio.Queue()
         self._snapshot_messages: asyncio.Queue = asyncio.Queue()
 
     @classmethod
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
-        raise NotImplementedError("Symbols are required for mock data source")
+        raise NotImplementedError("Trading Pairs are required for mock data source")
 
     async def get_trading_pairs(self) -> List[str]:
-        if not self._symbols:
+        if not self._trading_pairs:
             try:
                 active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                self._symbols = active_markets.index.tolist()
+                self._trading_pairs = active_markets.index.tolist()
             except Exception:
-                self._symbols = []
+                self._trading_pairs = []
                 self.logger().network(
                     f"Error getting active exchange information.",
                     exc_info=True,
                     app_warning_msg=f"Error getting active exchange information. Check network connection."
                 )
-        return self._symbols
+        return self._trading_pairs
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
@@ -84,7 +84,7 @@ class MockAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 snapshot: Dict[str, Any] = await self.get_snapshot(self._client, trading_pair)
                 snapshot_msg: OrderBookMessage = self._order_book_class.snapshot_message_from_exchange(
                     snapshot,
-                    metadata={"symbol": trading_pair}
+                    metadata={"trading_pair": trading_pair}
                 )
                 order_book: OrderBook = self.order_book_create_function()
                 order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
@@ -143,7 +143,7 @@ class MockAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         snapshot: Dict[str, Any] = await self.get_snapshot(self._client, trading_pair)
                         snapshot_message: OrderBookMessage = self._order_book_class.snapshot_message_from_exchange(
                             snapshot,
-                            metadata={"symbol": trading_pair}
+                            metadata={"trading_pair": trading_pair}
                         )
                         output.put_nowait(snapshot_message)
                         self.logger().debug(f"Saved order book snapshot for {trading_pair}")
