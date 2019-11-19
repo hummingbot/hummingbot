@@ -83,7 +83,7 @@ class HistoryCommand:
                     asset_name = market_trading_pair_tuple.base_asset if is_base else market_trading_pair_tuple.quote_asset
                     asset_name = asset_name.upper()
                     if len(self.assets) == 0 or len(self.markets) == 0:
-                        # Prevent KeyError '***SYMBOL***'
+                        # Prevent KeyError '***asset_name***'
                         amount = self.starting_balances[asset_name][market_name]
                     else:
                         amount = self.starting_balances[asset_name][market_name] if is_starting \
@@ -99,7 +99,7 @@ class HistoryCommand:
 
     def get_market_mid_price(self,  # type: HummingbotApplication
                              ) -> float:
-        # Compute the current exchange rate. We use the first market_symbol_pair because
+        # Compute the current exchange rate. We use the first market_trading_pair_tuples because
         # if the trading pairs are different, such as WETH-DAI and ETH-USD, the currency
         # pairs above will contain the information in terms of the first trading pair.
         market_pair_info = self.market_trading_pair_tuples[0]
