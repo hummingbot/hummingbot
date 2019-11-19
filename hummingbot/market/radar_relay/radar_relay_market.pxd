@@ -35,7 +35,7 @@ cdef class RadarRelayMarket(MarketBase):
     cdef c_start_tracking_limit_order(self,
                                       str order_id,
                                       str exchange_order_id,
-                                      str symbol,
+                                      str trading_pair,
                                       object order_type,
                                       object trade_type,
                                       object price,
@@ -43,7 +43,7 @@ cdef class RadarRelayMarket(MarketBase):
                                       object zero_ex_order)
     cdef c_start_tracking_market_order(self,
                                        str order_id,
-                                       str symbol,
+                                       str trading_pair,
                                        object order_type,
                                        object trade_type,
                                        object price,
