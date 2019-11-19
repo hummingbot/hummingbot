@@ -45,15 +45,15 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._haobds_logger = logging.getLogger(__name__)
         return cls._haobds_logger
 
-    def __init__(self, symbols: Optional[List[str]] = None):
+    def __init__(self, trading_pairs: Optional[List[str]] = None):
         super().__init__()
-        self._symbols: Optional[List[str]] = symbols
+        self._trading_pairs: Optional[List[str]] = trading_pairs
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         """
-        Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
+        Returned data frame should have trading pair as index and include usd volume, baseAsset and quoteAsset
         """
         async with aiohttp.ClientSession() as client:
 
@@ -96,18 +96,18 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return all_markets.sort_values("USDVolume", ascending=False)
 
     async def get_trading_pairs(self) -> List[str]:
-        if not self._symbols:
+        if not self._trading_pairs:
             try:
                 active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                self._symbols = active_markets.index.tolist()
+                self._trading_pairs = active_markets.index.tolist()
             except Exception:
-                self._symbols = []
+                self._trading_pairs = []
                 self.logger().network(
                     f"Error getting active exchange information.",
                     exc_info=True,
                     app_warning_msg=f"Error getting active exchange information. Check network connection."
                 )
-        return self._symbols
+        return self._trading_pairs
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
@@ -134,7 +134,7 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
                     snapshot_msg: OrderBookMessage = HuobiOrderBook.snapshot_message_from_exchange(
                         snapshot,
-                        metadata={"symbol": trading_pair}
+                        metadata={"trading_pair": trading_pair}
                     )
                     order_book: OrderBook = self.order_book_create_function()
                     order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
@@ -252,7 +252,7 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
                             snapshot_message: OrderBookMessage = HuobiOrderBook.snapshot_message_from_exchange(
                                 snapshot,
-                                metadata={"symbol": trading_pair}
+                                metadata={"trading_pair": trading_pair}
                             )
                             output.put_nowait(snapshot_message)
                             self.logger().debug(f"Saved order book snapshot for {trading_pair}")
