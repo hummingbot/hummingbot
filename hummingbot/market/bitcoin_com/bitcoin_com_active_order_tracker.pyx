@@ -98,8 +98,9 @@ cdef class BitcoinComActiveOrderTracker:
         self._active_bids.clear()
         self._active_asks.clear()
         timestamp = message.timestamp
+        content = message.content
 
-        for snapshot_orders, active_orders in [(message.content["bid"], self._active_bids), (message.content["ask"], self.active_asks)]:
+        for snapshot_orders, active_orders in [(content["bid"], self._active_bids), (content["ask"], self.active_asks)]:
 
             for order in snapshot_orders:
                 price = order["price"]
@@ -144,8 +145,11 @@ cdef class BitcoinComActiveOrderTracker:
         cdef:
             double trade_type_value = 2.0
 
+        timestamp = message.timestamp
+        content = message.content
+
         return np.array(
-            [message.timestamp, trade_type_value, float(message.content["price"]), float(message.content["size"])],
+            [timestamp, trade_type_value, float(content["price"]), float(content["size"])],
             dtype="float64"
         )
 

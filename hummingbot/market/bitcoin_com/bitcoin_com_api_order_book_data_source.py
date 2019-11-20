@@ -17,6 +17,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.market.bitcoin_com.bitcoin_com_active_order_tracker import BitcoinComActiveOrderTracker
 from hummingbot.market.bitcoin_com.bitcoin_com_order_book import BitcoinComOrderBook
 from hummingbot.market.bitcoin_com.bitcoin_com_websocket import BitcoinComWebsocket
+from hummingbot.market.bitcoin_com.bitcoin_com_utils import merge_dicts, add_event_type, EventTypes
 
 
 class BitcoinComAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -69,18 +70,7 @@ class BitcoinComAPIOrderBookDataSource(OrderBookTrackerDataSource):
             markets_data: Dict[str, Any] = {item["id"]: item for item in markets_data}
             tickers_data: Dict[str, Any] = {item["symbol"]: item for item in tickers_data}
 
-            def merge(source, destination):
-                for key, value in source.items():
-                    if isinstance(value, dict):
-                        # get node or create one
-                        node = destination.setdefault(key, {})
-                        merge(value, node)
-                    else:
-                        destination[key] = value
-
-                return destination
-
-            data_union = merge(tickers_data, markets_data)
+            data_union = merge_dicts(tickers_data, markets_data)
 
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=list(data_union.values()), index="symbol")
             all_markets.rename(
@@ -158,7 +148,7 @@ class BitcoinComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 snapshot: Dict[str, any] = await self.get_orderbook(trading_pair)
                 snapshot_timestamp: float = pd.Timestamp(snapshot["timestamp"]).timestamp()
                 snapshot_msg: OrderBookMessage = BitcoinComOrderBook.snapshot_message_from_exchange(
-                    snapshot,
+                    add_event_type(EventTypes.OrderbookSnapshot, snapshot),
                     snapshot_timestamp,
                     metadata={"trading_pair": trading_pair}
                 )
@@ -212,7 +202,11 @@ class BitcoinComAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                         for trade in trades:
                             trade_timestamp: float = pd.Timestamp(trade["timestamp"]).timestamp()
-                            trade_msg: OrderBookMessage = BitcoinComOrderBook.trade_message_from_exchange(trade, trade_timestamp, metadata={"trading_pair": trading_pair})
+                            trade_msg: OrderBookMessage = BitcoinComOrderBook.trade_message_from_exchange(
+                                add_event_type(EventTypes.TradesUpdate, trade),
+                                trade_timestamp,
+                                metadata={"trading_pair": trading_pair}
+                            )
                             output.put_nowait(trade_msg)
             except asyncio.CancelledError:
                 raise
@@ -244,7 +238,11 @@ class BitcoinComAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                         diff = response["data"]
                         diff_timestamp: float = pd.Timestamp(diff["timestamp"]).timestamp()
-                        orderbook_msg: OrderBookMessage = BitcoinComOrderBook.diff_message_from_exchange(diff, diff_timestamp)
+                        orderbook_msg: OrderBookMessage = BitcoinComOrderBook.diff_message_from_exchange(
+                            add_event_type(EventTypes.OrderbookUpdate, diff),
+                            diff_timestamp,
+                            metadata={"trading_pair": trading_pair}
+                        )
                         output.put_nowait(orderbook_msg)
 
             except asyncio.CancelledError:
@@ -273,7 +271,7 @@ class BitcoinComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         snapshot: Dict[str, any] = await self.get_orderbook(trading_pair)
                         snapshot_timestamp: float = pd.Timestamp(snapshot["timestamp"]).timestamp()
                         snapshot_msg: OrderBookMessage = BitcoinComOrderBook.snapshot_message_from_exchange(
-                            snapshot,
+                            add_event_type(EventTypes.OrderbookSnapshot, snapshot),
                             snapshot_timestamp,
                             metadata={"trading_pair": trading_pair}
                         )

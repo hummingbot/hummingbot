@@ -8,6 +8,7 @@ import hummingbot.market.bitcoin_com.bitcoin_com_constants as constants
 from typing import Dict, Optional, AsyncIterable, Any
 from websockets.exceptions import ConnectionClosed
 from hummingbot.logger import HummingbotLogger
+from hummingbot.market.bitcoin_com.bitcoin_com_utils import raw_msg_to_msg
 
 # reusable websocket class
 
@@ -56,20 +57,10 @@ class BitcoinComWebsocket():
         try:
             while True:
                 try:
-                    raw_msg: str = await asyncio.wait_for(self._client.recv(), timeout=self.MESSAGE_TIMEOUT)
-                    msg = ujson.loads(raw_msg)
+                    raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=self.MESSAGE_TIMEOUT)
+                    raw_msg = ujson.loads(raw_msg_str)
 
-                    id = msg.get("id", None)
-                    method = msg.get("method", None)
-                    data = msg.get("params", msg.get("result", None))
-                    error = msg.get("error", None)
-
-                    yield {
-                        "id": id,
-                        "method": method,
-                        "data": data,
-                        "error": error
-                    }
+                    yield raw_msg_to_msg(raw_msg)
                 except asyncio.TimeoutError:
                     try:
                         pong_waiter = await self._client.ping()
@@ -101,9 +92,7 @@ class BitcoinComWebsocket():
         nonce = await self._emit(name, data)
 
         async for msg in self._messages():
-            id: int = msg.get("id", None)
-
-            if (id == nonce):
+            if (msg["id"] == nonce):
                 yield msg
 
     # subscribe to a method
@@ -115,9 +104,7 @@ class BitcoinComWebsocket():
         self._set_event(name)
 
         async for msg in self._messages():
-            method: str = msg.get("method", None)
-
-            if (method == name):
+            if (msg["method"] == name):
                 yield msg
 
     # authenticate connection and return result

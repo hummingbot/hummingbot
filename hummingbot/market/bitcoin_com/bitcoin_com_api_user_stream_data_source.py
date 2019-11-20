@@ -13,6 +13,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.market.bitcoin_com.bitcoin_com_order_book import BitcoinComOrderBook
 from hummingbot.market.bitcoin_com.bitcoin_com_websocket import BitcoinComWebsocket
+from hummingbot.market.bitcoin_com.bitcoin_com_utils import add_event_type, EventTypes
 
 
 class BitcoinComAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -56,9 +57,7 @@ class BitcoinComAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 await ws.subscribe("subscribeReports", {})
 
                 async for msg in ws._messages():
-                    method = msg.get("method", None)
-
-                    if (method not in ["activeOrders", "report"]):
+                    if (msg["method"] not in ["activeOrders", "report"]):
                         continue
 
                     yield msg
@@ -107,21 +106,30 @@ class BitcoinComAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
                 async with combine.stream() as streamer:
                     async for msg in streamer:
-                        method = msg.get("method", None)
-                        data = msg.get("data", None)
+                        method = msg["method"]
+                        data = msg["data"]
 
                         if (method == "getTradingBalance"):
                             order_timestamp: float = time.time()
-                            order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(data, order_timestamp)
+                            order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(
+                                add_event_type(EventTypes.BalanceSnapshot, data),
+                                order_timestamp
+                            )
                             output.put_nowait(order_book_message)
                         elif (method == "activeOrders"):
                             for order in data:
                                 order_timestamp: float = pd.Timestamp(order["updatedAt"]).timestamp()
-                                order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(order, order_timestamp)
+                                order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(
+                                    add_event_type(EventTypes.ActiveOrdersSnapshot, order),
+                                    order_timestamp
+                                )
                                 output.put_nowait(order_book_message)
                         else:
                             order_timestamp: float = pd.Timestamp(data["updatedAt"]).timestamp()
-                            order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(data, order_timestamp)
+                            order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(
+                                add_event_type(EventTypes.ActiveOrdersUpdate, data),
+                                order_timestamp
+                            )
                             output.put_nowait(order_book_message)
 
             except asyncio.CancelledError:

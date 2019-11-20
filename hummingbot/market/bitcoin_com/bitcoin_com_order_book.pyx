@@ -17,6 +17,7 @@ from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage, OrderBookMessageType, BitcoinComOrderBookMessage
 )
+from hummingbot.market.bitcoin_com.bitcoin_com_utils import merge_dicts
 
 _logger = None
 
@@ -113,10 +114,11 @@ cdef class BitcoinComOrderBook(OrderBook):
 
         if metadata:
             msg.update(metadata)
-            msg.update({
-                "trade_type": float(TradeType.SELL.value) if msg["side"] == "buy" else float(TradeType.BUY.value),
-                "amount": msg["quantity"]
-            })
+
+        msg.update({
+            "trade_type": float(TradeType.SELL.value) if msg["side"] == "buy" else float(TradeType.BUY.value),
+            "amount": msg["quantity"]
+        })
 
         return BitcoinComOrderBookMessage(
             message_type=OrderBookMessageType.TRADE,
