@@ -25,7 +25,7 @@ class KucoinOrderBookTrackerUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.kucoin_auth = KucoinAuth(conf.kucoin_api_key, conf.kucoin_secret_key, conf.kucoin_passphrase)
+        cls.kucoin_auth = KucoinAuth(conf.kucoin_api_key, conf.kucoin_passphrase, conf.kucoin_secret_key)
         cls.user_stream_tracker: KucoinUserStreamTracker = KucoinUserStreamTracker(kucoin_auth=cls.kucoin_auth)
         cls.user_stream_tracker_task: asyncio.Task = safe_ensure_future(cls.user_stream_tracker.start())
 
