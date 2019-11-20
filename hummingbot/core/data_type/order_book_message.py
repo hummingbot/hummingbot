@@ -301,7 +301,7 @@ class RadarRelayOrderBookMessage(OrderBookMessage):
 
     @property
     def trading_pair(self) -> str:
-        return self.content["symbol"]
+        return self.content.get("trading_pair") or self.content.get("symbol")
 
     @property
     def asks(self) -> List[OrderBookRow]:
