@@ -228,7 +228,6 @@ def read_configs_from_yml(strategy_file_path: Optional[str] = None):
                         password = in_memory_config_map.get("password").value
                         if password is not None:
                             cvar.value = decrypt_config_value(cvar, password)
-
                 if val_in_file is not None and not cvar.validate(val_in_file):
                     raise ValueError("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
 
