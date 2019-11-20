@@ -96,7 +96,7 @@ For example, if you are targeting a 50/50 base to quote asset ratio but the curr
  | Prompt | Description |
 |-----|-----|
 | `Would you like to enable inventory skew? (y/n) >>>` | This sets `inventory_skew_enabled` ([definition](#configuration-parameters)). |
-| `What is your target base asset inventory percentage? (Enter 0.01 to indicate 1%, default is 0.5 (50%)) >>> ` | This sets `inventory_target_base_percent` ([definition](#configuration-parameters)). |
+| `What is your target base asset inventory percentage? (Enter 0.01 to indicate 1%) >>> ` | This sets `inventory_target_base_percent` ([definition](#configuration-parameters)). |
 
 Here's an [inventory skew calculator](https://docs.google.com/spreadsheets/d/16oCExZyM8Wo8d0aRPmT_j7oXCzea3knQ5mmm0LlPGbU/edit#gid=690135600) that shows how it adjusts order sizes.
 
