@@ -1,8 +1,7 @@
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     is_strategy,
-    is_path,
-    is_valid_password
+    is_path
 )
 from hummingbot.client.settings import (
     CONF_POSTFIX,
@@ -32,8 +31,7 @@ in_memory_config_map = {
     "password":
         ConfigVar(key="password",
                   prompt="Password please >>> ",
-                  is_secure=True,
-                  validator=is_valid_password),
+                  is_secure=True),
     "strategy":
         ConfigVar(key="strategy",
                   prompt="What is your market making strategy? >>> ",

@@ -34,7 +34,7 @@ from hummingbot.client.settings import (
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.config_crypt import (
     encrypt_n_save_config_value,
-    decrypt_config_value_from_file,
+    decrypt_config_value,
     get_encrypted_config_path,
     encrypted_config_file_exists
 )
@@ -227,7 +227,7 @@ def read_configs_from_yml(strategy_file_path: Optional[str] = None):
                     if encrypted_config_file_exists(cvar):
                         password = in_memory_config_map.get("password").value
                         if password is not None:
-                            cvar.value = decrypt_config_value_from_file(cvar, password)
+                            cvar.value = decrypt_config_value(cvar, password)
 
                 if val_in_file is not None and not cvar.validate(val_in_file):
                     raise ValueError("Invalid value %s for config variable %s" % (val_in_file, cvar.key))

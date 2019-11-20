@@ -19,6 +19,15 @@ from eth_keyfile.keyfile import (
 from hummingbot.client.settings import ENCYPTED_CONF_PREFIX, ENCYPTED_CONF_POSTFIX
 
 
+def list_encrypted_file_paths():
+    file_paths = []
+    for f in os.listdir(get_key_file_path()):
+        f_path = os.path.join(get_key_file_path(), f)
+        if os.path.isfile(f_path) and f.startswith(ENCYPTED_CONF_PREFIX) and f.endswith(ENCYPTED_CONF_POSTFIX):
+            file_paths.append(f_path)
+    return file_paths
+
+
 def get_encrypted_config_path(config_var):
     return "%s%s%s%s" % (get_key_file_path(), ENCYPTED_CONF_PREFIX, config_var.key, ENCYPTED_CONF_POSTFIX)
 
@@ -39,13 +48,14 @@ def encrypt_n_save_config_value(config_var, password):
         f.write(json.dumps(encrypted))
 
 
-def decrypt_config_value_from_file(config_var, password):
-    """
-    decrypt configuration value from file, file name is derived from config_var key (in conf folder)
-    """
+def decrypt_config_value(config_var, password):
     if not encrypted_config_file_exists(config_var):
         return None
     file_path = get_encrypted_config_path(config_var)
+    return decrypt_file(file_path, password)
+
+
+def decrypt_file(file_path, password):
     with open(file_path, 'r') as f:
         encrypted = f.read()
     secured_value = Account.decrypt(encrypted, password)
