@@ -91,16 +91,16 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=ticker_data,
                                                                   index="marketId")
 
-            dai_to_eth_price: float = float(all_markets.loc["DAI-WETH"].price)
+            dai_to_eth_price: float = float(all_markets.loc["SAI-WETH"].price)
             weth_to_usd_price: float = float(all_markets.loc["WETH-TUSD"].price)
             usd_volume: float = [
                 (
-                    quoteVolume * dai_to_eth_price * weth_to_usd_price if trading_pair.endswith("DAI") else
+                    quoteVolume * dai_to_eth_price * weth_to_usd_price if trading_pair.endswith("SAI") else
                     quoteVolume * weth_to_usd_price if trading_pair.endswith("WETH") else
                     quoteVolume
                 )
                 for trading_pair, quoteVolume in zip(all_markets.index,
-                                               all_markets.volume.astype("float"))]
+                                                     all_markets.volume.astype("float"))]
             all_markets["USDVolume"] = usd_volume
             return all_markets.sort_values("USDVolume", ascending=False)
 
@@ -123,23 +123,23 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return self._trading_pairs
 
     async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str, level: int = 3) -> Dict[str, any]:
-            params: Dict = {"level": level}
-            retry: int = 3
-            while retry > 0:
-                try:
-                    async with client.get(f"{REST_URL}/markets/{trading_pair}/orderbook", params=params) as response:
-                        response: aiohttp.ClientResponse = response
-                        if response.status != 200:
-                            raise IOError(f"Error fetching DDex market snapshot for {trading_pair}. "
-                                          f"HTTP status is {response.status}.")
-                        data: Dict[str, any] = await response.json()
-                        return data
-                except Exception:
-                    self.logger().warning(f"Error requesting order book snapshot. Retrying {retry} more times.")
-                    await asyncio.sleep(10)
-                    retry -= 1
-                    if retry == 0:
-                        raise
+        params: Dict = {"level": level}
+        retry: int = 3
+        while retry > 0:
+            try:
+                async with client.get(f"{REST_URL}/markets/{trading_pair}/orderbook", params=params) as response:
+                    response: aiohttp.ClientResponse = response
+                    if response.status != 200:
+                        raise IOError(f"Error fetching DDex market snapshot for {trading_pair}. "
+                                      f"HTTP status is {response.status}.")
+                    data: Dict[str, any] = await response.json()
+                    return data
+            except Exception:
+                self.logger().warning(f"Error requesting order book snapshot. Retrying {retry} more times.")
+                await asyncio.sleep(10)
+                retry -= 1
+                if retry == 0:
+                    raise
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         # Get the currently active markets
