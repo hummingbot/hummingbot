@@ -23,6 +23,7 @@ def default_strategy_conf_path_prompt():
     return "Enter path to your strategy file (e.g. \"%s\") >>> " \
            % (get_default_strategy_config_yml_path(strategy),)
 
+#todo Add password into in_memory_config_map
 
 # These configs are never saved and prompted every time
 in_memory_config_map = {
