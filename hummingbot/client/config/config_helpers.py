@@ -262,7 +262,6 @@ async def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
             data = yaml_parser.load(stream) or {}
             for key in cm:
                 cvar = cm.get(key)
-                #todo: save secure config variable here
                 if cvar.is_secure:
                     if cvar.value is not None and not encrypted_config_file_exists(cvar):
                         from hummingbot.client.config.in_memory_config_map import in_memory_config_map

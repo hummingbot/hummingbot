@@ -222,7 +222,8 @@ class ConfigCommand:
 
         return strategy_path
 
-    async def _one_password_config(self):
+    async def _one_password_config(self,  # type: HummingbotApplication
+                                   ):
         """
         Special handler function to handle one password unlocking all secure conf variable and wallets
             - let a user creates a new password if there is no existing encrypted_files or key_files.
