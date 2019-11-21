@@ -103,7 +103,9 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             ]
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data, index="id")
 
-            weth_dai_price = Decimal(all_markets.loc["WETH-DAI"]["ticker"]["price"])
+            weth_dai_price: Decimal = Decimal(ExchangeRateConversion.get_instance().convert_token_value(
+                1.0, from_currency="WETH", to_currency="DAI"
+            ))
             dai_usd_price: Decimal = ExchangeRateConversion.get_instance().adjust_token_rate("DAI", weth_dai_price)
             usd_volume: List[Decimal] = []
             quote_volume: List[Decimal] = []

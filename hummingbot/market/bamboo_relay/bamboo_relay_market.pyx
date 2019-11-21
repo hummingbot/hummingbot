@@ -880,8 +880,8 @@ cdef class BambooRelayMarket(MarketBase):
         unsigned_limit_order = await self.request_unsigned_limit_order(symbol=symbol,
                                                                        trade_type=trade_type,
                                                                        is_coordinated=self._use_coordinator,
-                                                                       amount=str(amount),
-                                                                       price=price,
+                                                                       amount=f"{amount:f}",
+                                                                       price=f"{price:f}",
                                                                        expires=expires)
         unsigned_limit_order["makerAddress"] = self._wallet.address.lower()
         order_hash_hex = self.get_order_hash_hex(unsigned_limit_order)
