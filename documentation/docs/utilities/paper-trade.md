@@ -45,20 +45,15 @@ Add more paper trade assets by editing `conf_global.yml` using a text editor. **
 
 ## Supported Connectors
 
-Here are the list of supported connectors for paper trading.
+- Binance
+- Coinbase Pro
+- Huobi
+- DDEX
+- Bamboo Relay
+- Radar Relay
 
-```
-# Supported Connectors
-Binance
-Coinbase Pro
-Huobi
-DDEX
-Bamboo Relay
-Radar Relay
+### Not yet supported
 
-# Not yet supported
-Bittrex
-Dolomite
-IDEX
-```
-
+- IDEX
+- Bittrex
+- Dolomite
