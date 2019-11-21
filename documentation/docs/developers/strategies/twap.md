@@ -11,6 +11,7 @@ The TWAP strategy is a common algorithmic execution strategy used for splitting 
 ## Overwiew
 
 The TWAP strategy divides a large user order into chunks according to the following user configurations:
+
 * Total order size
 * number of individual orders
 * time delay between orders
@@ -21,10 +22,9 @@ The orders are then split into tradable (quantized) amounts and executed sequent
 
 ## Config
 
-Here are the additional user configurable parameters for the TWAP strategy (fields are added to `config_map` file) :
+Here are the additional user configurable parameters for the TWAP strategy (fields are added to `config_map` file):
 
 * `time_delay` : Change the question to ask for the number of seconds to delay each individual order. (e.g. How many seconds do you want to wait between each individual order?)
-
 * `num_individual_orders` : a new field added to the config map. It should ask for the number individual orders that an order should be split up into. (e.g.Into how many individual orders do you want to split this order?)
 
 
