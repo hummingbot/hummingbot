@@ -83,7 +83,7 @@ class HistoryCommand:
                     asset_name = market_trading_pair_tuple.base_asset if is_base else market_trading_pair_tuple.quote_asset
                     asset_name = asset_name.upper()
                     if len(self.assets) == 0 or len(self.markets) == 0:
-                        # Prevent KeyError '***SYMBOL***'
+                        # Prevent KeyError '***asset_name***'
                         amount = self.starting_balances[asset_name][market_name]
                     else:
                         amount = self.starting_balances[asset_name][market_name] if is_starting \
@@ -99,7 +99,7 @@ class HistoryCommand:
 
     def get_market_mid_price(self,  # type: HummingbotApplication
                              ) -> float:
-        # Compute the current exchange rate. We use the first market_symbol_pair because
+        # Compute the current exchange rate. We use the first market_trading_pair_tuples because
         # if the trading pairs are different, such as WETH-DAI and ETH-USD, the currency
         # pairs above will contain the information in terms of the first trading pair.
         market_pair_info = self.market_trading_pair_tuples[0]
@@ -161,22 +161,22 @@ class HistoryCommand:
                 self.market_trading_pair_tuples
             )
             trade_performance_status_line = []
-            market_df_data = []
+            market_df_data: Set[Tuple[str, str, float, float, str, str]] = set()
             market_df_columns = ["Market", "Trading_Pair", "Start_Price", "End_Price",
                                  "Total_Value_Delta", "Profit"]
 
             for market_trading_pair_tuple, trading_pair_stats in market_trading_pair_stats.items():
-                market_df_data.append([
+                market_df_data.add((
                     market_trading_pair_tuple.market.display_name,
                     market_trading_pair_tuple.trading_pair.upper(),
                     float(trading_pair_stats["starting_quote_rate"]),
                     float(trading_pair_stats["end_quote_rate"]),
                     f"{trading_pair_stats['trading_pair_delta']:.8f} {primary_quote_asset}",
                     f"{trading_pair_stats['trading_pair_delta_percentage']:.3f} %"
-                ])
+                ))
 
             inventory_df: pd.DataFrame = self.balance_comparison_data_frame(market_trading_pair_stats)
-            market_df: pd.DataFrame = pd.DataFrame(data=market_df_data, columns=market_df_columns)
+            market_df: pd.DataFrame = pd.DataFrame(data=list(market_df_data), columns=market_df_columns)
             portfolio_delta: Decimal = trade_performance_stats["portfolio_delta"]
             portfolio_delta_percentage: Decimal = trade_performance_stats["portfolio_delta_percentage"]
 
