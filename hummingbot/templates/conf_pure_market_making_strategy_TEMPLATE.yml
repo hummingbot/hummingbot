@@ -63,5 +63,8 @@ jump_orders_enabled: null
 # If jump_orders_enabled is True, what is the depth in base currency to be used for finding top bid and ask
 jump_orders_depth: null
 
+# Parameter to enable/disable adding transaction costs to order prices
+add_transaction_costs: null
+
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parameters
