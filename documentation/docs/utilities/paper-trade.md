@@ -53,12 +53,12 @@ Binance
 Coinbase Pro
 Huobi
 DDEX
-IDEX
 Bamboo Relay
 Radar Relay
 
 # Not yet supported
 Bittrex
 Dolomite
+IDEX
 ```
 
