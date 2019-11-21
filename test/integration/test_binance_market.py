@@ -515,11 +515,11 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
             # Query the persisted trade logs
             trade_fills: List[TradeFill] = recorder.get_trades_for_config(config_path)
-            self.assertGreaterEqual(2, len(trade_fills))
+            self.assertGreaterEqual(len(trade_fills), 2)
             buy_fills: List[TradeFill] = [t for t in trade_fills if t.trade_type == "BUY"]
             sell_fills: List[TradeFill] = [t for t in trade_fills if t.trade_type == "SELL"]
-            self.assertEqual(1, len(buy_fills))
-            self.assertEqual(1, len(sell_fills))
+            self.assertGreaterEqual(len(buy_fills), 1)
+            self.assertGreaterEqual(len(sell_fills), 1)
 
             order_id = None
 
