@@ -389,12 +389,12 @@ cdef class ArbitrageStrategy(StrategyBase):
     @classmethod
     def find_profitable_arbitrage_orders(cls,
                                          min_profitability: Decimal,
-                                         buy_market_symbol_pair: MarketTradingPairTuple,
-                                         sell_market_symbol_pair: MarketTradingPairTuple):
+                                         buy_market_trading_pair: MarketTradingPairTuple,
+                                         sell_market_trading_pair: MarketTradingPairTuple):
 
         return c_find_profitable_arbitrage_orders(min_profitability,
-                                                  buy_market_symbol_pair,
-                                                  sell_market_symbol_pair)
+                                                  buy_market_trading_pair,
+                                                  sell_market_trading_pair)
 
     cdef tuple c_find_best_profitable_amount(self, object buy_market_trading_pair_tuple, object sell_market_trading_pair_tuple):
         """
@@ -402,8 +402,8 @@ cdef class ArbitrageStrategy(StrategyBase):
         markets and the profitability ratio. This function accounts for trading fees required by both markets before
         arriving at the optimal order size and profitability ratio.
 
-        :param buy_market_trading_pair_tuple: symbol pair for buy side
-        :param sell_market_trading_pair_tuple: symbol pair for sell side
+        :param buy_market_trading_pair_tuple: trading pair for buy side
+        :param sell_market_trading_pair_tuple: trading pair for sell side
         :return: (order size, profitability ratio)
         :rtype: Tuple[float, float]
         """
@@ -531,9 +531,9 @@ cdef class ArbitrageStrategy(StrategyBase):
     # ---------------------------------------------------------------
 
 
-def find_profitable_arbitrage_orders(min_profitability: Decimal, buy_market_symbol_pair: market_trading_pair_tuple,
-                                     sell_market_symbol_pair: market_trading_pair_tuple):
-    return c_find_profitable_arbitrage_orders(min_profitability, buy_market_symbol_pair, sell_market_symbol_pair)
+def find_profitable_arbitrage_orders(min_profitability: Decimal, buy_market_trading_pair: market_trading_pair_tuple,
+                                     sell_market_trading_pair: market_trading_pair_tuple):
+    return c_find_profitable_arbitrage_orders(min_profitability, buy_market_trading_pair, sell_market_trading_pair)
 
 
 cdef list c_find_profitable_arbitrage_orders(object min_profitability,
@@ -546,8 +546,8 @@ cdef list c_find_profitable_arbitrage_orders(object min_profitability,
     If no profitable trades can be done between the buy and sell order books, then returns an empty list.
 
     :param min_profitability: Minimum profit ratio
-    :param buy_market_symbol_pair: symbol pair for buy side
-    :param sell_market_symbol_pair: symbol pair for sell side
+    :param buy_market_trading_pair: trading pair for buy side
+    :param sell_market_trading_pair: trading pair for sell side
     :return: ordered list of (bid_price:Decimal, ask_price:Decimal, amount:Decimal)
     """
     cdef:

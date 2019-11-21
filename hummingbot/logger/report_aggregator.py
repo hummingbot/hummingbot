@@ -56,7 +56,7 @@ class ReportAggregator:
     def receive_event(self, event):
         event_name = event["event_name"]
         if event_name == "OrderFilledEvent":
-            self.stats[f"order_filled_quote_volume.{event['event_source']}.{event['symbol']}."
+            self.stats[f"order_filled_quote_volume.{event['event_source']}.{event['trading_pair']}."
                        f"{str(event['trade_type']).replace('.', '-')}."
                        f"{str(event['order_type']).replace('.', '-')}"].append(
                 (event["ts"], event["price"] * event["amount"])
@@ -75,7 +75,7 @@ class ReportAggregator:
                         namespaces = metric_name.split(".")
                         market_name = namespaces[1]
                         trading_pair = namespaces[2]
-                        quote_token = MARKETS[market_name].split_symbol(trading_pair)[1].upper()
+                        quote_token = MARKETS[market_name].split_trading_pair(trading_pair)[1].upper()
                         if namespaces[0] == "open_order_quote_volume_sum":
                             avg_volume = float(sum([value[1] for value in value_list]) / len(value_list))
                             usd_avg_volume = self.exchange_converter.exchange_rate.get(quote_token, 1) * avg_volume
@@ -141,7 +141,7 @@ class ReportAggregator:
                 _open_orders = defaultdict(list)
 
                 for maker_market, order in self.hummingbot_app.strategy.active_maker_orders:
-                    key = f"{maker_market.name}.{order.symbol}"
+                    key = f"{maker_market.name}.{order.trading_pair}"
                     _open_orders[key].append(order.price * order.quantity)
                 for market_name, quote_volumes in _open_orders.items():
                     metric_name = f"open_order_quote_volume_sum.{market_name}"
