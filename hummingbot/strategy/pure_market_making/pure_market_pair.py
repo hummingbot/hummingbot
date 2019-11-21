@@ -13,6 +13,6 @@ class PureMarketPair(NamedTuple):
          PureMarketPair(binance, "ETHUSDT", "ETH", "USDT")
     """
     maker_market: MarketBase
-    maker_symbol: str
+    maker_trading_pair: str
     maker_base_currency: str
     maker_quote_currency: str

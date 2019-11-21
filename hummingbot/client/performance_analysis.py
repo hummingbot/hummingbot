@@ -1,10 +1,10 @@
 import logging
+from collections import defaultdict
 from decimal import Decimal
 from typing import (
     Tuple,
     Dict,
-    List
-)
+    List)
 from hummingbot.client.data_type.currency_amount import CurrencyAmount
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
@@ -48,7 +48,7 @@ class PerformanceAnalysis:
             return self._current_quote
 
     def add_balances(self, asset_name: str, amount: float, is_base: bool, is_starting: bool):
-        """ Adds the balance of either the base or the quote in the given market symbol pair token to the corresponding
+        """ Adds the balance of either the base or the quote in the given market trading pair token to the corresponding
         CurrencyAmount object.
 
         NOTE: This is not to say that base / quote pairs between different markets are equivalent because that is NOT
@@ -115,7 +115,7 @@ class PerformanceAnalysis:
             if flat_fee_currency == trade.quote_asset:
                 total_flat_fees += Decimal(flat_fee_amount)
             else:
-                # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
+                # if the flat fee asset does not match quote asset, convert to quote asset value
                 total_flat_fees += ExchangeRateConversion.get_instance().convert_token_value_decimal(
                     amount=Decimal(flat_fee_amount),
                     from_currency=flat_fee_currency,
@@ -149,14 +149,17 @@ class PerformanceAnalysis:
         """
         market_trading_pair_stats: Dict[MarketTradingPairTuple, Dict[str, Decimal]] = {}
         for market_trading_pair_tuple in market_trading_pair_tuples:
-            asset_stats: Dict[str, Decimal] = {
-                market_trading_pair_tuple.base_asset.upper(): {"spent": s_decimal_0, "acquired": s_decimal_0},
-                market_trading_pair_tuple.quote_asset.upper(): {"spent": s_decimal_0, "acquired": s_decimal_0}
-            }
+            asset_stats: Dict[str, Dict[str, Decimal]] = defaultdict(
+                lambda: {"spent": s_decimal_0, "acquired": s_decimal_0}
+            )
+            asset_stats[market_trading_pair_tuple.base_asset.upper()] = {"spent": s_decimal_0, "acquired": s_decimal_0}
+            asset_stats[market_trading_pair_tuple.quote_asset.upper()] = {"spent": s_decimal_0, "acquired": s_decimal_0}
+
             queried_trades: List[TradeFill] = TradeFill.get_trades(self.sql_manager.get_shared_session(),
                                                                    start_time=analysis_start_time,
                                                                    market=market_trading_pair_tuple.market.display_name,
-                                                                   strategy=current_startegy_name)
+                                                                   strategy=current_startegy_name,
+                                                                   trading_pair=market_trading_pair_tuple.trading_pair)
             if not queried_trades:
                 market_trading_pair_stats[market_trading_pair_tuple] = {
                     "starting_quote_rate": market_trading_pair_tuple.get_mid_price(),

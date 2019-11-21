@@ -7,7 +7,7 @@ s_decimal_min = Decimal(1) / s_decimal_max
 
 cdef class TradingRule:
     def __init__(self,
-                 symbol: str,
+                 trading_pair: str,
                  min_order_size: Decimal = s_decimal_0,
                  max_order_size: Decimal = s_decimal_max,
                  min_price_increment: Decimal = s_decimal_min,
@@ -17,7 +17,7 @@ cdef class TradingRule:
                  max_price_significant_digits: Decimal = s_decimal_max,
                  supports_limit_orders: bool = True,
                  supports_market_orders: bool = True):
-        self.symbol = symbol
+        self.trading_pair = trading_pair
         self.min_order_size = min_order_size
         self.max_order_size = max_order_size
         self.min_price_increment = min_price_increment
@@ -29,7 +29,7 @@ cdef class TradingRule:
         self.supports_market_orders = supports_market_orders
 
     def __repr__(self) -> str:
-        return f"TradingRule(symbol='{self.symbol}', " \
+        return f"TradingRule(trading_pair='{self.trading_pair}', " \
                f"min_order_size={self.min_order_size}, " \
                f"max_order_size={self.max_order_size}, " \
                f"min_price_increment={self.min_price_increment}, " \

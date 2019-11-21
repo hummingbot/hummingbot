@@ -2,7 +2,7 @@
 
 LimitOrder::LimitOrder() {
     this->clientOrderID = "";
-    this->symbol = "";
+    this->tradingPair = "";
     this->isBuy = false;
     this->baseCurrency = "";
     this->quoteCurrency = "";
@@ -11,14 +11,14 @@ LimitOrder::LimitOrder() {
 }
 
 LimitOrder::LimitOrder(std::string clientOrderID,
-                       std::string symbol,
+                       std::string tradingPair,
                        bool isBuy,
                        std::string baseCurrency,
                        std::string quoteCurrency,
                        PyObject *price,
                        PyObject *quantity) {
     this->clientOrderID = clientOrderID;
-    this->symbol = symbol;
+    this->tradingPair = tradingPair;
     this->isBuy = isBuy;
     this->baseCurrency = baseCurrency;
     this->quoteCurrency = quoteCurrency;
@@ -30,7 +30,7 @@ LimitOrder::LimitOrder(std::string clientOrderID,
 
 LimitOrder::LimitOrder(const LimitOrder &other) {
     this->clientOrderID = other.clientOrderID;
-    this->symbol = other.symbol;
+    this->tradingPair = other.tradingPair;
     this->isBuy = other.isBuy;
     this->baseCurrency = other.baseCurrency;
     this->quoteCurrency = other.quoteCurrency;
@@ -49,7 +49,7 @@ LimitOrder::~LimitOrder() {
 
 LimitOrder &LimitOrder::operator=(const LimitOrder &other) {
     this->clientOrderID = other.clientOrderID;
-    this->symbol = other.symbol;
+    this->tradingPair = other.tradingPair;
     this->isBuy = other.isBuy;
     this->baseCurrency = other.baseCurrency;
     this->quoteCurrency = other.quoteCurrency;
@@ -69,8 +69,8 @@ std::string LimitOrder::getClientOrderID() const {
     return this->clientOrderID;
 }
 
-std::string LimitOrder::getSymbol() const {
-    return this->symbol;
+std::string LimitOrder::getTradingPair() const {
+    return this->tradingPair;
 }
 
 bool LimitOrder::getIsBuy() const {
