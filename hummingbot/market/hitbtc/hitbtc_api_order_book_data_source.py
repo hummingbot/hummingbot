@@ -106,15 +106,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                                 )
             ]
 
-            old_symbols: List[str] = [
-                (
-                    f"{quoteAsset}-{baseAsset}"
-                )
-                for baseAsset, quoteAsset in zip(all_markets.baseAsset, all_markets.quoteAsset)
-            ]
-
             all_markets.loc[:, "USDVolume"] = usd_volume
-            all_markets.loc[:, "old_symbol"] = old_symbols
             await client.close()
 
             return all_markets.sort_values("USDVolume", ascending=False)

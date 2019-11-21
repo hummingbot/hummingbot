@@ -1,47 +1,44 @@
 #!/usr/bin/env python
 
 import asyncio
+import hashlib
+import hmac
 import logging
-from typing import (
-    AsyncIterable,
-    Dict,
-    Optional,
-    List,
-)
+import time
+from base64 import b64decode
+from typing import AsyncIterable, Dict, Optional, List, Any
+from zlib import decompress, MAX_WBITS
+
+import signalr_aio
 import ujson
-import websockets
-from websockets.exceptions import ConnectionClosed
+from async_timeout import timeout
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.market.bittrex.bittrex_auth import BittrexAuth
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.market.bittrex.bittrex_order_book import BittrexOrderBook
 
-from hummingbot.market.hitbtc.hitbtc_auth import HitbtcAuth
-# from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
-from hummingbot.market.hitbtc.hitbtc_order_book import HitbtcOrderBook
-HITBTC_REST_URL = "https://api.hitbtc.com/api/2"
-HITBTC_WS_FEED = "wss://api.hitbtc.com/api/2/ws"
-
-# TO BE ASKED
+BITTREX_WS_FEED = "https://socket.bittrex.com/signalr"
 MAX_RETRIES = 20
-
+MESSAGE_TIMEOUT = 30.0
 NaN = float("nan")
 
 
-class HitbtcAPIUserStreamDataSource(UserStreamTrackerDataSource):
-    # TO BE ASKED
+class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
+
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
-    _cbpausds_logger: Optional[HummingbotLogger] = None
+    _btausds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._cbpausds_logger is None:
-            cls._cbpausds_logger = logging.getLogger(__name__)
-        return cls._cbpausds_logger
+        if cls._btausds_logger is None:
+            cls._btausds_logger = logging.getLogger(__name__)
+        return cls._btausds_logger
 
-    def __init__(self, Hitbtc_auth: HitbtcAuth, symbols: Optional[List[str]] = []):
-        self._Hitbtc_auth: HitbtcAuth = Hitbtc_auth
+    def __init__(self, bittrex_auth: BittrexAuth, symbols: Optional[List[str]] = []):
+        self._bittrex_auth: BittrexAuth = bittrex_auth
         self._symbols = symbols
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
@@ -49,79 +46,100 @@ class HitbtcAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     @property
     def order_book_class(self):
-        """
-        *required
-        Get relevant order book class to access class specific methods
-        :returns: OrderBook class
-        """
-        return HitbtcOrderBook
+        return BittrexOrderBook
+
+    async def _socket_user_stream(self, conn: signalr_aio.Connection) -> AsyncIterable[str]:
+        try:
+            while True:
+                async with timeout(MESSAGE_TIMEOUT):
+                    yield await conn.msg_queue.get()
+        except asyncio.TimeoutError:
+            self.logger().warning(f"Message recv() timed out. Reconnecting to Bittrex SignalR WebSocket... ")
+
+    async def _transform_raw_message(self, msg) -> Dict[str, Any]:
+
+        timestamp_patten = "%Y-%m-%dT%H:%M:%S"
+
+        def _decode_message(raw_message: bytes) -> Dict[str, Any]:
+            try:
+                decode_msg: bytes = decompress(b64decode(raw_message, validate=True), -MAX_WBITS)
+            except SyntaxError:
+                decode_msg: bytes = decompress(b64decode(raw_message, validate=True))
+            except Exception:
+                self.logger().error(f"Error decoding message", exc_info=True)
+                return {"error": "Error decoding message"}
+
+            return ujson.loads(decode_msg.decode(), precise_float=True)
+
+        def _is_auth_context(msg):
+            return "R" in msg and type(msg["R"]) is not bool and msg["I"] == str(0)
+
+        def _is_order_delta(msg) -> bool:
+            return len(msg.get("M", [])) > 0 and type(msg["M"][0]) == dict and msg["M"][0].get("M", None) == "uO"
+
+        def _is_balance_delta(msg) -> bool:
+            return len(msg.get("M", [])) > 0 and type(msg["M"][0]) == dict and msg["M"][0].get("M", None) == "uB"
+
+        def _get_signed_challenge(api_secret: str, challenge: str):
+            return hmac.new(api_secret.encode(), challenge.encode(), hashlib.sha512).hexdigest()
+
+        output: Dict[str, Any] = {"event_type": None, "content": None, "error": None}
+        msg: Dict[str, Any] = ujson.loads(msg)
+
+        if _is_auth_context(msg):
+            output["event_type"] = "auth"
+            output["content"] = {"signature": _get_signed_challenge(self._bittrex_auth.secret_key, msg["R"])}
+        elif _is_balance_delta(msg):
+            output["event_type"] = "uB"
+            output["content"] = _decode_message(msg["M"][0]["A"][0])
+            output["time"] = time.strftime(timestamp_patten, time.gmtime(output["content"]['d']['u'] / 1000))
+
+        elif _is_order_delta(msg):
+            output["event_type"] = "uO"
+            output["content"] = _decode_message(msg["M"][0]["A"][0])
+            output["time"] = time.strftime(timestamp_patten, time.gmtime(output["content"]['o']['u'] / 1000))
+
+            # TODO: Refactor accordingly when V3 WebSocket API is released
+            # WebSocket API returns market symbols in 'Quote-Base' format
+            # Code below converts 'Quote-Base' -> 'Base-Quote'
+            output["content"]["o"].update({
+                "E": f"{output['content']['o']['E'].split('-')[1]}-{output['content']['o']['E'].split('-')[0]}"
+            })
+
+        return output
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        """
-        *required
-        Subscribe to user stream via web socket, and keep the connection open for incoming messages
-        :param ev_loop: ev_loop to execute this function in
-        :param output: an async queue where the incoming messages are stored
-        """
         while True:
+            connection: Optional[signalr_aio.Connection] = None
             try:
-                async with websockets.connect(HITBTC_WS_FEED) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    subscribe_request: Dict[str, any] = {
-                        "type": "subscribe",
-                        "product_ids": self._symbols,
-                        "channels": ["user"]
-                    }
-###############################################################################################                    
-                    auth_dict: Dict[str] = self._Hitbtc_auth.generate_auth_dict("get", "/users/self/verify", "")
-                    subscribe_request.update(auth_dict)
-                    await ws.send(ujson.dumps(subscribe_request))
-                    async for raw_msg in self._inner_messages(ws):
-                        msg = ujson.loads(raw_msg)
-                        msg_type: str = msg.get("type", None)
-                        if msg_type is None:
-                            raise ValueError(f"Coinbase Pro Websocket message does not contain a type - {msg}")
-                        elif msg_type == "error":
-                            raise ValueError(f"Coinbase Pro Websocket received error message - {msg['message']}")
-                        elif msg_type in ["open", "match", "change", "done"]:
-                            order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(msg)
-                            output.put_nowait(order_book_message)
-                        elif msg_type in ["received", "activate", "subscriptions"]:
-                            # these messages are not needed to track the order book
-                            pass
-                        else:
-                            raise ValueError(f"Unrecognized Coinbase Pro Websocket message received - {msg}")
+                connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
+                hub = connection.register_hub("c2")
+
+                self.logger().info("Invoked GetAuthContext")
+                hub.server.invoke("GetAuthContext", self._bittrex_auth.api_key)
+                connection.start()
+
+                async for raw_message in self._socket_user_stream(connection):
+                    decode: Dict[str, Any] = await self._transform_raw_message(raw_message)
+                    if decode["error"]:
+                        self.logger().error(decode["error"])
+                        continue
+
+                    if decode["content"] is not None:
+                        signature = decode["content"].get("signature")
+                        content_type = decode["event_type"]
+                        if signature is not None:
+                            hub.server.invoke("Authenticate", self._bittrex_auth.api_key, signature)
+                            continue
+
+                        if content_type in ["uO", "uB"]:  # uB: Balance Delta, uO: Order Delta
+                            order_delta: OrderBookMessage = self.order_book_class.diff_message_from_exchange(decode)
+                            output.put_nowait(order_delta)
+
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error with Coinbase Pro WebSocket connection. "
-                                    "Retrying after 30 seconds...", exc_info=True)
+                self.logger().error(
+                    "Unexpected error with Bittrex WebSocket connection. " "Retrying after 30 seconds...", exc_info=True
+                )
                 await asyncio.sleep(30.0)
-
-    async def _inner_messages(self,
-                              ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
-        """
-        Generator function that returns messages from the web socket stream
-        :param ws: current web socket connection
-        :returns: message in AsyncIterable format
-        """
-        # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
-        try:
-            while True:
-                try:
-                    msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
-                    yield msg
-                except asyncio.TimeoutError:
-                    try:
-                        pong_waiter = await ws.ping()
-                        await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-                    except asyncio.TimeoutError:
-                        raise
-        except asyncio.TimeoutError:
-            self.logger().warning("WebSocket ping timed out. Going to reconnect...")
-            return
-        except ConnectionClosed:
-            return
-        finally:
-            await ws.close()
-

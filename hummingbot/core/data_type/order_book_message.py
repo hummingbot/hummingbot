@@ -533,11 +533,11 @@ class HitbtcOrderBookMessage(OrderBookMessage):
 
     @property
     def asks(self) -> List[OrderBookRow]:
-        raise self.content["ask"]
+        raise self.content["asks"]
 
     @property
     def bids(self) -> List[OrderBookRow]:
-        raise self.content["bid"]
+        raise self.content["bids"]
 
     @property
     def has_update_id(self) -> bool:
