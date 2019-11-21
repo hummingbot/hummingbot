@@ -181,7 +181,7 @@ cdef class MarketBase(NetworkIterator):
         raise NotImplementedError
 
     cdef object c_quantize_order_price(self, str trading_pair, object price):
-        if price == s_decimal_NaN:
+        if price.is_nan():
             return price
         price_quantum = self.c_get_order_price_quantum(trading_pair, price)
         return round(price / price_quantum) * price_quantum
