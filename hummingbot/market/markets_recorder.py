@@ -179,7 +179,7 @@ class MarketsRecorder:
                                     creation_timestamp=timestamp,
                                     order_type=evt.type.name,
                                     amount=float(evt.amount),
-                                    price=float(evt.price),
+                                    price=float(evt.price) if evt.price == evt.price else 0,
                                     last_status=event_type.name,
                                     last_update_timestamp=timestamp)
         order_status: OrderStatus = OrderStatus(order=order_record,
@@ -225,7 +225,7 @@ class MarketsRecorder:
                                                  order_id=order_id,
                                                  trade_type=evt.trade_type.name,
                                                  order_type=evt.order_type.name,
-                                                 price=float(evt.price),
+                                                 price=float(evt.price) if evt.price == evt.price else 0,
                                                  amount=float(evt.amount),
                                                  trade_fee=TradeFee.to_json(evt.trade_fee),
                                                  exchange_trade_id=evt.exchange_trade_id)
