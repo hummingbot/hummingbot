@@ -231,6 +231,43 @@ Function<div style="width:150px"/> | Description
     
     It is necessary that the above functions adhere to the flow as defined in the order lifecycle for the connector to work as intended.
 
+#### Trading Rules
+
+Trading Rules are defined by the respective exchanges. It is crucial that Hummingbot manage and maintain the set of trading rules to ensure that there will be no issues when placing orders.
+
+A list of some common rules can be seen in [`trading_rule.pyx`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/trading_rule.pyx).
+
+!!! tip
+    Most exchanges have a minimum trading size. Not all rules need to be defined, however, it is essential to meet the rules as specified by the exchange.
+   
+All trading rules are stored in `self._trading_rules` in the `Market` class.
+
+The table below details the functions responsible for maintaining the `TradeRule` for each trading pair
+
+Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | Description
+---|---|---|---
+`_trading_rules_polling_loop` | None | None | A background process that periodically polls for trading rule changes. Since trading rules tend not to change as often as account balances and order statuses, this is done less often. THis function is responsible for calling `_update_trading_rules`
+`_update_trading_rules` | None | None | Gets the necessary trading rules definitions form the corresponding REST API endpoints. Calls `_format_trading_rules`; that parses and updates the `_trading_rules` variable in the `Market` class.
+`_format_trading_rules` | `List[Any]` | `List[TradingRule]` | Parses the raw JSON response into a list of [`TradingRule`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/trading_rule.pyx). <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: This is important since exchanges might only accept certain precisions and impose a minimum trade size on the order.</td></tr></tbody></table>
+
+#### Order Price/Size Quantum & Quantize Order Amount
+
+This, together with the trading rules, ensure that all orders placed by Hummingbot meet the required specifications as defined by the exchange.
+
+!!! note
+    These checks are performed in `execute_buy` and `execute_sell` **before** placing an order.<br/>
+    In the event where the orders proposed by the strategies fail to meet the requirements as defined in the trading rules, the intended behaviour for the `Market` class is simply to raise an error and not place the order.<br/>
+    You may be required to add additional functions to help determine if an order meets the necessary requirements.
+
+The table below details some functions responsible for this.
+
+Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | Description
+---|---|---|---
+`c_get_order_price_quantum` | `str trading_pair`,<br/>`object price` | `Decimal` | Gets the minimum increment interval for an order price.
+`c_get_order_size_quantum` | `str trading_pair`,<br/>`object order_size` | `Decimal` | Gets the minimum increment interval for an order size (i.e. 0.01 .USD)
+`c_quantize_order_amount` | `str trading_pair`,<br/>`object amount`,<br/>`object price=s_decimal_0`| `Decimal` | Checks the current order amount against the trading rules, and corrects(i.e simple rounding) any rule violations. Returns a valid order amount in `Decimal` format.
+`c_quantize_order_price` | `str trading_pair`,<br/>`object price`,,br/>`object price=s_decimal_0`| `Decimal` | Checks the current order price against the trading rules, and corrects(i.e. simple rounding) any rule violations. Returns a valid order price in `Decimal` format.    
+
 #### Additional Required Function(s)
 
 Below are a list of `required` functions for the `Market` class to be fully functional.
@@ -256,10 +293,7 @@ Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | D
 `_http_client` | `None` | `aiohttp.ClientSession` | Returns a shared HTTP client session instance. <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: This prevents the need to establish a new session on every API request.</td></tr></tbody></table>
 `_api_request` | `http_method:str`<br/>`path_url:str`<br/>`url:str`<br/>`data:Optional[Dict[str,Any]]`| `Dict[str, Any]` | An asynchronous wrapper function for submitting API requests to the respective exchanges. Returns the JSON response form the endpoints. Handles any initial HTTP status error codes. 
 `_update_balances` | `None` | `None` | Gets account balance updates from the corresponding REST API endpoints and updates `_account_available_balances` and `_account_balances` class variables in the `MarketBase` class.
-`_update_trading_rules` | `None` | `None` | Gets the necessary trading rules definitions from the corresponding REST API endpoints. Calls `_format_trading_rules`, to parse and subsequently updates `_trading_rules` variable.
-`_format_trading_rules` | `List[Any]` | `List[TradingRule]` | Parses the raw JSON response into a list of [`TradingRule`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/trading_rule.pyx). <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: This is important since exchanges might only accept certain precisions and impose a minimum trade size on the order.</td></tr></tbody></table>
 `_status_polling_loop` | `None` | `None` | A background process that periodically polls for any updates on the REST API. This is responsible for calling `_update_balances` and `_update_order_status`.
-`_trading_rules_polling_loop` | `None` | `None` | A background process that periodically polls for trading rule changes. Since trading rules tend not to change as often as account balances and order statuses, this is done less often. This function is responsible for calling `_update_trading_rules`.
 `c_start` | `Clock clock`<br/>`double timestamp`| `None` | A function used by the top level Clock to orchestrate components of Hummingbot.
 `c_tick` | `double timestamp` | `None` | Used by top level Clock to orchestrate components of Hummingbot. This function is called frequently with every clock tick.
 `c_buy` | `str symbol`,<br/>`object amount`,<br/>`object order_type=OrderType.MARKET`,<br/>`object price=s_decimal_0`,<br/>`dict kwargs={}`| `str` | A synchronous wrapper function that generates a client-side order ID and schedules a **buy** order. It calls the `execute_buy` function and returns the client-side order ID.
@@ -270,9 +304,6 @@ Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | D
 `c_get_order_book` | `str symbol` | `OrderBook` | Returns the `OrderBook` for a specific trading pair(symbol).
 `c_start_tracking_order` | `str client_order_id`,<br/>`str symbol`,<br/>`object order_type`,<br/>`object trade_type`,<br/>`object price`,<br/>`object amount` | `None` | Adds a new order to the `_in_flight_orders` class variable. This essentially begins tracking the order on the Hummingbot client. 
 `c_stop_tracking_order` | `str order_id` | `None` | Deletes an order from `_in_flight_orders` class variable. This essentially stops the Hummingbot client from tracking an order.
-`c_get_order_price_quantum` | `str symbol`,<br/>`object price` | `Decimal` | Gets the minimum increment interval for an order price.
-`c_get_order_size_quantum` | `str symbol`,<br/>`object order_size` | `Decimal` | Gets the minimum increment interval for order size. (i.e. 0.01 USD)
-`c_quantize_order_amount` | `str symbol`,<br/>`object amount`,<br/>`object price=s_decimal_0`| `Decimal` | Checks the current order amount against the trading rules, and correct any rule violations. Returns a valid order amount in `Decimal` format.
 
 
 ## Task 4. Hummingbot Client
