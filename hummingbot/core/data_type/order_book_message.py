@@ -579,23 +579,22 @@ class LiquidOrderBookMessage(OrderBookMessage):
         if timestamp is None:
             if message_type is OrderBookMessageType.SNAPSHOT:
                 raise ValueError("timestamp must not be None when initializing snapshot messages.")
-            timestamp = pd.Timestamp(content["time"], tz="UTC").timestamp()
+            timestamp = content["time"] * 1e-3
         return super(LiquidOrderBookMessage, cls).__new__(
             cls, message_type, content, timestamp=timestamp, *args, **kwargs
         )
 
     @property
     def update_id(self) -> (int):
-        if self.type in [OrderBookMessageType.DIFF, OrderBookMessageType.SNAPSHOT]:
-            return int(self.timestamp * 1e3)
-
-    @property
-    def trade_id(self) -> int:
         return int(self.timestamp * 1e3)
 
     @property
-    def symbol(self) -> (str):
-        return self.content.get('symbol', None)
+    def trade_id(self) -> (int):
+        return int(self.timestamp * 1e3)
+
+    @property
+    def trading_pair(self) -> (str):
+        return self.content.get('trading_pair', None)
 
     @property
     def asks(self) -> (List[OrderBookRow]):
