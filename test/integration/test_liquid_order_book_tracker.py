@@ -41,7 +41,7 @@ class LiquidOrderBookTrackerUnitTest(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.order_book_tracker: LiquidOrderBookTracker = LiquidOrderBookTracker(
             OrderBookTrackerDataSourceType.EXCHANGE_API,
-            symbols=cls.trading_pairs)
+            trading_pairs=cls.trading_pairs)
 
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
@@ -83,7 +83,7 @@ class LiquidOrderBookTrackerUnitTest(unittest.TestCase):
         self.run_parallel(self.event_logger.wait_for(OrderBookTradeEvent))
         for ob_trade_event in self.event_logger.event_log:
             self.assertTrue(type(ob_trade_event) == OrderBookTradeEvent)
-            self.assertTrue(ob_trade_event.symbol in self.trading_pairs)
+            self.assertTrue(ob_trade_event.trading_pair in self.trading_pairs)
             self.assertTrue(type(ob_trade_event.timestamp) == float)
             self.assertTrue(type(ob_trade_event.amount) == float)
             self.assertTrue(type(ob_trade_event.price) == float)
@@ -96,16 +96,16 @@ class LiquidOrderBookTrackerUnitTest(unittest.TestCase):
         # Wait 5 seconds to process some diffs.
         self.ev_loop.run_until_complete(asyncio.sleep(5.0))
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
-        xrpusd_book: OrderBook = order_books["ETHUSD"]
-        btcusd_book: OrderBook = order_books["LCXBTC"]
-        print("xrpusd_book")
-        print(xrpusd_book.snapshot)
-        print("btcusd_book")
-        print(btcusd_book.snapshot)
-        self.assertGreaterEqual(xrpusd_book.get_price_for_volume(True, 10).result_price,
-                                xrpusd_book.get_price(True))
-        self.assertLessEqual(btcusd_book.get_price_for_volume(False, 10).result_price,
-                             btcusd_book.get_price(False))
+        ethusd_book: OrderBook = order_books["ETHUSD"]
+        lxcbtc_book: OrderBook = order_books["LCXBTC"]
+        print("ethusd_book")
+        print(ethusd_book.snapshot)
+        print("lxcbtc_book")
+        print(lxcbtc_book.snapshot)
+        self.assertGreaterEqual(ethusd_book.get_price_for_volume(True, 10).result_price,
+                                ethusd_book.get_price(True))
+        self.assertLessEqual(lxcbtc_book.get_price_for_volume(False, 10).result_price,
+                             lxcbtc_book.get_price(False))
 
         test_active_order_tracker = self.order_book_tracker._active_order_trackers["ETHUSD"]
         self.assertTrue(len(test_active_order_tracker.active_asks) > 0)
