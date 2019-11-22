@@ -26,7 +26,7 @@ class TestLiquidOrderBookTracker(TestCase):
     def test_property_exchange_name(self):
         exchange_name = LiquidOrderBookTracker(
             OrderBookTrackerDataSourceType.EXCHANGE_API,
-            symbols=self.trading_pairs
+            trading_pairs=self.trading_pairs
         ).exchange_name
 
         # Validate the type of property exchange name is equal to 'liquid'
@@ -38,7 +38,7 @@ class TestLiquidOrderBookTracker(TestCase):
     def test_property_data_source(self):
         data_source = LiquidOrderBookTracker(
             OrderBookTrackerDataSourceType.EXCHANGE_API,
-            symbols=self.trading_pairs
+            trading_pairs=self.trading_pairs
         ).data_source
 
         # Validate the type of property data source is LiquidAPIOrderBookDataSource
@@ -53,7 +53,7 @@ class TestLiquidOrderBookTracker(TestCase):
 
         order_book_tracker = LiquidOrderBookTracker(
             OrderBookTrackerDataSourceType.EXCHANGE_API,
-            symbols=self.trading_pairs
+            trading_pairs=self.trading_pairs
         )
 
         print('{class_name} test {test_name} is going to run for {timeout} seconds, starting now'.format(
