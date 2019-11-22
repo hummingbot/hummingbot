@@ -168,7 +168,7 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
     def test_get_trading_pairs(self, mock_get_exchange_markets_data):
         """
         Test the logic where extracts trading pairs as well as the part
-        symbol and id mapping is formed
+        trading_pair and id mapping is formed
         """
         loop = asyncio.get_event_loop()
 
@@ -187,9 +187,9 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
         self.assertListEqual(
             trading_pairs, ['LCXBTC', 'STACETH', 'WLOBTC', 'ETHUSD', 'BTCUSD', 'ETHUSDC', 'BTCUSDC'])
 
-        # Check derived symbol and id conversion dict keys and their corresponding values
+        # Check derived trading_pair and id conversion dict keys and their corresponding values
         self.assertDictEqual(
-            liquid_data_source.symbol_id_conversion_dict,
+            liquid_data_source.trading_pair_id_conversion_dict,
             {
                 'BTCUSD': '1',
                 'BTCUSDC': '443',
@@ -217,12 +217,12 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
         # Instantiate class instance
         liquid_data_source = LiquidAPIOrderBookDataSource()
 
-        liquid_data_source.symbol_id_conversion_dict = {'BTCETH': 27}
+        liquid_data_source.trading_pair_id_conversion_dict = {'BTCETH': 27}
 
         snapshot = loop.run_until_complete(
             liquid_data_source.get_snapshot(client=aiohttp.ClientSession(), trading_pair='BTCETH', full=1))
 
-        self.assertEqual(list(snapshot.keys()), ['buy_price_levels', 'sell_price_levels', 'symbol', 'product_id'])
+        self.assertEqual(list(snapshot.keys()), ['buy_price_levels', 'sell_price_levels', 'trading_pair'])
         self.assertEqual(len(snapshot['buy_price_levels']), 2)
         self.assertEqual(len(snapshot['sell_price_levels']), 20)
         # TODO: need to test exception handling when inputs are invalid
@@ -234,17 +234,17 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
         Example output of tracking pairs
         {
             'BTCUSD': OrderBookTrackerEntry(
-                symbol = 'BTCUSD',
+                trading_pair = 'BTCUSD',
                 timestamp = '1573021425.445617',
                 order_book = '<hummingbot.core.data_type.order_book.OrderBook object at 0x11fa72328>'
             ),
             'ETHUSDC': OrderBookTrackerEntry(
-                symbol = 'ETHUSDC',
+                trading_pair = 'ETHUSDC',
                 timestamp = '1573021426.4484851',
                 order_book = '<hummingbot.core.data_type.order_book.OrderBook object at 0x11fa723c0>'
             ),
             'BTCUSDC': OrderBookTrackerEntry(
-                symbol = 'BTCUSDC',
+                trading_pair = 'BTCUSDC',
                 timestamp = '1573021427.4509811',
                 order_book = '<hummingbot.core.data_type.order_book.OrderBook object at 0x11fa72458>'
             )
@@ -281,9 +281,9 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
         for order_book_tracker_entry in tracking_pairs.values():
             self.assertIsInstance(order_book_tracker_entry, OrderBookTrackerEntry)
 
-        # Validate the order book tracker entry symbols are valid
+        # Validate the order book tracker entry trading_pairs are valid
         for trading_pair, order_book_tracker_entry in zip(mocked_trading_pairs, tracking_pairs.values()):
-            self.assertEqual(order_book_tracker_entry.symbol, trading_pair)
+            self.assertEqual(order_book_tracker_entry.trading_pair, trading_pair)
 
     @patch(PATCH_BASE_PATH.format(method='get_snapshot'))
     @patch(PATCH_BASE_PATH.format(method='get_trading_pairs'))
@@ -301,8 +301,7 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
                     ['182.11620', '0.32400000'],
                     ...
                 ],
-                'symbol': 'BTCUSDC',
-                'product_id': 'ETHUSDC'
+                'trading_pair': 'BTCUSDC'
             },
             timestamp = 1573041256.2376761)
         """
@@ -317,7 +316,7 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
         f1.set_result(
             {
                 **FixtureLiquid.SNAPSHOT_2,
-                'symbol': 'ETHUSD',
+                'trading_pair': 'ETHUSD',
                 'product_id': 27
             }
         )
@@ -325,7 +324,7 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
         f2.set_result(
             {
                 **FixtureLiquid.SNAPSHOT_1,
-                'symbol': 'LCXBTC',
+                'trading_pair': 'LCXBTC',
                 'product_id': 538
             }
         )
@@ -376,7 +375,7 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
         self.assertEqual(first_item.content['asks'], FixtureLiquid.SNAPSHOT_2['sell_price_levels'])
 
         # Validate the rest of the content
-        self.assertEqual(first_item.content['symbol'], mocked_trading_pairs[0])
+        self.assertEqual(first_item.content['trading_pair'], mocked_trading_pairs[0])
         self.assertEqual(first_item.content['product_id'], 27)
 
     @patch(PATCH_BASE_PATH.format(method='_inner_messages'))
