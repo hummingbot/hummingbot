@@ -12,7 +12,7 @@ from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
+from hummingbot.core.data_type.order_book_tracker_entry import LiquidOrderBookTrackerEntry
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.liquid.liquid_order_book import LiquidOrderBook
 from hummingbot.market.liquid.constants import Constants
@@ -28,13 +28,13 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._laobds_logger = logging.getLogger(__name__)
         return cls._laobds_logger
 
-    def __init__(self, symbols: Optional[List[str]] = None):
+    def __init__(self, trading_pairs: Optional[List[str]] = None):
         super().__init__()
 
-        self._symbols: Optional[List[str]] = symbols
+        self._trading_pairs: Optional[List[str]] = trading_pairs
         self._order_book_create_function = lambda: OrderBook()
 
-        self.symbol_id_conversion_dict: Dict[str, int] = {}
+        self.trading_pair_id_conversion_dict: Dict[str, int] = {}
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)  # TODO: Not really sure what this does
@@ -122,7 +122,7 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def filter_market_data(cls, exchange_markets_data) -> (List[dict]):
         """
         Filter out:
-        * Market with invalid 'symbol'
+        * Market with invalid 'symbol' key, note: symbol here is not the same as trading pair
         * Market with 'disabled' field set to True
         """
         return [
@@ -134,30 +134,30 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Extract trading_pairs information from all_markets_df generated
         in get_active_exchange_markets method.
-        Along the way, also populate the self._symbol_id_conversion_dict,
+        Along the way, also populate the self._trading_pair_id_conversion_dict,
         for downstream reference since Liquid API uses id instead of trading
         pair as the identifier
         """
         try:
-            if not self.symbol_id_conversion_dict:
+            if not self.trading_pair_id_conversion_dict:
                 active_markets_df: pd.DataFrame = await self.get_active_exchange_markets()
 
-                if not self._symbols:
-                    self._symbols = active_markets_df.index.tolist()
+                if not self._trading_pairs:
+                    self._trading_pairs = active_markets_df.index.tolist()
 
-                self.symbol_id_conversion_dict = {
-                    symbol: active_markets_df.loc[symbol, 'id']
-                    for symbol in self._symbols
+                self.trading_pair_id_conversion_dict = {
+                    trading_pair: active_markets_df.loc[trading_pair, 'id']
+                    for trading_pair in self._trading_pairs
                 }
         except Exception:
-            self._symbols = []
+            self._trading_pairs = []
             self.logger().network(
                 f"Error getting active exchange information.",
                 exe_info=True,
                 app_warning_msg=f"Error getting active exchange information. Check network connection."
             )
 
-        return self._symbols
+        return self._trading_pairs
 
     async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str, full: int = 1) -> Dict[str, Any]:
         """
@@ -170,7 +170,7 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         |-- buy_price_levels: list[str, str]  # [price, amount]
         |-- sell_price_levels: list[str, str]  # [price, amount]
         """
-        product_id = self.symbol_id_conversion_dict.get(trading_pair, None)
+        product_id = self.trading_pair_id_conversion_dict.get(trading_pair, None)
         if not product_id:
             raise ValueError(f"Invalid trading pair {trading_pair} and product id {product_id} found")
 
@@ -182,13 +182,12 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
             snapshot: Dict[str, Any] = await response.json()
             return {
                 **snapshot,
-                'symbol': trading_pair,
-                'product_id': product_id
+                'trading_pair': trading_pair
             }
 
-    async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
+    async def get_tracking_pairs(self) -> Dict[str, LiquidOrderBookTrackerEntry]:
         """
-        Create tracking pairs by using trading pairs (symbols) fetched from
+        Create tracking pairs by using trading pairs (trading_pairs) fetched from
         active markets
         """
         # Get the currently active markets
@@ -196,7 +195,7 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             trading_pairs: List[str] = await self.get_trading_pairs()
 
-            retval: Dict[str, OrderBookTrackerEntry] = {}
+            retval: Dict[str, LiquidOrderBookTrackerEntry] = {}
             number_of_pairs: int = len(trading_pairs)
 
             for index, trading_pair in enumerate(trading_pairs):
@@ -207,13 +206,13 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     snapshot_msg: OrderBookMessage = LiquidOrderBook.snapshot_message_from_exchange(
                         snapshot,
                         snapshot_timestamp,
-                        metadata={"symbol": trading_pair}
+                        metadata={"trading_pair": trading_pair}
                     )
 
                     order_book: OrderBook = self.order_book_create_function()
                     order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
 
-                    retval[trading_pair] = OrderBookTrackerEntry(trading_pair, snapshot_timestamp, order_book)
+                    retval[trading_pair] = LiquidOrderBookTrackerEntry(trading_pair, snapshot_timestamp, order_book)
 
                     self.logger().info(f"Initialized order book for {trading_pair}."
                                        f"{index*1}/{number_of_pairs} completed")
@@ -286,18 +285,21 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         if event_type == 'updated':
 
                             # Channel example: 'price_ladders_cash_ethusd_sell'
-                            symbol = diff_msg.get('channel').split('_')[-2].upper()
+                            trading_pair = diff_msg.get('channel').split('_')[-2].upper()
                             buy_or_sell = diff_msg.get('channel').split('_')[-1].lower()
                             side = 'asks' if buy_or_sell == Constants.SIDE_ASK else 'bids'
                             diff_msg = {
                                 '{0}'.format(side): ujson.loads(diff_msg.get('data', [])),
-                                'symbol': symbol
+                                'trading_pair': trading_pair
                             }
                             diff_timestamp: float = time.time()
                             msg: OrderBookMessage = LiquidOrderBook.diff_message_from_exchange(
                                 diff_msg,
                                 diff_timestamp,
-                                metadata={"symbol": symbol}
+                                metadata={
+                                    "trading_pair": trading_pair,
+                                    "update_id": int(diff_timestamp * 1e-3)
+                                }
                             )
                             output.put_nowait(msg)
                         elif not event_type:
@@ -336,7 +338,7 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 msg=snapshot,
                                 timestamp=snapshot_timestamp,
                                 metadata={
-                                    'symbol': trading_pair
+                                    'trading_pair': trading_pair
                                 }
                             )
                             output.put_nowait(snapshot_msg)
