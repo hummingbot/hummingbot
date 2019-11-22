@@ -17,7 +17,7 @@ cdef class DiscoveryStrategy(StrategyBase):
         dict _discovery_stats
         dict _market_info
         set _matching_pairs
-        list _target_symbols
+        list _target_trading_pairs
         list _equivalent_token
         dict _equivalent_token_dict
         str _discovery_method

@@ -1,4 +1,6 @@
-# Adding Connectors to Exchanges on Other Blockchains
+# Miscellaneous 
+
+## Adding Connectors to Exchanges on Other Blockchains
 
 Hummingbot currently has connectors to Ethereum-based exchanges and has built in [Ethereum wallet support](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/wallet/ethereum).
 

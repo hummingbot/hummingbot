@@ -47,9 +47,9 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._cbpaobds_logger = logging.getLogger(__name__)
         return cls._cbpaobds_logger
 
-    def __init__(self, symbols: Optional[List[str]] = None):
+    def __init__(self, trading_pairs: Optional[List[str]] = None):
         super().__init__()
-        self._symbols: Optional[List[str]] = symbols
+        self._trading_pairs: Optional[List[str]] = trading_pairs
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
@@ -116,23 +116,24 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_trading_pairs(self) -> List[str]:
         """
+        *required
         Get a list of active trading pairs
         (if the market class already specifies a list of trading pairs,
         returns that list instead of all active trading pairs)
         :returns: A list of trading pairs defined by the market class, or all active trading pairs from the rest API
         """
-        if not self._symbols:
+        if not self._trading_pairs:
             try:
                 active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                self._symbols = active_markets.index.tolist()
+                self._trading_pairs = active_markets.index.tolist()
             except Exception:
-                self._symbols = []
+                self._trading_pairs = []
                 self.logger().network(
                     f"Error getting active exchange information.",
                     exc_info=True,
                     app_warning_msg=f"Error getting active exchange information. Check network connection."
                 )
-        return self._symbols
+        return self._trading_pairs
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, any]:
@@ -169,7 +170,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     snapshot_msg: OrderBookMessage = CoinbaseProOrderBook.snapshot_message_from_exchange(
                         snapshot,
                         snapshot_timestamp,
-                        metadata={"symbol": trading_pair}
+                        metadata={"trading_pair": trading_pair}
                     )
                     order_book: OrderBook = self.order_book_create_function()
                     active_order_tracker: CoinbaseProActiveOrderTracker = CoinbaseProActiveOrderTracker()

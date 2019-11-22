@@ -53,13 +53,13 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
     end_timestamp: float = end.timestamp()
-    maker_symbols: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
+    maker_trading_pairs: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
 
     def setUp(self):
         self.clock: Clock = Clock(ClockMode.BACKTEST, 60.0, self.start_timestamp, self.end_timestamp)
         self.clock_tick_size = 60
         self.maker_market: BacktestMarket = BacktestMarket()
-        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_symbols)
+        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_trading_pairs)
         self.mid_price = 100
         self.bid_threshold = 0.01
         self.ask_threshold = 0.01
@@ -94,13 +94,13 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.maker_market.set_balance("QETH", 500)
         self.maker_market.set_quantization_param(
             QuantizationParams(
-                self.maker_symbols[0], 6, 6, 6, 6
+                self.maker_trading_pairs[0], 6, 6, 6, 6
             )
         )
 
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             *(
-                [self.maker_market] + self.maker_symbols
+                [self.maker_market] + self.maker_trading_pairs
             )
         )
 
@@ -176,10 +176,10 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.maker_market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
     def simulate_maker_market_trade(self, is_buy: bool, quantity: float):
-        maker_symbol: str = self.maker_symbols[0]
-        order_book: OrderBook = self.maker_market.get_order_book(maker_symbol)
+        maker_trading_pair: str = self.maker_trading_pairs[0]
+        order_book: OrderBook = self.maker_market.get_order_book(maker_trading_pair)
         trade_event: OrderBookTradeEvent = OrderBookTradeEvent(
-            maker_symbol,
+            maker_trading_pair,
             self.clock.current_timestamp,
             TradeType.BUY if is_buy else TradeType.SELL,
             (self.mid_price * (1 - self.bid_threshold - 0.01)
@@ -222,7 +222,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             market.trigger_event(MarketEvent.OrderFilled, OrderFilledEvent(
                 market.current_timestamp,
                 limit_order.client_order_id,
-                limit_order.symbol,
+                limit_order.trading_pair,
                 TradeType.BUY,
                 OrderType.LIMIT,
                 limit_order.price,
@@ -246,7 +246,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             market.trigger_event(MarketEvent.OrderFilled, OrderFilledEvent(
                 market.current_timestamp,
                 limit_order.client_order_id,
-                limit_order.symbol,
+                limit_order.trading_pair,
                 TradeType.SELL,
                 OrderType.LIMIT,
                 limit_order.price,
@@ -712,7 +712,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.clock.remove_iterator(self.strategy)
         self.clock.remove_iterator(self.maker_market)
         self.maker_market_2: BacktestMarket = BacktestMarket()
-        self.maker_data_2: MockOrderBookLoader = MockOrderBookLoader(*self.maker_symbols)
+        self.maker_data_2: MockOrderBookLoader = MockOrderBookLoader(*self.maker_trading_pairs)
         self.maker_data_2.set_balanced_order_book(mid_price=self.mid_price,
                                                   min_price=1,
                                                   max_price=200,
@@ -724,12 +724,12 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.maker_market_2.set_balance("QETH", 500)
         self.maker_market_2.set_quantization_param(
             QuantizationParams(
-                self.maker_symbols[0], 6, 6, 6, 6
+                self.maker_trading_pairs[0], 6, 6, 6, 6
             )
         )
 
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
-            *([self.maker_market_2] + self.maker_symbols)
+            *([self.maker_market_2] + self.maker_trading_pairs)
         )
         logging_options: int = (PureMarketMakingStrategyV2.OPTION_LOG_ALL &
                                 (~PureMarketMakingStrategyV2.OPTION_LOG_NULL_ORDER_SIZE))
@@ -766,13 +766,13 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
     end_timestamp: float = end.timestamp()
-    maker_symbols: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
+    maker_trading_pairs: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
 
     def setUp(self):
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
         self.maker_market: BacktestMarket = BacktestMarket()
-        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_symbols)
+        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_trading_pairs)
         self.mid_price = 100
         self.bid_threshold = 0.01
         self.ask_threshold = 0.01
@@ -805,13 +805,13 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
         self.maker_market.set_balance("QETH", 500)
         self.maker_market.set_quantization_param(
             QuantizationParams(
-                self.maker_symbols[0], 6, 6, 6, 6
+                self.maker_trading_pairs[0], 6, 6, 6, 6
             )
         )
 
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             *(
-                [self.maker_market] + self.maker_symbols
+                [self.maker_market] + self.maker_trading_pairs
             )
         )
 
@@ -855,10 +855,10 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
         self.maker_market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
     def simulate_maker_market_trade(self, is_buy: bool, quantity: float):
-        maker_symbol: str = self.maker_symbols[0]
-        order_book: OrderBook = self.maker_market.get_order_book(maker_symbol)
+        maker_trading_pair: str = self.maker_trading_pairs[0]
+        order_book: OrderBook = self.maker_market.get_order_book(maker_trading_pair)
         trade_event: OrderBookTradeEvent = OrderBookTradeEvent(
-            maker_symbol,
+            maker_trading_pair,
             self.clock.current_timestamp,
             TradeType.BUY if is_buy else TradeType.SELL,
             (self.mid_price * (1 - self.bid_threshold - 0.01)

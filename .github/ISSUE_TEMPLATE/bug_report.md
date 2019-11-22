@@ -22,7 +22,7 @@ Here are the steps to reproduce the issue (see attachments in the section below)
 // If applicable, add screenshots to help explain your problem.
 
 **Release version**
-// Include your bot's version number (Can be found at the bottom left corner of your CLI).
+// Include your bot's version number (Can be found at the upper left corner of your CLI).
 
 **Attachments**
 // Please attach your config file and log file to help us debug. It would be difficult for us to help you without those! 
