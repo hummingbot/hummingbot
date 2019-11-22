@@ -707,9 +707,9 @@ cdef class PaperTradeMarket(MarketBase):
             self.logger().error(f"Error processing limit order.", exc_info=True)
 
     cdef c_process_crossed_limit_orders_for_trading_pair(self,
-                                                   bint is_buy,
-                                                   LimitOrders *limit_orders_map_ptr,
-                                                   LimitOrdersIterator *map_it_ptr):
+                                                         bint is_buy,
+                                                         LimitOrders *limit_orders_map_ptr,
+                                                         LimitOrdersIterator *map_it_ptr):
         """
         Trigger limit orders when the opposite side of the order book has crossed the limit order's price.
         This implies someone was ready to fill the limit order, if that limit order was on the market.
@@ -906,7 +906,7 @@ cdef class PaperTradeMarket(MarketBase):
         if trading_pair in self._quantization_params:
             q_params = self._quantization_params[trading_pair]
             decimals_quantum = Decimal(f"1e-{q_params.price_decimals}")
-            if price > s_decimal_0:
+            if price.is_finite() and price > s_decimal_0:
                 precision_quantum = Decimal(f"1e{math.ceil(math.log10(price)) - q_params.price_precision}")
             else:
                 precision_quantum = Decimal(0)
@@ -922,7 +922,7 @@ cdef class PaperTradeMarket(MarketBase):
         if trading_pair in self._quantization_params:
             q_params = self._quantization_params[trading_pair]
             decimals_quantum = Decimal(f"1e-{q_params.order_size_decimals}")
-            if order_size > s_decimal_0:
+            if order_size.is_finite() and order_size > s_decimal_0:
                 precision_quantum = Decimal(f"1e{math.ceil(math.log10(order_size)) - q_params.order_size_precision}")
             else:
                 precision_quantum = Decimal(0)

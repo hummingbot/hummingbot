@@ -29,7 +29,7 @@ from hummingbot.core.data_type.order_book_tracker_entry import (
 )
 from hummingbot.core.data_type.order_book_message import DDEXOrderBookMessage
 
-TRADING_PAIR_FILTER = re.compile(r"(TUSD|WETH|DAI)$")
+TRADING_PAIR_FILTER = re.compile(r"(TUSD|WETH|DAI|SAI)$")
 
 REST_URL = "https://api.ddex.io/v3"
 WS_URL = "wss://ws.ddex.io/v3"
