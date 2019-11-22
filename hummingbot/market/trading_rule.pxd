@@ -1,6 +1,6 @@
 cdef class TradingRule:
     cdef:
-        public str symbol
+        public str trading_pair
         public object min_order_size                   # Calculated min base asset size based on last trade price
         public object max_order_size                   # Calculated max base asset size
         public object min_price_increment              # Min tick size difference accepted (e.g. 0.1)

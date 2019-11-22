@@ -30,7 +30,7 @@ class BittrexOrderBookTracker(OrderBookTracker):
     def __init__(
         self,
         data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
-        symbols: Optional[List[str]] = None,
+        trading_pairs: Optional[List[str]] = None,
     ):
         super().__init__(data_source_type=data_source_type)
 
@@ -43,14 +43,14 @@ class BittrexOrderBookTracker(OrderBookTracker):
         self._order_books: Dict[str, BittrexOrderBook] = {}
         self._saved_message_queues: Dict[str, Deque[BittrexOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
         self._active_order_trackers: Dict[str, BittrexActiveOrderTracker] = defaultdict(BittrexActiveOrderTracker)
-        self._symbols: Optional[List[str]] = symbols
+        self._trading_pairs: Optional[List[str]] = trading_pairs
         self._order_book_stream_listener_task: Optional[asyncio.Task] = None
 
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
         if not self._data_source:
             if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = BittrexAPIOrderBookDataSource(symbols=self._symbols)
+                self._data_source = BittrexAPIOrderBookDataSource(trading_pairs=self._trading_pairs)
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source
@@ -63,29 +63,29 @@ class BittrexOrderBookTracker(OrderBookTracker):
         """
         Starts tracking for any new trading pairs, and stop tracking for any inactive trading pairs.
         """
-        tracking_symbols: Set[str] = set(
+        tracking_trading_pair: Set[str] = set(
             [key for key in self._tracking_tasks.keys() if not self._tracking_tasks[key].done()]
         )
         available_pairs: Dict[str, BittrexOrderBookTrackerEntry] = await self.data_source.get_tracking_pairs()
-        available_symbols: Set[str] = set(available_pairs.keys())
-        new_symbols: Set[str] = available_symbols - tracking_symbols
-        deleted_symbols: Set[str] = tracking_symbols - available_symbols
+        available_trading_pair: Set[str] = set(available_pairs.keys())
+        new_trading_pair: Set[str] = available_trading_pair - tracking_trading_pair
+        deleted_trading_pair: Set[str] = tracking_trading_pair - available_trading_pair
 
-        for symbol in new_symbols:
-            order_book_tracker_entry: BittrexOrderBookTrackerEntry = available_pairs[symbol]
-            self._active_order_trackers[symbol] = order_book_tracker_entry.active_order_tracker
-            self._order_books[symbol] = order_book_tracker_entry.order_book
-            self._tracking_message_queues[symbol] = asyncio.Queue()
-            self._tracking_tasks[symbol] = asyncio.ensure_future(self._track_single_book(symbol))
-            self.logger().info(f"Started order book tracking for {symbol}.")
+        for trading_pair in new_trading_pair:
+            order_book_tracker_entry: BittrexOrderBookTrackerEntry = available_pairs[trading_pair]
+            self._active_order_trackers[trading_pair] = order_book_tracker_entry.active_order_tracker
+            self._order_books[trading_pair] = order_book_tracker_entry.order_book
+            self._tracking_message_queues[trading_pair] = asyncio.Queue()
+            self._tracking_tasks[trading_pair] = asyncio.ensure_future(self._track_single_book(trading_pair))
+            self.logger().info(f"Started order book tracking for {trading_pair}.")
 
-        for symbol in deleted_symbols:
-            self._tracking_tasks[symbol].cancel()
-            del self._tracking_tasks[symbol]
-            del self._order_books[symbol]
-            del self._active_order_trackers[symbol]
-            del self._tracking_message_queues[symbol]
-            self.logger().info(f"Stopped order book tracking for {symbol}.")
+        for trading_pair in deleted_trading_pair:
+            self._tracking_tasks[trading_pair].cancel()
+            del self._tracking_tasks[trading_pair]
+            del self._order_books[trading_pair]
+            del self._active_order_trackers[trading_pair]
+            del self._tracking_message_queues[trading_pair]
+            self.logger().info(f"Stopped order book tracking for {trading_pair}.")
 
     async def _order_book_diff_router(self):
         """
@@ -98,15 +98,15 @@ class BittrexOrderBookTracker(OrderBookTracker):
         while True:
             try:
                 ob_message: BittrexOrderBookMessage = await self._order_book_diff_stream.get()
-                symbol: str = ob_message.symbol
-                if symbol not in self._tracking_message_queues:
+                trading_pair: str = ob_message.trading_pair
+                if trading_pair not in self._tracking_message_queues:
                     message_queued += 1
                     # Save diff messages received before snaphsots are ready
-                    self._saved_message_queues[symbol].append(ob_message)
+                    self._saved_message_queues[trading_pair].append(ob_message)
                     continue
-                message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
+                message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
                 # Check the order book's initial update ID. If it's larger, don't bother.
-                order_book: BittrexOrderBook = self._order_books[symbol]
+                order_book: BittrexOrderBook = self._order_books[trading_pair]
 
                 if order_book.snapshot_uid > ob_message.update_id:
                     message_rejected += 1
@@ -119,7 +119,7 @@ class BittrexOrderBookTracker(OrderBookTracker):
                         trade_type = float(TradeType.SELL.value) if trade["OT"].upper() == "SELL" \
                             else float(TradeType.BUY.value)
                         self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
-                            "symbol": ob_message.symbol,
+                            "trading_pair": ob_message.trading_pair,
                             "trade_type": trade_type,
                             "trade_id": trade["FI"],
                             "update_id": trade["T"],
@@ -153,13 +153,13 @@ class BittrexOrderBookTracker(OrderBookTracker):
                 )
                 await asyncio.sleep(5.0)
 
-    async def _track_single_book(self, symbol: str):
+    async def _track_single_book(self, trading_pair: str):
         past_diffs_window: Deque[BittrexOrderBookMessage] = deque()
-        self._past_diffs_windows[symbol] = past_diffs_window
+        self._past_diffs_windows[trading_pair] = past_diffs_window
 
-        message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
-        order_book: BittrexOrderBook = self._order_books[symbol]
-        active_order_tracker: BittrexActiveOrderTracker = self._active_order_trackers[symbol]
+        message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
+        order_book: BittrexOrderBook = self._order_books[trading_pair]
+        active_order_tracker: BittrexActiveOrderTracker = self._active_order_trackers[trading_pair]
 
         last_message_timestamp = order_book.snapshot_uid
         diff_message_accepted: int = 0
@@ -167,7 +167,7 @@ class BittrexOrderBookTracker(OrderBookTracker):
         while True:
             try:
                 message: BittrexOrderBookMessage = None
-                save_messages: Deque[BittrexOrderBookMessage] = self._saved_message_queues[symbol]
+                save_messages: Deque[BittrexOrderBookMessage] = self._saved_message_queues[trading_pair]
                 # Process saved messages first if there are any
                 if len(save_messages) > 0:
                     message = save_messages.popleft()
@@ -191,7 +191,7 @@ class BittrexOrderBookTracker(OrderBookTracker):
                     # Output some statistics periodically.
                     now: float = message.update_id
                     if now > last_message_timestamp:
-                        self.logger().debug(f"Processed {diff_message_accepted} order book diffs for {symbol}")
+                        self.logger().debug(f"Processed {diff_message_accepted} order book diffs for {trading_pair}")
                         diff_message_accepted = 0
                     last_message_timestamp = now
                 # Processes snapshot stream
@@ -206,12 +206,12 @@ class BittrexOrderBookTracker(OrderBookTracker):
                         d_bids, d_asks = active_order_tracker.convert_diff_message_to_order_book_row(diff_message)
                         order_book.apply_diffs(d_bids, d_asks, diff_message.update_id)
 
-                    self.logger().debug("Processed order book snapshot for %s.", symbol)
+                    self.logger().debug("Processed order book snapshot for %s.", trading_pair)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().network(
-                    f"Unexpected error processing order book messages for {symbol}.",
+                    f"Unexpected error processing order book messages for {trading_pair}.",
                     exc_info=True,
                     app_warning_msg=f"Unexpected error processing order book messages. Retrying after 5 seconds.",
                 )
