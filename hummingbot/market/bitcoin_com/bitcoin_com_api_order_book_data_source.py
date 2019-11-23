@@ -10,7 +10,7 @@ from typing import Optional, List, Dict, Any
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry, BitcoinComOrderBookTrackerEntry
+from hummingbot.core.data_type.order_book_tracker_entry import BitcoinComOrderBookTrackerEntry
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -32,9 +32,9 @@ class BitcoinComAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, symbols: Optional[List[str]] = None):
+    def __init__(self, trading_pairs: Optional[List[str]] = None):
         super().__init__()
-        self._symbols: Optional[List[str]] = symbols
+        self._trading_pairs: Optional[List[str]] = trading_pairs
         self._snapshot_msg: Dict[str, any] = {}
 
     @classmethod
@@ -120,19 +120,19 @@ class BitcoinComAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Return list of trading pairs
         """
-        if not self._symbols:
+        if not self._trading_pairs:
             try:
                 active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                self._symbols = active_markets.index.tolist()
+                self._trading_pairs = active_markets.index.tolist()
             except Exception:
-                self._symbols = []
+                self._trading_pairs = []
                 self.logger().network(
                     f"Error getting active exchange information.",
                     exc_info=True,
                     app_warning_msg=f"Error getting active exchange information. Check network connection.",
                 )
 
-        return self._symbols
+        return self._trading_pairs
 
     @staticmethod
     async def get_orderbook(trading_pair: str) -> Dict[str, any]:
@@ -156,9 +156,9 @@ class BitcoinComAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         return {}
 
-    async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
+    async def get_tracking_pairs(self) -> Dict[str, BitcoinComOrderBookTrackerEntry]:
         trading_pairs: List[str] = await self.get_trading_pairs()
-        tracking_pairs: Dict[str, OrderBookTrackerEntry] = {}
+        tracking_pairs: Dict[str, BitcoinComOrderBookTrackerEntry] = {}
 
         number_of_pairs: int = len(trading_pairs)
         for index, trading_pair in enumerate(trading_pairs):
