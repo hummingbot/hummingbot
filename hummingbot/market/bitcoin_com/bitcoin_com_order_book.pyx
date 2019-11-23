@@ -17,6 +17,7 @@ from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage, OrderBookMessageType, BitcoinComOrderBookMessage
 )
+from hummingbot.market.bitcoin_com.bitcoin_com_utils import merge_dicts
 
 _logger = None
 
@@ -39,19 +40,13 @@ cdef class BitcoinComOrderBook(OrderBook):
         :param timestamp: timestamp attached to incoming data
         :return: BitcoinComOrderBookMessage
         """
+
         if metadata:
             msg.update(metadata)
 
-        content = {
-            "symbol": msg["trading_pair"],
-            "update_id": timestamp,
-            "bids": msg["bid"],
-            "asks": msg["ask"]
-        }
-
         return BitcoinComOrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
-            content=content,
+            content=msg,
             timestamp=timestamp
         )
 
@@ -81,18 +76,12 @@ cdef class BitcoinComOrderBook(OrderBook):
         :return: BitcoinComOrderBookMessage
         """
 
-        content = {
-            "symbol": msg["symbol"],
-            "update_id": timestamp,
-            "bids": msg["bid"],
-            "asks": msg["ask"]
-        }
-
         if metadata:
             msg.update(metadata)
+
         return BitcoinComOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
-            content=content,
+            content=msg,
             timestamp=timestamp
         )
 
@@ -116,26 +105,22 @@ cdef class BitcoinComOrderBook(OrderBook):
                                     timestamp: Optional[float] = None,
                                     metadata: Optional[Dict] = None):
         """
-        *used for backtesting
         Convert a trade data into standard OrderBookMessage format
         :param record: a trade data from the database
         :return: BitcoinComOrderBookMessage
         """
 
-        content = {
-            "symbol": metadata["trading_pair"],
-            "trade_type": float(TradeType.SELL.value) if msg["side"] == "buy" else float(TradeType.BUY.value),
-            "trade_id": msg["id"],
-            "update_id": timestamp,
-            "amount": msg["quantity"],
-            "price": msg["price"]
-        }
-
         if metadata:
             msg.update(metadata)
+
+        msg.update({
+            "trade_type": float(TradeType.SELL.value) if msg["side"] == "buy" else float(TradeType.BUY.value),
+            "amount": msg["quantity"]
+        })
+
         return BitcoinComOrderBookMessage(
             message_type=OrderBookMessageType.TRADE,
-            content=content,
+            content=msg,
             timestamp=timestamp
         )
 
