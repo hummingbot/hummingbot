@@ -19,6 +19,11 @@ logging.basicConfig(level=logging.DEBUG)
 
 class LiquidOrderBookTrackerUnitTest(unittest.TestCase):
     # order_book_tracker: Optional[LiquidOrderBookTracker] = None
+
+    trading_pairs = [
+        'ETHUSD'
+    ]
+
     @classmethod
     def setUpClass(cls):
         cls._liquid_auth: LiquidAuth = LiquidAuth(
@@ -27,7 +32,8 @@ class LiquidOrderBookTrackerUnitTest(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.user_stream_tracker: LiquidUserStreamTracker = LiquidUserStreamTracker(
             data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-            liquid_auth=cls._liquid_auth)
+            liquid_auth=cls._liquid_auth,
+            trading_pairs=cls.trading_pairs)
         cls.user_stream_tracker_task: asyncio.Task = safe_ensure_future(cls.user_stream_tracker.start())
 
     def test_user_stream(self):

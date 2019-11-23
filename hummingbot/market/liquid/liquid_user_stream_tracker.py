@@ -3,6 +3,7 @@
 import asyncio
 import logging
 from typing import (
+    List,
     Optional
 )
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -30,10 +31,12 @@ class LiquidUserStreamTracker(UserStreamTracker):
 
     def __init__(self,
                  data_source_type: UserStreamTrackerDataSourceType = UserStreamTrackerDataSourceType.EXCHANGE_API,
-                 liquid_auth: Optional[LiquidAuth] = None):
+                 liquid_auth: Optional[LiquidAuth] = None,
+                 trading_pairs: Optional[List[str]] = []):
         super().__init__(data_source_type=data_source_type)
         self._liquid_auth: LiquidAuth = liquid_auth
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
+        self._trading_pairs = trading_pairs
         self._data_source: Optional[UserStreamTrackerDataSource] = None
         self._user_stream_tracking_task: Optional[asyncio.Task] = None
 
@@ -41,7 +44,8 @@ class LiquidUserStreamTracker(UserStreamTracker):
     def data_source(self) -> (UserStreamTrackerDataSource):
         if not self._data_source:
             if self._data_source_type is UserStreamTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = LiquidAPIUserStreamDataSource(liquid_auth=self._liquid_auth)
+                self._data_source = LiquidAPIUserStreamDataSource(
+                    liquid_auth=self._liquid_auth, trading_pairs=self._trading_pairs)
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source
