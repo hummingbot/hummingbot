@@ -54,7 +54,6 @@ class LiquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :param ev_loop: ev_loop to execute this function in
         :param output: an async queue where the incoming messages are stored
         """
-
         while True:
             try:
                 async with websockets.connect(Constants.BAEE_WS_URL) as ws:
@@ -71,12 +70,10 @@ class LiquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         subscribe_request: Dict[str, Any] = {
                             "event": Constants.WS_PUSHER_SUBSCRIBE_EVENT,
                             "data": {
-                                "channel": Constants.WS_USER_EXECUTIONS_SUBSCRIPTION.format(
-                                    currency_pair_code=trading_pair.lower())
+                                "channel": 'user_account_usd_orders'
                             }
                         }
                         await ws.send(ujson.dumps(subscribe_request))
-
                     async for raw_msg in self._inner_messages(ws):
                         diff_msg = ujson.loads(raw_msg)
 
