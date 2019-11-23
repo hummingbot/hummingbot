@@ -17,6 +17,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.market.liquid.constants import Constants
+from hummingbot.market.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
 from hummingbot.market.liquid.liquid_auth import LiquidAuth
 from hummingbot.market.liquid.liquid_order_book import LiquidOrderBook
 
@@ -66,11 +67,19 @@ class LiquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     }
                     await ws.send(ujson.dumps(auth_request))
 
-                    for trading_pair in self._trading_pairs:
+                    active_markets_df = await LiquidAPIOrderBookDataSource.get_active_exchange_markets()
+                    quoted_currencies = [
+                        active_markets_df.loc[trading_pair, 'quoted_currency']
+                        for trading_pair in self._trading_pairs
+                    ]
+
+                    for trading_pair, quoted_currency in zip(self._trading_pairs, quoted_currencies):
                         subscribe_request: Dict[str, Any] = {
                             "event": Constants.WS_PUSHER_SUBSCRIBE_EVENT,
                             "data": {
-                                "channel": 'user_account_usd_orders'
+                                "channel": Constants.WS_USER_ACCOUNTS_SUBSCRIPTION.format(
+                                    quoted_currency=quoted_currency.lower()
+                                )
                             }
                         }
                         await ws.send(ujson.dumps(subscribe_request))
