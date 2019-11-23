@@ -599,11 +599,11 @@ class LiquidOrderBookMessage(OrderBookMessage):
     @property
     def asks(self) -> (List[OrderBookRow]):
         return [
-            OrderBookRow(round(float(price), 2), float(amount), self.update_id) for price, amount, *trash in self.content.get("buy_price_levels", [])
+            OrderBookRow(float(price), float(amount), self.update_id) for price, amount, *trash in self.content.get("asks", [])
         ]
 
     @property
     def bids(self) -> (List[OrderBookRow]):
         return [
-            OrderBookRow(round(float(price), 2), float(amount), self.update_id) for price, amount, *trash in self.content.get("sell_price_levels", [])
+            OrderBookRow(float(price), float(amount), self.update_id) for price, amount, *trash in self.content.get("bids", [])
         ]
