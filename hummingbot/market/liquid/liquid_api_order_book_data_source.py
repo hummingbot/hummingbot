@@ -330,10 +330,7 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             snapshot_timestamp: float = time.time()
                             snapshot['asks'] = snapshot.get('sell_price_levels')
                             snapshot['bids'] = snapshot.get('buy_price_levels')
-                            if 'sell_price_levels' in snapshot:
-                                del snapshot['sell_price_levels']
-                            if 'buy_price_levels' in snapshot:
-                                del snapshot['buy_price_levels']
+
                             snapshot_msg: OrderBookMessage = LiquidOrderBook.snapshot_message_from_exchange(
                                 msg=snapshot,
                                 timestamp=snapshot_timestamp,
