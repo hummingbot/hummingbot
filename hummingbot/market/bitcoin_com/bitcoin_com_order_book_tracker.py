@@ -32,7 +32,7 @@ class BitcoinComOrderBookTracker(OrderBookTracker):
     def __init__(
         self,
         data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
-        symbols: Optional[List[str]] = None,
+        trading_pairs: Optional[List[str]] = None,
     ):
         super().__init__(data_source_type=data_source_type)
 
@@ -46,7 +46,7 @@ class BitcoinComOrderBookTracker(OrderBookTracker):
         self._order_books: Dict[str, BitcoinComOrderBook] = {}
         self._saved_message_queues: Dict[str, Deque[BitcoinComOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
         self._active_order_trackers: Dict[str, BitcoinComActiveOrderTracker] = defaultdict(BitcoinComActiveOrderTracker)
-        self._symbols: Optional[List[str]] = symbols
+        self._trading_pairs: Optional[List[str]] = trading_pairs
         self._order_book_stream_listener_task: Optional[asyncio.Task] = None
         self._order_book_trade_listener_task: Optional[asyncio.Task] = None
 
@@ -58,7 +58,7 @@ class BitcoinComOrderBookTracker(OrderBookTracker):
         """
         if not self._data_source:
             if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = BitcoinComAPIOrderBookDataSource(symbols=self._symbols)
+                self._data_source = BitcoinComAPIOrderBookDataSource(trading_pairs=self._trading_pairs)
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source
@@ -96,16 +96,16 @@ class BitcoinComOrderBookTracker(OrderBookTracker):
             self._order_book_snapshot_router()
         )
 
-    async def _track_single_book(self, symbol: str):
+    async def _track_single_book(self, trading_pair: str):
         """
         Update an order book with changes from the latest batch of received messages
         """
         past_diffs_window: Deque[BitcoinComOrderBookMessage] = deque()
-        self._past_diffs_windows[symbol] = past_diffs_window
+        self._past_diffs_windows[trading_pair] = past_diffs_window
 
-        message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
-        order_book: BitcoinComOrderBook = self._order_books[symbol]
-        active_order_tracker: BitcoinComActiveOrderTracker = self._active_order_trackers[symbol]
+        message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
+        order_book: BitcoinComOrderBook = self._order_books[trading_pair]
+        active_order_tracker: BitcoinComActiveOrderTracker = self._active_order_trackers[trading_pair]
 
         last_message_timestamp: float = time.time()
         diff_messages_accepted: int = 0
@@ -113,7 +113,7 @@ class BitcoinComOrderBookTracker(OrderBookTracker):
         while True:
             try:
                 message: BitcoinComOrderBookMessage = None
-                saved_messages: Deque[BitcoinComOrderBookMessage] = self._saved_message_queues[symbol]
+                saved_messages: Deque[BitcoinComOrderBookMessage] = self._saved_message_queues[trading_pair]
                 # Process saved messages first if there are any
                 if len(saved_messages) > 0:
                     message = saved_messages.popleft()
@@ -132,7 +132,7 @@ class BitcoinComOrderBookTracker(OrderBookTracker):
                     now: float = time.time()
                     if int(now / 60.0) > int(last_message_timestamp / 60.0):
                         self.logger().debug("Processed %d order book diffs for %s.",
-                                            diff_messages_accepted, symbol)
+                                            diff_messages_accepted, trading_pair)
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                 elif message.type is OrderBookMessageType.SNAPSHOT:
@@ -146,12 +146,12 @@ class BitcoinComOrderBookTracker(OrderBookTracker):
                         d_bids, d_asks = active_order_tracker.convert_diff_message_to_order_book_row(diff_message)
                         order_book.apply_diffs(d_bids, d_asks, diff_message.update_id)
 
-                    self.logger().debug("Processed order book snapshot for %s.", symbol)
+                    self.logger().debug("Processed order book snapshot for %s.", trading_pair)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().network(
-                    f"Unexpected error processing order book messages for {symbol}.",
+                    f"Unexpected error processing order book messages for {trading_pair}.",
                     exc_info=True,
                     app_warning_msg=f"Unexpected error processing order book messages. Retrying after 5 seconds."
                 )

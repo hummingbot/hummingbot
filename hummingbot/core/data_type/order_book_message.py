@@ -529,8 +529,11 @@ class BitcoinComOrderBookMessage(OrderBookMessage):
         return int(self.timestamp * 1e3)
 
     @property
-    def symbol(self) -> str:
-        return self.content["symbol"]
+    def trading_pair(self) -> str:
+        if "trading_pair" in self.content:
+            return self.content["trading_pair"]
+        elif "symbol" in self.content:
+            return self.content["symbol"]
 
     @property
     def asks(self) -> List[OrderBookRow]:
