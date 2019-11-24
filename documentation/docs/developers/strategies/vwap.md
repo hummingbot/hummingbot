@@ -15,7 +15,7 @@ VWAP utilizes user input for:
 
 The VWAP strategy fetches the order book and calculates the total open order volume up to percent_slippage. If no order is outstanding, an order is submitted which is capped at order_percent_of_volume * open order volume up to percent_slippage. The previous order is filled before the next is submitted and if an order is currently outstanding no action occurs.
 
-![Figure 1: Placing orders](/assets/img/VWAP_2.svg)
+![Figure 1: Placing orders](/assets/img/VWAP1.svg)
 
 Specifically, the operations in the flow chart above occur in the following sections of code:
 * c_process_order():
@@ -38,7 +38,7 @@ Specifically, the operations in the flow chart above occur in the following sect
 
 The flow chart below details the flow of processing orders.
 
-![Figure 1: Processing orders](/assets/img/VWAP_1.svg)
+![Figure 1: Processing orders](/assets/img/VWAP2.svg)
 
 Only one order is placed in a clock tick, so a state machine is needed to emit multiple orders over different clock ticks.
 
