@@ -37,11 +37,11 @@ Custom state variables can be added to the strategy by setting variables in the 
 * `self._quantity_remaining` : Indicates the quantity of order left to be placed as individual orders. This state variable is updated after each order is placed and persisted throughout until the order is done processing.
 * `self._first_order` : Indicates whether the current individual order is the first order.
 
+![Figure 2: Placing orders](/assets/img/TWAP_2.svg)
+
 TWAP processes orders when there is a remaining order quantity & the specified time_delay has passed. Specifically, some of the key elements in utilizing the remaining order quantity and time_delay are detailed below:
 
 * If self._quantity_remaining is greater than 0 place an order
 * If `self._first_order` is true, we want to place order as soon as `self._current_timestamp > self._previous_timestamp` we don't have a time delay before the first order
 * If it isn't the first order, check that `self._current_timestamp > self._previous_timestamp + self._time_delay`
 * Once order is placed, update self._quantity_remaining by subtracting the amount of the order just placed `curr_order_amount` : Either (total order amount)/(number of orders) or `self._quantity_remaining` depending on which is smaller
-
-![Figure 2: Placing orders](/assets/img/TWAP_2.svg)
