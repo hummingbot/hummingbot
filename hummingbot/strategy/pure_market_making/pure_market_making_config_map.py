@@ -123,7 +123,7 @@ pure_market_making_config_map = {
                                    type_str="decimal",
                                    default=0),
     "add_transaction_costs": ConfigVar(key="add_transaction_costs",
-                                       prompt="Do you want to add transaction costs automatically to order prices ?"
+                                       prompt="Do you want to add transaction costs automatically to order prices? "
                                               "(Default is True) >>> ",
                                        type_str="bool",
                                        default=True)

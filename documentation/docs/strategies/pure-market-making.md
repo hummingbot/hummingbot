@@ -54,19 +54,18 @@ The following walks through all the steps when running `config` for the first ti
 | `How long do you want to wait before placing the next order if your order gets filled (in seconds)? (Default is 10 seconds) >>>` | More information in [Order Replenish Time](#order-replenish-time) section. |
 | `Do you want to enable order_filled_stop_cancellation? If enabled, when orders are completely filled, the other side remains uncanceled. (Default is False) >>> ` | More information in ["Hanging Orders"](#hanging-orders) section. |
 | `Do you want to enable jump_orders? If enabled, when the top bid price is lesser than your order price, buy order will jump to one tick above top bid price & vice versa for sell. (Default is False) >>>` <br /><br /> `How deep do you want to go into the order book for calculating the top bid and ask, ignoring dust orders on the top (expressed in base currency)? (Default is 0) >>>` | More information in [Penny Jumping Mode](#penny-jumping-mode) section. |
+| `Do you want to add transaction costs automatically to order prices? (Default is True) >>> ` | More information in [Adding Transaction Costs to Prices](#adding-transaction-costs-to-prices) section. |
 
 
 ## Adding Transaction Costs to Prices
 
-Transaction costs are by default now added to the prices. This setting can be disabled by going to `hummingbot/strategy/pure_market_making/start.py` and setting `add_transaction_costs_to_orders` to `False`.
+Transaction costs can now be added to the price calculation. `fee_pct` refers to the percentage maker fees per order (generally common in Centralized exchanges) while `fixed_fees` refers to the flat fees (generally common in Decentralized exchanges).
 
-`fee_pct` refers to the percentage maker fees per order (generally common in Centralized exchanges) while `fixed_fees` refers to the flat fees (generally common in Decentralized exchanges).
-
-- The bid order price is now calculated as:
+- The bid order price will be calculated as:
 
 ![Bid price with transaction cost](/assets/img/trans_cost_bid.PNG)
 
-- The ask order price is now calculated as:
+- The ask order price will be calculated as:
 
 ![Ask price with transaction cost](/assets/img/trans_cost_ask.PNG)
 
@@ -75,6 +74,10 @@ Adding the transaction cost will reduce the bid order price and increase the ask
 We currently display warnings if the adjusted price post adding the transaction costs is 10% away from the original price. This setting can be modified by changing `warning_report_threshold` in the `c_add_transaction_costs_to_pricing_proposal` function inside `hummingbot/strategy/pure_market_making/pure_market_making_v2.pyx`.
 
 If the buy price with the transaction cost is zero or negative, it is not profitable to place orders and orders will not be placed.
+
+| Prompt | Description |
+|-----|-----|
+| `Do you want to add transaction costs automatically to order prices? (Default is True) >>> ` | This sets `add_transaction_costs` ([definition](#configuration-parameters)). |
 
 ## Multiple Order Configuration
 
@@ -180,6 +183,8 @@ The following parameters are fields in Hummingbot configuration files located in
 | **enable_order_filled_stop_cancellation** | When this is `true`, the orders on the side opposite to the filled orders remains uncanceled. _Default value: False_. <br/>
 | **jump_orders_enabled** | When this is `true`, the bid and ask order prices are adjusted based on the current top bid and ask prices in the market. _Default value: False_. <br/>
 | **jump_orders_depth** | If jump_orders_enabled is `true`, this specifies how deep into the orderbook to go for calculating the top bid and ask prices including the user's active orders. _Default value: 0_. <br/>
+| **add_transaction_costs** | Parameter to enable/disable adding transaction costs to order prices. _Default value: true_. <br/>
+
 
 ## Risks and Trading Mechanics
 
