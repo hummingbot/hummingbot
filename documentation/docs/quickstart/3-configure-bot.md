@@ -117,6 +117,19 @@ How often do you want to cancel and replace bids and asks (in seconds)? (Default
 
 What is your preferred quantity per order? (Denominated in the base asset, default is 1) >>>
 0.2
+
+How long do you want to wait before placing the next order if your order gets filled (in seconds)? (Default is 10 seconds) >>>
+10
+
+Do you want to enable order_filled_stop_cancellation? If enabled, when orders are completely filled, the other side remains uncanceled. (Default is False) >>> 
+False
+
+Do you want to enable jump_orders? If enabled, when the top bid price is lesser than your order price, buy order will jump to one tick above top bid price & vice versa for sell. (Default is False) >>>
+False
+
+Do you want to add transaction costs automatically to order prices? (Default is True) >>>
+True
+
 ```
 
 #### d) Enable inventory skew
