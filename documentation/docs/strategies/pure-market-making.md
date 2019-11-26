@@ -157,7 +157,7 @@ Note that `add_transcation_costs` parameter should be disabled (set to `false`) 
 
 The top bid/ask in the orderbook is 98 and 102 respectively and the mid price is 100.
 
-Below is our sample configuration:
+Below is a sample configuration:
 
 ```
 mode = single
@@ -169,7 +169,7 @@ jump_order_depth = 0
 add_transaction_costs = false
 ```
 
-Using the configs above, Hummingbot should place our buy order at 99 and sell order at 101. However, since penny jumping mode is enabled it will create orders with prices right just above the current top bid/ask in the orderbook. Hummingbot will place our buy order at 98.001 and sell order at 101.999 instead.
+Using the configs above, Hummingbot should place a buy order at 99 and sell order at 101. However, since penny jumping mode is enabled it will create orders with prices right just above the current top bid/ask in the orderbook. Hummingbot will place the buy order at 98.001 and the sell order at 101.999 instead.
 
 | Prompt | Description |
 |-----|-----|
