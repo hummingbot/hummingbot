@@ -149,13 +149,27 @@ The `enable_order_filled_stop_cancellation` can be used if there is enough volat
 
 ## Penny Jumping mode
 
-Users now have the option to automatically adjust the prices to just above top bid and just below top ask using `jump_orders_enabled`. The user can specify how deep to go into the orderbook for calculating the top bid and top ask price using `jump_orders_depth`. This is available in single order mode.
+Users now have the option to automatically adjust the prices to just above top bid and just below top ask using `jump_orders_enabled` available in single order mode. It can also be specified how deep to go into the orderbook for calculating the top bid and top ask price using `jump_orders_depth`.
 
-> Example:
-Assume you are running pure market making in single order mode, the order size is 1 and the mid price is 100. Then if you set jump_order_depth to 0,
-<ul><li> Based on bid and ask thresholds of 0.01, your bid/ask orders might originally have been placed at 99 and 101, respectively.
-<li> If the current top bid in the market is 98, now the buy order is automatically adjusted to just above 98, say 98.001 and placed at this price.
-<li> If the current top ask in the market is 102, now the sell order is automatically adjusted to just below 102, say 101.999 and placed at this price.
+Note that `add_transcation_costs` parameter should be disabled (set to `false`) for penny jumping mode to take effect.
+
+**Example scenario:**
+
+The top bid/ask in the orderbook is 98 and 102 respectively and the mid price is 100.
+
+Below is our sample configuration:
+
+```
+mode = single
+order size = 1
+bid threshold = 0.01 (1%)
+ask threshold = 0.01 (1%)
+jump_orders_enabled = true
+jump_order_depth = 0
+add_transaction_costs = false
+```
+
+Using the configs above, Hummingbot should place our buy order at 99 and sell order at 101. However, since penny jumping mode is enabled it will create orders with prices right just above the current top bid/ask in the orderbook. Hummingbot will place our buy order at 98.001 and sell order at 101.999 instead.
 
 | Prompt | Description |
 |-----|-----|
