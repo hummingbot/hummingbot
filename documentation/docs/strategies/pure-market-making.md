@@ -151,7 +151,7 @@ The `enable_order_filled_stop_cancellation` can be used if there is enough volat
 
 Users now have the option to automatically adjust the prices to just above top bid and just below top ask using `jump_orders_enabled` available in single order mode. It can also be specified how deep to go into the orderbook for calculating the top bid and top ask price using `jump_orders_depth`.
 
-Note that `add_transcation_costs` parameter should be disabled (set to `false`) for penny jumping mode to take effect.
+Note that `add_transcation_costs` parameter should be disabled (set to `false`) for penny jumping mode to work effectively.
 
 **Example scenario:**
 
@@ -169,7 +169,10 @@ jump_order_depth = 0
 add_transaction_costs = false
 ```
 
-Using the configs above, Hummingbot should place a buy order at 99 and sell order at 101. However, since penny jumping mode is enabled it will create orders with prices right just above the current top bid/ask in the orderbook. Hummingbot will place the buy order at 98.001 and the sell order at 101.999 instead.
+Using the configs above, Hummingbot should place a buy order at 99 and sell order at 101. However, since penny jumping mode is enabled it will create orders with prices right just above the current top bid/ask in the orderbook. Hummingbot will place the buy order at 98.001 and the sell order at 101.999 instead. This will allow the user to capture a higher spread than the specified bid/ask threshold while keeping your orders at the top.
+
+When the top bid/ask price changes (not your own), your existing orders will be cancelled after `cancel_order_wait_time` and the price of the new set of orders will also change.
+
 
 | Prompt | Description |
 |-----|-----|
