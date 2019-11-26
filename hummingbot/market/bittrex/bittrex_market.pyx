@@ -217,12 +217,11 @@ cdef class BittrexMarket(MarketBase):
     def _format_trading_rules(self, market_dict: Dict[str, Any]) -> List[TradingRule]:
         cdef:
             list retval = []
-        min_btc_value = Decimal("0.0005")
-        print(f"MIN_BTC_VALUE: {min_btc_value}")
+            object min_btc_value = Decimal("0.0005")
 
-        eth_btc_price = Decimal(market_dict["ETH-BTC"]["lastTradeRate"])
-        btc_usd_price = Decimal(market_dict["BTC-USD"]["lastTradeRate"])
-        btc_usdt_price = Decimal(market_dict["BTC-USDT"]["lastTradeRate"])
+            object eth_btc_price = Decimal(market_dict["ETH-BTC"]["lastTradeRate"])
+            object btc_usd_price = Decimal(market_dict["BTC-USD"]["lastTradeRate"])
+            object btc_usdt_price = Decimal(market_dict["BTC-USDT"]["lastTradeRate"])
 
         for market in market_dict.values():
             try:
