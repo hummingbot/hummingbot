@@ -9,7 +9,7 @@ cdef extern from "../cpp/LimitOrder.h":
     cdef cppclass LimitOrder:
         LimitOrder()
         LimitOrder(string clientOrderID,
-                   string symbol,
+                   string tradingPair,
                    bool isBuy,
                    string baseCurrency,
                    string quoteCurrency,
@@ -18,7 +18,7 @@ cdef extern from "../cpp/LimitOrder.h":
         LimitOrder(const LimitOrder &other)
         LimitOrder &operator=(const LimitOrder &other)
         string getClientOrderID();
-        string getSymbol();
+        string getTradingPair();
         bool getIsBuy();
         string getBaseCurrency();
         string getQuoteCurrency();

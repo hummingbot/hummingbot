@@ -90,7 +90,7 @@ cdef class OrderTracker(TimeIterator):
                          for market_trading_pair_tuple, order_map in self._tracked_taker_orders.items()
                          for order_id, order in order_map.items()]
 
-        return pd.DataFrame(data=market_orders, columns=["market", "symbol", "order_id", "quantity", "timestamp"])
+        return pd.DataFrame(data=market_orders, columns=["market", "trading_pair", "order_id", "quantity", "timestamp"])
 
     @property
     def in_flight_cancels(self) -> Dict[str, float]:

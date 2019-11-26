@@ -12,11 +12,11 @@ cdef class LimitOrder:
     @classmethod
     def to_pandas(cls, limit_orders: List[LimitOrder]) -> pd.DataFrame:
         cdef:
-            list columns = ["Order_Id", "is_buy", "Symbol", "Base_Asset", "Quote_Asset", "Price", "Quantity"]
+            list columns = ["Order_Id", "is_buy", "Trading_Pair", "Base_Asset", "Quote_Asset", "Price", "Quantity"]
             list data = [[
                 limit_order.client_order_id,
                 limit_order.is_buy,
-                limit_order.symbol,
+                limit_order.trading_pair,
                 limit_order.base_currency,
                 limit_order.quote_currency,
                 float(limit_order.price),
@@ -27,7 +27,7 @@ cdef class LimitOrder:
 
     def __init__(self,
                  client_order_id: str,
-                 symbol: str,
+                 trading_pair: str,
                  is_buy: bool,
                  base_currency: str,
                  quote_currency: str,
@@ -35,11 +35,11 @@ cdef class LimitOrder:
                  quantity: Decimal):
         cdef:
             string cpp_client_order_id = client_order_id.encode("utf8")
-            string cpp_symbol = symbol.encode("utf8")
+            string cpp_trading_pair = trading_pair.encode("utf8")
             string cpp_base_currency = base_currency.encode("utf8")
             string cpp_quote_currency = quote_currency.encode("utf8")
         self._cpp_limit_order = CPPLimitOrder(cpp_client_order_id,
-                                              cpp_symbol,
+                                              cpp_trading_pair,
                                               is_buy,
                                               cpp_base_currency,
                                               cpp_quote_currency,
@@ -54,10 +54,10 @@ cdef class LimitOrder:
         return retval
 
     @property
-    def symbol(self) -> str:
+    def trading_pair(self) -> str:
         cdef:
-            string cpp_symbol = self._cpp_limit_order.getSymbol()
-            str retval = cpp_symbol.decode("utf8")
+            string cpp_trading_pair = self._cpp_limit_order.getTradingPair()
+            str retval = cpp_trading_pair.decode("utf8")
         return retval
 
     @property
@@ -87,7 +87,7 @@ cdef class LimitOrder:
         return <object>(self._cpp_limit_order.getQuantity())
 
     def __repr__(self) -> str:
-        return (f"LimitOrder('{self.client_order_id}', '{self.symbol}', {self.is_buy}, '{self.base_currency}', "
+        return (f"LimitOrder('{self.client_order_id}', '{self.trading_pair}', {self.is_buy}, '{self.base_currency}', "
                 f"'{self.quote_currency}', {self.price}, {self.quantity})")
 
 

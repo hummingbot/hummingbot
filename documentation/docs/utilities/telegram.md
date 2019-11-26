@@ -69,3 +69,6 @@ If Hummingbot was running when you configured telegram, make sure to `exit` and 
 your hummingbot CLI window.
 
 * Messages are synchronized in real-time between the Telegram bot and the actual Hummingbot instance running. For example, you can use commands such as `status` and `history` to monitor the bot's performance, and you can use `start` and `stop` to control the bot.
+
+![](/assets/img/telegram-cmd.png)
+
