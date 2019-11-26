@@ -107,21 +107,22 @@ pure_market_making_config_map = {
                                                               "side remains uncanceled. (Default is False) >>> ",
                                                        type_str="bool",
                                                        default=False),
-    "jump_orders_enabled": ConfigVar(key="jump_orders_enabled",
-                                     prompt="Do you want to enable jump_orders? "
-                                            "If enabled, when the top bid price is lesser than your order price, "
-                                            "buy order will jump to one tick above top bid price "
-                                            "& vice versa for sell order. "
-                                            "(Default is False) >>> ",
-                                     type_str="bool",
-                                     default=False),
-    "jump_orders_depth": ConfigVar(key="jump_orders_depth",
-                                   prompt="How deep do you want to go into the order book for calculating "
-                                          "the top bid and ask, ignoring dust orders on the top "
-                                          "(expressed in base currency)? (Default is 0) >>> ",
-                                   required_if=lambda: pure_market_making_config_map.get("jump_orders_enabled").value,
-                                   type_str="decimal",
-                                   default=0),
+    "best_bid_ask_jump_mode": ConfigVar(key="best_bid_ask_jump_mode",
+                                        prompt="Do you want to enable best bid ask jumping ? "
+                                               "If enabled, when the top bid price is lesser than your order price, "
+                                               "buy order will jump below to one tick above top bid price "
+                                               "& vice versa for sell order. "
+                                               "(Default is False) >>> ",
+                                        type_str="bool",
+                                        default=False),
+    "best_bid_ask_jump_orders_depth": ConfigVar(key="best_bid_ask_jump_orders_depth",
+                                                prompt="How deep do you want to go into the order book for calculating "
+                                                       "the top bid and ask, ignoring dust orders on the top "
+                                                       "(expressed in base currency)? (Default is 0) >>> ",
+                                                required_if=lambda: pure_market_making_config_map.get(
+                                                    "best_bid_ask_jump_mode").value,
+                                                type_str="decimal",
+                                                default=0),
     "add_transaction_costs": ConfigVar(key="add_transaction_costs",
                                        prompt="Do you want to add transaction costs automatically to order prices? "
                                               "(Default is True) >>> ",
