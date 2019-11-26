@@ -37,7 +37,7 @@ def start(self):
             "enable_order_filled_stop_cancellation").value
         jump_orders_enabled = pure_market_making_config_map.get("jump_orders_enabled").value
         jump_orders_depth = pure_market_making_config_map.get("jump_orders_depth").value
-        add_transaction_costs_to_orders: bool = True
+        add_transaction_costs_to_orders = pure_market_making_config_map.get("add_transaction_costs").value
 
         pricing_delegate = None
         sizing_delegate = None
