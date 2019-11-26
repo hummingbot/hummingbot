@@ -8,5 +8,6 @@ cdef class TradingRule:
         public object min_quote_amount_increment       # Min step size of quote asset amount (e.g. 0.01)
         public object max_price_significant_digits     # Max # of significant digits in a price
         public object min_notional_size                # Notional value = price * quantity, min accepted (e.g. 3.001)
+        public object min_order_value                  # Min value accepted for the base asset being traded in a order
         public bint supports_limit_orders              # if limit order is allowed for this trading pair
         public bint supports_market_orders             # if market order is allowed for this trading pair

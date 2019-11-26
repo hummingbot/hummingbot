@@ -214,20 +214,40 @@ cdef class BittrexMarket(MarketBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    def _format_trading_rules(self, market_list: List[Any]) -> List[TradingRule]:
+    def _format_trading_rules(self, market_dict: Dict[str, Any]) -> List[TradingRule]:
         cdef:
             list retval = []
-        for market in market_list:
+        min_btc_value = Decimal("0.0005")
+        print(f"MIN_BTC_VALUE: {min_btc_value}")
+
+        eth_btc_price = Decimal(market_dict["ETH-BTC"]["lastTradeRate"])
+        btc_usd_price = Decimal(market_dict["BTC-USD"]["lastTradeRate"])
+        btc_usdt_price = Decimal(market_dict["BTC-USDT"]["lastTradeRate"])
+
+        for market in market_dict.values():
             try:
                 trading_pair = market.get("symbol")
                 min_trade_size = market.get("minTradeSize")
                 precision = market.get("precision")
-                # Trading Rules info from
+                last_trade_rate = Decimal(market.get("lastTradeRate"))
+
+                # min_order_value is the base asset value corresponding to 50,000 Satoshis(~0.0005BTC)
+                # https://bittrex.zendesk.com/hc/en-us/articles/360001473863-Bittrex-Trading-Rules
+                min_order_value = (
+                    min_btc_value / last_trade_rate if market.get("quoteCurrencySymbol") == "BTC" else
+                    min_btc_value / eth_btc_price / last_trade_rate if market.get("quoteCurrencySymbol") == "ETH" else
+                    min_btc_value * btc_usd_price / last_trade_rate if market.get("quoteCurrencySymbol") == "USD" else
+                    min_btc_value * btc_usdt_price / last_trade_rate if market.get("quoteCurrencySymbol") == "USDT" else
+                    min_btc_value
+                ) * Decimal("1.01")  # Compensates for possible fluctuations
+
+                # Trading Rules info from Bittrex API response
                 retval.append(TradingRule(trading_pair,
                                           min_order_size=Decimal(min_trade_size),
                                           min_price_increment=Decimal(f"1e-{precision}"),
                                           min_base_amount_increment=Decimal(f"1e-{precision}"),
                                           min_quote_amount_increment=Decimal(f"1e-{precision}"),
+                                          min_order_value=Decimal(min_order_value),
                                           ))
                 # https://bittrex.zendesk.com/hc/en-us/articles/360001473863-Bittrex-Trading-Rules
                 # "No maximum, but the user must have sufficient funds to cover the order at the time it is placed."
@@ -241,9 +261,23 @@ cdef class BittrexMarket(MarketBase):
             int64_t last_tick = <int64_t> (self._last_timestamp / 60.0)
             int64_t current_tick = <int64_t> (self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) <= 0:
-            path_url = "/markets"
-            market_list = await self._api_request("GET", path_url=path_url)
-            trading_rules_list = self._format_trading_rules(market_list)
+            market_path_url = "/markets"
+            ticker_path_url = "/markets/tickers"
+
+            market_list = await self._api_request("GET", path_url=market_path_url)
+
+            ticker_list = await self._api_request("GET", path_url=ticker_path_url)
+            ticker_data = {item["symbol"]: item for item in ticker_list}
+
+            result_list = [
+                {**market, **ticker_data[market["symbol"]]}
+                for market in market_list
+                if market["symbol"] in ticker_data
+            ]
+
+            result_list = {market["symbol"]: market for market in result_list}
+
+            trading_rules_list = self._format_trading_rules(result_list)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
                 self._trading_rules[trading_rule.trading_pair] = trading_rule
@@ -663,6 +697,9 @@ cdef class BittrexMarket(MarketBase):
 
         global s_decimal_0
         if quantized_amount < trading_rule.min_order_size:
+            return s_decimal_0
+
+        if quantized_amount < trading_rule.min_order_value:
             return s_decimal_0
 
         return quantized_amount
