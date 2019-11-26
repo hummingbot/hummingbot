@@ -46,6 +46,11 @@ class TradingPairFetcher:
                         data = await response.json()
                         trading_pair_structs = data.get("symbols")
                         raw_trading_pairs = list(map(lambda details: details.get("symbol"), trading_pair_structs))
+                        # Binance API has an error where they have a symbol called 123456
+                        # The symbol endpoint is
+                        # https://api.binance.com/api/v1/exchangeInfo
+                        if "123456" in raw_trading_pairs:
+                            raw_trading_pairs.remove("123456")
                         return [BinanceMarket.convert_from_exchange_trading_pair(p) for p in raw_trading_pairs]
                     except Exception:
                         pass
