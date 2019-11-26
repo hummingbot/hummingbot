@@ -821,7 +821,7 @@ cdef class CoinbaseProMarket(MarketBase):
         try:
             exchange_order_id = await self._in_flight_orders.get(order_id).get_exchange_order_id()
             path_url = f"/orders/{exchange_order_id}"
-            [cancelled_id] = await self._api_request("delete", path_url=path_url)
+            cancelled_id = await self._api_request("delete", path_url=path_url)
             if cancelled_id == exchange_order_id:
                 self.logger().info(f"Successfully cancelled order {order_id}.")
                 self.c_stop_tracking_order(order_id)

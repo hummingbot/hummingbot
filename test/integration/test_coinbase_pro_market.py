@@ -203,7 +203,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         amount: Decimal = Decimal("0.02")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        order_id = self.market.buy(trading_pair, quantized_amount, OrderType.MARKET, 0)
+        order_id = self.market.buy(trading_pair, quantized_amount, OrderType.MARKET)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -229,7 +229,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         amount: Decimal = Decimal("0.02")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        order_id = self.market.sell(trading_pair, amount, OrderType.MARKET, 0)
+        order_id = self.market.sell(trading_pair, amount, OrderType.MARKET)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events = [t for t in self.market_logger.event_log if isinstance(t, OrderFilledEvent)]
