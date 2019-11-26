@@ -1317,7 +1317,7 @@ cdef class BambooRelayMarket(MarketBase):
         cdef:
             TradingRule trading_rule = self._trading_rules[symbol]
         decimals_quantum = trading_rule.min_quote_amount_increment
-        if price > s_decimal_0:
+        if price.is_finite() and price > s_decimal_0:
             precision_quantum = Decimal(f"1e{math.ceil(math.log10(price)) - trading_rule.max_price_significant_digits}")
         else:
             precision_quantum = s_decimal_0
@@ -1328,7 +1328,7 @@ cdef class BambooRelayMarket(MarketBase):
             TradingRule trading_rule = self._trading_rules[symbol]
         decimals_quantum = trading_rule.min_base_amount_increment
 
-        if amount > s_decimal_0:
+        if amount.is_finite() and amount > s_decimal_0:
             precision_quantum = Decimal(f"1e{math.ceil(math.log10(amount)) - trading_rule.max_price_significant_digits}")
         else:
             precision_quantum = s_decimal_0

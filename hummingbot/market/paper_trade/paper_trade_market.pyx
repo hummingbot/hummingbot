@@ -74,26 +74,26 @@ s_decimal_0 = Decimal(0)
 
 cdef class QuantizationParams:
     cdef:
-        str symbol
+        str trading_pair
         int price_precision
         int price_decimals
         int order_size_precision
         int order_size_decimals
 
     def __init__(self,
-                 str symbol,
+                 str trading_pair,
                  int price_precision,
                  int price_decimals,
                  int order_size_precision,
                  int order_size_decimals):
-        self.symbol = symbol
+        self.trading_pair = trading_pair
         self.price_precision = price_precision
         self.price_decimals = price_decimals
         self.order_size_precision = order_size_precision
         self.order_size_decimals = order_size_decimals
 
     def __repr__(self) -> str:
-        return (f"QuantizationParams('{self.symbol}', {self.price_precision}, {self.price_decimals}, "
+        return (f"QuantizationParams('{self.trading_pair}', {self.price_precision}, {self.price_decimals}, "
                 f"{self.order_size_precision}, {self.order_size_decimals})")
 
 
@@ -161,9 +161,9 @@ cdef class OrderBookMarketOrderFillListener(EventListener):
 
     cdef c_call(self, object event_object):
 
-        if event_object.symbol not in self._market.order_books or event_object.order_type != OrderType.MARKET:
+        if event_object.trading_pair not in self._market.order_books or event_object.order_type != OrderType.MARKET:
             return
-        order_book = self._market.order_books[event_object.symbol]
+        order_book = self._market.order_books[event_object.trading_pair]
         order_book.record_filled_order(event_object)
 
 
@@ -196,22 +196,22 @@ cdef class PaperTradeMarket(MarketBase):
         self.c_add_listener(self.ORDER_FILLED_EVENT_TAG, self._market_order_filled_listener)
 
     @classmethod
-    def random_order_id(cls, order_side: str, symbol: str) -> str:
+    def random_order_id(cls, order_side: str, trading_pair: str) -> str:
         vals = [random.choice(range(0, 256)) for i in range(0, 13)]
-        return f"{order_side}://" + symbol + "/" + "".join([f"{val:02x}" for val in vals])
+        return f"{order_side}://" + trading_pair + "/" + "".join([f"{val:02x}" for val in vals])
 
     def init_paper_trade_market(self):
         for trading_pair_str, order_book in self._order_book_tracker.order_books.items():
             assert type(order_book) is CompositeOrderBook
-            base_asset, quote_asset = self.split_symbol(trading_pair_str)
+            base_asset, quote_asset = self.split_trading_pair(trading_pair_str)
             self._trading_pairs[trading_pair_str] = TradingPair(trading_pair_str, base_asset, quote_asset)
             (<CompositeOrderBook>order_book).c_add_listener(
                 self.ORDER_BOOK_TRADE_EVENT_TAG,
                 self._order_book_trade_listener
             )
 
-    def split_symbol(self, trading_pair: str) -> Tuple[str, str]:
-        return self._target_market.split_symbol(trading_pair)
+    def split_trading_pair(self, trading_pair: str) -> Tuple[str, str]:
+        return self._target_market.split_trading_pair(trading_pair)
     #  <editor-fold desc="Property">
     @property
     def trading_pair(self) -> Dict[str, TradingPair]:
@@ -253,17 +253,17 @@ cdef class PaperTradeMarket(MarketBase):
     def limit_orders(self) -> List[LimitOrder]:
         cdef:
             LimitOrdersIterator map_it
-            SingleSymbolLimitOrders *single_symbol_collection_ptr
-            SingleSymbolLimitOrdersIterator collection_it
-            SingleSymbolLimitOrdersRIterator collection_rit
+            SingleTradingPairLimitOrders *single_trading_pair_collection_ptr
+            SingleTradingPairLimitOrdersIterator collection_it
+            SingleTradingPairLimitOrdersRIterator collection_rit
             const CPPLimitOrder *cpp_limit_order_ptr
             list retval = []
 
         map_it = self._bid_limit_orders.begin()
         while map_it != self._bid_limit_orders.end():
-            single_symbol_collection_ptr = address(deref(map_it).second)
-            collection_rit = single_symbol_collection_ptr.rbegin()
-            while collection_rit != single_symbol_collection_ptr.rend():
+            single_trading_pair_collection_ptr = address(deref(map_it).second)
+            collection_rit = single_trading_pair_collection_ptr.rbegin()
+            while collection_rit != single_trading_pair_collection_ptr.rend():
                 cpp_limit_order_ptr = address(deref(collection_rit))
                 retval.append(c_create_limit_order_from_cpp_limit_order(deref(cpp_limit_order_ptr)))
                 inc(collection_rit)
@@ -271,9 +271,9 @@ cdef class PaperTradeMarket(MarketBase):
 
         map_it = self._ask_limit_orders.begin()
         while map_it != self._ask_limit_orders.end():
-            single_symbol_collection_ptr = address(deref(map_it).second)
-            collection_it = single_symbol_collection_ptr.begin()
-            while collection_it != single_symbol_collection_ptr.end():
+            single_trading_pair_collection_ptr = address(deref(map_it).second)
+            collection_it = single_trading_pair_collection_ptr.begin()
+            while collection_it != single_trading_pair_collection_ptr.end():
                 cpp_limit_order_ptr = address(deref(collection_it))
                 retval.append(c_create_limit_order_from_cpp_limit_order(deref(cpp_limit_order_ptr)))
                 inc(collection_it)
@@ -336,7 +336,7 @@ cdef class PaperTradeMarket(MarketBase):
                    object price=s_decimal_0,
                    dict kwargs={}):
         if trading_pair_str not in self._trading_pairs:
-            raise ValueError(f"Trading symbol '{trading_pair_str}' does not existing in current data set.")
+            raise ValueError(f"Trading pair '{trading_pair_str}' does not existing in current data set.")
 
         cdef:
             str order_id = self.random_order_id("buy", trading_pair_str)
@@ -346,7 +346,7 @@ cdef class PaperTradeMarket(MarketBase):
             string cpp_base_asset = self._trading_pairs[trading_pair_str].base_asset.encode("utf8")
             string cpp_quote_asset = quote_asset.encode("utf8")
             LimitOrdersIterator map_it
-            SingleSymbolLimitOrders *limit_orders_collection_ptr = NULL
+            SingleTradingPairLimitOrders *limit_orders_collection_ptr = NULL
             pair[LimitOrders.iterator, cppbool] insert_result
 
         quantized_price = (self.c_quantize_order_price(trading_pair_str, price)
@@ -362,7 +362,7 @@ cdef class PaperTradeMarket(MarketBase):
 
             if map_it == self._bid_limit_orders.end():
                 insert_result = self._bid_limit_orders.insert(LimitOrdersPair(cpp_trading_pair_str,
-                                                                              SingleSymbolLimitOrders()))
+                                                                              SingleTradingPairLimitOrders()))
                 map_it = insert_result.first
             limit_orders_collection_ptr = address(deref(map_it).second)
             limit_orders_collection_ptr.insert(CPPLimitOrder(
@@ -393,7 +393,7 @@ cdef class PaperTradeMarket(MarketBase):
                     dict kwargs={}):
 
         if trading_pair_str not in self._trading_pairs:
-            raise ValueError(f"Trading symbol '{trading_pair_str}' does not existing in current data set.")
+            raise ValueError(f"Trading pair '{trading_pair_str}' does not existing in current data set.")
         cdef:
             str order_id = self.random_order_id("sell", trading_pair_str)
             str base_asset = self._trading_pairs[trading_pair_str].base_asset
@@ -402,7 +402,7 @@ cdef class PaperTradeMarket(MarketBase):
             string cpp_base_asset = base_asset.encode("utf8")
             string cpp_quote_asset = self._trading_pairs[trading_pair_str].quote_asset.encode("utf8")
             LimitOrdersIterator map_it
-            SingleSymbolLimitOrders *limit_orders_collection_ptr = NULL
+            SingleTradingPairLimitOrders *limit_orders_collection_ptr = NULL
             pair[LimitOrders.iterator, cppbool] insert_result
 
         quantized_price = (self.c_quantize_order_price(trading_pair_str, price)
@@ -417,7 +417,7 @@ cdef class PaperTradeMarket(MarketBase):
 
             if map_it == self._ask_limit_orders.end():
                 insert_result = self._ask_limit_orders.insert(LimitOrdersPair(cpp_trading_pair_str,
-                                                                              SingleSymbolLimitOrders()))
+                                                                              SingleTradingPairLimitOrders()))
                 map_it = insert_result.first
             limit_orders_collection_ptr = address(deref(map_it).second)
             limit_orders_collection_ptr.insert(CPPLimitOrder(
@@ -566,9 +566,9 @@ cdef class PaperTradeMarket(MarketBase):
     cdef c_delete_limit_order(self,
                               LimitOrders *limit_orders_map_ptr,
                               LimitOrdersIterator *map_it_ptr,
-                              const SingleSymbolLimitOrdersIterator orders_it):
+                              const SingleTradingPairLimitOrdersIterator orders_it):
         cdef:
-            SingleSymbolLimitOrders *orders_collection_ptr = address(deref(deref(map_it_ptr)).second)
+            SingleTradingPairLimitOrders *orders_collection_ptr = address(deref(deref(map_it_ptr)).second)
         try:
             orders_collection_ptr.erase(orders_it)
             if orders_collection_ptr.empty():
@@ -581,10 +581,10 @@ cdef class PaperTradeMarket(MarketBase):
     cdef c_process_limit_bid_order(self,
                                    LimitOrders *limit_orders_map_ptr,
                                    LimitOrdersIterator *map_it_ptr,
-                                   SingleSymbolLimitOrdersIterator orders_it):
+                                   SingleTradingPairLimitOrdersIterator orders_it):
         cdef:
             const CPPLimitOrder *cpp_limit_order_ptr = address(deref(orders_it))
-            str symbol = cpp_limit_order_ptr.getSymbol().decode("utf8")
+            str trading_pair = cpp_limit_order_ptr.getTradingPair().decode("utf8")
             str quote_asset = cpp_limit_order_ptr.getQuoteCurrency().decode("utf8")
             str base_asset = cpp_limit_order_ptr.getBaseCurrency().decode("utf8")
             str order_id = cpp_limit_order_ptr.getClientOrderID().decode("utf8")
@@ -595,7 +595,7 @@ cdef class PaperTradeMarket(MarketBase):
 
         # Check if there's enough balance to satisfy the order. If not, remove the limit order without doing anything.
         if quote_asset_balance < quote_asset_traded:
-            self.logger().warning(f"Not enough {quote_asset} balance to fill limit buy order on {symbol}. "
+            self.logger().warning(f"Not enough {quote_asset} balance to fill limit buy order on {trading_pair}. "
                                   f"{quote_asset_traded:.8g} {quote_asset} needed vs. "
                                   f"{quote_asset_balance:.8g} {quote_asset} available.")
 
@@ -613,7 +613,7 @@ cdef class PaperTradeMarket(MarketBase):
             OrderFilledEvent(
                 self._current_timestamp,
                 order_id,
-                symbol,
+                trading_pair,
                 TradeType.BUY,
                 OrderType.LIMIT,
                 <object> cpp_limit_order_ptr.getPrice(),
@@ -639,10 +639,10 @@ cdef class PaperTradeMarket(MarketBase):
     cdef c_process_limit_ask_order(self,
                                    LimitOrders *limit_orders_map_ptr,
                                    LimitOrdersIterator *map_it_ptr,
-                                   SingleSymbolLimitOrdersIterator orders_it):
+                                   SingleTradingPairLimitOrdersIterator orders_it):
         cdef:
             const CPPLimitOrder *cpp_limit_order_ptr = address(deref(orders_it))
-            str trading_pair_str = cpp_limit_order_ptr.getSymbol().decode("utf8")
+            str trading_pair_str = cpp_limit_order_ptr.getTradingPair().decode("utf8")
             str quote_asset = cpp_limit_order_ptr.getQuoteCurrency().decode("utf8")
             str base_asset = cpp_limit_order_ptr.getBaseCurrency().decode("utf8")
             str order_id = cpp_limit_order_ptr.getClientOrderID().decode("utf8")
@@ -697,7 +697,7 @@ cdef class PaperTradeMarket(MarketBase):
                                bint is_buy,
                                LimitOrders *limit_orders_map_ptr,
                                LimitOrdersIterator *map_it_ptr,
-                               SingleSymbolLimitOrdersIterator orders_it):
+                               SingleTradingPairLimitOrdersIterator orders_it):
         try:
             if is_buy:
                 self.c_process_limit_bid_order(limit_orders_map_ptr, map_it_ptr, orders_it)
@@ -706,25 +706,25 @@ cdef class PaperTradeMarket(MarketBase):
         except Exception as e:
             self.logger().error(f"Error processing limit order.", exc_info=True)
 
-    cdef c_process_crossed_limit_orders_for_symbol(self,
-                                                   bint is_buy,
-                                                   LimitOrders *limit_orders_map_ptr,
-                                                   LimitOrdersIterator *map_it_ptr):
+    cdef c_process_crossed_limit_orders_for_trading_pair(self,
+                                                         bint is_buy,
+                                                         LimitOrders *limit_orders_map_ptr,
+                                                         LimitOrdersIterator *map_it_ptr):
         """
         Trigger limit orders when the opposite side of the order book has crossed the limit order's price.
         This implies someone was ready to fill the limit order, if that limit order was on the market.
 
         :param is_buy: are the limit orders on the bid side?
         :param limit_orders_map_ptr: pointer to the limit orders map
-        :param map_it_ptr: limit orders map iterator, which implies the symbol being processed
+        :param map_it_ptr: limit orders map iterator, which implies the trading pair being processed
         """
         cdef:
-            str symbol = deref(deref(map_it_ptr)).first.decode("utf8")
-            object opposite_order_book_price = self.c_get_price(symbol, is_buy)
-            SingleSymbolLimitOrders *orders_collection_ptr = address(deref(deref(map_it_ptr)).second)
-            SingleSymbolLimitOrdersIterator orders_it = orders_collection_ptr.begin()
-            SingleSymbolLimitOrdersRIterator orders_rit = orders_collection_ptr.rbegin()
-            vector[SingleSymbolLimitOrdersIterator] process_order_its
+            str trading_pair = deref(deref(map_it_ptr)).first.decode("utf8")
+            object opposite_order_book_price = self.c_get_price(trading_pair, is_buy)
+            SingleTradingPairLimitOrders *orders_collection_ptr = address(deref(deref(map_it_ptr)).second)
+            SingleTradingPairLimitOrdersIterator orders_it = orders_collection_ptr.begin()
+            SingleTradingPairLimitOrdersRIterator orders_rit = orders_collection_ptr.rbegin()
+            vector[SingleTradingPairLimitOrdersIterator] process_order_its
             const CPPLimitOrder *cpp_limit_order_ptr = NULL
 
         if is_buy:
@@ -733,7 +733,7 @@ cdef class PaperTradeMarket(MarketBase):
                 if opposite_order_book_price > <object>cpp_limit_order_ptr.getPrice():
                     break
                 process_order_its.push_back(getIteratorFromReverseIterator(
-                    <reverse_iterator[SingleSymbolLimitOrdersIterator]>orders_rit))
+                    <reverse_iterator[SingleTradingPairLimitOrdersIterator]>orders_rit))
                 inc(orders_rit)
         else:
             while orders_it != orders_collection_ptr.end():
@@ -752,7 +752,7 @@ cdef class PaperTradeMarket(MarketBase):
             LimitOrdersIterator map_it = limit_orders_ptr.begin()
 
         while map_it != limit_orders_ptr.end():
-            self.c_process_crossed_limit_orders_for_symbol(True, limit_orders_ptr, address(map_it))
+            self.c_process_crossed_limit_orders_for_trading_pair(True, limit_orders_ptr, address(map_it))
             if map_it != limit_orders_ptr.end():
                 inc(map_it)
 
@@ -760,7 +760,7 @@ cdef class PaperTradeMarket(MarketBase):
         map_it = limit_orders_ptr.begin()
 
         while map_it != limit_orders_ptr.end():
-            self.c_process_crossed_limit_orders_for_symbol(False, limit_orders_ptr, address(map_it))
+            self.c_process_crossed_limit_orders_for_trading_pair(False, limit_orders_ptr, address(map_it))
             if map_it != limit_orders_ptr.end():
                 inc(map_it)
 
@@ -772,7 +772,7 @@ cdef class PaperTradeMarket(MarketBase):
         :param order_book_trade_event: trade event from order book
         """
         cdef:
-            string cpp_trading_pair = order_book_trade_event.symbol.encode("utf8")
+            string cpp_trading_pair = order_book_trade_event.trading_pair.encode("utf8")
             bint is_maker_buy = order_book_trade_event.type is TradeType.SELL
             object trade_price = order_book_trade_event.price
             object trade_quantity = order_book_trade_event.amount
@@ -780,10 +780,10 @@ cdef class PaperTradeMarket(MarketBase):
                                                  if is_maker_buy
                                                  else address(self._ask_limit_orders))
             LimitOrdersIterator map_it = limit_orders_map_ptr.find(cpp_trading_pair)
-            SingleSymbolLimitOrders *orders_collection_ptr = NULL
-            SingleSymbolLimitOrdersIterator orders_it
-            SingleSymbolLimitOrdersRIterator orders_rit
-            vector[SingleSymbolLimitOrdersIterator] process_order_its
+            SingleTradingPairLimitOrders *orders_collection_ptr = NULL
+            SingleTradingPairLimitOrdersIterator orders_it
+            SingleTradingPairLimitOrdersRIterator orders_rit
+            vector[SingleTradingPairLimitOrdersIterator] process_order_its
             const CPPLimitOrder *cpp_limit_order_ptr = NULL
 
         if map_it == limit_orders_map_ptr.end():
@@ -797,7 +797,7 @@ cdef class PaperTradeMarket(MarketBase):
                 if <object>cpp_limit_order_ptr.getPrice() <= trade_price:
                     break
                 process_order_its.push_back(getIteratorFromReverseIterator(
-                    <reverse_iterator[SingleSymbolLimitOrdersIterator]>orders_rit))
+                    <reverse_iterator[SingleTradingPairLimitOrdersIterator]>orders_rit))
                 inc(orders_rit)
         else:
             orders_it = orders_collection_ptr.begin()
@@ -840,11 +840,11 @@ cdef class PaperTradeMarket(MarketBase):
                                                bint cancel_all=False,
                                                str client_order_id=None):
         cdef:
-            string cpp_symbol = trading_pair_str.encode("utf8")
-            LimitOrdersIterator map_it = orders_map.find(cpp_symbol)
-            SingleSymbolLimitOrders *limit_orders_collection_ptr = NULL
-            SingleSymbolLimitOrdersIterator orders_it
-            vector[SingleSymbolLimitOrdersIterator] process_order_its
+            string cpp_trading_pair = trading_pair_str.encode("utf8")
+            LimitOrdersIterator map_it = orders_map.find(cpp_trading_pair)
+            SingleTradingPairLimitOrders *limit_orders_collection_ptr = NULL
+            SingleTradingPairLimitOrdersIterator orders_it
+            vector[SingleTradingPairLimitOrdersIterator] process_order_its
             const CPPLimitOrder *limit_order_ptr = NULL
             str limit_order_cid
             list cancellation_results = []
@@ -895,18 +895,18 @@ cdef class PaperTradeMarket(MarketBase):
                           object price):
         return TradeFee(Decimal(0))
 
-    cdef OrderBook c_get_order_book(self, str symbol):
-        if symbol not in self._trading_pairs:
-            raise ValueError(f"No order book exists for '{symbol}'.")
-        return self._order_book_tracker.order_books[symbol]
+    cdef OrderBook c_get_order_book(self, str trading_pair):
+        if trading_pair not in self._trading_pairs:
+            raise ValueError(f"No order book exists for '{trading_pair}'.")
+        return self._order_book_tracker.order_books[trading_pair]
 
-    cdef object c_get_order_price_quantum(self, str symbol, object price):
+    cdef object c_get_order_price_quantum(self, str trading_pair, object price):
         cdef:
             QuantizationParams q_params
-        if symbol in self._quantization_params:
-            q_params = self._quantization_params[symbol]
+        if trading_pair in self._quantization_params:
+            q_params = self._quantization_params[trading_pair]
             decimals_quantum = Decimal(f"1e-{q_params.price_decimals}")
-            if price > s_decimal_0:
+            if price.is_finite() and price > s_decimal_0:
                 precision_quantum = Decimal(f"1e{math.ceil(math.log10(price)) - q_params.price_precision}")
             else:
                 precision_quantum = Decimal(0)
@@ -915,14 +915,14 @@ cdef class PaperTradeMarket(MarketBase):
             return Decimal(f"1e-7")
 
     cdef object c_get_order_size_quantum(self,
-                                         str symbol,
+                                         str trading_pair,
                                          object order_size):
         cdef:
             QuantizationParams q_params
-        if symbol in self._quantization_params:
-            q_params = self._quantization_params[symbol]
+        if trading_pair in self._quantization_params:
+            q_params = self._quantization_params[trading_pair]
             decimals_quantum = Decimal(f"1e-{q_params.order_size_decimals}")
-            if order_size > s_decimal_0:
+            if order_size.is_finite() and order_size > s_decimal_0:
                 precision_quantum = Decimal(f"1e{math.ceil(math.log10(order_size)) - q_params.order_size_precision}")
             else:
                 precision_quantum = Decimal(0)
@@ -931,20 +931,20 @@ cdef class PaperTradeMarket(MarketBase):
             return Decimal(f"1e-7")
 
     cdef object c_quantize_order_price(self,
-                                       str symbol,
+                                       str trading_pair,
                                        object price):
         price = Decimal('%.7g' % price)  # hard code to round to 8 significant digits
-        price_quantum = self.c_get_order_price_quantum(symbol, price)
+        price_quantum = self.c_get_order_price_quantum(trading_pair, price)
         return (price // price_quantum) * price_quantum
 
     cdef object c_quantize_order_amount(self,
-                                        str symbol,
+                                        str trading_pair,
                                         object amount,
                                         object price=s_decimal_0):
         amount = Decimal('%.7g' % amount)  # hard code to round to 8 significant digits
         if amount <= 1e-7:
             amount = 0
-        order_size_quantum = self.c_get_order_size_quantum(symbol, amount)
+        order_size_quantum = self.c_get_order_size_quantum(trading_pair, amount)
         return (amount // order_size_quantum) * order_size_quantum
 
     def get_all_balances(self) -> Dict[str, Decimal]:

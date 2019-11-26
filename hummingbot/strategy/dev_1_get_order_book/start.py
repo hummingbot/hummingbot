@@ -11,10 +11,10 @@ from hummingbot.strategy.dev_1_get_order_book.dev_1_get_order_book_config_map im
 def start(self):
     try:
         market = dev_1_get_order_book_config_map.get("market").value.lower()
-        raw_market_symbol = dev_1_get_order_book_config_map.get("market_symbol_pair").value
+        raw_market_trading_pair = dev_1_get_order_book_config_map.get("market_trading_pair").value
 
         try:
-            trading_pair: str = self._convert_to_exchange_trading_pair(market, [raw_market_symbol])[0]
+            trading_pair: str = self._convert_to_exchange_trading_pair(market, [raw_market_trading_pair])[0]
             assets: Tuple[str, str] = self._initialize_market_assets(market, [trading_pair])[0]
         except ValueError as e:
             self._notify(str(e))
@@ -22,12 +22,12 @@ def start(self):
 
         market_names: List[Tuple[str, List[str]]] = [(market, [trading_pair])]
 
-        self._initialize_wallet(token_symbols=list(set(assets)))
+        self._initialize_wallet(token_trading_pairs=list(set(assets)))
         self._initialize_markets(market_names)
         self.assets = set(assets)
 
         maker_data = [self.markets[market], trading_pair] + list(assets)
-        self.market_symbol_pairs = [MarketTradingPairTuple(*maker_data)]
+        self.market_trading_pairs = [MarketTradingPairTuple(*maker_data)]
 
         strategy_logging_options = GetOrderBookStrategy.OPTION_LOG_ALL
 
