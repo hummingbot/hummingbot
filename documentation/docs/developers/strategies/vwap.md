@@ -5,6 +5,7 @@ The VWAP strategy is a common algorithmic execution strategy which allows trader
 ## Config
 
 VWAP utilizes user input for:
+
 * is_vwap : indicate if user wants to use VWAP or TWAP
 * percent_slippage : percent amount of order price that user is willing to set aside for slippage (0.1 signifies 0.1%)
 * order_percent_of_volume : percent of open order volume (at the specified price) that user wants to cap the order at (ex. user wants to cap the order volume at 0.1% of total available order volume)
@@ -18,6 +19,7 @@ The VWAP strategy fetches the order book and calculates the total open order vol
 ![Figure 1: Placing orders](/assets/img/VWAP1.svg)
 
 Specifically, the operations in the flow chart above occur in the following sections of code:
+
 * c_process_order():
   * Check if TWAP or VWAP
     * If VWAP, check if there is an outstanding order (self._has_outstanding_order)
@@ -43,6 +45,7 @@ The flow chart below details the flow of processing orders.
 Only one order is placed in a clock tick, so a state machine is needed to emit multiple orders over different clock ticks.
 
 The state variables for TWAP:
+
 * self._is_vwap
 * self._percent_slippage
 * self._order_percent_of_volume
