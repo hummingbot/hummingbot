@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 3
+template_version: 4
 
 # The following configuations are only required for the
 # pure market making strategy
@@ -57,11 +57,11 @@ filled_order_replenish_wait_time: null
 # Do you want to stop cancellations of orders on the other side when one side is filled
 enable_order_filled_stop_cancellation: null
 
-# Do you want to enable penny jumping mode
-jump_orders_enabled: null
+# Do you want to enable best bid ask jumping mode
+best_bid_ask_jump_mode: null
 
-# If jump_orders_enabled is True, what is the depth in base currency to be used for finding top bid and ask
-jump_orders_depth: null
+# If best_bid_ask_jump_mode is True, what is the depth in base currency to be used for finding top bid and ask
+best_bid_ask_jump_orders_depth: null
 
 # Parameter to enable/disable adding transaction costs to order prices
 add_transaction_costs: null
