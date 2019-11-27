@@ -84,8 +84,8 @@ You can select a centralized exchange like Binance:
 Enter your maker exchange name >>>
 binance
 
-Enter the token symbol you would like to trade on binance (e.g. ZRXETH) >>>
-ETHUSDT
+Enter the token symbol you would like to trade on binance (e.g. ZRX-ETH) >>>
+ETH-USDT
 ```
 
 Alternatively, you can select a decentralized exchange like Radar Relay:
@@ -97,29 +97,39 @@ Enter the token symbol you would like to trade on radar_relay (e.g. ZRX-WETH) >>
 ZRX-WETH
 ```
 
-!!! note
-    Options available are based on each exchange's methodology for labeling currency pairs. Ensure that the pair is a valid pair for the selected exchange.
-
 
 #### c) Enter market making parameters
 
 Parameters control the behavior of your bot by setting the spread utilized, the size of each order, how many orders to place, and how often to refresh orders. A more detailed explanation of each prompt for pure market making strategy are explained [here](/strategies/pure-market-making/#configuration-walkthrough) in the User Manual.
 
 ```
-Enter quantity of orders per side [bid/ask] (single/multiple) >>>
+Enter quantity of bid/ask orders per side (single/multiple) >>>
 single
 
-How far away from the mid price do you want to place the first bid order (Enter 0.01 to indicate 1%)? >>>
+How far away from the mid price do you want to place the first bid order? (Enter 0.01 to indicate 1%) >>>
 0.01
 
-How far away from the mid price do you want to place the first ask order (Enter 0.01 to indicate 1%)? >>>
+How far away from the mid price do you want to place the first ask order? (Enter 0.01 to indicate 1%) >>>
 0.01
 
-How often do you want to cancel and replace bids and asks (in seconds). (Default is 60 seconds) ? >>>
+How often do you want to cancel and replace bids and asks (in seconds)? (Default is 60 seconds) >>>
 60
 
-What is your preferred quantity per order (denominated in the base asset, default is 1) ? >>>
+What is your preferred quantity per order? (Denominated in the base asset, default is 1) >>>
 0.2
+
+How long do you want to wait before placing the next order if your order gets filled (in seconds)? (Default is 10 seconds) >>>
+10
+
+Do you want to enable order_filled_stop_cancellation? If enabled, when orders are completely filled, the other side remains uncanceled. (Default is False) >>> 
+False
+
+Do you want to enable jump_orders? If enabled, when the top bid price is lesser than your order price, buy order will jump to one tick above top bid price & vice versa for sell. (Default is False) >>>
+False
+
+Do you want to add transaction costs automatically to order prices? (Default is True) >>>
+True
+
 ```
 
 #### d) Enable inventory skew
@@ -130,7 +140,7 @@ This function allows you to set a target base/quote inventory ratio. For example
 Would you like to enable inventory skew? (y/n) >>>
 y
 
-What is your target base asset inventory percentage (Enter 0.01 to indicate 1%). Default is 0.5 (50%) ? >>>
+What is your target base asset inventory percentage? (Enter 0.01 to indicate 1%) >>>
 0.5
 ```
 

@@ -27,9 +27,9 @@ class BittrexUserStreamTrackerUnitTest(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.bittrex_auth = BittrexAuth(conf.bittrex_api_key,
                                        conf.bittrex_secret_key)
-        cls.symbols = ["LTC-ETH"]  # Using V3 convention since OrderBook is built using V3
+        cls.trading_pair = ["LTC-ETH"]  # Using V3 convention since OrderBook is built using V3
         cls.user_stream_tracker: BittrexUserStreamTracker = BittrexUserStreamTracker(
-            bittrex_auth=cls.bittrex_auth, symbols=cls.symbols)
+            bittrex_auth=cls.bittrex_auth, trading_pair=cls.trading_pair)
         cls.user_stream_tracker_task: asyncio.Task = asyncio.ensure_future(cls.user_stream_tracker.start())
 
     def test_user_stream(self):
