@@ -45,8 +45,8 @@ class MockDataFeed1(DataFeedBase):
             "USD": 1.0
         }
 
-    def get_price(self, symbol):
-        return self.mock_price_dict.get(symbol.upper())
+    def get_price(self, trading_pair):
+        return self.mock_price_dict.get(trading_pair.upper())
 
     async def start_network(self):
         pass
@@ -158,6 +158,16 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
             trade_records.append(TradeFill(**trade))
         self.trade_fill_sql.get_shared_session().add_all(trade_records)
 
+    def get_trades_from_session(self, start_timestamp: int) -> List[TradeFill]:
+        session = self.trade_fill_sql.get_shared_session()
+        query = (session
+                 .query(TradeFill)
+                 .filter(TradeFill.timestamp >= start_timestamp)
+                 .order_by(TradeFill.timestamp.desc()))
+        result: List[TradeFill] = query.all() or []
+        result.reverse()
+        return result
+
     def test_calculate_trade_quote_delta_with_fees(self):
         test_trades = [
             ("BUY", 1, 100),
@@ -170,12 +180,12 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
                                      self.trading_pair_tuple_1,
                                      OrderType.MARKET.name,
                                      start_time,
-                                     self.strategy_1
-                                     )
+                                     self.strategy_1)
 
+        raw_queried_trades = self.get_trades_from_session(start_time)
         performance_analysis = PerformanceAnalysis(sql=self.trade_fill_sql)
         trade_performance_stats, market_trading_pair_stats = performance_analysis.calculate_trade_performance(
-            start_time, self.strategy_1, [self.trading_pair_tuple_1]
+            self.strategy_1, [self.trading_pair_tuple_1], raw_queried_trades,
         )
 
         expected_trade_performance_stats = {
@@ -222,8 +232,9 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
                                      )
 
         performance_analysis = PerformanceAnalysis(sql=self.trade_fill_sql)
+        raw_queried_trades = self.get_trades_from_session(start_time)
         market_trading_pair_stats = performance_analysis.calculate_asset_delta_from_trades(
-            start_time, self.strategy_1, [self.trading_pair_tuple_1]
+            self.strategy_1, [self.trading_pair_tuple_1], raw_queried_trades
         )
 
         expected_stats = {
@@ -257,8 +268,9 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
                                      )
 
         performance_analysis = PerformanceAnalysis(sql=self.trade_fill_sql)
+        raw_queried_trades = self.get_trades_from_session(start_time)
         trade_performance_stats, market_trading_pair_stats = performance_analysis.calculate_trade_performance(
-            start_time, self.strategy_1, [self.trading_pair_tuple_1]
+            self.strategy_1, [self.trading_pair_tuple_1], raw_queried_trades,
         )
 
         expected_trade_performance_stats = {
@@ -319,8 +331,9 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
                                      )
 
         performance_analysis = PerformanceAnalysis(sql=self.trade_fill_sql)
+        raw_queried_trades = self.get_trades_from_session(start_time)
         trade_performance_stats, market_trading_pair_stats = performance_analysis.calculate_trade_performance(
-            start_time, self.strategy_1, [self.trading_pair_tuple_1, self.trading_pair_tuple_2]
+            self.strategy_1, [self.trading_pair_tuple_1, self.trading_pair_tuple_2], raw_queried_trades
         )
 
         expected_trade_performance_stats = {

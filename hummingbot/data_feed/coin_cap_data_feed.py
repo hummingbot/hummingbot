@@ -70,15 +70,15 @@ class CoinCapDataFeed(DataFeedBase):
             async with client.request("GET", f"{self.COIN_CAP_BASE_URL}/assets") as resp:
                 rates_dict = await resp.json()
                 for rate_obj in rates_dict["data"]:
-                    symbol = rate_obj["symbol"].upper()
-                    self._price_dict[symbol] = float(rate_obj["priceUsd"])
+                    asset = rate_obj["symbol"].upper()
+                    self._price_dict[asset] = float(rate_obj["priceUsd"])
 
             # coincap does not include all coins in assets
             async with client.request("GET", f"{self.COIN_CAP_BASE_URL}/rates") as resp:
                 rates_dict = await resp.json()
                 for rate_obj in rates_dict["data"]:
-                    symbol = rate_obj["symbol"].upper()
-                    self._price_dict[symbol] = float(rate_obj["rateUsd"])
+                    asset = rate_obj["symbol"].upper()
+                    self._price_dict[asset] = float(rate_obj["rateUsd"])
 
             # CoinCap does not have a separate feed for WETH
             self._price_dict["WETH"] = self._price_dict["ETH"]
