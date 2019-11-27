@@ -778,11 +778,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             # If quote assets are not same, convert them from taker's quote asset to maker's quote asset
             if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
-                self.logger().info(f"Taker price is {taker_price}")
-                self.logger().info("Taker to Maker")
-                self.logger().info(self._exchange_rate_conversion.convert_token_value_decimal(1,
-                                                                                              market_pair.taker.quote_asset,
-                                                                                              market_pair.maker.quote_asset))
                 taker_price *= self._exchange_rate_conversion.convert_token_value_decimal(1,
                                                                                           market_pair.taker.quote_asset,
                                                                                           market_pair.maker.quote_asset)
@@ -820,11 +815,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 return s_decimal_nan
 
             if market_pair.maker.quote_asset != market_pair.taker.quote_asset:
-                self.logger().info(f"Taker price is {taker_price}")
-                self.logger().info("Taker to Maker")
-                self.logger().info(self._exchange_rate_conversion.convert_token_value_decimal(1,
-                                                                                              market_pair.taker.quote_asset,
-                                                                                              market_pair.maker.quote_asset))
                 taker_price *= self._exchange_rate_conversion.convert_token_value_decimal(1,
                                                                                           market_pair.taker.quote_asset,
                                                                                           market_pair.maker.quote_asset)
