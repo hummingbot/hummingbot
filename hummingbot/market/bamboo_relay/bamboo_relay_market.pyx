@@ -874,7 +874,7 @@ cdef class BambooRelayMarket(MarketBase):
                                  trade_type: TradeType,
                                  is_coordinated: bool,
                                  amount: Decimal,
-                                 price: str,
+                                 price: Decimal,
                                  expires: int) -> Tuple[str, ZeroExOrder]:
         url = f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/orders"
         unsigned_limit_order = await self.request_unsigned_limit_order(trading_pair=trading_pair,
@@ -998,7 +998,7 @@ cdef class BambooRelayMarket(MarketBase):
                             price: Decimal,
                             expires: int) -> str:
         cdef:
-            str q_price
+            object q_price
             object q_amt = self.c_quantize_order_amount(trading_pair, amount)
             TradingRule trading_rule = self._trading_rules[trading_pair]
             str trade_type_desc = "buy" if trade_type is TradeType.BUY else "sell"
@@ -1019,7 +1019,7 @@ cdef class BambooRelayMarket(MarketBase):
                 elif expires < time.time():
                     raise ValueError(f"expiration time {expires} must be greater than current time {time.time()}")
                 else:
-                    q_price = str(self.c_quantize_order_price(trading_pair, price))
+                    q_price = self.c_quantize_order_price(trading_pair, price)
                     exchange_order_id, zero_ex_order = await self.submit_limit_order(trading_pair=trading_pair,
                                                                                      trade_type=trade_type,
                                                                                      is_coordinated=self._use_coordinator,
@@ -1046,7 +1046,7 @@ cdef class BambooRelayMarket(MarketBase):
                 avg_price, tx_hash, is_coordinated = await self.submit_market_order(trading_pair=trading_pair,
                                                                                     trade_type=trade_type,
                                                                                     amount=q_amt)
-                q_price = str(self.c_quantize_order_price(trading_pair, Decimal(avg_price)))
+                q_price = self.c_quantize_order_price(trading_pair, Decimal(avg_price))
                 self.c_start_tracking_market_order(order_id=order_id,
                                                    trading_pair=trading_pair,
                                                    order_type=order_type,
