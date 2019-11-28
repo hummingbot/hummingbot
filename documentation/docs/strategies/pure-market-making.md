@@ -147,11 +147,11 @@ The `enable_order_filled_stop_cancellation` can be used if there is enough volat
 | `How long do you want to wait before placing the next order if your order gets filled (in seconds)? (Default is 10 seconds) >>>` | This sets `filled_order_replenish_wait_time` ([definition](#configuration-parameters)). |
 | `Do you want to enable order_filled_stop_cancellation? If enabled, when orders are completely filled, the other side remains uncanceled. (Default is False) >>>` | This sets `enable_order_filled_stop_cancellation` ([definition](#configuration-parameters)). |
 
-## Penny Jumping mode
+## Best Bid Ask Jumping mode
 
-Users now have the option to automatically adjust the prices to just above top bid and just below top ask using `best_bid_ask_jump_mode` available in single order mode. It can also be specified how deep to go into the orderbook for calculating the top bid and top ask price using `jump_orders_depth`.
+Users now have the option to automatically adjust the prices to just above top bid and just below top ask using `best_bid_ask_jump_mode` available in single order mode. It can also be specified how deep to go into the orderbook for calculating the top bid and top ask price using `best_bid_ask_jump_orders_depth`.
 
-Note that `add_transcation_costs` parameter should be disabled (set to `false`) for penny jumping mode to work effectively.
+It is recommended to disable `add_transcation_costs` (set to `false`) for penny jumping mode to work effectively. This is because adding transaction costs would affect the prices at which the orders are placed and they might not be at the best bid/ask.
 
 **Example scenario:**
 
@@ -171,13 +171,13 @@ add_transaction_costs = false
 
 Using the configs above, Hummingbot should place a buy order at 99 and sell order at 101. However, since penny jumping mode is enabled it will create orders with prices right just above the current top bid/ask in the orderbook. Hummingbot will place the buy order at 98.001 and the sell order at 101.999 instead. This will allow the user to capture a higher spread than the specified bid/ask threshold while keeping your orders at the top.
 
-When the top bid/ask price changes (not your own), your existing orders will be cancelled after `cancel_order_wait_time` and the price of the new set of orders will also change.
+When the top bid/ask price changes (not your own), your existing orders will not jump immediately. It will wait till `cancel_order_wait_time` for the orders to get cancelled and the new order will try to jump to just above best bid / just below best ask.
 
 
 | Prompt | Description |
 |-----|-----|
-| `Do you want to enable jump_orders? If enabled, when the top bid price is lesser than your order price, buy order will jump to one tick above top bid price & vice versa for sell. (Default is False) >>>` | This sets `best_bid_ask_jump_mode` ([definition](#configuration-parameters)). |
-| `How deep do you want to go into the order book for calculating the top bid and ask, ignoring dust orders on the top (expressed in base currency)? (Default is 0) >>>` | This sets `jump_orders_depth` ([definition](#configuration-parameters)). |
+| `Do you want to enable best bid ask jumping ? If enabled, when the top bid price is lesser than your order price, buy order will jump to one tick above top bid price & vice versa for sell. (Default is False) >>>` | This sets `best_bid_ask_jump_mode` ([definition](#configuration-parameters)). |
+| `How deep do you want to go into the order book for calculating the top bid and ask, ignoring dust orders on the top (expressed in base currency)? (Default is 0) >>>` | This sets `best_bid_ask_jump_orders_depth` ([definition](#configuration-parameters)). |
 
 
 ## Configuration Parameters
@@ -199,7 +199,7 @@ The following parameters are fields in Hummingbot configuration files located in
 | **filled_order_replenish_wait_time** | An amount in seconds, which specifies the delay before placing the next order for single order mode. _Default value: 10 seconds_. <br/>
 | **enable_order_filled_stop_cancellation** | When this is `true`, the orders on the side opposite to the filled orders remains uncanceled. _Default value: False_. <br/>
 | **best_bid_ask_jump_mode** | When this is `true`, the bid and ask order prices are adjusted based on the current top bid and ask prices in the market. _Default value: False_. <br/>
-| **jump_orders_depth** | If `best_bid_ask_jump_mode` is `true`, this specifies how deep into the orderbook to go for calculating the top bid and ask prices including the user's active orders. _Default value: 0_. <br/>
+| **best_bid_ask_jump_orders_depth** | If `best_bid_ask_jump_mode` is `true`, this specifies how deep into the orderbook to go for calculating the top bid and ask prices including the user's active orders. _Default value: 0_. <br/>
 | **add_transaction_costs** | Parameter to enable/disable adding transaction costs to order prices. _Default value: true_. <br/>
 
 
