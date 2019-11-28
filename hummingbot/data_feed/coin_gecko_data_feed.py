@@ -76,7 +76,13 @@ class CoinGeckoDataFeed(DataFeedBase):
             client: aiohttp.ClientSession = await self._http_client()
             async with client.request("GET", f"{self.BASE_URL}/coins/list") as resp:
                 assets: List[Dict[str, str]] = await resp.json()
-                return {asset["id"]: asset["symbol"].upper() for asset in assets}
+                asset_map: Dict[str, str] = {}
+                for asset in assets:
+                    # Make BUSD map to Binance Usd
+                    if asset['symbol'] == "busd" and asset['id'] != "binance-usd":
+                        continue
+                    asset_map[asset['id']] = asset['symbol'].upper()
+                return asset_map
         except Exception:
             raise
 
