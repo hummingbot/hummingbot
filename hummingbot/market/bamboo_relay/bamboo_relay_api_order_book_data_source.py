@@ -123,8 +123,8 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return all_markets.sort_values("USDVolume", ascending=False)
 
     @staticmethod
-    async def get_snapshot(client: aiohttp.ClientSession, 
-                           trading_pair: str, 
+    async def get_snapshot(client: aiohttp.ClientSession,
+                           trading_pair: str,
                            api_prefix: str = "main/0x") -> Dict[str, any]:
         async with client.get(f"{REST_BASE_URL}{api_prefix}/markets/{trading_pair}/book") as response:
             response: aiohttp.ClientResponse = response

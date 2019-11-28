@@ -1,12 +1,14 @@
 from decimal import Decimal
 
 import pandas as pd
+import threading
 from typing import (
     Any,
     Dict,
     Set,
     Tuple,
-    TYPE_CHECKING)
+    TYPE_CHECKING,
+)
 from hummingbot.client.performance_analysis import PerformanceAnalysis
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.market.market_base import MarketBase
@@ -23,6 +25,10 @@ if TYPE_CHECKING:
 class HistoryCommand:
     def history(self,  # type: HummingbotApplication
                 ):
+        if threading.current_thread() != threading.main_thread():
+            self.ev_loop.call_soon_threadsafe(self.history)
+            return
+
         if not all(market.ready for market in self.markets.values()):
             self._notify("  History stats are not available before Markets are ready.")
             return
@@ -150,15 +156,16 @@ class HistoryCommand:
         if len(self.market_trading_pair_tuples) == 0:
             self._notify("  Performance analysis is not available before bot starts")
             return
+
         try:
+            raw_queried_trades = self._get_trades_from_session(self.init_time)
             current_strategy_name: str = self.markets_recorder.strategy_name
-            analysis_start_time: int = self.init_time
             primary_quote_asset: str = self.market_trading_pair_tuples[0].quote_asset.upper()
             performance_analysis: PerformanceAnalysis = PerformanceAnalysis()
             trade_performance_stats, market_trading_pair_stats = performance_analysis.calculate_trade_performance(
-                analysis_start_time,
                 current_strategy_name,
-                self.market_trading_pair_tuples
+                self.market_trading_pair_tuples,
+                raw_queried_trades,
             )
             trade_performance_status_line = []
             market_df_data: Set[Tuple[str, str, float, float, str, str]] = set()

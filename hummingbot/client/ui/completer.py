@@ -85,7 +85,7 @@ class HummingbotCompleter(Completer):
                "exchange" in self.prompt_text
 
     def _complete_trading_pairs(self, document: Document) -> bool:
-        return "trading_pair" in self.prompt_text
+        return "trading pair" in self.prompt_text
 
     def _complete_paths(self, document: Document) -> bool:
         return "path" in self.prompt_text and "file" in self.prompt_text
