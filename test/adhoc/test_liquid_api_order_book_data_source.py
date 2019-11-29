@@ -60,8 +60,7 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
         # Check DF indices
         self.assertListEqual(
             all_markets_df.index.to_list(),
-            [
-                'LCXBTC', 'STACETH', 'WLOBTC', 'ETHUSD', 'BTCUSD', 'ETHUSDC', 'BTCUSDC']
+            ['BTCUSD', 'ETHUSD', 'BTCUSDC', 'ETHUSDC', 'LCXBTC', 'STACETH', 'WLOBTC']
         )
 
         # Check DF column names
@@ -185,7 +184,7 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
 
         # Check trading pairs and their order
         self.assertListEqual(
-            trading_pairs, ['LCXBTC', 'STACETH', 'WLOBTC', 'ETHUSD', 'BTCUSD', 'ETHUSDC', 'BTCUSDC'])
+            trading_pairs, ['BTCUSD', 'ETHUSD', 'BTCUSDC', 'ETHUSDC', 'LCXBTC', 'STACETH', 'WLOBTC'])
 
         # Check derived trading_pair and id conversion dict keys and their corresponding values
         self.assertDictEqual(
