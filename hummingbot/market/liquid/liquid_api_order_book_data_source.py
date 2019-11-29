@@ -60,18 +60,21 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         eth_price: float = float(all_markets_df.loc['ETHUSDC'].last_traded_price)
         usd_volume: float = [
             (
-                quoteVolume * btc_price if trading_pair.endswith('BTC') else
-                quoteVolume * eth_price if trading_pair.endswith('ETH') else
-                quoteVolume
+                volume * quote_price if trading_pair.endswith(("USD", "USDC")) else
+                volume * quote_price * btc_price if trading_pair.endswith("BTC") else
+                volume * quote_price * eth_price if trading_pair.endswith("ETH") else
+                volume
             )
-            for trading_pair, quoteVolume in zip(
+            for trading_pair, volume, quote_price in zip(
                 all_markets_df.index,
-                all_markets_df.volume_24h.astype('float')
+                all_markets_df.volume_24h.astype('float'),
+                all_markets_df.last_traded_price.astype('float')
             )
         ]
 
         all_markets_df.loc[:, 'USDVolume'] = usd_volume
         all_markets_df.loc[:, 'volume'] = all_markets_df.volume_24h
+
         return all_markets_df.sort_values("USDVolume", ascending=False)
 
     @classmethod

@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-# import math
-# import time
 from os.path import (
     join,
     realpath
@@ -8,8 +6,6 @@ from os.path import (
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
-    # OrderBookTradeEvent,
-    # TradeType,
     OrderBookEvent
 )
 import asyncio
