@@ -74,6 +74,7 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         all_markets_df.loc[:, 'USDVolume'] = usd_volume
         all_markets_df.loc[:, 'volume'] = all_markets_df.volume_24h
+
         return all_markets_df.sort_values("USDVolume", ascending=False)
 
     @classmethod
