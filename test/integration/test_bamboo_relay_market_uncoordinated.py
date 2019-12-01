@@ -434,7 +434,7 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
                 wallet=self.wallet,
                 ethereum_rpc_url=conf.test_web3_provider_list[0],
                 order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                trading_pairs=[conf.test_bamboo_relay_base_token_symbol + "-" + conf.test_bamboo_relay_quote_token_symbol],
+                trading_pairs=[self.base_token_asset + "-" + self.quote_token_asset],
                 use_coordinator=False,
                 pre_emptive_soft_cancels=False
             )
