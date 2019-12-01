@@ -874,14 +874,14 @@ cdef class BambooRelayMarket(MarketBase):
                                  trade_type: TradeType,
                                  is_coordinated: bool,
                                  amount: Decimal,
-                                 price: str,
+                                 price: Decimal,
                                  expires: int) -> Tuple[str, ZeroExOrder]:
         url = f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/orders"
         unsigned_limit_order = await self.request_unsigned_limit_order(trading_pair=trading_pair,
                                                                        trade_type=trade_type,
                                                                        is_coordinated=self._use_coordinator,
-                                                                       amount=str(amount),
-                                                                       price=price,
+                                                                       amount=f"{amount:f}",
+                                                                       price=f"{price:f}",
                                                                        expires=expires)
         unsigned_limit_order["makerAddress"] = self._wallet.address.lower()
         order_hash_hex = self.get_order_hash_hex(unsigned_limit_order)
@@ -998,7 +998,7 @@ cdef class BambooRelayMarket(MarketBase):
                             price: Decimal,
                             expires: int) -> str:
         cdef:
-            str q_price
+            object q_price
             object q_amt = self.c_quantize_order_amount(trading_pair, amount)
             TradingRule trading_rule = self._trading_rules[trading_pair]
             str trade_type_desc = "buy" if trade_type is TradeType.BUY else "sell"
@@ -1019,7 +1019,7 @@ cdef class BambooRelayMarket(MarketBase):
                 elif expires < time.time():
                     raise ValueError(f"expiration time {expires} must be greater than current time {time.time()}")
                 else:
-                    q_price = str(self.c_quantize_order_price(trading_pair, price))
+                    q_price = self.c_quantize_order_price(trading_pair, price)
                     exchange_order_id, zero_ex_order = await self.submit_limit_order(trading_pair=trading_pair,
                                                                                      trade_type=trade_type,
                                                                                      is_coordinated=self._use_coordinator,
@@ -1046,7 +1046,7 @@ cdef class BambooRelayMarket(MarketBase):
                 avg_price, tx_hash, is_coordinated = await self.submit_market_order(trading_pair=trading_pair,
                                                                                     trade_type=trade_type,
                                                                                     amount=q_amt)
-                q_price = str(self.c_quantize_order_price(trading_pair, Decimal(avg_price)))
+                q_price = self.c_quantize_order_price(trading_pair, Decimal(avg_price))
                 self.c_start_tracking_market_order(order_id=order_id,
                                                    trading_pair=trading_pair,
                                                    order_type=order_type,
@@ -1169,6 +1169,9 @@ cdef class BambooRelayMarket(MarketBase):
             return True
         else:
             return self._exchange.cancel_order(order.zero_ex_order)
+
+    def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
+        return self.c_get_price(trading_pair, is_buy)
 
     def get_tx_hash_receipt(self, tx_hash: str) -> Dict[str, Any]:
         return self._w3.eth.getTransactionReceipt(tx_hash)
