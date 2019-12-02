@@ -40,13 +40,17 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
+    safe_gather,
+)
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import (
     MarketBase,
     OrderType,
-    NaN
-)
+    NaN,
+    s_decimal_NaN)
 from hummingbot.market.radar_relay.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
 from hummingbot.market.radar_relay.radar_relay_in_flight_order cimport RadarRelayInFlightOrder
 from hummingbot.market.radar_relay.radar_relay_order_book_tracker import RadarRelayOrderBookTracker
@@ -106,24 +110,24 @@ cdef class RadarRelayMarket(MarketBase):
                  ethereum_rpc_url: str,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                    OrderBookTrackerDataSourceType.EXCHANGE_API,
+                 OrderBookTrackerDataSourceType.EXCHANGE_API,
                  wallet_spender_address: str = ZERO_EX_MAINNET_ERC20_PROXY,
-                 symbols: Optional[List[str]] = None,
+                 trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
         super().__init__()
         self._trading_required = trading_required
         self._order_book_tracker = RadarRelayOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                              symbols=symbols)
-        self._account_balances = {}
+                                                              trading_pairs=trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._last_update_limit_order_timestamp = 0
         self._last_update_market_order_timestamp = 0
         self._last_update_trading_rules_timestamp = 0
+        self._last_update_available_balance_timestamp = 0
         self._poll_interval = poll_interval
-        self._in_flight_limit_orders = {} # limit orders are off chain
-        self._in_flight_market_orders = {} # market orders are on chain
+        self._in_flight_limit_orders = {}  # limit orders are off chain
+        self._in_flight_market_orders = {}  # market orders are on chain
         self._order_expiry_queue = deque()
         self._tx_tracker = RadarRelayTransactionTracker(self)
         self._w3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
@@ -146,8 +150,9 @@ cdef class RadarRelayMarket(MarketBase):
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
+            "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
+            "account_available_balance": len(self._account_available_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True,
             "token_approval": len(self._pending_approval_tx_hashes) == 0 if self._trading_required else True
         }
@@ -155,6 +160,10 @@ cdef class RadarRelayMarket(MarketBase):
     @property
     def ready(self) -> bool:
         return all(self.status_dict.values())
+
+    @property
+    def name(self) -> str:
+        return "radar_relay"
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -227,7 +236,8 @@ cdef class RadarRelayMarket(MarketBase):
                 await self._poll_notifier.wait()
 
                 self._update_balances()
-                await asyncio.gather(
+                self._update_available_balances()
+                await safe_gather(
                     self._update_trading_rules(),
                     self._update_limit_order_status(),
                     self._update_market_order_status()
@@ -247,21 +257,42 @@ cdef class RadarRelayMarket(MarketBase):
                           str quote_currency,
                           object order_type,
                           object trade_type,
-                          double amount,
-                          double price):
+                          object amount,
+                          object price):
         cdef:
-            int gas_estimate = 130000 # approximate gas used for 0x market orders
+            int gas_estimate = 130000  # approximate gas used for 0x market orders
             double transaction_cost_eth
 
         # there are no fees for makers on Radar Relay
         if order_type is OrderType.LIMIT:
-            return TradeFee(percent=0.0)
+            return TradeFee(percent=Decimal(0.0))
         # only fee for takers is gas cost of transaction
         transaction_cost_eth = self._wallet.gas_price * gas_estimate / 1e18
-        return TradeFee(percent=0.0, flat_fees=[("ETH", transaction_cost_eth)])
+        return TradeFee(percent=Decimal(0.0), flat_fees=[("ETH", transaction_cost_eth)])
 
     def _update_balances(self):
-        self._account_balances = self.wallet.get_all_balances()
+        self._account_balances = self.wallet.get_all_balances().copy()
+
+    def _update_available_balances(self):
+        cdef:
+            double current_timestamp = self._current_timestamp
+
+        if current_timestamp - self._last_update_available_balance_timestamp > 10.0:
+
+            if len(self._in_flight_limit_orders) >= 0:
+                locked_balances = {}
+                total_balances = self._account_balances
+
+                for order in self._in_flight_limit_orders.values():
+                    locked_balances[order.trading_pair] = locked_balances.get(order.trading_pair, s_decimal_0) + order.amount
+
+                for currency, balance in total_balances.items():
+                    self._account_available_balances[currency] = \
+                        Decimal(total_balances[currency]) - locked_balances.get(currency, s_decimal_0)
+            else:
+                self._account_available_balances = self._account_balances.copy()
+
+            self._last_update_available_balance_timestamp = current_timestamp
 
     async def list_market(self) -> Dict[str, Any]:
         url = f"{RADAR_RELAY_REST_ENDPOINT}/markets?include=base"
@@ -276,7 +307,7 @@ cdef class RadarRelayMarket(MarketBase):
             trading_rules_list = self._format_trading_rules(markets)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
-                self._trading_rules[trading_rule.symbol] = trading_rule
+                self._trading_rules[trading_rule.trading_pair] = trading_rule
             self._last_update_trading_rules_timestamp = current_timestamp
 
     def _format_trading_rules(self, markets: List[Dict[str, Any]]) -> List[TradingRule]:
@@ -284,15 +315,15 @@ cdef class RadarRelayMarket(MarketBase):
             list retval = []
         for market in markets:
             try:
-                symbol = market["id"]
-                retval.append(TradingRule(symbol,
+                trading_pair = market["id"]
+                retval.append(TradingRule(trading_pair,
                                           min_order_size=Decimal(market["minOrderSize"]),
                                           max_order_size=Decimal(market["maxOrderSize"]),
                                           max_price_significant_digits=Decimal(market['quoteIncrement']),
                                           min_price_increment=Decimal(f"1e-{market['quoteTokenDecimals']}"),
                                           min_base_amount_increment=Decimal(f"1e-{market['baseTokenDecimals']}")))
             except Exception:
-                self.logger().error(f"Error parsing the symbol {symbol}. Skipping.", exc_info=True)
+                self.logger().error(f"Error parsing the trading_pair {trading_pair}. Skipping.", exc_info=True)
         return retval
 
     async def get_account_orders(self) -> List[Dict[str, Any]]:
@@ -321,7 +352,7 @@ cdef class RadarRelayMarket(MarketBase):
                 tasks_index.append(i)
             order_updates.append(order_update)
 
-        res_order_updates = await asyncio.gather(*tasks, return_exceptions=True)
+        res_order_updates = await safe_gather(*tasks, return_exceptions=True)
 
         for i, ou in enumerate(res_order_updates):
             order_updates[tasks_index[i]] = ou
@@ -334,7 +365,7 @@ cdef class RadarRelayMarket(MarketBase):
 
         if current_timestamp - self._last_update_limit_order_timestamp <= self.UPDATE_OPEN_LIMIT_ORDERS_INTERVAL:
             return
-        
+
         if len(self._in_flight_limit_orders) > 0:
             tracked_limit_orders = list(self._in_flight_limit_orders.values())
             order_updates = await self._get_order_updates(tracked_limit_orders)
@@ -355,8 +386,8 @@ cdef class RadarRelayMarket(MarketBase):
                 order_state = order_update["state"]
                 order_remaining_base_token_amount = Decimal(order_update["remainingBaseTokenAmount"])
                 order_remaining_quote_token_amount = Decimal(order_update["remainingQuoteTokenAmount"])
-                order_executed_amount_base = Decimal(tracked_limit_order.available_amount_base) - order_remaining_base_token_amount
-                total_executed_amount_base = Decimal(tracked_limit_order.amount) - order_remaining_base_token_amount
+                order_executed_amount_base = tracked_limit_order.available_amount_base - order_remaining_base_token_amount
+                total_executed_amount_base = tracked_limit_order.amount - order_remaining_base_token_amount
 
                 tracked_limit_order.last_state = order_state
                 tracked_limit_order.executed_amount_base = total_executed_amount_base
@@ -364,18 +395,19 @@ cdef class RadarRelayMarket(MarketBase):
                 tracked_limit_order.executed_amount_quote = order_remaining_quote_token_amount
                 if order_executed_amount_base > 0:
                     self.logger().info(f"Filled {order_executed_amount_base} out of {tracked_limit_order.amount} of the "
-                        f"limit order {tracked_limit_order.client_order_id}.")
+                                       f"limit order {tracked_limit_order.client_order_id}.")
                     self.c_trigger_event(
                         self.MARKET_ORDER_FILLED_EVENT_TAG,
                         OrderFilledEvent(
                             self._current_timestamp,
                             tracked_limit_order.client_order_id,
-                            tracked_limit_order.symbol,
+                            tracked_limit_order.trading_pair,
                             tracked_limit_order.trade_type,
                             OrderType.LIMIT,
                             tracked_limit_order.price,
                             order_executed_amount_base,
-                            TradeFee(0.0) # no fee for limit order fills
+                            TradeFee(0.0),  # no fee for limit order fills
+                            tracked_limit_order.exchange_order_id,  # Use order hash for limit order validation
                         )
                     )
 
@@ -417,9 +449,9 @@ cdef class RadarRelayMarket(MarketBase):
                                                                     tracked_limit_order.base_asset,
                                                                     tracked_limit_order.quote_asset,
                                                                     tracked_limit_order.quote_asset,
-                                                                    float(tracked_limit_order.executed_amount_base),
-                                                                    float(tracked_limit_order.executed_amount_quote),
-                                                                    float(tracked_limit_order.gas_fee_amount),
+                                                                    tracked_limit_order.executed_amount_base,
+                                                                    tracked_limit_order.executed_amount_quote,
+                                                                    tracked_limit_order.gas_fee_amount,
                                                                     OrderType.LIMIT))
                     else:
                         self.logger().info(f"The limit sell order {tracked_limit_order.client_order_id}"
@@ -430,9 +462,9 @@ cdef class RadarRelayMarket(MarketBase):
                                                                      tracked_limit_order.base_asset,
                                                                      tracked_limit_order.quote_asset,
                                                                      tracked_limit_order.quote_asset,
-                                                                     float(tracked_limit_order.executed_amount_base),
-                                                                     float(tracked_limit_order.executed_amount_quote),
-                                                                     float(tracked_limit_order.gas_fee_amount),
+                                                                     tracked_limit_order.executed_amount_base,
+                                                                     tracked_limit_order.executed_amount_quote,
+                                                                     tracked_limit_order.gas_fee_amount,
                                                                      OrderType.LIMIT))
         self._last_update_limit_order_timestamp = current_timestamp
 
@@ -442,7 +474,7 @@ cdef class RadarRelayMarket(MarketBase):
 
         if current_timestamp - self._last_update_market_order_timestamp <= self.UPDATE_MARKET_ORDERS_INTERVAL:
             return
-        
+
         if len(self._in_flight_market_orders) > 0:
             tracked_market_orders = list(self._in_flight_market_orders.values())
             for tracked_market_order in tracked_market_orders:
@@ -468,12 +500,13 @@ cdef class RadarRelayMarket(MarketBase):
                         OrderFilledEvent(
                             self._current_timestamp,
                             tracked_market_order.client_order_id,
-                            tracked_market_order.symbol,
+                            tracked_market_order.trading_pair,
                             tracked_market_order.trade_type,
                             OrderType.MARKET,
                             tracked_market_order.price,
                             tracked_market_order.amount,
-                            TradeFee(0.0, [("ETH", gas_used)])
+                            TradeFee(0.0, [("ETH", gas_used)]),
+                            tracked_market_order.tx_hash  # Use tx hash for market order validation
                         )
                     )
                     if tracked_market_order.trade_type is TradeType.BUY:
@@ -486,9 +519,9 @@ cdef class RadarRelayMarket(MarketBase):
                                                                     tracked_market_order.base_asset,
                                                                     tracked_market_order.quote_asset,
                                                                     tracked_market_order.quote_asset,
-                                                                    float(tracked_market_order.amount),
-                                                                    float(tracked_market_order.executed_amount_quote),
-                                                                    float(tracked_market_order.gas_fee_amount),
+                                                                    tracked_market_order.amount,
+                                                                    tracked_market_order.executed_amount_quote,
+                                                                    tracked_market_order.gas_fee_amount,
                                                                     OrderType.MARKET))
                     else:
                         self.logger().info(f"The market sell order "
@@ -500,9 +533,9 @@ cdef class RadarRelayMarket(MarketBase):
                                                                      tracked_market_order.base_asset,
                                                                      tracked_market_order.quote_asset,
                                                                      tracked_market_order.quote_asset,
-                                                                     float(tracked_market_order.amount),
-                                                                     float(tracked_market_order.executed_amount_quote),
-                                                                     float(tracked_market_order.gas_fee_amount),
+                                                                     tracked_market_order.amount,
+                                                                     tracked_market_order.executed_amount_quote,
+                                                                     tracked_market_order.gas_fee_amount,
                                                                      OrderType.MARKET))
                 else:
                     err_msg = (f"Unrecognized transaction status for market order "
@@ -565,14 +598,14 @@ cdef class RadarRelayMarket(MarketBase):
                         raise IOError(f"Error fetching data from {url}. "
                                       f"HTTP status is {response.status} - {response_text}.")
 
-    async def request_signed_market_orders(self, symbol: str, trade_type: TradeType, amount: str) -> Dict[str, Any]:
+    async def request_signed_market_orders(self, trading_pair: str, trade_type: TradeType, amount: str) -> Dict[str, Any]:
         if trade_type is TradeType.BUY:
             order_type = "BUY"
         elif trade_type is TradeType.SELL:
             order_type = "SELL"
         else:
             raise ValueError("Invalid trade_type. Aborting.")
-        url = f"{RADAR_RELAY_REST_ENDPOINT}/markets/{symbol}/order/market"
+        url = f"{RADAR_RELAY_REST_ENDPOINT}/markets/{trading_pair}/order/market"
         data = {
             "type": order_type,
             "quantity": amount
@@ -580,7 +613,7 @@ cdef class RadarRelayMarket(MarketBase):
         response_data = await self._api_request(http_method="post", url=url, data=data)
         return response_data
 
-    async def request_unsigned_limit_order(self, symbol: str, trade_type: TradeType, amount: str, price: str, expires: int)\
+    async def request_unsigned_limit_order(self, trading_pair: str, trade_type: TradeType, amount: str, price: str, expires: int)\
             -> Dict[str, Any]:
         if trade_type is TradeType.BUY:
             order_type = "BUY"
@@ -588,7 +621,7 @@ cdef class RadarRelayMarket(MarketBase):
             order_type = "SELL"
         else:
             raise ValueError("Invalid trade_type. Aborting.")
-        url = f"{RADAR_RELAY_REST_ENDPOINT}/markets/{symbol}/order/limit"
+        url = f"{RADAR_RELAY_REST_ENDPOINT}/markets/{trading_pair}/order/limit"
         data = {
             "type": order_type,
             "quantity": amount,
@@ -609,17 +642,17 @@ cdef class RadarRelayMarket(MarketBase):
         return fixed_signature
 
     async def submit_market_order(self,
-                                  symbol: str,
+                                  trading_pair: str,
                                   trade_type: TradeType,
                                   amount: Decimal) -> Tuple[float, str]:
-        response = await self.request_signed_market_orders(symbol=symbol,
+        response = await self.request_signed_market_orders(trading_pair=trading_pair,
                                                            trade_type=trade_type,
                                                            amount=str(amount))
         signed_market_orders = response["orders"]
-        average_price = float(response["averagePrice"])
-        base_asset_increment = self.trading_rules.get(symbol).min_base_amount_increment
-        base_asset_decimals = -int(math.ceil(math.log10(float(base_asset_increment))))
-        amt_with_decimals = Decimal(amount) * Decimal(f"1e{base_asset_decimals}")
+        average_price = Decimal(response["averagePrice"])
+        base_asset_increment = self.trading_rules.get(trading_pair).min_base_amount_increment
+        base_asset_decimals = -int(math.ceil(math.log10(base_asset_increment)))
+        amt_with_decimals = amount * Decimal(f"1e{base_asset_decimals}")
 
         signatures = []
         orders = []
@@ -637,16 +670,16 @@ cdef class RadarRelayMarket(MarketBase):
         return average_price, tx_hash
 
     async def submit_limit_order(self,
-                                 symbol: str,
+                                 trading_pair: str,
                                  trade_type: TradeType,
                                  amount: Decimal,
-                                 price: str,
+                                 price: Decimal,
                                  expires: int) -> Tuple[str, ZeroExOrder]:
         url = f"{RADAR_RELAY_REST_ENDPOINT}/orders"
-        unsigned_limit_order = await self.request_unsigned_limit_order(symbol=symbol,
+        unsigned_limit_order = await self.request_unsigned_limit_order(trading_pair=trading_pair,
                                                                        trade_type=trade_type,
-                                                                       amount=str(amount),
-                                                                       price=price,
+                                                                       amount=f"{amount:f}",
+                                                                       price=f"{price:f}",
                                                                        expires=expires)
         unsigned_limit_order["makerAddress"] = self._wallet.address.lower()
         order_hash_hex = self.get_order_hash_hex(unsigned_limit_order)
@@ -693,14 +726,14 @@ cdef class RadarRelayMarket(MarketBase):
                             order_id: str,
                             order_type: OrderType,
                             trade_type: TradeType,
-                            symbol: str,
-                            amount: float,
-                            price: float,
+                            trading_pair: str,
+                            amount: Decimal,
+                            price: Decimal,
                             expires: int) -> str:
         cdef:
-            str q_price
-            object q_amt = self.c_quantize_order_amount(symbol, amount)
-            TradingRule trading_rule = self._trading_rules[symbol]
+            object q_price
+            object q_amt = self.c_quantize_order_amount(trading_pair, amount)
+            TradingRule trading_rule = self._trading_rules[trading_pair]
             str trade_type_desc = "buy" if trade_type is TradeType.BUY else "sell"
         try:
             if q_amt < trading_rule.min_order_size:
@@ -718,59 +751,58 @@ cdef class RadarRelayMarket(MarketBase):
                 elif expires < time.time():
                     raise ValueError(f"expiration time {expires} must be greater than current time {time.time()}")
                 else:
-                    q_price = str(self.c_quantize_order_price(symbol, price))
-                    exchange_order_id, zero_ex_order = await self.submit_limit_order(symbol=symbol,
+                    q_price = self.c_quantize_order_price(trading_pair, price)
+                    exchange_order_id, zero_ex_order = await self.submit_limit_order(trading_pair=trading_pair,
                                                                                      trade_type=trade_type,
                                                                                      amount=q_amt,
                                                                                      price=q_price,
                                                                                      expires=expires)
                     self.c_start_tracking_limit_order(order_id=order_id,
                                                       exchange_order_id=exchange_order_id,
-                                                      symbol=symbol,
-                                                      order_type= order_type,
+                                                      trading_pair=trading_pair,
+                                                      order_type=order_type,
                                                       trade_type=trade_type,
-                                                      price=Decimal(q_price),
-                                                      amount=Decimal(q_amt),
+                                                      price=q_price,
+                                                      amount=q_amt,
                                                       zero_ex_order=zero_ex_order)
             elif order_type is OrderType.MARKET:
-                avg_price, tx_hash = await self.submit_market_order(symbol=symbol,
+                avg_price, tx_hash = await self.submit_market_order(trading_pair=trading_pair,
                                                                     trade_type=trade_type,
                                                                     amount=q_amt)
-                q_price = str(self.c_quantize_order_price(symbol, avg_price))
+                q_price = str(self.c_quantize_order_price(trading_pair, Decimal(avg_price)))
                 self.c_start_tracking_market_order(order_id=order_id,
-                                                   symbol=symbol,
+                                                   trading_pair=trading_pair,
                                                    order_type=order_type,
                                                    trade_type=trade_type,
-                                                   price=Decimal(q_price),
-                                                   amount=Decimal(q_amt),
+                                                   price=q_price,
+                                                   amount=q_amt,
                                                    tx_hash=tx_hash)
             if trade_type is TradeType.BUY:
                 self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
                                      BuyOrderCreatedEvent(
                                          self._current_timestamp,
                                          order_type,
-                                         symbol,
-                                         float(q_amt),
-                                         float(q_price),
+                                         trading_pair,
+                                         q_amt,
+                                         q_price,
                                          order_id
                                      ))
             else:
                 self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
-                                    SellOrderCreatedEvent(
-                                        self._current_timestamp,
-                                        order_type,
-                                        symbol,
-                                        float(q_amt),
-                                        float(q_price),
-                                        order_id
-                                    ))
+                                     SellOrderCreatedEvent(
+                                         self._current_timestamp,
+                                         order_type,
+                                         trading_pair,
+                                         q_amt,
+                                         q_price,
+                                         order_id
+                                     ))
 
             return order_id
         except Exception as e:
-            self.logger().error(str(e))
             self.c_stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting {trade_type_desc} order to Radar Relay for {str(q_amt)} {symbol}.",
+                f"Error submitting {trade_type_desc} order to Radar Relay for {str(q_amt)} {trading_pair}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit {trade_type_desc} order to Radar Relay. "
                                 f"Check Ethereum wallet and network connection."
@@ -781,45 +813,45 @@ cdef class RadarRelayMarket(MarketBase):
             )
 
     cdef str c_buy(self,
-                   str symbol,
-                   double amount,
-                   object order_type = OrderType.MARKET,
-                   double price = NaN,
-                   dict kwargs = {}):
+                   str trading_pair,
+                   object amount,
+                   object order_type=OrderType.MARKET,
+                   object price=s_decimal_NaN,
+                   dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
-            str order_id = str(f"buy-{symbol}-{tracking_nonce}")
+            str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
         expires = kwargs.get("expiration_ts", None)
         if expires is not None:
             expires = int(expires)
-        asyncio.ensure_future(self.execute_trade(order_id=order_id,
-                                                 order_type=order_type,
-                                                 trade_type=TradeType.BUY,
-                                                 symbol=symbol,
-                                                 amount=amount,
-                                                 price=price,
-                                                 expires=expires))
+        safe_ensure_future(self.execute_trade(order_id=order_id,
+                                              order_type=order_type,
+                                              trade_type=TradeType.BUY,
+                                              trading_pair=trading_pair,
+                                              amount=amount,
+                                              price=price,
+                                              expires=expires))
         return order_id
 
     cdef str c_sell(self,
-                    str symbol,
-                    double amount,
-                    object order_type = OrderType.MARKET,
-                    double price = NaN,
-                    dict kwargs = {}):
+                    str trading_pair,
+                    object amount,
+                    object order_type=OrderType.MARKET,
+                    object price=s_decimal_NaN,
+                    dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
-            str order_id = str(f"sell-{symbol}-{tracking_nonce}")
+            str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
         expires = kwargs.get("expiration_ts", None)
         if expires is not None:
             expires = int(expires)
-        asyncio.ensure_future(self.execute_trade(order_id=order_id,
-                                                 order_type=order_type,
-                                                 trade_type=TradeType.SELL,
-                                                 symbol=symbol,
-                                                 amount=amount,
-                                                 price=price,
-                                                 expires=expires))
+        safe_ensure_future(self.execute_trade(order_id=order_id,
+                                              order_type=order_type,
+                                              trade_type=TradeType.SELL,
+                                              trading_pair=trading_pair,
+                                              amount=amount,
+                                              price=price,
+                                              expires=expires))
         return order_id
 
     async def cancel_order(self, client_order_id: str) -> Dict[str, Any]:
@@ -829,17 +861,11 @@ cdef class RadarRelayMarket(MarketBase):
             return
         return self._exchange.cancel_order(order.zero_ex_order)
 
-    cdef c_cancel(self, str symbol, str client_order_id):
-        asyncio.ensure_future(self.cancel_order(client_order_id))
+    cdef c_cancel(self, str trading_pair, str client_order_id):
+        safe_ensure_future(self.cancel_order(client_order_id))
 
-    def get_all_balances(self) -> Dict[str, float]:
-        return self._account_balances.copy()
-
-    def get_balance(self, currency: str) -> float:
-        return self.c_get_balance(currency)
-
-    def get_price(self, symbol: str, is_buy: bool) -> float:
-        return self.c_get_price(symbol, is_buy)
+    def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
+        return self.c_get_price(trading_pair, is_buy)
 
     def get_tx_hash_receipt(self, tx_hash: str) -> Dict[str, Any]:
         return self._w3.eth.getTransactionReceipt(tx_hash)
@@ -855,38 +881,26 @@ cdef class RadarRelayMarket(MarketBase):
     def unwrap_eth(self, amount: float) -> str:
         return self._wallet.unwrap_eth(amount)
 
-    cdef double c_get_balance(self, str currency) except? -1:
-        return float(self._account_balances.get(currency, 0.0))
-
-    cdef double c_get_available_balance(self, str currency) except? -1:
-        return float(self._account_balances.get(currency, 0.0))
-
-    cdef OrderBook c_get_order_book(self, str symbol):
+    cdef OrderBook c_get_order_book(self, str trading_pair):
         cdef:
             dict order_books = self._order_book_tracker.order_books
 
-        if symbol not in order_books:
-            raise ValueError(f"No order book exists for '{symbol}'.")
-        return order_books[symbol]
-
-    cdef double c_get_price(self, str symbol, bint is_buy) except? -1:
-        cdef:
-            OrderBook order_book = self.c_get_order_book(symbol)
-
-        return order_book.c_get_price(is_buy)
+        if trading_pair not in order_books:
+            raise ValueError(f"No order book exists for '{trading_pair}'.")
+        return order_books[trading_pair]
 
     async def start_network(self):
         if self._order_tracker_task is not None:
             self._stop_network()
 
-        self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
-        self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
+        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._status_polling_task = safe_ensure_future(self._status_polling_loop())
         if self._trading_required:
             tx_hashes = await self.wallet.current_backend.check_and_fix_approval_amounts(
                 spender=self._wallet_spender_address
             )
             self._pending_approval_tx_hashes.update(tx_hashes)
-            self._approval_tx_polling_task = asyncio.ensure_future(self._approval_tx_polling_loop())
+            self._approval_tx_polling_task = safe_ensure_future(self._approval_tx_polling_loop())
 
     def _stop_network(self):
         if self._order_tracker_task is not None:
@@ -930,7 +944,7 @@ cdef class RadarRelayMarket(MarketBase):
     cdef c_start_tracking_limit_order(self,
                                       str order_id,
                                       str exchange_order_id,
-                                      str symbol,
+                                      str trading_pair,
                                       object order_type,
                                       object trade_type,
                                       object price,
@@ -939,7 +953,7 @@ cdef class RadarRelayMarket(MarketBase):
         self._in_flight_limit_orders[order_id] = RadarRelayInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
-            symbol=symbol,
+            trading_pair=trading_pair,
             order_type=order_type,
             trade_type=trade_type,
             price=price,
@@ -950,7 +964,7 @@ cdef class RadarRelayMarket(MarketBase):
 
     cdef c_start_tracking_market_order(self,
                                        str order_id,
-                                       str symbol,
+                                       str trading_pair,
                                        object order_type,
                                        object trade_type,
                                        object price,
@@ -959,7 +973,7 @@ cdef class RadarRelayMarket(MarketBase):
         self._in_flight_market_orders[tx_hash] = RadarRelayInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=None,
-            symbol=symbol,
+            trading_pair=trading_pair,
             order_type=order_type,
             trade_type=trade_type,
             price=price,
@@ -985,9 +999,9 @@ cdef class RadarRelayMarket(MarketBase):
         elif order_id in self._in_flight_market_orders:
             del self._in_flight_market_orders[order_id]
 
-    cdef object c_get_order_price_quantum(self, str symbol, double price):
+    cdef object c_get_order_price_quantum(self, str trading_pair, object price):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
+            TradingRule trading_rule = self._trading_rules[trading_pair]
         decimals_quantum = trading_rule.min_quote_amount_increment
         if price > 0:
             precision_quantum = Decimal(f"1e{math.ceil(math.log10(price)) - trading_rule.max_price_significant_digits}")
@@ -995,9 +1009,9 @@ cdef class RadarRelayMarket(MarketBase):
             precision_quantum = s_decimal_0
         return max(decimals_quantum, precision_quantum)
 
-    cdef object c_get_order_size_quantum(self, str symbol, double amount):
+    cdef object c_get_order_size_quantum(self, str trading_pair, object amount):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
+            TradingRule trading_rule = self._trading_rules[trading_pair]
         decimals_quantum = trading_rule.min_base_amount_increment
 
         if amount > 0:
@@ -1006,13 +1020,13 @@ cdef class RadarRelayMarket(MarketBase):
             precision_quantum = s_decimal_0
         return max(decimals_quantum, precision_quantum)
 
-    cdef object c_quantize_order_amount(self, str symbol, double amount, double price=0):
+    cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=s_decimal_0):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
+            TradingRule trading_rule = self._trading_rules[trading_pair]
         global s_decimal_0
-        quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, min(amount, trading_rule.max_order_size))
+        quantized_amount = MarketBase.c_quantize_order_amount(self, trading_pair, min(amount, trading_rule.max_order_size))
 
-        # Check against min_order_size. If not passing the check, return 0.
+        # Check against min_order_size. If not passing the csheck, return 0.
         if quantized_amount < trading_rule.min_order_size:
             return s_decimal_0
 

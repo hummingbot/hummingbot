@@ -25,6 +25,10 @@ from sqlalchemy.orm import (
 from sqlalchemy.sql.elements import BooleanClauseList
 from hummingbot.client.liquidity_bounty.liquidity_bounty_config_map import liquidity_bounty_config_map
 from hummingbot.core.network_base import NetworkBase, NetworkStatus
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
+    safe_gather,
+)
 from hummingbot.logger import HummingbotLogger
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
@@ -37,7 +41,7 @@ class LiquidityBounty(NetworkBase):
     _lb_shared_instance: Optional["LiquidityBounty"] = None
     LIQUIDITY_BOUNTY_REST_API = "https://api.hummingbot.io/bounty"
     ACCEPTED_ORDER_STATUS_UPDATES = ["BuyOrderCreated", "SellOrderCreated", "OrderFilled", "OrderCancelled",
-                                     "OrderFailure"]
+                                     "OrderFailure", "OrderExpired"]
 
     @classmethod
     def get_instance(cls) -> "LiquidityBounty":
@@ -51,9 +55,13 @@ class LiquidityBounty(NetworkBase):
             cls.lb_logger = logging.getLogger(__name__)
         return cls.lb_logger
 
-    def __init__(self, update_interval: int = 60):
+    def __init__(self,
+                 update_interval: int = 60,
+                 active_bounties_update_interval: int = 3600  # Fetch for active bounties every hour
+                 ):
         super().__init__()
         self._update_interval = update_interval
+        self._active_bounties_update_interval = active_bounties_update_interval
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client: Optional[aiohttp.ClientSession] = None
         self._status: Dict[str, Any] = {}
@@ -74,7 +82,9 @@ class LiquidityBounty(NetworkBase):
         return self._status
 
     def formatted_status(self) -> str:
-        df: pd.DataFrame = pd.DataFrame(self._status.items())
+        status_dict = self._status.copy()
+        del status_dict["status_codes"]
+        df: pd.DataFrame = pd.DataFrame(status_dict.items())
         lines = ["", "  Client Status:"] + ["    " + line for line in df.to_string(index=False, header=False).split("\n")]
         return "\n".join(lines)
 
@@ -91,25 +101,9 @@ class LiquidityBounty(NetworkBase):
         ] for bounty in self._active_bounties]
         df: pd.DataFrame = pd.DataFrame(
             rows,
-            columns=["Market", "Asset", "Start (MM/DD/YYYY)", "End (MM/DD/YYYY)", "More Info"]
+            columns=["Market", "Asset", "Start (MM/DD/YYYY)", "End (MM/DD/YYYY)", "Leaderboard link"]
         )
         lines = ["", "  Bounties:"] + ["    " + line for line in df.to_string(index=False).split("\n")]
-        return "\n".join(lines)
-
-    @staticmethod
-    def format_volume_metrics(volume_metrics: List[Dict[str, Any]]) -> str:
-        rows = [[
-            vm["market"],
-            vm["base_asset"],
-            vm["total_filled_volume"],
-            vm["total_filled_volume_in_session"],
-            vm["trades_submitted_count"]
-        ] for vm in volume_metrics]
-        df: pd.DataFrame = pd.DataFrame(
-            rows,
-            columns=["Market", "Asset", "Filled Volume", "Filled volume in current session", "Total trades submitted"]
-        )
-        lines = ["", "  Volume Metrics:"] + ["    " + line for line in df.to_string(index=False).split("\n")]
         return "\n".join(lines)
 
     async def _wait_till_ready(self):
@@ -127,7 +121,7 @@ class LiquidityBounty(NetworkBase):
             and_conditions: BooleanClauseList = [and_(
                 TradeFill.base_asset == ab["base_asset"],
                 TradeFill.market == ab["market"],
-                TradeFill.timestamp >= ab["start_timestamp"], # does not matter if start_timestamp == -1
+                TradeFill.timestamp >= ab["start_timestamp"],  # does not matter if start_timestamp == -1
                 TradeFill.timestamp <= (ab["end_timestamp"] if ab["end_timestamp"] > 0 else 1e14)
             ) for ab in self._active_bounties]
 
@@ -197,7 +191,7 @@ class LiquidityBounty(NetworkBase):
         return self._shared_client
 
     async def fetch_active_bounties(self):
-        """ fetch a list of active bounties from server. Only executed once. """
+        """ fetch a list of active bounties from server. """
         try:
             client: aiohttp.ClientSession = await self._http_client()
             async with client.request("GET", f"{self.LIQUIDITY_BOUNTY_REST_API}/list") as resp:
@@ -206,11 +200,21 @@ class LiquidityBounty(NetworkBase):
                 results = await resp.json()
                 self.logger().debug(results)
                 self._active_bounties = results.get("bounties", [])
-                self._active_bounties_fetched_event.set()
-        except asyncio.CancelledError:
+                if not self._active_bounties_fetched_event.is_set():
+                    self._active_bounties_fetched_event.set()
+        except Exception:
             raise
-        except Exception as e:
-            self.logger().error(f"Failed to fetch active bounties: {str(e)}")
+
+    async def fetch_active_bounties_loop(self):
+        """ Repeatedly polling for active bounties  """
+        while True:
+            try:
+                await self.fetch_active_bounties()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().error(f"Failed to fetch active bounties: {str(e)}", exc_info=True)
+            await asyncio.sleep(self._active_bounties_update_interval)
 
     async def register(self, email: Optional[str] = None, eth_address: Optional[str] = None) -> Dict[str, Any]:
         if email is None or eth_address is None:
@@ -227,13 +231,14 @@ class LiquidityBounty(NetworkBase):
             client = await self._http_client()
             data = {"email": email, "eth_address": eth_address}
             async with client.request("POST", f"{self.LIQUIDITY_BOUNTY_REST_API}/client", json=data) as resp:
-                # registration_status = "success" or <reason_for_failure>
                 if resp.status not in {200, 400}:
                     raise Exception(f"Liquidity bounty server error. Server responded with status {resp.status}")
 
                 results = await resp.json()
-                if results["registration_status"] != "success":
-                    raise Exception(f"Failed to register for liquidity bounty: {results['registration_status']}")
+                status: str = results.get("status") or results.get("registration_status")
+                # registration_status is for backwards compatibility
+                if status != "success":
+                    raise Exception(f"Failed to register for liquidity bounty: {status}")
                 return results
         except AssertionError:
             raise
@@ -287,7 +292,7 @@ class LiquidityBounty(NetworkBase):
 
             async with client.request(request_method, url, headers=headers, **kwargs) as resp:
                 data = await resp.text()
-                self.logger().debug(f"{resp.status} {data}")
+                self.logger().debug(f"{url} {resp.status} {data} {kwargs}")
                 results = json.loads(data)
                 if "error" in results:
                     raise Exception(results.get("error"))
@@ -320,7 +325,7 @@ class LiquidityBounty(NetworkBase):
     async def status_polling_loop(self):
         while True:
             try:
-                await asyncio.gather(*[
+                await safe_gather(*[
                     self.fetch_client_status(),
                     self.fetch_last_timestamp(),
                 ], loop=self._ev_loop, return_exceptions=True)
@@ -332,20 +337,6 @@ class LiquidityBounty(NetworkBase):
                     break
                 self.logger().error(f"Error getting bounty status: {e}", exc_info=True)
             await asyncio.sleep(self._update_interval)
-
-    async def fetch_filled_volume_metrics(self, start_time: int) -> List[Dict[str, Any]]:
-        try:
-            url = f"{self.LIQUIDITY_BOUNTY_REST_API}/metrics"
-            data = {"start_time": start_time}
-            results: Dict[str, Any] = await self.authenticated_request("GET", url, json=data)
-            if results["status"] != "success":
-                raise Exception(str(results))
-            return results["metrics"]
-        except Exception as e:
-            if "User not registered" in str(e):
-                self.logger().warning("User not registered. Aborting fetch_filled_volume_metrics.")
-            else:
-                self.logger().error(f"Error fetching filled volume metrics: {str(e)}", exc_info=True)
 
     async def submit_trades(self):
         try:
@@ -407,14 +398,14 @@ class LiquidityBounty(NetworkBase):
         await self._wait_till_ready()
         while True:
             try:
-                # Not using asyncio.gather here because orders need to be submitted before order status
+                # Not using safe_gather here because orders need to be submitted before order status
                 await self.submit_trades()
                 await self.submit_orders()
                 await self.submit_order_statuses()
             except asyncio.CancelledError:
-                    raise
+                raise
             except asyncio.TimeoutError:
-                    continue
+                continue
             except Exception as e:
                 if "User not registered" in str(e):
                     self.logger().warning("User not registered. Aborting submit_data_loop.")
@@ -425,9 +416,9 @@ class LiquidityBounty(NetworkBase):
 
     async def start_network(self):
         await self.stop_network()
-        self.fetch_active_bounties_task = asyncio.ensure_future(self.fetch_active_bounties(), loop=self._ev_loop)
-        self.status_polling_task = asyncio.ensure_future(self.status_polling_loop(), loop=self._ev_loop)
-        self.submit_data_task = asyncio.ensure_future(self.submit_data_loop(), loop=self._ev_loop)
+        self.fetch_active_bounties_task = safe_ensure_future(self.fetch_active_bounties_loop(), loop=self._ev_loop)
+        self.status_polling_task = safe_ensure_future(self.status_polling_loop(), loop=self._ev_loop)
+        self.submit_data_task = safe_ensure_future(self.submit_data_loop(), loop=self._ev_loop)
 
     async def stop_network(self):
         if self.fetch_active_bounties_task is not None:

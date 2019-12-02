@@ -77,26 +77,26 @@ cdef class MockWallet(WalletBase):
         except Exception:
             get_logger().error("Error sending transaction to Ethereum network.", exc_info=True)
 
-    def get_all_balances(self) -> Dict[str, float]:
+    def get_all_balances(self) -> Dict[str, Decimal]:
         retval = {"ETH": self.c_get_balance("ETH")}
         for asset_name in self._erc20_contracts.keys():
             retval[asset_name] = self.c_get_balance(asset_name)
         return retval
 
-    cdef double c_get_balance(self, str asset_name) except? -1:
+    cdef object c_get_balance(self, str asset_name):
         if asset_name == "ETH":
-            return self._w3.eth.getBalance(self.address) * 1e-18
+            return Decimal(self._w3.eth.getBalance(self.address)) * Decimal("1e-18")
         else:
             if asset_name not in self._erc20_contracts:
                 raise ValueError(f"{asset_name} is not a recognized asset in this wallet.")
             contract = self._erc20_contracts[asset_name].contract
             decimals = self._erc20_contracts[asset_name].decimals
-            return contract.functions.balanceOf(self.address).call() * math.pow(10, -decimals)
+            return Decimal(contract.functions.balanceOf(self.address).call()) * Decimal(f"1e-{decimals}")
 
-    cdef str c_send(self, str address, str asset_name, double amount):
+    cdef str c_send(self, str address, str asset_name, object amount):
         if asset_name == "ETH":
             gas_price = self.gas_price
-            raw_amount = int(Decimal(f"{amount:.12g}") * Decimal("1e18"))
+            raw_amount = int(amount * Decimal("1e18"))
             transaction = {
                 "to": address,
                 "value": raw_amount,
@@ -116,7 +116,7 @@ cdef class MockWallet(WalletBase):
                 raise ValueError(f"{asset_name} is not a recognized asset in this wallet.")
             contract = self._erc20_contracts[asset_name].contract
             decimals = self._erc20_contracts[asset_name].decimals
-            raw_amount = int(Decimal(f"{amount:.12g}") * Decimal(f"1e{decimals}"))
+            raw_amount = int(amount * Decimal(f"1e{decimals}"))
             transaction = contract.functions.transfer(address, raw_amount).buildTransaction({
                 "nonce": self.nonce,
                 "chainId": self._chain_id,

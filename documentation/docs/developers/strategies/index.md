@@ -76,17 +76,17 @@ The event interface functions are as follows:
 
 It is highly encouraged to use these functions to create and remove orders, rather than calling functions like `c_buy()` and `c_sell()` on `MarketBase` objects directly - since the functions from `StrategyBase` provides order tracking functionalities as well.
 
-- `cdef str c_buy_with_specific_market(self, object market_symbol_pair, object amount,
+- `cdef str c_buy_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                        object order_type = *, object price = *, double expiration_seconds = *)`
 
-- `cdef str c_sell_with_specific_market(self, object market_symbol_pair, object amount,
+- `cdef str c_sell_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                         object order_type = *, object price = *, double expiration_seconds = *)`
 
-    Creates a buy or a sell order in the market specified by `market_symbol_pair`, returns the order ID string.
+    Creates a buy or a sell order in the market specified by `market_trading_pair_tuple`, returns the order ID string.
 
     Arguments:
 
-    - `market_symbol_pair`: a [`MarketSymbolPair`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/market_symbol_pair.py) object specifying the `MarketBase` object and market symbol to create the order for.
+    - `market_trading_pair_tuple`: a [`MarketTradingPairTuple`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/market_trading_pair_tuple.py) object specifying the `MarketBase` object and trading pair to create the order for.
     - `amount`: a `Decimal` object, specifying the order size in terms of the base asset.
     - `order_type`: an optional [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py) enum specifying the order type. Default value is `OrderType.MARKET`.
     - `price`: an optional `Decimal` object, specifying the price for a limit order. This parameter is ignored if `order_type` is not `OrderType.LIMIT`.
@@ -99,7 +99,7 @@ It is highly encouraged to use these functions to create and remove orders, rath
 
     Arguments:
 
-    - `market_pair`: a `MarketSymbolPair` object specifying the `MarketBase` object and market symbol to cancel order from.
+    - `market_pair`: a `MarketTradingPairTuple` object specifying the `MarketBase` object and the trading pair to cancel order from.
     - `order_id`: Order ID string returned from a previous call to order creation functions above.
 
 ## Order Tracking
@@ -120,9 +120,9 @@ Below are some of the user functions or properties under `OrderTracker` that you
 
 - `market_pair_to_active_orders` property
 
-    Returns a dictionary mapping from market symbol pairs to lists of active limit orders.
+    Returns a dictionary mapping from market trading pair tuples to lists of active limit orders.
 
-    Return type: `Dict[MarketSymbolPair, List[LimitOrder]]`
+    Return type: `Dict[MarketTradingPairTuple, List[LimitOrder]]`
 
 - `active_bids` property
 

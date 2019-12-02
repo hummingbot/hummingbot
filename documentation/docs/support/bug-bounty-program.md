@@ -35,5 +35,36 @@ In addition, we may add a discretionary bonus to bugs that entail security vulne
 ## Evaluation
 The Hummingbot team will investigate your report within 24 hours, contact you to discuss the issue, and send 0.1 ETH to your Ethereum wallet once the team decides to fix the bug that you reported.
 
-<br />
+## Reported bugs
+
+In this section, we will publish a list of reported bugs and their status.
+
+## Bounty distribution (As of 11/05/2019)
+ETH Address (First 6 digits) | Bugs Reported | Github Issue | Paid?
+---|---|---|---
+ 0x93cF | Missing logs file | NA | Y
+ 0xc1fc | Problem installing on Windows | [#94](https://github.com/CoinAlpha/hummingbot/issues/94) | Y
+ 0xD9B9 | Precision issue in Coinbase | [#106](https://github.com/CoinAlpha/hummingbot/issues/106) | Y
+ 0xDE1f | Get wallet -e doesn't work | [#96](https://github.com/CoinAlpha/hummingbot/issues/96) | Y 
+ 0xf452 | Maker order size (0.0) must be greater than 0 | [#118](https://github.com/CoinAlpha/hummingbot/issues/118) | Y 
+ 0xf452 | Coin flagged erroneously as zero balance on radar_relay | [#101](https://github.com/CoinAlpha/hummingbot/issues/101) | Y
+ 0x32a5 | DDEX market orders are incorrect | [#147](https://github.com/CoinAlpha/hummingbot/issues/147) | Y 
+ 0xf452 | Problem in compiling hummingbot 0.5.0 and dev-0.6.0 in windows bash | [#155](https://github.com/CoinAlpha/hummingbot/issues/155) | Y 
+ 0xB389 | Order still shown as active after being filled | [#341](https://github.com/CoinAlpha/hummingbot/issues/341) | Y 
+ 0xEEDf | Unexpected error running clock tick - arbitrage in binance | [#401](https://github.com/CoinAlpha/hummingbot/issues/401) | Y 
+ 0xC39F | RadarRelay - Limit orders require an expiration timestamp 'expiration_ts' | [#568](https://github.com/CoinAlpha/hummingbot/issues/568) | Y 
+ 0xcF44 | Trade type is always tagged as "Sell" | [#631](https://github.com/CoinAlpha/hummingbot/issues/631) | Y
+ 0xFcba | Trades for taker market > maker market | [#627](https://github.com/CoinAlpha/hummingbot/issues/627) | Y 
+ 0x2212 | Bounties "Filled volume" remain constant | [#644](https://github.com/CoinAlpha/hummingbot/issues/644) | Y 
+ 0xf01E | export_trades command will only export 100 trades | [#677](https://github.com/CoinAlpha/hummingbot/issues/677) | Y 
+ 0x1309 | Discovery fails when processing market pair | [#721](https://github.com/CoinAlpha/hummingbot/issues/721) | Y 
+ 0x2A60 | Stop command causes "cancelled order" | [#723](https://github.com/CoinAlpha/hummingbot/issues/723) | Y 
+ 0x8950 | Token symbol format for Discovery configuration | [#724](https://github.com/CoinAlpha/hummingbot/issues/724) | Y 
+ 0xd8fb | Bounty Status server error | [#754](https://github.com/CoinAlpha/hummingbot/issues/754) | Y 
+ 0x1D95 | 0 day remote command execution | [#555](https://github.com/CoinAlpha/hummingbot/issues/555) | Y 
+ 0x09B4 | Huobi assets are not displayed when using cross exchange MM | [#826](https://github.com/CoinAlpha/hummingbot/issues/826) | Y  
+ 0xe363 | XEMM not placing orders in empty maker market | [#854](https://github.com/CoinAlpha/hummingbot/issues/854) | Y  
+ 0x75e8 | Volume traded from Oct 10 - 13 are missing | [#918](https://github.com/CoinAlpha/hummingbot/issues/918) | Y 
+ 0x21a0 | code bug in ddex_market.pyx | [#923](https://github.com/CoinAlpha/hummingbot/issues/923) | Y  
+
 **Happy 🐞 hunting!**

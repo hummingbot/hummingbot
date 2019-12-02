@@ -8,6 +8,17 @@ Coinbase Pro is a highly popular, global cryptocurrency exchange designed for pr
 
 Because Coinbase Pro is a centralized exchange, you will need to generate and provide your API key in order to trade using Hummingbot.
 
+| Prompt |
+|-----|
+| `Enter your Coinbase API key >>>`
+| `Enter your Coinbase secret key >>>`
+| `Enter your Coinbase passphrase >>>`
+
+!!! tip "Copying and pasting into Hummingbot"
+    See [this page](https://docs.hummingbot.io/support/how-to/#how-do-i-copy-and-paste-in-docker-toolbox-windows) for more instructions in our Get Help section.
+
+Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
+
 ### Creating Coinbase Pro API Keys
 
 1 - Log into your Coinbase Pro account, click your avatar and then select **API** (If you do not have an account, you will have to create one and verify your ID).
@@ -21,7 +32,10 @@ Because Coinbase Pro is a centralized exchange, you will need to generate and pr
 
 ![coinbase2](/assets/img/coinbase2.png)
 
-Make sure you give permissions to **View** and **Trade** (**Transfer** is optional), and enter your 2FA code.
+Make sure you give permissions to **View** and **Trade**, and enter your 2FA code.
+
+!!! warning "API key permissions"
+    We recommend using only **"trade"** enabled API keys; enabling **"withdraw", "transfer", or the equivalent** is unnecessary for current Hummingbot strategies.
 
 ![coinbase3](/assets/img/coinbase3.png)
 
@@ -37,7 +51,7 @@ When you close the API Secret screen, your API key will be shown in **My API Key
 
 The API Key, Secret, and Passphrase are required for using Hummingbot.
 
-!!! tip
+!!! warning
     If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
 
 ## Miscellaneous Info

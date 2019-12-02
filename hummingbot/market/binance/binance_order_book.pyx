@@ -36,7 +36,7 @@ cdef class BinanceOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "symbol": msg["symbol"],
+            "trading_pair": msg["trading_pair"],
             "update_id": msg["lastUpdateId"],
             "bids": msg["bids"],
             "asks": msg["asks"]
@@ -50,7 +50,7 @@ cdef class BinanceOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "symbol": msg["s"],
+            "trading_pair": msg["s"],
             "update_id": msg["u"],
             "bids": msg["b"],
             "asks": msg["a"]
@@ -62,7 +62,7 @@ cdef class BinanceOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "symbol": msg["symbol"],
+            "trading_pair": msg["trading_pair"],
             "update_id": msg["lastUpdateId"],
             "bids": msg["bids"],
             "asks": msg["asks"]
@@ -70,11 +70,11 @@ cdef class BinanceOrderBook(OrderBook):
 
     @classmethod
     def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        msg = ujson.loads(record["json"]) # Binance json in DB is TEXT
+        msg = ujson.loads(record["json"])  # Binance json in DB is TEXT
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "symbol": msg["s"],
+            "trading_pair": msg["s"],
             "update_id": msg["u"],
             "bids": msg["b"],
             "asks": msg["a"]
@@ -86,7 +86,7 @@ cdef class BinanceOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "symbol": msg["symbol"],
+            "trading_pair": msg["trading_pair"],
             "update_id": msg["lastUpdateId"],
             "bids": msg["bids"],
             "asks": msg["asks"]
@@ -98,7 +98,7 @@ cdef class BinanceOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "symbol": msg["s"],
+            "trading_pair": msg["s"],
             "update_id": msg["u"],
             "bids": msg["b"],
             "asks": msg["a"],
@@ -112,7 +112,21 @@ cdef class BinanceOrderBook(OrderBook):
             msg.update(metadata)
         ts = record.timestamp
         return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "symbol": msg["s"],
+            "trading_pair": msg["s"],
+            "trade_type": float(TradeType.SELL.value) if msg["m"] else float(TradeType.BUY.value),
+            "trade_id": msg["t"],
+            "update_id": ts,
+            "price": msg["p"],
+            "amount": msg["q"]
+        }, timestamp=ts * 1e-3)
+
+    @classmethod
+    def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict] = None):
+        if metadata:
+            msg.update(metadata)
+        ts = msg["E"]
+        return OrderBookMessage(OrderBookMessageType.TRADE, {
+            "trading_pair": msg["s"],
             "trade_type": float(TradeType.SELL.value) if msg["m"] else float(TradeType.BUY.value),
             "trade_id": msg["t"],
             "update_id": ts,
@@ -125,4 +139,3 @@ cdef class BinanceOrderBook(OrderBook):
         retval = BinanceOrderBook()
         retval.apply_snapshot(msg.bids, msg.asks, msg.update_id)
         return retval
-
