@@ -6,6 +6,9 @@ Integrating Hummingbot with [Telegram Messenger](https://telegram.org/) allows y
 
 Whether you are running Hummingbot in the cloud or on your local machine, you can use Telegram to monitor and control bots from wherever you are!
 
+!!! note
+    Make sure to install Telegram on your system before setting up your Telegram Bot. If not, you can download Telegram for [Windows/MAC/Linux](https://desktop.telegram.org/) and install.
+
 ## Set up your Telegram Bot
 
 Below, we show how to create a Telegram bot that integrates with your Hummingbot deployment.
@@ -66,3 +69,6 @@ If Hummingbot was running when you configured telegram, make sure to `exit` and 
 your hummingbot CLI window.
 
 * Messages are synchronized in real-time between the Telegram bot and the actual Hummingbot instance running. For example, you can use commands such as `status` and `history` to monitor the bot's performance, and you can use `start` and `stop` to control the bot.
+
+![](/assets/img/telegram-cmd.png)
+

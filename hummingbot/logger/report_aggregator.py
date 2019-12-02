@@ -6,14 +6,17 @@ from hummingbot.logger import REPORT_EVENT_QUEUE
 from hummingbot.logger.struct_logger import StructLogger
 from collections import defaultdict
 from typing import Optional
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.binance.binance_market import BinanceMarket
+from hummingbot.market.bittrex.bittrex_market import BittrexMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
+from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 
 MARKETS = {
     "ddex": DDEXMarket,
@@ -22,7 +25,9 @@ MARKETS = {
     "bamboo_relay": BambooRelayMarket,
     "radar_relay": RadarRelayMarket,
     "idex": IDEXMarket,
-    "huobi": HuobiMarket
+    "dolomite": DolomiteMarket,
+    "huobi": HuobiMarket,
+    "bittrex": BittrexMarket
 }
 
 
@@ -35,14 +40,14 @@ class ReportAggregator:
             cls.ra_logger = logging.getLogger(__name__)
         return cls.ra_logger
 
-    def __init__(self, hummingbot_app: "HummingbotApplication",
+    def __init__(self, hummingbot_app: "HummingbotApplication",  # noqa: F821
                  report_aggregation_interval: float = 60.0,
                  log_report_interval: float = 60.0):
 
         self.log_report_interval: float = log_report_interval
         self.report_aggregation_interval: float = report_aggregation_interval
         self.stats: dict = defaultdict(list)
-        self.hummingbot_app: "HummingbotApplication" = hummingbot_app
+        self.hummingbot_app: "HummingbotApplication" = hummingbot_app  # noqa: F821
         self.get_open_order_stats_task: Optional[asyncio.Task] = None
         self.get_event_task: Optional[asyncio.Task] = None
         self.log_report_task: Optional[asyncio.Task] = None
@@ -51,7 +56,7 @@ class ReportAggregator:
     def receive_event(self, event):
         event_name = event["event_name"]
         if event_name == "OrderFilledEvent":
-            self.stats[f"order_filled_quote_volume.{event['event_source']}.{event['symbol']}."
+            self.stats[f"order_filled_quote_volume.{event['event_source']}.{event['trading_pair']}."
                        f"{str(event['trade_type']).replace('.', '-')}."
                        f"{str(event['order_type']).replace('.', '-')}"].append(
                 (event["ts"], event["price"] * event["amount"])
@@ -70,7 +75,7 @@ class ReportAggregator:
                         namespaces = metric_name.split(".")
                         market_name = namespaces[1]
                         trading_pair = namespaces[2]
-                        quote_token = MARKETS[market_name].split_symbol(trading_pair)[1].upper()
+                        quote_token = MARKETS[market_name].split_trading_pair(trading_pair)[1].upper()
                         if namespaces[0] == "open_order_quote_volume_sum":
                             avg_volume = float(sum([value[1] for value in value_list]) / len(value_list))
                             usd_avg_volume = self.exchange_converter.exchange_rate.get(quote_token, 1) * avg_volume
@@ -136,7 +141,7 @@ class ReportAggregator:
                 _open_orders = defaultdict(list)
 
                 for maker_market, order in self.hummingbot_app.strategy.active_maker_orders:
-                    key = f"{maker_market.name}.{order.symbol}"
+                    key = f"{maker_market.name}.{order.trading_pair}"
                     _open_orders[key].append(order.price * order.quantity)
                 for market_name, quote_volumes in _open_orders.items():
                     metric_name = f"open_order_quote_volume_sum.{market_name}"
@@ -162,9 +167,9 @@ class ReportAggregator:
 
     def start(self):
         self.stop()
-        self.get_open_order_stats_task = asyncio.ensure_future(self.get_open_order_stats())
-        self.get_event_task = asyncio.ensure_future(self.get_event())
-        self.log_report_task = asyncio.ensure_future(self.log_report())
+        self.get_open_order_stats_task = safe_ensure_future(self.get_open_order_stats())
+        self.get_event_task = safe_ensure_future(self.get_event())
+        self.log_report_task = safe_ensure_future(self.log_report())
 
     def stop(self):
         if self.log_report_task:

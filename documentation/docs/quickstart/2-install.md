@@ -1,30 +1,30 @@
 # [Quickstart] Install Hummingbot
 
+!!! note
+    You can now install `Hummingbot` using GUI Installer on [Windows](https://docs.hummingbot.io/installation/from-binary/windows/), [MacOS](https://docs.hummingbot.io/installation/from-binary/macos/) and coming soon to [Linux](https://hummingbot.io/download/).
+
 Below, we show you how to install Hummingbot using our installation scripts for each supported platform. We highlight the Docker image method for new users since it contains all necessary dependencies.
 
-If you would like to install from source or see the detailed installation instructions, see [Installation](/installation) in the User Manual.
+If you would like to install from source or see the detailed installation instructions, see [Installation](/installation) in the [User Manual](https://docs.hummingbot.io/manual/).
 
-## Step 1: Set up a cloud server (Optional)
-
-We recommend that users run trading bots in the cloud, since bots require a stable network connection and can run 24/7.
-
-Follow the guide [Set up a cloud server](/installation/cloud) to set up a cloud server on your preferred cloud platform. Hummingbot is not resource-intensive so the lowest/free tiers should work.
-
-!!! tip
-    Don't know which cloud platform to use? Read our [blog post](https://www.hummingbot.io/blog/2019-06-cloud-providers/) that compares and contrasts the different providers.
-
-If you just want to test out Hummingbot, you can skip to [Step 2](#step-2-install-docker) and install locally.
-
-## Step 2: Install Docker
+## Step 1: Install Docker
 
 If you don't already have Docker, we show you how to install Docker for each platform. Docker is an open source containerization product that pre-packages all dependencies into a single container, greatly simplifying the installation process.
 
 ### Linux/Cloud
 
 Install `tmux` to allow you to easily run Hummingbot remotely:
-```
+
+!!! note
+    To learn more about `tmux` please visit [getting started with tmux](https://linuxize.com/post/getting-started-with-tmux/).
+
+```bash tab="Ubuntu / Debian"
 sudo apt-get update
 sudo apt-get install -y tmux
+```
+
+```bash tab="CentOS"
+sudo yum -y install tmux
 ```
 
 Install Docker:
@@ -38,17 +38,15 @@ chmod a+x install-docker-ubuntu.sh
 # 3) Run installation
 ./install-docker-ubuntu.sh
 
-# **Note**: the script will close the terminal window
+# Note: The script will close the terminal window
 ```
 
-!!! warning "Restart terminal"
-    The above commands will close your Terminal/Bash window in order to enable the correct permissions for the `docker` command.  Open a new Terminal/Bash window to proceed with [Step 3](#step-3-install-hummingbot).
+!!! warning "Restart Terminal"
+    The above commands will close your terminal/bash window in order to enable the correct permissions for the `docker` command. Close and restart your bash/terminal window if it did not close automatically.
 
 ### MacOS
 
-You can install Docker by [downloading an installer](https://docs.docker.com/v17.12/docker-for-mac/install/) from the official page.
-
-After you have downloaded and installed Docker, restart your system if necessary. Then, proceed to [Step 3](#step-3-install-hummingbot).
+You can install Docker by [downloading an installer](https://docs.docker.com/v17.12/docker-for-mac/install/) from the official page. After you have downloaded and installed Docker, restart your system if necessary.
 
 ### Windows
 
@@ -64,9 +62,8 @@ By default, a shortcut to the Docker Quickstart terminal will be created on your
 
 ![Docker Startup](/assets/img/docker_toolbox_startup.PNG)
 
-Afterwards, proceed to [Step 3](#step-3-install-hummingbot).
 
-## Step 3: Install Hummingbot
+## Step 2: Install Hummingbot
 
 ### Using Automated Docker Scripts
 We have created helper scripts that simplify the process of installing and running Hummingbot with Docker:

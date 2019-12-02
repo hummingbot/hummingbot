@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 
 from os.path import join, realpath
-import sys;
-from unittest.mock import create_autospec
-
-sys.path.insert(0, realpath(join(__file__, "../../")))
-
+import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from nose.plugins.attrib import attr
-
 from hummingbot.strategy.discovery import DiscoveryStrategy, DiscoveryMarketPair
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
@@ -19,6 +15,7 @@ from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source impo
 from hummingbot.market.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.market.ddex.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
 import asyncio
+logging.basicConfig(level=logging.DEBUG)
 
 
 def run(coro):
@@ -31,12 +28,13 @@ class DiscoveryUnitTest(unittest.TestCase):
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
     end_timestamp: float = end.timestamp()
-    maker_symbols: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
-    taker_symbols: List[str] = ["coinalpha/eth", "COINALPHA", "ETH"]
+    maker_trading_pairs: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
+    taker_trading_pairs: List[str] = ["coinalpha/eth", "COINALPHA", "ETH"]
 
     @classmethod
     def setUpClass(cls):
-        pass
+        ExchangeRateConversion.get_instance().start()
+        run(ExchangeRateConversion.get_instance().ready_notifier.wait())
 
     def setUp(self):
         self.mock_ddex_active_markets = {
@@ -56,7 +54,7 @@ class DiscoveryUnitTest(unittest.TestCase):
         async def mock_binance_active_markets_func():
             return pd.DataFrame.from_dict(self.mock_binance_active_markets)
 
-        self.target_symbols = [('WETH', 'TUSD'), ('WETH', 'DAI'), ('ETH', 'USDC'), ('ETH', 'TUSD')]
+        self.target_trading_pairs = [('WETH', 'TUSD'), ('WETH', 'DAI'), ('ETH', 'USDC'), ('ETH', 'TUSD')]
         self.equivalent_token = [['USDT', 'USDC', 'USDS', 'DAI', 'PAX', 'TUSD', 'USD'],
                                  ['ETH', 'WETH'],
                                  ['BTC', 'WBTC']]
@@ -70,7 +68,7 @@ class DiscoveryUnitTest(unittest.TestCase):
         )
 
         self.strategy = DiscoveryStrategy(market_pairs=[self.market_pair],
-                                          target_symbols=self.target_symbols,
+                                          target_trading_pairs=self.target_trading_pairs,
                                           equivalent_token=self.equivalent_token
                                           )
 
@@ -133,3 +131,7 @@ class DiscoveryUnitTest(unittest.TestCase):
 
         run(self.strategy.fetch_market_info(self.market_pair))
         self.assertTrue(self.strategy.get_matching_pairs(self.market_pair) == expected_pair)
+
+
+if __name__ == '__main__':
+    unittest.main()

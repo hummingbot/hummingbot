@@ -1,8 +1,3 @@
-from collections import (
-    deque,
-    OrderedDict
-)
-import pandas as pd
 from typing import (
     Dict,
     List,
@@ -11,10 +6,8 @@ from typing import (
 
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.market.market_base import MarketBase
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
-from hummingbot.strategy.order_tracker import OrderTracker
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_tracker cimport OrderTracker
 
 NaN = float("nan")
@@ -45,7 +38,7 @@ cdef class PureMarketMakingOrderTracker(OrderTracker):
         return maker_orders
 
     @property
-    def market_pair_to_active_orders(self) -> Dict[MarketSymbolPair, List[LimitOrder]]:
+    def market_pair_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         market_pair_to_orders = {}
         market_pairs = self._tracked_maker_orders.keys()
         for market_pair in market_pairs:
@@ -54,4 +47,3 @@ cdef class PureMarketMakingOrderTracker(OrderTracker):
                 maker_orders.append(limit_order)
             market_pair_to_orders[market_pair] = maker_orders
         return market_pair_to_orders
-

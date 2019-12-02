@@ -30,7 +30,7 @@ bin/hummingbot.py
 
 Hummingbot can automatically start the execution of a previously configured trading strategy upon launch without requiring the Hummingbot interface `config` and `start` commands.  Any parameters that are required for `config` can be passed into the Hummingbot launch command.
 
-**Launch command**
+**Launch command from docker**
 
 ```bash tab="Docker command"
 docker run -it \
@@ -44,6 +44,28 @@ docker run -it \
 coinalpha/hummingbot:latest
 ```
 
+```bash tab="Sample entry"
+docker run -it \
+-e STRATEGY=discovery \
+-e CONFIG_FILE_NAME=conf_discovery_strategy_1.yml \
+-e WALLET=<INSERT_WALLET_ADDRESS> \
+-e WALLET_PASSWORD=<INSERT_WALLET_PASSWORD> \
+--name hummingbot-instance \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
+coinalpha/hummingbot:latest
+```
+
+**Other Docker options:**
+```bash
+# start Hummingbot after system reboot
+docker run -it --restart=always \...
+# start Hummingbot on background
+docker run -it -d \...
+```
+
+**Launch command from source**
+
 ```bash tab="Installed from source"
 bin/hummingbot_quickstart.py \
 --strategy ${STRATEGY} \
@@ -51,6 +73,15 @@ bin/hummingbot_quickstart.py \
 --wallet ${WALLET} \
 --wallet-password ${WALLET-PASSWORD}
 ```
+
+```bash tab="Sample entry"
+bin/hummingbot_quickstart.py \
+--strategy discovery \
+--config-file-name conf_discovery_strategy_0.yml \
+--wallet <INSERT_WALLET_ADDRESS> \
+--wallet-password <INSERT_WALLET_PASSWORD>
+```
+
 
 ## User Interface
 
@@ -66,18 +97,21 @@ The CLI is divided into three panes:
 
 | Command | Function |
 |---------|----------|
-| `help` | Prints a list of available commands.
-| `start` | Starts the bot. If any configuration settings are missing, it will automatically prompt you for them.
+| `bounty` | Participate in Hummingbot's liquidity bounty program or get bounty status.
 | `config` | Configures or, if a bot is already running, re-configures the bot.
-| `status` | Get a status report about the current bot status.
-| `list` | List wallets, exchanges, configs, and completed trades.<br/><br/>*Example usage: `list [wallets|exchanges|configs|trades]`*
-| `get_balance` | Get the balance of an exchange or wallet, or get the balance of a specific currency in an exchange or wallet.<br/><br/>*Example usage: `get_balance [-c WETH -w|-c ETH -e binance]` to show available WETH balance in the Ethereum wallet and ETH balance in Binance, respectively*.
 | `exit`| Cancels all orders, saves the log, and exits Hummingbot.
-|`exit -f`| Force quit without cancelling orders.
+| `exit -f`| Force quit without cancelling orders.
+| `export_private_key` | Print your Ethereum wallet private key.
+| `export_trades` | Export your trades to a csv file.
+| `get_balance` | Get the balance of an exchange or wallet, or get the balance of a specific currency in an exchange or wallet.<br/><br/>*Example usage: `get_balance [-c WETH -w|-c ETH -e binance]` to show available WETH balance in the Ethereum wallet and ETH balance in Binance, respectively*.
+| `help` | Prints a list of available commands. Adding a command after `help` will display available positional and optional arguments.<br/><br/>*Example: `help bounty` will show how to use the `bounty` command.
+| `history`| Print bot's past trades and performance analytics. For an explanation of how Hummingbot calculates profitability, see our blog [here](https://hummingbot.io/blog/2019-07-measure-performance-crypto-trading/#tldr).
+| `list` | List wallets, exchanges, configs, and completed trades.<br/><br/>*Example usage: `list [wallets|exchanges|configs|trades]`*
+| `paper_trade` | Enable or disable [paper trade mode](/utilities/paper-trade).
+| `start` | Starts the bot. If any configuration settings are missing, it will automatically prompt you for them.
+| `status` | Get a status report about the current bot status.
 | `stop` | Cancels all outstanding orders and stops the bot.
-|`export_private_key`| Print your ethereum wallet private key.
-|`history`| Print bot's past trades and performance analytics. For an explanation of how Hummingbot calculates profitability, see our blog [here](https://hummingbot.io/blog/2019-07-measure-performance-crypto-trading/#tldr).
-|`export_trades`| Export your trades to a csv file.
+
 
 ## Bounty-Related Commands
 
