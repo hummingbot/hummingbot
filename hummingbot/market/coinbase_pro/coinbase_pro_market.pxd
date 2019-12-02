@@ -4,11 +4,8 @@ from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
 cdef class CoinbaseProMarket(MarketBase):
     cdef:
-        object _order_book_tracker
         object _user_stream_tracker
         object _coinbase_auth
-        dict _account_balances
-        dict _account_available_balances
         object _ev_loop
         object _poll_notifier
         double _last_timestamp
@@ -27,7 +24,12 @@ cdef class CoinbaseProMarket(MarketBase):
         public object _trading_rules_polling_task
         public object _shared_client
 
-    cdef c_start_tracking_order(self, str order_id, str symbol, object trade_type, object order_type, object price,
+    cdef c_start_tracking_order(self,
+                                str order_id,
+                                str trading_pair,
+                                object trade_type,
+                                object order_type,
+                                object price,
                                 object amount)
     cdef c_stop_tracking_order(self, str order_id)
     cdef c_did_timeout_tx(self, str tracking_id)

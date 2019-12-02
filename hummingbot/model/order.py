@@ -20,7 +20,7 @@ class Order(HummingbotBase):
     __tablename__ = "Order"
     __table_args__ = (Index("o_config_timestamp_index",
                             "config_file_path", "creation_timestamp"),
-                      Index("o_market_symbol_timestamp_index",
+                      Index("o_market_trading_pair_timestamp_index",
                             "market", "symbol", "creation_timestamp"),
                       Index("o_market_base_asset_timestamp_index",
                             "market", "base_asset", "creation_timestamp"),
@@ -57,7 +57,7 @@ class Order(HummingbotBase):
             "order_id": order.id,
             "price": numpy.format_float_positional(order.price),
             "quantity": numpy.format_float_positional(order.amount),
-            "trading_pair": order.symbol,
+            "symbol": order.symbol,
             "market": order.market,
             "order_timestamp": order.creation_timestamp,
             "order_type": order.order_type,

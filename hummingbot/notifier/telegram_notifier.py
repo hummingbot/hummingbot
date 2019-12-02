@@ -26,10 +26,12 @@ from telegram.ext import (
 )
 
 import hummingbot
+import pandas as pd
 from hummingbot.logger import HummingbotLogger
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 DISABLED_COMMANDS = {
@@ -72,7 +74,10 @@ class TelegramNotifier(NotifierBase):
             cls.tn_logger = logging.getLogger(__name__)
         return cls.tn_logger
 
-    def __init__(self, token: str, chat_id: str, hb: "HummingbotApplication") -> None:
+    def __init__(self,
+                 token: str,
+                 chat_id: str,
+                 hb: "hummingbot.client.hummingbot_application.HummingbotApplication") -> None:
         super().__init__()
         self._token = token or global_config_map.get("telegram_token").value
         self._chat_id = chat_id or global_config_map.get("telegram_chat_id").value
@@ -97,7 +102,7 @@ class TelegramNotifier(NotifierBase):
                 timeout=30,
                 read_latency=60,
             )
-            self._send_msg_task = asyncio.ensure_future(self.send_msg_from_queue(), loop=self._ev_loop)
+            self._send_msg_task = safe_ensure_future(self.send_msg_from_queue(), loop=self._ev_loop)
             self.logger().info("Telegram is listening...")
 
     def stop(self) -> None:
@@ -108,23 +113,31 @@ class TelegramNotifier(NotifierBase):
 
     @authorized_only
     def handler(self, bot: Bot, update: Update) -> None:
-        asyncio.ensure_future(self.handler_loop(bot, update), loop=self._ev_loop)
+        safe_ensure_future(self.handler_loop(bot, update), loop=self._ev_loop)
 
     async def handler_loop(self, bot: Bot, update: Update) -> None:
+        async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()
         try:
             input_text = update.message.text.strip()
             output = f"\n[Telegram Input] {input_text}"
+
             self._hb.app.log(output)
 
             # if the command does starts with any disabled commands
             if any([input_text.lower().startswith(dc) for dc in DISABLED_COMMANDS]):
                 self.add_msg_to_queue(f"Command {input_text} is disabled from telegram")
             else:
-                await self._ev_loop.run_in_executor(
-                    hummingbot.get_executor(),
-                    self._hb._handle_command,
-                    input_text
-                )
+                # Set display options to max, so that telegram does not display truncated data
+                pd.set_option('display.max_rows', 500)
+                pd.set_option('display.max_columns', 500)
+                pd.set_option('display.width', 1000)
+
+                await async_scheduler.call_async(self._hb._handle_command, input_text)
+
+                # Reset to normal, so that pandas's default autodetect width still works
+                pd.set_option('display.max_rows', 0)
+                pd.set_option('display.max_columns', 0)
+                pd.set_option('display.width', 0)
         except Exception as e:
             self.add_msg_to_queue(str(e))
 
@@ -144,7 +157,8 @@ class TelegramNotifier(NotifierBase):
         while True:
             try:
                 new_msg: str = await self._msg_queue.get()
-                await self.send_msg_async(new_msg)
+                if isinstance(new_msg, str) and len(new_msg) > 0:
+                    await self.send_msg_async(new_msg)
             except Exception as e:
                 self.logger().error(str(e))
             await asyncio.sleep(1)
@@ -170,7 +184,7 @@ class TelegramNotifier(NotifierBase):
                     text=formatted_msg,
                     parse_mode=ParseMode.MARKDOWN,
                     reply_markup=reply_markup
-                ), app_warning_msg=None)
+                ))
             except NetworkError as network_err:
                 # Sometimes the telegram server resets the current connection,
                 # if this is the case we send the message again.
@@ -181,7 +195,7 @@ class TelegramNotifier(NotifierBase):
                     text=msg,
                     parse_mode=ParseMode.MARKDOWN,
                     reply_markup=reply_markup
-                ), app_warning_msg=None)
+                ))
         except TelegramError as telegram_err:
             self.logger().network(f"TelegramError: {telegram_err.message}! Giving up on that message.",
                                   exc_info=True)

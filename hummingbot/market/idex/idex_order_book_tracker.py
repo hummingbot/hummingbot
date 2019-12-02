@@ -16,6 +16,7 @@ from typing import (
     Set
 )
 
+from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTracker,
@@ -27,9 +28,11 @@ from hummingbot.market.idex.idex_active_order_tracker import IDEXActiveOrderTrac
 from hummingbot.market.idex.idex_api_order_book_data_source import IDEXAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessageType,
-    IDEXOrderBookMessage
+    IDEXOrderBookMessage,
+    OrderBookMessage,
 )
 from hummingbot.core.data_type.order_book_tracker_entry import IDEXOrderBookTrackerEntry
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class IDEXOrderBookTracker(OrderBookTracker):
@@ -44,7 +47,7 @@ class IDEXOrderBookTracker(OrderBookTracker):
     def __init__(self,
                  idex_api_key: str,
                  data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
-                 symbols: Optional[List[str]] = None):
+                 trading_pairs: Optional[List[str]] = None):
         super().__init__(data_source_type=data_source_type)
         self._idex_api_key = idex_api_key
         self._past_diffs_windows: Dict[str, Deque] = {}
@@ -55,70 +58,65 @@ class IDEXOrderBookTracker(OrderBookTracker):
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[OrderBookTrackerDataSource] = None
         self._active_order_trackers: Dict[str, IDEXActiveOrderTracker] = defaultdict(IDEXActiveOrderTracker)
-        self._symbols: Optional[List[str]] = symbols
+        self._trading_pairs: Optional[List[str]] = trading_pairs
 
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
         if not self._data_source:
             if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = IDEXAPIOrderBookDataSource(idex_api_key=self._idex_api_key, symbols=self._symbols)
+                self._data_source = IDEXAPIOrderBookDataSource(idex_api_key=self._idex_api_key, trading_pairs=self._trading_pairs)
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source
 
     @property
-    async def exchange_name(self) -> str:
+    def exchange_name(self) -> str:
         return "idex"
 
     async def start(self):
-        self._order_book_diff_listener_task = asyncio.ensure_future(
+        await super().start()
+        self._order_book_diff_listener_task = safe_ensure_future(
             self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
-        self._order_book_snapshot_listener_task = asyncio.ensure_future(
+        self._order_book_snapshot_listener_task = safe_ensure_future(
             self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
         )
-        self._refresh_tracking_task = asyncio.ensure_future(
+        self._refresh_tracking_task = safe_ensure_future(
             self._refresh_tracking_loop()
         )
-        self._order_book_diff_router_task = asyncio.ensure_future(
+        self._order_book_diff_router_task = safe_ensure_future(
             self._order_book_diff_router()
         )
-        self._order_book_snapshot_router_task = asyncio.ensure_future(
+        self._order_book_snapshot_router_task = safe_ensure_future(
             self._order_book_snapshot_router()
         )
-
-        await asyncio.gather(self._order_book_snapshot_listener_task,
-                             self._order_book_diff_listener_task,
-                             self._order_book_snapshot_router_task,
-                             self._order_book_diff_router_task,
-                             self._refresh_tracking_task)
 
     async def _refresh_tracking_tasks(self):
         """
         Starts tracking for any new trading pairs, and stop tracking for any inactive trading pairs.
         """
-        tracking_symbols: Set[str] = set([key for key in self._tracking_tasks.keys()
+        tracking_trading_pairs: Set[str] = set([key for key in self._tracking_tasks.keys()
                                           if not self._tracking_tasks[key].done()])
         available_pairs: Dict[str, IDEXOrderBookTrackerEntry] = await self.data_source.get_tracking_pairs()
-        available_symbols: Set[str] = set(available_pairs.keys())
-        new_symbols: Set[str] = available_symbols - tracking_symbols
-        deleted_symbols: Set[str] = tracking_symbols - available_symbols
+        available_trading_pairs: Set[str] = set(available_pairs.keys())
+        new_trading_pairs: Set[str] = available_trading_pairs - tracking_trading_pairs
+        deleted_trading_pairs: Set[str] = tracking_trading_pairs - available_trading_pairs
 
-        for symbol in new_symbols:
-            order_book_tracker_entry: IDEXOrderBookTrackerEntry = available_pairs[symbol]
-            self._active_order_trackers[symbol] = order_book_tracker_entry.active_order_tracker
-            self._order_books[symbol] = order_book_tracker_entry.order_book
-            self._tracking_message_queues[symbol] = asyncio.Queue()
-            self._tracking_tasks[symbol] = asyncio.ensure_future(self._track_single_book(symbol))
-            self.logger().info("Started order book tracking for %s.", symbol)
+        for trading_pair in new_trading_pairs:
+            order_book_tracker_entry: IDEXOrderBookTrackerEntry = available_pairs[trading_pair]
+            self._active_order_trackers[trading_pair] = order_book_tracker_entry.active_order_tracker
+            self._order_books[trading_pair] = order_book_tracker_entry.order_book
+            self._tracking_message_queues[trading_pair] = asyncio.Queue()
+            self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
+            self.logger().info("Started order book tracking for %s.", trading_pair)
 
-        for symbol in deleted_symbols:
-            self._tracking_tasks[symbol].cancel()
-            del self._tracking_tasks[symbol]
-            del self._order_books[symbol]
-            del self._active_order_trackers[symbol]
-            del self._tracking_message_queues[symbol]
-            self.logger().info("Stopped order book tracking for %s.", symbol)
+        for trading_pair in deleted_trading_pairs:
+            self._tracking_tasks[trading_pair].cancel()
+            del self._tracking_tasks[trading_pair]
+            del self._order_books[trading_pair]
+            del self._active_order_trackers[trading_pair]
+            del self._tracking_message_queues[trading_pair]
+            self.logger().info("Stopped order book tracking for %s.", trading_pair)
 
     async def _order_book_diff_router(self):
         """
@@ -132,30 +130,43 @@ class IDEXOrderBookTracker(OrderBookTracker):
         while True:
             try:
                 ob_message: IDEXOrderBookMessage = await self._order_book_diff_stream.get()
-                symbol: str = ob_message.symbol
+                trading_pair: str = ob_message.trading_pair
 
-                if symbol not in self._tracking_message_queues:
+                if trading_pair not in self._tracking_message_queues:
                     messages_queued += 1
                     # Save diff messages received before snapshots are ready
-                    self._saved_message_queues[symbol].append(ob_message)
+                    self._saved_message_queues[trading_pair].append(ob_message)
                     continue
-                message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
+                message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
                 # Check the order book's initial update ID. If it's larger, don't bother.
-                order_book: IDEXOrderBook = self._order_books[symbol]
+                order_book: IDEXOrderBook = self._order_books[trading_pair]
 
                 if order_book.snapshot_uid > ob_message.update_id:
                     messages_rejected += 1
                     continue
                 await message_queue.put(ob_message)
+
+                if ob_message.content["event"] == "market_trades":  # put trade messages to trade queue
+                    trade_type = float(TradeType.BUY.value) if ob_message.content["type"].upper() == "BUY" \
+                        else float(TradeType.SELL.value)
+                    self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
+                        "trading_pair": ob_message.content["market"],
+                        "trade_type": trade_type,
+                        "trade_id": ob_message.content["tid"],
+                        "update_id": ob_message.timestamp,
+                        "price": ob_message.content["price"],
+                        "amount": ob_message.content["amount"]
+                    }, timestamp=ob_message.timestamp))
+
                 messages_accepted += 1
 
                 # Log some statistics.
                 now: float = time.time()
                 if int(now / 60.0) > int(last_message_timestamp / 60.0):
                     self.logger().debug("Diff messages processed: %d, rejected: %d, queued: %d",
-                                       messages_accepted,
-                                       messages_rejected,
-                                       messages_queued)
+                                        messages_accepted,
+                                        messages_rejected,
+                                        messages_queued)
                     messages_accepted = 0
                     messages_rejected = 0
                     messages_queued = 0
@@ -171,19 +182,19 @@ class IDEXOrderBookTracker(OrderBookTracker):
                 )
                 await asyncio.sleep(5.0)
 
-    async def _track_single_book(self, symbol: str):
+    async def _track_single_book(self, trading_pair: str):
         past_diffs_window: Deque[IDEXOrderBookMessage] = deque()
-        self._past_diffs_windows[symbol] = past_diffs_window
-        message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
-        order_book: IDEXOrderBook = self._order_books[symbol]
-        active_order_tracker: IDEXActiveOrderTracker = self._active_order_trackers[symbol]
+        self._past_diffs_windows[trading_pair] = past_diffs_window
+        message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
+        order_book: IDEXOrderBook = self._order_books[trading_pair]
+        active_order_tracker: IDEXActiveOrderTracker = self._active_order_trackers[trading_pair]
         last_message_timestamp: float = time.time() 
         diff_messages_accepted: int = 0
 
         while True:
             try:
                 message: IDEXOrderBookMessage = None
-                saved_messages: Deque[IDEXOrderBookMessage] = self._saved_message_queues[symbol]
+                saved_messages: Deque[IDEXOrderBookMessage] = self._saved_message_queues[trading_pair]
                 # Process saved messages first if there are any
                 if len(saved_messages) > 0:
                     message = saved_messages.popleft()
@@ -202,7 +213,7 @@ class IDEXOrderBookTracker(OrderBookTracker):
                     now: float = time.time()
                     if int(now / 60.0) > int(last_message_timestamp / 60.0):
                         self.logger().debug("Processed %d order book diffs for %s.",
-                                           diff_messages_accepted, symbol)
+                                            diff_messages_accepted, trading_pair)
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                     # pass
@@ -217,12 +228,12 @@ class IDEXOrderBookTracker(OrderBookTracker):
                         d_bids, d_asks = active_order_tracker.convert_diff_message_to_order_book_row(diff_message)
                         order_book.apply_diffs(d_bids, d_asks, diff_message.update_id)
 
-                    self.logger().debug("Processed order book snapshot for %s.", symbol)
+                    self.logger().debug("Processed order book snapshot for %s.", trading_pair)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().network(
-                    f"Unexpected error tracking order book for {symbol}.",
+                    f"Unexpected error tracking order book for {trading_pair}.",
                     exc_info=True,
                     app_warning_msg=f"Unexpected error tracking order book. Retrying after 5 seconds."
                 )

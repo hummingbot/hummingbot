@@ -15,8 +15,7 @@ from hummingbot.client.settings import (
 )
 from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.core.utils.wallet_setup import list_wallets
-from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
-from hummingbot.client.config.in_memory_config_map import load_required_configs
+from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
 
 class HummingbotCompleter(Completer):
@@ -44,15 +43,15 @@ class HummingbotCompleter(Completer):
         return WordCompleter(subcommands, ignore_case=True)
 
     @property
-    def _symbol_completer(self) -> Completer:
-        symbol_fetcher = SymbolFetcher.get_instance()
+    def _trading_pair_completer(self) -> Completer:
+        trading_pair_fetcher = TradingPairFetcher.get_instance()
         market = None
         for exchange in EXCHANGES:
             if exchange in self.prompt_text:
                 market = exchange
                 break
-        symbols = symbol_fetcher.symbols.get(market, []) if symbol_fetcher.ready else []
-        return WordCompleter(symbols, ignore_case=True)
+        trading_pairs = trading_pair_fetcher.trading_pairs.get(market, []) if trading_pair_fetcher.ready else []
+        return WordCompleter(trading_pairs, ignore_case=True)
 
     @property
     def _wallet_address_completer(self):
@@ -60,14 +59,14 @@ class HummingbotCompleter(Completer):
 
     @property
     def _option_completer(self):
-        outer = re.compile("\((.+)\)")
+        outer = re.compile(r"\((.+)\)")
         inner_str = outer.search(self.prompt_text).group(1)
         options = inner_str.split("/") if "/" in inner_str else []
         return WordCompleter(options, ignore_case=True)
 
     @property
     def _config_completer(self):
-        return WordCompleter(load_required_configs(), ignore_case=True)
+        return WordCompleter(self.hummingbot_application.get_all_available_config_keys(), ignore_case=True)
 
     def _complete_strategies(self, document: Document) -> bool:
         return "strategy" in self.prompt_text
@@ -85,8 +84,8 @@ class HummingbotCompleter(Completer):
                "--exchange" in text_before_cursor or \
                "exchange" in self.prompt_text
 
-    def _complete_symbols(self, document: Document) -> bool:
-        return "symbol" in self.prompt_text
+    def _complete_trading_pairs(self, document: Document) -> bool:
+        return "trading pair" in self.prompt_text
 
     def _complete_paths(self, document: Document) -> bool:
         return "path" in self.prompt_text and "file" in self.prompt_text
@@ -126,8 +125,8 @@ class HummingbotCompleter(Completer):
             for c in self._exchange_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_symbols(document):
-            for c in self._symbol_completer.get_completions(document, complete_event):
+        elif self._complete_trading_pairs(document):
+            for c in self._trading_pair_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_command(document):
@@ -153,7 +152,3 @@ class HummingbotCompleter(Completer):
 
 def load_completer(hummingbot_application):
     return HummingbotCompleter(hummingbot_application)
-
-
-
-

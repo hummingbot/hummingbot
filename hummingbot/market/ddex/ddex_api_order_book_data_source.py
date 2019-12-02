@@ -16,7 +16,9 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.utils import async_ttl_cache
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.market.ddex.ddex_active_order_tracker import DDEXActiveOrderTracker
 from hummingbot.market.ddex.ddex_order_book import DDEXOrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -27,7 +29,7 @@ from hummingbot.core.data_type.order_book_tracker_entry import (
 )
 from hummingbot.core.data_type.order_book_message import DDEXOrderBookMessage
 
-TRADING_PAIR_FILTER = re.compile(r"(TUSD|WETH|DAI)$")
+TRADING_PAIR_FILTER = re.compile(r"(TUSD|WETH|DAI|SAI)$")
 
 REST_URL = "https://api.ddex.io/v3"
 WS_URL = "wss://ws.ddex.io/v3"
@@ -49,19 +51,19 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._raobds_logger = logging.getLogger(__name__)
         return cls._raobds_logger
 
-    def __init__(self, symbols: Optional[List[str]] = None):
+    def __init__(self, trading_pairs: Optional[List[str]] = None):
         super().__init__()
-        self._symbols: Optional[List[str]] = symbols
+        self._trading_pairs: Optional[List[str]] = trading_pairs
         self._get_tracking_pair_done_event: asyncio.Event = asyncio.Event()
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         """
-        Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
+        Returned data frame should have trading pair as index and include usd volume, baseAsset and quoteAsset
         """
         async with aiohttp.ClientSession() as client:
-            market_response, ticker_response = await asyncio.gather(
+            market_response, ticker_response = await safe_gather(
                 client.get(MARKETS_URL),
                 client.get(TICKERS_URL)
             )
@@ -89,16 +91,16 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=ticker_data,
                                                                   index="marketId")
 
-            dai_to_eth_price: float = float(all_markets.loc["DAI-WETH"].price)
+            dai_to_eth_price: float = float(all_markets.loc["SAI-WETH"].price)
             weth_to_usd_price: float = float(all_markets.loc["WETH-TUSD"].price)
             usd_volume: float = [
                 (
-                    quoteVolume * dai_to_eth_price * weth_to_usd_price if symbol.endswith("DAI") else
-                    quoteVolume * weth_to_usd_price if symbol.endswith("WETH") else
+                    quoteVolume * dai_to_eth_price * weth_to_usd_price if trading_pair.endswith("SAI") else
+                    quoteVolume * weth_to_usd_price if trading_pair.endswith("WETH") else
                     quoteVolume
                 )
-                for symbol, quoteVolume in zip(all_markets.index,
-                                               all_markets.volume.astype("float"))]
+                for trading_pair, quoteVolume in zip(all_markets.index,
+                                                     all_markets.volume.astype("float"))]
             all_markets["USDVolume"] = usd_volume
             return all_markets.sort_values("USDVolume", ascending=False)
 
@@ -107,37 +109,37 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return DDEXOrderBook
 
     async def get_trading_pairs(self) -> List[str]:
-        if not self._symbols:
+        if not self._trading_pairs:
             try:
                 active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                self._symbols = active_markets.index.tolist()
+                self._trading_pairs = active_markets.index.tolist()
             except Exception:
-                self._symbols = []
+                self._trading_pairs = []
                 self.logger().network(
                     f"Error getting active exchange information.",
                     exc_info=True,
                     app_warning_msg=f"Error getting active exchange information. Check network connection."
                 )
-        return self._symbols
+        return self._trading_pairs
 
     async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str, level: int = 3) -> Dict[str, any]:
-            params: Dict = {"level": level}
-            retry: int = 3
-            while retry > 0:
-                try:
-                    async with client.get(f"{REST_URL}/markets/{trading_pair}/orderbook", params=params) as response:
-                        response: aiohttp.ClientResponse = response
-                        if response.status != 200:
-                            raise IOError(f"Error fetching DDex market snapshot for {trading_pair}. "
-                                          f"HTTP status is {response.status}.")
-                        data: Dict[str, any] = await response.json()
-                        return data
-                except Exception:
-                    self.logger().warning(f"Error requesting order book snapshot. Retrying {retry} more times.")
-                    await asyncio.sleep(10)
-                    retry -= 1
-                    if retry == 0:
-                        raise
+        params: Dict = {"level": level}
+        retry: int = 3
+        while retry > 0:
+            try:
+                async with client.get(f"{REST_URL}/markets/{trading_pair}/orderbook", params=params) as response:
+                    response: aiohttp.ClientResponse = response
+                    if response.status != 200:
+                        raise IOError(f"Error fetching DDex market snapshot for {trading_pair}. "
+                                      f"HTTP status is {response.status}.")
+                    data: Dict[str, any] = await response.json()
+                    return data
+            except Exception:
+                self.logger().warning(f"Error requesting order book snapshot. Retrying {retry} more times.")
+                await asyncio.sleep(10)
+                retry -= 1
+                if retry == 0:
+                    raise
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         # Get the currently active markets
@@ -149,13 +151,12 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 try:
                     snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, 3)
                     snapshot_timestamp: float = time.time()
-                    snapshot_msg: DDEXOrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                    snapshot_msg: DDEXOrderBookMessage = DDEXOrderBook.snapshot_message_from_exchange(
                         snapshot,
                         snapshot_timestamp,
                         {"marketId": trading_pair}
                     )
-
-                    ddex_order_book: DDEXOrderBook = DDEXOrderBook()
+                    ddex_order_book: OrderBook = self.order_book_create_function()
                     ddex_active_order_tracker: DDEXActiveOrderTracker = DDEXActiveOrderTracker()
                     bids, asks = ddex_active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
                     ddex_order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
@@ -206,6 +207,10 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         finally:
             await ws.close()
 
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        # Trade messages are received from the order book web socket
+        pass
+
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
@@ -223,9 +228,12 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
                         # only process receive and done diff messages from DDEX
-                        if msg["type"] == "receive" or msg["type"] == "done":
-                            diff_msg: DDEXOrderBookMessage = self.order_book_class.diff_message_from_exchange(msg)
+                        if msg["type"] in ["receive", "done"]:
+                            diff_msg: DDEXOrderBookMessage = DDEXOrderBook.diff_message_from_exchange(msg)
                             output.put_nowait(diff_msg)
+                        elif msg["type"] == "trade":
+                            trade_msg: DDEXOrderBookMessage = DDEXOrderBook.trade_message_from_exchange(msg)
+                            output.put_nowait(trade_msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -246,7 +254,7 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         try:
                             snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
                             snapshot_timestamp: float = time.time()
-                            snapshot_msg: DDEXOrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                            snapshot_msg: DDEXOrderBookMessage = DDEXOrderBook.snapshot_message_from_exchange(
                                 snapshot,
                                 snapshot_timestamp,
                                 {"marketId": trading_pair}

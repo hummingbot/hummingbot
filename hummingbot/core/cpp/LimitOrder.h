@@ -6,7 +6,7 @@
 
 class LimitOrder {
     std::string clientOrderID;
-    std::string symbol;
+    std::string tradingPair;
     bool isBuy;
     std::string baseCurrency;
     std::string quoteCurrency;
@@ -16,7 +16,7 @@ class LimitOrder {
     public:
         LimitOrder();
         LimitOrder(std::string clientOrderID,
-                   std::string symbol,
+                   std::string tradingPair,
                    bool isBuy,
                    std::string baseCurrency,
                    std::string quoteCurrency,
@@ -28,7 +28,7 @@ class LimitOrder {
         friend bool operator<(LimitOrder const &a, LimitOrder const &b);
 
         std::string getClientOrderID() const;
-        std::string getSymbol() const;
+        std::string getTradingPair() const;
         bool getIsBuy() const;
         std::string getBaseCurrency() const;
         std::string getQuoteCurrency() const;

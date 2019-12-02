@@ -17,6 +17,15 @@ IDEX requires an API key authentication to access API endpoints required for Hum
 
 * [Generate IDEX API key](https://docs.idex.market/#tag/API-Keys)
 
+| Prompt |
+|-----|
+| `Enter your IDEX API key >>>`
+
+!!! tip "Copying and pasting into Hummingbot"
+    See [this page](https://docs.hummingbot.io/support/how-to/#how-do-i-copy-and-paste-in-docker-toolbox-windows) for more instructions in our Get Help section.
+
+Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
+
 ## Miscellaneous Info
 
 ### Asset Availability for US Markets
