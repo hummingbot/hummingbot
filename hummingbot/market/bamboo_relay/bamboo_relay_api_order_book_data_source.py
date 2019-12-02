@@ -89,7 +89,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls, api_prefix: str = "main/0x") -> pd.DataFrame:
         """
-        Returned data frame should have trading pair as index and include usd volume, baseAsset and quoteAsset
+        Returned data frame should have trading_pair as index and include usd volume, baseAsset and quoteAsset
         """
         client: aiohttp.ClientSession = cls.http_client()
         async with client.get(f"{REST_BASE_URL}{api_prefix}/markets?perPage=1000&include=ticker,stats") as response:
@@ -103,13 +103,15 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             ]
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data, index="id")
 
-            weth_dai_price = Decimal(all_markets.loc["WETH-DAI"]["ticker"]["price"])
-            dai_usd_price: Decimal = ExchangeRateConversion.get_instance().adjust_token_rate("DAI", weth_dai_price)
-            usd_volume: List[Decimal] = []
-            quote_volume: List[Decimal] = []
+            weth_dai_price: Decimal = Decimal(ExchangeRateConversion.get_instance().convert_token_value(
+                1.0, from_currency="WETH", to_currency="DAI"
+            ))
+            dai_usd_price: float = float(ExchangeRateConversion.get_instance().adjust_token_rate("DAI", weth_dai_price))
+            usd_volume: List[float] = []
+            quote_volume: List[float] = []
             for row in all_markets.itertuples():
                 product_name: str = row.Index
-                base_volume = Decimal(row.stats["volume24Hour"])
+                base_volume: float = float(row.stats["volume24Hour"])
                 quote_volume.append(base_volume)
                 if product_name.endswith("WETH"):
                     usd_volume.append(dai_usd_price * base_volume)
