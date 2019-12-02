@@ -11,11 +11,9 @@ import os
 import time
 from typing import (
     List,
-    Dict,
     Optional
 )
 import unittest
-from unittest.mock import patch
 
 from hummingbot.core.clock import (
     Clock,
@@ -42,11 +40,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.market.liquid.liquid_market import (
-    LiquidMarket,
-    LiquidTime,
-    liquid_client_module
-)
+from hummingbot.market.liquid.liquid_market import LiquidMarket
 from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
@@ -88,7 +82,7 @@ class LquidMarketUnitTest(unittest.TestCase):
             conf.liquid_api_key, conf.liquid_secret_key,
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-            trading_pairs=["ZRXETH", "IOSTETH"]
+            trading_pairs=['ETHUSD', 'LCXBTC', 'CELETH']
         )
         print("Initializing Liquid market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -142,13 +136,13 @@ class LquidMarketUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        maker_buy_trade_fee: TradeFee = self.market.get_fee("BTC", "USDT", OrderType.LIMIT, TradeType.BUY, Decimal(1), Decimal(4000))
+        maker_buy_trade_fee: TradeFee = self.market.get_fee("BTC", "USD", OrderType.LIMIT, TradeType.BUY, Decimal(1), Decimal(4000))
         self.assertGreater(maker_buy_trade_fee.percent, 0)
         self.assertEqual(len(maker_buy_trade_fee.flat_fees), 0)
-        taker_buy_trade_fee: TradeFee = self.market.get_fee("BTC", "USDT", OrderType.MARKET, TradeType.BUY, Decimal(1))
+        taker_buy_trade_fee: TradeFee = self.market.get_fee("BTC", "USD", OrderType.MARKET, TradeType.BUY, Decimal(1))
         self.assertGreater(taker_buy_trade_fee.percent, 0)
         self.assertEqual(len(taker_buy_trade_fee.flat_fees), 0)
-        sell_trade_fee: TradeFee = self.market.get_fee("BTC", "USDT", OrderType.LIMIT, TradeType.SELL, Decimal(1), Decimal(4000))
+        sell_trade_fee: TradeFee = self.market.get_fee("BTC", "USD", OrderType.LIMIT, TradeType.SELL, Decimal(1), Decimal(4000))
         self.assertGreater(sell_trade_fee.percent, 0)
         self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
@@ -156,10 +150,10 @@ class LquidMarketUnitTest(unittest.TestCase):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
 
         # Try to buy 0.02 ETH worth of ZRX from the exchange, and watch for completion event.
-        current_price: Decimal = self.market.get_price("ZRXETH", True)
-        amount: Decimal = Decimal("0.02") / current_price
-        quantized_amount: Decimal = self.market.quantize_order_amount("ZRXETH", amount)
-        order_id = self.market.buy("ZRXETH", amount)
+        current_price: Decimal = self.market.get_price("CELETH", True)
+        amount: Decimal = Decimal("0.005") / current_price
+        quantized_amount: Decimal = self.market.quantize_order_amount("CELETH", amount)
+        order_id = self.market.buy("CELETH", amount, price=current_price)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -170,7 +164,7 @@ class LquidMarketUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.MARKET for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("ZRX", order_completed_event.base_asset)
+        self.assertEqual("CEL", order_completed_event.base_asset)
         self.assertEqual("ETH", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
@@ -184,7 +178,7 @@ class LquidMarketUnitTest(unittest.TestCase):
         # Try to sell back the same amount of ZRX to the exchange, and watch for completion event.
         amount = order_completed_event.base_asset_amount
         quantized_amount = order_completed_event.base_asset_amount
-        order_id = self.market.sell("ZRXETH", amount)
+        order_id = self.market.sell("CELETH", amount, price=current_price)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events = [t for t in self.market_logger.event_log
@@ -195,7 +189,7 @@ class LquidMarketUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.MARKET for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("ZRX", order_completed_event.base_asset)
+        self.assertEqual("CEL", order_completed_event.base_asset)
         self.assertEqual("ETH", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
@@ -207,14 +201,14 @@ class LquidMarketUnitTest(unittest.TestCase):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
 
         # Try to put limit buy order for 0.02 ETH worth of ZRX, and watch for completion event.
-        current_bid_price: Decimal = self.market.get_price("ZRXETH", True)
+        current_bid_price: Decimal = self.market.get_price("CELETH", True)
         bid_price: Decimal = current_bid_price + Decimal("0.05") * current_bid_price
-        quantize_bid_price: Decimal = self.market.quantize_order_price("ZRXETH", bid_price)
+        quantize_bid_price: Decimal = self.market.quantize_order_price("CELETH", bid_price)
 
         amount: Decimal = Decimal("0.02") / bid_price
-        quantized_amount: Decimal = self.market.quantize_order_amount("ZRXETH", amount)
+        quantized_amount: Decimal = self.market.quantize_order_amount("CELETH", amount)
 
-        order_id = self.market.buy("ZRXETH", quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        order_id = self.market.buy("CELETH", quantized_amount, OrderType.LIMIT, quantize_bid_price)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -225,7 +219,7 @@ class LquidMarketUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("ZRX", order_completed_event.base_asset)
+        self.assertEqual("CEL", order_completed_event.base_asset)
         self.assertEqual("ETH", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
@@ -237,14 +231,14 @@ class LquidMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
         # Try to put limit sell order for 0.02 ETH worth of ZRX, and watch for completion event.
-        current_ask_price: Decimal = self.market.get_price("ZRXETH", False)
+        current_ask_price: Decimal = self.market.get_price("CELETH", False)
         ask_price: Decimal = current_ask_price - Decimal("0.05") * current_ask_price
-        quantize_ask_price: Decimal = self.market.quantize_order_price("ZRXETH", ask_price)
+        quantize_ask_price: Decimal = self.market.quantize_order_price("CELETH", ask_price)
 
         amount = order_completed_event.base_asset_amount
         quantized_amount = order_completed_event.base_asset_amount
 
-        order_id = self.market.sell("ZRXETH", quantized_amount, OrderType.LIMIT, quantize_ask_price)
+        order_id = self.market.sell("CELETH", quantized_amount, OrderType.LIMIT, quantize_ask_price)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events = [t for t in self.market_logger.event_log
@@ -255,7 +249,7 @@ class LquidMarketUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("ZRX", order_completed_event.base_asset)
+        self.assertEqual("CEL", order_completed_event.base_asset)
         self.assertEqual("ETH", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
@@ -265,14 +259,14 @@ class LquidMarketUnitTest(unittest.TestCase):
 
     def test_deposit_info(self):
         [deposit_info] = self.run_parallel(
-            self.market.get_deposit_info("BNB")
+            self.market.get_deposit_info("ETH")
         )
         deposit_info: DepositInfo = deposit_info
         self.assertIsInstance(deposit_info, DepositInfo)
         self.assertGreater(len(deposit_info.address), 0)
         self.assertGreater(len(deposit_info.extras), 0)
-        self.assertTrue("addressTag" in deposit_info.extras)
-        self.assertEqual("BNB", deposit_info.extras["asset"])
+        self.assertTrue("currency_type" in deposit_info.extras.get('extras'))
+        self.assertEqual("ETH", deposit_info.extras.get('extras').get('currency'))
 
     @unittest.skipUnless(any("test_withdraw" in arg for arg in sys.argv), "Withdraw test requires manual action.")
     def test_withdraw(self):
@@ -301,7 +295,7 @@ class LquidMarketUnitTest(unittest.TestCase):
         self.assertGreater(withdraw_asset_event.fee_amount, Decimal(0))
 
     def test_cancel_all(self):
-        trading_pair = "ZRXETH"
+        trading_pair = "CELETH"
         bid_price: Decimal = self.market.get_price(trading_pair, True)
         ask_price: Decimal = self.market.get_price(trading_pair, False)
         amount: Decimal = Decimal("0.02") / bid_price
@@ -319,98 +313,6 @@ class LquidMarketUnitTest(unittest.TestCase):
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
 
-    def test_order_price_precision(self):
-        # As of the day this test was written, the min order size (base) is 1 IOST, the min order size (quote) is
-        # 0.01 ETH, and order step size is 1 IOST.
-        trading_pair = "IOSTETH"
-        bid_price: Decimal = self.market.get_price(trading_pair, True)
-        ask_price: Decimal = self.market.get_price(trading_pair, False)
-        mid_price: Decimal = (bid_price + ask_price) / 2
-        amount: Decimal = Decimal("0.02") / mid_price
-        liquid_client = self.market.liquid_client
-
-        # Make sure there's enough balance to make the limit orders.
-        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
-        self.assertGreater(self.market.get_balance("IOST"), amount * 2)
-
-        # Intentionally set some prices with too many decimal places s.t. they
-        # need to be quantized. Also, place them far away from the mid-price s.t. they won't
-        # get filled during the test.
-        bid_price: Decimal = mid_price * Decimal("0.3333192292111341")
-        ask_price: Decimal = mid_price * Decimal("3.4392431474884933")
-
-        # This is needed to get around the min quote amount limit.
-        bid_amount: Decimal = Decimal("0.02") / bid_price
-
-        # Test bid order
-        bid_order_id: str = self.market.buy(
-            trading_pair,
-            Decimal(bid_amount),
-            OrderType.LIMIT,
-            Decimal(bid_price)
-        )
-
-        # Wait for the order created event and examine the order made
-        [order_created_event] = self.run_parallel(
-            self.market_logger.wait_for(BuyOrderCreatedEvent, timeout_seconds=10)
-        )
-        order_data: Dict[str, any] = liquid_client.get_order(
-            symbol=trading_pair,
-            origClientOrderId=bid_order_id
-        )
-        quantized_bid_price: Decimal = self.market.quantize_order_price(trading_pair, Decimal(bid_price))
-        bid_size_quantum: Decimal = self.market.get_order_size_quantum(trading_pair, Decimal(bid_amount))
-        self.assertEqual(quantized_bid_price, Decimal(order_data["price"]))
-        self.assertTrue(Decimal(order_data["origQty"]) % bid_size_quantum == 0)
-
-        # Test ask order
-        ask_order_id: str = self.market.sell(
-            trading_pair,
-            Decimal(amount),
-            OrderType.LIMIT,
-            Decimal(ask_price)
-        )
-
-        # Wait for the order created event and examine and order made
-        [order_created_event] = self.run_parallel(
-            self.market_logger.wait_for(SellOrderCreatedEvent, timeout_seconds=10)
-        )
-        order_data = liquid_client.get_order(
-            symbol=trading_pair,
-            origClientOrderId=ask_order_id
-        )
-        quantized_ask_price: Decimal = self.market.quantize_order_price(trading_pair, Decimal(ask_price))
-        quantized_ask_size: Decimal = self.market.quantize_order_amount(trading_pair, Decimal(amount))
-        self.assertEqual(quantized_ask_price, Decimal(order_data["price"]))
-        self.assertEqual(quantized_ask_size, Decimal(order_data["origQty"]))
-
-        # Cancel all the orders
-        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
-        for cr in cancellation_results:
-            self.assertEqual(cr.success, True)
-
-    def test_server_time_offset(self):
-        time_obj: LiquidTime = liquid_client_module.time
-        old_check_interval: float = time_obj.SERVER_TIME_OFFSET_CHECK_INTERVAL
-        time_obj.SERVER_TIME_OFFSET_CHECK_INTERVAL = 1.0
-        time_obj.stop()
-        time_obj.start()
-
-        try:
-            with patch("hummingbot.market.liquid.liquid_time.time") as market_time:
-                def delayed_time():
-                    return time.time() - 30.0
-                market_time.time = delayed_time
-                self.run_parallel(asyncio.sleep(3.0))
-                time_offset = LiquidTime.get_instance().time_offset_ms
-                # check if it is less than 5% off
-                self.assertTrue(time_offset > 10000)
-                self.assertTrue(abs(time_offset - 30.0 * 1e3) < 1.5 * 1e3)
-        finally:
-            time_obj.SERVER_TIME_OFFSET_CHECK_INTERVAL = old_check_interval
-            time_obj.stop()
-            time_obj.start()
-
     def test_orders_saving_and_restoration(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
@@ -422,15 +324,15 @@ class LquidMarketUnitTest(unittest.TestCase):
         try:
             self.assertEqual(0, len(self.market.tracking_states))
 
-            # Try to put limit buy order for 0.02 ETH worth of ZRX, and watch for order creation event.
-            current_bid_price: Decimal = self.market.get_price("ZRXETH", True)
+            # Try to put limit buy order for 0.005 ETH worth of CEL, and watch for order creation event.
+            current_bid_price: Decimal = self.market.get_price("CELETH", True)
             bid_price: Decimal = current_bid_price * Decimal("0.8")
-            quantize_bid_price: Decimal = self.market.quantize_order_price("ZRXETH", bid_price)
+            quantize_bid_price: Decimal = self.market.quantize_order_price("CELETH", bid_price)
 
-            amount: Decimal = Decimal("0.02") / bid_price
-            quantized_amount: Decimal = self.market.quantize_order_amount("ZRXETH", amount)
+            amount: Decimal = Decimal("0.005") / bid_price
+            quantized_amount: Decimal = self.market.quantize_order_amount("CELETH", amount)
 
-            order_id = self.market.buy("ZRXETH", quantized_amount, OrderType.LIMIT, quantize_bid_price)
+            order_id = self.market.buy("CELETH", quantized_amount, OrderType.LIMIT, quantize_bid_price)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
             self.assertEqual(order_id, order_created_event.order_id)
@@ -454,13 +356,14 @@ class LquidMarketUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
+
             self.market: LiquidMarket = LiquidMarket(
-                liquid_api_key=conf.liquid_api_key,
-                liquid_api_secret=conf.liquid_api_secret,
+                conf.liquid_api_key, conf.liquid_secret_key,
                 order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                 user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-                trading_pairs=["ZRXETH", "IOSTETH"]
+                trading_pairs=['ETHUSD', 'CELETH']
             )
+
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)
             recorder.stop()
@@ -475,7 +378,7 @@ class LquidMarketUnitTest(unittest.TestCase):
             self.assertEqual(1, len(self.market.tracking_states))
 
             # Cancel the order and verify that the change is saved.
-            self.market.cancel("ZRXETH", order_id)
+            self.market.cancel("CELETH", order_id)
             self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
@@ -484,7 +387,7 @@ class LquidMarketUnitTest(unittest.TestCase):
             self.assertEqual(0, len(saved_market_states.saved_state))
         finally:
             if order_id is not None:
-                self.market.cancel("ZRXETH", order_id)
+                self.market.cancel("CELETH", order_id)
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
@@ -500,9 +403,9 @@ class LquidMarketUnitTest(unittest.TestCase):
 
         try:
             # Try to buy 0.02 ETH worth of ZRX from the exchange, and watch for completion event.
-            current_price: Decimal = self.market.get_price("ZRXETH", True)
+            current_price: Decimal = self.market.get_price("CELETH", True)
             amount: Decimal = Decimal("0.02") / current_price
-            order_id = self.market.buy("ZRXETH", amount)
+            order_id = self.market.buy("CELETH", amount, price=current_price)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
             # Reset the logs
@@ -510,7 +413,7 @@ class LquidMarketUnitTest(unittest.TestCase):
 
             # Try to sell back the same amount of ZRX to the exchange, and watch for completion event.
             amount = buy_order_completed_event.base_asset_amount
-            order_id = self.market.sell("ZRXETH", amount)
+            order_id = self.market.sell("CELETH", amount, price=current_price)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
             # Query the persisted trade logs
@@ -525,7 +428,7 @@ class LquidMarketUnitTest(unittest.TestCase):
 
         finally:
             if order_id is not None:
-                self.market.cancel("ZRXETH", order_id)
+                self.market.cancel("CELETH", order_id)
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
