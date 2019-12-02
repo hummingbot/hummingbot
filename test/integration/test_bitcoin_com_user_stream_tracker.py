@@ -32,7 +32,7 @@ class BitcoinComUserStreamTrackerUnitTest(unittest.TestCase):
     def test_user_stream(self):
         # Wait process some msgs.
         self.ev_loop.run_until_complete(asyncio.sleep(120.0))
-        self.user_stream_tracker.logger().info(self.user_stream_tracker.user_stream)
+        print(self.user_stream_tracker.user_stream)
 
 
 def main():

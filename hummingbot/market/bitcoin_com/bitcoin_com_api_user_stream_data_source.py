@@ -64,7 +64,7 @@ class BitcoinComAPIUserStreamDataSource(UserStreamTrackerDataSource):
         except Exception as e:
             raise e
         finally:
-            ws.disconnect()
+            await ws.disconnect()
 
     async def _get_trading_balance(self) -> AsyncIterable[Any]:
         """
@@ -87,7 +87,7 @@ class BitcoinComAPIUserStreamDataSource(UserStreamTrackerDataSource):
         except Exception as e:
             raise e
         finally:
-            ws.disconnect()
+            await ws.disconnect()
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
@@ -124,7 +124,7 @@ class BitcoinComAPIUserStreamDataSource(UserStreamTrackerDataSource):
                             for order in data:
                                 order_timestamp: float = pd.Timestamp(order["updatedAt"]).timestamp()
                                 order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(
-                                    add_event_type(EventTypes.ActiveOrdersSnapshot, order),
+                                    add_event_type(EventTypes.ActiveOrdersUpdate, order),
                                     order_timestamp
                                 )
                                 output.put_nowait(order_book_message)
