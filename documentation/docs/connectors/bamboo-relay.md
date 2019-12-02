@@ -2,8 +2,8 @@
 
 ## About Bamboo Relay
 
-[Bamboo Relay](https://bamboorelay.com/) is an exchange application specializing in ERC-20 tokens that uses the [0x Protocol](https://0x.org/). 
- Currently, Bamboo Relay allows any user to connect their wallet and trade between any coin pair combination. 
+[Bamboo Relay](https://bamboorelay.com/) is an exchange application specializing in ERC-20 tokens that uses the [0x Protocol](https://0x.org/).
+ Currently, Bamboo Relay allows any user to connect their wallet and trade between any coin pair combination.
 
 ## Using the Connector
 
@@ -28,16 +28,50 @@ The Bamboo Relay front-end UI does not show orders that have less than 30 second
 
 When running the connector in coordinated mode it is advised to enable this setting so that orders are automatically refreshed when they have 30 seconds remaining.
 
+## Daily Server Restarts
+
+Bamboo Relay's server restarts at least twice a day which will drop WebSocket connections. As a result, errors will show up in the logs a few times in a day transiently before Hummingbot just reconnects.
+
+Specifically it is Nginx that restarts that takes ~1 second when it happens. If it ends up being minutes, then there may be a problem. If it's just for a few seconds then it's almost 100% the restarts.
+
+```
+2019-09-05 18:15:02,335 - hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source - ERROR - Unexpected error with WebSocket connection. Retrying after 30 seconds...
+Traceback (most recent call last):
+  File "/hummingbot/market/bamboo_relay/bamboo_relay_api_order_book_data_source.py", line 214, in listen_for_order_book_diffs
+    async with websockets.connect(WS_URL) as ws:
+  File "/opt/conda/envs/hummingbot/lib/python3.6/site-packages/websockets/py35/client.py", line 2, in __aenter__
+    return await self
+  File "/opt/conda/envs/hummingbot/lib/python3.6/site-packages/websockets/py35/client.py", line 12, in __await_impl__
+    transport, protocol = await self._creating_connection
+  File "/opt/conda/envs/hummingbot/lib/python3.6/asyncio/base_events.py", line 809, in create_connection
+    sock, protocol_factory, ssl, server_hostname)
+  File "/opt/conda/envs/hummingbot/lib/python3.6/asyncio/base_events.py", line 835, in _create_connection_transport
+    yield from waiter
+  File "/opt/conda/envs/hummingbot/lib/python3.6/asyncio/selector_events.py", line 725, in _read_ready
+    data = self._sock.recv(self.max_size)
+
+ConnectionResetError: [Errno 104] Connection reset by peer
+
+raise OSError(err, 'Connect call failed %s' % (address,))
+ConnectionRefusedError: [Errno 111] Connect call failed ('188.166.94.193', 443)
+
+raise InvalidStatusCode(status_code)
+websockets.exceptions.InvalidStatusCode: Status code not 101: 502
+```
+
 ## Miscellaneous Info
-
-### DAI-WETH Pair
-
-Currently the DAI-WETH pair is incompatible with WETH-DAI pairs across other exchanges. Exercise caution if using this pair within a strategy.
 
 ### Minimum Order Sizes
 
-The minimum acceptable order size is 0.00000001 normalized units of price, amount or total, which ever of these is the lowest.
+The minimum acceptable order size is 0.00000001 normalized units of price, amount or total, whichever of these is the lowest.
 
 ### Transaction Fees
 
 Currently Bamboo Relay does not charge trading or withdrawal fees, and the only additional cost for transactions is the gas network costs. This may change in the future as the exchange develops a larger user base.
+
+## Contact
+
+This connector is maintained by [Bamboo Relay](https://bamboorelay.com), which can be contacted at:
+
+- [dex@bamboorelay.com](mailto:dex@bamboorelay.com)
+- [Twitter](https://twitter.com/bamboorelay) | [Telegram](https://t.me/bamboorelay) | [Discord](https://discord.gg/6tMFa5E)

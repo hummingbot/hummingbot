@@ -19,7 +19,7 @@ cdef class IDEXInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: str,
-                 symbol: str,
+                 trading_pair: str,
                  order_type: OrderType,
                  trade_type: TradeType,
                  price: Decimal,
@@ -29,7 +29,7 @@ cdef class IDEXInFlightOrder(InFlightOrderBase):
             IDEXMarket,
             client_order_id,
             exchange_order_id,
-            symbol,
+            trading_pair,
             order_type,
             trade_type,
             price,
@@ -45,7 +45,7 @@ cdef class IDEXInFlightOrder(InFlightOrderBase):
         return f"InFlightOrder(" \
                f"client_order_id='{self.client_order_id}', " \
                f"exchange_order_id='{self.exchange_order_id}', " \
-               f"symbol='{self.symbol}', " \
+               f"trading_pair='{self.trading_pair}', " \
                f"order_type='{self.order_type}', " \
                f"trade_type={self.trade_type}, " \
                f"price={self.price}, " \
@@ -59,17 +59,22 @@ cdef class IDEXInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.available_amount_base == s_decimal_0 or self.last_state == "complete"
+        return self.available_amount_base == s_decimal_0 or self.last_state in ["complete", "cancelled"]
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state == "cancelled"
+        return self.last_state in {"cancelled"}
+
+    @property
+    def is_failure(self) -> bool:
+        # Currently not in use
+        return self.last_state in {"cancelled"}
 
     def to_json(self) -> Dict[str, Any]:
         return {
             "client_order_id": self.client_order_id,
             "exchange_order_id": self.exchange_order_id,
-            "symbol": self.symbol,
+            "trading_pair": self.trading_pair,
             "order_type": self.order_type.name,
             "trade_type": self.trade_type.name,
             "price": str(self.price),
@@ -88,7 +93,7 @@ cdef class IDEXInFlightOrder(InFlightOrderBase):
             IDEXInFlightOrder retval = IDEXInFlightOrder(
                 client_order_id=data["client_order_id"],
                 exchange_order_id=data["exchange_order_id"],
-                symbol=data["symbol"],
+                trading_pair=data["trading_pair"],
                 order_type=getattr(OrderType, data["order_type"]),
                 trade_type=getattr(TradeType, data["trade_type"]),
                 price=Decimal(data["price"]),

@@ -6,11 +6,8 @@ from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
 cdef class BinanceMarket(MarketBase):
     cdef:
-        object _order_book_tracker
         object _user_stream_tracker
         object _binance_client
-        dict _account_balances
-        dict _account_available_balances
         object _ev_loop
         object _poll_notifier
         double _last_timestamp
@@ -37,7 +34,7 @@ cdef class BinanceMarket(MarketBase):
     cdef c_start_tracking_order(self,
                                 str order_id,
                                 str exchange_order_id,
-                                str symbol,
+                                str trading_pair,
                                 object trade_type,
                                 object price,
                                 object amount,

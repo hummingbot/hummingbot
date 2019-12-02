@@ -18,12 +18,12 @@ class BaseWatcher(PubSub):
         self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
     @staticmethod
-    async def schedule_async_call(coro: Coroutine, timeout_seconds: float) -> any:
-        return await AsyncCallScheduler.shared_instance().schedule_async_call(coro, timeout_seconds)
+    async def schedule_async_call(coro: Coroutine, timeout_seconds: float, **kwargs) -> any:
+        return await AsyncCallScheduler.shared_instance().schedule_async_call(coro, timeout_seconds, **kwargs)
 
     @staticmethod
-    async def call_async(func: Callable, *args):
-        return await AsyncCallScheduler.shared_instance().call_async(func, *args)
+    async def call_async(func: Callable, *args, **kwargs):
+        return await AsyncCallScheduler.shared_instance().call_async(func, *args, **kwargs)
 
     async def start_network(self):
         raise NotImplementedError

@@ -17,7 +17,7 @@ cdef class DiscoveryStrategy(StrategyBase):
         dict _discovery_stats
         dict _market_info
         set _matching_pairs
-        list _target_symbols
+        list _target_trading_pairs
         list _equivalent_token
         dict _equivalent_token_dict
         str _discovery_method
@@ -25,11 +25,14 @@ cdef class DiscoveryStrategy(StrategyBase):
 
     cdef c_process_market_pair(self, object market_pair)
     cdef c_tick(self, double timestamp)
-    cdef c_calculate_arbitrage_discovery(self, object market_pair, set matching_pairs,
-                                         double target_amount, double target_profitability)
+    cdef object c_calculate_arbitrage_discovery(self,
+                                              object market_pair,
+                                              set matching_pairs,
+                                              double target_amount,
+                                              double target_profitability)
     cdef c_calculate_market_stats(self, object market_pair, dict exchange_market_info)
-    cdef c_calculate_single_arbitrage_profitability(self,
-                                           object market_pair,
-                                           tuple matching_pair,
-                                           double target_amount = *,
-                                           double target_profitability = *)
+    cdef dict c_calculate_single_arbitrage_profitability(self,
+                                                         object market_pair,
+                                                         tuple matching_pair,
+                                                         double target_amount=*,
+                                                         double target_profitability=*)

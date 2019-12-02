@@ -4,11 +4,12 @@ from os.path import (
 )
 from typing import List
 
-from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
+from hummingbot import get_strategy_list
+from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
 # Global variables
 required_exchanges: List[str] = []
-symbol_fetcher = SymbolFetcher.get_instance()
+trading_pair_fetcher = TradingPairFetcher.get_instance()
 
 # Global static values
 KEYFILE_PREFIX = "key_file_"
@@ -28,8 +29,11 @@ EXCHANGES = {
     "binance",
     "coinbase_pro",
     "ddex",
+    "huobi",
     "idex",
     "radar_relay",
+    "dolomite",
+    "bittrex"
 }
 
 DEXES = {
@@ -37,23 +41,33 @@ DEXES = {
     "ddex",
     "idex",
     "radar_relay",
+    "dolomite"
 }
 
-STRATEGIES = {
-    "cross_exchange_market_making",
-    "arbitrage",
-    "discovery",
-    "pure_market_making",
-    "simple_trade"
-}
+STRATEGIES: List[str] = get_strategy_list()
 
 EXAMPLE_PAIRS = {
-    "binance": "ZRXETH",
+    "binance": "ZRX-ETH",
     "ddex": "ZRX-WETH",
-    "idex": "ETH_ZRX",
+    "idex": "ZRX-ETH",
     "radar_relay": "ZRX-WETH",
     "bamboo_relay": "ZRX-WETH",
     "coinbase_pro": "ETH-USDC",
+    "dolomite": "WETH-DAI",
+    "huobi": "ETH-USDT",
+    "bittrex": "ZRX-ETH"
+}
+
+EXAMPLE_ASSETS = {
+    "binance": "ZRX",
+    "ddex": "ZRX",
+    "idex": "ETH",
+    "radar_relay": "ZRX",
+    "bamboo_relay": "ZRX",
+    "coinbase_pro": "ETH",
+    "huobi": "eth",
+    "dolomite": "LRC",
+    "bittrex": "ZRX"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
@@ -62,13 +76,3 @@ MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT = 100
 
 # Liquidity Bounties:
 LIQUIDITY_BOUNTY_CONFIG_PATH = "conf/conf_liquidity_bounty.yml"
-MIN_ETH_STAKED_REQUIREMENT = 0.05
-
-
-# Values that were once a part of configuration but no longer needed.
-# Keep them for reference in case a user is using outdated config files
-DEPRECATED_CONFIG_VALUES = {
-    "stop_loss_pct",
-    "stop_loss_price_type",
-    "stop_loss_base_token",
-}

@@ -14,7 +14,7 @@ File | Description
 `conf_global.yml` | Global configuration settings, e.g. Binance API keys and Ethereum node.
 `conf_arbitrage_strategy_[#].yml` | Settings for the [arbitrage](/strategies/arbitrage/) strategy.
 `conf_cross_exchange_market_making_strategy_[#].yml` | Settings for the [cross-exchange market making](/strategies/cross-exchange-market-making/) strategy.
-`conf_pure_market_making_[#].yml` | Settings for the [pure market making](/strategies/pure-market-making/) strategy.
+`conf_pure_market_making_strategy_[#].yml` | Settings for the [pure market making](/strategies/pure-market-making/) strategy.
 `conf_discovery_strategy_[#].yml` | Settings for the [discovery](/strategies/discovery/) strategy.
 
 !!! tip "Editing Configuration Files Directly"

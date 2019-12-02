@@ -1,16 +1,22 @@
 #!/usr/bin/env python
-import time
-from os.path import join, realpath
-import sys;sys.path.insert(0, realpath(join(__file__, "../../")))
-import asyncio
-from hummingbot.data_feed.data_feed_base import DataFeedBase
+from os.path import (
+    join,
+    realpath,
+)
+import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 import logging; logging.basicConfig(level=logging.ERROR)
+
+import asyncio
+import time
 import unittest
+from decimal import Decimal
+from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 
 
 class MockDataFeed1(DataFeedBase):
     _mdf_shared_instance: "MockDataFeed1" = None
+
     @classmethod
     def get_instance(cls) -> "MockDataFeed1":
         if cls._mdf_shared_instance is None:
@@ -21,12 +27,22 @@ class MockDataFeed1(DataFeedBase):
     def name(self):
         return "coin_alpha_feed"
 
+    @property
+    def price_dict(self):
+        return self.mock_price_dict
+
     def __init__(self):
         super().__init__()
-        self.mock_price_dict = {"coin_alpha": 1, "cat": 2}
+        self.mock_price_dict = {"COIN_ALPHA": 1, "CAT": 2}
 
-    def get_price(self, symbol):
-        return self.mock_price_dict.get(symbol)
+    def get_price(self, trading_pair):
+        return self.mock_price_dict.get(trading_pair.upper())
+
+    async def start_network(self):
+        pass
+
+    async def stop_network(self):
+        pass
 
 
 class MockDataFeed2(DataFeedBase):
@@ -44,10 +60,14 @@ class MockDataFeed2(DataFeedBase):
 
     def __init__(self):
         super().__init__()
-        self.mock_price_dict = {"coin_alpha": 1, "cat": 5}
+        self.mock_price_dict = {"COIN_ALPHA": 1, "CAT": 5}
 
-    def get_price(self, symbol):
-        return self.mock_price_dict.get(symbol)
+    @property
+    def price_dict(self):
+        return self.mock_price_dict
+
+    def get_price(self, trading_pair):
+        return self.mock_price_dict.get(trading_pair.upper())
 
 
 def async_run(func):
@@ -65,7 +85,8 @@ class ExchangeRateConverterUnitTest(unittest.TestCase):
             },
             "conversion_required": {
                 "cat": {"default": 100, "source": "cat"}
-            }
+            },
+            "default_data_feed": "cat"
         })
         ExchangeRateConversion.set_data_feeds([
             MockDataFeed1.get_instance(),
@@ -79,8 +100,8 @@ class ExchangeRateConverterUnitTest(unittest.TestCase):
         async_run(ExchangeRateConversion.get_instance().update_exchange_rates_from_data_feeds())
 
     def test_adjust_token_rate(self):
-        adjusted_cat = ExchangeRateConversion.get_instance().adjust_token_rate("cat", 10)
-        self.assertEqual(adjusted_cat, 50)
+        adjusted_cat = ExchangeRateConversion.get_instance().adjust_token_rate("cat", Decimal(10))
+        self.assertEqual(adjusted_cat, Decimal(50))
 
     def test_convert_token_value(self):
         coin_alpha_to_cat = ExchangeRateConversion.get_instance().convert_token_value(
@@ -95,7 +116,7 @@ class ExchangeRateConverterUnitTest(unittest.TestCase):
 
     def test_get_multiple_data_feed(self):
         exchaneg_rate = ExchangeRateConversion.get_instance().exchange_rate
-        self.assertEqual(exchaneg_rate, {'cat': 5, 'coin_alpha': 1})
+        self.assertEqual(exchaneg_rate, {'CAT': 5, 'COIN_ALPHA': 1})
 
 
 def main():

@@ -19,6 +19,7 @@ from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
@@ -54,7 +55,7 @@ async def main():
         orders: List[Dict[str, any]] = await market.list_orders()
         order_data: pd.DataFrame = pd.DataFrame(
             [(o["createdAt"], o["id"], o["marketId"]) for o in orders],
-            columns=["Created", "OrderID", "Symbol"]
+            columns=["Created", "OrderID", "TradingPair"]
         )
         order_data.Created = order_data.Created.astype("datetime64[ms]").astype("datetime64[ns, UTC]")
         order_data = order_data.set_index("Created")
@@ -63,7 +64,7 @@ async def main():
             try:
                 sample_ids: List[str] = list(order_data.sample(10).OrderID)
                 tasks: List[asyncio.Future] = [market.get_order(order_id) for order_id in sample_ids]
-                response_data: List[Dict[str, any]] = await asyncio.gather(*tasks)
+                response_data: List[Dict[str, any]] = await safe_gather(*tasks)
 
                 mismatches: int = 0
                 for expected_id, response in zip(sample_ids, response_data):

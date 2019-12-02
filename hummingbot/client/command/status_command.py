@@ -6,6 +6,7 @@ from collections import (
 )
 from typing import List
 
+from hummingbot import check_dev_mode
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.market.market_base import MarketBase
 from hummingbot.core.network_iterator import NetworkStatus
@@ -85,9 +86,17 @@ class StatusCommand:
                     if has_minimum_eth:
                         self._notify("   - ETH wallet check: Minimum ETH requirement satisfied")
                     else:
-                        self._notify("   x ETH wallet check: Not enough ETH in wallet. "
-                                     "A small amount of Ether is required for sending transactions on "
-                                     "Decentralized Exchanges")
+                        for market_name, market_instance in self.markets.items():
+                            # Don't display warning for IDEX since no transactions are initiated from the wallet
+                            if hasattr(market_instance, "wallet") \
+                                    and market_instance.wallet is self.wallet \
+                                    and market_instance.display_name == "idex":
+                                continue
+                            else:
+                                self._notify("   x ETH wallet check: Not enough ETH in wallet. "
+                                             "A small amount of Ether is required for sending transactions on "
+                                             "Decentralized Exchanges")
+                                break
             else:
                 self._notify("   x ETH wallet check: ETH wallet is not connected.")
 
@@ -104,7 +113,7 @@ class StatusCommand:
             for market in loading_markets:
                 market_status_df = pd.DataFrame(data=market.status_dict.items(), columns=["description", "status"])
                 self._notify(
-                    f"   x {market.name.capitalize()} market status:\n" +
+                    f"   x {market.display_name.capitalize()} market status:\n" +
                     "\n".join(["     " + line for line in market_status_df.to_string(index=False,).split("\n")]) +
                     "\n"
                 )
@@ -129,7 +138,7 @@ class StatusCommand:
 
         # Application warnings.
         self._expire_old_application_warnings()
-        if len(self._app_warnings) > 0:
+        if check_dev_mode() and len(self._app_warnings) > 0:
             self._notify(self._format_application_warnings())
 
         return True

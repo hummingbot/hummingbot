@@ -1,7 +1,7 @@
 from typing import List
 
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 from .data_types import (
     PricingProposal
@@ -14,7 +14,7 @@ cdef class OrderPricingDelegate:
     # ---------------------------------------------------------------
     def get_order_price_proposal(self,
                                  strategy: PureMarketMakingStrategyV2,
-                                 market_info: MarketSymbolPair,
+                                 market_info: MarketTradingPairTuple,
                                  active_orders: List[LimitOrder]) -> PricingProposal:
         return self.c_get_order_price_proposal(strategy, market_info, active_orders)
     # ---------------------------------------------------------------
