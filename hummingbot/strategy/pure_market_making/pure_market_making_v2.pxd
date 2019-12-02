@@ -15,14 +15,14 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         dict _market_infos
         bint _all_markets_ready
         bint _enable_order_filled_stop_cancellation
-        bint _jump_orders_enabled
+        bint _best_bid_ask_jump_mode
         bint _add_transaction_costs_to_orders
 
         double _cancel_order_wait_time
         double _status_report_interval
         double _last_timestamp
         double _filled_order_replenish_wait_time
-        object _jump_orders_depth
+        object _best_bid_ask_jump_orders_depth
 
         dict _time_to_cancel
 
