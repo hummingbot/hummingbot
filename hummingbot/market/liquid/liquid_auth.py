@@ -32,7 +32,7 @@ class LiquidAuth:
         signature = self.generate_signature(path_url)
         return {
             "X-Quoine-API-Version": "2",
-            "X-Quoine-Auth": signature,
+            "X-Quoine-Auth": signature.decode("utf-8"),
             "Content-Type": "application/json"
         }
 
