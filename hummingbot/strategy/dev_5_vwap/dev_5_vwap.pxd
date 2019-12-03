@@ -34,6 +34,7 @@ cdef class Dev5TwapTradeStrategy(StrategyBase):
 
         int64_t _logging_options
 
+    cdef c_check_last_order(self, object order_event)
     cdef c_process_market(self, object market_info)
     cdef c_place_orders(self, object market_info)
     cdef c_has_enough_balance(self, object market_info)
