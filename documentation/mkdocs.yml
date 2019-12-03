@@ -162,6 +162,7 @@ nav:
           - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
           - Pure Market Making: developers/strategies/pure-market-making.md
           - Discovery: developers/strategies/discovery.md
+          - TWAP: developers/strategies/twap.md
         - Connectors:
           - Intro: developers/connectors/index.md
           - Architecture: developers/connectors/architecture.md
