@@ -54,19 +54,18 @@ The following walks through all the steps when running `config` for the first ti
 | `How long do you want to wait before placing the next order if your order gets filled (in seconds)? (Default is 10 seconds) >>>` | More information in [Order Replenish Time](#order-replenish-time) section. |
 | `Do you want to enable order_filled_stop_cancellation? If enabled, when orders are completely filled, the other side remains uncanceled. (Default is False) >>> ` | More information in ["Hanging Orders"](#hanging-orders) section. |
 | `Do you want to enable jump_orders? If enabled, when the top bid price is lesser than your order price, buy order will jump to one tick above top bid price & vice versa for sell. (Default is False) >>>` <br /><br /> `How deep do you want to go into the order book for calculating the top bid and ask, ignoring dust orders on the top (expressed in base currency)? (Default is 0) >>>` | More information in [Penny Jumping Mode](#penny-jumping-mode) section. |
+| `Do you want to add transaction costs automatically to order prices? (Default is True) >>> ` | More information in [Adding Transaction Costs to Prices](#adding-transaction-costs-to-prices) section. |
 
 
 ## Adding Transaction Costs to Prices
 
-Transaction costs are by default now added to the prices. This setting can be disabled by going to `hummingbot/strategy/pure_market_making/start.py` and setting `add_transaction_costs_to_orders` to `False`.
+Transaction costs can now be added to the price calculation. `fee_pct` refers to the percentage maker fees per order (generally common in Centralized exchanges) while `fixed_fees` refers to the flat fees (generally common in Decentralized exchanges).
 
-`fee_pct` refers to the percentage maker fees per order (generally common in Centralized exchanges) while `fixed_fees` refers to the flat fees (generally common in Decentralized exchanges).
-
-- The bid order price is now calculated as:
+- The bid order price will be calculated as:
 
 ![Bid price with transaction cost](/assets/img/trans_cost_bid.PNG)
 
-- The ask order price is now calculated as:
+- The ask order price will be calculated as:
 
 ![Ask price with transaction cost](/assets/img/trans_cost_ask.PNG)
 
@@ -75,6 +74,10 @@ Adding the transaction cost will reduce the bid order price and increase the ask
 We currently display warnings if the adjusted price post adding the transaction costs is 10% away from the original price. This setting can be modified by changing `warning_report_threshold` in the `c_add_transaction_costs_to_pricing_proposal` function inside `hummingbot/strategy/pure_market_making/pure_market_making_v2.pyx`.
 
 If the buy price with the transaction cost is zero or negative, it is not profitable to place orders and orders will not be placed.
+
+| Prompt | Description |
+|-----|-----|
+| `Do you want to add transaction costs automatically to order prices? (Default is True) >>> ` | This sets `add_transaction_costs` ([definition](#configuration-parameters)). |
 
 ## Multiple Order Configuration
 
@@ -144,20 +147,37 @@ The `enable_order_filled_stop_cancellation` can be used if there is enough volat
 | `How long do you want to wait before placing the next order if your order gets filled (in seconds)? (Default is 10 seconds) >>>` | This sets `filled_order_replenish_wait_time` ([definition](#configuration-parameters)). |
 | `Do you want to enable order_filled_stop_cancellation? If enabled, when orders are completely filled, the other side remains uncanceled. (Default is False) >>>` | This sets `enable_order_filled_stop_cancellation` ([definition](#configuration-parameters)). |
 
-## Penny Jumping mode
+## Best Bid Ask Jumping mode
 
-Users now have the option to automatically adjust the prices to just above top bid and just below top ask using `jump_orders_enabled`. The user can specify how deep to go into the orderbook for calculating the top bid and top ask price using `jump_orders_depth`. This is available in single order mode.
+Users now have the option to automatically adjust the prices to just above top bid and just below top ask using `best_bid_ask_jump_mode` available in single order mode. It can also be specified how deep to go into the orderbook for calculating the top bid and top ask price using `best_bid_ask_jump_orders_depth`.
 
-> Example:
-Assume you are running pure market making in single order mode, the order size is 1 and the mid price is 100. Then if you set jump_order_depth to 0,
-<ul><li> Based on bid and ask thresholds of 0.01, your bid/ask orders might originally have been placed at 99 and 101, respectively.
-<li> If the current top bid in the market is 98, now the buy order is automatically adjusted to just above 98, say 98.001 and placed at this price.
-<li> If the current top ask in the market is 102, now the sell order is automatically adjusted to just below 102, say 101.999 and placed at this price.
+It is recommended to disable `add_transcation_costs` (set to `false`) for penny jumping mode to work effectively. This is because adding transaction costs would affect the prices at which the orders are placed and they might not be at the best bid/ask.
+
+**Example scenario:**
+
+The top bid/ask in the orderbook is 98 and 102 respectively and the mid price is 100.
+
+Below is a sample configuration:
+
+```
+mode = single
+order size = 1
+bid threshold = 0.01 (1%)
+ask threshold = 0.01 (1%)
+best_bid_ask_jump_mode = true
+jump_order_depth = 0
+add_transaction_costs = false
+```
+
+Using the configs above, Hummingbot should place a buy order at 99 and sell order at 101. However, since penny jumping mode is enabled it will create orders with prices right just above the current top bid/ask in the orderbook. Hummingbot will place the buy order at 98.001 and the sell order at 101.999 instead. This will allow the user to capture a higher spread than the specified bid/ask threshold while keeping your orders at the top.
+
+When the top bid/ask price changes (not your own), your existing orders will not jump immediately. It will wait till `cancel_order_wait_time` for the orders to get cancelled and the new order will try to jump to just above best bid / just below best ask.
+
 
 | Prompt | Description |
 |-----|-----|
-| `Do you want to enable jump_orders? If enabled, when the top bid price is lesser than your order price, buy order will jump to one tick above top bid price & vice versa for sell. (Default is False) >>>` | This sets `jump_orders_enabled` ([definition](#configuration-parameters)). |
-| `How deep do you want to go into the order book for calculating the top bid and ask, ignoring dust orders on the top (expressed in base currency)? (Default is 0) >>>` | This sets `jump_orders_depth` ([definition](#configuration-parameters)). |
+| `Do you want to enable best bid ask jumping ? If enabled, when the top bid price is lesser than your order price, buy order will jump to one tick above top bid price & vice versa for sell. (Default is False) >>>` | This sets `best_bid_ask_jump_mode` ([definition](#configuration-parameters)). |
+| `How deep do you want to go into the order book for calculating the top bid and ask, ignoring dust orders on the top (expressed in base currency)? (Default is 0) >>>` | This sets `best_bid_ask_jump_orders_depth` ([definition](#configuration-parameters)). |
 
 
 ## Configuration Parameters
@@ -178,8 +198,10 @@ The following parameters are fields in Hummingbot configuration files located in
 | **inventory_target_base_percent** | An amount expressed in decimals (i.e. input of `0.01` corresponds to 1%). The strategy will place bid and ask orders with adjusted sizes (based on `order_amount`, `order_start_size`) and try to maintain this base asset vs. total (base + quote) asset value.<br/><br/>*Example: You are market making ETH / USD with `order_amount: 1` and balances of 10 ETH and 1000 USD. Your current base asset value is ~67% and quote asset value is ~33%. If `inventory_target_base_percent: 0.5`, the order amount will be adjusted from 1 ETH bid, 1 ETH ask to 0.67 ETH bid, 1.33 ETH ask.*
 | **filled_order_replenish_wait_time** | An amount in seconds, which specifies the delay before placing the next order for single order mode. _Default value: 10 seconds_. <br/>
 | **enable_order_filled_stop_cancellation** | When this is `true`, the orders on the side opposite to the filled orders remains uncanceled. _Default value: False_. <br/>
-| **jump_orders_enabled** | When this is `true`, the bid and ask order prices are adjusted based on the current top bid and ask prices in the market. _Default value: False_. <br/>
-| **jump_orders_depth** | If jump_orders_enabled is `true`, this specifies how deep into the orderbook to go for calculating the top bid and ask prices including the user's active orders. _Default value: 0_. <br/>
+| **best_bid_ask_jump_mode** | When this is `true`, the bid and ask order prices are adjusted based on the current top bid and ask prices in the market. _Default value: False_. <br/>
+| **best_bid_ask_jump_orders_depth** | If `best_bid_ask_jump_mode` is `true`, this specifies how deep into the orderbook to go for calculating the top bid and ask prices including the user's active orders. _Default value: 0_. <br/>
+| **add_transaction_costs** | Parameter to enable/disable adding transaction costs to order prices. _Default value: true_. <br/>
+
 
 ## Risks and Trading Mechanics
 
