@@ -31,15 +31,15 @@ def main():
     # Define the parameters for the backtest.
     start = pd.Timestamp("2019-01-01", tz="UTC")
     end = pd.Timestamp("2019-01-02", tz="UTC")
-    binance_symbol = ("ETHUSDT", "ETH", "USDT")
-    #ddex_symbol = ("WETH-DAI", "WETH", "DAI")
+    binance_trading_pair = ("ETHUSDT", "ETH", "USDT")
+    # ddex_trading_pair = ("WETH-DAI", "WETH", "DAI")
 
     binance_market = BacktestMarket()
     ddex_market = BacktestMarket()
     binance_market.config = MarketConfig(AssetType.BASE_CURRENCY, 0.001, AssetType.QUOTE_CURRENCY, 0.001, {})
     ddex_market.config = MarketConfig(AssetType.BASE_CURRENCY, 0.001, AssetType.QUOTE_CURRENCY, 0.001, {})
-    binance_loader = BinanceOrderBookLoaderV2(*binance_symbol)
-    #ddex_loader = DDEXOrderBookLoader(*ddex_symbol)
+    binance_loader = BinanceOrderBookLoaderV2(*binance_trading_pair)
+    #ddex_loader = DDEXOrderBookLoader(*ddex_trading_pair)
 
     binance_market.add_data(binance_loader)
     #ddex_market.add_data(ddex_loader)
@@ -47,7 +47,7 @@ def main():
     binance_market.set_quantization_param(QuantizationParams("ETHUSDT", 5, 3, 5, 3))
     #ddex_market.set_quantization_param(QuantizationParams("WETH-DAI", 5, 3, 5, 3))
 
-    market_pair = PureMarketPair(*([binance_market] + list(binance_symbol)))
+    market_pair = PureMarketPair(*([binance_market] + list(binance_trading_pair)))
     strategy = PureMarketMakingStrategy([market_pair],
                                         order_size = 50000,
                                         bid_place_threshold = 0.003,

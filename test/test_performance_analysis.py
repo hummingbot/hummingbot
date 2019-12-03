@@ -38,8 +38,8 @@ class MockDataFeed1(DataFeedBase):
                 "USD": 1.0
             }
 
-    def get_price(self, symbol):
-        return self.mock_price_dict.get(symbol.upper())
+    def get_price(self, trading_pair):
+        return self.mock_price_dict.get(trading_pair.upper())
 
 
 class TestPerformanceAnalysis(unittest.TestCase):
