@@ -38,9 +38,9 @@ class CoinbaseProUserStreamTrackerUnitTest(unittest.TestCase):
         cls.coinbase_pro_auth = CoinbaseProAuth(conf.coinbase_pro_api_key,
                                                 conf.coinbase_pro_secret_key,
                                                 conf.coinbase_pro_passphrase)
-        cls.symbols = ["ETH-USD"]
+        cls.trading_pairs = ["ETH-USDC"]
         cls.user_stream_tracker: CoinbaseProUserStreamTracker = CoinbaseProUserStreamTracker(
-            coinbase_pro_auth=cls.coinbase_pro_auth, symbols=cls.symbols)
+            coinbase_pro_auth=cls.coinbase_pro_auth, trading_pairs=cls.trading_pairs)
         cls.user_stream_tracker_task: asyncio.Task = safe_ensure_future(cls.user_stream_tracker.start())
 
         cls.clock: Clock = Clock(ClockMode.REALTIME)
@@ -48,7 +48,7 @@ class CoinbaseProUserStreamTrackerUnitTest(unittest.TestCase):
             conf.coinbase_pro_api_key,
             conf.coinbase_pro_secret_key,
             conf.coinbase_pro_passphrase,
-            symbols=cls.symbols
+            trading_pairs=cls.trading_pairs
         )
         print("Initializing Coinbase Pro market... this will take about a minute.")
         cls.clock.add_iterator(cls.market)
@@ -85,39 +85,39 @@ class CoinbaseProUserStreamTrackerUnitTest(unittest.TestCase):
         in the corresponding market class
         """
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
-        symbol = self.symbols[0]
+        trading_pair = self.trading_pairs[0]
         amount: Decimal = Decimal("0.02")
-        quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        current_bid_price: Decimal = self.market.get_price(symbol, True)
+        current_bid_price: Decimal = self.market.get_price(trading_pair, True)
         bid_price: Decimal = current_bid_price * Decimal("0.8")
-        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
+        quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
 
-        client_order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        client_order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
 
         self.ev_loop.run_until_complete(asyncio.sleep(5.0))
         [open_message] = self.run_parallel(self.user_stream_tracker.user_stream.get())
 
         # print(open_message)
         self.assertTrue(isinstance(open_message, CoinbaseProOrderBookMessage))
-        self.assertEqual(open_message.symbol, symbol)
+        self.assertEqual(open_message.trading_pair, trading_pair)
         self.assertEqual(open_message.content["type"], "open")
         self.assertEqual(open_message.content["side"], "buy")
-        self.assertEqual(open_message.content["product_id"], symbol)
+        self.assertEqual(open_message.content["product_id"], trading_pair)
         self.assertEqual(Decimal(open_message.content["price"]), quantize_bid_price)
         self.assertEqual(Decimal(open_message.content["remaining_size"]), quantized_amount)
 
         self.run_parallel(asyncio.sleep(5.0))
-        self.market.cancel(symbol, client_order_id)
+        self.market.cancel(trading_pair, client_order_id)
 
         self.ev_loop.run_until_complete(asyncio.sleep(5.0))
         [done_message] = self.run_parallel(self.user_stream_tracker.user_stream.get())
 
         # print(done_message)
-        self.assertEqual(done_message.symbol, symbol)
+        self.assertEqual(done_message.trading_pair, trading_pair)
         self.assertEqual(done_message.content["type"], "done")
         self.assertEqual(done_message.content["side"], "buy")
-        self.assertEqual(done_message.content["product_id"], symbol)
+        self.assertEqual(done_message.content["product_id"], trading_pair)
         self.assertEqual(Decimal(done_message.content["price"]), quantize_bid_price)
         self.assertEqual(Decimal(done_message.content["remaining_size"]), quantized_amount)
         self.assertEqual(done_message.content["reason"], "canceled")
@@ -128,15 +128,15 @@ class CoinbaseProUserStreamTrackerUnitTest(unittest.TestCase):
         This test should be run after the developer has implemented the limit buy in the corresponding market class
         """
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
-        symbol = self.symbols[0]
+        trading_pair = self.trading_pairs[0]
         amount: Decimal = Decimal("0.02")
-        quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        current_bid_price: Decimal = self.market.get_price(symbol, True)
+        current_bid_price: Decimal = self.market.get_price(trading_pair, True)
         bid_price: Decimal = current_bid_price * Decimal("1.05")
-        quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
+        quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
 
-        self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
 
         self.ev_loop.run_until_complete(asyncio.sleep(5.0))
         [message_1, message_2] = self.run_parallel(self.user_stream_tracker.user_stream.get(),
@@ -151,19 +151,19 @@ class CoinbaseProUserStreamTrackerUnitTest(unittest.TestCase):
             match_message = message_1
 
         # print(done_message)
-        self.assertEqual(done_message.symbol, symbol)
+        self.assertEqual(done_message.trading_pair, trading_pair)
         self.assertEqual(done_message.content["type"], "done")
         self.assertEqual(done_message.content["side"], "buy")
-        self.assertEqual(done_message.content["product_id"], symbol)
+        self.assertEqual(done_message.content["product_id"], trading_pair)
         self.assertEqual(Decimal(done_message.content["price"]), quantize_bid_price)
         self.assertEqual(Decimal(done_message.content["remaining_size"]), Decimal(0.0))
         self.assertEqual(done_message.content["reason"], "filled")
 
         # print(match_message)
-        self.assertEqual(match_message.symbol, symbol)
+        self.assertEqual(match_message.trading_pair, trading_pair)
         self.assertEqual(match_message.content["type"], "match")
         self.assertEqual(match_message.content["side"], "sell")
-        self.assertEqual(match_message.content["product_id"], symbol)
+        self.assertEqual(match_message.content["product_id"], trading_pair)
         self.assertLessEqual(Decimal(match_message.content["price"]), quantize_bid_price)
         self.assertEqual(Decimal(match_message.content["size"]), quantized_amount)
 

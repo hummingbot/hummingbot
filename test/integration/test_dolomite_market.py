@@ -65,7 +65,7 @@ class DolomiteMarketUnitTest(unittest.TestCase):
             ethereum_rpc_url=conf.test_web3_provider_list[0],
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             isTestNet=True,
-            symbols=["WETH-DAI"],
+            trading_pairs=["WETH-DAI"],
         )
         print("Initializing Dolomite market... ")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -150,14 +150,14 @@ class DolomiteMarketUnitTest(unittest.TestCase):
         self.assertGreaterEqual(len(orders), 0)
 
     def test_cancel_order(self):
-        symbol = "WETH-DAI"
-        bid_price: float = self.market.get_price(symbol, True)
+        trading_pair = "WETH-DAI"
+        bid_price: float = self.market.get_price(trading_pair, True)
         amount = 0.5
 
         # Intentionally setting invalid price to prevent getting filled
-        client_order_id = self.market.buy(symbol, amount, OrderType.LIMIT, bid_price * 0.7)
+        client_order_id = self.market.buy(trading_pair, amount, OrderType.LIMIT, bid_price * 0.7)
         self.run_parallel(asyncio.sleep(1.0))
-        self.market.cancel(symbol, client_order_id)
+        self.market.cancel(trading_pair, client_order_id)
         [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
         order_cancelled_event: OrderCancelledEvent = order_cancelled_event
 
@@ -170,21 +170,21 @@ class DolomiteMarketUnitTest(unittest.TestCase):
         self.assertGreater(self.market.get_balance("DAI"), 60)
 
         # Try to buy 0.2 WETH from the exchange, and watch for creation event.
-        symbol = "WETH-DAI"
-        bid_price: float = self.market.get_price(symbol, True)
+        trading_pair = "WETH-DAI"
+        bid_price: float = self.market.get_price(trading_pair, True)
         amount: float = 0.4
-        buy_order_id: str = self.market.buy(symbol, amount, OrderType.LIMIT, bid_price * 0.7)
+        buy_order_id: str = self.market.buy(trading_pair, amount, OrderType.LIMIT, bid_price * 0.7)
         [buy_order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.assertEqual(buy_order_id, buy_order_created_event.order_id)
-        self.market.cancel(symbol, buy_order_id)
+        self.market.cancel(trading_pair, buy_order_id)
         [_] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
         # Try to sell 0.2 WETH to the exchange, and watch for creation event.
-        ask_price: float = self.market.get_price(symbol, False)
-        sell_order_id: str = self.market.sell(symbol, amount, OrderType.LIMIT, ask_price * 1.5)
+        ask_price: float = self.market.get_price(trading_pair, False)
+        sell_order_id: str = self.market.sell(trading_pair, amount, OrderType.LIMIT, ask_price * 1.5)
         [sell_order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         self.assertEqual(sell_order_id, sell_order_created_event.order_id)
-        self.market.cancel(symbol, sell_order_id)
+        self.market.cancel(trading_pair, sell_order_id)
         [_] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
     @unittest.skipUnless(
