@@ -529,7 +529,7 @@ cdef class DDEXMarket(MarketBase):
             self._gas_fee_weth = Decimal(res["data"]["gasFeeAmount"])
             params = {
                 "amount": "1",
-                "marketId": "WETH-DAI",
+                "marketId": "WETH-SAI",
                 "price": "1",
             }
             res = await self._api_request(http_method="get", url=calc_fee_url, params=params)
@@ -551,7 +551,7 @@ cdef class DDEXMarket(MarketBase):
         # DDEX only quotes with WETH or stable coins
         if quote_currency == "WETH":
             gas_fee = self._gas_fee_weth
-        elif quote_currency in ["DAI", "TUSD", "USDC", "PAX", "USDT"]:
+        elif quote_currency in ["SAI", "DAI", "TUSD", "USDC", "PAX", "USDT"]:
             gas_fee = self._gas_fee_usd
         else:
             self.logger().warning(
@@ -680,7 +680,7 @@ cdef class DDEXMarket(MarketBase):
         if order_type is OrderType.MARKET:
             quote_amount = self.c_get_quote_volume_for_base_amount(trading_pair, True, amount).result_volume
             # Quantize according to price rules, not base token amount rules.
-            q_amt = self.c_quantize_order_price(trading_pair, quote_amount)
+            q_amt = self.c_quantize_order_amount(trading_pair, quote_amount)
 
         try:
             if order_type is OrderType.LIMIT:
@@ -696,6 +696,7 @@ cdef class DDEXMarket(MarketBase):
                 raise ValueError(f"Market order is not supported for trading pair {trading_pair}")
 
             self.c_start_tracking_order(order_id, trading_pair, TradeType.BUY, order_type, q_amt, q_price)
+            self.logger().debug(f"buying {q_amt} {trading_pair} at {q_price}, order type = {order_type}.")
             order_result = await self.place_order(amount=q_amt, price=q_price, side="buy", trading_pair=trading_pair,
                                                   order_type=order_type)
             exchange_order_id = order_result["id"]
@@ -938,7 +939,7 @@ cdef class DDEXMarket(MarketBase):
         cdef:
             TradingRule trading_rule = self._trading_rules[trading_pair]
         decimals_quantum = trading_rule.min_price_increment
-        if price > s_decimal_0:
+        if price.is_finite() and price > s_decimal_0:
             precision_quantum = Decimal(f"1e{math.ceil(math.log10(price)) - trading_rule.max_price_significant_digits}")
         else:
             precision_quantum = s_decimal_0
