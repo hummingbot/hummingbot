@@ -275,6 +275,18 @@ cdef class Dev5TwapTradeStrategy(StrategyBase):
                 )
             self._has_outstanding_order = False
 
+    cdef c_did_fail_order(self, object order_failed_event):
+        if self._is_vwap:
+            self.c_check_last_order(order_failed_event)
+
+    cdef c_did_cancel_order(self, object cancelled_event):
+        if self._is_vwap:
+            self.c_check_last_order(cancelled_event)
+
+    cdef c_did_expire_order(self, object expired_event):
+        if self._is_vwap:
+            self.c_check_last_order(expired_event)
+
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
         self.logger().info(f"Waiting for {self._time_delay} to place orders")
@@ -317,11 +329,22 @@ cdef class Dev5TwapTradeStrategy(StrategyBase):
         finally:
             self._last_timestamp = timestamp
 
+    cdef c_check_last_order(self, object order_event):
+        """
+        Check latest order to see it if was completed. If not completed, set self._has_outstanding_order to False
+        to unblock further VWAP processes.
+        """
+        cdef:
+            str order_id = order_event.order_id
+            object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
+        if market_info is not None:
+            self._has_outstanding_order = False
+
     cdef c_place_orders(self, object market_info):
         """
         If TWAP, places an individual order specified by the user input if the user has enough balance and if the order quantity
         can be broken up to the number of desired orders
-        
+
         Else, places an individual order capped at order_percent_of_volume * open order volume up to percent_slippage
 
         :param market_info: a market trading pair
@@ -404,9 +427,9 @@ cdef class Dev5TwapTradeStrategy(StrategyBase):
         """
         If the user selected TWAP, checks if enough time has elapsed from previous order to place order and if so, calls c_place_orders() and
         cancels orders if they are older than self._cancel_order_wait_time.
-        
+
         Otherwise, if there is not an outstanding order, calls c_place_orders().
-        
+
         :param market_info: a market trading pair
         """
         cdef:
