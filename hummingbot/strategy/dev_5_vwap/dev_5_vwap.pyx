@@ -331,8 +331,8 @@ cdef class Dev5TwapTradeStrategy(StrategyBase):
 
     cdef c_check_last_order(self, object order_event):
         """
-        Check latest order to see it if was completed. If not completed, set self._has_outstanding_order to False
-        to unblock further VWAP processes.
+        Check to see if the event is called on an order made by this strategy. If it is made from this strategy,
+        set self._has_outstanding_order to False to unblock further VWAP processes.
         """
         cdef:
             str order_id = order_event.order_id

@@ -151,7 +151,7 @@ class TWAPUnitTest(unittest.TestCase):
             market.trigger_event(MarketEvent.OrderFilled, OrderFilledEvent(
                 market.current_timestamp,
                 limit_order.client_order_id,
-                limit_order.symbol,
+                limit_order.trading_pair,
                 TradeType.BUY,
                 OrderType.LIMIT,
                 limit_order.price,
@@ -175,7 +175,7 @@ class TWAPUnitTest(unittest.TestCase):
             market.trigger_event(MarketEvent.OrderFilled, OrderFilledEvent(
                 market.current_timestamp,
                 limit_order.client_order_id,
-                limit_order.symbol,
+                limit_order.trading_pair,
                 TradeType.SELL,
                 OrderType.LIMIT,
                 limit_order.price,

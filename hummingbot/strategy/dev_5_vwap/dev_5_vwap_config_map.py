@@ -1,7 +1,7 @@
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     is_exchange,
-    is_valid_market_symbol,
+    is_valid_market_trading_pair,
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -23,7 +23,7 @@ def str2bool(value: str):
 # checks if the symbol pair is valid
 def is_valid_market_trading_pair_tuple(value: str) -> bool:
     market = dev_5_vwap_config_map.get("market").value
-    return is_valid_market_symbol(market, value)
+    return is_valid_market_trading_pair(market, value)
 
 
 def order_percent_of_volume_prompt():
