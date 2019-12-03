@@ -177,6 +177,7 @@ class BitcoinComOrderBookTrackerEntry(OrderBookTrackerEntry):
     def active_order_tracker(self) -> BitcoinComActiveOrderTracker:
         return self._active_order_tracker
 
+
 class LiquidOrderBookTrackerEntry(OrderBookTrackerEntry):
     def __init__(self, trading_pair: str, timestamp: float, order_book: OrderBook):
         self._trading_pair = trading_pair
