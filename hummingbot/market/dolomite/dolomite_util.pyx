@@ -38,7 +38,7 @@ cdef class DolomiteToken:
 
 cdef class DolomiteTradingRule(TradingRule):
     def __init__(self,
-                 symbol: str,
+                 trading_pair: str,
                  min_order_size: Decimal,
                  max_order_size: Decimal,
                  primary_token: DolomiteToken,
@@ -46,7 +46,7 @@ cdef class DolomiteTradingRule(TradingRule):
                  amount_decimal_places: int,
                  price_decimal_places: int):
         super().__init__(
-            symbol=symbol,
+            trading_pair=trading_pair,
             min_order_size=min_order_size,
             max_order_size=max_order_size,
             min_price_increment=Decimal('1e-8'),
@@ -61,7 +61,7 @@ cdef class DolomiteTradingRule(TradingRule):
         self.price_decimal_places = price_decimal_places
 
     @classmethod
-    def build(cls, symbol, market, exchange_info, account_info, exchange_rates, token_registry):
+    def build(cls, trading_pair, market, exchange_info, account_info, exchange_rates, token_registry):
         max_order_size_usd = s_decimal_max
         min_order_size_usd = exchange_info.min_order_size_usd
 
@@ -77,7 +77,7 @@ cdef class DolomiteTradingRule(TradingRule):
         price_decimal_places = market["secondary_ticker_price_decimal_places"]
 
         return DolomiteTradingRule(
-            symbol=symbol,
+            trading_pair=trading_pair,
             min_order_size=exchange_rates.from_base(min_order_size_usd, "USD", secondary_token.ticker),
             max_order_size=exchange_rates.from_base(max_order_size_usd, "USD", secondary_token.ticker),
             primary_token=primary_token,
