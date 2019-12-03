@@ -2,8 +2,7 @@
 import math
 import time
 from os.path import join, realpath
-import sys
-sys.path.insert(0, realpath(join(__file__, "../../../")))
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
@@ -13,41 +12,36 @@ from hummingbot.core.event.events import (
 )
 import asyncio
 import logging
-import unittest
 from typing import (
     Dict,
     Optional,
-    List
-)
+    List)
+import unittest
 
-from hummingbot.market.bamboo_relay.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_tracker import (
-    OrderBookTrackerDataSourceType
-)
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
+from hummingbot.market.kucoin.kucoin_order_book_tracker import KucoinOrderBookTracker
 
 
-class BambooRelayOrderBookTrackerUnitTest(unittest.TestCase):
-    order_book_tracker: Optional[BambooRelayOrderBookTracker] = None
+class KucoinOrderBookTrackerUnitTest(unittest.TestCase):
+    order_book_tracker: Optional[KucoinOrderBookTracker] = None
     events: List[OrderBookEvent] = [
         OrderBookEvent.TradeEvent
     ]
     trading_pairs: List[str] = [
-        "WETH-DAI",
-        "ZRX-WETH",
-        "WETH-USDC",
-        "DAI-USDC"
+        "BTC-USDT",
+        "XRP-USDT"
     ]
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.order_book_tracker: BambooRelayOrderBookTracker = BambooRelayOrderBookTracker(
+        cls.order_book_tracker: KucoinOrderBookTracker = KucoinOrderBookTracker(
             data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-            trading_pairs=cls.trading_pairs
+            symbols=cls.trading_pairs
         )
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
@@ -81,8 +75,6 @@ class BambooRelayOrderBookTrackerUnitTest(unittest.TestCase):
             for trading_pair, order_book in self.order_book_tracker.order_books.items():
                 order_book.add_listener(event_tag, self.event_logger)
 
-    @unittest.skipUnless(any("test_order_book_trade_event_emission" in arg for arg in sys.argv),
-                         "test_order_book_trade_event_emission test requires waiting or manual trade.")
     def test_order_book_trade_event_emission(self):
         """
         Test if order book tracker is able to retrieve order book trade message from exchange and
@@ -91,7 +83,7 @@ class BambooRelayOrderBookTrackerUnitTest(unittest.TestCase):
         self.run_parallel(self.event_logger.wait_for(OrderBookTradeEvent))
         for ob_trade_event in self.event_logger.event_log:
             self.assertTrue(type(ob_trade_event) == OrderBookTradeEvent)
-            self.assertTrue(ob_trade_event.trading_pair in self.trading_pairs)
+            self.assertTrue(ob_trade_event.symbol in self.trading_pairs)
             self.assertTrue(type(ob_trade_event.timestamp) in [float, int])
             self.assertTrue(type(ob_trade_event.amount) == float)
             self.assertTrue(type(ob_trade_event.price) == float)
@@ -104,18 +96,18 @@ class BambooRelayOrderBookTrackerUnitTest(unittest.TestCase):
         # Wait 5 seconds to process some diffs.
         self.ev_loop.run_until_complete(asyncio.sleep(5.0))
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
-        weth_dai_book: OrderBook = order_books["WETH-DAI"]
-        zrx_weth_book: OrderBook = order_books["ZRX-WETH"]
-        # print(weth_dai_book.snapshot)
-        # print(zrx_weth_book.snapshot)
-        self.assertGreaterEqual(weth_dai_book.get_price_for_volume(True, 10).result_price,
-                                weth_dai_book.get_price(True))
-        self.assertLessEqual(weth_dai_book.get_price_for_volume(False, 10).result_price,
-                             weth_dai_book.get_price(False))
-        self.assertGreaterEqual(zrx_weth_book.get_price_for_volume(True, 10).result_price,
-                                zrx_weth_book.get_price(True))
-        self.assertLessEqual(zrx_weth_book.get_price_for_volume(False, 10).result_price,
-                             zrx_weth_book.get_price(False))
+        btcusdt_book: OrderBook = order_books["BTC-USDT"]
+        xrpusdt_book: OrderBook = order_books["XRP-USDT"]
+        # print(btcusdt_book.snapshot)
+        # print(xrpusdt_book.snapshot)
+        self.assertGreaterEqual(btcusdt_book.get_price_for_volume(True, 10).result_price,
+                                btcusdt_book.get_price(True))
+        self.assertLessEqual(btcusdt_book.get_price_for_volume(False, 10).result_price,
+                             btcusdt_book.get_price(False))
+        self.assertGreaterEqual(xrpusdt_book.get_price_for_volume(True, 10000).result_price,
+                                xrpusdt_book.get_price(True))
+        self.assertLessEqual(xrpusdt_book.get_price_for_volume(False, 10000).result_price,
+                             xrpusdt_book.get_price(False))
 
 
 def main():
