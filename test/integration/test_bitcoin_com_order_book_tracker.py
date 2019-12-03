@@ -1,16 +1,15 @@
 #!/usr/bin/env python
 import math
 import time
-from os.path import join, realpath
 import sys
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
-
 import asyncio
 import logging
-from typing import Dict, Optional, List
 import unittest
 
+from os.path import join, realpath
+from typing import Dict, Optional, List
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
 from hummingbot.market.bitcoin_com.bitcoin_com_order_book_tracker import BitcoinComOrderBookTracker
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import (
@@ -27,7 +26,7 @@ class BitcoinComOrderBookTrackerUnitTest(unittest.TestCase):
         OrderBookEvent.TradeEvent
     ]
     trading_pairs: List[str] = [
-        "BTCUSD",
+        "ETHBTC",
         "LTCBTC"
     ]
 
@@ -90,7 +89,7 @@ class BitcoinComOrderBookTrackerUnitTest(unittest.TestCase):
         # Wait 5 seconds to process some diffs.
         self.ev_loop.run_until_complete(asyncio.sleep(5.0))
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
-        btc_usd: OrderBook = order_books["BTCUSD"]
+        btc_usd: OrderBook = order_books["ETHBTC"]
         self.assertIsNot(btc_usd.last_diff_uid, 0)
         self.assertGreaterEqual(btc_usd.get_price_for_volume(True, 10).result_price,
                                 btc_usd.get_price(True))
