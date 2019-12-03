@@ -48,9 +48,9 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._braobds_logger = logging.getLogger(__name__)
         return cls._braobds_logger
 
-    def __init__(self, symbols: Optional[List[str]] = None, chain: EthereumChain = EthereumChain.MAIN_NET):
+    def __init__(self, trading_pairs: Optional[List[str]] = None, chain: EthereumChain = EthereumChain.MAIN_NET):
         super().__init__()
-        self._symbols: Optional[List[str]] = symbols
+        self._trading_pairs: Optional[List[str]] = trading_pairs
         if chain is EthereumChain.ROPSTEN:
             self._api_prefix = "ropsten/0x"
             self._network_id = 3
@@ -89,7 +89,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls, api_prefix: str = "main/0x") -> pd.DataFrame:
         """
-        Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
+        Returned data frame should have trading_pair as index and include usd volume, baseAsset and quoteAsset
         """
         client: aiohttp.ClientSession = cls.http_client()
         async with client.get(f"{REST_BASE_URL}{api_prefix}/markets?perPage=1000&include=ticker,stats") as response:
@@ -103,13 +103,15 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             ]
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data, index="id")
 
-            weth_dai_price = Decimal(all_markets.loc["WETH-DAI"]["ticker"]["price"])
-            dai_usd_price: Decimal = ExchangeRateConversion.get_instance().adjust_token_rate("DAI", weth_dai_price)
-            usd_volume: List[Decimal] = []
-            quote_volume: List[Decimal] = []
+            weth_dai_price: Decimal = Decimal(ExchangeRateConversion.get_instance().convert_token_value(
+                1.0, from_currency="WETH", to_currency="DAI"
+            ))
+            dai_usd_price: float = float(ExchangeRateConversion.get_instance().adjust_token_rate("DAI", weth_dai_price))
+            usd_volume: List[float] = []
+            quote_volume: List[float] = []
             for row in all_markets.itertuples():
                 product_name: str = row.Index
-                base_volume = Decimal(row.stats["volume24Hour"])
+                base_volume: float = float(row.stats["volume24Hour"])
                 quote_volume.append(base_volume)
                 if product_name.endswith("WETH"):
                     usd_volume.append(dai_usd_price * base_volume)
@@ -121,8 +123,8 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return all_markets.sort_values("USDVolume", ascending=False)
 
     @staticmethod
-    async def get_snapshot(client: aiohttp.ClientSession, 
-                           trading_pair: str, 
+    async def get_snapshot(client: aiohttp.ClientSession,
+                           trading_pair: str,
                            api_prefix: str = "main/0x") -> Dict[str, any]:
         async with client.get(f"{REST_BASE_URL}{api_prefix}/markets/{trading_pair}/book") as response:
             response: aiohttp.ClientResponse = response
@@ -132,18 +134,18 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return await response.json()
 
     async def get_trading_pairs(self) -> List[str]:
-        if not self._symbols:
+        if not self._trading_pairs:
             try:
                 active_markets: pd.DataFrame = await self.get_active_exchange_markets(self._api_prefix)
-                self._symbols = active_markets.index.tolist()
+                self._trading_pairs = active_markets.index.tolist()
             except Exception:
-                self._symbols = []
+                self._trading_pairs = []
                 self.logger().network(
                     f"Error getting active exchange information.",
                     exc_info=True,
                     app_warning_msg=f"Error getting active exchange information. Check network connection."
                 )
-        return self._symbols
+        return self._trading_pairs
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         # Get the currently active markets
@@ -159,7 +161,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     snapshot_msg: BambooRelayOrderBookMessage = BambooRelayOrderBook.snapshot_message_from_exchange(
                         snapshot,
                         snapshot_timestamp,
-                        metadata={"symbol": trading_pair}
+                        metadata={"trading_pair": trading_pair}
                     )
 
                     bamboo_relay_order_book: OrderBook = self.order_book_create_function()
@@ -250,7 +252,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         snapshot_msg: OrderBookMessage = BambooRelayOrderBook.snapshot_message_from_exchange(
                             snapshot,
                             snapshot_timestamp,
-                            metadata={"symbol": trading_pair}
+                            metadata={"trading_pair": trading_pair}
                         )
                         output.put_nowait(snapshot_msg)
                         self.logger().debug(f"Saved order book snapshot for {trading_pair}")

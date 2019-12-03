@@ -84,13 +84,14 @@ class DDEXMarketUnitTest(unittest.TestCase):
         cls.wallet = Web3Wallet(private_key=conf.web3_test_private_key_ddex,
                                 backend_urls=conf.test_ddex_web3_provider_list,
                                 erc20_token_addresses=[conf.test_ddex_erc20_token_address_1,
-                                                       conf.test_ddex_erc20_token_address_2
+                                                       conf.test_ddex_erc20_token_address_2,
+                                                       conf.test_ddex_erc20_token_address_3,
                                                        ],
                                 chain=EthereumChain.MAIN_NET)
         cls.market: DDEXMarket = DDEXMarket(wallet=cls.wallet,
                                             ethereum_rpc_url=conf.test_ddex_web3_provider_list[0],
                                             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                            symbols=["HOT-WETH"])
+                                            trading_pairs=["HOT-WETH", "WETH-SAI"])
         print("Initializing DDEX market... ")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.wallet)
@@ -154,10 +155,10 @@ class DDEXMarketUnitTest(unittest.TestCase):
         self.assertGreater(weth_trade_fee.percent, 0)
         self.assertEqual(len(weth_trade_fee.flat_fees), 1)
         self.assertEqual(weth_trade_fee.flat_fees[0][0], "WETH")
-        dai_trade_fee: TradeFee = self.market.get_fee("WETH", "DAI", OrderType.MARKET, TradeType.BUY, Decimal(10000))
+        dai_trade_fee: TradeFee = self.market.get_fee("WETH", "SAI", OrderType.MARKET, TradeType.BUY, Decimal(10000))
         self.assertGreater(dai_trade_fee.percent, 0)
         self.assertEqual(len(dai_trade_fee.flat_fees), 1)
-        self.assertEqual(dai_trade_fee.flat_fees[0][0], "DAI")
+        self.assertEqual(dai_trade_fee.flat_fees[0][0], "SAI")
 
     def test_get_wallet_balances(self):
         balances = self.market.get_all_balances()
@@ -180,17 +181,17 @@ class DDEXMarketUnitTest(unittest.TestCase):
                          "bad_orders_are_not_tracked test requires manual action.")
     def test_bad_orders_are_not_tracked(self):
         # Should fail due to insufficient balance
-        order_id = self.market.buy("WETH-DAI", Decimal("10000"), OrderType.LIMIT, Decimal(1))
+        order_id = self.market.buy("WETH-SAI", Decimal("10000"), OrderType.LIMIT, Decimal(1))
         self.assertEqual(self.market.in_flight_orders.get(order_id), None)
 
     def test_cancel_order(self):
-        symbol = "HOT-WETH"
-        bid_price: Decimal = self.market.get_price(symbol, True)
+        trading_pair = "HOT-WETH"
+        bid_price: Decimal = self.market.get_price(trading_pair, True)
         amount = 2000
 
         # Intentionally setting invalid price to prevent getting filled
-        client_order_id = self.market.buy(symbol, amount, OrderType.LIMIT, bid_price * Decimal("0.7"))
-        self.market.cancel(symbol, client_order_id)
+        client_order_id = self.market.buy(trading_pair, amount, OrderType.LIMIT, bid_price * Decimal("0.7"))
+        self.market.cancel(trading_pair, client_order_id)
         [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
         order_cancelled_event: OrderCancelledEvent = order_cancelled_event
 
@@ -203,27 +204,27 @@ class DDEXMarketUnitTest(unittest.TestCase):
         self.assertGreater(self.market.get_balance("HOT"), 2000)
 
         # Try to buy 2000 HOT from the exchange, and watch for completion event.
-        symbol = "HOT-WETH"
-        bid_price: Decimal = self.market.get_price(symbol, True)
+        trading_pair = "HOT-WETH"
+        bid_price: Decimal = self.market.get_price(trading_pair, True)
         amount: Decimal = 2000
-        buy_order_id: str = self.market.buy(symbol, amount, OrderType.LIMIT, bid_price * Decimal("0.7"))
+        buy_order_id: str = self.market.buy(trading_pair, amount, OrderType.LIMIT, bid_price * Decimal("0.7"))
         [buy_order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         exchange_order_id: str = self.market.in_flight_orders.get(buy_order_id).exchange_order_id
         buy_order = self.run_parallel(self.market.get_order(exchange_order_id))
         self.assertEqual(buy_order[0].get('id'), exchange_order_id)
         self.assertEqual(buy_order_id, buy_order_created_event.order_id)
-        self.market.cancel(symbol, buy_order_id)
+        self.market.cancel(trading_pair, buy_order_id)
         [_] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
         # Try to sell back the same amount of HOT to the exchange, and watch for completion event.
-        ask_price: Decimal = self.market.get_price(symbol, False)
-        sell_order_id: str = self.market.sell(symbol, amount, OrderType.LIMIT, ask_price * Decimal("1.5"))
+        ask_price: Decimal = self.market.get_price(trading_pair, False)
+        sell_order_id: str = self.market.sell(trading_pair, amount, OrderType.LIMIT, ask_price * Decimal("1.5"))
         [sell_order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         exchange_order_id: str = self.market.in_flight_orders.get(sell_order_id).exchange_order_id
         sell_order = self.run_parallel(self.market.get_order(exchange_order_id))
         self.assertEqual(sell_order[0].get('id'), exchange_order_id)
         self.assertEqual(sell_order_id, sell_order_created_event.order_id)
-        self.market.cancel(symbol, sell_order_id)
+        self.market.cancel(trading_pair, sell_order_id)
         [_] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
     @unittest.skipUnless(any("test_limit_buy_and_sell_get_matched" in arg for arg in sys.argv),
@@ -272,12 +273,13 @@ class DDEXMarketUnitTest(unittest.TestCase):
                         for event in self.market_logger.event_log]))
 
     def test_market_buy_and_sell(self):
-        self.assertGreater(self.market.get_balance("WETH"), Decimal("0.01"))
+        self.assertGreater(self.market.get_balance("SAI"), Decimal("40"))
 
-        amount: Decimal = Decimal("2000.0")  # Min order size is 1000 HOT
-        quantized_amount: Decimal = self.market.quantize_order_amount("HOT-WETH", amount)
+        market_symbol: str = "WETH-SAI"
+        amount: Decimal = Decimal("0.1")  # Min order size is 0.05 WETH
+        quantized_amount: Decimal = self.market.quantize_order_amount(market_symbol, amount)
 
-        order_id = self.market.buy("HOT-WETH", amount, OrderType.MARKET)
+        order_id = self.market.buy(market_symbol, amount, OrderType.MARKET)
 
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
@@ -289,10 +291,10 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
         # This is because some of the tokens are deducted in the trading fees.
         self.assertTrue(
-            quantized_amount > order_completed_event.base_asset_amount > quantized_amount * Decimal("0.9")
+            quantized_amount > order_completed_event.base_asset_amount > quantized_amount * Decimal("0.85")
         )
-        self.assertEqual("HOT", order_completed_event.base_asset)
-        self.assertEqual("WETH", order_completed_event.quote_asset)
+        self.assertEqual("WETH", order_completed_event.base_asset)
+        self.assertEqual("SAI", order_completed_event.quote_asset)
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
@@ -301,8 +303,8 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
         # Try to sell back the same amount of HOT to the exchange, and watch for completion event.
         amount = Decimal(order_completed_event.base_asset_amount)
-        quantized_amount: Decimal = self.market.quantize_order_amount("HOT-WETH", amount)
-        order_id = self.market.sell("HOT-WETH", amount, OrderType.MARKET)
+        quantized_amount: Decimal = self.market.quantize_order_amount(market_symbol, amount)
+        order_id = self.market.sell(market_symbol, amount, OrderType.MARKET)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         order_filled_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -310,9 +312,9 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
         self.assertTrue(all([evt.order_type == OrderType.MARKET for evt in order_filled_events]))
         self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertEqual(float(quantized_amount), order_completed_event.base_asset_amount)
-        self.assertEqual("HOT", order_completed_event.base_asset)
-        self.assertEqual("WETH", order_completed_event.quote_asset)
+        self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
+        self.assertEqual("WETH", order_completed_event.base_asset)
+        self.assertEqual("SAI", order_completed_event.quote_asset)
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
@@ -340,17 +342,17 @@ class DDEXMarketUnitTest(unittest.TestCase):
         self.assertEqual(self.wallet.address, tx_completed_event.address)
 
     def test_cancel_all_happy_case(self):
-        symbol = "HOT-WETH"
-        bid_price: Decimal = self.market.get_price(symbol, True)
-        ask_price: Decimal = self.market.get_price(symbol, False)
+        trading_pair = "HOT-WETH"
+        bid_price: Decimal = self.market.get_price(trading_pair, True)
+        ask_price: Decimal = self.market.get_price(trading_pair, False)
         amount = 2000
 
         self.assertGreater(self.market.get_balance("WETH"), Decimal("0.02"))
         self.assertGreater(self.market.get_balance("HOT"), amount)
 
         # Intentionally setting invalid price to prevent getting filled
-        self.market.buy(symbol, amount, OrderType.LIMIT, bid_price * Decimal("0.7"))
-        self.market.sell(symbol, amount, OrderType.LIMIT, ask_price * Decimal("1.5"))
+        self.market.buy(trading_pair, amount, OrderType.LIMIT, bid_price * Decimal("0.7"))
+        self.market.sell(trading_pair, amount, OrderType.LIMIT, ask_price * Decimal("1.5"))
 
         [cancellation_results] = self.run_parallel(self.market.cancel_all(10))
         self.assertGreater(len(cancellation_results), 0)
@@ -358,17 +360,17 @@ class DDEXMarketUnitTest(unittest.TestCase):
             self.assertEqual(cr.success, True)
 
     def test_cancel_all_failure_case(self):
-        symbol = "HOT-WETH"
-        bid_price: Decimal = self.market.get_price(symbol, True)
-        ask_price: Decimal = self.market.get_price(symbol, False)
+        trading_pair = "HOT-WETH"
+        bid_price: Decimal = self.market.get_price(trading_pair, True)
+        ask_price: Decimal = self.market.get_price(trading_pair, False)
         # order submission should fail due to insufficient balance
         amount = Decimal(200000)
 
         self.assertLess(self.market.get_balance("WETH"), 100)
         self.assertLess(self.market.get_balance("HOT"), amount)
 
-        self.market.buy(symbol, amount, OrderType.LIMIT, bid_price * Decimal("0.7"))
-        self.market.sell(symbol, amount, OrderType.LIMIT, ask_price * Decimal("1.5"))
+        self.market.buy(trading_pair, amount, OrderType.LIMIT, bid_price * Decimal("0.7"))
+        self.market.sell(trading_pair, amount, OrderType.LIMIT, ask_price * Decimal("1.5"))
 
         [cancellation_results] = self.run_parallel(self.market.cancel_all(10))
         self.assertGreater(len(cancellation_results), 0)
@@ -378,7 +380,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
     def test_orders_saving_and_restoration(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        symbol: str = "HOT-WETH"
+        trading_pair: str = "WETH-SAI"
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
@@ -387,15 +389,15 @@ class DDEXMarketUnitTest(unittest.TestCase):
         try:
             self.assertEqual(0, len(self.market.tracking_states))
 
-            # Try to put limit buy order for 0.05 ETH worth of HOT, and watch for order creation event.
-            current_bid_price: Decimal = self.market.get_price(symbol, True)
+            # Try to put limit buy order for 0.1 ETH, and watch for order creation event.
+            current_bid_price: Decimal = self.market.get_price(trading_pair, True)
             bid_price: Decimal = current_bid_price * Decimal("0.8")
-            quantize_bid_price: Decimal = self.market.quantize_order_price(symbol, bid_price)
+            quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
 
-            amount: Decimal = Decimal("0.05") / bid_price
-            quantized_amount: Decimal = self.market.quantize_order_amount(symbol, amount)
+            amount: Decimal = Decimal("0.1")
+            quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-            order_id = self.market.buy(symbol, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+            order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
             self.assertEqual(order_id, order_created_event.order_id)
@@ -424,7 +426,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
                 wallet=self.wallet,
                 ethereum_rpc_url=conf.test_ddex_web3_provider_list[0],
                 order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                symbols=[symbol]
+                trading_pairs=[trading_pair]
             )
             for event_tag in self.market_events:
                 self.market.add_listener(event_tag, self.market_logger)
@@ -440,7 +442,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
             self.assertEqual(1, len(self.market.tracking_states))
 
             # Cancel the order and verify that the change is saved.
-            self.market.cancel(symbol, order_id)
+            self.market.cancel(trading_pair, order_id)
             self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
@@ -449,7 +451,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
             self.assertEqual(1, len(saved_market_states.saved_state))
         finally:
             if order_id is not None:
-                self.market.cancel(symbol, order_id)
+                self.market.cancel(trading_pair, order_id)
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
@@ -458,25 +460,24 @@ class DDEXMarketUnitTest(unittest.TestCase):
     def test_order_fill_record(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        symbol: str = "HOT-WETH"
+        trading_pair: str = "WETH-SAI"
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
         recorder.start()
 
         try:
-            # Try to buy 0.05 ETH worth of HOT from the exchange, and watch for completion event.
-            current_price: Decimal = self.market.get_price(symbol, True)
-            amount: Decimal = Decimal("0.05") / current_price
-            order_id = self.market.buy(symbol, amount)
+            # Try to buy 0.1 WETH from the exchange, and watch for completion event.
+            amount: Decimal = Decimal("0.1")
+            order_id = self.market.buy(trading_pair, amount)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
             # Reset the logs
             self.market_logger.clear()
 
-            # Try to sell back the same amount of HOT to the exchange, and watch for completion event.
+            # Try to sell back the same amount of WETH to the exchange, and watch for completion event.
             amount = buy_order_completed_event.base_asset_amount
-            order_id = self.market.sell(symbol, amount)
+            order_id = self.market.sell(trading_pair, amount)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
             # Query the persisted trade logs
@@ -491,7 +492,7 @@ class DDEXMarketUnitTest(unittest.TestCase):
 
         finally:
             if order_id is not None:
-                self.market.cancel(symbol, order_id)
+                self.market.cancel(trading_pair, order_id)
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
