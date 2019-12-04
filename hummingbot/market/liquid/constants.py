@@ -16,6 +16,7 @@ class Constants:
     WS_ORDER_BOOK_DIFF_SUBSCRIPTION = 'price_ladders_cash_{currency_pair_code}_{side}'
     WS_USER_TRADES_SUBSCRIPTION = 'user_account_{funding_currency}_trades'
     WS_USER_EXECUTIONS_SUBSCRIPTION = 'user_executions_cash_{currency_pair_code}'
+    WS_USER_ACCOUNTS_SUBSCRIPTION = 'user_account_{quoted_currency}_orders'
 
     # Web socket events
     WS_AUTH_REQUEST_EVENT = 'quoine:auth_request'
