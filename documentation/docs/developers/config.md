@@ -60,3 +60,4 @@ Check `hummingbot/client/config/config_var.py` for more details.
 4. When prompting for a boolean value, add `(y/n)` as options so that the user knows what to enter.
 5. When prompting a question with a few choices as answers e.g. `["import", "create", etc]`, make sure to include all options in the format of `(OPTION_1/OPTION_2/OPTION_3)`. 
    This pattern is recognized by our autocomplete system, and the user can hit `Tab` to have the option autofilled. 
+6. When prompting for an exchange name, make sure to include 'exchange name', 'name of exchange' or 'name of the exchange' in the prompt text, our autocomplete system will list and autofill with exchange names supported by our system.
