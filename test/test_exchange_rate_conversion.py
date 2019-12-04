@@ -35,8 +35,8 @@ class MockDataFeed1(DataFeedBase):
         super().__init__()
         self.mock_price_dict = {"COIN_ALPHA": 1, "CAT": 2}
 
-    def get_price(self, symbol):
-        return self.mock_price_dict.get(symbol.upper())
+    def get_price(self, trading_pair):
+        return self.mock_price_dict.get(trading_pair.upper())
 
     async def start_network(self):
         pass
@@ -66,8 +66,8 @@ class MockDataFeed2(DataFeedBase):
     def price_dict(self):
         return self.mock_price_dict
 
-    def get_price(self, symbol):
-        return self.mock_price_dict.get(symbol.upper())
+    def get_price(self, trading_pair):
+        return self.mock_price_dict.get(trading_pair.upper())
 
 
 def async_run(func):

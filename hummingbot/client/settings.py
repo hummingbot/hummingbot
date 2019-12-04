@@ -14,6 +14,8 @@ trading_pair_fetcher = TradingPairFetcher.get_instance()
 # Global static values
 KEYFILE_PREFIX = "key_file_"
 KEYFILE_POSTFIX = ".json"
+ENCYPTED_CONF_PREFIX = "encrypted_"
+ENCYPTED_CONF_POSTFIX = ".json"
 GLOBAL_CONFIG_PATH = "conf/conf_global.yml"
 TOKEN_ADDRESSES_FILE_PATH = realpath(join(__file__, "../../wallet/ethereum/erc20_tokens.json"))
 DEFAULT_KEY_FILE_PATH = "conf/"
@@ -47,21 +49,21 @@ DEXES = {
 STRATEGIES: List[str] = get_strategy_list()
 
 EXAMPLE_PAIRS = {
-    "binance": "ZRXETH",
+    "binance": "ZRX-ETH",
     "ddex": "ZRX-WETH",
-    "idex": "ETH_ZRX",
+    "idex": "ZRX-ETH",
     "radar_relay": "ZRX-WETH",
     "bamboo_relay": "ZRX-WETH",
     "coinbase_pro": "ETH-USDC",
     "dolomite": "WETH-DAI",
-    "huobi": "ethusdt",
+    "huobi": "ETH-USDT",
     "bittrex": "ZRX-ETH"
 }
 
 EXAMPLE_ASSETS = {
     "binance": "ZRX",
     "ddex": "ZRX",
-    "idex": "ETH=",
+    "idex": "ETH",
     "radar_relay": "ZRX",
     "bamboo_relay": "ZRX",
     "coinbase_pro": "ETH",

@@ -69,10 +69,10 @@ class RemoteAPIOrderBookDataSource(OrderBookTrackerDataSource):
         order_book_tracker_data: Dict[str, Tuple[pd.DataFrame, pd.DataFrame]] = pickle.loads(binary_data)
         retval: Dict[str, OrderBookTrackerEntry] = {}
 
-        for symbol, (bids_df, asks_df) in order_book_tracker_data.items():
+        for trading_pair, (bids_df, asks_df) in order_book_tracker_data.items():
             order_book: BinanceOrderBook = BinanceOrderBook()
             order_book.apply_numpy_snapshot(bids_df.values, asks_df.values)
-            retval[symbol] = OrderBookTrackerEntry(symbol, timestamp, order_book)
+            retval[trading_pair] = OrderBookTrackerEntry(trading_pair, timestamp, order_book)
 
         return retval
 

@@ -2,31 +2,31 @@
 #include <iostream>
 
 OrderExpirationEntry::OrderExpirationEntry() {
-    this->symbol = "";
+    this->tradingPair = "";
     this->orderId = "";
     this->timestamp = 0;
     this->expiration_timestamp = 0;
 }
 
-OrderExpirationEntry::OrderExpirationEntry(std::string symbol,
+OrderExpirationEntry::OrderExpirationEntry(std::string tradingPair,
                                            std::string orderId,
                                            double timestamp,
                                            double expiration_timestamp) {
-    this->symbol = symbol;
+    this->tradingPair = tradingPair;
     this->orderId = orderId;
     this->timestamp = timestamp;
     this->expiration_timestamp = expiration_timestamp;
 }
 
 OrderExpirationEntry::OrderExpirationEntry(const OrderExpirationEntry &other) {
-    this->symbol = other.symbol;
+    this->tradingPair = other.tradingPair;
     this->orderId = other.orderId;
     this->timestamp = other.timestamp;
     this->expiration_timestamp = other.expiration_timestamp;
 }
 
 OrderExpirationEntry &OrderExpirationEntry::operator=(const OrderExpirationEntry &other) {
-    this->symbol = other.symbol;
+    this->tradingPair = other.tradingPair;
     this->orderId = other.orderId;
     this->timestamp = other.timestamp;
     this->expiration_timestamp = other.expiration_timestamp;
@@ -42,8 +42,8 @@ bool operator<(OrderExpirationEntry const &a, OrderExpirationEntry const &b) {
     }
 }
 
-std::string OrderExpirationEntry::getSymbol() const {
-    return this->symbol;
+std::string OrderExpirationEntry::getTradingPair() const {
+    return this->tradingPair;
 }
 
 std::string OrderExpirationEntry::getClientOrderID() const {
