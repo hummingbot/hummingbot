@@ -103,21 +103,17 @@ Run the command `bounty --restore-id` in the other instance(s). Enter the email 
 
 Alternatively, you can also follow these steps below.
 
-- Installed from Docker:
+Installed from Docker:
 
-Create and run multiple Docker instances that use the same file folder location for configs and logs. Each instance will then use the same `conf_liquidity_bounty.yml` file.
+1. Create and run multiple Docker instances that use the same file folder location for configs and logs. Each instance will then use the same `conf_liquidity_bounty.yml` file.
 
-- Installed from source:
+Installed from source:
 
-1 - Register for liquidity bounties using your email and ETH address
-
-2 - Exit Hummingbot and open `conf/conf_liquidity_bounty.yml`
-
-3 - Copy the contents of this file
-
-4 - Create another instance of Hummingbot
-
-5 - Paste what you copied in step 3 into `conf/conf_liquidity_bounty.yml` in this new instance
+1. Register for liquidity bounties using your email and ETH address
+2. Exit Hummingbot and open `conf/conf_liquidity_bounty.yml`
+3. Copy the contents of this file
+4. Create another instance of Hummingbot
+5. Paste what you copied in step 3 into `conf/conf_liquidity_bounty.yml` in this new instance
 
 
 #### How do I update Hummingbot after I had previously installed using old instructions?
