@@ -1139,7 +1139,7 @@ cdef class LiquidMarket(MarketBase):
         """
         order = self._in_flight_orders.get(client_order_id)
         exchange_order_id = await order.get_exchange_order_id()
-        path_url = f"/orders/{exchange_order_id}"
+        path_url = Constants.LIST_ORDER_URI.format(exchange_order_id=exchange_order_id)
         result = await self._api_request("get", path_url=path_url)
         return result
 
@@ -1157,6 +1157,7 @@ cdef class LiquidMarket(MarketBase):
         Gets a list of the user's transfers via rest API
         :returns: json response
         """
+        # TODO: figure out what this transfer is
         path_url = "/transfers"
         result = await self._api_request("get", path_url=path_url)
         return result
@@ -1196,13 +1197,30 @@ cdef class LiquidMarket(MarketBase):
     async def execute_withdraw(self, str tracking_id, str to_address, str currency, object amount):
         """
         Function that makes API request to withdraw funds
+        Request payload example:
+        {
+            "auth_code":"0000",  # Optional
+            "crypto_withdrawal":{
+                "currency":"BTC",
+                "amount":"1",
+                "address":"1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2",
+                "payment_id": null,
+                "memo_type": null,
+                "memo_value": null
+            }
+        }
         """
-        path_url = "/withdrawals/crypto"
+        path_url = Constants.CRYPTO_WITHDRAWAL_URI
+
         data = {
-            "amount": float(amount),
-            "currency": currency,
-            "crypto_address": to_address,
-            "no_destination_tag": True,
+            "crypto_withdrawal": {
+                "currency": currency,
+                "amount": str(amount),
+                "address": to_address,
+                "payment_id": None,
+                "memo_type": None,
+                "memo_value": None
+            }
         }
         try:
             withdraw_result = await self._api_request("post", path_url=path_url, data=data)

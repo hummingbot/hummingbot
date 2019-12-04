@@ -11,10 +11,13 @@ class Constants:
     ACCOUNTS_BALANCE_URI = '/accounts/balance'
     CRYPTO_ACCOUNTS_URI = '/crypto_accounts'
     FIAT_ACCOUNTS_URI = '/fiat_accounts'
+    LIST_ORDER_URI = '/orders/{exchange_order_id}'
     LIST_ORDERS_URI = '/orders?with_details=1'
     TRADING_RULES_URI = '/currencies'
 
     # POST
+    CRYPTO_WITHDRAWAL_URI = '/crypto_withdrawals'
+    FIAT_WITHDRAWAL_URI = '/withdrawals'
     ORDER_CREATION_URI = '/orders'
 
     # PUT
