@@ -6,7 +6,7 @@ import pandas as pd
 from mock import patch
 from unittest import TestCase
 
-from test.adhoc.assets.mock_data.fixture_liquid import FixtureLiquid
+from test.integration.assets.mock_data.fixture_liquid import FixtureLiquid
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.core.data_type.order_book_message import LiquidOrderBookMessage
@@ -97,10 +97,6 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
                 'volume_24h'
             ]
         )
-
-        # Check DF values
-        self.assertEqual(
-            all_markets_df.loc['BTCUSD'].last_traded_price, '7470.49746')
 
         # Check DF order, make sure it's sorted by USDVolume col in desending order
         usd_volumes = all_markets_df.loc[:, 'USDVolume'].to_list()
