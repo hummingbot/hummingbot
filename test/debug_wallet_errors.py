@@ -22,7 +22,7 @@ wallet = Web3Wallet(pkey, [server], token_addresses, chain=EthereumChain.MAIN_NE
 market = DDEXMarket(wallet,
                     server,
                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                    symbols=["WETH-DAI"])
+                    trading_pairs=["WETH-DAI"])
 clock.add_iterator(wallet)
 clock.add_iterator(market)
 

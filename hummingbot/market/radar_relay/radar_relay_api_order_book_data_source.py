@@ -49,9 +49,9 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._rraobds_logger = logging.getLogger(__name__)
         return cls._rraobds_logger
 
-    def __init__(self, symbols: Optional[List[str]] = None):
+    def __init__(self, trading_pairs: Optional[List[str]] = None):
         super().__init__()
-        self._symbols: Optional[List[str]] = symbols
+        self._trading_pairs: Optional[List[str]] = trading_pairs
 
     @classmethod
     def http_client(cls) -> aiohttp.ClientSession:
@@ -78,7 +78,7 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         """
-        Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
+        Returned data frame should have trading pair as index and include usd volume, baseAsset and quoteAsset
         """
         client: aiohttp.ClientSession = cls.http_client()
         async with client.get(f"{MARKETS_URL}?include=ticker,stats") as response:
@@ -92,7 +92,10 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             ]
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data, index="id")
 
-            weth_dai_price: Decimal = Decimal(all_markets.loc["WETH-DAI"]["ticker"]["price"])
+            weth_dai_price: Decimal = Decimal(ExchangeRateConversion.get_instance().convert_token_value(
+                1.0, from_currency="WETH", to_currency="DAI"
+            ))
+
             dai_usd_price: float = float(ExchangeRateConversion.get_instance().adjust_token_rate("DAI", weth_dai_price))
             usd_volume: List[float] = []
             quote_volume: List[float] = []
@@ -119,18 +122,18 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return await response.json()
 
     async def get_trading_pairs(self) -> List[str]:
-        if not self._symbols:
+        if not self._trading_pairs:
             try:
                 active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                self._symbols = active_markets.index.tolist()
+                self._trading_pairs = active_markets.index.tolist()
             except Exception:
-                self._symbols = []
+                self._trading_pairs = []
                 self.logger().network(
                     f"Error getting active exchange information.",
                     exc_info=True,
                     app_warning_msg=f"Error getting active exchange information. Check network connection."
                 )
-        return self._symbols
+        return self._trading_pairs
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         # Get the currently active markets
@@ -146,7 +149,7 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     snapshot_msg: RadarRelayOrderBookMessage = RadarRelayOrderBook.snapshot_message_from_exchange(
                         snapshot,
                         snapshot_timestamp,
-                        metadata={"symbol": trading_pair}
+                        metadata={"trading_pair": trading_pair}
                     )
 
                     radar_relay_order_book: OrderBook = self.order_book_create_function()
@@ -236,7 +239,7 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         snapshot_msg: OrderBookMessage = RadarRelayOrderBook.snapshot_message_from_exchange(
                             snapshot,
                             snapshot_timestamp,
-                            metadata={"symbol": trading_pair}
+                            metadata={"trading_pair": trading_pair}
                         )
                         output.put_nowait(snapshot_msg)
                         self.logger().debug(f"Saved order book snapshot for {trading_pair}")

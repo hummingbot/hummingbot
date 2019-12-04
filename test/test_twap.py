@@ -40,14 +40,14 @@ class TWAPUnitTest(unittest.TestCase):
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
     end_timestamp: float = end.timestamp()
-    maker_symbols: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
+    maker_trading_pairs: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
     clock_tick_size = 10
 
     def setUp(self):
 
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
         self.market: BacktestMarket = BacktestMarket()
-        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_symbols)
+        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_trading_pairs)
         self.mid_price = 100
         self.time_delay = 15
         self.cancel_order_wait_time = 45
@@ -59,13 +59,13 @@ class TWAPUnitTest(unittest.TestCase):
         self.market.set_balance("QETH", 500)
         self.market.set_quantization_param(
             QuantizationParams(
-                self.maker_symbols[0], 6, 6, 6, 6
+                self.maker_trading_pairs[0], 6, 6, 6, 6
             )
         )
 
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             *(
-                [self.market] + self.maker_symbols
+                [self.market] + self.maker_trading_pairs
             )
         )
 
@@ -143,7 +143,7 @@ class TWAPUnitTest(unittest.TestCase):
             market.trigger_event(MarketEvent.OrderFilled, OrderFilledEvent(
                 market.current_timestamp,
                 limit_order.client_order_id,
-                limit_order.symbol,
+                limit_order.trading_pair,
                 TradeType.BUY,
                 OrderType.LIMIT,
                 limit_order.price,
@@ -167,7 +167,7 @@ class TWAPUnitTest(unittest.TestCase):
             market.trigger_event(MarketEvent.OrderFilled, OrderFilledEvent(
                 market.current_timestamp,
                 limit_order.client_order_id,
-                limit_order.symbol,
+                limit_order.trading_pair,
                 TradeType.SELL,
                 OrderType.LIMIT,
                 limit_order.price,
@@ -223,8 +223,8 @@ class TWAPUnitTest(unittest.TestCase):
     def test_limit_sell_order(self):
         self.clock.add_iterator(self.limit_sell_strategy)
         # check no orders are placed before time delay
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
-        self.assertEqual(0, len(self.limit_buy_strategy.active_asks))
+        self.clock.backtest_til(self.start_timestamp)
+        self.assertEqual(0, len(self.limit_sell_strategy.active_asks))
 
         # test whether number of orders is one at start
         # check whether the order is sell
@@ -282,9 +282,9 @@ class TWAPUnitTest(unittest.TestCase):
         self.clock.add_iterator(self.market_sell_strategy)
         # check no orders are placed before time delay
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
-        market_buy_events: List[BuyOrderCompletedEvent] = [t for t in self.buy_order_completed_logger.event_log
-                                                           if isinstance(t, BuyOrderCompletedEvent)]
-        self.assertEqual(0, len(market_buy_events))
+        market_sell_events: List[SellOrderCompletedEvent] = [t for t in self.sell_order_completed_logger.event_log
+                                                             if isinstance(t, SellOrderCompletedEvent)]
+        self.assertEqual(0, len(market_sell_events))
 
         # test whether number of orders is one
         # check whether the order is sell

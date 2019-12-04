@@ -95,8 +95,11 @@ nav:
           - Harmony $ONE Makers: bounties/active/harmony.md
         - Bug Bounty Program: support/bug-bounty-program.md
       - Get Help:
-        - FAQ: support/faq.md
-        - Troubleshooting: support/troubleshooting.md
+        - Frequently Asked Questions: support/faq.md
+        - Troubleshooting:
+          - General: support/troubleshooting/general.md
+          - Binance Errors: support/troubleshooting/binance.md
+          - IDEX Errors: support/troubleshooting/idex.md
         - Common 'How To' Questions: support/how-to.md
         - Contact and Support: support/index.md
         - 中文 Github repo: https://github.com/coinalpha/hummingbot_chinese
@@ -162,6 +165,7 @@ nav:
           - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
           - Pure Market Making: developers/strategies/pure-market-making.md
           - Discovery: developers/strategies/discovery.md
+          - TWAP: developers/strategies/twap.md
         - Connectors:
           - Intro: developers/connectors/index.md
           - Architecture: developers/connectors/architecture.md
@@ -176,6 +180,8 @@ nav:
         - Configuration: developers/config.md
     - Release Notes:
       - About Releases: release-notes/index.md
+      - 0.19.1: release-notes/0.19.1.md
+      - 0.19.0: release-notes/0.19.0.md
       - 0.18.1: release-notes/0.18.1.md
       - 0.18.0: release-notes/0.18.0.md
       - 0.17.1: release-notes/0.17.1.md
