@@ -66,5 +66,23 @@ best_bid_ask_jump_orders_depth: null
 # Parameter to enable/disable adding transaction costs to order prices
 add_transaction_costs: null
 
+# Would you like to use an external pricing source for mid-market price?
+external_pricing_source: null
+
+# Which type of external price source to use? (exchange/feed/custom_api)
+external_price_source_type: null
+
+# Exchange name for external exchange price source
+external_price_source_exchange: null
+
+# Reference base asset from data feed
+external_price_source_feed_base_asset: null
+
+# Reference quote asset from data feed
+external_price_source_feed_quote_asset: null
+
+# External api for price source
+external_price_source_custom_api: null
+
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parameters
