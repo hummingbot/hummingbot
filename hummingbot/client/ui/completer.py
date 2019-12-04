@@ -43,15 +43,15 @@ class HummingbotCompleter(Completer):
         return WordCompleter(subcommands, ignore_case=True)
 
     @property
-    def _symbol_completer(self) -> Completer:
+    def _trading_pair_completer(self) -> Completer:
         trading_pair_fetcher = TradingPairFetcher.get_instance()
         market = None
         for exchange in EXCHANGES:
             if exchange in self.prompt_text:
                 market = exchange
                 break
-        symbols = trading_pair_fetcher.trading_pairs.get(market, []) if trading_pair_fetcher.ready else []
-        return WordCompleter(symbols, ignore_case=True)
+        trading_pairs = trading_pair_fetcher.trading_pairs.get(market, []) if trading_pair_fetcher.ready else []
+        return WordCompleter(trading_pairs, ignore_case=True)
 
     @property
     def _wallet_address_completer(self):
@@ -82,10 +82,11 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return "-e" in text_before_cursor or \
                "--exchange" in text_before_cursor or \
-               "exchange" in self.prompt_text
+               any(x for x in ("exchange name", "name of exchange", "name of the exchange")
+                   if x in self.prompt_text.lower())
 
-    def _complete_symbols(self, document: Document) -> bool:
-        return "symbol" in self.prompt_text
+    def _complete_trading_pairs(self, document: Document) -> bool:
+        return "trading pair" in self.prompt_text
 
     def _complete_paths(self, document: Document) -> bool:
         return "path" in self.prompt_text and "file" in self.prompt_text
@@ -125,8 +126,8 @@ class HummingbotCompleter(Completer):
             for c in self._exchange_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_symbols(document):
-            for c in self._symbol_completer.get_completions(document, complete_event):
+        elif self._complete_trading_pairs(document):
+            for c in self._trading_pair_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_command(document):

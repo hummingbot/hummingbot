@@ -35,8 +35,8 @@ class ArbitrageUnitTest(unittest.TestCase):
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
     end_timestamp: float = end.timestamp()
-    market_1_symbols: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
-    market_2_symbols: List[str] = ["coinalpha/eth", "COINALPHA", "ETH"]
+    market_1_trading_pairs: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
+    market_2_trading_pairs: List[str] = ["coinalpha/eth", "COINALPHA", "ETH"]
 
     @classmethod
     def setUpClass(cls):
@@ -53,8 +53,8 @@ class ArbitrageUnitTest(unittest.TestCase):
         self.market_1: BacktestMarket = BacktestMarket()
         self.market_2: BacktestMarket = BacktestMarket()
 
-        self.market_1_data: MockOrderBookLoader = MockOrderBookLoader(*self.market_1_symbols)
-        self.market_2_data: MockOrderBookLoader = MockOrderBookLoader(*self.market_2_symbols)
+        self.market_1_data: MockOrderBookLoader = MockOrderBookLoader(*self.market_1_trading_pairs)
+        self.market_2_data: MockOrderBookLoader = MockOrderBookLoader(*self.market_2_trading_pairs)
         self.market_1_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.01, 10)
         self.market_2_data.set_balanced_order_book(1.0, 0.5, 1.5, 0.005, 5)
 
@@ -67,16 +67,16 @@ class ArbitrageUnitTest(unittest.TestCase):
         self.market_2.set_balance("ETH", 500)
         self.market_1.set_quantization_param(
             QuantizationParams(
-                self.market_1_symbols[0], 5, 5, 5, 5
+                self.market_1_trading_pairs[0], 5, 5, 5, 5
             )
         )
         self.market_2.set_quantization_param(
             QuantizationParams(
-                self.market_2_symbols[0], 5, 5, 5, 5
+                self.market_2_trading_pairs[0], 5, 5, 5, 5
             )
         )
-        self.market_trading_pair_tuple_1 = MarketTradingPairTuple(*([self.market_1] + self.market_1_symbols))
-        self.market_trading_pair_tuple_2 = MarketTradingPairTuple(*([self.market_2] + self.market_2_symbols))
+        self.market_trading_pair_tuple_1 = MarketTradingPairTuple(*([self.market_1] + self.market_1_trading_pairs))
+        self.market_trading_pair_tuple_2 = MarketTradingPairTuple(*([self.market_2] + self.market_2_trading_pairs))
         self.market_pair: ArbitrageMarketPair = ArbitrageMarketPair(
             self.market_trading_pair_tuple_1, self.market_trading_pair_tuple_2
         )
