@@ -21,15 +21,17 @@ from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils import (
     fix_signature
 )
 
-with open(os.path.join(os.path.dirname(__file__), "zero_ex_exchange_abi.json")) as exchange_abi_json:
+with open(os.path.join(os.path.dirname(__file__), "zero_ex_exchange_v3_abi.json")) as exchange_abi_json:
     exchange_abi: List[any] = ujson.load(exchange_abi_json)
 
-with open(os.path.join(os.path.dirname(__file__), "zero_ex_coordinator_abi.json")) as coordinator_abi_json:
+with open(os.path.join(os.path.dirname(__file__), "zero_ex_coordinator_v3_abi.json")) as coordinator_abi_json:
     coordinator_abi: List[any] = ujson.load(coordinator_abi_json)
 
-with open(os.path.join(os.path.dirname(__file__), "zero_ex_coordinator_registry_abi.json")) as coordinator_registry_abi_json:
+with open(os.path.join(os.path.dirname(__file__), "zero_ex_coordinator_registry_v3_abi.json")) as coordinator_registry_abi_json:
     coordinator_registry_abi: List[any] = ujson.load(coordinator_registry_abi_json)
 
+# 150,000 per order by gas
+PROTOCOL_FEE_MULTIPLIER = 150000
 
 class ZeroExCancellationFailedException(Exception):
     def __init__(self, approvedOrders: [], cancellations: [], errors: []):
@@ -194,7 +196,8 @@ class ZeroExCoordinator:
             Web3.toChecksumAddress(order['makerAddress']),
             transaction['signature'],
             [],
-            []
+            [],
+            0
         )
 
         return tx_hash
@@ -219,7 +222,8 @@ class ZeroExCoordinator:
             Web3.toChecksumAddress(makerAddress),
             transaction['signature'],
             [],
-            []
+            [],
+            0
         )
 
         return tx_hash
@@ -256,7 +260,8 @@ class ZeroExCoordinator:
                 takerAddress,
                 transaction['signature'],
                 allExpirationTimes,
-                allSignatures
+                allSignatures,
+                PROTOCOL_FEE_MULTIPLIER * len(signedOrders)
             )
 
             return tx_hash
@@ -407,7 +412,8 @@ class ZeroExCoordinator:
         txOrigin: str,
         transactionSignature: str,
         approvalExpirationTimeSeconds: List[int],
-        approvalSignatures: List[str]
+        approvalSignatures: List[str],
+        protocolFeeMultiplier: int
     ) -> str:
         transaction: Tuple[str, any] = (
             transaction["salt"],
@@ -428,6 +434,7 @@ class ZeroExCoordinator:
                 approvalExpirationTimeSeconds,
                 approvalSignatures
             ),
-            gasPrice=gas_price
+            gasPrice=gas_price,
+            value=protocolFeeMultiplier * gas_price
         )
         return tx_hash

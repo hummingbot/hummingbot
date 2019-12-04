@@ -5,6 +5,7 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
         public bint is_coordinated
         public int expires
         public object available_amount_base
-        public object gas_fee_amount
+        public object protocol_fee_amount
+        public object taker_fee_amount
         public str tx_hash
         public object zero_ex_order

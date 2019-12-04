@@ -71,6 +71,12 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
             self._network_id = 1
 
     @property
+    def active_order_tracker(self, trading_pair: str) -> BambooRelayActiveOrderTracker:
+        if not trading_pair in self._active_order_trackers:
+            raise ValueError(f"{trading_pair} is not being actively tracked.")
+        return self._active_order_trackers[trading_pair]
+
+    @property
     def data_source(self) -> OrderBookTrackerDataSource:
         if not self._data_source:
             if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:

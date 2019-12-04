@@ -5,22 +5,28 @@ from decimal import Decimal
 from mypy_extensions import TypedDict
 from eth_abi import encode_abi
 from eth_utils import keccak
+from time import time
 
+class EIP712DomainWithDefaultSchema(TypedDict):
+    verifyingContract: str
+    chainId: int
 
 class SignedZeroExTransaction(TypedDict):
-    verifyingContractAddress: str
     salt: str
     signerAddress: str
     data: str
-    signature: str
-
+    domain: EIP712DomainWithDefaultSchema
+    expirationTimeSeconds: str
+    gasPrice: str
+    signature: str    
 
 class ZeroExTransaction(TypedDict):
-    verifyingContractAddress: str
     salt: str
     signerAddress: str
     data: str
-
+    domain: EIP712DomainWithDefaultSchema
+    expirationTimeSeconds: str
+    gasPrice: str
 
 class EIP712TypedData(TypedDict):
     types: any
@@ -28,16 +34,26 @@ class EIP712TypedData(TypedDict):
     message: any
     primaryType: str
 
+DEFAULT_APPROVAL_EXPIRATION_TIME_SECONDS = 90;
+DEFAULT_EXPIRATION_TIME_BUFFER_SECONDS = 30;
 
-def get_transaction_hash_hex(exchangeAddress: str, data: str, salt: Decimal, signerAddress: str) -> str:
+def get_transaction_hash_hex(chainId: int, exchangeAddress: str, data: str, salt: Decimal, signerAddress: str) -> str:
+    expirationTimeSeconds = str(time() + DEFAULT_APPROVAL_EXPIRATION_TIME_SECONDS - DEFAULT_EXPIRATION_TIME_BUFFER_SECONDS)
+
     transaction: ZeroExTransaction = {
-        'verifyingContractAddress': exchangeAddress,
         'salt': salt,
         'signerAddress': signerAddress,
-        'data': data
+        'data': data,
+        'domain': {
+            'verifyingContract': exchangeAddress,
+            'chainId': chainId
+        },
+        'expirationTimeSeconds': expirationTimeSeconds,
+        'gasPrice': '1'
     }
 
     typedData: EIP712TypedData = create_zero_ex_transaction_typed_data(transaction)
+
     transactionHashHex: str = generate_typed_data_hash(typedData)
 
     return transactionHashHex
@@ -49,18 +65,22 @@ def create_zero_ex_transaction_typed_data(zeroExTransaction: ZeroExTransaction) 
             'EIP712Domain': [
                 {'name': 'name', 'type': 'string'},
                 {'name': 'version', 'type': 'string'},
+                {'name': 'chainId', 'type': 'uint256'},
                 {'name': 'verifyingContract', 'type': 'address'}
             ],
             'ZeroExTransaction': [
                 {'name': 'salt', 'type': 'uint256'},
+                {'name': 'expirationTimeSeconds', 'type': 'uint256'},
+                {'name': 'gasPrice', 'type': 'uint256'},
                 {'name': 'signerAddress', 'type': 'address'},
                 {'name': 'data', 'type': 'bytes'}
             ]
         },
         'domain': {
             'name': '0x Protocol',
-            'version': '2',
-            'verifyingContract': zeroExTransaction['verifyingContractAddress'],
+            'version': '3.0.0',
+            'chainId': zeroExTransaction['domain']['chainId'],
+            'verifyingContract': zeroExTransaction['domain']['verifyingContract']
         },
         'message': zeroExTransaction,
         'primaryType': "ZeroExTransaction"
@@ -68,14 +88,12 @@ def create_zero_ex_transaction_typed_data(zeroExTransaction: ZeroExTransaction) 
 
     return typedData
 
-
 def generate_typed_data_hash(typedData: EIP712TypedData) -> str:
     return '0x' + keccak(
         b"\x19\x01" +
         _struct_hash('EIP712Domain', typedData['domain'], typedData['types']) +
         _struct_hash(typedData['primaryType'], typedData['message'], typedData['types'])
     ).hex()
-
 
 def _find_dependencies(primaryType: str, types, found=None) -> List[str]:
     if found is None:
@@ -92,7 +110,6 @@ def _find_dependencies(primaryType: str, types, found=None) -> List[str]:
                 found.append(dep)
 
     return found
-
 
 def _encode_type(primaryType: str, types) -> str:
     deps = _find_dependencies(primaryType, types)

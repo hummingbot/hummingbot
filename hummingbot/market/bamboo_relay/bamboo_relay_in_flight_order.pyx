@@ -31,6 +31,8 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
                  price: Decimal,
                  amount: Decimal,
                  expires: int = None,
+                 protocol_fee_amount: Optional[Decimal] = Decimal(0),
+                 taker_fee_amount: Optional[Decimal] = Decimal(0),
                  initial_state: str = "OPEN",
                  tx_hash: Optional[str] = None,
                  zero_ex_order: Optional[ZeroExOrder] = None):
@@ -47,8 +49,9 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
         )
         self.is_coordinated = is_coordinated
         self.expires = expires
+        self.protocol_fee_amount = protocol_fee_amount
+        self.taker_fee_amount = taker_fee_amount
         self.available_amount_base = amount
-        self.gas_fee_amount = s_decimal_0
         self.tx_hash = tx_hash  # used for tracking market orders
         self.zero_ex_order = zero_ex_order
 
@@ -67,7 +70,8 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
                f"executed_amount_quote={self.executed_amount_quote}, " \
                f"last_state='{self.last_state}', " \
                f"available_amount_base={self.available_amount_base}, " \
-               f"gas_fee_amount={self.gas_fee_amount}, " \
+               f"protocol_fee_amount={self.protocol_fee_amount}, " \
+               f"taker_fee_amount={self.taker_fee_amount}, " \
                f"tx_hash='{self.tx_hash}', " \
                f"zero_ex_order='{self.zero_ex_order}')"
 
@@ -102,7 +106,8 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
             "executed_amount_quote": str(self.executed_amount_quote),
             "last_state": self.last_state,
             "available_amount_base": str(self.available_amount_base),
-            "gas_fee_amount": str(self.gas_fee_amount),
+            "protocol_fee_amount": str(self.protocol_fee_amount),
+            "taker_fee_amount": str(self.taker_fee_amount),
             "tx_hash": self.tx_hash,
             "zero_ex_order": zrx_order_to_json(self.zero_ex_order)
         }
@@ -120,6 +125,8 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
                 price=Decimal(data["price"]),
                 amount=Decimal(data["amount"]),
                 expires=data["expires"],
+                protocol_fee_amount=Decimal(data["protocol_fee_amount"]),
+                taker_fee_amount=Decimal(data["taker_fee_amount"]),
                 initial_state=data["last_state"],
                 tx_hash=data["tx_hash"],
                 zero_ex_order=json_to_zrx_order(data["zero_ex_order"])
@@ -127,5 +134,4 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
         retval.available_amount_base = Decimal(data["available_amount_base"])
         retval.executed_amount_base = Decimal(data["executed_amount_base"])
         retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.gas_fee_amount = Decimal(data["gas_fee_amount"])
         return retval

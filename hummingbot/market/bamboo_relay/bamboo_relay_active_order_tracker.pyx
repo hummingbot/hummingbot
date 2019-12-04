@@ -70,7 +70,9 @@ cdef class BambooRelayActiveOrderTracker:
             order_dict = {
                 "orderHash": order_hash,
                 "remainingBaseTokenAmount": event["order"]["remainingBaseTokenAmount"],
-                "isCoordinated": event["order"]["isCoordinated"]
+                "remainingQuoteTokenAmount": event["order"]["remainingQuoteTokenAmount"],
+                "isCoordinated": event["order"]["isCoordinated"],
+                "zeroExOrder": event["order"]["signedOrder"]
             }
             if order_side == "BID":
                 if price in self._active_bids:
@@ -204,8 +206,10 @@ cdef class BambooRelayActiveOrderTracker:
                 order_hash = order["orderHash"]
                 order_dict = {
                     "orderHash": order_hash,
-                    "remainingBaseTokenAmount": order["remainingBaseTokenAmount"],
-                    "isCoordinated": order["isCoordinated"]
+                    "remainingBaseTokenAmount": event["order"]["remainingBaseTokenAmount"],
+                    "remainingQuoteTokenAmount": event["order"]["remainingQuoteTokenAmount"],
+                    "isCoordinated": event["order"]["isCoordinated"],
+                    "zeroExOrder": event["order"]["signedOrder"]
                 }
 
                 if price in active_orders:
