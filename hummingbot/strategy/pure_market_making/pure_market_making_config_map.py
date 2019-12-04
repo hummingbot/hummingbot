@@ -160,7 +160,8 @@ pure_market_making_config_map = {
                                                 required_if=lambda: pure_market_making_config_map.get(
                                                     "external_price_source_type").value == "exchange",
                                                 type_str="str",
-                                                validator=is_exchange),
+                                                validator=lambda s: s != pure_market_making_config_map.get(
+                                                    "maker_market").value and is_exchange(s)),
     "external_price_source_feed_base_asset": ConfigVar(key="external_price_source_feed_base_asset",
                                                        prompt="Reference base asset from data feed? (e.g. ETH) >>> ",
                                                        required_if=lambda: pure_market_making_config_map.get(
