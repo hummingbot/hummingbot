@@ -119,7 +119,6 @@ cdef class DolomiteMarketTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 cdef class DolomiteMarket(MarketBase):
-
     # This causes it to hang when starting network
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -134,7 +133,7 @@ cdef class DolomiteMarket(MarketBase):
                  poll_interval: float = 10.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                  OrderBookTrackerDataSourceType.EXCHANGE_API,
-                 symbols: Optional[List[str]] = None,
+                 trading_pairs: Optional[List[str]] = None,
                  isTestNet: bool = False,
                  trading_required: bool = True):
 
@@ -144,7 +143,7 @@ cdef class DolomiteMarket(MarketBase):
         self.WS_ENDPOINT = TESTNET_WS_ENDPOINT if isTestNet else MAINNET_WS_ENDPOINT
         self._order_book_tracker = DolomiteOrderBookTracker(
             data_source_type=order_book_tracker_data_source_type,
-            symbols=symbols,
+            trading_pairs=trading_pairs,
             rest_api_url=self.API_REST_ENDPOINT,
             websocket_url=self.WS_ENDPOINT
         )
@@ -192,11 +191,11 @@ cdef class DolomiteMarket(MarketBase):
     def order_books(self) -> Dict[str, OrderBook]:
         return self._order_book_tracker.order_books
 
-    cdef OrderBook c_get_order_book(self, str symbol):
+    cdef OrderBook c_get_order_book(self, str trading_pair):
         cdef dict order_books = self._order_book_tracker.order_books
-        if symbol not in order_books:
-            raise ValueError(f"No order book exists for '{symbol}'.")
-        return order_books[symbol]
+        if trading_pair not in order_books:
+            raise ValueError(f"No order book exists for '{trading_pair}'.")
+        return order_books[trading_pair]
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
@@ -229,9 +228,9 @@ cdef class DolomiteMarket(MarketBase):
     # Order Submission
     # ----------------------------------------------------------
 
-    async def place_order(self, client_order_id, symbol, order_side, amount, order_type, price):
+    async def place_order(self, client_order_id, trading_pair, order_side, amount, order_type, price):
         try:
-            trading_rule = self._trading_rules[symbol]
+            trading_rule = self._trading_rules[trading_pair]
             exchange_info = self._exchange_info
 
             # Check order type support
@@ -247,10 +246,10 @@ cdef class DolomiteMarket(MarketBase):
 
             if price is None or math.isnan(price) or price == 0.0:
                 price = None
-                primary_amount = self.c_quantize_order_amount(symbol, Decimal(amount))
+                primary_amount = self.c_quantize_order_amount(trading_pair, Decimal(amount))
             else:
-                price = self.c_quantize_order_price(symbol, Decimal(price))
-                primary_amount = self.c_quantize_order_amount(symbol, Decimal(amount), price)
+                price = self.c_quantize_order_price(trading_pair, Decimal(price))
+                primary_amount = self.c_quantize_order_amount(trading_pair, Decimal(amount), price)
 
             (__,
              secondary_amount,
@@ -258,10 +257,10 @@ cdef class DolomiteMarket(MarketBase):
              num_taker_matches,
              fee_per_fill,
              network_fee_premium
-             ) = self.calculate_order_fill_and_fee(symbol, order_type, order_side, primary_amount, price)
+             ) = self.calculate_order_fill_and_fee(trading_pair, order_type, order_side, primary_amount, price)
 
             if price is None:
-                price = self.c_quantize_order_price(symbol, secondary_amount / primary_amount)
+                price = self.c_quantize_order_price(trading_pair, secondary_amount / primary_amount)
 
             # Check order size limitations
             minimum_order_size = trading_rule.min_order_size
@@ -331,11 +330,13 @@ cdef class DolomiteMarket(MarketBase):
                 f"Created {in_flight_order.description} order {client_order_id} for {primary_amount} {primary_token.ticker}.")
 
             if order_side is TradeType.BUY:
-                buy_event = BuyOrderCreatedEvent(now(), order_type, symbol, Decimal(primary_amount), Decimal(price),
+                buy_event = BuyOrderCreatedEvent(now(), order_type, trading_pair, Decimal(primary_amount),
+                                                 Decimal(price),
                                                  client_order_id)
                 self.c_trigger_event(BUY_ORDER_CREATED_EVENT, buy_event)
             else:
-                sell_event = SellOrderCreatedEvent(now(), order_type, symbol, Decimal(primary_amount), Decimal(price),
+                sell_event = SellOrderCreatedEvent(now(), order_type, trading_pair, Decimal(primary_amount),
+                                                   Decimal(price),
                                                    client_order_id)
                 self.c_trigger_event(SELL_ORDER_CREATED_EVENT, sell_event)
 
@@ -351,16 +352,16 @@ cdef class DolomiteMarket(MarketBase):
             self.stop_tracking(client_order_id)
             self.c_trigger_event(ORDER_FAILURE_EVENT, MarketOrderFailureEvent(now(), client_order_id, order_type))
 
-    cdef str c_buy(self, str symbol, object amount, object order_type = OrderType.MARKET, object price = 0.0,
+    cdef str c_buy(self, str trading_pair, object amount, object order_type = OrderType.MARKET, object price = 0.0,
                    dict kwargs = {}):
         cdef str client_order_id = str(uuid.uuid1())[:8]
-        safe_ensure_future(self.place_order(client_order_id, symbol, TradeType.BUY, amount, order_type, price))
+        safe_ensure_future(self.place_order(client_order_id, trading_pair, TradeType.BUY, amount, order_type, price))
         return client_order_id
 
-    cdef str c_sell(self, str symbol, object amount, object order_type = OrderType.MARKET, object price = 0.0,
+    cdef str c_sell(self, str trading_pair, object amount, object order_type = OrderType.MARKET, object price = 0.0,
                     dict kwargs = {}):
         cdef str client_order_id = str(uuid.uuid1())[:8]
-        safe_ensure_future(self.place_order(client_order_id, symbol, TradeType.SELL, amount, order_type, price))
+        safe_ensure_future(self.place_order(client_order_id, trading_pair, TradeType.SELL, amount, order_type, price))
         return client_order_id
 
     # ----------------------------------------
@@ -394,7 +395,7 @@ cdef class DolomiteMarket(MarketBase):
             self.logger().info(f"Failed to cancel order {client_order_id}")
             self.logger().debug(e)
 
-    cdef c_cancel(self, str symbol, str client_order_id):
+    cdef c_cancel(self, str trading_pair, str client_order_id):
         safe_ensure_future(self.cancel_order(client_order_id))
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
@@ -412,7 +413,7 @@ cdef class DolomiteMarket(MarketBase):
     # Estimation
 
     def calculate_order_fill_and_fee(self,
-                                     symbol: str,
+                                     trading_pair: str,
                                      order_type: OrderType,
                                      order_side: TradeType,
                                      amount: Decimal,
@@ -420,14 +421,14 @@ cdef class DolomiteMarket(MarketBase):
         """
         Returns (_, <fill_amount>, <fee_amount>, <taker_fill_count>, <base_fee_per_fill>, <network_fee_premium>)
         """
-        order_book = self.c_get_order_book(symbol)
+        order_book = self.c_get_order_book(trading_pair)
         exchange_info = self._exchange_info
-        trading_rule = self._trading_rules[symbol]
+        trading_rule = self._trading_rules[trading_pair]
         maker_fee_percentage = Decimal(exchange_info.maker_fee_percentage)
         taker_fee_percentage = Decimal(exchange_info.taker_fee_percentage)
 
         if order_type is OrderType.LIMIT:
-            secondary_amount = self.c_quantize_order_amount(symbol, amount * price)
+            secondary_amount = self.c_quantize_order_amount(trading_pair, amount * price)
             service_fee = max(Decimal(maker_fee_percentage) * secondary_amount, s_decimal_0)
             return TradeFee(percent=maker_fee_percentage), secondary_amount, service_fee, 0, s_decimal_0, s_decimal_0
 
@@ -444,7 +445,7 @@ cdef class DolomiteMarket(MarketBase):
                     "Unfillable MARKET order: {order_side} of {amount} {trading_rule.secondary_token.ticker}")
 
             book_query = order_book.get_quote_volume_for_base_amount(order_side is TradeType.BUY, Decimal(amount))
-            fill_amount_secondary = self.c_quantize_order_amount(symbol, Decimal(book_query.result_volume))
+            fill_amount_secondary = self.c_quantize_order_amount(trading_pair, Decimal(book_query.result_volume))
 
             fee_token = trading_rule.primary_token if order_side is TradeType.BUY else trading_rule.secondary_token
             fee_per_fill = exchange_info.per_fill_fee_registry[fee_token.ticker]
@@ -454,7 +455,7 @@ cdef class DolomiteMarket(MarketBase):
             secondary_ticker = trading_rule.secondary_token.ticker
             service_fee_in_secondary = Decimal(taker_fee_percentage) * fill_amount_secondary
             service_fee = self._exchange_rates.convert(service_fee_in_secondary, secondary_ticker, fee_token.ticker)
-            fee_amount = self.c_quantize_order_amount(symbol, max(service_fee + network_fee, s_decimal_0))
+            fee_amount = self.c_quantize_order_amount(trading_pair, max(service_fee + network_fee, s_decimal_0))
 
             trade_fee = TradeFee(percent=taker_fee_percentage, flat_fees=[(fee_token.ticker, Decimal(network_fee))])
             return trade_fee, fill_amount_secondary, fee_amount, fill_count, fee_per_fill, network_fee_premium
@@ -468,15 +469,15 @@ cdef class DolomiteMarket(MarketBase):
                           object price):
         cdef:
             tuple order_fill_and_fee_result = self.calculate_order_fill_and_fee(
-                symbol=f"{base_currency}-{quote_currency}",
+                trading_pair=f"{base_currency}-{quote_currency}",
                 order_type=order_type,
                 order_side=order_side,
                 amount=Decimal(amount),
                 price=(None if price is None else Decimal(price)))
         return order_fill_and_fee_result[0]
 
-    cdef object c_get_price(self, str symbol, bint is_buy):
-        cdef OrderBook order_book = self.c_get_order_book(symbol)
+    cdef object c_get_price(self, str trading_pair, bint is_buy):
+        cdef OrderBook order_book = self.c_get_order_book(trading_pair)
         return Decimal(order_book.c_get_price(is_buy))
 
     # ==========================================================
@@ -598,9 +599,9 @@ cdef class DolomiteMarket(MarketBase):
         token_registry = markets["global_objects"]["tokens"]
         trading_rules = dict([(market["market"], market) for market in markets["data"]])
 
-        for symbol, market in trading_rules.iteritems():
-            trading_rules[symbol] = DolomiteTradingRule.build(symbol, market, exchange_info, account_info,
-                                                              exchange_rates, token_registry)
+        for trading_pair, market in trading_rules.iteritems():
+            trading_rules[trading_pair] = DolomiteTradingRule.build(trading_pair, market, exchange_info, account_info,
+                                                                    exchange_rates, token_registry)
 
         self._exchange_info = exchange_info
         self._exchange_rates = exchange_rates
@@ -620,7 +621,7 @@ cdef class DolomiteMarket(MarketBase):
                 self.logger().warn(f"Failed to fetch tracked Dolomite order {tracked_order.identifier} from api")
                 continue
 
-            (primary_ticker, secondary_ticker) = self.split_symbol(dolomite_order["market"])
+            (primary_ticker, secondary_ticker) = self.split_trading_pair(dolomite_order["market"])
 
             try:
                 get_order_fills_route = GET_ORDER_FILLS_ROUTE.replace(':order_id', dolomite_order_id)
@@ -702,17 +703,17 @@ cdef class DolomiteMarket(MarketBase):
     # Miscellaneous
     # ----------------------------------------------------------
 
-    cdef object c_get_order_price_quantum(self, str symbol, object price):
-        return Decimal(f"1e-{self._trading_rules[symbol].price_decimal_places}")
+    cdef object c_get_order_price_quantum(self, str trading_pair, object price):
+        return Decimal(f"1e-{self._trading_rules[trading_pair].price_decimal_places}")
 
-    cdef object c_get_order_size_quantum(self, str symbol, object order_size):
-        return Decimal(f"1e-{self._trading_rules[symbol].amount_decimal_places}")
+    cdef object c_get_order_size_quantum(self, str trading_pair, object order_size):
+        return Decimal(f"1e-{self._trading_rules[trading_pair].amount_decimal_places}")
 
-    cdef object c_quantize_order_price(self, str symbol, object price):
-        return round_d(price, self._trading_rules[symbol].price_decimal_places)
+    cdef object c_quantize_order_price(self, str trading_pair, object price):
+        return round_d(price, self._trading_rules[trading_pair].price_decimal_places)
 
-    cdef object c_quantize_order_amount(self, str symbol, object amount, object price = 0.0):
-        return round_d(amount, self._trading_rules[symbol].amount_decimal_places)
+    cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price = 0.0):
+        return round_d(amount, self._trading_rules[trading_pair].amount_decimal_places)
 
     cdef c_tick(self, double timestamp):
         cdef:

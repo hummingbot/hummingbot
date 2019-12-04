@@ -14,6 +14,7 @@ cdef class TradingRule:
                  min_base_amount_increment: Decimal = s_decimal_min,
                  min_quote_amount_increment: Decimal = s_decimal_min,
                  min_notional_size: Decimal = s_decimal_0,
+                 min_order_value: Decimal = s_decimal_0,
                  max_price_significant_digits: Decimal = s_decimal_max,
                  supports_limit_orders: bool = True,
                  supports_market_orders: bool = True):
@@ -24,6 +25,7 @@ cdef class TradingRule:
         self.min_base_amount_increment = min_base_amount_increment
         self.min_quote_amount_increment = min_quote_amount_increment
         self.min_notional_size = min_notional_size
+        self.min_order_value = min_order_value
         self.max_price_significant_digits = max_price_significant_digits
         self.supports_limit_orders = supports_limit_orders
         self.supports_market_orders = supports_market_orders
@@ -36,6 +38,7 @@ cdef class TradingRule:
                f"min_base_amount_increment={self.min_base_amount_increment}), " \
                f"min_quote_amount_increment={self.min_quote_amount_increment}), " \
                f"min_notional_size={self.min_notional_size}), " \
+               f"min_order_value={self.min_order_value}), " \
                f"max_price_significant_digits={self.max_price_significant_digits}), " \
                f"supports_limit_orders={self.supports_limit_orders}), " \
                f"supports_market_orders={self.supports_market_orders})"

@@ -61,6 +61,15 @@ dolomite_test_web3_address = os.getenv("DOLOMITE_TEST_ADDR")
 bittrex_api_key = os.getenv("BITTREX_API_KEY")
 bittrex_secret_key = os.getenv("BITTREX_SECRET_KEY")
 
+# KuCoin Tests
+kucoin_api_key = os.getenv("KUCOIN_API_KEY")
+kucoin_secret_key = os.getenv("KUCOIN_SECRET_KEY")
+kucoin_passphrase = os.getenv("KUCOIN_PASSPHRASE")
+
+# Bitcoin_com Tests
+bitcoin_com_api_key = os.getenv("BITCOIN_COM_API_KEY")
+bitcoin_com_secret_key = os.getenv("BITCOIN_COM_SECRET_KEY")
+
 test_web3_provider_list = [os.getenv("WEB3_PROVIDER")]
 
 # Liquid Tests
