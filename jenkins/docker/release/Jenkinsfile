@@ -43,7 +43,7 @@ node {
           discordSend (webhookURL: env.DISCORD_DEV_URL, description: description, result: 'SUCCESS')
       }
 
-      stage('Pre-build Docker system prune') {
+      stage('Post-build Docker system prune') {
           /* Clean up docker environment */
           sh "docker system prune -fa"
       }

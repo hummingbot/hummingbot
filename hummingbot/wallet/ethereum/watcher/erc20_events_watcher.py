@@ -165,7 +165,7 @@ class ERC20EventsWatcher(BaseWatcher):
         is_weth_dai: bool = self.is_weth_dai(asset_name)
         decimals: int = self._asset_decimals[asset_name]
 
-        if is_weth_dai and hasattr(event_args, 'wad'):
+        if is_weth_dai and hasattr(event_args, "wad"):
             raw_amount: int = event_args.wad
             normalized_amount: float = raw_amount * math.pow(10, -decimals)
             from_address: str = event_args.src
@@ -187,15 +187,21 @@ class ERC20EventsWatcher(BaseWatcher):
     def handle_approve_tokens_event(self, timestamp: float, tx_hash: str, asset_name: str, event_data: AttributeDict):
         event_args: AttributeDict = event_data["args"]
         is_weth_dai: bool = self.is_weth_dai(asset_name)
-        raw_amount: int = event_args.value if not is_weth_dai else event_args.wad
         decimals: int = self._asset_decimals[asset_name]
-        normalized_amount: float = raw_amount * math.pow(10, -decimals)
-        owner_address: str = event_args["owner"] if not is_weth_dai else event_args.src
-        spender_address: str = event_args["spender"] if not is_weth_dai else event_args.guy
+
+        if is_weth_dai and hasattr(event_args, "wad"):
+            raw_amount: int = event_args.wad
+            owner_address: str = event_args.src
+            spender_address: str = event_args.guy
+        else:
+            raw_amount: int = event_args["value"]
+            owner_address: str = event_args["owner"]
+            spender_address: str = event_args["spender"]
 
         if owner_address not in self._watch_addresses:
             return
 
+        normalized_amount: float = raw_amount * math.pow(10, -decimals)
         self.trigger_event(ERC20WatcherEvent.ApprovedToken,
                            TokenApprovedEvent(timestamp, tx_hash,
                                               owner_address, spender_address,

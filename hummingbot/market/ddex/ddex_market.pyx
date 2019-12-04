@@ -101,11 +101,11 @@ cdef class DDEXMarket(MarketBase):
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                  OrderBookTrackerDataSourceType.EXCHANGE_API,
                  wallet_spender_address: str = HYDRO_MAINNET_PROXY,
-                 symbols: Optional[List[str]] = None,
+                 trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
         super().__init__()
         self._order_book_tracker = DDEXOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                        symbols=symbols)
+                                                        trading_pairs=trading_pairs)
         self._trading_required = trading_required
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
@@ -263,7 +263,7 @@ cdef class DDEXMarket(MarketBase):
             trading_rules_list = self._format_trading_rules(markets)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
-                self._trading_rules[trading_rule.symbol] = trading_rule
+                self._trading_rules[trading_rule.trading_pair] = trading_rule
             self._last_update_trading_rules_timestamp = current_timestamp
 
     def _format_trading_rules(self, markets: List[Dict[str, Any]]) -> List[TradingRule]:
@@ -271,10 +271,10 @@ cdef class DDEXMarket(MarketBase):
             list retval = []
         for market in markets:
             try:
-                symbol = market["id"]
+                trading_pair = market["id"]
                 min_price_increment = Decimal(f"1e-{market['priceDecimals']}")
                 min_base_amount_increment = Decimal(f"1e-{market['amountDecimals']}")
-                retval.append(TradingRule(symbol,
+                retval.append(TradingRule(trading_pair,
                                           min_order_size=Decimal(market["minOrderSize"]),
                                           max_price_significant_digits=Decimal(market["pricePrecision"]),
                                           min_price_increment=min_price_increment,
@@ -282,7 +282,7 @@ cdef class DDEXMarket(MarketBase):
                                           supports_limit_orders="limit" in market["supportedOrderTypes"],
                                           supports_market_orders="market" in market["supportedOrderTypes"]))
             except Exception:
-                self.logger().error(f"Error parsing the symbol {symbol}. Skipping.", exc_info=True)
+                self.logger().error(f"Error parsing the trading_pair {trading_pair}. Skipping.", exc_info=True)
         return retval
 
     async def _update_order_fills_from_trades(self):
@@ -294,7 +294,7 @@ cdef class DDEXMarket(MarketBase):
 
         trading_pairs_to_order_map = defaultdict(lambda: {})
         for o in self._in_flight_orders.values():
-            trading_pairs_to_order_map[o.symbol][o.exchange_order_id] = o
+            trading_pairs_to_order_map[o.trading_pair][o.exchange_order_id] = o
         trading_pairs = list(trading_pairs_to_order_map.keys())
         tasks = [self.list_account_trades(trading_pair) for trading_pair in trading_pairs]
         results = await safe_gather(*tasks, return_exceptions=True)
@@ -323,7 +323,7 @@ cdef class DDEXMarket(MarketBase):
                         )
                         order_filled_event = OrderFilledEvent(self._current_timestamp,
                                                               client_order_id,
-                                                              tracked_order.symbol,
+                                                              tracked_order.trading_pair,
                                                               tracked_order.trade_type,
                                                               tracked_order.order_type,
                                                               execute_price,
@@ -529,7 +529,7 @@ cdef class DDEXMarket(MarketBase):
             self._gas_fee_weth = Decimal(res["data"]["gasFeeAmount"])
             params = {
                 "amount": "1",
-                "marketId": "WETH-DAI",
+                "marketId": "WETH-SAI",
                 "price": "1",
             }
             res = await self._api_request(http_method="get", url=calc_fee_url, params=params)
@@ -551,25 +551,25 @@ cdef class DDEXMarket(MarketBase):
         # DDEX only quotes with WETH or stable coins
         if quote_currency == "WETH":
             gas_fee = self._gas_fee_weth
-        elif quote_currency in ["DAI", "TUSD", "USDC", "PAX", "USDT"]:
+        elif quote_currency in ["SAI", "DAI", "TUSD", "USDC", "PAX", "USDT"]:
             gas_fee = self._gas_fee_usd
         else:
             self.logger().warning(
-                f"Unrecognized quote token symbol - {quote_currency}. Assuming gas fee is in stable coin units."
+                f"Unrecognized quote token asset - {quote_currency}. Assuming gas fee is in stable coin units."
             )
             gas_fee = self._gas_fee_usd
         percent = self._maker_trade_fee if order_type is OrderType.LIMIT else self._taker_trade_fee
         return TradeFee(percent, flat_fees=[(quote_currency, gas_fee)])
 
-    async def build_unsigned_order(self, amount: Decimal, price: Decimal, side: str, symbol: str, order_type: OrderType,
+    async def build_unsigned_order(self, amount: Decimal, price: Decimal, side: str, trading_pair: str, order_type: OrderType,
                                    expires: int) -> Dict[str, Any]:
         url = "%s/orders/build" % (self.DDEX_REST_ENDPOINT,)
         headers = self._generate_auth_headers()
         data = {
-            "amount": str(amount),
-            "price": str(price) if price != s_decimal_NaN else "0",
+            "amount": f"{amount:f}",
+            "price": f"{price:f}" if price != s_decimal_NaN else "0",
             "side": side,
-            "marketId": symbol,
+            "marketId": trading_pair,
             "orderType": "market" if order_type is OrderType.MARKET else "limit",
             "expires": expires
         }
@@ -577,9 +577,9 @@ cdef class DDEXMarket(MarketBase):
         response_data = await self._api_request('post', url=url, data=data, headers=headers)
         return response_data["data"]["order"]
 
-    async def place_order(self, amount: Decimal, price: Decimal, side: str, symbol: str, order_type: OrderType,
+    async def place_order(self, amount: Decimal, price: Decimal, side: str, trading_pair: str, order_type: OrderType,
                           expires: int = 0) -> Dict[str, Any]:
-        unsigned_order = await self.build_unsigned_order(symbol=symbol, amount=amount, price=price, side=side,
+        unsigned_order = await self.build_unsigned_order(trading_pair=trading_pair, amount=amount, price=price, side=side,
                                                          order_type=order_type, expires=expires)
         order_id = unsigned_order["id"]
         signature = self.wallet.current_backend.sign_hash(hexstr=order_id)
@@ -623,8 +623,8 @@ cdef class DDEXMarket(MarketBase):
         response_data = await self._api_request('get', url, headers=self._generate_auth_headers())
         return response_data["data"]["order"]
 
-    async def list_account_trades(self, symbol: str) -> Dict[str, Any]:
-        url = "%s/markets/%s/trades/mine" % (self.DDEX_REST_ENDPOINT, symbol)
+    async def list_account_trades(self, trading_pair: str) -> Dict[str, Any]:
+        url = "%s/markets/%s/trades/mine" % (self.DDEX_REST_ENDPOINT, trading_pair)
         response_data = await self._api_request('get', url, headers=self._generate_auth_headers())
         return response_data["data"]["trades"]
 
@@ -635,17 +635,17 @@ cdef class DDEXMarket(MarketBase):
         locked_balance_list = response_data["data"]["lockedBalances"]
         locked_balance_dict = {}
         for locked_balance in locked_balance_list:
-            symbol = locked_balance["symbol"]
-            if self.wallet.erc20_tokens.get(symbol):
+            trading_pair = locked_balance["symbol"]
+            if self.wallet.erc20_tokens.get(trading_pair):
                 try:
-                    decimals = await self.wallet.erc20_tokens[symbol].get_decimals()
-                    locked_balance_dict[symbol] = Decimal(locked_balance["amount"]) / Decimal(f"1e{decimals}")
+                    decimals = await self.wallet.erc20_tokens[trading_pair].get_decimals()
+                    locked_balance_dict[trading_pair] = Decimal(locked_balance["amount"]) / Decimal(f"1e{decimals}")
                 except Exception as e:
-                    self.logger().error(f"Error getting decimals value for ERC20 token '{symbol}'.", exc_info=True)
+                    self.logger().error(f"Error getting decimals value for ERC20 token '{trading_pair}'.", exc_info=True)
         return locked_balance_dict
 
-    async def get_market(self, symbol: str) -> Dict[str, Any]:
-        url = "%s/markets/%s" % (self.DDEX_REST_ENDPOINT, symbol)
+    async def get_market(self, trading_pair: str) -> Dict[str, Any]:
+        url = "%s/markets/%s" % (self.DDEX_REST_ENDPOINT, trading_pair)
         response_data = await self._api_request('get', url=url)
         return response_data["data"]["market"]
 
@@ -654,33 +654,33 @@ cdef class DDEXMarket(MarketBase):
         response_data = await self._api_request('get', url=url)
         return response_data["data"]["markets"]
 
-    async def get_ticker(self, symbol: str) -> Dict[str, Any]:
-        url = "%s/markets/%s/ticker" % (self.DDEX_REST_ENDPOINT, symbol)
+    async def get_ticker(self, trading_pair: str) -> Dict[str, Any]:
+        url = "%s/markets/%s/ticker" % (self.DDEX_REST_ENDPOINT, trading_pair)
         response_data = await self._api_request('get', url=url)
         return response_data["data"]["ticker"]
 
-    cdef str c_buy(self, str symbol, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
+    cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
                    dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
-            str order_id = str(f"buy-{symbol}-{tracking_nonce}")
+            str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
 
-        safe_ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
+        safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
 
-    async def execute_buy(self, order_id: str, symbol: str, amount: Decimal, order_type: OrderType,
+    async def execute_buy(self, order_id: str, trading_pair: str, amount: Decimal, order_type: OrderType,
                           price: Decimal) -> str:
         cdef:
-            object q_price = self.c_quantize_order_price(symbol, price)
-            object q_amt = self.c_quantize_order_amount(symbol, amount)
-            TradingRule trading_rule = self._trading_rules[symbol]
+            object q_price = self.c_quantize_order_price(trading_pair, price)
+            object q_amt = self.c_quantize_order_amount(trading_pair, amount)
+            TradingRule trading_rule = self._trading_rules[trading_pair]
             object quote_amount
 
         # Convert the amount to quote tokens amount, for market buy orders, as required by DDEX order API.
         if order_type is OrderType.MARKET:
-            quote_amount = self.c_get_quote_volume_for_base_amount(symbol, True, amount).result_volume
+            quote_amount = self.c_get_quote_volume_for_base_amount(trading_pair, True, amount).result_volume
             # Quantize according to price rules, not base token amount rules.
-            q_amt = self.c_quantize_order_price(symbol, quote_amount)
+            q_amt = self.c_quantize_order_amount(trading_pair, quote_amount)
 
         try:
             if order_type is OrderType.LIMIT:
@@ -691,24 +691,25 @@ cdef class DDEXMarket(MarketBase):
                     raise ValueError(f"Buy order amount {amount} is lower than the minimum order size")
 
             if order_type is OrderType.LIMIT and trading_rule.supports_limit_orders is False:
-                raise ValueError(f"Limit order is not supported for trading pair {symbol}")
+                raise ValueError(f"Limit order is not supported for trading pair {trading_pair}")
             if order_type is OrderType.MARKET and trading_rule.supports_market_orders is False:
-                raise ValueError(f"Market order is not supported for trading pair {symbol}")
+                raise ValueError(f"Market order is not supported for trading pair {trading_pair}")
 
-            self.c_start_tracking_order(order_id, symbol, TradeType.BUY, order_type, q_amt, q_price)
-            order_result = await self.place_order(amount=q_amt, price=q_price, side="buy", symbol=symbol,
+            self.c_start_tracking_order(order_id, trading_pair, TradeType.BUY, order_type, q_amt, q_price)
+            self.logger().debug(f"buying {q_amt} {trading_pair} at {q_price}, order type = {order_type}.")
+            order_result = await self.place_order(amount=q_amt, price=q_price, side="buy", trading_pair=trading_pair,
                                                   order_type=order_type)
             exchange_order_id = order_result["id"]
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type} buy order {exchange_order_id} for "
-                                   f"{q_amt} {symbol}.")
+                                   f"{q_amt} {trading_pair}.")
                 tracked_order.update_exchange_order_id(exchange_order_id)
             self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
                                  BuyOrderCreatedEvent(
                                      self._current_timestamp,
                                      order_type,
-                                     symbol,
+                                     trading_pair,
                                      q_amt,
                                      q_price,
                                      order_id
@@ -717,7 +718,7 @@ cdef class DDEXMarket(MarketBase):
         except Exception as e:
             self.c_stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting buy order to DDEX for {amount} {symbol}: {str(e)}",
+                f"Error submitting buy order to DDEX for {amount} {trading_pair}: {str(e)}",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit buy order to DDEX. "
                                 f"Check Ethereum wallet and network connection."
@@ -728,44 +729,44 @@ cdef class DDEXMarket(MarketBase):
                                                          order_type)
                                  )
 
-    cdef str c_sell(self, str symbol, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
+    cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
                     dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
-            str order_id = str(f"sell-{symbol}-{tracking_nonce}")
+            str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
 
-        safe_ensure_future(self.execute_sell(order_id, symbol, amount, order_type, price))
+        safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
 
-    async def execute_sell(self, order_id: str, symbol: str, amount: Decimal, order_type: OrderType,
+    async def execute_sell(self, order_id: str, trading_pair: str, amount: Decimal, order_type: OrderType,
                            price: Decimal) -> str:
         cdef:
-            object q_price = self.c_quantize_order_price(symbol, price)
-            object q_amt = self.c_quantize_order_amount(symbol, amount)
-            TradingRule trading_rule = self._trading_rules[symbol]
+            object q_price = self.c_quantize_order_price(trading_pair, price)
+            object q_amt = self.c_quantize_order_amount(trading_pair, amount)
+            TradingRule trading_rule = self._trading_rules[trading_pair]
 
         try:
             if q_amt < trading_rule.min_order_size:
                 raise ValueError(f"Sell order amount {amount} is lower than the minimum order size ")
             if order_type is OrderType.LIMIT and trading_rule.supports_limit_orders is False:
-                raise ValueError(f"Limit order is not supported for trading pair {symbol}")
+                raise ValueError(f"Limit order is not supported for trading pair {trading_pair}")
             if order_type is OrderType.MARKET and trading_rule.supports_market_orders is False:
-                raise ValueError(f"Market order is not supported for trading pair {symbol}")
+                raise ValueError(f"Market order is not supported for trading pair {trading_pair}")
 
-            self.c_start_tracking_order(order_id, symbol, TradeType.SELL, order_type, q_amt, q_price)
-            order_result = await self.place_order(amount=q_amt, price=q_price, side="sell", symbol=symbol,
+            self.c_start_tracking_order(order_id, trading_pair, TradeType.SELL, order_type, q_amt, q_price)
+            order_result = await self.place_order(amount=q_amt, price=q_price, side="sell", trading_pair=trading_pair,
                                                   order_type=order_type)
             exchange_order_id = order_result["id"]
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type} sell order {exchange_order_id} for "
-                                   f"{q_amt} {symbol}.")
+                                   f"{q_amt} {trading_pair}.")
                 tracked_order.update_exchange_order_id(exchange_order_id)
             self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
                                  SellOrderCreatedEvent(
                                      self._current_timestamp,
                                      order_type,
-                                     symbol,
+                                     trading_pair,
                                      q_amt,
                                      q_price,
                                      order_id
@@ -774,7 +775,7 @@ cdef class DDEXMarket(MarketBase):
         except Exception as e:
             self.c_stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting sell order to DDEX for {amount} {symbol}: {str(e)}",
+                f"Error submitting sell order to DDEX for {amount} {trading_pair}: {str(e)}",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit sell order to DDEX. "
                                 f"Check Ethereum wallet and network connection."
@@ -785,7 +786,7 @@ cdef class DDEXMarket(MarketBase):
                                                          order_type)
                                  )
 
-    cdef c_cancel(self, str symbol, str client_order_id):
+    cdef c_cancel(self, str trading_pair, str client_order_id):
         # If there's an ongoing cancel on this order within the expiry time, don't do it again.
         if self._in_flight_cancels.get(client_order_id, 0) > self._current_timestamp - self.CANCEL_EXPIRY_TIME:
             return
@@ -840,13 +841,13 @@ cdef class DDEXMarket(MarketBase):
     def unwrap_eth(self, amount: float) -> str:
         return self._wallet.unwrap_eth(amount)
 
-    cdef OrderBook c_get_order_book(self, str symbol):
+    cdef OrderBook c_get_order_book(self, str trading_pair):
         cdef:
             dict order_books = self._order_book_tracker.order_books
 
-        if symbol not in order_books:
-            raise ValueError(f"No order book exists for '{symbol}'.")
-        return order_books[symbol]
+        if trading_pair not in order_books:
+            raise ValueError(f"No order book exists for '{trading_pair}'.")
+        return order_books[trading_pair]
 
     async def start_network(self):
         if self._order_tracker_task is not None:
@@ -903,7 +904,7 @@ cdef class DDEXMarket(MarketBase):
 
     cdef c_start_tracking_order(self,
                                 str client_order_id,
-                                str symbol,
+                                str trading_pair,
                                 object trade_type,
                                 object order_type,
                                 object amount,
@@ -911,7 +912,7 @@ cdef class DDEXMarket(MarketBase):
         self._in_flight_orders[client_order_id] = DDEXInFlightOrder(
             client_order_id=client_order_id,
             exchange_order_id=None,
-            symbol=symbol,
+            trading_pair=trading_pair,
             order_type=order_type,
             trade_type=trade_type,
             price=price,
@@ -934,27 +935,27 @@ cdef class DDEXMarket(MarketBase):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
-    cdef object c_get_order_price_quantum(self, str symbol, object price):
+    cdef object c_get_order_price_quantum(self, str trading_pair, object price):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
+            TradingRule trading_rule = self._trading_rules[trading_pair]
         decimals_quantum = trading_rule.min_price_increment
-        if price > s_decimal_0:
+        if price.is_finite() and price > s_decimal_0:
             precision_quantum = Decimal(f"1e{math.ceil(math.log10(price)) - trading_rule.max_price_significant_digits}")
         else:
             precision_quantum = s_decimal_0
         return max(decimals_quantum, precision_quantum)
 
-    cdef object c_get_order_size_quantum(self, str symbol, object amount):
+    cdef object c_get_order_size_quantum(self, str trading_pair, object amount):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
+            TradingRule trading_rule = self._trading_rules[trading_pair]
         decimals_quantum = trading_rule.min_base_amount_increment
         return decimals_quantum
 
-    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=Decimal(0)):
+    cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=Decimal(0)):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
-        quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
+            TradingRule trading_rule = self._trading_rules[trading_pair]
+        quantized_amount = MarketBase.c_quantize_order_amount(self, trading_pair, amount)
         # Check against min_order_size and. If not passing the check, return 0.
-        if quantized_amount < MarketBase.c_quantize_order_amount(self, symbol, trading_rule.min_order_size):
+        if quantized_amount < MarketBase.c_quantize_order_amount(self, trading_pair, trading_rule.min_order_size):
             return s_decimal_0
         return quantized_amount

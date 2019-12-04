@@ -1,12 +1,14 @@
 from decimal import Decimal
 
 import pandas as pd
+import threading
 from typing import (
     Any,
     Dict,
     Set,
     Tuple,
-    TYPE_CHECKING)
+    TYPE_CHECKING,
+)
 from hummingbot.client.performance_analysis import PerformanceAnalysis
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.market.market_base import MarketBase
@@ -23,6 +25,10 @@ if TYPE_CHECKING:
 class HistoryCommand:
     def history(self,  # type: HummingbotApplication
                 ):
+        if threading.current_thread() != threading.main_thread():
+            self.ev_loop.call_soon_threadsafe(self.history)
+            return
+
         if not all(market.ready for market in self.markets.values()):
             self._notify("  History stats are not available before Markets are ready.")
             return
@@ -83,7 +89,7 @@ class HistoryCommand:
                     asset_name = market_trading_pair_tuple.base_asset if is_base else market_trading_pair_tuple.quote_asset
                     asset_name = asset_name.upper()
                     if len(self.assets) == 0 or len(self.markets) == 0:
-                        # Prevent KeyError '***SYMBOL***'
+                        # Prevent KeyError '***asset_name***'
                         amount = self.starting_balances[asset_name][market_name]
                     else:
                         amount = self.starting_balances[asset_name][market_name] if is_starting \
@@ -99,7 +105,7 @@ class HistoryCommand:
 
     def get_market_mid_price(self,  # type: HummingbotApplication
                              ) -> float:
-        # Compute the current exchange rate. We use the first market_symbol_pair because
+        # Compute the current exchange rate. We use the first market_trading_pair_tuples because
         # if the trading pairs are different, such as WETH-DAI and ETH-USD, the currency
         # pairs above will contain the information in terms of the first trading pair.
         market_pair_info = self.market_trading_pair_tuples[0]
@@ -150,33 +156,34 @@ class HistoryCommand:
         if len(self.market_trading_pair_tuples) == 0:
             self._notify("  Performance analysis is not available before bot starts")
             return
+
         try:
+            raw_queried_trades = self._get_trades_from_session(self.init_time)
             current_strategy_name: str = self.markets_recorder.strategy_name
-            analysis_start_time: int = self.init_time
             primary_quote_asset: str = self.market_trading_pair_tuples[0].quote_asset.upper()
             performance_analysis: PerformanceAnalysis = PerformanceAnalysis()
             trade_performance_stats, market_trading_pair_stats = performance_analysis.calculate_trade_performance(
-                analysis_start_time,
                 current_strategy_name,
-                self.market_trading_pair_tuples
+                self.market_trading_pair_tuples,
+                raw_queried_trades,
             )
             trade_performance_status_line = []
-            market_df_data = []
+            market_df_data: Set[Tuple[str, str, float, float, str, str]] = set()
             market_df_columns = ["Market", "Trading_Pair", "Start_Price", "End_Price",
                                  "Total_Value_Delta", "Profit"]
 
             for market_trading_pair_tuple, trading_pair_stats in market_trading_pair_stats.items():
-                market_df_data.append([
+                market_df_data.add((
                     market_trading_pair_tuple.market.display_name,
                     market_trading_pair_tuple.trading_pair.upper(),
                     float(trading_pair_stats["starting_quote_rate"]),
                     float(trading_pair_stats["end_quote_rate"]),
                     f"{trading_pair_stats['trading_pair_delta']:.8f} {primary_quote_asset}",
                     f"{trading_pair_stats['trading_pair_delta_percentage']:.3f} %"
-                ])
+                ))
 
             inventory_df: pd.DataFrame = self.balance_comparison_data_frame(market_trading_pair_stats)
-            market_df: pd.DataFrame = pd.DataFrame(data=market_df_data, columns=market_df_columns)
+            market_df: pd.DataFrame = pd.DataFrame(data=list(market_df_data), columns=market_df_columns)
             portfolio_delta: Decimal = trade_performance_stats["portfolio_delta"]
             portfolio_delta_percentage: Decimal = trade_performance_stats["portfolio_delta_percentage"]
 
