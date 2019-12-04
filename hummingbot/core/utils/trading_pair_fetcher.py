@@ -6,7 +6,8 @@ from typing import (
 )
 
 from hummingbot.core.utils.async_utils import safe_ensure_future
-
+import certifi
+import ssl
 
 BINANCE_ENDPOINT = "https://api.binance.com/api/v1/exchangeInfo"
 DDEX_ENDPOINT = "https://api.ddex.io/v3/markets"
@@ -102,12 +103,13 @@ class TradingPairFetcher:
     async def fetch_bamboo_relay_trading_pairs() -> List[str]:
         from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 
+        sslcontext = ssl.create_default_context(cafile=certifi.where())
         trading_pairs = set()
         page_count = 1
         while True:
             async with aiohttp.ClientSession() as client:
                 async with client.get(f"{BAMBOO_RELAY_ENDPOINT}?perPage=1000&page={page_count}",
-                                      timeout=API_CALL_TIMEOUT) as response:
+                                      timeout=API_CALL_TIMEOUT, ssl=sslcontext) as response:
                     if response.status == 200:
                         try:
                             markets = await response.json()
