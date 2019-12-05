@@ -165,9 +165,6 @@ class ERC20EventsWatcher(BaseWatcher):
         is_weth_sai: bool = self.is_weth_sai(asset_name)
         decimals: int = self._asset_decimals[asset_name]
 
-        if is_weth_sai:
-            self.logger().info(event_args)
-
         if is_weth_sai and hasattr(event_args, "wad"):
             raw_amount: int = event_args.wad
             normalized_amount: float = raw_amount * math.pow(10, -decimals)
@@ -191,9 +188,6 @@ class ERC20EventsWatcher(BaseWatcher):
         event_args: AttributeDict = event_data["args"]
         is_weth_sai: bool = self.is_weth_sai(asset_name)
         decimals: int = self._asset_decimals[asset_name]
-
-        if is_weth_sai:
-            self.logger().info(event_args)
 
         if is_weth_sai and hasattr(event_args, "wad"):
             raw_amount: int = event_args.wad
