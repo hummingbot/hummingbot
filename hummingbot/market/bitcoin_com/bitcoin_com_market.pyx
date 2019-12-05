@@ -660,7 +660,7 @@ cdef class BitcoinComMarket(MarketBase):
         async for event_message in self._iter_user_event_queue():
             try:
                 content = event_message.content
-                event_type = content.get("event_type")
+                event_type = content["event_type"]
 
                 # at the moment we only handle order events
                 if (event_type is not EventTypes.ActiveOrdersUpdate):
@@ -669,7 +669,7 @@ cdef class BitcoinComMarket(MarketBase):
                 tracked_order = None
 
                 for order in self._in_flight_orders.values():
-                    if order.exchange_order_id is content.get("clientOrderId"):
+                    if order.exchange_order_id == content["id"]:
                         tracked_order = order
                         break
 
@@ -677,24 +677,19 @@ cdef class BitcoinComMarket(MarketBase):
                     continue
 
                 order_type_description = tracked_order.order_type_description
-                execute_price = Decimal(content.get("price", 0.0))
+                tracked_order.last_state = content["status"]
+                execute_price = s_decimal_0
                 execute_amount_diff = s_decimal_0
 
-                if tracked_order.reportType is "trade":
-                    execute_amount_diff = Decimal(content.get("tradeQuantity", 0.0))
+                if content["reportType"] == "trade":
+                    execute_price = Decimal(content["tradePrice"])
+                    execute_amount_diff = Decimal(content["tradeQuantity"])
                     tracked_order.executed_amount_base += execute_amount_diff
                     tracked_order.executed_amount_quote += execute_amount_diff * execute_price
 
-                if tracked_order.reportType is "replaced":
-                    tracked_order.amount = Decimal(content.get("quantity", 0.0))
-                    tracked_order.price = Decimal(content.get("price", 0.0))
-
-                if tracked_order.reportType is "new" or content.get("status") is "filled":
-                    remaining_size = tracked_order.amount - Decimal(content.get("cumQuantity", 0))
-                    new_confirmed_amount = tracked_order.amount - remaining_size
-                    execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-                    tracked_order.executed_amount_base = new_confirmed_amount
-                    tracked_order.executed_amount_quote += execute_amount_diff * execute_price
+                elif content["reportType"] == "replaced":
+                    tracked_order.amount = Decimal(content["quantity"])
+                    tracked_order.price = Decimal(content["price"])
 
                 if execute_amount_diff > s_decimal_0:
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
@@ -719,7 +714,7 @@ cdef class BitcoinComMarket(MarketBase):
                                              exchange_trade_id=tracked_order.exchange_order_id
                                          ))
 
-                if content.get("status") is "filled":
+                if content["status"] == "filled":
                     if tracked_order.trade_type == TradeType.BUY:
                         self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
                                            f"according to Bitcoin.com user stream.")
@@ -749,7 +744,7 @@ cdef class BitcoinComMarket(MarketBase):
                                                                      tracked_order.fee_paid,
                                                                      tracked_order.order_type))
                     self.c_stop_tracking_order(tracked_order.client_order_id)
-                else:  # reason == "canceled":
+                elif content["status"] in ["suspended", "canceled", "expired"]:
                     execute_amount_diff = 0
                     tracked_order.last_state = "canceled"
                     self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,

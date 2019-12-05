@@ -253,7 +253,7 @@ class BitcoinComMarketUnitTest(unittest.TestCase):
         amount: Decimal = Decimal("0.0001")
         self.assertGreater(self.market.get_balance("ETH"), amount)
 
-        bid_price: Decimal = current_bid_price - Decimal("0.1") * current_bid_price
+        bid_price: Decimal = current_bid_price * Decimal("0.5")
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
