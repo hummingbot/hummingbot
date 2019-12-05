@@ -34,11 +34,11 @@ class EventTypes(enum.Enum):
 def add_event_type(event_type: EventTypes, data: Any) -> Dict:
     if (type(data) is list):
         return {
-            "type": event_type,
+            "event_type": event_type,
             "data": data
         }
 
-    data["type"] = event_type
+    data["event_type"] = event_type
     return data
 
 

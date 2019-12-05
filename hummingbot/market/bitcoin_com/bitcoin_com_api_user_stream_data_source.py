@@ -3,10 +3,8 @@
 import asyncio
 import logging
 import pandas as pd
-import time
 
 from typing import Optional, List, AsyncIterable, Any
-from aiostream import stream
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.market.bitcoin_com.bitcoin_com_auth import BitcoinComAuth
 from hummingbot.logger import HummingbotLogger
@@ -66,29 +64,6 @@ class BitcoinComAPIUserStreamDataSource(UserStreamTrackerDataSource):
         finally:
             await ws.disconnect()
 
-    async def _get_trading_balance(self) -> AsyncIterable[Any]:
-        """
-        Poll balance
-        """
-
-        try:
-            ws = BitcoinComWebsocket()
-            await ws.connect()
-
-            async for authenticated in ws.authenticate(self._bitcoin_com_auth.api_key, self._bitcoin_com_auth.secret_key):
-                while True:
-                    try:
-                        async for msg in ws.request("getTradingBalance", {}):
-                            msg["method"] = "getTradingBalance"
-                            yield msg
-                            break
-                    finally:
-                        await asyncio.sleep(5)
-        except Exception as e:
-            raise e
-        finally:
-            await ws.disconnect()
-
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
         *required
@@ -99,43 +74,29 @@ class BitcoinComAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         while True:
             try:
-                combine = stream.merge(
-                    self._listen_to_reports(),
-                    self._get_trading_balance()
-                )
+                async for response in self._listen_to_reports():
+                    if (response["error"] is not None):
+                        self.logger().error(response["error"])
+                        continue
 
-                async with combine.stream() as streamer:
-                    async for response in streamer:
-                        if (response["error"] is not None):
-                            self.logger().error(response["error"])
-                            continue
+                    method = response["method"]
+                    data = response["data"]
 
-                        method = response["method"]
-                        data = response["data"]
-
-                        if (method == "getTradingBalance"):
-                            order_timestamp: float = time.time()
+                    if (method == "activeOrders"):
+                        for order in data:
+                            order_timestamp: float = pd.Timestamp(order["updatedAt"]).timestamp()
                             order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(
-                                add_event_type(EventTypes.BalanceSnapshot, data),
+                                add_event_type(EventTypes.ActiveOrdersUpdate, order),
                                 order_timestamp
                             )
                             output.put_nowait(order_book_message)
-                        elif (method == "activeOrders"):
-                            for order in data:
-                                order_timestamp: float = pd.Timestamp(order["updatedAt"]).timestamp()
-                                order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(
-                                    add_event_type(EventTypes.ActiveOrdersUpdate, order),
-                                    order_timestamp
-                                )
-                                output.put_nowait(order_book_message)
-                        else:
-                            order_timestamp: float = pd.Timestamp(data["updatedAt"]).timestamp()
-                            order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(
-                                add_event_type(EventTypes.ActiveOrdersUpdate, data),
-                                order_timestamp
-                            )
-                            output.put_nowait(order_book_message)
-
+                    else:
+                        order_timestamp: float = pd.Timestamp(data["updatedAt"]).timestamp()
+                        order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(
+                            add_event_type(EventTypes.ActiveOrdersUpdate, data),
+                            order_timestamp
+                        )
+                        output.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
             except Exception:

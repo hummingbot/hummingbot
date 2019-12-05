@@ -660,11 +660,7 @@ cdef class BitcoinComMarket(MarketBase):
         async for event_message in self._iter_user_event_queue():
             try:
                 content = event_message.content
-                event_type = content.get("type")
-
-                #   TODO: implement balance, maybe this is not needed since it's just polling
-                #   if (event_type is EventTypes.BalanceSnapshot):
-                #       continue
+                event_type = content.get("event_type")
 
                 # at the moment we only handle order events
                 if (event_type is not EventTypes.ActiveOrdersUpdate):
