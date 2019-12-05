@@ -34,12 +34,18 @@ cdef class KrakenOrderBook(OrderBook):
                                        timestamp: Optional[float] = None,
                                        metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
-            msg.update(metadata)
+            bids = msg["bids"]
+            asks = msg["asks"]
+            symbol = metadata["symbol"]
+        else:
+            bids = msg[1]["bs"]
+            asks = msg[1]["as"]
+            symbol = msg[-1]
         content = {
-            "symbol": msg["symbol"],
+            "symbol": symbol,
             "update_id": timestamp,
-            "bids": msg["bids"],
-            "asks": msg["asks"]
+            "bids": bids,
+            "asks": asks
         }
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, content, timestamp)
 

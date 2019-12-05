@@ -114,7 +114,6 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 for symbol, quoteVolume in zip(all_markets.index,
                                             all_markets.quoteVolume.astype("float"))]
             all_markets.loc[:, "USDVolume"] = usd_volume
-            all_markets.loc[:, "volume"] = all_markets.quoteVolume
         return all_markets.sort_values("USDVolume", ascending=False)
 
     async def get_trading_pairs(self) -> List[str]:
@@ -230,31 +229,44 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await asyncio.sleep(30.0)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        # Orderbooks Diffs and Snapshots are handled by listen_for_order_book_stream()
+        pass
+
+    async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        # Orderbooks Diffs and Snapshots are handled by listen_for_order_book_stream()
+        pass
+
+    async def listen_for_order_book_stream(self,
+                                           ev_loop: asyncio.BaseEventLoop,
+                                           snapshot_queue: asyncio.Queue,
+                                           diff_queue: asyncio.Queue):
         while True:
             try:
                 trading_pairs: List[str] = await self.get_trading_pairs()
                 async with websockets.connect(KRAKEN_WS_URI) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
-                    for trading_pair in trading_pairs:
-                        subscribe_request: Dict[str, Any] = {
-                            "event": "subscribe",
-                            "pair": [trading_pair],
-                            "subscription": {"name": "book"}
-                        }
-                        await ws.send(json.dumps(subscribe_request))
+                    # for trading_pair in trading_pairs:
+                    subscribe_request: Dict[str, Any] = {
+                        "event": "subscribe",
+                        "pair": trading_pairs,
+                        "subscription": {"name": "book"}
+                    }
+                    await ws.send(json.dumps(subscribe_request))
 
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
-                        if "pong" in msg:
-                            await ws.send({"event": "ping"})
                         if type(msg) is list:
                             if (len(msg) == 4 or len(msg) == 5) and ('a' in msg[1] or 'b' in msg[1]):
                                 order_book_message: OrderBookMessage = KrakenOrderBook.diff_message_from_exchange(
                                     msg,
                                     time.time())
-                                output.put_nowait(order_book_message)
+                                diff_queue.put_nowait(order_book_message)
                             elif len(msg) == 4 and 'as' in msg[1] and 'bs' in msg[1]:
-                                continue
+                                order_book_message = KrakenOrderBook.snapshot_message_from_exchange(
+                                    msg,
+                                    time.time())
+                                snapshot_message: Order
+                                snapshot_queue.put_nowait(order_book_message)
                         elif msg["event"] == "heartbeat":
                             continue
                         elif len(msg) != 4:
@@ -265,35 +277,3 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
                 await asyncio.sleep(30.0)
-
-    async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        while True:
-            try:
-                trading_pairs: List[str] = await self.get_trading_pairs()
-                async with aiohttp.ClientSession() as client:
-                    for trading_pair in trading_pairs:
-                        try:
-                            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
-                            snapshot_timestamp: float = time.time()
-                            snapshot_message: OrderBookMessage = KrakenOrderBook.snapshot_message_from_exchange(
-                                snapshot,
-                                snapshot_timestamp,
-                                metadata={"symbol": trading_pair}
-                            )
-                            output.put_nowait(snapshot_message)
-                            self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-                            await asyncio.sleep(5.0)
-                        except asyncio.CancelledError:
-                            raise
-                        except Exception:
-                            self.logger().error("Unexpected error.", exc_info=True)
-                            await asyncio.sleep(5.0)
-                    this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
-                    next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
-                    delta: float = next_hour.timestamp() - time.time()
-                    await asyncio.sleep(delta)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error("Unexpected error.", exc_info=True)
-                await asyncio.sleep(5.0)
