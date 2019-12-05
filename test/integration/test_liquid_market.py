@@ -56,7 +56,7 @@ MAINNET_RPC_URL = "http://mainnet-rpc.mainnet:8545"
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class LquidMarketUnitTest(unittest.TestCase):
+class LiquidMarketUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
@@ -82,7 +82,7 @@ class LquidMarketUnitTest(unittest.TestCase):
             conf.liquid_api_key, conf.liquid_secret_key,
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-            trading_pairs=['ETHUSD', 'LCXBTC', 'CELETH']
+            trading_pairs=['ETH-USD', 'LCX-BTC', 'CEL-ETH']
         )
         print("Initializing Liquid market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -149,11 +149,11 @@ class LquidMarketUnitTest(unittest.TestCase):
     def test_buy_and_sell(self):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
 
-        # Try to buy 0.02 ETH worth of ZRX from the exchange, and watch for completion event.
-        current_price: Decimal = self.market.get_price("CELETH", True)
+        # Try to buy 0.005 ETH worth of CEL from the exchange, and watch for completion event.
+        current_price: Decimal = self.market.get_price("CEL-ETH", True)
         amount: Decimal = Decimal("0.005") / current_price
-        quantized_amount: Decimal = self.market.quantize_order_amount("CELETH", amount)
-        order_id = self.market.buy("CELETH", amount, price=current_price)
+        quantized_amount: Decimal = self.market.quantize_order_amount("CEL-ETH", amount)
+        order_id = self.market.buy("CEL-ETH", amount, price=current_price)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -175,10 +175,10 @@ class LquidMarketUnitTest(unittest.TestCase):
         # Reset the logs
         self.market_logger.clear()
 
-        # Try to sell back the same amount of ZRX to the exchange, and watch for completion event.
+        # Try to sell back the same amount of CEL to the exchange, and watch for completion event.
         amount = order_completed_event.base_asset_amount
         quantized_amount = order_completed_event.base_asset_amount
-        order_id = self.market.sell("CELETH", amount, price=current_price)
+        order_id = self.market.sell("CEL-ETH", amount, price=current_price)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events = [t for t in self.market_logger.event_log
@@ -200,15 +200,15 @@ class LquidMarketUnitTest(unittest.TestCase):
     def test_limit_buy_and_sell(self):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
 
-        # Try to put limit buy order for 0.02 ETH worth of ZRX, and watch for completion event.
-        current_bid_price: Decimal = self.market.get_price("CELETH", True)
+        # Try to put limit buy order for 0.05 ETH worth of CEL, and watch for completion event.
+        current_bid_price: Decimal = self.market.get_price("CEL-ETH", True)
         bid_price: Decimal = current_bid_price + Decimal("0.05") * current_bid_price
-        quantize_bid_price: Decimal = self.market.quantize_order_price("CELETH", bid_price)
+        quantize_bid_price: Decimal = self.market.quantize_order_price("CEL-ETH", bid_price)
 
         amount: Decimal = Decimal("0.02") / bid_price
-        quantized_amount: Decimal = self.market.quantize_order_amount("CELETH", amount)
+        quantized_amount: Decimal = self.market.quantize_order_amount("CEL-ETH", amount)
 
-        order_id = self.market.buy("CELETH", quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        order_id = self.market.buy("CEL-ETH", quantized_amount, OrderType.LIMIT, quantize_bid_price)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -230,15 +230,15 @@ class LquidMarketUnitTest(unittest.TestCase):
         # Reset the logs
         self.market_logger.clear()
 
-        # Try to put limit sell order for 0.02 ETH worth of ZRX, and watch for completion event.
-        current_ask_price: Decimal = self.market.get_price("CELETH", False)
+        # Try to put limit sell order for 0.05 ETH worth of CEL, and watch for completion event.
+        current_ask_price: Decimal = self.market.get_price("CEL-ETH", False)
         ask_price: Decimal = current_ask_price - Decimal("0.05") * current_ask_price
-        quantize_ask_price: Decimal = self.market.quantize_order_price("CELETH", ask_price)
+        quantize_ask_price: Decimal = self.market.quantize_order_price("CEL-ETH", ask_price)
 
         amount = order_completed_event.base_asset_amount
         quantized_amount = order_completed_event.base_asset_amount
 
-        order_id = self.market.sell("CELETH", quantized_amount, OrderType.LIMIT, quantize_ask_price)
+        order_id = self.market.sell("CEL-ETH", quantized_amount, OrderType.LIMIT, quantize_ask_price)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events = [t for t in self.market_logger.event_log
@@ -270,9 +270,9 @@ class LquidMarketUnitTest(unittest.TestCase):
 
     @unittest.skipUnless(any("test_withdraw" in arg for arg in sys.argv), "Withdraw test requires manual action.")
     def test_withdraw(self):
-        # ZRX_ABI contract file can be found in
+        # CEL_ABI contract file can be found in
         # https://etherscan.io/address/0xe41d2489571d322189246dafa5ebde1f4699f498#code
-        with open(realpath(join(__file__, "../../../data/ZRXABI.json"))) as fd:
+        with open(realpath(join(__file__, "../../../data/CELABI.json"))) as fd:
             zrx_abi: str = fd.read()
 
         local_wallet: MockWallet = MockWallet(conf.web3_test_private_key_a,
@@ -281,21 +281,21 @@ class LquidMarketUnitTest(unittest.TestCase):
                                               chain_id=1)
 
         # Ensure the market account has enough balance for withdraw testing.
-        self.assertGreaterEqual(self.market.get_balance("ZRX"), Decimal('10'))
+        self.assertGreaterEqual(self.market.get_balance("CEL"), Decimal('10'))
 
-        # Withdraw ZRX from Liquid to test wallet.
-        self.market.withdraw(local_wallet.address, "ZRX", Decimal('10'))
+        # Withdraw CEL from Liquid to test wallet.
+        self.market.withdraw(local_wallet.address, "CEL", Decimal('10'))
         [withdraw_asset_event] = self.run_parallel(
             self.market_logger.wait_for(MarketWithdrawAssetEvent)
         )
         withdraw_asset_event: MarketWithdrawAssetEvent = withdraw_asset_event
         self.assertEqual(local_wallet.address, withdraw_asset_event.to_address)
-        self.assertEqual("ZRX", withdraw_asset_event.asset_name)
+        self.assertEqual("CEL", withdraw_asset_event.asset_name)
         self.assertEqual(Decimal('10'), withdraw_asset_event.amount)
         self.assertGreater(withdraw_asset_event.fee_amount, Decimal(0))
 
     def test_cancel_all(self):
-        trading_pair = "CELETH"
+        trading_pair = "CEL-ETH"
         bid_price: Decimal = self.market.get_price(trading_pair, True)
         ask_price: Decimal = self.market.get_price(trading_pair, False)
         amount: Decimal = Decimal("0.02") / bid_price
@@ -325,14 +325,14 @@ class LquidMarketUnitTest(unittest.TestCase):
             self.assertEqual(0, len(self.market.tracking_states))
 
             # Try to put limit buy order for 0.005 ETH worth of CEL, and watch for order creation event.
-            current_bid_price: Decimal = self.market.get_price("CELETH", True)
+            current_bid_price: Decimal = self.market.get_price("CEL-ETH", True)
             bid_price: Decimal = current_bid_price * Decimal("0.8")
-            quantize_bid_price: Decimal = self.market.quantize_order_price("CELETH", bid_price)
+            quantize_bid_price: Decimal = self.market.quantize_order_price("CEL-ETH", bid_price)
 
             amount: Decimal = Decimal("0.005") / bid_price
-            quantized_amount: Decimal = self.market.quantize_order_amount("CELETH", amount)
+            quantized_amount: Decimal = self.market.quantize_order_amount("CEL-ETH", amount)
 
-            order_id = self.market.buy("CELETH", quantized_amount, OrderType.LIMIT, quantize_bid_price)
+            order_id = self.market.buy("CEL-ETH", quantized_amount, OrderType.LIMIT, quantize_bid_price)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
             self.assertEqual(order_id, order_created_event.order_id)
@@ -361,7 +361,7 @@ class LquidMarketUnitTest(unittest.TestCase):
                 conf.liquid_api_key, conf.liquid_secret_key,
                 order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                 user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-                trading_pairs=['ETHUSD', 'CELETH']
+                trading_pairs=['ETH-USD', 'CEL-ETH']
             )
 
             for event_tag in self.events:
@@ -378,7 +378,7 @@ class LquidMarketUnitTest(unittest.TestCase):
             self.assertEqual(1, len(self.market.tracking_states))
 
             # Cancel the order and verify that the change is saved.
-            self.market.cancel("CELETH", order_id)
+            self.market.cancel("CEL-ETH", order_id)
             self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
@@ -387,7 +387,7 @@ class LquidMarketUnitTest(unittest.TestCase):
             self.assertEqual(0, len(saved_market_states.saved_state))
         finally:
             if order_id is not None:
-                self.market.cancel("CELETH", order_id)
+                self.market.cancel("CEL-ETH", order_id)
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
@@ -402,18 +402,18 @@ class LquidMarketUnitTest(unittest.TestCase):
         recorder.start()
 
         try:
-            # Try to buy 0.02 ETH worth of ZRX from the exchange, and watch for completion event.
-            current_price: Decimal = self.market.get_price("CELETH", True)
+            # Try to buy 0.02 ETH worth of CEL from the exchange, and watch for completion event.
+            current_price: Decimal = self.market.get_price("CEL-ETH", True)
             amount: Decimal = Decimal("0.02") / current_price
-            order_id = self.market.buy("CELETH", amount, price=current_price)
+            order_id = self.market.buy("CEL-ETH", amount, price=current_price)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
             # Reset the logs
             self.market_logger.clear()
 
-            # Try to sell back the same amount of ZRX to the exchange, and watch for completion event.
+            # Try to sell back the same amount of CEL to the exchange, and watch for completion event.
             amount = buy_order_completed_event.base_asset_amount
-            order_id = self.market.sell("CELETH", amount, price=current_price)
+            order_id = self.market.sell("CEL-ETH", amount, price=current_price)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
             # Query the persisted trade logs
@@ -428,7 +428,7 @@ class LquidMarketUnitTest(unittest.TestCase):
 
         finally:
             if order_id is not None:
-                self.market.cancel("CELETH", order_id)
+                self.market.cancel("CEL-ETH", order_id)
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()

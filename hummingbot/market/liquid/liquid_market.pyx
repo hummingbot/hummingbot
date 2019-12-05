@@ -233,18 +233,6 @@ cdef class LiquidMarket(MarketBase):
             for key, value in saved_states.items()
         })
 
-    def get_conventional_trading_pair(self, trading_pair):
-        """
-        Convert liquid stype trading pair to conventional trading pair style
-        ex. CELETH -> CEL-ETH
-        """
-        if self._product_dict:
-            quote_asset = self._product_dict.get(trading_pair).get('quoted_currency')
-            base_asset = self._product_dict.get(trading_pair).get('base_currency')
-
-            new_trading_pair = '-'.join([base_asset, quote_asset])
-            return new_trading_pair
-
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         """
         *required
@@ -459,11 +447,13 @@ cdef class LiquidMarket(MarketBase):
         if current_tick > last_tick or len(self._trading_rules) <= 0:
             raw_trading_rules = await self._api_request("get", path_url=Constants.TRADING_RULES_URI)
             products = await self._api_request("get", path_url=Constants.PRODUCTS_URI)
+            products = LiquidAPIOrderBookDataSource.reformat_trading_pairs(products)
+
             trading_rules_list = self._format_trading_rules(raw_trading_rules, products)
 
             # Update product id and trading pair conversion dict for later use
             for product in products:
-                trading_pair = product.get('currency_pair_code', None)
+                trading_pair = product.get('trading_pair', None)
                 if trading_pair:
                     self._product_dict[trading_pair] = product
 
@@ -529,7 +519,7 @@ cdef class LiquidMarket(MarketBase):
 
         for product in products:
             try:
-                trading_pair = product.get("currency_pair_code")
+                trading_pair = product.get("trading_pair")
                 currency = product.get("currency")
 
                 # Find the corresponding rule based on currency
@@ -721,18 +711,54 @@ cdef class LiquidMarket(MarketBase):
     async def _user_stream_event_listener(self):
         """
         Update order statuses from incoming messages from the user stream
+
+        Example content:
+        {
+            'average_price': 0.0,
+            'client_order_id': None,
+            'created_at': 1575540850,
+            'crypto_account_id': None,
+            'currency_pair_code': 'ETHUSD',
+            'disc_quantity': 0.0,
+            'filled_quantity': 0.0,
+            'funding_currency': 'USD',
+            'iceberg_total_quantity': 0.0,
+            'id': 1831228517,
+            'leverage_level': 1,
+            'margin_interest': 0.0,
+            'margin_type': None,
+            'margin_used': 0.0,
+            'order_fee': 0.0,
+            'order_type': 'limit',
+            'price': 200.0,
+            'product_code': 'CASH',
+            'product_id': '27',
+            'quantity': 0.01,
+            'side': 'sell',
+            'source_action': 'manual',
+            'source_exchange': 'QUOINE',
+            'status': 'cancelled',
+            'stop_loss': None,
+            'take_profit': None,
+            'target': 'spot',
+            'trade_id': None,
+            'trading_type': 'spot',
+            'unwound_trade_id': None,
+            'unwound_trade_leverage_level': None,
+            'updated_at': 1575540863
+        }
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                content = event_message.content
-                event_type = content.get("type")
-                exchange_order_ids = [content.get("order_id"),
-                                      content.get("maker_order_id"),
-                                      content.get("taker_order_id")]
+                content = json.loads(event_message.content.get('data', {}))
+                event_type = content.get("status")
 
+                # Order id retreived from exhcnage, that initially sent by client
+                exchange_order_id = content.get('id')
                 tracked_order = None
+
                 for order in self._in_flight_orders.values():
-                    if order.exchange_order_id in exchange_order_ids:
+                    if order.exchange_order_id == exchange_order_id:
                         tracked_order = order
                         break
 
@@ -740,29 +766,8 @@ cdef class LiquidMarket(MarketBase):
                     continue
 
                 order_type_description = tracked_order.order_type_description
-                execute_price = Decimal(content.get("price", 0.0))
+                execute_price = Decimal(content.get("average_price", 0.0))
                 execute_amount_diff = s_decimal_0
-
-                if event_type == "match":
-                    execute_amount_diff = Decimal(content.get("size", 0.0))
-                    tracked_order.executed_amount_base += execute_amount_diff
-                    tracked_order.executed_amount_quote += execute_amount_diff * execute_price
-
-                if event_type == "change":
-                    if content.get("new_size") is not None:
-                        tracked_order.amount = Decimal(content.get("new_size", 0.0))
-                    elif content.get("new_funds") is not None:
-                        if tracked_order.price is not s_decimal_0:
-                            tracked_order.amount = Decimal(content.get("new_funds")) / tracked_order.price
-                    else:
-                        self.logger().error(f"Invalid change message - '{content}'. Aborting.")
-
-                if event_type in ["open", "done"]:
-                    remaining_size = Decimal(content.get("remaining_size", tracked_order.amount))
-                    new_confirmed_amount = tracked_order.amount - remaining_size
-                    execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-                    tracked_order.executed_amount_base = new_confirmed_amount
-                    tracked_order.executed_amount_quote += execute_amount_diff * execute_price
 
                 if execute_amount_diff > s_decimal_0:
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
@@ -787,7 +792,7 @@ cdef class LiquidMarket(MarketBase):
                                              exchange_trade_id=tracked_order.exchange_order_id
                                          ))
 
-                if content.get("reason") == "filled":  # Only handles orders with "done" status
+                if content.get("status") == "filled":
                     if tracked_order.trade_type == TradeType.BUY:
                         self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
                                            f"according to Liquid user stream.")
@@ -817,9 +822,9 @@ cdef class LiquidMarket(MarketBase):
                                                                      tracked_order.fee_paid,
                                                                      tracked_order.order_type))
                     self.c_stop_tracking_order(tracked_order.client_order_id)
-                else:  # reason == "canceled":
+                else:  # status == "cancelled":
                     execute_amount_diff = 0
-                    tracked_order.last_state = "canceled"
+                    tracked_order.last_state = "cancelled"
                     self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                          OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
                     execute_amount_diff = 0
@@ -915,11 +920,10 @@ cdef class LiquidMarket(MarketBase):
                 self.logger().info(f"Created {order_type} buy order {order_id} for {decimal_amount} {trading_pair}.")
                 tracked_order.update_exchange_order_id(exchange_order_id)
 
-            conventional_trading_pair = self.get_conventional_trading_pair(trading_pair)
             self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
                                  BuyOrderCreatedEvent(self._current_timestamp,
                                                       order_type,
-                                                      conventional_trading_pair,
+                                                      trading_pair,
                                                       decimal_amount,
                                                       decimal_price,
                                                       order_id))
@@ -980,12 +984,10 @@ cdef class LiquidMarket(MarketBase):
                 self.logger().info(f"Created {order_type} sell order {order_id} for {decimal_amount} {trading_pair}.")
                 tracked_order.update_exchange_order_id(exchange_order_id)
 
-            conventional_trading_pair = self.get_conventional_trading_pair(trading_pair)
-
             self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
                                  SellOrderCreatedEvent(self._current_timestamp,
                                                        order_type,
-                                                       conventional_trading_pair,
+                                                       trading_pair,
                                                        decimal_amount,
                                                        decimal_price,
                                                        order_id))
@@ -1274,12 +1276,10 @@ cdef class LiquidMarket(MarketBase):
         """
         Add new order to self._in_flight_orders mapping
         """
-        conventional_trading_pair = self.get_conventional_trading_pair(trading_pair)
-
         self._in_flight_orders[client_order_id] = LiquidInFlightOrder(
             client_order_id,
             None,
-            conventional_trading_pair,
+            trading_pair,
             order_type,
             trade_type,
             price,
