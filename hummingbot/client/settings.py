@@ -56,7 +56,7 @@ EXAMPLE_PAIRS = {
     "coinbase_pro": "ETH-USDC",
     "dolomite": "WETH-DAI",
     "huobi": "ETH-USDT",
-    "liquid": "ETHUSD",
+    "liquid": "ETH-USD",
     "bittrex": "ZRX-ETH"
 }
 

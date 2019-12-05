@@ -184,8 +184,10 @@ class TradingPairFetcher:
                 if response.status == 200:
                     try:
                         products: List[Dict[str, any]] = await response.json()
+                        for data in products:
+                            data['trading_pair'] = '-'.join([data['base_currency'], data['quoted_currency']])
                         return [
-                            product["currency_pair_code"]
+                            product["trading_pair"]
                             for product in products
                         ]
                     except Exception:
