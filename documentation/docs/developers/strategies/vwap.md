@@ -12,7 +12,9 @@ VWAP utilizes user input for:
 
 ## Strategy
 
-The VWAP strategy fetches the order book and calculates the total open order volume up to percent_slippage. If no order is outstanding, an order is submitted which is capped at order_percent_of_volume * open order volume up to percent_slippage. The previous order is filled before the next is submitted and if an order is currently outstanding no action occurs.
+The VWAP strategy attempts to limit the market impact of each individual user order. It accomplishes this by calculating the potential order sizes that can be placed in order to guarantee a user-specified upper bound on price slippage. In this strategy, the price slippage and corresponding order sizes are always calculated as if they are market orders, even if this is not the case. By doing do, the strategy achieves the goal of limiting the market impact of orders rather than limiting the actual price slippage of the orders.
+
+To achieve the goal of limiting the market impact of orders, the VWAP strategy fetches the order book and calculates the total open order volume up to percent_slippage. If no order is outstanding, an order is submitted which is capped at order_percent_of_volume * open order volume up to percent_slippage. The previous order is filled before the next is submitted and if an order is currently outstanding no action occurs.
 
 ![Figure 1: Placing orders](/assets/img/VWAP1.svg)
 
