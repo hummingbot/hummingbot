@@ -37,12 +37,20 @@ cdef class BitcoinComInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in ["filled", "canceled", "expired"]
+        return self.last_state in [
+            "suspended",
+            "filled",
+            "canceled",
+            "expired"
+        ]
 
     @property
     def is_failure(self) -> bool:
-        # This is the only known canceled state
-        return self.last_state in ["canceled", "expired"]
+        return self.last_state in [
+            "suspended",
+            "canceled",
+            "expired"
+        ]
 
     @property
     def is_cancelled(self) -> bool:
