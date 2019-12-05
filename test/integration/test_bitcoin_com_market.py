@@ -311,10 +311,11 @@ class BitcoinComMarketUnitTest(unittest.TestCase):
     def test_withdraw(self):
         wallet = conf.test_erc20_token_address
         currency = "ETH"
-        withdraw_amount = Decimal('0.02')
+        withdraw_amount = Decimal('0.01')
 
         # Ensure the market account has enough balance for withdraw testing.
-        self.assertGreaterEqual(self.market.get_balance("ETH"), Decimal(withdraw_amount))
+        # this is checked by 'self.market.withdraw'
+        # self.assertGreaterEqual(required_balance, withdraw_amount)
 
         # Withdraw ETH from BitcoinCom to test wallet.
         self.market.withdraw(wallet, currency, withdraw_amount)

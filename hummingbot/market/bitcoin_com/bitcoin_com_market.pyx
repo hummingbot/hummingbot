@@ -1081,6 +1081,18 @@ cdef class BitcoinComMarket(MarketBase):
         result = await self._api_request("get", path_url=path_url)
         return result
 
+    async def get_account_balances(self) -> Dict[str, Any]:
+        """
+        Gets a dict of the user's account balance, this is different
+        from '_update_balances' which queries the trading balance.
+        :returns: Dict keyed by currency
+        """
+        path_url = "/account/balance"
+        result = await self._api_request("get", path_url=path_url)
+        balances: Dict[str, Any] = {item["currency"]: item for item in result}
+
+        return balances
+
     async def get_transfers(self) -> Dict[str, Any]:
         """
         Gets a list of the user's transfers via rest API
@@ -1111,24 +1123,28 @@ cdef class BitcoinComMarket(MarketBase):
         """
         Function that makes API request to withdraw funds
         """
-        path_url = "/account/crypto/withdraw"
-        data = {
-            "amount": float(amount),
-            "currency": currency,
-            "address": to_address
-        }
-
         try:
-            if self._withdraw_fees[data["currency"]] is None:
+            if self._withdraw_fees[currency] is None:
                 raise ValueError(f"Currency's {currency} withdraw fee data does not exist")
 
-            payoutEnabled, payoutFee = self._withdraw_fees[data["currency"]]
+            payoutEnabled, payoutFee = self._withdraw_fees[currency]
 
             if payoutEnabled is False:
                 raise ValueError(f"Withdrawl for currency {currency} is not enabled")
 
-            if data["amount"] <= payoutFee:
-                raise ValueError(f"Withdrawl for currency {currency} requires more than {amount} {currency}")
+            account_balances = await self.get_account_balances()
+            available_balance = Decimal(account_balances[currency]["available"])
+            required_balance = amount + payoutFee
+
+            if required_balance > available_balance:
+                raise ValueError(f"Withdrawl for currency {currency} requires atleast {required_balance} {currency}")
+
+            path_url = "/account/crypto/withdraw"
+            data = {
+                "amount": float(amount),
+                "currency": currency,
+                "address": to_address
+            }
 
             withdraw_result = await self._api_request("post", path_url=path_url, data=data)
             self.logger().info(f"Successfully withdrew {amount} of {currency}. {withdraw_result}")
