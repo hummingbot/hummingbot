@@ -36,6 +36,17 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         self.trading_pair_id_conversion_dict: Dict[str, int] = {}
 
+    @staticmethod
+    def reformat_trading_pairs(products):
+        """
+        Add a new key 'trading_pair' to the incoming json list
+        Modify trading pair from '{baseAsset}{quoteAsset}' to '{baseAsset}-{quoteAsset}' format
+        """
+        for data in products:
+            data['trading_pair'] = '-'.join([data['base_currency'], data['quoted_currency']])
+
+        return products
+
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)  # TODO: Not really sure what this does
     async def get_active_exchange_markets(cls) -> (pd.DataFrame):
@@ -53,11 +64,13 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         market_data: List[str, Any] = cls.filter_market_data(
             exchange_markets_data=exchange_markets_data)
 
-        # Build the data frame
-        all_markets_df: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index='currency_pair_code')
+        market_data = cls.reformat_trading_pairs(market_data)
 
-        btc_price: float = float(all_markets_df.loc['BTCUSDC'].last_traded_price)
-        eth_price: float = float(all_markets_df.loc['ETHUSDC'].last_traded_price)
+        # Build the data frame
+        all_markets_df: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index='trading_pair')
+
+        btc_price: float = float(all_markets_df.loc['BTC-USDC'].last_traded_price)
+        eth_price: float = float(all_markets_df.loc['ETH-USDC'].last_traded_price)
         usd_volume: float = [
             (
                 volume * quote_price if trading_pair.endswith(("USD", "USDC")) else
@@ -262,6 +275,10 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :param ev_loop: ev_loop to execute this function in
         :param output: an async queue where the incoming messages are stored
         """
+
+        # {old_trading_pair: new_trading_pair}
+        old_trading_pair_conversions = {}
+
         while True:
             try:
                 trading_pairs: List[str] = await self.get_trading_pairs()
@@ -270,12 +287,15 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     ws: websockets.WebSocketClientProtocol = ws
                     for trading_pair in trading_pairs:
 
+                        old_trading_pair = trading_pair.replace('-', '')
+                        old_trading_pair_conversions[old_trading_pair] = trading_pair
+
                         for side in [Constants.SIDE_BID, Constants.SIDE_ASK]:
                             subscribe_request: Dict[str, Any] = {
                                 "event": Constants.WS_PUSHER_SUBSCRIBE_EVENT,
                                 "data": {
                                     "channel": Constants.WS_ORDER_BOOK_DIFF_SUBSCRIPTION.format(
-                                        currency_pair_code=trading_pair.lower(), side=side)
+                                        currency_pair_code=old_trading_pair.lower(), side=side)
                                 }
                             }
 
@@ -288,7 +308,9 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         if event_type == 'updated':
 
                             # Channel example: 'price_ladders_cash_ethusd_sell'
-                            trading_pair = diff_msg.get('channel').split('_')[-2].upper()
+                            old_trading_pair = diff_msg.get('channel').split('_')[-2].upper()
+                            trading_pair = old_trading_pair_conversions[old_trading_pair]
+
                             buy_or_sell = diff_msg.get('channel').split('_')[-1].lower()
                             side = 'asks' if buy_or_sell == Constants.SIDE_ASK else 'bids'
                             diff_msg = {

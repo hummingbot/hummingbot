@@ -34,8 +34,8 @@ class LiquidOrderBookTrackerUnitTest(unittest.TestCase):
     ]
 
     trading_pairs: List[str] = [
-        'ETHUSD',
-        'LCXBTC'
+        'ETH-USD',
+        'LCX-BTC'
     ]
 
     @classmethod
@@ -98,8 +98,8 @@ class LiquidOrderBookTrackerUnitTest(unittest.TestCase):
         # Wait 5 seconds to process some diffs.
         self.ev_loop.run_until_complete(asyncio.sleep(5.0))
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
-        ethusd_book: OrderBook = order_books["ETHUSD"]
-        lxcbtc_book: OrderBook = order_books["LCXBTC"]
+        ethusd_book: OrderBook = order_books["ETH-USD"]
+        lxcbtc_book: OrderBook = order_books["LCX-BTC"]
         # print("ethusd_book")
         # print(ethusd_book.snapshot)
         # print("lxcbtc_book")

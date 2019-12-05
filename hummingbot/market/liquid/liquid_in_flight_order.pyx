@@ -22,7 +22,7 @@ cdef class LiquidInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "open"):
+                 initial_state: str = "live"):
         super().__init__(
             LiquidMarket,
             client_order_id,
@@ -37,16 +37,16 @@ cdef class LiquidInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"filled", "canceled" "done"}
+        return self.last_state in {"filled", "cancelled"}
 
     @property
     def is_failure(self) -> bool:
         # This is the only known canceled state
-        return self.last_state == "canceled"
+        return self.last_state == "cancelled"
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state == "canceled"
+        return self.last_state == "cancelled"
 
     @property
     def order_type_description(self) -> str:
