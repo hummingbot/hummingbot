@@ -265,14 +265,13 @@ class BitcoinComMarketUnitTest(unittest.TestCase):
 
     def test_cancel_all(self):
         trading_pair = "ETHBTC"
+        # Intentionally setting invalid price to prevent getting filled
         bid_price: Decimal = self.market.get_price(trading_pair, True) * Decimal("0.5")
-        ask_price: Decimal = self.market.get_price(trading_pair, False) * 2
+        ask_price: Decimal = self.market.get_price(trading_pair, False) * Decimal("2")
         amount: Decimal = Decimal("0.0001")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
-
-        # Intentionally setting invalid price to prevent getting filled
-        quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price * Decimal("0.7"))
-        quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.5"))
+        quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
+        quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price)
 
         self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
         self.market.sell(trading_pair, quantized_amount, OrderType.LIMIT, quantize_ask_price)
