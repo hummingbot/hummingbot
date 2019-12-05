@@ -33,7 +33,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | logo | id | name | ver | doc| maintainer |
 |:---:|:---:|:---:|:---:|:---:|:---:|
 | [![Bamboo Relay](https://i.ibb.co/1sPt940/Screen-Shot-2019-06-06-at-17-50-04.png)](https://bamboorelay.com/) | bamboo_relay | [Bamboo Relay](https://bamboorelay.com/) | * | [API](https://sra.bamboorelay.com/) | [dex@bamboorelay.com](mailto:dex@bamboorelay.com)
-| [![Dolomite](https://dolomite.io/assets/img/logo.png)](https://dolomite.io/) | dolomite | [Dolomite](https://dolomite.io/) | 1 | [API](https://docs.dolomite.io/) | [corey@bdolomite.io](mailto:corey@dolomite.io)
+| [![Dolomite](https://firebasestorage.googleapis.com/v0/b/dolomite-landing-page.appspot.com/o/images%2FDolomite_name_and_logo_black_1_10.png?alt=media)](https://dolomite.io/) | dolomite | [Dolomite](https://dolomite.io/) | 1 | [API](https://docs.dolomite.io/) | [corey@dolomite.io](mailto:corey@dolomite.io)
 
 ## Currently available strategies
 
