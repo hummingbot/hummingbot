@@ -1,5 +1,5 @@
 import enum
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 
 # convert message received from exchange to a normalized message
@@ -34,7 +34,7 @@ class EventTypes(enum.Enum):
 def add_event_type(event_type: EventTypes, data: Any) -> Dict:
     if (type(data) is list):
         return {
-            "type": event_type,
+            "event_type": event_type,
             "data": data
         }
 
@@ -53,3 +53,8 @@ def merge_dicts(source: Dict, destination: Dict) -> Dict:
             destination[key] = value
 
     return destination
+
+
+# join paths
+def join_paths(*paths: List[str]) -> str:
+    return "/".join(paths)
