@@ -62,7 +62,6 @@ dependencies:
     - aioconsole==0.1.14
     - aiohttp==3.6.1
     - aiokafka==0.5.2
-    - aiostream==0.4.0
     - altgraph==0.16.1
     - appdirs==1.4.3
     - aspy-yaml==1.3.0
