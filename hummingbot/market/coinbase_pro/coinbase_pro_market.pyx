@@ -468,6 +468,11 @@ cdef class CoinbaseProMarket(MarketBase):
             order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
             # Emit event if executed amount is greater than 0.
             if execute_amount_diff > s_decimal_0:
+                self.logger().info("This is in update orders status")
+                self.logger().info(f"exchange order id: {exchange_order_id}")
+                self.logger().info("Tracked order")
+                self.logger().info(tracked_order)
+                self.logger().info("order update")
                 order_filled_event = OrderFilledEvent(
                     self._current_timestamp,
                     tracked_order.client_order_id,
@@ -591,6 +596,10 @@ cdef class CoinbaseProMarket(MarketBase):
                         self.logger().error(f"Invalid change message - '{content}'. Aborting.")
 
                 if event_type in ["open", "done"]:
+                    self.logger().info("Event message")
+                    self.logger().info(event_message)
+                    self.logger().info("content")
+                    self.logger().info(content)
                     remaining_size = Decimal(content.get("remaining_size", tracked_order.amount))
                     new_confirmed_amount = tracked_order.amount - remaining_size
                     execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
@@ -598,6 +607,12 @@ cdef class CoinbaseProMarket(MarketBase):
                     tracked_order.executed_amount_quote += execute_amount_diff * execute_price
 
                 if execute_amount_diff > s_decimal_0:
+                    self.logger().info("Event message")
+                    self.logger().info(event_message)
+                    self.logger().info("content")
+                    self.logger().info(content)
+                    self.logger().info("This is in user stream listener updater")
+                    self.logger().info(f"exchange order id: {tracked_order.exchange_order_id}")
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"{order_type_description} order {tracked_order.client_order_id}")
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
