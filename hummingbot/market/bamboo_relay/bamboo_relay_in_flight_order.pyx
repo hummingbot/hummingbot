@@ -31,8 +31,8 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
                  price: Decimal,
                  amount: Decimal,
                  expires: int = None,
-                 protocol_fee_amount: Optional[Decimal] = Decimal(0),
-                 taker_fee_amount: Optional[Decimal] = Decimal(0),
+                 protocol_fee_amount: Optional[Decimal] = s_decimal_0,
+                 taker_fee_amount: Optional[Decimal] = s_decimal_0,
                  initial_state: str = "OPEN",
                  tx_hash: Optional[str] = None,
                  zero_ex_order: Optional[ZeroExOrder] = None):

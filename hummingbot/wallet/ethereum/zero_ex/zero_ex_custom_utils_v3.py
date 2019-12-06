@@ -11,8 +11,7 @@ from typing import (
 from zero_ex.order_utils import (
     _convert_ec_signature_to_vrs_hex,
     _parse_signature_hex_as_vrs,
-    _parse_signature_hex_as_rsv,
-    is_valid_signature
+    _parse_signature_hex_as_rsv
 )
 
 class Order(TypedDict):
@@ -155,9 +154,6 @@ def generate_order_hash_hex(
         + keccak(ensure_bytes(order["takerFeeAssetData"]))
     )
 
-    print("Struct hash is ")
-    print(eip712_order_struct_hash.hex())
-
     return keccak(
         _Constants.eip191_header
         + eip712_domain_struct_hash
@@ -226,12 +222,7 @@ def fix_signature(provider, signer_address, hash_hex, signature) -> str:
             ).hex()
         )
 
-        (valid, _) = is_valid_signature(
-            provider, hash_hex, signature_as_vrst_hex, signer_address
-        )
-
-        if valid is True:
-            return signature_as_vrst_hex
+        return signature_as_vrst_hex
 
     ec_signature = _parse_signature_hex_as_vrs(signature)
     if ec_signature["v"] in valid_v_param_values:
@@ -241,15 +232,10 @@ def fix_signature(provider, signer_address, hash_hex, signature) -> str:
                 1, byteorder="big"
             ).hex()
         )
-        (valid, _) = is_valid_signature(
-            provider, hash_hex, signature_as_vrst_hex, signer_address
-        )
 
-        if valid is True:
-            return signature_as_vrst_hex
+        return signature_as_vrst_hex
 
     raise RuntimeError(
         "Signature returned from web3 provider is in an unknown format."
         + " Attempted to parse as RSV and as VRS."
     )
-

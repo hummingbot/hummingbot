@@ -10,11 +10,13 @@ from web3.contract import Contract
 from zero_ex.order_utils import Order
 
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
-from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils import convert_order_to_tuple
+from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils_v3 import convert_order_to_tuple
 
-with open(os.path.join(os.path.dirname(__file__), "zero_ex_exchange_abi.json")) as exchange_abi_json:
+with open(os.path.join(os.path.dirname(__file__), "zero_ex_exchange_abi_v3.json")) as exchange_abi_json:
     exchange_abi: List[any] = ujson.load(exchange_abi_json)
 
+# 150,000 per order by gas
+PROTOCOL_FEE_MULTIPLIER = 150000
 
 class ZeroExExchange:
     def __init__(self,
@@ -42,66 +44,74 @@ class ZeroExExchange:
         order_epoch: int = self._contract.functions.orderEpoch(maker_address, sender_address).call()
         return order_epoch
 
-    def fill_order(self, order: Order, taker_asset_fill_amount: Decimal, signature: str) -> str:
+    def fill_order(self, order: Order, taker_asset_fill_amount: Decimal, signature: str) -> Tuple[str, Decimal]:
         order_tuple: Tuple = convert_order_to_tuple(order)
         signature: bytes = self._w3.toBytes(hexstr=signature)
         # Add 10 wei to the standard price to beat the default gas price ppl.
         gas_price: int = self._wallet.gas_price + 10
+        protocol_fee = PROTOCOL_FEE_MULTIPLIER * gas_price
         tx_hash: str = self._wallet.execute_transaction(
             self._contract.functions.fillOrder(
                 order_tuple,
                 int(taker_asset_fill_amount),
                 signature
             ),
-            gasPrice=gas_price
+            gasPrice=gas_price,
+            value=protocol_fee
         )
-        return tx_hash
+        return tx_hash, Decimal(protocol_fee)
 
-    def batch_fill_orders(self, orders: List[Order], taker_asset_fill_amounts: List[Decimal], signatures: List[str]) -> str:
+    def batch_fill_orders(self, orders: List[Order], taker_asset_fill_amounts: List[Decimal], signatures: List[str]) -> Tuple[str, Decimal]:
         order_tuples: List[Tuple] = [convert_order_to_tuple(order) for order in orders]
         signatures: List[bytes] = [self._w3.toBytes(hexstr=signature) for signature in signatures]
         taker_asset_fill_amounts: List[int] = [int(taker_asset_fill_amount) for taker_asset_fill_amount in taker_asset_fill_amounts]
         # Add 10 wei to the standard price to beat the default gas price ppl.
         gas_price: int = self._wallet.gas_price + 10
+        protocol_fee = PROTOCOL_FEE_MULTIPLIER * len(orders) * gas_price
         tx_hash: str = self._wallet.execute_transaction(
             self._contract.functions.batchFillOrders(
                 order_tuples,
                 taker_asset_fill_amounts,
                 signatures
             ),
-            gasPrice=gas_price
+            gasPrice=gas_price,
+            value=protocol_fee
         )
-        return tx_hash
+        return tx_hash, Decimal(protocol_fee)
 
-    def market_buy_orders(self, orders: List[Order], maker_asset_fill_amount: Decimal, signatures: List[str]) -> str:
+    def market_buy_orders(self, orders: List[Order], maker_asset_fill_amount: Decimal, signatures: List[str]) -> Tuple[str, Decimal]:
         order_tuples: List[Tuple] = [convert_order_to_tuple(order) for order in orders]
         signatures: List[bytes] = [self._w3.toBytes(hexstr=signature) for signature in signatures]
         # Add 10 wei to the standard price to beat the default gas price ppl.
         gas_price: int = self._wallet.gas_price + 10
+        protocol_fee = PROTOCOL_FEE_MULTIPLIER * len(orders) * gas_price
         tx_hash: str = self._wallet.execute_transaction(
             self._contract.functions.marketBuyOrders(
                 order_tuples,
                 int(maker_asset_fill_amount),
                 signatures
             ),
-            gasPrice=gas_price
+            gasPrice=gas_price,
+            value=protocol_fee
         )
-        return tx_hash
+        return tx_hash, Decimal(protocol_fee)
 
-    def market_sell_orders(self, orders: List[Order], taker_asset_fill_amount: Decimal, signatures: List[str]) -> str:
+    def market_sell_orders(self, orders: List[Order], taker_asset_fill_amount: Decimal, signatures: List[str]) -> Tuple[str, Decimal]:
         order_tuples: List[Tuple] = [convert_order_to_tuple(order) for order in orders]
         signatures: List[bytes] = [self._w3.toBytes(hexstr=signature) for signature in signatures]
         # Add 10 wei to the standard price to beat the default gas price ppl.
         gas_price: int = self._wallet.gas_price + 10
+        protocol_fee = PROTOCOL_FEE_MULTIPLIER * len(orders) * gas_price
         tx_hash: str = self._wallet.execute_transaction(
             self._contract.functions.marketSellOrders(
                 order_tuples,
                 int(taker_asset_fill_amount),
                 signatures
             ),
-            gasPrice=gas_price
+            gasPrice=gas_price,
+            value=protocol_fee
         )
-        return tx_hash
+        return tx_hash, Decimal(protocol_fee)
 
     def cancel_order(self, order: Order) -> str:
         order_tuple = convert_order_to_tuple(order)

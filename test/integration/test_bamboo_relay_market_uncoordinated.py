@@ -90,6 +90,8 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
             chain = EthereumChain.RINKEBY
         elif conf.test_bamboo_relay_chain_id == 42:
             chain = EthereumChain.KOVAN
+        elif conf.test_bamboo_relay_chain_id == 1337:
+            chain = EthereumChain.ZEROEX_TEST
         else:
             chain = EthereumChain.MAIN_NET
         cls.chain = chain

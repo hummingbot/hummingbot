@@ -343,10 +343,9 @@ class BambooRelayOrderBookMessage(OrderBookMessage):
     ):
         if message_type is OrderBookMessageType.SNAPSHOT and timestamp is None:
             raise ValueError("timestamp must not be None when initializing snapshot messages.")
-
-        elif message_type is OrderBookMessageType.DIFF and content["action"] in ["NEW"]:
-            timestamp = pd.Timestamp(content["event"]["order"]["createdDate"], tz="UTC").timestamp()
-        elif message_type is OrderBookMessageType.DIFF and content["action"] in ["FILL"]:
+        elif message_type is OrderBookMessageType.DIFF and content["actions"][0]["action"] in ["NEW"]:
+            timestamp = pd.Timestamp(content["actions"][0]["event"]["order"]["createdDate"], tz="UTC").timestamp()
+        elif message_type is OrderBookMessageType.DIFF and content["actions"][0]["action"] in ["FILL"]:
             timestamp = content["event"]["timestamp"]
         elif message_type is OrderBookMessageType.TRADE:
             timestamp = content["event"]["timestamp"]

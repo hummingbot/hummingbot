@@ -27,12 +27,14 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage, Bambo
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.logger import HummingbotLogger
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
+from hummingbot.market.bamboo_relay.bamboo_relay_constants import (
+    BAMBOO_RELAY_REST_ENDPOINT,
+    BAMBOO_RELAY_TEST_ENDPOINT,
+    BAMBOO_RELAY_REST_WS,
+    BAMBOO_RELAY_TEST_WS
+)
 
 TRADING_PAIR_FILTER = re.compile(r"(WETH|DAI|CUSD|USDC|TUSD)$")
-
-REST_BASE_URL = "https://rest.bamboorelay.com/"
-WS_URL = "wss://rest.bamboorelay.com/0x/ws"
-
 
 class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
@@ -52,16 +54,29 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__()
         self._trading_pairs: Optional[List[str]] = trading_pairs
         if chain is EthereumChain.ROPSTEN:
+            self._api_endpoint = BAMBOO_RELAY_REST_ENDPOINT
             self._api_prefix = "ropsten/0x"
+            self._api_ws = BAMBOO_RELAY_REST_WS
             self._network_id = 3
         elif chain is EthereumChain.RINKEBY:
+            self._api_endpoint = BAMBOO_RELAY_REST_ENDPOINT
             self._api_prefix = "rinkeby/0x"
+            self._api_ws = BAMBOO_RELAY_REST_WS
             self._network_id = 4
         elif chain is EthereumChain.KOVAN:
+            self._api_endpoint = BAMBOO_RELAY_REST_ENDPOINT
             self._api_prefix = "kovan/0x"
+            self._api_ws = BAMBOO_RELAY_REST_WS
             self._network_id = 42
+        elif chain is EthereumChain.ZEROEX_TEST:
+            self._api_endpoint = BAMBOO_RELAY_TEST_ENDPOINT
+            self._api_prefix = "testrpc/0x"
+            self._api_ws = BAMBOO_RELAY_TEST_WS
+            self._network_id = 1337
         else:
+            self._api_endpoint = BAMBOO_RELAY_REST_ENDPOINT
             self._api_prefix = "main/0x"
+            self._api_ws = BAMBOO_RELAY_REST_WS
             self._network_id = 1
 
     @classmethod
@@ -73,12 +88,14 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return cls._client
 
     @classmethod
-    async def get_all_token_info(cls, api_prefix: str = "main/0x") -> Dict[str, any]:
+    async def get_all_token_info(cls,
+                                 api_endpoint: str = "https://rest.bamboorelay.com/", 
+                                 api_prefix: str = "") -> Dict[str, any]:
         """
         Returns all token information
         """
         client: aiohttp.ClientSession = cls.http_client()
-        async with client.get(f"{REST_BASE_URL}{api_prefix}/tokens?perPage=1000") as response:
+        async with client.get(f"{api_endpoint}{api_prefix}/tokens?perPage=1000") as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching token info. HTTP status is {response.status}.")
@@ -87,12 +104,14 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
-    async def get_active_exchange_markets(cls, api_prefix: str = "main/0x") -> pd.DataFrame:
+    async def get_active_exchange_markets(cls, 
+                                          api_endpoint: str = "https://rest.bamboorelay.com/", 
+                                          api_prefix: str = "main/0x") -> pd.DataFrame:
         """
         Returned data frame should have trading_pair as index and include usd volume, baseAsset and quoteAsset
         """
         client: aiohttp.ClientSession = cls.http_client()
-        async with client.get(f"{REST_BASE_URL}{api_prefix}/markets?perPage=1000&include=ticker,stats") as response:
+        async with client.get(f"{api_endpoint}{api_prefix}/markets?perPage=1000&include=ticker,stats") as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching active Bamboo Relay markets. HTTP status is {response.status}.")
@@ -125,8 +144,9 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession,
                            trading_pair: str,
+                           api_endpoint: str = "https://rest.bamboorelay.com/",
                            api_prefix: str = "main/0x") -> Dict[str, any]:
-        async with client.get(f"{REST_BASE_URL}{api_prefix}/markets/{trading_pair}/book") as response:
+        async with client.get(f"{api_endpoint}{api_prefix}/markets/{trading_pair}/book") as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching Bamboo Relay market snapshot for {trading_pair}. "
@@ -136,7 +156,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_trading_pairs(self) -> List[str]:
         if not self._trading_pairs:
             try:
-                active_markets: pd.DataFrame = await self.get_active_exchange_markets(self._api_prefix)
+                active_markets: pd.DataFrame = await self.get_active_exchange_markets(self._api_endpoint, self._api_prefix)
                 self._trading_pairs = active_markets.index.tolist()
             except Exception:
                 self._trading_pairs = []
@@ -156,7 +176,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             number_of_pairs: int = len(trading_pairs)
             for index, trading_pair in enumerate(trading_pairs):
                 try:
-                    snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, self._api_prefix)
+                    snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, self._api_endpoint, self._api_prefix)
                     snapshot_timestamp: float = time.time()
                     snapshot_msg: BambooRelayOrderBookMessage = BambooRelayOrderBook.snapshot_message_from_exchange(
                         snapshot,
@@ -216,7 +236,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trading_pairs: List[str] = await self.get_trading_pairs()
-                async with websockets.connect(WS_URL) as ws:
+                async with websockets.connect(self._api_ws) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     for trading_pair in trading_pairs:
                         request: Dict[str, str] = {
@@ -228,8 +248,8 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         await ws.send(ujson.dumps(request))
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
-                        # Valid Diff messages from BambooRelay have action key
-                        if "action" in msg:
+                        # Valid Diff messages from BambooRelay have actions array
+                        if "actions" in msg:
                             diff_msg: BambooRelayOrderBookMessage = BambooRelayOrderBook.diff_message_from_exchange(
                                 msg, time.time())
                             output.put_nowait(diff_msg)
@@ -247,7 +267,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 client: aiohttp.ClientSession = self.http_client()
                 for trading_pair in trading_pairs:
                     try:
-                        snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, self._api_prefix)
+                        snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, self._api_endpoint, self._api_prefix)
                         snapshot_timestamp: float = time.time()
                         snapshot_msg: OrderBookMessage = BambooRelayOrderBook.snapshot_message_from_exchange(
                             snapshot,

@@ -89,6 +89,8 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
             chain = EthereumChain.RINKEBY
         elif conf.test_bamboo_relay_chain_id == 42:
             chain = EthereumChain.KOVAN
+        elif conf.test_bamboo_relay_chain_id == 1337:
+            chain = EthereumChain.ZEROEX_TEST
         else:
             chain = EthereumChain.MAIN_NET
         cls.chain = chain
@@ -111,7 +113,9 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
         print("Initializing Bamboo Relay market... ")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.wallet)
+        print("Adding market... ")
         cls.clock.add_iterator(cls.market)
+        print("added merkat")
         stack = contextlib.ExitStack()
         cls._clock = stack.enter_context(cls.clock)
         cls.ev_loop.run_until_complete(cls.wait_til_ready())
