@@ -46,9 +46,9 @@ class DolomiteAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls.__daobds__logger = logging.getLogger(__name__)
         return cls.__daobds__logger
 
-    def __init__(self, symbols: Optional[List[str]] = None, rest_api_url="", websocket_url=""):
+    def __init__(self, trading_pairs: Optional[List[str]] = None, rest_api_url="", websocket_url=""):
         super().__init__()
-        self._symbols: Optional[List[str]] = symbols
+        self._trading_pairs: Optional[List[str]] = trading_pairs
         self.REST_URL = rest_api_url
         self.WS_URL = websocket_url
         self._get_tracking_pair_done_event: asyncio.Event = asyncio.Event()
@@ -57,7 +57,7 @@ class DolomiteAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         """
-        Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
+        Returned data frame should have trading pair as index and include usd volume, baseAsset and quoteAsset
         """
         async with aiohttp.ClientSession() as client:
             # Hard coded to use the live exchange api for auto completing markets (opposed to using testnet)
@@ -99,12 +99,12 @@ class DolomiteAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return DolomiteOrderBook
 
     async def get_trading_pairs(self) -> List[str]:
-        if self._symbols is None:
+        if self._trading_pairs is None:
             active_markets: pd.DataFrame = await self.get_active_exchange_markets()
             trading_pairs: List[str] = active_markets.index.tolist()
-            self._symbols = trading_pairs
+            self._trading_pairs = trading_pairs
         else:
-            trading_pairs: List[str] = self._symbols
+            trading_pairs: List[str] = self._trading_pairs
         return trading_pairs
 
     async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str, level: int = 3) -> Dict[str, any]:

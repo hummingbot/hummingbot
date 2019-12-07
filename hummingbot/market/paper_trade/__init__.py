@@ -6,7 +6,7 @@ from hummingbot.market.coinbase_pro.coinbase_pro_order_book_tracker import Coinb
 from hummingbot.market.ddex.ddex_order_book_tracker import DDEXOrderBookTracker
 from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
-from hummingbot.market.idex.idex_order_book_tracker import IDEXOrderBookTracker
+# from hummingbot.market.idex.idex_order_book_tracker import IDEXOrderBookTracker
 from hummingbot.market.paper_trade.market_config import MarketConfig
 from hummingbot.market.paper_trade.paper_trade_market import PaperTradeMarket
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
@@ -16,7 +16,7 @@ from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.ddex.ddex_market import DDEXMarket
-from hummingbot.market.idex.idex_market import IDEXMarket
+# from hummingbot.market.idex.idex_market import IDEXMarket
 
 ORDER_BOOK_TRACKER_CLASS = {
     "binance": BinanceOrderBookTracker,
@@ -43,7 +43,7 @@ def create_paper_trade_market(exchange_name: str, trading_pairs: List[str]):
         raise Exception(f"Market {exchange_name.upper()} is not supported with paper trading mode.")
     order_book_tracker = ORDER_BOOK_TRACKER_CLASS[exchange_name]
 
-    return PaperTradeMarket(order_book_tracker(symbols=trading_pairs),
+    return PaperTradeMarket(order_book_tracker(trading_pairs=trading_pairs),
                             MarketConfig.default_config(),
                             MARKET_CLASSES[exchange_name]
                             )
