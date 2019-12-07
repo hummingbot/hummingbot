@@ -2,7 +2,6 @@
 import asyncio
 import conf
 import logging
-# from typing import Optional
 import unittest
 from os.path import join, realpath
 import sys
@@ -10,7 +9,6 @@ import sys
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.liquid.liquid_auth import LiquidAuth
-# from hummingbot.market.liquid.liquid_order_book_tracker import LiquidOrderBookTracker
 from hummingbot.market.liquid.liquid_user_stream_tracker import LiquidUserStreamTracker
 
 sys.path.insert(0, realpath(join(__file__, "../../../")))
@@ -18,10 +16,9 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 class LiquidOrderBookTrackerUnitTest(unittest.TestCase):
-    # order_book_tracker: Optional[LiquidOrderBookTracker] = None
 
     trading_pairs = [
-        'ETHUSD'
+        'ETH-USD'
     ]
 
     @classmethod
