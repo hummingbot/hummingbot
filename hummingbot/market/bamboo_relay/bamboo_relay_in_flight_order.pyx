@@ -35,7 +35,9 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
                  taker_fee_amount: Optional[Decimal] = s_decimal_0,
                  initial_state: str = "OPEN",
                  tx_hash: Optional[str] = None,
-                 zero_ex_order: Optional[ZeroExOrder] = None):
+                 zero_ex_order: Optional[ZeroExOrder] = None,
+                 recorded_fills: Optional[[]] = [],
+                 has_been_cancelled: Optional[bool] = False):
         super().__init__(
             BambooRelayMarket,
             client_order_id,
@@ -54,6 +56,8 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
         self.available_amount_base = amount
         self.tx_hash = tx_hash  # used for tracking market orders
         self.zero_ex_order = zero_ex_order
+        self.recorded_fills = recorded_fills
+        self.has_been_cancelled = has_been_cancelled
 
     def __repr__(self) -> str:
         return f"BambooRelayInFlightOrder(" \
@@ -73,7 +77,9 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
                f"protocol_fee_amount={self.protocol_fee_amount}, " \
                f"taker_fee_amount={self.taker_fee_amount}, " \
                f"tx_hash='{self.tx_hash}', " \
-               f"zero_ex_order='{self.zero_ex_order}')"
+               f"zero_ex_order='{self.zero_ex_order}', " \
+               f"recorded_fills='{self.recorded_fills}', " \
+               f"has_been_cancelled='{self.has_been_cancelled}')"
 
     @property
     def is_done(self) -> bool:
@@ -109,7 +115,9 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
             "protocol_fee_amount": str(self.protocol_fee_amount),
             "taker_fee_amount": str(self.taker_fee_amount),
             "tx_hash": self.tx_hash,
-            "zero_ex_order": zrx_order_to_json(self.zero_ex_order)
+            "zero_ex_order": zrx_order_to_json(self.zero_ex_order),
+            "recorded_fills": self.recorded_fills,
+            "has_been_cancelled": self.has_been_cancelled
         }
 
     @classmethod
@@ -129,7 +137,9 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
                 taker_fee_amount=Decimal(data["taker_fee_amount"]),
                 initial_state=data["last_state"],
                 tx_hash=data["tx_hash"],
-                zero_ex_order=json_to_zrx_order(data["zero_ex_order"])
+                zero_ex_order=json_to_zrx_order(data["zero_ex_order"]),
+                recorded_fills=data["recorded_fills"],
+                has_been_cancelled=bool(data["has_been_cancelled"])
             )
         retval.available_amount_base = Decimal(data["available_amount_base"])
         retval.executed_amount_base = Decimal(data["executed_amount_base"])

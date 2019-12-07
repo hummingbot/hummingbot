@@ -247,15 +247,19 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         }
                         await ws.send(ujson.dumps(request))
                     async for raw_msg in self._inner_messages(ws):
-                        msg = ujson.loads(raw_msg)
-                        # Valid Diff messages from BambooRelay have actions array
-                        if "actions" in msg:
-                            diff_msg: BambooRelayOrderBookMessage = BambooRelayOrderBook.diff_message_from_exchange(
-                                msg, time.time())
-                            output.put_nowait(diff_msg)
+                        # Try here, else any errors cause the websocket to disconnect
+                        try:
+                            msg = ujson.loads(raw_msg)
+                            # Valid Diff messages from BambooRelay have actions array
+                            if "actions" in msg:
+                                diff_msg: BambooRelayOrderBookMessage = BambooRelayOrderBook.diff_message_from_exchange(
+                                    msg, time.time())
+                                output.put_nowait(diff_msg)
+                        except Exception as ex:
+                            pass
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except Exception as ex:
                 self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
                 await asyncio.sleep(30.0)

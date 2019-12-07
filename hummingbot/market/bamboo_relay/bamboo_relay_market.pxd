@@ -24,6 +24,7 @@ cdef class BambooRelayMarket(MarketBase):
         object _in_flight_pending_limit_orders
         object _in_flight_cancels
         object _in_flight_pending_cancels
+        list _filled_order_hashes
         object _order_expiry_queue
         TransactionTracker _tx_tracker
         object _w3

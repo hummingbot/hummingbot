@@ -346,9 +346,9 @@ class BambooRelayOrderBookMessage(OrderBookMessage):
         elif message_type is OrderBookMessageType.DIFF and content["actions"][0]["action"] in ["NEW"]:
             timestamp = pd.Timestamp(content["actions"][0]["event"]["order"]["createdDate"], tz="UTC").timestamp()
         elif message_type is OrderBookMessageType.DIFF and content["actions"][0]["action"] in ["FILL"]:
-            timestamp = content["event"]["timestamp"]
+            timestamp = content["actions"][0]["event"]["timestamp"]
         elif message_type is OrderBookMessageType.TRADE:
-            timestamp = content["event"]["timestamp"]
+            timestamp = content["actions"][0]["event"]["timestamp"]
         elif timestamp is None:
             raise ValueError("timestamp field required for this message.")
 
