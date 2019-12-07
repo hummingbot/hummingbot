@@ -17,6 +17,7 @@ from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
+from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComMarket
 
 MARKETS = {
     "ddex": DDEXMarket,
@@ -27,7 +28,8 @@ MARKETS = {
     "idex": IDEXMarket,
     "dolomite": DolomiteMarket,
     "huobi": HuobiMarket,
-    "bittrex": BittrexMarket
+    "bittrex": BittrexMarket,
+    "bitcoin_com": BitcoinComMarket
 }
 
 
