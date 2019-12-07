@@ -582,9 +582,12 @@ cdef class CoinbaseProMarket(MarketBase):
                 execute_amount_diff = s_decimal_0
 
                 if event_type == "match":
+                    self.logger().info(f"Processing in user stream for {event_type}")
                     execute_amount_diff = Decimal(content.get("size", 0.0))
                     tracked_order.executed_amount_base += execute_amount_diff
                     tracked_order.executed_amount_quote += execute_amount_diff * execute_price
+                    self.logger().info(f"Executed amount base: {tracked_order.executed_amount_base}")
+                    self.logger().info(f"Executed amount quote: {tracked_order.executed_amount_quote}")
 
                 if event_type == "change":
                     if content.get("new_size") is not None:
@@ -596,6 +599,7 @@ cdef class CoinbaseProMarket(MarketBase):
                         self.logger().error(f"Invalid change message - '{content}'. Aborting.")
 
                 if event_type in ["open", "done"]:
+                    self.logger().info(f"Processing in user stream for {event_type}")
                     self.logger().info("Event message")
                     self.logger().info(event_message)
                     self.logger().info("content")
@@ -605,6 +609,10 @@ cdef class CoinbaseProMarket(MarketBase):
                     execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
                     tracked_order.executed_amount_base = new_confirmed_amount
                     tracked_order.executed_amount_quote += execute_amount_diff * execute_price
+                    self.logger().info(f"remaining size: {remaining_size}")
+                    self.logger().info(f"new confirmed amount: {new_confirmed_amount}, executed_amount_diff:{execute_amount_diff}")
+                    self.logger().info(f"Executed amount base: {tracked_order.executed_amount_base}")
+                    self.logger().info(f"Executed amount quote: {tracked_order.executed_amount_quote}")
 
                 if execute_amount_diff > s_decimal_0:
                     self.logger().info("Event message")
