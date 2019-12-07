@@ -55,12 +55,12 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
         self.assertIsInstance(all_markets_df, pd.DataFrame)
 
         # Check DF dimension
-        self.assertEqual(all_markets_df.shape, (7, 28))  # (num of rows, num of cols)
+        self.assertEqual(all_markets_df.shape, (7, 29))  # (num of rows, num of cols)
 
         # Check DF indices
         self.assertListEqual(
             all_markets_df.index.to_list(),
-            ['BTCUSD', 'ETHUSD', 'BTCUSDC', 'ETHUSDC', 'LCXBTC', 'STACETH', 'WLOBTC']
+            ['BTC-USD', 'ETH-USD', 'BTC-USDC', 'ETH-USDC', 'LCX-BTC', 'STAC-ETH', 'WLO-BTC']
         )
 
         # Check DF column names
@@ -73,6 +73,7 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
                 'cfd_enabled',
                 'code',
                 'currency',
+                'currency_pair_code',
                 'disabled',
                 'fiat_minimum_withdraw',
                 'high_market_ask',
@@ -97,6 +98,10 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
                 'volume_24h'
             ]
         )
+
+        # Check DF values
+        self.assertEqual(
+            all_markets_df.loc['BTC-USD'].last_traded_price, '7470.49746')
 
         # Check DF order, make sure it's sorted by USDVolume col in desending order
         usd_volumes = all_markets_df.loc[:, 'USDVolume'].to_list()
@@ -180,19 +185,19 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
 
         # Check trading pairs and their order
         self.assertListEqual(
-            trading_pairs, ['BTCUSD', 'ETHUSD', 'BTCUSDC', 'ETHUSDC', 'LCXBTC', 'STACETH', 'WLOBTC'])
+            trading_pairs, ['BTC-USD', 'ETH-USD', 'BTC-USDC', 'ETH-USDC', 'LCX-BTC', 'STAC-ETH', 'WLO-BTC'])
 
         # Check derived trading_pair and id conversion dict keys and their corresponding values
         self.assertDictEqual(
             liquid_data_source.trading_pair_id_conversion_dict,
             {
-                'BTCUSD': '1',
-                'BTCUSDC': '443',
-                'ETHUSD': '27',
-                'ETHUSDC': '444',
-                'LCXBTC': '538',
-                'STACETH': '206',
-                'WLOBTC': '506'
+                'BTC-USD': '1',
+                'BTC-USDC': '443',
+                'ETH-USD': '27',
+                'ETH-USDC': '444',
+                'LCX-BTC': '538',
+                'STAC-ETH': '206',
+                'WLO-BTC': '506'
             }
         )
 
@@ -212,10 +217,10 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
         # Instantiate class instance
         liquid_data_source = LiquidAPIOrderBookDataSource()
 
-        liquid_data_source.trading_pair_id_conversion_dict = {'BTCETH': 27}
+        liquid_data_source.trading_pair_id_conversion_dict = {'BTC-ETH': 27}
 
         snapshot = loop.run_until_complete(
-            liquid_data_source.get_snapshot(client=aiohttp.ClientSession(), trading_pair='BTCETH', full=1))
+            liquid_data_source.get_snapshot(client=aiohttp.ClientSession(), trading_pair='BTC-ETH', full=1))
 
         self.assertEqual(list(snapshot.keys()), ['buy_price_levels', 'sell_price_levels', 'trading_pair'])
         self.assertEqual(len(snapshot['buy_price_levels']), 2)
@@ -228,18 +233,18 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
         """
         Example output of tracking pairs
         {
-            'BTCUSD': OrderBookTrackerEntry(
-                trading_pair = 'BTCUSD',
+            'BTC-USD': OrderBookTrackerEntry(
+                trading_pair = 'BTC-USD',
                 timestamp = '1573021425.445617',
                 order_book = '<hummingbot.core.data_type.order_book.OrderBook object at 0x11fa72328>'
             ),
-            'ETHUSDC': OrderBookTrackerEntry(
-                trading_pair = 'ETHUSDC',
+            'ETH-USDC': OrderBookTrackerEntry(
+                trading_pair = 'ETH-USDC',
                 timestamp = '1573021426.4484851',
                 order_book = '<hummingbot.core.data_type.order_book.OrderBook object at 0x11fa723c0>'
             ),
-            'BTCUSDC': OrderBookTrackerEntry(
-                trading_pair = 'BTCUSDC',
+            'BTC-USDC': OrderBookTrackerEntry(
+                trading_pair = 'BTC-USDC',
                 timestamp = '1573021427.4509811',
                 order_book = '<hummingbot.core.data_type.order_book.OrderBook object at 0x11fa72458>'
             )
@@ -255,7 +260,7 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
         mock_get_snapshot.return_value = f
 
         # Mock get trading pairs
-        mocked_trading_pairs = ['BTCUSD', 'ETHUSDC', 'BTCUSDC']
+        mocked_trading_pairs = ['BTC-USD', 'ETH-USDC', 'BTC-USDC']
 
         f = asyncio.Future()
         f.set_result(mocked_trading_pairs)
@@ -296,7 +301,7 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
                     ['182.11620', '0.32400000'],
                     ...
                 ],
-                'trading_pair': 'BTCUSDC'
+                'trading_pair': 'BTC-USDC'
             },
             timestamp = 1573041256.2376761)
         """
@@ -311,7 +316,7 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
         f1.set_result(
             {
                 **FixtureLiquid.SNAPSHOT_2,
-                'trading_pair': 'ETHUSD',
+                'trading_pair': 'ETH-USD',
                 'product_id': 27
             }
         )
@@ -319,7 +324,7 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
         f2.set_result(
             {
                 **FixtureLiquid.SNAPSHOT_1,
-                'trading_pair': 'LCXBTC',
+                'trading_pair': 'LCX-BTC',
                 'product_id': 538
             }
         )
@@ -327,7 +332,7 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
         mock_get_snapshot.side_effect = [f1, f2]
 
         # Mock get trading pairs
-        mocked_trading_pairs = ['ETHUSD', 'LCXBTC']
+        mocked_trading_pairs = ['ETH-USD', 'LCX-BTC']
 
         f = asyncio.Future()
         f.set_result(mocked_trading_pairs)
