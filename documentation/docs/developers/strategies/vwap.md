@@ -16,6 +16,19 @@ The VWAP strategy attempts to limit the market impact of each individual user or
 
 To achieve the goal of limiting the market impact of orders, the VWAP strategy fetches the order book and calculates the total open order volume up to percent_slippage. If no order is outstanding, an order is submitted which is capped at order_percent_of_volume * open order volume up to percent_slippage. The previous order is filled before the next is submitted and if an order is currently outstanding no action occurs.
 
+The flow chart below details the flow of processing orders.
+
+![Figure 1: Processing orders](/assets/img/VWAP2.svg)
+
+Only one order is placed in a clock tick, so a state machine is needed to emit multiple orders over different clock ticks.
+
+The state variables for TWAP:
+
+* `self._is_vwap`
+* `self._percent_slippage`
+* `self._order_percent_of_volume`
+* `self._has_outstanding_orders` : keeps track of whether the user has an active order that is not yet filled
+
 ![Figure 1: Placing orders](/assets/img/VWAP1.svg)
 
 Specifically, the operations in the flow chart above occur in the following sections of code:
@@ -38,15 +51,3 @@ Specifically, the operations in the flow chart above occur in the following sect
     * Set `order_cap = total order volume * order percent of volume`
     * Set quantized_amount = get the minimum value between the calculated order cap and the quantity remaining from order to complete
 
-The flow chart below details the flow of processing orders.
-
-![Figure 1: Processing orders](/assets/img/VWAP2.svg)
-
-Only one order is placed in a clock tick, so a state machine is needed to emit multiple orders over different clock ticks.
-
-The state variables for TWAP:
-
-* `self._is_vwap`
-* `self._percent_slippage`
-* `self._order_percent_of_volume`
-* `self._has_outstanding_orders` : keeps track of whether the user has an active order that is not yet filled
