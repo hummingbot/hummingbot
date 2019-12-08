@@ -183,7 +183,7 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
                         self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
                             "trading_pair": trading_pair,
                             "trade_type": trade_type,
-                            "trade_id": action.update_id,
+                            "trade_id": ob_message.update_id,
                             "update_id": ob_message.timestamp,
                             "price": action["event"]["order"]["price"],
                             "amount": action["event"]["filledBaseTokenAmount"]

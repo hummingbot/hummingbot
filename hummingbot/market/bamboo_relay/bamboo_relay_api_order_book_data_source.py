@@ -53,6 +53,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(self, trading_pairs: Optional[List[str]] = None, chain: EthereumChain = EthereumChain.MAIN_NET):
         super().__init__()
         self._trading_pairs: Optional[List[str]] = trading_pairs
+        self._motd_done = False
         if chain is EthereumChain.ROPSTEN:
             self._api_endpoint = BAMBOO_RELAY_REST_ENDPOINT
             self._api_prefix = "ropsten/0x"
@@ -238,6 +239,19 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 trading_pairs: List[str] = await self.get_trading_pairs()
                 async with websockets.connect(self._api_ws) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
+                    if not self._motd_done:
+                        try:
+                            raw_msg = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
+                            msg = ujson.loads(raw_msg)
+                            # Print MOTD and announcements if present
+                            if "motd" in msg:
+                                self._motd_done = True
+                                self.logger().warning(f"Bamboo Relay API MOTD: {msg['motd']}")
+                                if "announcements" in msg and len(msg["announcements"]):
+                                    for announcement in msg["announcements"]:
+                                        self.logger().warning(f"Announcement: {announcement}")
+                        except: 
+                            pass
                     for trading_pair in trading_pairs:
                         request: Dict[str, str] = {
                             "type": "SUBSCRIBE",
@@ -254,7 +268,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             if "actions" in msg:
                                 diff_msg: BambooRelayOrderBookMessage = BambooRelayOrderBook.diff_message_from_exchange(
                                     msg, time.time())
-                                output.put_nowait(diff_msg)
+                                output.put_nowait(diff_msg)                            
                         except Exception as ex:
                             pass
             except asyncio.CancelledError:
