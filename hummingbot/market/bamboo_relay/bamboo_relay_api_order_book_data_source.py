@@ -246,10 +246,10 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             # Print MOTD and announcements if present
                             if "motd" in msg:
                                 self._motd_done = True
-                                self.logger().warning(f"Bamboo Relay API MOTD: {msg['motd']}")
+                                self.logger().info(f"Bamboo Relay API MOTD: {msg['motd']}")
                                 if "announcements" in msg and len(msg["announcements"]):
                                     for announcement in msg["announcements"]:
-                                        self.logger().warning(f"Announcement: {announcement}")
+                                        self.logger().info(f"Announcement: {announcement}")
                         except: 
                             pass
                     for trading_pair in trading_pairs:
