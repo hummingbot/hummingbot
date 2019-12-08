@@ -9,6 +9,7 @@ from hummingbot.client.settings import (
     CONF_FILE_PATH,
 )
 
+
 # Validators
 def is_exchange(value: str) -> bool:
     return value in EXCHANGES
