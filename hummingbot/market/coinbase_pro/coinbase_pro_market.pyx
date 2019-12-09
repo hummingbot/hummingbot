@@ -627,6 +627,7 @@ cdef class CoinbaseProMarket(MarketBase):
                     self.logger().info("Tracked order is ")
                     self.logger().info(tracked_order)
                     if exchange_order_id is None:
+                        self.logger().info("TRIGGERED")
                         exchange_order_id = await tracked_order.get_exchange_order_id()
                         self.logger().info("Tracked order after update is ")
                         self.logger().info(tracked_order)
