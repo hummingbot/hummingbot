@@ -1,6 +1,6 @@
 # VWAP
 
-The VWAP strategy is a common algorithmic execution strategy which allows traders to account for slippage by splitting up orders over time. Specifically, the VWAP strategy helps traders minimize slippage when buying or selling large orders. The methods utilized in VWAP make the strategy more useful to traders and will help when creating future, more complex strategies.
+The VWAP strategy is a common algorithm execution strategy which allows traders to execute large orders with controlled and limited market impact. It accomplishes this by measuring the market impact of each order before making new orders, and splitting up the trader's large order into smaller orders that have limited market impact. Unlike the TWAP strategy, VWAP doesn't wait for a specific interval before making new orders - it only waits for the last order to complete before making the next order.
 
 ## Config
 
@@ -14,7 +14,7 @@ VWAP utilizes user input for:
 
 The VWAP strategy attempts to limit the market impact of each individual user order. It accomplishes this by calculating the potential order sizes that can be placed in order to guarantee a user-specified upper bound on price slippage. In this strategy, the price slippage and corresponding order sizes are always calculated as if they are market orders, even if this is not the case. By doing do, the strategy achieves the goal of limiting the market impact of orders rather than limiting the actual price slippage of the orders.
 
-To achieve the goal of limiting the market impact of orders, the VWAP strategy fetches the order book and calculates the total open order volume up to percent_slippage. If no order is outstanding, an order is submitted which is capped at order_percent_of_volume * open order volume up to percent_slippage. The previous order is filled before the next is submitted and if an order is currently outstanding no action occurs.
+To achieve the goal of limiting the market impact of orders, the VWAP strategy fetches the order book and calculates the total open order volume up to percent_slippage. If no order is outstanding, an order is submitted which is capped at `order_percent_of_volume * open order volume up to percent_slippage`. At most one order can be placed in each clock tick and if an order is currently outstanding no action occurs.
 
 The flow chart below details the flow of processing orders.
 
@@ -50,4 +50,3 @@ Specifically, the operations in the flow chart above occur in the following sect
         * Use OrderBook class’s `c_get_volume_for_price()` function to get the amount of order volume that is available for the specified slippage_price
     * Set `order_cap = total order volume * order percent of volume`
     * Set quantized_amount = get the minimum value between the calculated order cap and the quantity remaining from order to complete
-
