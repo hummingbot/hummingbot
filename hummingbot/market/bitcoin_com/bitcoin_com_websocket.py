@@ -42,7 +42,6 @@ class BitcoinComWebsocket():
             self._client = await websockets.connect(constants.WSS_URL)
             return self._client
         except Exception as e:
-            print(str(e))
             self.logger().error(f"Websocket error: '{str(e)}'", exc_info=True)
 
     # disconnect from exchange
