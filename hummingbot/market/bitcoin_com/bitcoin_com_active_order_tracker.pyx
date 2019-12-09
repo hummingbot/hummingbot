@@ -36,13 +36,13 @@ cdef class BitcoinComActiveOrderTracker:
     def active_bids(self) -> BitcoinComOrderBookTrackingDictionary:
         return self._active_bids
 
-    # TODO: WIP
+    # TODO: research this more
     def volume_for_ask_price(self, price) -> float:
-        return sum([float(msg["remaining_size"]) for msg in self._active_asks[price].values()])
+        raise NotImplementedError
 
-    # TODO: WIP
+    # TODO: research this more
     def volume_for_bid_price(self, price) -> float:
-        return sum([float(msg["remaining_size"]) for msg in self._active_bids[price].values()])
+        raise NotImplementedError
 
     def get_rates_and_quantities(self, entry) -> tuple:
         return float(entry["price"]), float(entry["size"])
