@@ -223,8 +223,8 @@ class TWAPUnitTest(unittest.TestCase):
     def test_limit_sell_order(self):
         self.clock.add_iterator(self.limit_sell_strategy)
         # check no orders are placed before time delay
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
-        self.assertEqual(0, len(self.limit_buy_strategy.active_asks))
+        self.clock.backtest_til(self.start_timestamp)
+        self.assertEqual(0, len(self.limit_sell_strategy.active_asks))
 
         # test whether number of orders is one at start
         # check whether the order is sell
@@ -282,9 +282,9 @@ class TWAPUnitTest(unittest.TestCase):
         self.clock.add_iterator(self.market_sell_strategy)
         # check no orders are placed before time delay
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
-        market_buy_events: List[BuyOrderCompletedEvent] = [t for t in self.buy_order_completed_logger.event_log
-                                                           if isinstance(t, BuyOrderCompletedEvent)]
-        self.assertEqual(0, len(market_buy_events))
+        market_sell_events: List[SellOrderCompletedEvent] = [t for t in self.sell_order_completed_logger.event_log
+                                                             if isinstance(t, SellOrderCompletedEvent)]
+        self.assertEqual(0, len(market_sell_events))
 
         # test whether number of orders is one
         # check whether the order is sell

@@ -187,3 +187,4 @@ AttributeError: 'NoneType' object has no attribute 'all_markets_ready'
 ```
 
 In this case, disabling paper trade mode will fix the problem. See [this page](https://docs.hummingbot.io/utilities/paper-trade/) on how to use paper trade.
+

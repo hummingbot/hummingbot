@@ -319,7 +319,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
             bid_price: Decimal = current_bid_price * Decimal(0.8)
             quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
 
-            amount: float = 0.05 / bid_price
+            amount: float = Decimal("0.05") / bid_price
             quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, Decimal(amount))
 
             expires = int(time.time() + 60 * 5)

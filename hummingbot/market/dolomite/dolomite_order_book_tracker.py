@@ -26,7 +26,7 @@ class DolomiteOrderBookTracker(OrderBookTracker):
     def __init__(
         self,
         data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
-        symbols: Optional[List[str]] = None,
+        trading_pairs: Optional[List[str]] = None,
         rest_api_url: str = "",
         websocket_url: str = "",
     ):
@@ -37,7 +37,7 @@ class DolomiteOrderBookTracker(OrderBookTracker):
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[OrderBookTrackerDataSource] = None
         self._active_order_trackers: Dict[str, DolomiteActiveOrderTracker] = defaultdict(DolomiteActiveOrderTracker)
-        self._symbols: Optional[List[str]] = symbols
+        self._trading_pairs: Optional[List[str]] = trading_pairs
         self.rest_api_url = rest_api_url
         self.websocket_url = websocket_url
 
@@ -48,7 +48,7 @@ class DolomiteOrderBookTracker(OrderBookTracker):
                 self._data_source = RemoteAPIOrderBookDataSource()
             elif self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
                 self._data_source = DolomiteAPIOrderBookDataSource(
-                    symbols=self._symbols, rest_api_url=self.rest_api_url, websocket_url=self.websocket_url
+                    trading_pairs=self._trading_pairs, rest_api_url=self.rest_api_url, websocket_url=self.websocket_url
                 )
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
@@ -73,39 +73,39 @@ class DolomiteOrderBookTracker(OrderBookTracker):
         """
         Starts tracking for any new trading pairs, and stop tracking for any inactive trading pairs.
         """
-        tracking_symbols: Set[str] = set(
+        tracking_trading_pairs: Set[str] = set(
             [key for key in self._tracking_tasks.keys() if not self._tracking_tasks[key].done()]
         )
         available_pairs: Dict[str, DolomiteOrderBookTrackerEntry] = await self.data_source.get_tracking_pairs()
-        available_symbols: Set[str] = set(available_pairs.keys())
-        new_symbols: Set[str] = available_symbols - tracking_symbols
-        deleted_symbols: Set[str] = tracking_symbols - available_symbols
+        available_trading_pairs: Set[str] = set(available_pairs.keys())
+        new_trading_pairs: Set[str] = available_trading_pairs - tracking_trading_pairs
+        deleted_trading_pairs: Set[str] = tracking_trading_pairs - available_trading_pairs
 
-        for symbol in new_symbols:
-            order_book_tracker_entry: DolomiteOrderBookTrackerEntry = available_pairs[symbol]
-            self._active_order_trackers[symbol] = order_book_tracker_entry.active_order_tracker
-            self._order_books[symbol] = order_book_tracker_entry.order_book
-            self._tracking_message_queues[symbol] = asyncio.Queue()
-            self._tracking_tasks[symbol] = asyncio.ensure_future(self._track_single_book(symbol))
-            self.logger().info("Started order book tracking for %s.", symbol)
+        for trading_pair in new_trading_pairs:
+            order_book_tracker_entry: DolomiteOrderBookTrackerEntry = available_pairs[trading_pair]
+            self._active_order_trackers[trading_pair] = order_book_tracker_entry.active_order_tracker
+            self._order_books[trading_pair] = order_book_tracker_entry.order_book
+            self._tracking_message_queues[trading_pair] = asyncio.Queue()
+            self._tracking_tasks[trading_pair] = asyncio.ensure_future(self._track_single_book(trading_pair))
+            self.logger().info("Started order book tracking for %s.", trading_pair)
 
-        for symbol in deleted_symbols:
-            self._tracking_tasks[symbol].cancel()
-            del self._tracking_tasks[symbol]
-            del self._order_books[symbol]
-            del self._active_order_trackers[symbol]
-            del self._tracking_message_queues[symbol]
-            self.logger().info("Stopped order book tracking for %s.", symbol)
+        for trading_pair in deleted_trading_pairs:
+            self._tracking_tasks[trading_pair].cancel()
+            del self._tracking_tasks[trading_pair]
+            del self._order_books[trading_pair]
+            del self._active_order_trackers[trading_pair]
+            del self._tracking_message_queues[trading_pair]
+            self.logger().info("Stopped order book tracking for %s.", trading_pair)
 
-    async def _track_single_book(self, symbol: str):
-        message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
-        order_book: DolomiteOrderBook = self._order_books[symbol]
-        active_order_tracker: DolomiteActiveOrderTracker = self._active_order_trackers[symbol]
+    async def _track_single_book(self, trading_pair: str):
+        message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
+        order_book: DolomiteOrderBook = self._order_books[trading_pair]
+        active_order_tracker: DolomiteActiveOrderTracker = self._active_order_trackers[trading_pair]
 
         while True:
             try:
                 message: DolomiteOrderBookMessage = None
-                saved_messages: Deque[DolomiteOrderBookMessage] = self._saved_message_queues[symbol]
+                saved_messages: Deque[DolomiteOrderBookMessage] = self._saved_message_queues[trading_pair]
                 # Process saved messages first if there are any
                 if len(saved_messages) > 0:
                     message = saved_messages.popleft()
@@ -118,13 +118,13 @@ class DolomiteOrderBookTracker(OrderBookTracker):
                 elif message.type is OrderBookMessageType.SNAPSHOT:
                     s_bids, s_asks = active_order_tracker.convert_snapshot_message_to_order_book_row(message)
                     order_book.apply_snapshot(s_bids, s_asks, message.update_id)
-                    self.logger().debug("Processed order book snapshot for %s.", symbol)
+                    self.logger().debug("Processed order book snapshot for %s.", trading_pair)
 
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().network(
-                    f"Unexpected error tracking order book for {symbol}.",
+                    f"Unexpected error tracking order book for {trading_pair}.",
                     exc_info=True,
                     app_warning_msg=f"Unexpected error tracking order book. Retrying after 5 seconds.",
                 )
