@@ -440,6 +440,9 @@ cdef class BinanceMarket(MarketBase):
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             trading_pairs_to_order_map = defaultdict(lambda: {})
+            self.logger().info("At update order fills from trades")
+            self.logger().info("The in flight orders in binance are")
+            self.logger().info(self._in_flight_orders.values())
             for o in self._in_flight_orders.values():
                 trading_pairs_to_order_map[o.trading_pair][o.exchange_order_id] = o
 
@@ -491,6 +494,9 @@ cdef class BinanceMarket(MarketBase):
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
+            self.logger().info("Inside updating order status")
+            self.logger().info("The in flight orders in binance are")
+            self.logger().info(self._in_flight_orders.values())
             tasks = [self.query_api(self._binance_client.get_order,
                                     symbol=o.trading_pair, origClientOrderId=o.client_order_id)
                      for o in tracked_orders]
@@ -629,11 +635,14 @@ cdef class BinanceMarket(MarketBase):
                         client_order_id = event_message.get("C")
 
                     tracked_order = self._in_flight_orders.get(client_order_id)
+                    self.logger().info("Inside User stream listener")
+                    self.logger().info("The in flight orders in binance are")
+                    self.logger().info(self._in_flight_orders.values())
 
                     if tracked_order is None:
                         # Hiding the messages for now. Root cause to be investigated in later sprints.
-                        self.logger().debug(f"Unrecognized order ID from user stream: {client_order_id}.")
-                        self.logger().debug(f"Event: {event_message}")
+                        self.logger().info(f"Unrecognized order ID from user stream: {client_order_id}.")
+                        self.logger().info(f"Event: {event_message}")
                         continue
 
                     tracked_order.update_with_execution_report(event_message)
