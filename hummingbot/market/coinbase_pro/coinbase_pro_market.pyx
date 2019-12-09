@@ -623,6 +623,13 @@ cdef class CoinbaseProMarket(MarketBase):
                     self.logger().info(f"exchange order id: {tracked_order.exchange_order_id}")
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"{order_type_description} order {tracked_order.client_order_id}")
+                    exchange_order_id = tracked_order.exchange_order_id
+                    self.logger().info("Tracked order is ")
+                    self.logger().info(tracked_order)
+                    if exchange_order_id is None:
+                        exchange_order_id = await tracked_order.get_exchange_order_id()
+                        self.logger().info("Tracked order after update is ")
+                        self.logger().info(tracked_order)
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                          OrderFilledEvent(
                                              self._current_timestamp,
@@ -640,7 +647,7 @@ cdef class CoinbaseProMarket(MarketBase):
                                                  execute_price,
                                                  execute_amount_diff,
                                              ),
-                                             exchange_trade_id=tracked_order.exchange_order_id
+                                             exchange_trade_id=exchange_order_id
                                          ))
 
                 if content.get("reason") == "filled":  # Only handles orders with "done" status
