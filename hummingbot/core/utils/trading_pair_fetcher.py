@@ -6,7 +6,8 @@ from typing import (
 )
 
 from hummingbot.core.utils.async_utils import safe_ensure_future
-
+import certifi
+import ssl
 
 BINANCE_ENDPOINT = "https://api.binance.com/api/v1/exchangeInfo"
 DDEX_ENDPOINT = "https://api.ddex.io/v3/markets"
@@ -46,6 +47,11 @@ class TradingPairFetcher:
                         data = await response.json()
                         trading_pair_structs = data.get("symbols")
                         raw_trading_pairs = list(map(lambda details: details.get("symbol"), trading_pair_structs))
+                        # Binance API has an error where they have a symbol called 123456
+                        # The symbol endpoint is
+                        # https://api.binance.com/api/v1/exchangeInfo
+                        if "123456" in raw_trading_pairs:
+                            raw_trading_pairs.remove("123456")
                         return [BinanceMarket.convert_from_exchange_trading_pair(p) for p in raw_trading_pairs]
                     except Exception:
                         pass
@@ -97,12 +103,13 @@ class TradingPairFetcher:
     async def fetch_bamboo_relay_trading_pairs() -> List[str]:
         from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 
+        sslcontext = ssl.create_default_context(cafile=certifi.where())
         trading_pairs = set()
         page_count = 1
         while True:
             async with aiohttp.ClientSession() as client:
                 async with client.get(f"{BAMBOO_RELAY_ENDPOINT}?perPage=1000&page={page_count}",
-                                      timeout=API_CALL_TIMEOUT) as response:
+                                      timeout=API_CALL_TIMEOUT, ssl=sslcontext) as response:
                     if response.status == 200:
                         try:
                             markets = await response.json()

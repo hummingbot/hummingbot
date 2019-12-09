@@ -8,6 +8,7 @@ from hummingbot.market.idex.idex_active_order_tracker import IDEXActiveOrderTrac
 from hummingbot.market.radar_relay.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
 from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
 from hummingbot.market.dolomite.dolomite_active_order_tracker import DolomiteActiveOrderTracker
+from hummingbot.market.bitcoin_com.bitcoin_com_active_order_tracker import BitcoinComActiveOrderTracker
 
 
 class OrderBookTrackerEntry:
@@ -157,3 +158,46 @@ class BittrexOrderBookTrackerEntry(OrderBookTrackerEntry):
     @property
     def active_order_tracker(self) -> BittrexActiveOrderTracker:
         return self._active_order_tracker
+
+
+class BitcoinComOrderBookTrackerEntry(OrderBookTrackerEntry):
+    def __init__(
+        self, trading_pair: str, timestamp: float, order_book: OrderBook, active_order_tracker: BitcoinComActiveOrderTracker
+    ):
+        self._active_order_tracker = active_order_tracker
+        super(BitcoinComOrderBookTrackerEntry, self).__init__(trading_pair, timestamp, order_book)
+
+    def __repr__(self) -> str:
+        return (
+            f"BitcoinComOrderBookTrackerEntry(trading_pair='{self._trading_pair}', timestamp='{self._timestamp}', "
+            f"order_book='{self._order_book}')"
+        )
+
+    @property
+    def active_order_tracker(self) -> BitcoinComActiveOrderTracker:
+        return self._active_order_tracker
+
+
+class LiquidOrderBookTrackerEntry(OrderBookTrackerEntry):
+    def __init__(self, trading_pair: str, timestamp: float, order_book: OrderBook):
+        self._trading_pair = trading_pair
+        self._timestamp = timestamp
+        self._order_book = order_book
+
+    def __repr__(self) -> (str):
+        return (
+            f"LiquidOrderBookTrackerEntry(trading_pair='{self._trading_pair}', timestamp='{self._timestamp}', "
+            f"order_book='{self._order_book}')"
+        )
+
+    @property
+    def trading_pair(self) -> (str):
+        return self._trading_pair
+
+    @property
+    def timestamp(self) -> (float):
+        return self._timestamp
+
+    @property
+    def order_book(self) -> (OrderBook):
+        return self._order_book

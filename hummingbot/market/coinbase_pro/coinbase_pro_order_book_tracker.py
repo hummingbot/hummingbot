@@ -106,7 +106,7 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
         Starts tracking for any new trading pairs, and stop tracking for any inactive trading pairs.
         """
         tracking_trading_pairs: Set[str] = set([key for key in self._tracking_tasks.keys()
-                                          if not self._tracking_tasks[key].done()])
+                                                if not self._tracking_tasks[key].done()])
         available_pairs: Dict[str, CoinbaseProOrderBookTrackerEntry] = await self.data_source.get_tracking_pairs()
         available_trading_pairs: Set[str] = set(available_pairs.keys())
         new_trading_pairs: Set[str] = available_trading_pairs - tracking_trading_pairs
@@ -158,7 +158,7 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
                     trade_type = float(TradeType.SELL.value) if ob_message.content["side"].upper() == "SELL" \
                         else float(TradeType.BUY.value)
                     self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
-                        "symbol": ob_message.trading_pair,
+                        "trading_pair": ob_message.trading_pair,
                         "trade_type": trade_type,
                         "trade_id": ob_message.update_id,
                         "update_id": ob_message.timestamp,
