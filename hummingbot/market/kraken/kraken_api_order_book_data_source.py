@@ -160,7 +160,6 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
-        # when type is set to "step0", the default value of "depth" is 150
         params: Dict = {"pair": trading_pair.replace("/", "")}
         async with client.get(KRAKEN_DEPTH_URL, params=params) as response:
             response: aiohttp.ClientResponse = response
@@ -245,11 +244,13 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 trading_pairs: List[str] = await self.get_trading_pairs()
                 async with websockets.connect(KRAKEN_WS_URI) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
-                    # for trading_pair in trading_pairs:
                     subscribe_request: Dict[str, Any] = {
                         "event": "subscribe",
                         "pair": trading_pairs,
-                        "subscription": {"name": "book"}
+                        "subscription": {
+                            "name": "book",
+                            "depth": 1000
+                        }
                     }
                     await ws.send(json.dumps(subscribe_request))
 
