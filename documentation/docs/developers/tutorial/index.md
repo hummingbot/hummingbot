@@ -17,8 +17,17 @@ The development strategies are intended to be used as a guide for developers to 
 Hello World and Get Order Book are not effective trading strategies but teach developers how to begin creating a strategy,
 how to fetch an order book, how to break and order into individual orders, etc..
 
+## Development Strategies
+The development strategies listed below differ from the normal strategies in that they are intended to serve as a tutorial to teach developers how the code functions and how to customize their own strategies. Following the steps to create each of the following strategies will help you learn about different aspects of the code base and greatly help you in developing and deploying your own algorithmic strategy. By the same token, these strategies are not intended to be run as is.
+
 ## 1. Hello World Strategy
 We will start out with a simple strategy that can perform `status` command and displays the user’s token balance in a given market. This part should expose you to different parts of the Hummingbot codebase, help you understand some core classes that are frequently referred to when building strategies, and provide a starting point for developing custom strategies.
+
+[To see how the Hello World Strategy should run follow this link](https://docs.hummingbot.io/quickstart/4-run-bot/)
+[To find the Hello World Strategy code on github follow this link](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/dev_0_hello_world)
+
+Specifically, when following the tutorial for this strategy, pay attention to the functions `format_status` in `dev_0_hello_world.pyx` and `dev_0_hello_world_config_map` in the `dev_0_hello_world_config_map.py`.
+
 
 #### Directory Breakdown
 Take a look at the directory for hello world strategy:
