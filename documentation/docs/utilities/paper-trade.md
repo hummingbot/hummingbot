@@ -57,3 +57,7 @@ Add more paper trade assets by editing `conf_global.yml` using a text editor. **
 - IDEX
 - Bittrex
 - Dolomite
+
+!!! note
+    Make sure to set paper trade to `false` when running Discovery Strategy.
+

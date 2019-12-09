@@ -82,7 +82,8 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return "-e" in text_before_cursor or \
                "--exchange" in text_before_cursor or \
-               "exchange" in self.prompt_text
+               any(x for x in ("exchange name", "name of exchange", "name of the exchange")
+                   if x in self.prompt_text.lower())
 
     def _complete_trading_pairs(self, document: Document) -> bool:
         return "trading pair" in self.prompt_text
