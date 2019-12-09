@@ -14,6 +14,7 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.market.market_base import MarketBase
 from .market_trading_pair_tuple import MarketTradingPairTuple
+import logging
 
 NaN = float("nan")
 
@@ -35,6 +36,13 @@ cdef class OrderTracker(TimeIterator):
         self._shadow_gc_requests = deque()
         self._in_flight_pending_created = set()
         self._in_flight_cancels = OrderedDict()
+
+    @classmethod
+    def logger(cls):
+        global ot_logger
+        if ot_logger is None:
+            ot_logger = logging.getLogger(__name__)
+        return ot_logger
 
     @property
     def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
@@ -180,8 +188,12 @@ cdef class OrderTracker(TimeIterator):
         self._shadow_order_id_to_market_pair[order_id] = market_pair
 
     cdef c_stop_tracking_limit_order(self, object market_pair, str order_id):
+        self.logger().info(f"Stopping in the order tracker object for {order_id}")
         if market_pair in self._tracked_maker_orders and order_id in self._tracked_maker_orders[market_pair]:
             del self._tracked_maker_orders[market_pair][order_id]
+            self.logger().info(f"Deleting from Tracked maker orders for {order_id}")
+            self.logger().info("The tracked maker orders is")
+            self.logger().info(self._tracked_maker_orders)
             if len(self._tracked_maker_orders[market_pair]) < 1:
                 del self._tracked_maker_orders[market_pair]
             self._shadow_gc_requests.append((
@@ -189,11 +201,16 @@ cdef class OrderTracker(TimeIterator):
                 market_pair,
                 order_id
             ))
+            self.logger().info(f" The length of gc requests is {len(self._shadow_gc_requests)}")
+            self.logger().info(f" The gc requests object is {self._shadow_gc_requests}")
 
         if order_id in self._order_id_to_market_pair:
             del self._order_id_to_market_pair[order_id]
+            self.logger().info(f"Deleting from order_id_to_market_pair for {order_id}")
+
         if order_id in self._in_flight_cancels:
             del self._in_flight_cancels[order_id]
+            self.logger().info(f"Deleting from in_flight_cancels for {order_id}")
 
     cdef c_start_tracking_market_order(self, object market_pair, str order_id, bint is_buy, object quantity):
         if market_pair not in self._tracked_taker_orders:
@@ -221,15 +238,24 @@ cdef class OrderTracker(TimeIterator):
         cdef:
             double current_timestamp = self._current_timestamp
 
+        self.logger().info("Cleaning up shadow records")
+
         while len(self._shadow_gc_requests) > 0 and self._shadow_gc_requests[0][0] < current_timestamp:
             _, market_pair, order_id = self._shadow_gc_requests.popleft()
             if (market_pair in self._shadow_tracked_maker_orders and
                     order_id in self._shadow_tracked_maker_orders[market_pair]):
                 del self._shadow_tracked_maker_orders[market_pair][order_id]
                 if len(self._shadow_tracked_maker_orders[market_pair]) < 1:
+                    self.logger().info("Deleting from shadow_tracked_maker_orders")
                     del self._shadow_tracked_maker_orders[market_pair]
             if order_id in self._shadow_order_id_to_market_pair:
+                self.logger().info("Deleting from shadow_order_id_to_market_pair")
                 del self._shadow_order_id_to_market_pair[order_id]
+
+            self.logger().info("The shadow tracked maker orders is")
+            self.logger().info(self._shadow_tracked_maker_orders)
+            self.logger().info("The shadow order id to market pair is")
+            self.logger().info(self._shadow_order_id_to_market_pair)
 
     cdef c_add_create_order_pending(self, str order_id):
         self.in_flight_pending_created.add(order_id)
