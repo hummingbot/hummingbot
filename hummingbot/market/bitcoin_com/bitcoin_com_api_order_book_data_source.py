@@ -175,7 +175,7 @@ class BitcoinComAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error(f"Error initializing order book for {trading_pair}. ", exc_info=True)
 
-            return tracking_pairs
+        return tracking_pairs
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
@@ -215,7 +215,7 @@ class BitcoinComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Unexpected error.", exc_info=True)
                 await asyncio.sleep(5.0)
             finally:
-                ws.disconnect()
+                await ws.disconnect()
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
@@ -258,7 +258,7 @@ class BitcoinComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 )
                 await asyncio.sleep(30.0)
             finally:
-                ws.disconnect()
+                await ws.disconnect()
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """

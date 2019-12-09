@@ -33,7 +33,7 @@ from .base_watcher import BaseWatcher
 from .new_blocks_watcher import NewBlocksWatcher
 from .contract_event_logs import ContractEventLogger
 
-weth_dai_symbols: Set[str] = {"WETH", "DAI"}
+weth_sai_symbols: Set[str] = {"WETH", "SAI"}
 TRANSFER_EVENT_NAME = "Transfer"
 APPROVAL_EVENT_NAME = "Approval"
 
@@ -48,9 +48,9 @@ class ERC20EventsWatcher(BaseWatcher):
         return cls._w2ew_logger
 
     @staticmethod
-    def is_weth_dai(symbol: str) -> bool:
-        global weth_dai_symbols
-        return symbol in weth_dai_symbols
+    def is_weth_sai(symbol: str) -> bool:
+        global weth_sai_symbols
+        return symbol in weth_sai_symbols
 
     def __init__(self,
                  w3: Web3,
@@ -162,10 +162,10 @@ class ERC20EventsWatcher(BaseWatcher):
     def handle_incoming_tokens_event(self,
                                      timestamp: float, tx_hash: str, asset_name: str, event_data: AttributeDict):
         event_args: AttributeDict = event_data["args"]
-        is_weth_dai: bool = self.is_weth_dai(asset_name)
+        is_weth_sai: bool = self.is_weth_sai(asset_name)
         decimals: int = self._asset_decimals[asset_name]
 
-        if is_weth_dai and hasattr(event_args, "wad"):
+        if is_weth_sai and hasattr(event_args, "wad"):
             raw_amount: int = event_args.wad
             normalized_amount: float = raw_amount * math.pow(10, -decimals)
             from_address: str = event_args.src
@@ -186,10 +186,10 @@ class ERC20EventsWatcher(BaseWatcher):
 
     def handle_approve_tokens_event(self, timestamp: float, tx_hash: str, asset_name: str, event_data: AttributeDict):
         event_args: AttributeDict = event_data["args"]
-        is_weth_dai: bool = self.is_weth_dai(asset_name)
+        is_weth_sai: bool = self.is_weth_sai(asset_name)
         decimals: int = self._asset_decimals[asset_name]
 
-        if is_weth_dai and hasattr(event_args, "wad"):
+        if is_weth_sai and hasattr(event_args, "wad"):
             raw_amount: int = event_args.wad
             owner_address: str = event_args.src
             spender_address: str = event_args.guy
