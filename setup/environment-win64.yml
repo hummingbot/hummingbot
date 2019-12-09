@@ -62,7 +62,6 @@ dependencies:
     - aioconsole==0.1.14
     - aiohttp==3.6.1
     - aiokafka==0.5.2
-    - aiostream==0.4.0
     - altgraph==0.16.1
     - appdirs==1.4.3
     - aspy-yaml==1.3.0
@@ -117,6 +116,7 @@ dependencies:
     - pyflakes==2.1.1
     - pyhamcrest==1.9.0
     - pyinstaller==3.5
+    - PyJWT==1.7.1
     - pyperclip==1.7.0
     - pypiwin32==223
     - pyrsistent==0.15.3
