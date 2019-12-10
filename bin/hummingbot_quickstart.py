@@ -48,10 +48,10 @@ class CmdlineParser(ThrowingArgumentParser):
                           type=str,
                           required=False,
                           help="Specify the wallet public key you would like to use.")
-        self.add_argument("--wallet-password", "-p",
+        self.add_argument("--config-password", "--wallet-password", "-p",
                           type=str,
                           required=False,
-                          help="Specify the password if you need to unlock your wallet.")
+                          help="Specify the password to unlock your encrypted files and wallets.")
 
 
 async def quick_start():
@@ -61,21 +61,22 @@ async def quick_start():
         strategy = args.strategy
         config_file_name = args.config_file_name
         wallet = args.wallet
-        wallet_password = args.wallet_password
+        password = args.config_password
 
         await create_yml_files()
         init_logging("hummingbot_logs.yml")
         read_configs_from_yml()
         hb = HummingbotApplication.main_application()
 
+        in_memory_config_map.get("password").value = password
         in_memory_config_map.get("strategy").value = strategy
         in_memory_config_map.get("strategy").validate(strategy)
         in_memory_config_map.get("strategy_file_path").value = config_file_name
         in_memory_config_map.get("strategy_file_path").validate(config_file_name)
 
-        if wallet and wallet_password:
+        if wallet and password:
             global_config_map.get("wallet").value = wallet
-            hb.acct = unlock_wallet(public_key=wallet, password=wallet_password)
+            hb.acct = unlock_wallet(public_key=wallet, password=password)
 
         if not hb.config_complete:
             config_map = load_required_configs()
