@@ -6,10 +6,13 @@ from os.path import (
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
-    OrderBookEvent
+    OrderBookEvent,
+    OrderBookTradeEvent,
+    TradeType
 )
 import asyncio
 import logging
+import math
 import unittest
 from typing import (
     Dict,
@@ -31,8 +34,8 @@ class LiquidOrderBookTrackerUnitTest(unittest.TestCase):
     ]
 
     trading_pairs: List[str] = [
-        'ETHUSD',
-        'LCXBTC'
+        'ETH-USD',
+        'LCX-BTC'
     ]
 
     @classmethod
@@ -74,29 +77,29 @@ class LiquidOrderBookTrackerUnitTest(unittest.TestCase):
             for trading_pair, order_book in self.order_book_tracker.order_books.items():
                 order_book.add_listener(event_tag, self.event_logger)
 
-    # def test_order_book_trade_event_emission(self):
-    #     """
-    #     Test if order book tracker is able to retrieve order book trade message from exchange and
-    #     emit order book trade events after correctly parsing the trade messages
-    #     """
-    #     self.run_parallel(self.event_logger.wait_for(OrderBookTradeEvent))
-    #     for ob_trade_event in self.event_logger.event_log:
-    #         self.assertTrue(type(ob_trade_event) == OrderBookTradeEvent)
-    #         self.assertTrue(ob_trade_event.trading_pair in self.trading_pairs)
-    #         self.assertTrue(type(ob_trade_event.timestamp) == float)
-    #         self.assertTrue(type(ob_trade_event.amount) == float)
-    #         self.assertTrue(type(ob_trade_event.price) == float)
-    #         self.assertTrue(type(ob_trade_event.type) == TradeType)
-    #         self.assertTrue(math.ceil(math.log10(ob_trade_event.timestamp)) == 10)
-    #         self.assertTrue(ob_trade_event.amount > 0)
-    #         self.assertTrue(ob_trade_event.price > 0)
+    def test_order_book_trade_event_emission(self):
+        """
+        Test if order book tracker is able to retrieve order book trade message from exchange and
+        emit order book trade events after correctly parsing the trade messages
+        """
+        self.run_parallel(self.event_logger.wait_for(OrderBookTradeEvent))
+        for ob_trade_event in self.event_logger.event_log:
+            self.assertTrue(type(ob_trade_event) == OrderBookTradeEvent)
+            self.assertTrue(ob_trade_event.trading_pair in self.trading_pairs)
+            self.assertTrue(type(ob_trade_event.timestamp) == float)
+            self.assertTrue(type(ob_trade_event.amount) == float)
+            self.assertTrue(type(ob_trade_event.price) == float)
+            self.assertTrue(type(ob_trade_event.type) == TradeType)
+            self.assertTrue(math.ceil(math.log10(ob_trade_event.timestamp)) == 10)
+            self.assertTrue(ob_trade_event.amount > 0)
+            self.assertTrue(ob_trade_event.price > 0)
 
     def test_tracker_integrity(self):
         # Wait 5 seconds to process some diffs.
         self.ev_loop.run_until_complete(asyncio.sleep(5.0))
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
-        ethusd_book: OrderBook = order_books["ETHUSD"]
-        lxcbtc_book: OrderBook = order_books["LCXBTC"]
+        ethusd_book: OrderBook = order_books["ETH-USD"]
+        lxcbtc_book: OrderBook = order_books["LCX-BTC"]
         # print("ethusd_book")
         # print(ethusd_book.snapshot)
         # print("lxcbtc_book")
