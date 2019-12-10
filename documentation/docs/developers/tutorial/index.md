@@ -119,9 +119,10 @@ The Perform Trade extends the Get Order Book strategy by incorporating several n
 In order to achieve the perform trade functionality, several configuration variables were added as well and `dev_2_perform_trade.pxd` reflects the updated Cython declarations.
 
 The `format_status` function now also has added functionality, displaying the following:
+
 * User’s balance of each asset in the trading pair
 * Current top bid/ask in the order book
 * Active orders
 * A warning if the user’s balance is insufficient to place the order
 
-The `history` command in the Hummingbot terminal now displays any trades resulting from placed orders.
+!!! note The `history` command in the Hummingbot terminal now displays any trades resulting from placed orders.

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Simple trade strategy expands upon Perform Trade strategy. By the end of this part, you should be able to add:
+The Simple Trade strategy expands upon Perform Trade strategy, now adding a delay before placing a trade. By the end of this part, you should be able to add:
 
 * time delay between trades
 * set a time restriction to cancel order
@@ -41,11 +41,11 @@ Cancel orders once their elapsed times go over a certain amount.
 NOTE : Can change cancel interval by specifying `_cancel_order_wait_time`. Default = `60.0`
 
 ![Figure 2: Cancelling an order](/assets/img/Simple_Trade_OrderCancelledRevised.svg)
- 
+
 ## Logging
 When a specific event about the order is triggered, the event handler calls these logging methods to provide helpful information to the users.
 
-* `c_did_fill_order()` — Called when `OrderFilledListener` sees that an order is filled. 
+* `c_did_fill_order()` — Called when `OrderFilledListener` sees that an order is filled.
 * `c_did_complete_buy_order()` — Called when `BuyOrderCompletedListener` sees that a buy order is completed.
 * `c_did_complete_sell_order()` — Called when `SellOrderCompletedListener` sees that a sell order is completed.
 
@@ -57,4 +57,3 @@ Similar mechanisms can be implemented for the following existing event listeners
 * `OrderExpiredListener`
 * `BuyOrderCreatedListener`
 * `SellOrderCreatedListener`
-

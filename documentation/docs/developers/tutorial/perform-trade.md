@@ -1,12 +1,23 @@
 # Perform Trade
 
 ## Extending Get Order Book
-The Perform Trade extends the Get Order Book strategy by incorporating several new sections of code, specifically, the c_tick, c_place_orders, c_has_enough_balance, and c_process_markets. The new code sections of code achieve the following:
+The Perform Trade extends the Get Order Book strategy by incorporating several new sections of code, specifically, `c_tick`, `c_place_orders`, `c_has_enough_balance`, and `c_process_markets`. The new code sections of code achieve the following:
 
-* Execute clock ticks / add temporal aspect (c_tick)
-* Place market / limit orders (c_place_orders)
-* Check if the trader has a high enough balance to place the requested orders (c_has_enough_balance)
-* Process the market during various clock ticks (c_process_markets)
+* Execute clock ticks & checks if markets are open and ready (`c_tick`)
+* Place market / limit orders (`c_place_orders`)
+* Check if the trader has a high enough balance to place the requested orders (`c_has_enough_balance`)
+* Process the market during various clock ticks (`c_process_markets`)
+
+In order to achieve the perform trade functionality, several configuration variables were added as well and `dev_2_perform_trade.pxd` reflects the updated Cython declarations.
+
+The `format_status` function now also has added functionality, displaying the following:
+
+* User’s balance of each asset in the trading pair
+* Current top bid/ask in the order book
+* Active orders
+* A warning if the user’s balance is insufficient to place the order
+
+!!! note The `history` command in the Hummingbot terminal now displays any trades resulting from placed orders.
 
 ## Architecture
 
@@ -16,7 +27,7 @@ Here's a high level view of the logic flow inside the built-in perform trade str
 
 ![Figure 1: Perform trade strategy flow chart](/assets/img/perform-trade-flowchart.svg)
 
-Specifically, the “Should I proceed?” check in the flow chart occurs in the try clause in the c_tick function. This checks that the markets are ready and connected, ensuring it is safe for the trader. The “Does the user have enough balance to place order?” check in the flow chart occurs on line 193 in the c_place_order function. The if statement calls c_has_enoguh_balance which performs the check. The two following paths of creating a buy order or creating a sell order in the flow chart also occur in the c_place_order function.
+Specifically, the “Should I proceed?” check in the flow chart occurs in the try clause in the c_tick function. This checks that the markets are ready and connected, ensuring it is safe for the trader. The “Does the user have enough balance to place order?” check in the flow chart occurs on line 193 in the `c_place_order function`. The if statement calls `c_has_enoguh_balance` which performs the check. The two following paths of creating a buy order or creating a sell order in the flow chart also occur in the `c_place_order function`.
 
 
 The flow of the strategy is as follows
