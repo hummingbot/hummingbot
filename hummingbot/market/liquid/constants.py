@@ -6,9 +6,25 @@ class Constants:
     # Rest API endpoints
     BASE_URL = 'https://api.liquid.com'
 
-    GET_EXCHANGE_MARKETS_URL = BASE_URL + '/products'
+    # GET
+    PRODUCTS_URI = '/products'
+    ACCOUNTS_BALANCE_URI = '/accounts/balance'
+    CRYPTO_ACCOUNTS_URI = '/crypto_accounts'
+    FIAT_ACCOUNTS_URI = '/fiat_accounts'
+    LIST_ORDER_URI = '/orders/{exchange_order_id}'
+    LIST_ORDERS_URI = '/orders?with_details=1'
+    TRADING_RULES_URI = '/currencies'
+
+    # POST
+    CRYPTO_WITHDRAWAL_URI = '/crypto_withdrawals'
+    FIAT_WITHDRAWAL_URI = '/withdrawals'
+    ORDER_CREATION_URI = '/orders'
+
+    # PUT
+    CANCEL_ORDER_URI = '/orders/{exchange_order_id}/cancel'
+
+    GET_EXCHANGE_MARKETS_URL = BASE_URL + PRODUCTS_URI
     GET_SNAPSHOT_URL = BASE_URL + '/products/{id}/price_levels?full={full}'
-    GET_USER_STREAM_URL = BASE_URL + ''
 
     # Web socket endpoints
     BAEE_WS_URL = 'wss://tap.liquid.com/app/LiquidTapClient'
@@ -33,3 +49,6 @@ class Constants:
     # Others
     SIDE_BID = 'buy'
     SIDE_ASK = 'sell'
+
+    DEFAULT_ASSETS_PRECISION = 2
+    DEFAULT_QUOTING_PRECISION = 8
