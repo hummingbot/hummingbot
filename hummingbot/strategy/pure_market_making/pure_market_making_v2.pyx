@@ -575,6 +575,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         cdef:
             str order_id = order_completed_event.order_id
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
+            MarketBase maker_market = market_info.market
             LimitOrder limit_order_record
 
         if isinstance(self.sizing_delegate, self.SINGLE_ORDER_SIZING_DELEGATES):
@@ -607,7 +608,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 if self._enable_order_filled_stop_cancellation:
                     self.logger().info(f"Stopping the tracking of {other_order_id}")
                     self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
-                    market_info.market.c_stop_tracking_order(other_order_id)
+                    maker_market.c_stop_tracking_order(other_order_id)
 
             if not isnan(replenish_time_stamp):
                 self.filter_delegate.order_placing_timestamp = replenish_time_stamp
@@ -625,6 +626,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         cdef:
             str order_id = order_completed_event.order_id
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
+            MarketBase maker_market = market_info.market
             LimitOrder limit_order_record
 
         if isinstance(self.sizing_delegate, self.SINGLE_ORDER_SIZING_DELEGATES):
@@ -657,7 +659,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 if self._enable_order_filled_stop_cancellation:
                     self.logger().info(f"Stopping the tracking of {other_order_id}")
                     self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
-                    market_info.market.c_stop_tracking_order(other_order_id)
+                    maker_market.c_stop_tracking_order(other_order_id)
 
             if not isnan(replenish_time_stamp):
                 self.filter_delegate.order_placing_timestamp = replenish_time_stamp
