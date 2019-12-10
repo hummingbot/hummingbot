@@ -32,4 +32,3 @@ cdef class HuobiMarket(MarketBase):
                                 object trade_type,
                                 object price,
                                 object amount)
-    cdef c_stop_tracking_order(self, str order_id)

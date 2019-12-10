@@ -64,4 +64,3 @@ cdef class BambooRelayMarket(MarketBase):
     cdef c_expire_order(self, str order_id)
     cdef c_expire_order_fast(self, str order_id)
     cdef c_check_and_remove_expired_orders(self)
-    cdef c_stop_tracking_order(self, str order_id)
