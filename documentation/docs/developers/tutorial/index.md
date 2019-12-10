@@ -26,8 +26,7 @@ We will start out with a simple strategy that can perform `status` command and d
 [To see how the Hello World Strategy should run follow this link](https://docs.hummingbot.io/quickstart/4-run-bot/)
 [To find the Hello World Strategy code on github follow this link](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/dev_0_hello_world)
 
-Specifically, when following the tutorial for this strategy, pay attention to the functions `format_status` in `dev_0_hello_world.pyx` and `dev_0_hello_world_config_map` in the `dev_0_hello_world_config_map.py`.
-
+Specifically, when following the tutorial for this strategy, pay attention to the function `format_status` in `dev_0_hello_world.pyx` and the `dev_0_hello_world_config_map` in the `dev_0_hello_world_config_map.py`. Specifically, the `dev_0_hello_world_config_map` shows how the configurations are prompted to the user, validated and propagated throughout the strategy. These values are utilized in `start.py` and `dev_0_hello_world.pyx`. As more configuration variables are required in more complicated strategies they will be added to the config map. The `format_status` demonstrates dsplaying warnings and information to the Hummingbot console.
 
 #### Directory Breakdown
 Take a look at the directory for hello world strategy:
@@ -102,7 +101,27 @@ Make strategy name known to the client by adding name to [hummingbot/client/sett
 Strategy parameters can be set in the `config_map` file. Each parameter (represented as dictionary key) is mapped to a `ConfigVar` type where developer can specify the name of the parameter, prompts that will be provided to the user, and validator that will check the values entered.
 
 ## 2. Get Order Book Strategy
-We will extend on what we built on step 1 and add a feature that will load the order book for a market. Specifically, a section of code is added in the format_status function which checks if there are any open orders. This part will help developers understand how to read data from different data frames.
+We will extend on what we built on step 1 and add a feature that will load the order book for a market. Specifically, a section of code is added in the `format_status` function which checks if there are any open orders. Additionally, `format_status` now displays data about the top bid/ask price. This part will help developers understand how to read data from different data frames.
 
 #### Order book data
 This strategy extends the Hello World Strategy by loading an order book in a given market. When the command `status` is executed, the strategy fetches and enumerates the order book data (maker orders) by retrieving the `active_orders` data frame for the market that the strategy is operating on. If there are no active orders, " No active maker orders." is printed.
+
+Note that the configuration prompt for question 2 has changed and the entered token now represents which order book is fetched.
+
+## 3. Perform Trade
+The Perform Trade extends the Get Order Book strategy by incorporating several new sections of code, specifically, `c_tick`, `c_place_orders`, `c_has_enough_balance`, and `c_process_markets`. The new code sections of code achieve the following:
+
+* Execute clock ticks & checks if markets are open and ready (`c_tick`)
+* Place market / limit orders (`c_place_orders`)
+* Check if the trader has a high enough balance to place the requested orders (`c_has_enough_balance`)
+* Process the market during various clock ticks (`c_process_markets`)
+
+In order to achieve the perform trade functionality, several configuration variables were added as well and `dev_2_perform_trade.pxd` reflects the updated Cython declarations.
+
+The `format_status` function now also has added functionality, displaying the following:
+* User’s balance of each asset in the trading pair
+* Current top bid/ask in the order book
+* Active orders
+* A warning if the user’s balance is insufficient to place the order
+
+The `history` command in the Hummingbot terminal now displays any trades resulting from placed orders.
