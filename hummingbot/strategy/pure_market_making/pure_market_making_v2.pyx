@@ -24,7 +24,6 @@ from hummingbot.market.market_base import (
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from math import isnan
 
 from .data_types import (
@@ -608,6 +607,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 if self._enable_order_filled_stop_cancellation:
                     self.logger().info(f"Stopping the tracking of {other_order_id}")
                     self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
+                    market_info.market.c_stop_tracking_order(other_order_id)
 
             if not isnan(replenish_time_stamp):
                 self.filter_delegate.order_placing_timestamp = replenish_time_stamp
@@ -657,6 +657,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 if self._enable_order_filled_stop_cancellation:
                     self.logger().info(f"Stopping the tracking of {other_order_id}")
                     self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
+                    market_info.market.c_stop_tracking_order(other_order_id)
 
             if not isnan(replenish_time_stamp):
                 self.filter_delegate.order_placing_timestamp = replenish_time_stamp
