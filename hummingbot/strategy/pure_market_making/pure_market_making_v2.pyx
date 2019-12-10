@@ -606,7 +606,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
                 # Stop tracking the order
                 if self._enable_order_filled_stop_cancellation:
-                    self.logger().info(f"Stopping the tracking of {other_order_id}")
                     self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
                     maker_market.c_stop_tracking_order(other_order_id)
 
@@ -657,7 +656,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
                 # Stop tracking the order
                 if self._enable_order_filled_stop_cancellation:
-                    self.logger().info(f"Stopping the tracking of {other_order_id}")
                     self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
                     maker_market.c_stop_tracking_order(other_order_id)
 
