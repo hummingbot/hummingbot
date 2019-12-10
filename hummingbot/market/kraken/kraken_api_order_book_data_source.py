@@ -35,7 +35,6 @@ KRAKEN_WS_URI = "wss://ws.kraken.com"
 
 
 class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
-
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
@@ -53,42 +52,37 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
-    
     async def get_active_exchange_markets(self) -> pd.DataFrame:
-        # limits = await fetch_min_order_amounts()
         async with aiohttp.ClientSession() as client:
             exchange_response = await client.get(KRAKEN_MARKETS_URL)
             exchange_response: aiohttp.ClientResponse = exchange_response
             if exchange_response.status != 200:
                 raise IOError(f"Error fetching Kraken exchange information. "
-                            f"HTTP status is {exchange_response.status}.")
+                              f"HTTP status is {exchange_response.status}.")
             exchange_data = await exchange_response.json()
-            pairs = []
-            trading_pairs = {}
-            keys = list(exchange_data['result'].keys())
-            for i in range(0, len(keys)):
-                id = keys[i]
-                market = exchange_data['result'][id]
-                baseId = market['base']
-                quoteId = market['quote']
-                base = baseId
-                quote = quoteId
-                symbol = market['altname']
-                trading_pairs[id] = {'symbol': symbol, "baseAsset": base, "quoteAsset": quote, 'altname': market['altname']}
-                pairs.append(market['altname'])
+            trading_pairs = {
+                trading_pair: {
+                    "symbol": f"{info['base']}/{info['quote']}",
+                    "baseAsset": info['base'],
+                    "quoteAsset": info['quote'],
+                    "altname": info['altname']
+                } for trading_pair, info in exchange_data["result"].items()
+            }
+            pairs = [info["altname"] for info in exchange_data["result"].values()]
+
             params = '&pair='
-            params +=','.join(pairs)
+            params += ','.join(pairs)
             exchange_data_ = []
             exchange_data_.append(exchange_data['result'])
-            market_response = await client.request(url=KRAKEN_TICKER_URL,params=params,method='GET')
+            market_response = await client.request(url=KRAKEN_TICKER_URL, params=params, method='GET')
             market_data = await market_response.json()
             if market_response.status != 200:
                 raise IOError(f"Error fetching Kraken markets information. "
-                            f"HTTP status is {market_response.status}.")
+                              f"HTTP status is {market_response.status}.")
             market_data: List[Dict[str, Any]] = [
                 {**item[1], **trading_pairs[item[0]]}
                 for item in market_data['result'].items()
-                    if item[0] in trading_pairs
+                if item[0] in trading_pairs
             ]
             for colum in market_data:
                 colum['quoteVolume'] = colum['v'][1]
@@ -97,7 +91,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 colum.pop('b')
                 colum['close'] = colum['c'][0]
                 colum.pop('c')
-                colum['hcolumgh']= colum['h'][0]
+                colum['hcolumgh'] = colum['h'][0]
                 colum.pop('h')
                 colum['low'] = colum['l'][0]
                 colum.pop('l')
@@ -107,12 +101,12 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             btc_price: float = float(all_markets.loc["XBTUSD"]["close"])
             eth_price: float = float(all_markets.loc["ETHUSD"]["close"])
             usd_volume: float = [(
-                    quoteVolume * btc_price if symbol.endswith("BTC") else
-                    quoteVolume * eth_price if symbol.endswith("ETH") else
-                    quoteVolume
-                )
+                quoteVolume * btc_price if symbol.endswith("BTC") else
+                quoteVolume * eth_price if symbol.endswith("ETH") else
+                quoteVolume
+            )
                 for symbol, quoteVolume in zip(all_markets.index,
-                                            all_markets.quoteVolume.astype("float"))]
+                                               all_markets.quoteVolume.astype("float"))]
             all_markets.loc[:, "USDVolume"] = usd_volume
         return all_markets.sort_values("USDVolume", ascending=False)
 
@@ -160,7 +154,6 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
-        # when type is set to "step0", the default value of "depth" is 150
         params: Dict = {"pair": trading_pair.replace("/", "")}
         async with client.get(KRAKEN_DEPTH_URL, params=params) as response:
             response: aiohttp.ClientResponse = response
@@ -214,7 +207,11 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         if type(msg) is list:
                             if len(msg) == 4:
                                 for data in msg[1]:
-                                    trade_message: OrderBookMessage = KrakenOrderBook.trade_message_from_exchange(data, metadata={"symbol": msg[3]})
+                                    trade_message: OrderBookMessage = KrakenOrderBook.trade_message_from_exchange(data,
+                                                                                                                  metadata={
+                                                                                                                      "symbol":
+                                                                                                                          msg[
+                                                                                                                              3]})
                                     output.put_nowait(trade_message)
                         # Server heartbeat sent if no subscription traffic within 1 second (approximately)
                         elif msg["event"] == 'heartbeat':
@@ -245,11 +242,13 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 trading_pairs: List[str] = await self.get_trading_pairs()
                 async with websockets.connect(KRAKEN_WS_URI) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
-                    # for trading_pair in trading_pairs:
                     subscribe_request: Dict[str, Any] = {
                         "event": "subscribe",
                         "pair": trading_pairs,
-                        "subscription": {"name": "book"}
+                        "subscription": {
+                            "name": "book",
+                            "depth": 1000
+                        }
                     }
                     await ws.send(json.dumps(subscribe_request))
 
