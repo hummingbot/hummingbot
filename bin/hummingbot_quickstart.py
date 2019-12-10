@@ -30,6 +30,7 @@ from bin.hummingbot import (
     detect_available_port,
     main as normal_start,
 )
+from hummingbot.client.config.config_helpers import write_config_to_yml
 
 
 class CmdlineParser(ThrowingArgumentParser):
@@ -94,6 +95,7 @@ async def quick_start():
                          override_log_level=log_level,
                          dev_mode=dev_mode,
                          strategy_file_path=config_file_name)
+            await write_config_to_yml()
             hb.start(log_level)
 
             tasks: List[Coroutine] = [hb.run()]
