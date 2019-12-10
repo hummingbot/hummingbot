@@ -55,7 +55,6 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
     
     async def get_active_exchange_markets(self) -> pd.DataFrame:
-        # limits = await fetch_min_order_amounts()
         async with aiohttp.ClientSession() as client:
             exchange_response = await client.get(KRAKEN_MARKETS_URL)
             exchange_response: aiohttp.ClientResponse = exchange_response
@@ -63,19 +62,16 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 raise IOError(f"Error fetching Kraken exchange information. "
                             f"HTTP status is {exchange_response.status}.")
             exchange_data = await exchange_response.json()
-            pairs = []
-            trading_pairs = {}
-            keys = list(exchange_data['result'].keys())
-            for i in range(0, len(keys)):
-                id = keys[i]
-                market = exchange_data['result'][id]
-                baseId = market['base']
-                quoteId = market['quote']
-                base = baseId
-                quote = quoteId
-                symbol = market['altname']
-                trading_pairs[id] = {'symbol': symbol, "baseAsset": base, "quoteAsset": quote, 'altname': market['altname']}
-                pairs.append(market['altname'])
+            trading_pairs = {
+                trading_pair: {
+                        "symbol": f"{info['base']}/{info['quote']}",
+                        "baseAsset": info['base'],
+                        "quoteAsset": info['quote'],
+                        "altname": info['altname']
+                    } for trading_pair, info in exchange_data["result"].items()
+            }
+            pairs = [info["altname"] for info in exchange_data["result"].values()]
+
             params = '&pair='
             params +=','.join(pairs)
             exchange_data_ = []
