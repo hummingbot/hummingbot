@@ -468,11 +468,6 @@ cdef class CoinbaseProMarket(MarketBase):
             order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
             # Emit event if executed amount is greater than 0.
             if execute_amount_diff > s_decimal_0:
-                self.logger().info("This is in update orders status")
-                self.logger().info(f"exchange order id: {exchange_order_id}")
-                self.logger().info("Tracked order")
-                self.logger().info(tracked_order)
-                self.logger().info("order update")
                 order_filled_event = OrderFilledEvent(
                     self._current_timestamp,
                     tracked_order.client_order_id,
@@ -582,12 +577,9 @@ cdef class CoinbaseProMarket(MarketBase):
                 execute_amount_diff = s_decimal_0
 
                 if event_type == "match":
-                    self.logger().info(f"Processing in user stream for {event_type}")
                     execute_amount_diff = Decimal(content.get("size", 0.0))
                     tracked_order.executed_amount_base += execute_amount_diff
                     tracked_order.executed_amount_quote += execute_amount_diff * execute_price
-                    self.logger().info(f"Executed amount base: {tracked_order.executed_amount_base}")
-                    self.logger().info(f"Executed amount quote: {tracked_order.executed_amount_quote}")
 
                 if event_type == "change":
                     if content.get("new_size") is not None:
