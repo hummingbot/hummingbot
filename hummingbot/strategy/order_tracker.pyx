@@ -17,7 +17,7 @@ from .market_trading_pair_tuple import MarketTradingPairTuple
 import logging
 
 NaN = float("nan")
-
+s_logger = None
 
 cdef class OrderTracker(TimeIterator):
     # ETH confirmation requirement of Binance has shortened to 12 blocks as of 7/15/2019.
@@ -39,10 +39,10 @@ cdef class OrderTracker(TimeIterator):
 
     @classmethod
     def logger(cls):
-        global ot_logger
-        if ot_logger is None:
-            ot_logger = logging.getLogger(__name__)
-        return ot_logger
+        global s_logger
+        if s_logger is None:
+            s_logger = logging.getLogger(__name__)
+        return s_logger
 
     @property
     def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
