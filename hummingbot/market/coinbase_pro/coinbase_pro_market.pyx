@@ -599,38 +599,20 @@ cdef class CoinbaseProMarket(MarketBase):
                         self.logger().error(f"Invalid change message - '{content}'. Aborting.")
 
                 if event_type in ["open", "done"]:
-                    self.logger().info(f"Processing in user stream for {event_type}")
-                    self.logger().info("Event message")
-                    self.logger().info(event_message)
-                    self.logger().info("content")
-                    self.logger().info(content)
                     remaining_size = Decimal(content.get("remaining_size", tracked_order.amount))
                     new_confirmed_amount = tracked_order.amount - remaining_size
                     execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
                     tracked_order.executed_amount_base = new_confirmed_amount
                     tracked_order.executed_amount_quote += execute_amount_diff * execute_price
-                    self.logger().info(f"remaining size: {remaining_size}")
-                    self.logger().info(f"new confirmed amount: {new_confirmed_amount}, executed_amount_diff:{execute_amount_diff}")
-                    self.logger().info(f"Executed amount base: {tracked_order.executed_amount_base}")
-                    self.logger().info(f"Executed amount quote: {tracked_order.executed_amount_quote}")
 
                 if execute_amount_diff > s_decimal_0:
-                    self.logger().info("Event message")
-                    self.logger().info(event_message)
-                    self.logger().info("content")
-                    self.logger().info(content)
-                    self.logger().info("This is in user stream listener updater")
-                    self.logger().info(f"exchange order id: {tracked_order.exchange_order_id}")
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"{order_type_description} order {tracked_order.client_order_id}")
                     exchange_order_id = tracked_order.exchange_order_id
-                    self.logger().info("Tracked order is ")
-                    self.logger().info(tracked_order)
+
                     if exchange_order_id is None:
-                        self.logger().info("TRIGGERED")
                         exchange_order_id = await tracked_order.get_exchange_order_id()
-                        self.logger().info("Tracked order after update is ")
-                        self.logger().info(tracked_order)
+
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                          OrderFilledEvent(
                                              self._current_timestamp,
