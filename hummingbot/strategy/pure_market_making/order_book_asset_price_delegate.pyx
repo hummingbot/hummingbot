@@ -1,3 +1,4 @@
+from .asset_price_delegate cimport AssetPriceDelegate
 
 cdef class OrderBookAssetPriceDelegate(AssetPriceDelegate):
     def __init__(self):
