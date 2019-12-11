@@ -211,12 +211,18 @@ class TradingPairFetcher:
 
     @staticmethod
     async def fetch_bitcoin_com_trading_pairs() -> List[str]:
+        from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComMarket
+
         async with aiohttp.ClientSession() as client:
             async with client.get(BITCOIN_COM_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
                     try:
-                        all_trading_pairs: List[Dict[str, any]] = await response.json()
-                        return [item["id"] for item in all_trading_pairs]
+                        raw_trading_pairs: List[Dict[str, any]] = await response.json()
+                        trading_pairs: List[str] = list([item["id"] for item in raw_trading_pairs])
+
+                        return list(
+                            map(lambda trading_pair: BitcoinComMarket.convert_from_exchange_trading_pair(trading_pair), trading_pairs)
+                        )
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete available
