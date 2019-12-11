@@ -170,21 +170,3 @@ ValueError: Unable to convert 'BTC' to 'BTC'. Aborting.
 
 In this case, BTC is not yet added to the list of exchange rate class. See [this page](/utilities/exchange-rates/#exchange-rate-class) the correct format on adding exchange rate.
 
-#### Discovery strategy error with paper trading mode
-
-Error appears both in logs and right pane if you are running discovery strategy with paper trade enabled.
-
-```
-hummingbot.client.hummingbot_application - ERROR - Error in check_discovery_strategy_ready_loop: 'NoneType' object has no attribute 'all_markets_ready'
-Traceback (most recent call last):
-  File "/hummingbot/strategy/discovery/start.py", line 52, in check_discovery_strategy_ready_loop
-    if self.strategy.all_markets_ready:
-AttributeError: 'NoneType' object has no attribute 'all_markets_ready'
-
-  File "paper_trade_market.pyx", line 242, in hummingbot.market.paper_trade.paper_trade_market.PaperTradeMarket.ready.__get__
-  File "paper_trade_market.pyx", line 206, in hummingbot.market.paper_trade.paper_trade_market.PaperTradeMarket.init_paper_trade_market
-  File "paper_trade_market.pyx", line 214, in hummingbot.market.paper_trade.paper_trade_market.PaperTradeMarket.split_trading_pair
-```
-
-In this case, disabling paper trade mode will fix the problem. See [this page](https://docs.hummingbot.io/utilities/paper-trade/) on how to use paper trade.
-
