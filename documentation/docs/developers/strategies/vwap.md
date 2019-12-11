@@ -39,14 +39,14 @@ Specifically, the operations in the flow chart above occur in the following sect
         * If no outstanding order, place order using `c_place_orders()`
 * `c_place_orders()`:
     * Check if VWAP
-    * Set order_price
-        * If MARKET order => set order_price as order book’s price
-        * If LIMIT order => set order_price as user specified order price (from config)
+    * Set `order_price`
+        * If MARKET order => set `order_price` as order book’s price
+        * If LIMIT order => set `order_price` as user specified order price (from config)
     * Set `slippage_amount = order price * percent slippage`
     * Set slippage_price
         * If BUY then `slippage_price = order price + slippage amount` because user is willing to buy for a higher price
         * If SELL then `slippage_price = order price - slippage amount` because user is willing to sell for a lower price
     * Get total_order_volume
-        * Use OrderBook class’s `c_get_volume_for_price()` function to get the amount of order volume that is available for the specified slippage_price
+        * Use OrderBook class’s `c_get_volume_for_price()` function to get the amount of order volume that is available for the specified `slippage_price`
     * Set `order_cap = total order volume * order percent of volume`
-    * Set quantized_amount = get the minimum value between the calculated order cap and the quantity remaining from order to complete
+    * Set `quantized_amount` = get the minimum value between the calculated order cap and the quantity remaining from order to complete
