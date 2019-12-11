@@ -191,7 +191,6 @@ cdef class OrderTracker(TimeIterator):
 
         if order_id in self._order_id_to_market_pair:
             del self._order_id_to_market_pair[order_id]
-
         if order_id in self._in_flight_cancels:
             del self._in_flight_cancels[order_id]
 
