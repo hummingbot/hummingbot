@@ -10,7 +10,7 @@ Please see below for instructions to find your API keys for the exchanges that H
 
 * [Huobi Global](/connectors/huobi/#creating-huobi-api-keys)
 
-* [Bittrex International](/connectors/bittrex/#creating-bittrex-api-keys)
+* [Bittrex Global](/connectors/bittrex/#creating-bittrex-api-keys)
 
 * [IDEX](/connectors/idex/#api-key)
 
