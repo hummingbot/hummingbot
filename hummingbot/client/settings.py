@@ -57,7 +57,7 @@ EXAMPLE_PAIRS = {
     "dolomite": "WETH-DAI",
     "huobi": "ETH-USDT",
     "bittrex": "ZRX-ETH",
-    "bitcoin_com": "ETHBCH"
+    "bitcoin_com": "ETH-BCH"
 }
 
 EXAMPLE_ASSETS = {
