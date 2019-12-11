@@ -57,7 +57,7 @@ EXAMPLE_PAIRS = {
     "dolomite": "WETH-DAI",
     "huobi": "ETH-USDT",
     "bittrex": "ZRX-ETH",
-    "bitcoin_com": "ETHBTC"
+    "bitcoin_com": "ETHBCH"
 }
 
 EXAMPLE_ASSETS = {
@@ -70,7 +70,7 @@ EXAMPLE_ASSETS = {
     "huobi": "eth",
     "dolomite": "LRC",
     "bittrex": "ZRX",
-    "bitcoin_com": "ETH"
+    "bitcoin_com": "BCH"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
