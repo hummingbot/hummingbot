@@ -90,7 +90,8 @@ class HistoryCommand:
         )
         return trade_performance_stats, market_trading_pair_stats
 
-    def calculate_profitability(self) -> Decimal:
+    def calculate_profitability(self,  # type: HummingbotApplication
+                                ) -> Decimal:
         """
         Determines the profitability of the trading bot.
         This function is used by the KillSwitch class.
@@ -102,8 +103,8 @@ class HistoryCommand:
 
     def trade_performance_report(self,  # type: HummingbotApplication
                                  ) -> Optional[pd.DataFrame]:
-        if len(self.market_trading_pair_tuples) == 0:
-            self._notify("  Performance analysis is not available before bot starts")
+        if len(self.market_trading_pair_tuples) == 0 or self.markets_recorder is None:
+            self._notify("  Performance analysis is not available when the bot is stopped.")
             return
 
         try:
@@ -144,4 +145,4 @@ class HistoryCommand:
 
         except Exception:
             self.logger().error("Unexpected error running performance analysis.", exc_info=True)
-            self._notify("Error running performance analysis")
+            self._notify("Error running performance analysis.")
