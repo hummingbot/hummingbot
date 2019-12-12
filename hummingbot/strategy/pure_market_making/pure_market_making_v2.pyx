@@ -1,3 +1,4 @@
+from __future__ import print_function
 from decimal import Decimal
 import logging
 from typing import (
@@ -44,6 +45,9 @@ from .constant_size_sizing_delegate cimport ConstantSizeSizingDelegate
 from .constant_size_sizing_delegate import ConstantSizeSizingDelegate
 from .inventory_skew_single_size_sizing_delegate cimport InventorySkewSingleSizeSizingDelegate
 from .inventory_skew_single_size_sizing_delegate import InventorySkewSingleSizeSizingDelegate
+from .asset_price_delegate cimport AssetPriceDelegate
+from .asset_price_delegate import AssetPriceDelegate
+
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -99,7 +103,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  best_bid_ask_jump_orders_depth: Decimal = s_decimal_zero,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
-                 status_report_interval: float = 900):
+                 status_report_interval: float = 900,
+                 asset_price_delegate: AssetPriceDelegate = None):
 
         if len(market_infos) < 1:
             raise ValueError(f"market_infos must not be empty.")
@@ -127,6 +132,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._enable_order_filled_stop_cancellation = enable_order_filled_stop_cancellation
         self._best_bid_ask_jump_mode = best_bid_ask_jump_mode
         self._best_bid_ask_jump_orders_depth = best_bid_ask_jump_orders_depth
+        self._asset_price_delegate = asset_price_delegate
 
         self.limit_order_min_expiration = limit_order_min_expiration
 
@@ -170,6 +176,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     @property
     def pricing_delegate(self) -> OrderPricingDelegate:
         return self._pricing_delegate
+
+    cdef object c_get_asset_mid_price(self):
+        return self._asset_price_delegate.c_get_mid_price()
 
     @property
     def sizing_delegate(self) -> OrderSizingDelegate:
@@ -221,6 +230,13 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         return self.c_cancel_order(market_info, order_id)
 
     def get_order_price_proposal(self, market_info: MarketTradingPairTuple) -> PricingProposal:
+        asset_mid_price = Decimal("0")
+        if self._asset_price_delegate is None:
+            top_bid_price = market_info.get_price(False)
+            top_ask_price = market_info.get_price(True)
+            asset_mid_price = (top_bid_price + top_ask_price) * Decimal("0.5")
+        else:
+            asset_mid_price = self._asset_price_delegate.c_get_mid_price()
         active_orders = []
         for limit_order in self._sb_order_tracker.c_get_maker_orders().get(market_info, {}).values():
             if self._sb_order_tracker.c_has_in_flight_cancel(limit_order.client_order_id):
@@ -228,7 +244,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             active_orders.append(limit_order)
 
         return self._pricing_delegate.c_get_order_price_proposal(
-            self, market_info, active_orders
+            self, market_info, active_orders, asset_mid_price
         )
 
     def get_order_size_proposal(self, market_info: MarketTradingPairTuple, pricing_proposal: PricingProposal) -> SizingProposal:
@@ -492,9 +508,16 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         #  2. Ask the sizing delegate on what are the order sizes.
         #  3. Set the actions to carry out in the orders proposal to include create orders.
 
+        # asset_mid_price = Decimal("0")
+        # if self._asset_price_delegate is None:
+        #     asset_mid_price = market_info.get_mid_price()
+        # else:
+        asset_mid_price = self._asset_price_delegate.c_get_mid_price()
+        print(f"asset_mid_price: {asset_mid_price}")
         pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self,
                                                                              market_info,
-                                                                             active_orders)
+                                                                             active_orders,
+                                                                             asset_mid_price)
 
         # If jump orders is enabled, run the penny jumped pricing proposal
         if self._best_bid_ask_jump_mode:
