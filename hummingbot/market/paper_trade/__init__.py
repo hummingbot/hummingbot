@@ -18,13 +18,16 @@ from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.ddex.ddex_market import DDEXMarket
 # from hummingbot.market.idex.idex_market import IDEXMarket
 
+from hummingbot.market.bittrex.bittrex_market import BittrexOrderBookTracker, BittrexMarket
+
 ORDER_BOOK_TRACKER_CLASS = {
     "binance": BinanceOrderBookTracker,
     "ddex": DDEXOrderBookTracker,
     "coinbase_pro": CoinbaseProOrderBookTracker,
     "bamboo_relay": BambooRelayOrderBookTracker,
     "radar_relay": RadarRelayOrderBookTracker,
-    "huobi": HuobiOrderBookTracker
+    "huobi": HuobiOrderBookTracker,
+    "bittrex": BittrexOrderBookTracker
 }
 
 
@@ -34,7 +37,8 @@ MARKET_CLASSES = {
     "coinbase_pro": CoinbaseProMarket,
     "bamboo_relay": BambooRelayMarket,
     "radar_relay": RadarRelayMarket,
-    "huobi": HuobiMarket
+    "huobi": HuobiMarket,
+    "bittrex": BittrexMarket
 }
 
 
