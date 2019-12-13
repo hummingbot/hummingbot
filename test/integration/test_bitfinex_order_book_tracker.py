@@ -122,11 +122,11 @@ class BitfinexOrderBookTrackerUnitTest(unittest.TestCase):
         # self.assertGreater(sut_book.get_price(False), sut_book.get_price(True))
 
         # 2 - test that price to buy integrity_test_max_volume BTC is is greater than or equal to best ask
-        self.assertGreaterEqual(sut_book.get_price_for_volume(True, 10).result_price,
+        self.assertGreaterEqual(sut_book.get_price_for_volume(True, self.integrity_test_max_volume).result_price,
                                 sut_book.get_price(True))
 
         # 3 - test that price to sell integrity_test_max_volume BTC is is less than or equal to best bid
-        self.assertLessEqual(sut_book.get_price_for_volume(False, 10).result_price,
+        self.assertLessEqual(sut_book.get_price_for_volume(False, self.integrity_test_max_volume).result_price,
                              sut_book.get_price(False))
 
         # 4 - test that all bids in order book are sorted by price in descending order
