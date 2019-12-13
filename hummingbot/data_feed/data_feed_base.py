@@ -62,6 +62,7 @@ class DataFeedBase(NetworkBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
+            print("datafeed check_network")
             loop = asyncio.get_event_loop()
             async with aiohttp.ClientSession(loop=loop,
                                              connector=aiohttp.TCPConnector(ssl=False)) as session:
