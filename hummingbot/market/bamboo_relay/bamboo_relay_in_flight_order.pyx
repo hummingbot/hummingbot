@@ -24,7 +24,7 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: Optional[str],
-                 symbol: str,
+                 trading_pair: str,
                  order_type: OrderType,
                  is_coordinated: bool,
                  trade_type: TradeType,
@@ -38,7 +38,7 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
             BambooRelayMarket,
             client_order_id,
             exchange_order_id,
-            symbol,
+            trading_pair,
             order_type,
             trade_type,
             price,
@@ -49,14 +49,14 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
         self.expires = expires
         self.available_amount_base = amount
         self.gas_fee_amount = s_decimal_0
-        self.tx_hash = tx_hash # used for tracking market orders
+        self.tx_hash = tx_hash  # used for tracking market orders
         self.zero_ex_order = zero_ex_order
 
     def __repr__(self) -> str:
         return f"BambooRelayInFlightOrder(" \
                f"client_order_id='{self.client_order_id}', " \
                f"exchange_order_id='{self.exchange_order_id}', " \
-               f"symbol='{self.symbol}', " \
+               f"trading_pair='{self.trading_pair}', " \
                f"order_type='{self.order_type}', " \
                f"is_coordinated='{self.is_coordinated}', " \
                f"trade_type={self.trade_type}, " \
@@ -87,12 +87,11 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
     def is_expired(self) -> bool:
         return self.last_state in {"EXPIRED"}
 
-
     def to_json(self) -> Dict[str, Any]:
         return {
             "client_order_id": self.client_order_id,
             "exchange_order_id": self.exchange_order_id,
-            "symbol": self.symbol,
+            "trading_pair": self.trading_pair,
             "order_type": self.order_type.name,
             "is_coordinated": self.is_coordinated,
             "trade_type": self.trade_type.name,
@@ -114,7 +113,7 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
             BambooRelayInFlightOrder retval = BambooRelayInFlightOrder(
                 client_order_id=data["client_order_id"],
                 exchange_order_id=data["exchange_order_id"],
-                symbol=data["symbol"],
+                trading_pair=data["trading_pair"],
                 order_type=getattr(OrderType, data["order_type"]),
                 is_coordinated=bool(data["is_coordinated"]),
                 trade_type=getattr(TradeType, data["trade_type"]),

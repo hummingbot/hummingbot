@@ -600,6 +600,11 @@ cdef class CoinbaseProMarket(MarketBase):
                 if execute_amount_diff > s_decimal_0:
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"{order_type_description} order {tracked_order.client_order_id}")
+                    exchange_order_id = tracked_order.exchange_order_id
+
+                    if exchange_order_id is None:
+                        exchange_order_id = await tracked_order.get_exchange_order_id()
+
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                          OrderFilledEvent(
                                              self._current_timestamp,
@@ -617,7 +622,7 @@ cdef class CoinbaseProMarket(MarketBase):
                                                  execute_price,
                                                  execute_amount_diff,
                                              ),
-                                             exchange_trade_id=tracked_order.exchange_order_id
+                                             exchange_trade_id=exchange_order_id
                                          ))
 
                 if content.get("reason") == "filled":  # Only handles orders with "done" status
@@ -821,7 +826,7 @@ cdef class CoinbaseProMarket(MarketBase):
         try:
             exchange_order_id = await self._in_flight_orders.get(order_id).get_exchange_order_id()
             path_url = f"/orders/{exchange_order_id}"
-            [cancelled_id] = await self._api_request("delete", path_url=path_url)
+            cancelled_id = await self._api_request("delete", path_url=path_url)
             if cancelled_id == exchange_order_id:
                 self.logger().info(f"Successfully cancelled order {order_id}.")
                 self.c_stop_tracking_order(order_id)
