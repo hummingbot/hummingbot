@@ -6,32 +6,39 @@ from typing import (
     List,
     Tuple
 )
+from time import time
+from math import floor
 import ujson
 from web3 import Web3
 from web3.contract import Contract
 from zero_ex.order_utils import Order
-from hummingbot.wallet.ethereum.zero_ex.zero_ex_transaction_encoder import (
+from hummingbot.wallet.ethereum.zero_ex.zero_ex_transaction_encoder_v3 import (
     ZeroExTransaction,
     SignedZeroExTransaction,
     get_transaction_hash_hex
 )
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
-from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils import (
+from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils_v3 import (
     convert_order_to_tuple,
     fix_signature
 )
 
-with open(os.path.join(os.path.dirname(__file__), "zero_ex_exchange_abi.json")) as exchange_abi_json:
+with open(os.path.join(os.path.dirname(__file__), "zero_ex_exchange_abi_v3.json")) as exchange_abi_json:
     exchange_abi: List[any] = ujson.load(exchange_abi_json)
 
-with open(os.path.join(os.path.dirname(__file__), "zero_ex_coordinator_abi.json")) as coordinator_abi_json:
+with open(os.path.join(os.path.dirname(__file__), "zero_ex_coordinator_abi_v3.json")) as coordinator_abi_json:
     coordinator_abi: List[any] = ujson.load(coordinator_abi_json)
 
-with open(os.path.join(os.path.dirname(__file__), "zero_ex_coordinator_registry_abi.json")) as coordinator_registry_abi_json:
+with open(os.path.join(os.path.dirname(__file__), "zero_ex_coordinator_registry_abi_v3.json")) as coordinator_registry_abi_json:
     coordinator_registry_abi: List[any] = ujson.load(coordinator_registry_abi_json)
 
+# 150,000 per order by gas
+PROTOCOL_FEE_MULTIPLIER = 150000
 
-class ZeroExCancellationFailedException(Exception):
+DEFAULT_APPROVAL_EXPIRATION_TIME_SECONDS = 90;
+DEFAULT_EXPIRATION_TIME_BUFFER_SECONDS = 30;
+
+class ZeroExCoordinatorFailedException(Exception):
     def __init__(self, approvedOrders: [], cancellations: [], errors: []):
         self.approvedOrders = approvedOrders
         self.cancellations = cancellations
@@ -44,7 +51,8 @@ class ZeroExCoordinator:
                  exchange_address: str,
                  coordinator_address: str,
                  coordinator_registry_address: str,
-                 wallet: Web3Wallet):
+                 wallet: Web3Wallet,
+                 chain_id: int):
         self._provider: Web3.HTTPProvider = provider
         self._w3: Web3 = w3
         self._exchange_contract: Contract = w3.eth.contract(address=exchange_address, abi=exchange_abi)
@@ -55,6 +63,8 @@ class ZeroExCoordinator:
         self._registry_address: str = coordinator_registry_address
         self._wallet: Web3Wallet = wallet
         self._feeRecipientToEndpoint = {}
+        self._chain_id = chain_id
+        self._current_gas_price = wallet.gas_price + 10
 
     @property
     def contract(self) -> Contract:
@@ -68,7 +78,7 @@ class ZeroExCoordinator:
     def wallet(self) -> Web3Wallet:
         return self._wallet
 
-    async def fill_order(self, order: Order, taker_asset_fill_amount: Decimal, signature: str) -> str:
+    async def fill_order(self, order: Order, taker_asset_fill_amount: Decimal, signature: str) -> Tuple[str, Decimal]:
         order_tuple: Tuple = convert_order_to_tuple(order)
         signature: bytes = self._w3.toBytes(hexstr=signature)
 
@@ -81,11 +91,13 @@ class ZeroExCoordinator:
 
         data = fillOrderData['data']
 
-        tx_hash = await self._handle_fills(data, self._wallet.address, [order])
+        self._current_gas_price = self._wallet.gas_price + 10
 
-        return tx_hash
+        tx_hash, protocol_fee = await self._handle_fills(data, self._wallet.address, [order])
 
-    async def batch_fill_orders(self, orders: List[Order], taker_asset_fill_amounts: List[Decimal], signatures: List[str]) -> str:
+        return tx_hash, protocol_fee
+
+    async def batch_fill_orders(self, orders: List[Order], taker_asset_fill_amounts: List[Decimal], signatures: List[str]) -> Tuple[str, Decimal]:
         order_tuples: List[Tuple] = [convert_order_to_tuple(order) for order in orders]
         signatures: List[bytes] = [self._w3.toBytes(hexstr=signature) for signature in signatures]
         taker_asset_fill_amounts: List[int] = [int(amount) for amount in taker_asset_fill_amounts]
@@ -99,9 +111,11 @@ class ZeroExCoordinator:
         
         data = batchFillOrderData['data']
 
-        tx_hash = await self._handle_fills(data, self._wallet.address, orders)
+        self._current_gas_price = self._wallet.gas_price + 10
 
-        return tx_hash
+        tx_hash, protocol_fee = await self._handle_fills(data, self._wallet.address, orders)
+
+        return tx_hash, protocol_fee
 
     async def soft_cancel_order(self, order: Order) -> bool:
         order_tuple: Tuple = convert_order_to_tuple(order)
@@ -113,7 +127,7 @@ class ZeroExCoordinator:
 
         data = cancelOrderData['data']
 
-        transaction = self._generate_signed_zero_ex_transaction(data, order['makerAddress'])
+        transaction = self._generate_signed_zero_ex_transaction(data, order['makerAddress'], self._chain_id)
         endpoint = await self._get_server_endpoint_or_throw(order['feeRecipientAddress'])
 
         response = await self._execute_server_request(transaction, order['makerAddress'], endpoint)
@@ -125,7 +139,7 @@ class ZeroExCoordinator:
                 'orders': [order]
             }
             
-            raise ZeroExCancellationFailedException(
+            raise ZeroExCoordinatorFailedException(
                 approvedOrders,
                 cancellations,
                 errors,
@@ -149,7 +163,7 @@ class ZeroExCoordinator:
 
         errorResponses: [] = []
         successResponses: [] = []
-        transaction = self._generate_signed_zero_ex_transaction(data, makerAddress)
+        transaction = self._generate_signed_zero_ex_transaction(data, makerAddress, self._chain_id)
         for endpoint in serverEndpointsToOrders:
             response = await self._execute_server_request(transaction, makerAddress, endpoint)
             if response['isError']:
@@ -171,7 +185,7 @@ class ZeroExCoordinator:
             approvedOrders = []
             cancellations = successResponses
 
-            raise ZeroExCancellationFailedException(
+            raise ZeroExCoordinatorFailedException(
                 approvedOrders,
                 cancellations,
                 errorsWithOrders
@@ -187,19 +201,20 @@ class ZeroExCoordinator:
 
         data = hardCancelOrderData['data']
 
-        transaction = self._generate_signed_zero_ex_transaction(data, order['makerAddress'])
+        self._current_gas_price = self._wallet.gas_price + 10
+
+        transaction = self._generate_signed_zero_ex_transaction(data, order['makerAddress'], self._chain_id)
 
         tx_hash = await self._submit_coordinator_transaction(
             transaction,
             Web3.toChecksumAddress(order['makerAddress']),
             transaction['signature'],
             [],
-            []
+            0
         )
 
         return tx_hash
     
-
     async def batch_hard_cancel_orders(self, orders: List[Order]) -> str:
         order_tuples: List[Tuple] = [convert_order_to_tuple(order) for order in orders]
 
@@ -212,27 +227,28 @@ class ZeroExCoordinator:
 
         data = batchHardCancelOrderData['data']
 
-        transaction = self._generate_signed_zero_ex_transaction(data, makerAddress)
+        self._current_gas_price = self._wallet.gas_price + 10
+
+        transaction = self._generate_signed_zero_ex_transaction(data, makerAddress, self._chain_id)
 
         tx_hash = await self._submit_coordinator_transaction(
             transaction,
             Web3.toChecksumAddress(makerAddress),
             transaction['signature'],
             [],
-            []
+            0
         )
 
         return tx_hash
     
-
-    async def _handle_fills(self, data: str, takerAddress: str, signedOrders: List[Order]) -> str:
+    async def _handle_fills(self, data: str, takerAddress: str, signedOrders: List[Order]) -> Tuple[str, Decimal]:
         coordinatorOrders = [o for o in signedOrders if o['senderAddress'] == self._coordinator_address.lower()]
         serverEndpointsToOrders = await self._map_server_endpoints_to_orders(coordinatorOrders)
 
         errorResponses = []
         approvalResponses = []
 
-        transaction = self._generate_signed_zero_ex_transaction(data, takerAddress)
+        transaction = self._generate_signed_zero_ex_transaction(data, takerAddress, self._chain_id)
 
         for endpoint in serverEndpointsToOrders:
             response = await self._execute_server_request(transaction, takerAddress, endpoint)
@@ -251,15 +267,15 @@ class ZeroExCoordinator:
                 allExpirationTimes = allExpirationTimes + [approval['body']['expirationTimeSeconds'] for i in approval['body']['signatures']]
 
             # submit transaction with approvals
-            tx_hash: str = await self._submit_coordinator_transaction(
+            tx_hash, protocol_fee = await self._submit_coordinator_transaction(
                 transaction,
                 takerAddress,
                 transaction['signature'],
-                allExpirationTimes,
-                allSignatures
+                allSignatures,
+                PROTOCOL_FEE_MULTIPLIER * len(signedOrders)
             )
 
-            return tx_hash
+            return tx_hash, protocol_fee
         else:
             # format errors and approvals
             approvedOrders = []
@@ -283,7 +299,7 @@ class ZeroExCoordinator:
             approvedOrders = []
             cancellations = []
 
-            raise ZeroExCancellationFailedException(
+            raise ZeroExCoordinatorFailedException(
                 approvedOrders,
                 cancellations,
                 errorsWithOrders
@@ -326,15 +342,22 @@ class ZeroExCoordinator:
         
         return coordinatorOperatorEndpoint
 
-    def _generate_signed_zero_ex_transaction(self, data: str, signerAddress: str) -> any:
+    def _generate_signed_zero_ex_transaction(self, data: str, signerAddress: str, chainId: int) -> any:
+        expirationTimeSeconds = floor(time()) + DEFAULT_APPROVAL_EXPIRATION_TIME_SECONDS - DEFAULT_EXPIRATION_TIME_BUFFER_SECONDS
+
         transaction: ZeroExTransaction = {
             'salt': random.randint(1, 100000000000000),
             'signerAddress': signerAddress.lower(),
             'data': data,
-            'verifyingContractAddress': self._exchange_address.lower(),
+            'domain': {
+                'verifyingContract': self._exchange_address.lower(),
+                'chainId': chainId
+            },
+            'expirationTimeSeconds': expirationTimeSeconds,
+            'gasPrice': int(self._current_gas_price)
         }
 
-        order_hash_hex = get_transaction_hash_hex(transaction['verifyingContractAddress'], data, transaction['salt'], signerAddress)
+        order_hash_hex = get_transaction_hash_hex(transaction)
 
         signature = self._wallet.current_backend.sign_hash(hexstr=order_hash_hex)
         fixed_signature = fix_signature(self._provider, signerAddress, order_hash_hex, signature)
@@ -350,7 +373,7 @@ class ZeroExCoordinator:
         }
 
         try:
-            response = await self._post_request(endpoint + '/v1/request_transaction?networkId=' + str(self.wallet.chain.value), requestPayload)
+            response = await self._post_request(endpoint + '/v2/request_transaction?chainId=' + str(self._chain_id), requestPayload)
 
             status = response.status
 
@@ -406,28 +429,29 @@ class ZeroExCoordinator:
         transaction,
         txOrigin: str,
         transactionSignature: str,
-        approvalExpirationTimeSeconds: List[int],
-        approvalSignatures: List[str]
-    ) -> str:
+        approvalSignatures: List[str],
+        protocolFeeMultiplier
+    ) -> Tuple[str, Decimal]:
         transaction: Tuple[str, any] = (
             transaction["salt"],
+            transaction["expirationTimeSeconds"],
+            transaction["gasPrice"],
             transaction["signerAddress"],
             self._w3.toBytes(hexstr=transaction["data"])
         )
-
         transactionSignature: bytes = self._w3.toBytes(hexstr=transactionSignature)
         approvalSignatures: List[bytes] = [self._w3.toBytes(hexstr=signature) for signature in approvalSignatures]
 
-        # Add 10 wei to the standard price to beat the default gas price ppl.
-        gas_price: int = self._wallet.gas_price + 10
+        gas_price = self._current_gas_price
+        protocol_fee = protocolFeeMultiplier * gas_price
         tx_hash: str = self._wallet.execute_transaction(
             self._coordinator_contract.functions.executeTransaction(
                 transaction,
                 txOrigin,
                 transactionSignature,
-                approvalExpirationTimeSeconds,
                 approvalSignatures
             ),
-            gasPrice=gas_price
+            gasPrice=int(gas_price),
+            value=int(protocol_fee)
         )
-        return tx_hash
+        return tx_hash, Decimal(protocol_fee)
