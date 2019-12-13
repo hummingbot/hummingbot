@@ -235,28 +235,9 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
                     # Diff message just refreshes the entire snapshot
                     bids, asks = active_order_tracker.convert_diff_message_to_order_book_row(message)
                     order_book.apply_snapshot(bids, asks, message.update_id)
-                    #past_diffs_window.append(message)
-                    #while len(past_diffs_window) > self.PAST_DIFF_WINDOW_SIZE:
-                    #    past_diffs_window.popleft()
-                    #diff_messages_accepted += 1
-
-                    # Output some statistics periodically.
-                    #now: float = time.time()
-                    #if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                    #    self.logger().debug("Processed %d order book diffs for %s.",
-                    #                        diff_messages_accepted, trading_pair)
-                    #    diff_messages_accepted = 0
-                    #last_message_timestamp = now
                 elif message.type is OrderBookMessageType.SNAPSHOT:
-                    #past_diffs: List[BambooRelayOrderBookMessage] = list(past_diffs_window)
-                    # only replay diffs later than snapshot, first update active order with snapshot then replay diffs
-                    #replay_position = bisect.bisect_right(past_diffs, message)
-                    #replay_diffs = past_diffs[replay_position:]
                     s_bids, s_asks = active_order_tracker.convert_snapshot_message_to_order_book_row(message)
                     order_book.apply_snapshot(s_bids, s_asks, message.update_id)
-                    #for diff_message in replay_diffs:
-                    #    d_bids, d_asks = active_order_tracker.convert_diff_message_to_order_book_row(diff_message)
-                    #    order_book.apply_diffs(d_bids, d_asks, diff_message.update_id)
 
                     self.logger().debug("Processed order book snapshot for %s.", trading_pair)
             except asyncio.CancelledError:
