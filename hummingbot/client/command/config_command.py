@@ -289,6 +289,7 @@ class ConfigCommand:
                 val = await self.app.prompt(prompt=cvar.prompt, is_password=cvar.is_secure)
 
             if not cvar.validate(val):
+                # If the user inputs an empty string, use the default
                 val_is_empty = val is None or (isinstance(val, str) and len(val) == 0)
                 if cvar.default is not None and val_is_empty:
                     val = cvar.default

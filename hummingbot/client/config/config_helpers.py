@@ -229,6 +229,7 @@ def read_configs_from_yml(strategy_file_path: Optional[str] = None):
                         if password is not None:
                             cvar.value = decrypt_config_value(cvar, password)
                 if val_in_file is not None and not cvar.validate(cvar.value):
+                    # Instead of raising an exception, simply skip over this variable and wait till the user is prompted
                     logging.getLogger().error("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
                     cvar.value = None
 
