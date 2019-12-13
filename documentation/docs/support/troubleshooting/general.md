@@ -169,3 +169,4 @@ ValueError: Unable to convert 'BTC' to 'BTC'. Aborting.
 ```
 
 In this case, BTC is not yet added to the list of exchange rate class. See [this page](/utilities/exchange-rates/#exchange-rate-class) the correct format on adding exchange rate.
+
