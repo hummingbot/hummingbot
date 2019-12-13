@@ -6,3 +6,7 @@ cdef class APIAssetPriceDelegate(AssetPriceDelegate):
 
     cdef object c_get_mid_price(self):
         return 3
+
+    @property
+    def ready(self) -> bool:
+        return True
