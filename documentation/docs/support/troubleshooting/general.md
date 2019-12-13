@@ -128,44 +128,6 @@ curl -Lo C:/Users/YOUR_USERNAME/.docker/machine/cache/boot2docker.iso https://gi
 
 ## Running Hummingbot
 
-#### Binance errors in logs
-
-These are known issues from the Binance API and Hummingbot will attempt to reconnect afterwards.
-
-```
-hummingbot.market.binance.binance_market - NETWORK - Unexpected error while fetching account updates.
-
-AttributeError: 'ConnectionError' object has no attribute 'code'
-AttributeError: 'TimeoutError' object has no attribute 'code'
-
-hummingbot.core.utils.async_call_scheduler - WARNING - API call error:
-('Connection aborted.', OSError("(104, 'ECONNRESET')",))
-
-hummingbot.market.binance.binance_market - NETWORK - Error fetching trades update for the order
-[BASE]USDT: ('Connection aborted.', OSError("(104, 'ECONNRESET')",)).
-```
-
-!!! note
-    Hummingbot should run normally regardless of these errors. If the bot fails to perform or behave as expected (e.g. placing and cancelling orders, performing trades, stuck orders, orders not showing in exchange, etc.) you can get help through our [support channels](/support/index).
-
-
-#### IDEX errors in logs
-
-You may see any of these errors in logs when trading on IDEX market. These are server-side issues on IDEX's end.
-
-```
-OSError: Error fetching data from https://api.idex.market/order.
-
-HTTP status is 400 - {'error': "Cannot destructure property `tier` of 'undefined' or 'null'."}
-HTTP status is 400 - {'error': 'Unauthorized'}
-HTTP status is 400 - {'error': 'Nonce too low. Please refresh and try again.'}
-HTTP status is 500 - {'error': 'Something went wrong. Try again in a moment.'}
-```
-
-!!! note
-    Hummingbot should run normally regardless of these errors. If the bot fails to perform or behave as expected (e.g. placing and cancelling orders, performing trades, stuck orders, orders not showing in exchange, etc.) you can get help through our [support channels](/support/index).
-
-
 #### No orders generated in paper trading mode
 
 Errors will appear if any of the tokens in `maker_market_symbol` and/or `taker_market_symbol` has no balance in the paper trade account.
@@ -207,3 +169,4 @@ ValueError: Unable to convert 'BTC' to 'BTC'. Aborting.
 ```
 
 In this case, BTC is not yet added to the list of exchange rate class. See [this page](/utilities/exchange-rates/#exchange-rate-class) the correct format on adding exchange rate.
+
