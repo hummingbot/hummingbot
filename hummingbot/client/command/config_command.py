@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from six import string_types
 from typing import (
     List,
     Dict,
@@ -288,13 +287,18 @@ class ConfigCommand:
                 logging.getLogger("hummingbot.public_eth_address").info(val)
             else:
                 val = await self.app.prompt(prompt=cvar.prompt, is_password=cvar.is_secure)
-            if not cvar.validate(val):
-                self._notify("%s is not a valid %s value" % (val, cvar.key))
-                val = await self.prompt_single_variable(cvar, requirement_overwrite)
 
+            if not cvar.validate(val):
+                val_is_empty = val is None or (isinstance(val, str) and len(val) == 0)
+                if cvar.default is not None and val_is_empty:
+                    val = cvar.default
+                else:
+                    self._notify("%s is not a valid %s value" % (val, cvar.key))
+                    val = await self.prompt_single_variable(cvar, requirement_overwrite)
         else:
             val = cvar.value
-        if val is None or (isinstance(val, string_types) and len(val) == 0):
+
+        if val is None or (isinstance(val, str) and len(val) == 0):
             val = cvar.default
         return val
 
