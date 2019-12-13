@@ -3,10 +3,19 @@ import asyncio
 import time
 from threading import Thread
 from aiohttp import web
+from aiohttp.web_app import Application
 from decimal import Decimal
-from hummingbot.data_feed.custom_api_data_feed import CustomAPIFeed
+from hummingbot.data_feed.custom_api_data_feed import CustomAPIDataFeed
+from hummingbot.core.network_base import NetworkStatus
+
+
+def async_run(func):
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(func)
+
 
 _price = Decimal("1.00")
+_app = None
 
 
 async def price_response(request):
@@ -16,26 +25,37 @@ async def price_response(request):
 
 
 def start_simple_web_app():
-    app = web.Application()
-    app.add_routes([web.get('/', price_response)])
-    web.run_app(app)
-
-
-def async_run(func):
     loop = asyncio.new_event_loop()
-    loop.run_until_complete(func)
+    asyncio.set_event_loop(loop)
+    _app = web.Application(loop=loop)
+    _app.add_routes([web.get('/', price_response)])
+    web.run_app(_app)
+
+
+def stop_web_app():
+    async_run(_app.shutdown())
 
 
 class CustomAPIFeedUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        wst = Thread(target=start_simple_web_app)
-        wst.start()
-        time.sleep(1000)
+        thread = Thread(target=start_simple_web_app)
+        thread.daemon = True
+        thread.start()
+        time.sleep(1)
+
+    @classmethod
+    def tearDown(cls):
+        if _app is not None:
+            stop_web_app()
 
     def test_fetch_price(self):
-        api_feed = CustomAPIFeed(api_url="http://localhost:8080/")
-        self.assertEqual(api_feed.get_price(), Decimal("1.01"))
+        api_feed = CustomAPIDataFeed(api_url="http://localhost:8080/")
+        api_feed.start()
+        async_run(api_feed.get_ready())
+        self.assertTrue(api_feed.network_status == NetworkStatus.CONNECTED)
+        price = api_feed.get_price()
+        self.assertGreater(price, 1)
 
 
 if __name__ == "__main__":
