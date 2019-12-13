@@ -607,3 +607,41 @@ class LiquidOrderBookMessage(OrderBookMessage):
         return [
             OrderBookRow(float(price), float(amount), self.update_id) for price, amount, *trash in self.content.get("bids", [])
         ]
+
+
+class BitfinexOrderBookMessage(OrderBookMessage):
+    def __new__(
+        cls,
+        message_type: OrderBookMessageType,
+        content: Dict[str, any],
+        timestamp: Optional[float] = None,
+        *args,
+        **kwargs,
+    ):
+        # print("content", content)
+        if timestamp is None:
+            if message_type is OrderBookMessageType.SNAPSHOT:
+                raise ValueError("timestamp must not be None when initializing snapshot messages.")
+
+            timestamp = pd.Timestamp(content["time"], tz="UTC").timestamp()
+
+        return super(BitfinexOrderBookMessage, cls).__new__(
+            cls, message_type, content, timestamp=timestamp, *args, **kwargs
+        )
+
+    @property
+    def update_id(self) -> int:
+        return int(self.timestamp)
+
+    @property
+    def trade_id(self) -> int:
+        # TODO: not shure that it's correct. see maybe it's right
+        return self.content["trade_id"]
+
+    @property
+    def trading_pair(self) -> str:
+        return self.content["symbol"]
+
+    @property
+    def type_hb(self):
+        return self.content[1] == "hb" if isinstance(self.content, list) else None
