@@ -1,67 +1,158 @@
-node {
-    def testName = 'xemm strategy'
-    def condaPath = '/root/miniconda'
-    def path = "${condaPath}/bin"
-    def hbPath = "${condaPath}/envs/hummingbot"
-    def envPath = "${hbPath}/bin"
+// Jenkins environment variables
+def path = '/root/miniconda'
+def envPath = "${path}/envs/hummingbot"
 
-    try {
-      stage('Clone repository') {
-        /* Clone repository to jenkins workspace */
-        checkout scm
+// test parameters
+def strategy = 'cross_exchange_market_making'
+def testName = "${strategy} strategy test"
+def testFile = "test_${strategy}.py"
+
+pipeline {
+  agent any
+
+  environment {
+    GIT_COMMIT_MESSAGE = ''
+    ERROR_MESSAGE = ''
+  }
+
+  stages {
+
+    stage('Retrieve tooling versions') {
+      steps {
+        echo 'Retrieving tooling version...'
+
+        sh 'which python'
+        sh 'python --version'
+
+        echo 'Base hummingbot version:'
+        sh 'cat hummingbot/VERSION'
+
+        // Get commit message
+        echo 'Get commit message'
+        script {
+          GIT_COMMIT_MESSAGE = sh returnStdout: true, script: 'git log -1 --pretty=oneline'
+          ERROR_MESSAGE = ''
+        }
       }
+    }
 
-      stage('Build hummingbot') {
+    stage('Setup hummingbot environment') {
+      steps {
+        echo 'Running build...'
+
         // Clean-up environment
-        sh ". ${path}/deactivate"
+        sh ". ${path}/bin/deactivate"
         sh './uninstall'
-        sh "rm -rf ${hbPath}"
+        sh "rm -rf ${envPath}"
 
         // Install hummingbot
         sh './install'
-        sh ". ${path}/activate hummingbot"
+        sh ". ${path}/bin/activate hummingbot"
+      }
+
+      post {
+        success {
+          echo "=> [Setup environment]: SUCCESS"
+        }
+        failure {
+          script {
+            ERROR_MESSAGE = '\n => Failed: setup environment'
+          }
+        }
+      }
+    }
+
+    stage('Compile hummingbot') {
+      steps {
+        echo 'Compile hummingbot...'
 
         // ./compile
-        sh "${envPath}/python setup.py build_ext --inplace"
+        sh "${envPath}/bin/python setup.py build_ext --inplace"
       }
 
-      stage('Run tests') {
-        sh "${envPath}/nosetests -v test/test_cross_exchange_market_making.py"
+      post {
+        success {
+          echo "=> [Build hummingbot]: SUCCESS"
+        }
+        failure {
+          script {
+            ERROR_MESSAGE = '\n => Failed: compile hummingbot'
+          }
+        }
       }
-
-    } catch (c) {
-      // If there was an exception thrown, the tests failed
-      sh "echo catch: ${c}"
- 
-      currentBuild.result = 'FAILED'
-      throw e      
-    } finally {
-      // Success or failure, always send notifications
-      notifyBuild(currentBuild.result, testName)
     }
+
+    stage('Run cross_exchange_market_making strategy test') {
+      steps {
+        echo 'Run cross_exchange_market_making test'
+        sh "${envPath}/bin/nosetests -d -v test/test_cross_exchange_market_making.py"
+      }
+      post {
+        success {
+          echo '=> [Run tests: cross_exchange_market_making]: SUCCESS'
+        }
+        unstable {
+          script {
+            ERROR_MESSAGE = ERROR_MESSAGE + '\n => Unstable: cross_exchange_market_making strategy test'
+          }
+        }
+        failure {
+          script {
+            ERROR_MESSAGE = ERROR_MESSAGE + '\n => Failed: cross_exchange_market_making strategy test'
+          }
+        }
+      }
+    }
+
+  }
+
+  // Run after all stages
+  post {
+    always {
+      deleteDir()
+    }
+    success {
+      notifyDiscord('SUCCESS', GIT_COMMIT_MESSAGE, ERROR_MESSAGE)
+    }
+    failure {
+      notifyDiscord('FAILURE', GIT_COMMIT_MESSAGE, ERROR_MESSAGE)
+    }
+    unstable {
+      notifyDiscord('FAILURE', GIT_COMMIT_MESSAGE, ERROR_MESSAGE)
+    }
+  }
+
+  options {
+    buildDiscarder(logRotator(numToKeepStr:'5'))
+    timeout(time: 60, unit: 'MINUTES')
+  }
+
 }
 
-def notifyBuild(String buildStatus = 'STARTED', String testName = 'not defined') {
+// Define helper methods
+
+void notifyDiscord(String buildStatus = 'STARTED', String commitMessage, String errorMessage) {
   // build status of null means successful
-  buildStatus =  buildStatus ?: 'SUCCESSFUL'
+  buildStatus =  buildStatus ?: 'SUCCESS'
   
   // Default values
   def result = 'FAILURE'
 
   // Override default values based on build status
   if (buildStatus == 'STARTED') {
-    buildStatus = "Initiating ${testName} test... "
+    buildStatus = "Initiating test... "
     result = 'UNSTABLE'
-  } else if (buildStatus == 'SUCCESSFUL') {
-    buildStatus = 'TEST PASSED'
+  } else if (buildStatus == 'SUCCESS') {
+    buildStatus = 'Your tests passed on Jenkins!'
     result = 'SUCCESS'
-  } else if (buildStatus == 'FAILED') {
-    buildStatus = 'TEST FAILED'
+  } else if (buildStatus == 'FAILURE') {
+    buildStatus = 'Uh oh, your tests failed on Jenkins :('
   }
 
-  def subject = "**${buildStatus}**: [${env.JOB_NAME}_${env.BUILD_NUMBER}]"
-  def description = "${subject} *${env.GIT_BRANCH}*\n(${env.BUILD_URL})"
+  def footer = commitMessage
+  def title = "[${env.JOB_NAME} #${env.BUILD_NUMBER}]"
+  def description = "**[${env.GIT_BRANCH}]**: ${buildStatus}${errorMessage}"
 
   // Send notifications
-  discordSend (webhookURL: env.DISCORD_URL, description: description, result: result)
+  discordSend (webhookURL: env.DISCORD_URL, description: description, result: result, title: title, link: env.BUILD_URL)
 }
