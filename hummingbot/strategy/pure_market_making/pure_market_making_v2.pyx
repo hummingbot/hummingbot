@@ -177,9 +177,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     def pricing_delegate(self) -> OrderPricingDelegate:
         return self._pricing_delegate
 
-    cdef object c_get_asset_mid_price(self):
-        return self._asset_price_delegate.c_get_mid_price()
-
     @property
     def sizing_delegate(self) -> OrderSizingDelegate:
         return self._sizing_delegate
@@ -282,6 +279,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         try:
             if not self._all_markets_ready:
                 self._all_markets_ready = all([market.ready for market in self._sb_markets])
+                if self._asset_price_delegate is not None and self._all_markets_ready:
+                    self._all_markets_ready = self._asset_price_delegate.ready
                 if not self._all_markets_ready:
                     # Markets not ready yet. Don't do anything.
                     if should_report_warnings:
@@ -508,17 +507,20 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         #  2. Ask the sizing delegate on what are the order sizes.
         #  3. Set the actions to carry out in the orders proposal to include create orders.
 
-        # asset_mid_price = Decimal("0")
-        # if self._asset_price_delegate is None:
-        #     asset_mid_price = market_info.get_mid_price()
-        # else:
-        asset_mid_price = self._asset_price_delegate.c_get_mid_price()
-        print(f"asset_mid_price: {asset_mid_price}")
+        asset_mid_price = Decimal("0")
+        if self._asset_price_delegate is None:
+            asset_mid_price = market_info.get_mid_price()
+        else:
+            asset_mid_price = self._asset_price_delegate.c_get_mid_price()
+        print(f"market_info price:{market_info.get_mid_price()} asset_mid_price: {asset_mid_price}")
         pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self,
                                                                              market_info,
                                                                              active_orders,
                                                                              asset_mid_price)
-
+        for buy in pricing_proposal.buy_order_prices:
+            print(f"buy price: {buy}")
+        for sell in pricing_proposal.sell_order_prices:
+            print(f"sell price: {sell}")
         # If jump orders is enabled, run the penny jumped pricing proposal
         if self._best_bid_ask_jump_mode:
             pricing_proposal = self.c_get_penny_jumped_pricing_proposal(market_info,

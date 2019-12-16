@@ -44,27 +44,18 @@ class CustomAPIDataFeed(NetworkBase):
             self._shared_client = aiohttp.ClientSession()
         return self._shared_client
 
-    async def get_ready(self):
-        try:
-            if not self._ready_event.is_set():
-                await self._ready_event.wait()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().error("Unexpected error while waiting for data feed to get ready.",
-                                exc_info=True)
 
     async def check_network(self) -> NetworkStatus:
-        try:
-            client = self._http_client()
-            async with client.request("GET", self.health_check_endpoint) as resp:
-                status_text = await resp.text()
-                if resp.status != 200:
-                    raise Exception(f"Data feed {self.name} server is down. Status is {status_text}")
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            return NetworkStatus.NOT_CONNECTED
+        # try:
+        client = self._http_client()
+        async with client.request("GET", self.health_check_endpoint) as resp:
+            status_text = await resp.text()
+            if resp.status != 200:
+                raise Exception(f"Custom API Feed {self.name} server error: {status_text}")
+        # except asyncio.CancelledError:
+        #     raise
+        # except Exception:
+        #     return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
     def get_price(self) -> Decimal:
@@ -87,6 +78,8 @@ class CustomAPIDataFeed(NetworkBase):
         client = self._http_client()
         async with client.request("GET", self._api_url) as resp:
             resp_text = await resp.text()
+            if resp.status != 200:
+                raise Exception(f"Custom API Feed {self.name} server error: {resp_text}")
             self._price = Decimal(str(resp_text))
         self._ready_event.set()
 

@@ -48,4 +48,3 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                      object market_info,
                                                                      object pricing_proposal,
                                                                      object sizing_proposal)
-    cdef object c_get_asset_mid_price(self)
