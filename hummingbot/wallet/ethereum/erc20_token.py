@@ -41,6 +41,7 @@ MAINNET_MKR_ADDRESS = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2"
 ROPSTEN_WETH_ADDRESS = "0xc778417E063141139Fce010982780140Aa0cD5Ab"
 RINKEBY_WETH_ADDRESS = "0xc778417E063141139Fce010982780140Aa0cD5Ab"
 KOVAN_WETH_ADDRESS = "0xd0A1E359811322d97991E03f863a0C30C2cF029C"
+ZEROEX_TEST_WETH_ADDRESS = "0x0B1ba0af832d7C05fD64161E0Db78E85978E8082"
 
 
 class ERC20Token:
@@ -75,6 +76,9 @@ class ERC20Token:
                 self._abi = w_abi
         elif chain is EthereumChain.KOVAN:
             if self._address == KOVAN_WETH_ADDRESS:
+                self._abi = w_abi
+        elif chain is EthereumChain.ZEROEX_TEST:
+            if self._address == ZEROEX_TEST_WETH_ADDRESS:
                 self._abi = w_abi
 
         # By default token_overrides will be assigned an empty dictionary

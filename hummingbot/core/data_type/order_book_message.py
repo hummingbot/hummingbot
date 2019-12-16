@@ -343,13 +343,12 @@ class BambooRelayOrderBookMessage(OrderBookMessage):
     ):
         if message_type is OrderBookMessageType.SNAPSHOT and timestamp is None:
             raise ValueError("timestamp must not be None when initializing snapshot messages.")
-
-        elif message_type is OrderBookMessageType.DIFF and content["action"] in ["NEW"]:
-            timestamp = pd.Timestamp(content["event"]["order"]["createdDate"], tz="UTC").timestamp()
-        elif message_type is OrderBookMessageType.DIFF and content["action"] in ["FILL"]:
-            timestamp = content["event"]["timestamp"]
+        elif message_type is OrderBookMessageType.DIFF and content["actions"][0]["action"] in ["NEW"]:
+            timestamp = pd.Timestamp(content["actions"][0]["event"]["order"]["createdDate"], tz="UTC").timestamp()
+        elif message_type is OrderBookMessageType.DIFF and content["actions"][0]["action"] in ["FILL"]:
+            timestamp = content["actions"][0]["event"]["timestamp"]
         elif message_type is OrderBookMessageType.TRADE:
-            timestamp = content["event"]["timestamp"]
+            timestamp = content["actions"][0]["event"]["timestamp"]
         elif timestamp is None:
             raise ValueError("timestamp field required for this message.")
 
@@ -367,7 +366,7 @@ class BambooRelayOrderBookMessage(OrderBookMessage):
 
     @property
     def trading_pair(self) -> str:
-        return self.content["symbol"]
+        return self.content.get("trading_pair") or self.content.get("symbol")
 
     @property
     def asks(self) -> List[OrderBookRow]:
@@ -500,3 +499,110 @@ class BittrexOrderBookMessage(OrderBookMessage):
             If timestamp is the same, the ordering is snapshot < diff < trade
             """
             return self.type.value < other.type.value
+
+
+class BitcoinComOrderBookMessage(OrderBookMessage):
+    def __new__(
+        cls,
+        message_type: OrderBookMessageType,
+        content: Dict[str, any],
+        timestamp: Optional[float] = None,
+        *args,
+        **kwargs,
+    ):
+        if timestamp is None:
+            if message_type is OrderBookMessageType.SNAPSHOT:
+                raise ValueError("timestamp must not be None when initializing snapshot messages.")
+            timestamp = content["timestamp"]
+
+        return super(BitcoinComOrderBookMessage, cls).__new__(
+            cls, message_type, content, timestamp=timestamp, *args, **kwargs
+        )
+
+    @property
+    def update_id(self) -> int:
+        if self.type in [OrderBookMessageType.DIFF, OrderBookMessageType.SNAPSHOT]:
+            # TODO: switch into using this
+            # return int(self.content["sequence"])
+            return int(self.timestamp * 1e3)
+        else:
+            return -1
+
+    @property
+    def trade_id(self) -> int:
+        if self.type is OrderBookMessageType.TRADE:
+            return int(self.content["id"])
+        return -1
+
+    @property
+    def trading_pair(self) -> str:
+        if "trading_pair" in self.content:
+            return self.content["trading_pair"]
+        elif "symbol" in self.content:
+            return self.content["symbol"]
+
+    @property
+    def asks(self) -> List[OrderBookRow]:
+        return [
+            OrderBookRow(float(price), float(size), self.update_id) for price, size, *trash in self.content["ask"]
+        ]
+
+    @property
+    def bids(self) -> List[OrderBookRow]:
+        return [
+            OrderBookRow(float(price), float(size), self.update_id) for price, size, *trash in self.content["bid"]
+        ]
+
+    def __eq__(self, other) -> bool:
+        return self.type == other.type and self.timestamp == other.timestamp
+
+    def __lt__(self, other) -> bool:
+        if self.timestamp != other.timestamp:
+            return self.timestamp < other.timestamp
+        else:
+            """
+            If timestamp is the same, the ordering is snapshot < diff < trade
+            """
+            return self.type.value < other.type.value
+
+
+class LiquidOrderBookMessage(OrderBookMessage):
+    def __new__(
+        cls,
+        message_type: OrderBookMessageType,
+        content: Dict[str, any],
+        timestamp: Optional[float] = None,
+        *args,
+        **kwargs,
+    ):
+        if timestamp is None:
+            if message_type is OrderBookMessageType.SNAPSHOT:
+                raise ValueError("timestamp must not be None when initializing snapshot messages.")
+            timestamp = content["time"] * 1e-3
+        return super(LiquidOrderBookMessage, cls).__new__(
+            cls, message_type, content, timestamp=timestamp, *args, **kwargs
+        )
+
+    @property
+    def update_id(self) -> (int):
+        return int(self.timestamp * 1e3)
+
+    @property
+    def trade_id(self) -> (int):
+        return int(self.timestamp * 1e3)
+
+    @property
+    def trading_pair(self) -> (str):
+        return self.content.get('trading_pair', None)
+
+    @property
+    def asks(self) -> (List[OrderBookRow]):
+        return [
+            OrderBookRow(float(price), float(amount), self.update_id) for price, amount, *trash in self.content.get("asks", [])
+        ]
+
+    @property
+    def bids(self) -> (List[OrderBookRow]):
+        return [
+            OrderBookRow(float(price), float(amount), self.update_id) for price, amount, *trash in self.content.get("bids", [])
+        ]
