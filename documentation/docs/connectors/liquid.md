@@ -7,7 +7,7 @@ Liquid is a centralized exchange based in Tokyo, Japan launched by Quione in 201
 
 ## Using the Connector
 
-Because [Liquid](https://www.liquid.com/) is a centralized exchange, you will need to generate and provide your API key in order to trade using Hummingbot.
+The connector is for [Liquid](https://www.liquid.com/) based in Singapore (i.e. not for the local Japanese Liquid exchange). Because it is a centralized exchange, you will need to generate and provide your API key in order to trade using Hummingbot.
 
 ```
 Enter your Liquid API key >>>
