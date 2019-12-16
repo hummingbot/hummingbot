@@ -173,6 +173,16 @@ global_config_map = {
                   prompt="Enter your Bittrex secret key >>> ",
                   required_if=using_exchange("bittrex"),
                   is_secure=True),
+    "bitcoin_com_api_key":
+        ConfigVar(key="bitcoin_com_api_key",
+                  prompt="Enter your bitcoin_com API key >>> ",
+                  required_if=using_exchange("bitcoin_com"),
+                  is_secure=True),
+    "bitcoin_com_secret_key":
+        ConfigVar(key="bitcoin_com_secret_key",
+                  prompt="Enter your bitcoin_com secret key >>> ",
+                  required_if=using_exchange("bitcoin_com"),
+                  is_secure=True),
     "wallet":
         ConfigVar(key="wallet",
                   prompt="Would you like to import an existing wallet or create a new wallet? (import/create) >>> ",
