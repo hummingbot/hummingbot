@@ -26,6 +26,9 @@ This article below in their website under API information shows step-by-step ins
 
 * [How to create API tokens](https://help.liquid.com/en/articles/2285018-how-to-create-api-tokens)
 
+!!! warning "API key permissions"
+    We recommend using only **"trade"** enabled API keys; enabling **"withdraw", "transfer", or the equivalent** is unnecessary for current Hummingbot strategies.
+
 
 ## Miscellaneous Info
 
