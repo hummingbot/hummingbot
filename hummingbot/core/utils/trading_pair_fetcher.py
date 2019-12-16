@@ -16,6 +16,7 @@ BAMBOO_RELAY_ENDPOINT = "https://rest.bamboorelay.com/main/0x/markets"
 COINBASE_PRO_ENDPOINT = "https://api.pro.coinbase.com/products/"
 IDEX_REST_ENDPOINT = "https://api.idex.market/returnTicker"
 HUOBI_ENDPOINT = "https://api.huobi.pro/v1/common/symbols"
+LIQUID_ENDPOINT = "https://api.liquid.com/products"
 BITTREX_ENDPOINT = "https://api.bittrex.com/v3/markets"
 DOLOMITE_ENDPOINT = "https://exchange-api.dolomite.io/v1/markets"
 
@@ -176,6 +177,25 @@ class TradingPairFetcher:
                 return []
 
     @staticmethod
+    async def fetch_liquid_trading_pairs() -> List[str]:
+        # Returns a List of str, representing each active trading pair on the exchange.
+        async with aiohttp.ClientSession() as client:
+            async with client.get(LIQUID_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                if response.status == 200:
+                    try:
+                        products: List[Dict[str, any]] = await response.json()
+                        for data in products:
+                            data['trading_pair'] = '-'.join([data['base_currency'], data['quoted_currency']])
+                        return [
+                            product["trading_pair"]
+                            for product in products
+                        ]
+                    except Exception:
+                        pass
+                        # Do nothing if the request fails -- there will be no autocomplete available
+                return []
+
+    @staticmethod
     async def fetch_bittrex_trading_pairs() -> List[str]:
         async with aiohttp.ClientSession() as client:
             async with client.get(BITTREX_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
@@ -216,6 +236,7 @@ class TradingPairFetcher:
         coinbase_pro_trading_pairs = await self.fetch_coinbase_pro_trading_pairs()
         dolomite_trading_pairs = await self.fetch_dolomite_trading_pairs()
         huobi_trading_pairs = await self.fetch_huobi_trading_pairs()
+        liquid_trading_pairs = await self.fetch_liquid_trading_pairs()
         idex_trading_pairs = await self.fetch_idex_trading_pairs()
         bittrex_trading_pairs = await self.fetch_bittrex_trading_pairs()
         self.trading_pairs = {
@@ -227,6 +248,7 @@ class TradingPairFetcher:
             "bamboo_relay": bamboo_relay_trading_pairs,
             "coinbase_pro": coinbase_pro_trading_pairs,
             "huobi": huobi_trading_pairs,
+            "liquid": liquid_trading_pairs,
             "bittrex": bittrex_trading_pairs,
         }
         self.ready = True
