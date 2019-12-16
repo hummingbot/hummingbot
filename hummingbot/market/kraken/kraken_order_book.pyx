@@ -42,7 +42,7 @@ cdef class KrakenOrderBook(OrderBook):
             asks = msg[1]["as"]
             symbol = msg[-1]
         content = {
-            "symbol": symbol,
+            "trading_pair": symbol,
             "update_id": timestamp,
             "bids": bids,
             "asks": asks
@@ -56,7 +56,7 @@ cdef class KrakenOrderBook(OrderBook):
                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
         msg_ts = int(float(msg[2]))
         content = {
-            "symbol": metadata["symbol"],
+            "trading_pair": metadata["symbol"],
             "trade_type": float(TradeType.SELL.value) if msg[3] == "s" else float(TradeType.BUY.value),
             "trade_id": msg_ts,
             "update_id": msg_ts,
@@ -73,7 +73,7 @@ cdef class KrakenOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         content = {
-            "symbol": msg[3],
+            "trading_pair": msg[3],
             "update_id": timestamp,
             "bids": msg[1]["b"] if "b" in msg[1] else [],
             "asks": msg[1]["a"] if "a" in msg[1] else []
@@ -88,7 +88,7 @@ cdef class KrakenOrderBook(OrderBook):
             msg.update(metadata)
 
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "symbol": msg["symbol"],
+            "trading_pair": msg["symbol"],
             "update_id": ts,
             "bids": msg["bids"],
             "asks": msg["asks"]
@@ -101,7 +101,7 @@ cdef class KrakenOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "symbol": msg[3],
+            "trading_pair": msg[3],
             "update_id": ts,
             "bids": msg[1]["b"] if "b" in msg[1] else [],
             "asks": msg[1]["a"] if "a" in msg[1] else []
@@ -114,7 +114,7 @@ cdef class KrakenOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "symbol": msg["symbol"],
+            "trading_pair": msg["symbol"],
             "update_id": ts,
             "bids": msg["bids"],
             "asks": msg["asks"]
@@ -128,7 +128,7 @@ cdef class KrakenOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "symbol": msg[3],
+            "trading_pair": msg[3],
             "update_id": ts,
             "bids": msg[1]["b"] if "b" in msg[1] else [],
             "asks": msg[1]["a"] if "a" in msg[1] else []
@@ -142,7 +142,7 @@ cdef class KrakenOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "symbol": msg["pair"],
+            "trading_pair": msg["pair"],
             "trade_type": float(TradeType.SELL.value) if msg[3] == "s" else float(TradeType.BUY.value),
             "trade_id": ts,
             "update_id": ts,
