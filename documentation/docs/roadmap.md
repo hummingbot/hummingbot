@@ -30,7 +30,7 @@ The timeline below shows the past milestones we have completed, along with the f
 * Support for user defined strategies
 
 ## Q4 2019
-* Released connector for [Bittrex International](/connectors/bittrex)
+* Released connector for [Bittrex Global](/connectors/bittrex)
 * Community contributed connector for [Dolomite](/connectors/dolomite)
 * Liquidity Mining Platform: [Blog](https://hummingbot.io/blog/2019-11-liquidity-mining/) | [Whitepaper](https://hummingbot.io/liquidity-mining.pdf)
 * Connector for [Liquid](https://liquid.com/) ([in progress](https://gitcoin.co/issue/CoinAlpha/hummingbot/909/3556))

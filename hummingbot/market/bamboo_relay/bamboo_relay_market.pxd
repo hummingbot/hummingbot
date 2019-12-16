@@ -7,6 +7,7 @@ cdef class BambooRelayMarket(MarketBase):
     cdef:
         str _wallet_spender_address
         object _wallet
+        int _chain_id
         object _provider
         object _weth_token
         object _ev_loop
@@ -23,6 +24,7 @@ cdef class BambooRelayMarket(MarketBase):
         object _in_flight_pending_limit_orders
         object _in_flight_cancels
         object _in_flight_pending_cancels
+        list _filled_order_hashes
         object _order_expiry_queue
         TransactionTracker _tx_tracker
         object _w3
@@ -38,13 +40,16 @@ cdef class BambooRelayMarket(MarketBase):
         public object _approval_tx_polling_task
         public object _order_tracker_task
         int64_t _latest_salt
+        str _api_endpoint
         str _api_prefix
         str _exchange_address
+        str _coordinator_address
+        str _fee_recipient_address
 
     cdef c_start_tracking_limit_order(self,
                                       str order_id,
                                       str exchange_order_id,
-                                      str symbol,
+                                      str trading_pair,
                                       object order_type,
                                       bint is_coordinated,
                                       object trade_type,
@@ -54,14 +59,20 @@ cdef class BambooRelayMarket(MarketBase):
                                       object zero_ex_order)
     cdef c_start_tracking_market_order(self,
                                        str order_id,
-                                       str symbol,
+                                       str trading_pair,
                                        object order_type,
                                        bint is_coordinated,
                                        object trade_type,
                                        object price,
                                        object amount,
-                                       str tx_hash)
+                                       str tx_hash,
+                                       object protocol_fee_amount)
     cdef c_expire_order(self, str order_id)
     cdef c_expire_order_fast(self, str order_id)
     cdef c_check_and_remove_expired_orders(self)
     cdef c_stop_tracking_order(self, str order_id)
+    cdef list c_get_orders_for_amount_price(self,
+                                            str trading_pair,
+                                            object trade_type,
+                                            object amount,
+                                            object price)

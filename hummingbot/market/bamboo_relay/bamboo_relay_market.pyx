@@ -14,16 +14,13 @@ from typing import (
     Dict,
     List,
     Optional,
-    Tuple
+    Tuple,
+    NamedTuple
 )
 from decimal import Decimal
+from eth_utils import remove_0x_prefix
 from libc.stdint cimport int64_t
 from web3 import Web3
-from zero_ex.order_utils import (
-    generate_order_hash_hex,
-    jsdict_order_to_struct,
-    Order as ZeroExOrder
-)
 
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -60,35 +57,47 @@ from hummingbot.market.market_base import (
     s_decimal_NaN)
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
-from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils import fix_signature
-from hummingbot.wallet.ethereum.zero_ex.zero_ex_exchange import ZeroExExchange
-from hummingbot.wallet.ethereum.zero_ex.zero_ex_coordinator import ZeroExCoordinator
+from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils_v3 import (
+    fix_signature,
+    generate_order_hash_hex,
+    jsdict_order_to_struct,
+    Order as ZeroExOrder
+)
+from hummingbot.wallet.ethereum.zero_ex.zero_ex_exchange_v3 import ZeroExExchange
+from hummingbot.wallet.ethereum.zero_ex.zero_ex_coordinator_v3 import ZeroExCoordinator
+from hummingbot.market.bamboo_relay.bamboo_relay_constants import (
+    BAMBOO_RELAY_REST_ENDPOINT,
+    BAMBOO_RELAY_TEST_ENDPOINT,
+    ZERO_EX_MAINNET_ERC20_PROXY,
+    ZERO_EX_MAINNET_EXCHANGE_ADDRESS,
+    ZERO_EX_MAINNET_COORDINATOR_ADDRESS,
+    ZERO_EX_MAINNET_COORDINATOR_REGISTRY_ADDRESS,
+    ZERO_EX_ROPSTEN_ERC20_PROXY,
+    ZERO_EX_ROPSTEN_EXCHANGE_ADDRESS,
+    ZERO_EX_ROPSTEN_COORDINATOR_ADDRESS,
+    ZERO_EX_ROPSTEN_COORDINATOR_REGISTRY_ADDRESS,
+    ZERO_EX_RINKEBY_ERC20_PROXY,
+    ZERO_EX_RINKEBY_EXCHANGE_ADDRESS,
+    ZERO_EX_RINKEBY_COORDINATOR_ADDRESS,
+    ZERO_EX_RINKEBY_COORDINATOR_REGISTRY_ADDRESS,
+    ZERO_EX_KOVAN_ERC20_PROXY,
+    ZERO_EX_KOVAN_EXCHANGE_ADDRESS,
+    ZERO_EX_KOVAN_COORDINATOR_ADDRESS,
+    ZERO_EX_KOVAN_COORDINATOR_REGISTRY_ADDRESS,
+    ZERO_EX_TEST_ERC20_PROXY,
+    ZERO_EX_TEST_EXCHANGE_ADDRESS,
+    ZERO_EX_TEST_COORDINATOR_ADDRESS,
+    ZERO_EX_TEST_COORDINATOR_REGISTRY_ADDRESS,
+    ZERO_EX_PROTOCOL_FEE_MULTIPLIER,
+    BAMBOO_RELAY_MAINNET_FEE_RECIPIENT_ADDRESS,
+    BAMBOO_RELAY_ROPSTEN_FEE_RECIPIENT_ADDRESS,
+    BAMBOO_RELAY_RINKEBY_FEE_RECIPIENT_ADDRESS,
+    BAMBOO_RELAY_KOVAN_FEE_RECIPIENT_ADDRESS,
+    BAMBOO_RELAY_TEST_FEE_RECIPIENT_ADDRESS
+)
 
 brm_logger = None
 s_decimal_0 = Decimal(0)
-
-ZERO_EX_MAINNET_ERC20_PROXY = "0x95e6f48254609a6ee006f7d493c8e5fb97094cef"
-ZERO_EX_MAINNET_EXCHANGE_ADDRESS = "0x080bf510fcbf18b91105470639e9561022937712"
-ZERO_EX_MAINNET_COORDINATOR_ADDRESS = "0xa14857e8930acd9a882d33ec20559beb5479c8a6"
-ZERO_EX_MAINNET_COORDINATOR_REGISTRY_ADDRESS = "0x45797531b873fd5e519477a070a955764c1a5b07"
-
-ZERO_EX_ROPSTEN_ERC20_PROXY = "0xb1408f4c245a23c31b98d2c626777d4c0d766caa"
-ZERO_EX_ROPSTEN_EXCHANGE_ADDRESS = "0xbff9493f92a3df4b0429b6d00743b3cfb4c85831"
-ZERO_EX_ROPSTEN_COORDINATOR_ADDRESS = "0x2ba02e03ee0029311e0f43715307870a3e701b53"
-ZERO_EX_ROPSTEN_COORDINATOR_REGISTRY_ADDRESS = "0x403cc23e88c17c4652fb904784d1af640a6722d9"
-
-ZERO_EX_RINKEBY_ERC20_PROXY = "0x2f5ae4f6106e89b4147651688a92256885c5f410"
-ZERO_EX_RINKEBY_EXCHANGE_ADDRESS = "0xbff9493f92a3df4b0429b6d00743b3cfb4c85831"
-ZERO_EX_RINKEBY_COORDINATOR_ADDRESS = "0x2ba02e03ee0029311e0f43715307870a3e701b53"
-ZERO_EX_RINKEBY_COORDINATOR_REGISTRY_ADDRESS = "0x1084b6a398e47907bae43fec3ff4b677db6e4fee"
-
-ZERO_EX_KOVAN_ERC20_PROXY = "0xf1ec01d6236d3cd881a0bf0130ea25fe4234003e"
-ZERO_EX_KOVAN_EXCHANGE_ADDRESS = "0x30589010550762d2f0d06f650d8e8b6ade6dbf4b"
-ZERO_EX_KOVAN_COORDINATOR_ADDRESS = "0x2ba02e03ee0029311e0f43715307870a3e701b53"
-ZERO_EX_KOVAN_COORDINATOR_REGISTRY_ADDRESS = "0x09fb99968c016a3ff537bf58fb3d9fe55a7975d5"
-
-BAMBOO_RELAY_REST_ENDPOINT = "https://rest.bamboorelay.com/"
-
 
 cdef class BambooRelayTransactionTracker(TransactionTracker):
     cdef:
@@ -137,17 +146,18 @@ cdef class BambooRelayMarket(MarketBase):
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                  OrderBookTrackerDataSourceType.EXCHANGE_API,
-                 symbols: Optional[List[str]] = None,
+                 trading_pairs: Optional[List[str]] = None,
                  use_coordinator: Optional[bool] = True,
                  pre_emptive_soft_cancels: Optional[bool] = True,
                  trading_required: bool = True):
         cdef:
             str coordinator_address
             str coordinator_registry_address
+            int chain_id
         super().__init__()
         self._trading_required = trading_required
         self._order_book_tracker = BambooRelayOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                               symbols=symbols,
+                                                               trading_pairs=trading_pairs,
                                                                chain=wallet.chain)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
@@ -163,6 +173,7 @@ cdef class BambooRelayMarket(MarketBase):
         self._in_flight_pending_limit_orders = OrderedDict()  # in the case that an order needs to be cancelled before its been accepted
         self._in_flight_cancels = OrderedDict()
         self._in_flight_pending_cancels = OrderedDict()
+        self._filled_order_hashes = [] # To prevent market filling trying to overfill an inflight market order that's pending
         self._order_expiry_queue = deque()
         self._tx_tracker = BambooRelayTransactionTracker(self)
         self._w3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
@@ -178,36 +189,58 @@ cdef class BambooRelayMarket(MarketBase):
         self._pre_emptive_soft_cancels = pre_emptive_soft_cancels
         self._latest_salt = -1
         if wallet.chain is EthereumChain.MAIN_NET:
+            self._chain_id = 1
+            self._api_endpoint = BAMBOO_RELAY_REST_ENDPOINT
             self._api_prefix = "main/0x"
+            self._fee_recipient_address =BAMBOO_RELAY_MAINNET_FEE_RECIPIENT_ADDRESS
             self._exchange_address = Web3.toChecksumAddress(ZERO_EX_MAINNET_EXCHANGE_ADDRESS)
-            coordinator_address = Web3.toChecksumAddress(ZERO_EX_MAINNET_COORDINATOR_ADDRESS)
+            self._coordinator_address = Web3.toChecksumAddress(ZERO_EX_MAINNET_COORDINATOR_ADDRESS)
             coordinator_registry_address = Web3.toChecksumAddress(ZERO_EX_MAINNET_COORDINATOR_REGISTRY_ADDRESS)
             self._wallet_spender_address = Web3.toChecksumAddress(ZERO_EX_MAINNET_ERC20_PROXY)
         elif wallet.chain is EthereumChain.ROPSTEN:
+            self._chain_id = 3
+            self._api_endpoint = BAMBOO_RELAY_REST_ENDPOINT
             self._api_prefix = "ropsten/0x"
+            self._fee_recipient_address =BAMBOO_RELAY_ROPSTEN_FEE_RECIPIENT_ADDRESS
             self._exchange_address = Web3.toChecksumAddress(ZERO_EX_ROPSTEN_EXCHANGE_ADDRESS)
-            coordinator_address = Web3.toChecksumAddress(ZERO_EX_ROPSTEN_COORDINATOR_ADDRESS)
+            self._coordinator_address = Web3.toChecksumAddress(ZERO_EX_ROPSTEN_COORDINATOR_ADDRESS)
             coordinator_registry_address = Web3.toChecksumAddress(ZERO_EX_ROPSTEN_COORDINATOR_REGISTRY_ADDRESS)
             self._wallet_spender_address = Web3.toChecksumAddress(ZERO_EX_ROPSTEN_ERC20_PROXY)
         elif wallet.chain is EthereumChain.RINKEBY:
+            self._chain_id = 4
+            self._api_endpoint = BAMBOO_RELAY_REST_ENDPOINT
             self._api_prefix = "rinkeby/0x"
+            self._fee_recipient_address = BAMBOO_RELAY_RINKEBY_FEE_RECIPIENT_ADDRESS
             self._exchange_address = Web3.toChecksumAddress(ZERO_EX_RINKEBY_EXCHANGE_ADDRESS)
-            coordinator_address = Web3.toChecksumAddress(ZERO_EX_RINKEBY_COORDINATOR_ADDRESS)
+            self._coordinator_address = Web3.toChecksumAddress(ZERO_EX_RINKEBY_COORDINATOR_ADDRESS)
             coordinator_registry_address = Web3.toChecksumAddress(ZERO_EX_RINKEBY_COORDINATOR_REGISTRY_ADDRESS)
             self._wallet_spender_address = Web3.toChecksumAddress(ZERO_EX_RINKEBY_ERC20_PROXY)
         elif wallet.chain is EthereumChain.KOVAN:
+            self._chain_id = 42
+            self._api_endpoint = BAMBOO_RELAY_REST_ENDPOINT
             self._api_prefix = "kovan/0x"
+            self._fee_recipient_address = BAMBOO_RELAY_KOVAN_FEE_RECIPIENT_ADDRESS
             self._exchange_address = Web3.toChecksumAddress(ZERO_EX_KOVAN_EXCHANGE_ADDRESS)
-            coordinator_address = Web3.toChecksumAddress(ZERO_EX_KOVAN_COORDINATOR_ADDRESS)
+            self._coordinator_address = Web3.toChecksumAddress(ZERO_EX_KOVAN_COORDINATOR_ADDRESS)
             coordinator_registry_address = Web3.toChecksumAddress(ZERO_EX_KOVAN_COORDINATOR_REGISTRY_ADDRESS)
             self._wallet_spender_address = Web3.toChecksumAddress(ZERO_EX_KOVAN_ERC20_PROXY)
+        elif wallet.chain is EthereumChain.ZEROEX_TEST:
+            self._chain_id = 1337
+            self._api_endpoint = BAMBOO_RELAY_TEST_ENDPOINT
+            self._api_prefix = "testrpc/0x"
+            self._fee_recipient_address = BAMBOO_RELAY_TEST_FEE_RECIPIENT_ADDRESS
+            self._exchange_address = Web3.toChecksumAddress(ZERO_EX_TEST_EXCHANGE_ADDRESS)
+            self._coordinator_address = Web3.toChecksumAddress(ZERO_EX_TEST_COORDINATOR_ADDRESS)
+            coordinator_registry_address = Web3.toChecksumAddress(ZERO_EX_TEST_COORDINATOR_REGISTRY_ADDRESS)
+            self._wallet_spender_address = Web3.toChecksumAddress(ZERO_EX_TEST_ERC20_PROXY)
         self._exchange = ZeroExExchange(self._w3, self._exchange_address, wallet)
         self._coordinator = ZeroExCoordinator(self._provider,
                                               self._w3,
                                               self._exchange_address,
-                                              coordinator_address,
+                                              self._coordinator_address,
                                               coordinator_registry_address,
-                                              wallet)
+                                              wallet,
+                                              self._chain_id)
 
     @property
     def name(self) -> str:
@@ -309,7 +342,7 @@ cdef class BambooRelayMarket(MarketBase):
             self.logger().error(f"Error restoring tracking states.", exc_info=True)
 
     async def get_active_exchange_markets(self):
-        return await BambooRelayAPIOrderBookDataSource.get_active_exchange_markets(self._api_prefix)
+        return await BambooRelayAPIOrderBookDataSource.get_active_exchange_markets(self._api_endpoint, self._api_prefix)
 
     async def _status_polling_loop(self):
         while True:
@@ -342,15 +375,37 @@ cdef class BambooRelayMarket(MarketBase):
                           object amount,
                           object price):
         cdef:
-            int gas_estimate = 130000  # approximate gas used for 0x market orders
+            int base_coordinator_cost = 116000 # coordinator uses a fixed additional amount of gas
+            int order_gas_cost = 150000
+            double protocol_fee
             double transaction_cost_eth
+            bint is_coordinated = False
+            list valid_orders
 
         # there are no fees for makers on Bamboo Relay
         if order_type is OrderType.LIMIT:
-            return TradeFee(percent=Decimal(0.0))
-        # only fee for takers is gas cost of transaction
-        transaction_cost_eth = self._wallet.gas_price * gas_estimate / 1e18
-        return TradeFee(percent=Decimal(0.0), flat_fees=[("ETH", transaction_cost_eth)])
+            return TradeFee(percent=s_decimal_0)
+
+        # fees for taker are protocol fee, transaction fee and order taker fees
+        valid_orders = self.c_get_orders_for_amount_price(trading_pair=base_currency + "-" + quote_currency,
+                                                          trade_type=trade_type,
+                                                          amount=amount,
+                                                          price=Decimal(price)) # market base has this as a `float`
+
+        for order in valid_orders:
+            if order["isCoordinated"]:
+                is_coordinated = True
+                break
+
+        if is_coordinated:
+            transaction_cost_eth = self._wallet.gas_price * (len(valid_orders) * order_gas_cost + base_coordinator_cost) / 1e18
+        else:
+            transaction_cost_eth = self._wallet.gas_price * len(valid_orders) * order_gas_cost / 1e18
+
+        protocol_fee = ZERO_EX_PROTOCOL_FEE_MULTIPLIER * len(valid_orders) * self._wallet.gas_price / 1e18
+        
+        return TradeFee(percent=s_decimal_0, flat_fees=[("ETH", protocol_fee),
+                                                        ("ETH", transaction_cost_eth)])
 
     def _update_balances(self):
         self._account_balances = self.wallet.get_all_balances().copy()
@@ -366,7 +421,7 @@ cdef class BambooRelayMarket(MarketBase):
                 total_balances = self._account_balances
 
                 for order in self._in_flight_limit_orders.values():
-                    locked_balances[order.symbol] = locked_balances.get(order.symbol, s_decimal_0) + order.amount
+                    locked_balances[order.trading_pair] = locked_balances.get(order.trading_pair, s_decimal_0) + order.amount
 
                 for currency, balance in total_balances.items():
                     self._account_available_balances[currency] = \
@@ -377,7 +432,7 @@ cdef class BambooRelayMarket(MarketBase):
             self._last_update_available_balance_timestamp = current_timestamp
 
     async def list_market(self) -> Dict[str, Any]:
-        url = f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/markets?perPage=1000&include=base"
+        url = f"{self._api_endpoint}{self._api_prefix}/markets?perPage=1000&include=base"
         return await self._api_request(http_method="get", url=url, headers={"User-Agent": "hummingbot"})
 
     async def _update_trading_rules(self):
@@ -389,7 +444,7 @@ cdef class BambooRelayMarket(MarketBase):
             trading_rules_list = self._format_trading_rules(markets)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
-                self._trading_rules[trading_rule.symbol] = trading_rule
+                self._trading_rules[trading_rule.trading_pair] = trading_rule
             self._last_update_trading_rules_timestamp = current_timestamp
 
     def _format_trading_rules(self, markets: List[Dict[str, Any]]) -> List[TradingRule]:
@@ -397,48 +452,40 @@ cdef class BambooRelayMarket(MarketBase):
             list retval = []
         for market in markets:
             try:
-                symbol = market["id"]
-                retval.append(TradingRule(symbol,
+                trading_pair = market["id"]
+                retval.append(TradingRule(trading_pair,
                                           min_order_size=Decimal(market["minOrderSize"]),
                                           max_order_size=Decimal(market["maxOrderSize"]),
                                           max_price_significant_digits=Decimal(market['quoteIncrement']),
                                           min_price_increment=Decimal(f"1e-{market['quoteTokenDecimals']}"),
-                                          min_base_amount_increment=Decimal(f"1e-{market['baseTokenDecimals']}")))
+                                          min_base_amount_increment=Decimal(f"1e-{market['baseTokenDecimals']}"),
+                                          min_quote_amount_increment=Decimal(f"1e-{market['quoteTokenDecimals']}")))
             except Exception:
-                self.logger().error(f"Error parsing the symbol {symbol}. Skipping.", exc_info=True)
+                self.logger().error(f"Error parsing the trading_pair {trading_pair}. Skipping.", exc_info=True)
         return retval
 
-    async def get_account_orders(self) -> List[Dict[str, Any]]:
-        list_account_orders_url = f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/accounts/{self._wallet.address.lower()}/orders"
-        return await self._api_request(http_method="get", url=list_account_orders_url,
+    async def get_orders(self, order_hashes: List[str]) -> Dict[str, Dict[str, Any]]:
+        return await self._api_request("post",
+                                       url=f"{self._api_endpoint}{self._api_prefix}/orders/hashes",
+                                       data=order_hashes,
                                        headers={"User-Agent": "hummingbot"})
 
-    async def get_order(self, order_hash: str) -> Dict[str, Any]:
-        order_url = f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/orders/{order_hash}"
-        return await self._api_request("get", url=order_url, headers={"User-Agent": "hummingbot"})
-
     async def _get_order_updates(self, tracked_limit_orders: List[BambooRelayInFlightOrder]) -> List[Dict[str, Any]]:
-        account_orders_list = await self.get_account_orders()
-        account_orders_map = {}
-        for account_order in account_orders_list:
-            account_orders_map[account_order["orderHash"]] = account_order
-
         order_updates = []
-        tasks = []
-        tasks_index = []
+        hashes = []
+        hash_index = {}
 
         for i, tracked_order in enumerate(tracked_limit_orders):
             order_hash = tracked_order.exchange_order_id
-            order_update = account_orders_map.get(order_hash, None)
-            if order_update is None:
-                tasks.append(self.get_order(order_hash))
-                tasks_index.append(i)
-            order_updates.append(order_update)
+            hashes.append(tracked_order.exchange_order_id)
+            hash_index[order_hash] = i
+            order_updates.append(None)
 
-        res_order_updates = await safe_gather(*tasks, return_exceptions=True)
-
-        for i, ou in enumerate(res_order_updates):
-            order_updates[tasks_index[i]] = ou
+        if len(hashes):
+            # Grab all of the orders details at once by hash
+            orders = await self.get_orders(hashes)
+            for hash in orders:
+                order_updates[hash_index[hash]] = orders[hash]
 
         return order_updates
 
@@ -453,61 +500,72 @@ cdef class BambooRelayMarket(MarketBase):
             tracked_limit_orders = list(self._in_flight_limit_orders.values())
             order_updates = await self._get_order_updates(tracked_limit_orders)
             for order_update, tracked_limit_order in zip(order_updates, tracked_limit_orders):
-                if isinstance(order_update, Exception):
+                if order_update is None:
                     # 404 handling
-                    if "HTTP status is 404" in str(order_update):
-                        if not tracked_limit_order.is_cancelled:
-                            self.logger().info(f"The limit order {tracked_limit_order.client_order_id} could not be found "
-                                               f"according to order status API. Removing from tracking.")
-                            # soft cancel this order if we are using the coordinator just to be safe
-                            if tracked_limit_order.is_coordinated:
-                                self.c_cancel("", tracked_limit_order.client_order_id)
-                            self.c_expire_order_fast(tracked_limit_order.client_order_id)
-                            self.c_trigger_event(
-                                self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                OrderCancelledEvent(self._current_timestamp, tracked_limit_order.client_order_id)
-                            )
-                            tracked_limit_order.last_state = "CANCELED"
-                    else:
-                        self.logger().network(
-                            f"Error fetching status update for the order "
-                            f"{tracked_limit_order.client_order_id}: {order_update}.",
-                            app_warning_msg=f"Failed to fetch status update for the order "
-                                            f"{tracked_limit_order.client_order_id}. "
-                                            f"Check Ethereum wallet and network connection."
+                    if not tracked_limit_order.is_cancelled and not tracked_limit_order.has_been_cancelled:
+                        self.logger().info(f"The limit order {tracked_limit_order.client_order_id} could not be found "
+                                           f"according to order status API. Removing from tracking.")
+                        # soft cancel this order if we are using the coordinator just to be safe
+                        if tracked_limit_order.is_coordinated:
+                            self.c_cancel("", tracked_limit_order.client_order_id)
+                        self.c_expire_order_fast(tracked_limit_order.client_order_id)
+                        self.c_trigger_event(
+                            self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                            OrderCancelledEvent(self._current_timestamp, tracked_limit_order.client_order_id)
                         )
+                        tracked_limit_order.last_state = "CANCELED"
                     continue
                 previous_is_done = tracked_limit_order.is_done
                 previous_is_cancelled = tracked_limit_order.is_cancelled
                 previous_is_failure = tracked_limit_order.is_failure
                 previous_is_expired = tracked_limit_order.is_expired
                 order_state = order_update["state"]
+
                 order_remaining_base_token_amount = Decimal(order_update["remainingBaseTokenAmount"])
-                order_remaining_quote_token_amount = Decimal(order_update["remainingQuoteTokenAmount"])
-                order_executed_amount_base = Decimal(tracked_limit_order.available_amount_base) - order_remaining_base_token_amount
-                total_executed_amount_base = Decimal(tracked_limit_order.amount) - order_remaining_base_token_amount
+
+                order_filled_base_token_amount = s_decimal_0
+                order_filled_quote_token_amount = s_decimal_0
+
+                # Each update has a list of fills, we only process these once
+                for fill in order_update["fills"]:
+                    if not fill["transactionHash"] in tracked_limit_order.recorded_fills:
+                        order_filled_base_token_amount += Decimal(fill["filledBaseTokenAmount"])
+                        order_filled_quote_token_amount += Decimal(fill["filledQuoteTokenAmount"])
+                        tracked_limit_order.recorded_fills.append(fill["transactionHash"])
+
+                previous_amount_available = tracked_limit_order.available_amount_base
 
                 tracked_limit_order.last_state = order_state
-                tracked_limit_order.executed_amount_base = total_executed_amount_base
                 tracked_limit_order.available_amount_base = order_remaining_base_token_amount
-                tracked_limit_order.executed_amount_quote = order_remaining_quote_token_amount
-                if order_executed_amount_base > 0:
-                    self.logger().info(f"Filled {order_executed_amount_base} out of {tracked_limit_order.amount} of the "
+                
+                if order_filled_base_token_amount > 0:
+                    tracked_limit_order.executed_amount_base = tracked_limit_order.executed_amount_base + order_filled_base_token_amount
+                    tracked_limit_order.executed_amount_quote = tracked_limit_order.executed_amount_quote + order_filled_quote_token_amount
+                    self.logger().info(f"Filled {order_filled_base_token_amount} out of {tracked_limit_order.amount} of the "
                                        f"limit order {tracked_limit_order.client_order_id}.")
                     self.c_trigger_event(
                         self.MARKET_ORDER_FILLED_EVENT_TAG,
                         OrderFilledEvent(
                             self._current_timestamp,
                             tracked_limit_order.client_order_id,
-                            tracked_limit_order.symbol,
+                            tracked_limit_order.trading_pair,
                             tracked_limit_order.trade_type,
                             OrderType.LIMIT,
                             tracked_limit_order.price,
-                            order_executed_amount_base,
+                            order_filled_base_token_amount,
                             TradeFee(0.0),  # no fee for limit order fills
                             tracked_limit_order.exchange_order_id,  # Use order hash for limit order validation
                         )
                     )
+                elif order_remaining_base_token_amount < (previous_amount_available + order_filled_base_token_amount):
+                    # i.e. user was running a bot on Bamboo and Radar, or two instances of the bot at the same time
+                    self.logger().info(f"The limit order {tracked_limit_order.client_order_id} has had it's available amount "
+                                       f"reduced to {order_remaining_base_token_amount}.")
+
+                # Has been soft cancelled already according to the Coordinator Server or 
+                # a mined Cancel transaction was completed
+                if tracked_limit_order.has_been_cancelled:
+                    continue
 
                 # do not retrigger order events if order was already in that state previously
                 if not previous_is_cancelled and tracked_limit_order.is_cancelled:
@@ -555,7 +613,7 @@ cdef class BambooRelayMarket(MarketBase):
                                                                     tracked_limit_order.quote_asset,
                                                                     tracked_limit_order.executed_amount_base,
                                                                     tracked_limit_order.executed_amount_quote,
-                                                                    tracked_limit_order.gas_fee_amount,
+                                                                    tracked_limit_order.protocol_fee_amount,
                                                                     OrderType.LIMIT))
                     else:
                         self.logger().info(f"The limit sell order {tracked_limit_order.client_order_id}"
@@ -568,7 +626,7 @@ cdef class BambooRelayMarket(MarketBase):
                                                                      tracked_limit_order.quote_asset,
                                                                      tracked_limit_order.executed_amount_base,
                                                                      tracked_limit_order.executed_amount_quote,
-                                                                     tracked_limit_order.gas_fee_amount,
+                                                                     tracked_limit_order.protocol_fee_amount,
                                                                      OrderType.LIMIT))
                 elif self._pre_emptive_soft_cancels and (
                         tracked_limit_order.is_coordinated and
@@ -598,10 +656,8 @@ cdef class BambooRelayMarket(MarketBase):
             tracked_market_orders = list(self._in_flight_market_orders.values())
             for tracked_market_order in tracked_market_orders:
                 receipt = self.get_tx_hash_receipt(tracked_market_order.tx_hash)
-
                 if receipt is None:
                     continue
-
                 if receipt["status"] == 0:
                     err_msg = (f"The market order {tracked_market_order.client_order_id}"
                                f"has failed according to transaction hash {tracked_market_order.tx_hash}.")
@@ -619,12 +675,12 @@ cdef class BambooRelayMarket(MarketBase):
                         OrderFilledEvent(
                             self._current_timestamp,
                             tracked_market_order.client_order_id,
-                            tracked_market_order.symbol,
+                            tracked_market_order.trading_pair,
                             tracked_market_order.trade_type,
                             OrderType.MARKET,
                             tracked_market_order.price,
                             tracked_market_order.amount,
-                            TradeFee(0.0, [("ETH", gas_used)]),
+                            TradeFee(0.0, [("ETH", gas_used), ("ETH", tracked_market_order.protocol_fee_amount)]),
                             tracked_market_order.tx_hash  # Use tx hash for market order validation
                         )
                     )
@@ -640,7 +696,7 @@ cdef class BambooRelayMarket(MarketBase):
                                                                     tracked_market_order.quote_asset,
                                                                     tracked_market_order.amount,
                                                                     tracked_market_order.executed_amount_quote,
-                                                                    tracked_market_order.gas_fee_amount,
+                                                                    tracked_market_order.protocol_fee_amount,
                                                                     OrderType.MARKET))
                     else:
                         self.logger().info(f"The market sell order "
@@ -654,7 +710,7 @@ cdef class BambooRelayMarket(MarketBase):
                                                                      tracked_market_order.quote_asset,
                                                                      tracked_market_order.amount,
                                                                      tracked_market_order.executed_amount_quote,
-                                                                     tracked_market_order.gas_fee_amount,
+                                                                     tracked_market_order.protocol_fee_amount,
                                                                      OrderType.MARKET))
                 else:
                     err_msg = (f"Unrecognized transaction status for market order "
@@ -717,48 +773,11 @@ cdef class BambooRelayMarket(MarketBase):
                         raise IOError(f"Error fetching data from {url}. "
                                       f"HTTP status is {response.status} - {response_text}.")
 
-    async def request_signed_market_orders(self, symbol: str, trade_type: TradeType, amount: str) -> Dict[str, Any]:
-        if trade_type is TradeType.BUY:
-            order_type = "BUY"
-        elif trade_type is TradeType.SELL:
-            order_type = "SELL"
-        else:
-            raise ValueError("Invalid trade_type. Aborting.")
-        url = f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/markets/{symbol}/order/market"
-        data = {
-            "type": order_type,
-            "quantity": amount
-        }
-        response_data = await self._api_request(http_method="post", url=url, data=data, headers={"User-Agent": "hummingbot"})
-        return response_data
-
-    async def request_unsigned_limit_order(self,
-                                           symbol: str,
-                                           trade_type: TradeType,
-                                           is_coordinated: bool,
-                                           amount: str,
-                                           price: str,
-                                           expires: int) -> Dict[str, Any]:
-        if trade_type is TradeType.BUY:
-            order_type = "BUY"
-        elif trade_type is TradeType.SELL:
-            order_type = "SELL"
-        else:
-            raise ValueError("Invalid trade_type. Aborting.")
-        url = f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/markets/{symbol}/order/limit"
-        data = {
-            "type": order_type,
-            "useCoordinator": is_coordinated,
-            "quantity": amount,
-            "price": price,
-            "expiration": expires
-        }
-        return await self._api_request(http_method="post", url=url, data=data, headers={"User-Agent": "hummingbot"})
-
     def get_order_hash_hex(self, unsigned_order: Dict[str, Any]) -> str:
         order_struct = jsdict_order_to_struct(unsigned_order)
-        order_hash_hex = generate_order_hash_hex(order=order_struct,
-                                                 exchange_address=self._exchange_address.lower())
+        order_hash_hex: str = "0x" + generate_order_hash_hex(order=order_struct,
+                                                 exchange_address=self._exchange_address.lower(),
+                                                 chain_id=unsigned_order["chainId"])
         return order_hash_hex
 
     def get_zero_ex_signature(self, order_hash_hex: str) -> str:
@@ -766,141 +785,270 @@ cdef class BambooRelayMarket(MarketBase):
         fixed_signature = fix_signature(self._provider, self._wallet.address, order_hash_hex, signature)
         return fixed_signature
 
+    cdef list c_get_orders_for_amount_price(self,
+                                            str trading_pair,
+                                            object trade_type,
+                                            object amount,
+                                            object price):
+        cdef:
+            object amount_filled = s_decimal_0
+            object active_orders
+            object current_item
+            object current_price
+            list found_orders = []
+
+        active_orders = self._order_book_tracker.get_active_order_tracker(trading_pair=trading_pair)
+
+        try:
+            if trade_type is TradeType.BUY:
+                active_asks = active_orders.active_asks
+                asks = self.order_book_ask_entries(trading_pair)
+                for current_item in asks:
+                    current_price = current_item.price
+                    # Market orders don't care about price
+                    if not price.is_nan() and current_price > price:
+                        raise StopIteration
+                    for order_hash in active_asks[current_price]:
+                        if order_hash in self._filled_order_hashes:
+                            continue
+                        order = active_asks[current_price][order_hash]
+                        amount_filled += Decimal(order["remainingBaseTokenAmount"])
+                        found_orders.append(order)
+                        if amount_filled >= amount:
+                            raise StopIteration
+            if trade_type is TradeType.SELL:
+                active_bids = active_orders.active_bids
+                bids = self.order_book_bid_entries(trading_pair)
+                for current_item in bids:
+                    current_price = current_item.price
+                    # Market orders don't care about price
+                    if not price.is_nan() and current_price < price:
+                        raise StopIteration
+                    for order_hash in active_bids[current_price]:
+                        if order_hash in self._filled_order_hashes:
+                            continue
+                        order = active_bids[current_price][order_hash]
+                        amount_filled += Decimal(order["remainingBaseTokenAmount"])
+                        found_orders.append(order)
+                        if amount_filled >= amount:
+                            raise StopIteration
+        except StopIteration:
+            pass
+
+        return found_orders
+
     async def submit_market_order(self,
-                                  symbol: str,
+                                  trading_pair: str,
                                   trade_type: TradeType,
-                                  amount: Decimal) -> Tuple[float, str]:
+                                  amount: Decimal,
+                                  price: Decimal) -> Tuple[Decimal, Decimal, str, int, bool]:
         if trade_type is not TradeType.BUY and trade_type is not TradeType.SELL:
             raise ValueError("Invalid trade_type. Aborting.")
 
-        response = await self.request_signed_market_orders(symbol=symbol,
-                                                           trade_type=trade_type,
-                                                           amount=str(amount))
-        signed_market_orders = response["orders"]
-        average_price = float(response["averagePrice"])
-        is_coordinated = bool(response["isCoordinated"])
-        base_asset_increment = self.trading_rules.get(symbol).min_base_amount_increment
+        valid_orders = self.c_get_orders_for_amount_price(trading_pair=trading_pair,
+                                                          trade_type=trade_type,
+                                                          amount=amount,
+                                                          price=Decimal(price))
+
+        if len(valid_orders) == 0:
+            raise ValueError(f"No valid orders found for amount {amount} and price {price}.")
+
+        # Skip API use orderbook
+        total_base_token_amount = s_decimal_0
+        total_quote_token_amount = s_decimal_0
+        taker_asset_fill_amount = s_decimal_0
+        calculated_price = s_decimal_0
+        trading_pair_rules = self.trading_rules.get(trading_pair)
+        base_asset_increment = trading_pair_rules.min_base_amount_increment
         base_asset_decimals = -int(math.ceil(math.log10(float(base_asset_increment))))
         max_base_amount_with_decimals = Decimal(amount) * Decimal(f"1e{base_asset_decimals}")
-
+        quote_asset_increment = trading_pair_rules.min_quote_amount_increment
+        quote_asset_decimals = -int(math.ceil(math.log10(float(quote_asset_increment))))
+        is_coordinated = False
         tx_hash = ""
-        total_base_quantity = Decimal(response["totalBaseQuantity"])
-        total_quote_quantity = Decimal(response["totalQuoteQuantity"])
-        total_base_amount = Decimal(response["totalBaseAmount"])
-        total_quote_amount = Decimal(response["totalQuoteAmount"])
+        protocol_fee = s_decimal_0
 
-        # Sanity check
-        if total_base_quantity > Decimal(amount):
-            raise ValueError(f"API returned incorrect values for market order, totalBaseQuantity {total_base_quantity} is "
-                             f"higher than requested amount {amount}")
-
-        # Single orders to use fillOrder, multiple to use batchFill
-        if len(signed_market_orders) == 1:
-            signed_market_order = signed_market_orders[0]
+        # Single fill logic
+        if len(valid_orders) == 1:
+            apiOrder = valid_orders[0]
+            signed_market_order = apiOrder["zeroExOrder"]
             signature = signed_market_order["signature"]
-            del signed_market_order["signature"]
+            is_coordinated = apiOrder["isCoordinated"]
+            order = jsdict_order_to_struct(signed_market_order)
+            remaining_base_token_amount = Decimal(apiOrder["remainingQuoteTokenAmount"])
+            remaining_quote_token_amount = Decimal(apiOrder["remainingQuoteTokenAmount"])
+            calculated_price = remaining_base_token_amount / remaining_quote_token_amount
+
+            if not price.is_nan() and calculated_price > price:
+                raise ValueError(f"Incorrect values for market order, price {calculated_price} is "
+                                 f"worse than requested price {price}")
+
+            # Sanity check on rates returned
+            if trade_type is TradeType.BUY:
+                if amount > remaining_base_token_amount:
+                    total_base_token_amount = remaining_base_token_amount
+                    total_quote_token_amount = remaining_quote_token_amount
+                    taker_asset_fill_amount = remaining_quote_token_amount * Decimal(f"1e{quote_asset_decimals}")
+                else:
+                    total_base_token_amount = amount
+                    total_quote_token_amount = amount * calculated_price
+                    taker_asset_fill_amount = total_quote_token_amount * Decimal(f"1e{quote_asset_decimals}")
+            else:
+                if amount > remaining_base_token_amount:
+                    total_base_token_amount = remaining_base_token_amount
+                    total_quote_token_amount = remaining_quote_token_amount
+                    taker_asset_fill_amount = remaining_base_token_amount * Decimal(f"1e{base_asset_decimals}")
+                else:
+                    total_base_token_amount = amount
+                    total_quote_token_amount = amount * calculated_price
+                    taker_asset_fill_amount = max_base_amount_with_decimals
+            if amount >= remaining_base_token_amount:
+                self._filled_order_hashes.append(apiOrder["orderHash"])
+
+            if is_coordinated:
+                tx_hash, protocol_fee = await self._coordinator.fill_order(order, taker_asset_fill_amount, signature)
+            else:
+                tx_hash, protocol_fee = self._exchange.fill_order(order, taker_asset_fill_amount, signature)
+
+            return total_base_token_amount, calculated_price, tx_hash, protocol_fee, is_coordinated
+
+        taker_asset_fill_amounts: List[Decimal] = []
+        signatures: List[str] = []
+        orders: List[ZeroExOrder] = []
+
+        # Else it's a multi fill
+        for apiOrder in valid_orders:
+            signed_market_order = apiOrder["zeroExOrder"]
+            signatures.append(signed_market_order["signature"])
+            orders.append(jsdict_order_to_struct(signed_market_order))
+            is_coordinated = is_coordinated or apiOrder["isCoordinated"]
             order = jsdict_order_to_struct(signed_market_order)
 
-            # Sanity check on rates returned
-            if trade_type is TradeType.BUY:
-                calculated_maker_amount = math.floor(
-                    (total_base_amount * Decimal(signed_market_order["takerAssetAmount"])) /
-                    Decimal(signed_market_order["takerAssetAmount"])
-                )
-                taker_asset_fill_amount = total_quote_amount
-                if calculated_maker_amount > max_base_amount_with_decimals:
-                    raise ValueError(f"API returned incorrect values for market order, calculated maker amount "
-                                     f"{calculated_maker_amount} is greater than requested amount {max_base_amount_with_decimals}")
-            else:
-                taker_asset_fill_amount = total_base_amount
+            remaining_base_token_amount = Decimal(apiOrder["remainingBaseTokenAmount"])
+            remaining_quote_token_amount = Decimal(apiOrder["remainingQuoteTokenAmount"])
 
-            if is_coordinated:
-                tx_hash = await self._coordinator.fill_order(order, taker_asset_fill_amount, signature)
+            # This would overfill the last order
+            if remaining_base_token_amount + total_base_token_amount > amount:
+                order_price = remaining_base_token_amount / remaining_quote_token_amount
+                remaining_base_token_amount = amount - total_base_token_amount
+                remaining_quote_token_amount = remaining_base_token_amount * order_price                
             else:
-                tx_hash = self._exchange.fill_order(order, taker_asset_fill_amount, signature)
+                self._filled_order_hashes.append(apiOrder["orderHash"])
+            
+            if trade_type is TradeType.BUY:
+                taker_asset_fill_amounts.append(remaining_quote_token_amount * Decimal(f"1e{quote_asset_decimals}"))
+            else:
+                taker_asset_fill_amounts.append(remaining_base_token_amount * Decimal(f"1e{base_asset_decimals}"))
+
+            total_base_token_amount += remaining_base_token_amount
+            total_quote_token_amount += remaining_quote_token_amount
+
+            if total_base_token_amount >= amount: 
+                break
+
+        calculated_price = total_base_token_amount / total_quote_token_amount
+
+        # Sanity check on rates returned
+        if total_base_token_amount > amount:
+            raise ValueError(f"API returned incorrect values for market order, total maker amount {total_base_token_amount} "
+                             f"is greater than requested amount {amount}")
+        elif not price.is_nan() and calculated_price > price:
+            raise ValueError(f"Incorrect values for market order, price {calculated_price} is "
+                             f"worse than requested price {price}")
+
+        if is_coordinated:
+            tx_hash, protocol_fee = await self._coordinator.batch_fill_orders(orders, taker_asset_fill_amounts, signatures)
         else:
-            taker_asset_fill_amounts: List[Decimal] = []
-            signatures: List[str] = []
-            orders: List[ZeroExOrder] = []
+            tx_hash, protocol_fee = self._exchange.batch_fill_orders(orders, taker_asset_fill_amounts, signatures)
 
-            if trade_type is TradeType.BUY:
-                target_taker_amount = total_quote_amount
-            else:
-                target_taker_amount = total_base_amount
-            remaining_taker_fill_amounts = response["remainingTakerFillAmounts"]
-            remaining_maker_fill_amounts = response["remainingMakerFillAmounts"]
-            total_maker_asset_fill_amount = Decimal(0)
-            total_taker_asset_fill_amount = Decimal(0)
-
-            for idx, order in enumerate(signed_market_orders):
-                signatures.append(order["signature"])
-                del order["signature"]
-                orders.append(jsdict_order_to_struct(order))
-                taker_fill_amount = Decimal(remaining_taker_fill_amounts[idx])
-                maker_fill_amount = Decimal(remaining_maker_fill_amounts[idx])
-                new_total_taker_asset_fill_amount = total_taker_asset_fill_amount + taker_fill_amount
-                if target_taker_amount > new_total_taker_asset_fill_amount:
-                    taker_asset_fill_amounts.append(taker_fill_amount)
-                    total_maker_asset_fill_amount = total_maker_asset_fill_amount + maker_fill_amount
-                    total_taker_asset_fill_amount = new_total_taker_asset_fill_amount
-                else:
-                    # calculate
-                    remaining_taker_amount = target_taker_amount - total_taker_asset_fill_amount
-                    taker_asset_fill_amounts.append(remaining_taker_amount)
-                    order_maker_fill_amount = math.floor(
-                        remaining_taker_amount * (Decimal(order["makerAssetAmount"]) / Decimal(order["takerAssetAmount"]))
-                    )
-                    total_maker_asset_fill_amount = total_maker_asset_fill_amount + order_maker_fill_amount
-                    total_taker_asset_fill_amount = total_taker_asset_fill_amount + remaining_taker_amount
-                    break
-
-            # Sanity check on rates returned
-            if trade_type is TradeType.BUY and total_maker_asset_fill_amount > max_base_amount_with_decimals:
-                raise ValueError(f"API returned incorrect values for market order, total maker amount {total_maker_asset_fill_amount} "
-                                 f"is greater than requested amount {max_base_amount_with_decimals}")
-            elif trade_type is TradeType.SELL and total_taker_asset_fill_amount > max_base_amount_with_decimals:
-                raise ValueError(f"API returned incorrect values for market order, total taker amount {total_taker_asset_fill_amount} "
-                                 f" is greater than requested amount {max_base_amount_with_decimals}")
-
-            if is_coordinated:
-                tx_hash = await self._coordinator.batch_fill_orders(orders, taker_asset_fill_amounts, signatures)
-            else:
-                tx_hash = self._exchange.batch_fill_orders(orders, taker_asset_fill_amounts, signatures)
-
-        return average_price, tx_hash, is_coordinated
+        return total_base_token_amount, calculated_price, tx_hash, protocol_fee, is_coordinated
 
     async def submit_limit_order(self,
-                                 symbol: str,
+                                 trading_pair: str,
                                  trade_type: TradeType,
                                  is_coordinated: bool,
                                  amount: Decimal,
-                                 price: str,
+                                 price: Decimal,
                                  expires: int) -> Tuple[str, ZeroExOrder]:
-        url = f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/orders"
-        unsigned_limit_order = await self.request_unsigned_limit_order(symbol=symbol,
-                                                                       trade_type=trade_type,
-                                                                       is_coordinated=self._use_coordinator,
-                                                                       amount=str(amount),
-                                                                       price=price,
-                                                                       expires=expires)
-        unsigned_limit_order["makerAddress"] = self._wallet.address.lower()
+        # It's faster to generate fresh orders client-side
+        latest_salt = self._latest_salt
+
+        if latest_salt < 0:
+            latest_salt = int(math.floor(time.time()))
+        else:
+            latest_salt = latest_salt + 1
+
+        trading_pair_rules = self.trading_rules.get(trading_pair)
+        base_asset_increment = trading_pair_rules.min_base_amount_increment
+        base_asset_decimals = -int(math.ceil(math.log10(float(base_asset_increment))))
+        base_amount_with_decimals = Decimal(amount) * Decimal(f"1e{base_asset_decimals}")
+
+        quote_asset_increment = trading_pair_rules.min_quote_amount_increment
+        quote_asset_decimals = -int(math.ceil(math.log10(float(quote_asset_increment))))
+        quote_amount = amount * price
+        quote_amount_with_decimals = Decimal(quote_amount) * Decimal(f"1e{quote_asset_decimals}")
+
+        maker_asset_amount = 0
+        taker_asset_amount = 0
+        maker_asset_data = ""
+        taker_asset_data = ""
+        
+        pair_split = trading_pair.split("-")
+
+        tokens = self._wallet.erc20_tokens
+        base_token_asset_data = "0xf47261b0000000000000000000000000" + remove_0x_prefix(tokens[pair_split[0]].address.lower())
+        quote_token_asset_data = "0xf47261b0000000000000000000000000" + remove_0x_prefix(tokens[pair_split[1]].address.lower())
+
+        if trade_type is TradeType.BUY:
+            maker_asset_amount = int(quote_amount_with_decimals)
+            taker_asset_amount = int(base_amount_with_decimals)
+            maker_asset_data = quote_token_asset_data
+            taker_asset_data = base_token_asset_data
+        else:
+            maker_asset_amount = int(base_amount_with_decimals)
+            taker_asset_amount = int(quote_amount_with_decimals)
+            maker_asset_data = base_token_asset_data
+            taker_asset_data = quote_token_asset_data
+
+        null_address = "0x0000000000000000000000000000000000000000"
+
+        unsigned_limit_order = {
+            'chainId': self._chain_id,
+            'exchangeAddress': self._exchange_address.lower(),
+            'makerAddress': self._wallet.address.lower(),
+            'takerAddress': null_address,
+            'feeRecipientAddress': self._fee_recipient_address,
+            'senderAddress': self._coordinator_address.lower() if self._use_coordinator else null_address,
+            'makerAssetAmount': str(maker_asset_amount),
+            'takerAssetAmount': str(taker_asset_amount),
+            'makerFee': '0',
+            'takerFee': '0',
+            'expirationTimeSeconds': str(expires),
+            'salt': str(latest_salt),
+            'makerAssetData': maker_asset_data,
+            'takerAssetData': taker_asset_data,
+            'makerFeeAssetData': maker_asset_data,
+            'takerFeeAssetData': maker_asset_data
+        }
+
         order_hash_hex = self.get_order_hash_hex(unsigned_limit_order)
         signed_limit_order = copy.deepcopy(unsigned_limit_order)
         signature = self.get_zero_ex_signature(order_hash_hex)
         signed_limit_order["signature"] = signature
         try:
-            await self._api_request(http_method="post", url=url, data=signed_limit_order,
+            await self._api_request(http_method="post", 
+                                    url=f"{self._api_endpoint}{self._api_prefix}/orders",
+                                    data=signed_limit_order,
                                     headers={"User-Agent": "hummingbot"})
-            self._latest_salt = int(unsigned_limit_order["salt"])
+            self._latest_salt = latest_salt
             order_hash = self._w3.toHex(hexstr=order_hash_hex)
-            del unsigned_limit_order["signature"]
             zero_ex_order = jsdict_order_to_struct(unsigned_limit_order)
             return order_hash, zero_ex_order
         except Exception as ex:
             self._last_failed_limit_order_timestamp = self._current_timestamp
             raise ex
 
-    cdef c_cancel(self, str symbol, str client_order_id):
+    cdef c_cancel(self, str trading_pair, str client_order_id):
         # Skip this logic if we are not using the coordinator
         if not self._use_coordinator:
             safe_ensure_future(self.cancel_order(client_order_id))
@@ -958,6 +1106,20 @@ cdef class BambooRelayMarket(MarketBase):
             try:
                 soft_cancel_result = await self._coordinator.batch_soft_cancel_orders(orders)
 
+                # Flag
+                order_ids = ""
+                for order in incomplete_orders:
+                    order.has_been_cancelled = True
+                    self.c_expire_order(order.client_order_id)
+                    self.c_trigger_event(
+                        self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                        OrderCancelledEvent(self._current_timestamp, order.client_order_id)
+                    )
+                    order_ids = order_ids + order.client_order_id + " "
+
+                self.logger().info(f"The limit orders {order_ids}have been soft cancelled according "
+                                   f"to the Coordinator server.")
+
                 return [CancellationResult(oid, True) for oid in incomplete_order_ids]
             except Exception:
                 self.logger().network(
@@ -974,11 +1136,24 @@ cdef class BambooRelayMarket(MarketBase):
                     while receipt is None:
                         receipt = self.get_tx_hash_receipt(tx_hash)
                         if receipt is None:
-                            await asyncio.sleep(1.0)
+                            await asyncio.sleep(6.0)
                             continue
                         if receipt["status"] == 0:
                             return [CancellationResult(oid, False) for oid in incomplete_order_ids]
                         elif receipt["status"] == 1:
+                            order_ids = ""
+                            for order in incomplete_orders:
+                                order.has_been_cancelled = True
+                                self.c_expire_order(order.client_order_id)
+                                self.c_trigger_event(
+                                    self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                    OrderCancelledEvent(self._current_timestamp, order.client_order_id)
+                                )
+                                order_ids = order_ids + order.client_order_id + " "
+
+                            self.logger().info(f"The limit orders {order_ids}have been hard cancelled according "
+                                               f"to transaction hash {tx_hash}.")
+
                             return [CancellationResult(oid, True) for oid in incomplete_order_ids]
             except Exception:
                 self.logger().network(
@@ -993,14 +1168,15 @@ cdef class BambooRelayMarket(MarketBase):
                             order_id: str,
                             order_type: OrderType,
                             trade_type: TradeType,
-                            symbol: str,
+                            trading_pair: str,
                             amount: Decimal,
                             price: Decimal,
                             expires: int) -> str:
         cdef:
-            str q_price
-            object q_amt = self.c_quantize_order_amount(symbol, amount)
-            TradingRule trading_rule = self._trading_rules[symbol]
+            object q_price
+            object q_amt = self.c_quantize_order_amount(trading_pair, amount)
+            object amount_to_fill = q_amt
+            TradingRule trading_rule = self._trading_rules[trading_pair]
             str trade_type_desc = "buy" if trade_type is TradeType.BUY else "sell"
             str type_str = "limit" if order_type is OrderType.LIMIT else "market"
         try:
@@ -1019,8 +1195,8 @@ cdef class BambooRelayMarket(MarketBase):
                 elif expires < time.time():
                     raise ValueError(f"expiration time {expires} must be greater than current time {time.time()}")
                 else:
-                    q_price = str(self.c_quantize_order_price(symbol, price))
-                    exchange_order_id, zero_ex_order = await self.submit_limit_order(symbol=symbol,
+                    q_price = self.c_quantize_order_price(trading_pair, price)
+                    exchange_order_id, zero_ex_order = await self.submit_limit_order(trading_pair=trading_pair,
                                                                                      trade_type=trade_type,
                                                                                      is_coordinated=self._use_coordinator,
                                                                                      amount=q_amt,
@@ -1028,7 +1204,7 @@ cdef class BambooRelayMarket(MarketBase):
                                                                                      expires=expires)
                     self.c_start_tracking_limit_order(order_id=order_id,
                                                       exchange_order_id=exchange_order_id,
-                                                      symbol=symbol,
+                                                      trading_pair=trading_pair,
                                                       order_type=order_type,
                                                       trade_type=trade_type,
                                                       is_coordinated=self._use_coordinator,
@@ -1043,25 +1219,32 @@ cdef class BambooRelayMarket(MarketBase):
                             self.c_cancel("", order_id)
                         del self._in_flight_pending_limit_orders[order_id]
             elif order_type is OrderType.MARKET:
-                avg_price, tx_hash, is_coordinated = await self.submit_market_order(symbol=symbol,
-                                                                                    trade_type=trade_type,
-                                                                                    amount=q_amt)
-                q_price = str(self.c_quantize_order_price(symbol, Decimal(avg_price)))
+                (amount_to_fill,
+                 avg_price, 
+                 tx_hash, 
+                 protocol_fee, 
+                 is_coordinated) = await self.submit_market_order(trading_pair=trading_pair,
+                                                                trade_type=trade_type,
+                                                                amount=q_amt,
+                                                                price=price)
+                q_price = self.c_quantize_order_price(trading_pair, Decimal(avg_price))
                 self.c_start_tracking_market_order(order_id=order_id,
-                                                   symbol=symbol,
+                                                   trading_pair=trading_pair,
                                                    order_type=order_type,
                                                    is_coordinated=is_coordinated,
                                                    trade_type=trade_type,
                                                    price=q_price,
-                                                   amount=q_amt,
+                                                   amount=amount_to_fill,
+                                                   protocol_fee_amount=protocol_fee / Decimal(1e18),
                                                    tx_hash=tx_hash)
+            # Market events not market orders
             if trade_type is TradeType.BUY:
                 self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
                                      BuyOrderCreatedEvent(
                                          self._current_timestamp,
                                          order_type,
-                                         symbol,
-                                         q_amt,
+                                         trading_pair,
+                                         amount_to_fill,
                                          q_price,
                                          order_id
                                      ))
@@ -1070,8 +1253,8 @@ cdef class BambooRelayMarket(MarketBase):
                                      SellOrderCreatedEvent(
                                          self._current_timestamp,
                                          order_type,
-                                         symbol,
-                                         q_amt,
+                                         trading_pair,
+                                         amount_to_fill,
                                          q_price,
                                          order_id
                                      ))
@@ -1079,7 +1262,7 @@ cdef class BambooRelayMarket(MarketBase):
         except Exception:
             self.c_stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting {type_str} {trade_type_desc} order to Bamboo Relay for {str(q_amt)} {symbol}.",
+                f"Error submitting {type_str} {trade_type_desc} order to Bamboo Relay for {str(q_amt)} {trading_pair}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit {type_str} {trade_type_desc} order to Bamboo Relay. "
                                 f"Check Ethereum wallet and network connection."
@@ -1090,14 +1273,14 @@ cdef class BambooRelayMarket(MarketBase):
             )
 
     cdef str c_buy(self,
-                   str symbol,
+                   str trading_pair,
                    object amount,
                    object order_type=OrderType.MARKET,
                    object price=s_decimal_NaN,
                    dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
-            str order_id = str(f"buy-{symbol}-{tracking_nonce}")
+            str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
             double current_timestamp = self._current_timestamp
         expires = kwargs.get("expiration_ts", None)
         if expires is not None:
@@ -1111,21 +1294,21 @@ cdef class BambooRelayMarket(MarketBase):
         safe_ensure_future(self.execute_trade(order_id=order_id,
                                               order_type=order_type,
                                               trade_type=TradeType.BUY,
-                                              symbol=symbol,
+                                              trading_pair=trading_pair,
                                               amount=amount,
                                               price=price,
                                               expires=expires))
         return order_id
 
     cdef str c_sell(self,
-                    str symbol,
+                    str trading_pair,
                     object amount,
                     object order_type=OrderType.MARKET,
                     object price=s_decimal_NaN,
                     dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
-            str order_id = str(f"sell-{symbol}-{tracking_nonce}")
+            str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
             double current_timestamp = self._current_timestamp
         expires = kwargs.get("expiration_ts", None)
         if expires is not None:
@@ -1139,13 +1322,13 @@ cdef class BambooRelayMarket(MarketBase):
         safe_ensure_future(self.execute_trade(order_id=order_id,
                                               order_type=order_type,
                                               trade_type=TradeType.SELL,
-                                              symbol=symbol,
+                                              trading_pair=trading_pair,
                                               amount=amount,
                                               price=price,
                                               expires=expires))
         return order_id
 
-    async def cancel_order(self, client_order_id: str) -> Dict[str, Any]:
+    async def cancel_order(self, client_order_id: str) -> CancellationResult:
         cdef:
             BambooRelayInFlightOrder order = self._in_flight_limit_orders.get(client_order_id)
 
@@ -1158,6 +1341,9 @@ cdef class BambooRelayMarket(MarketBase):
         if order.is_coordinated:
             await self._coordinator.soft_cancel_order(order.zero_ex_order)
 
+            # Flag it
+            order.has_been_cancelled = True
+
             self.logger().info(f"The limit order {order.client_order_id} has been soft cancelled according "
                                f"to the Coordinator server.")
             self.c_expire_order(order.client_order_id)
@@ -1166,15 +1352,48 @@ cdef class BambooRelayMarket(MarketBase):
                 OrderCancelledEvent(self._current_timestamp, order.client_order_id)
             )
 
-            return True
+            return CancellationResult(client_order_id, True)
         else:
-            return self._exchange.cancel_order(order.zero_ex_order)
+            tx_hash = self._exchange.cancel_order(order.zero_ex_order)
+
+            receipt = None
+            try:
+                while receipt is None:
+                    receipt = self.get_tx_hash_receipt(tx_hash)
+                    if receipt is None:
+                        await asyncio.sleep(6.0)
+                        continue
+                    if receipt["status"] == 0:
+                        return CancellationResult(client_order_id, False)
+                    elif receipt["status"] == 1:
+                        # Flag
+                        order.has_been_cancelled = True
+
+                        self.logger().info(f"The limit order {order.client_order_id} has been hard cancelled according "
+                                           f"to transaction hash {tx_hash}.")
+                        self.c_expire_order(order.client_order_id)
+                        self.c_trigger_event(
+                            self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                            OrderCancelledEvent(self._current_timestamp, order.client_order_id)
+                        )
+
+                        return CancellationResult(client_order_id, True)
+            except Exception:
+                self.logger().network(
+                    f"Unexpected error cancelling order.",
+                    exc_info=True,
+                    app_warning_msg=f"Failed to cancel order on Bamboo Relay. "
+                                    f"Check Ethereum wallet and network connection."
+                )
+
+    def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
+        return self.c_get_price(trading_pair, is_buy)
 
     def get_tx_hash_receipt(self, tx_hash: str) -> Dict[str, Any]:
         return self._w3.eth.getTransactionReceipt(tx_hash)
 
     async def list_account_orders(self) -> List[Dict[str, Any]]:
-        url = f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/accounts/{self._wallet.address.lower()}/orders"
+        url = f"{self._api_endpoint}{self._api_prefix}/accounts/{self._wallet.address.lower()}/orders"
         response_data = await self._api_request("get", url=url, headers={"User-Agent": "hummingbot"})
         return response_data
 
@@ -1184,13 +1403,13 @@ cdef class BambooRelayMarket(MarketBase):
     def unwrap_eth(self, amount: float) -> str:
         return self._wallet.unwrap_eth(amount)
 
-    cdef OrderBook c_get_order_book(self, str symbol):
+    cdef OrderBook c_get_order_book(self, str trading_pair):
         cdef:
             dict order_books = self._order_book_tracker.order_books
 
-        if symbol not in order_books:
-            raise ValueError(f"No order book exists for '{symbol}'.")
-        return order_books[symbol]
+        if trading_pair not in order_books:
+            raise ValueError(f"No order book exists for '{trading_pair}'.")
+        return order_books[trading_pair]
 
     async def start_network(self):
         if self._order_tracker_task is not None:
@@ -1224,7 +1443,7 @@ cdef class BambooRelayMarket(MarketBase):
             return NetworkStatus.NOT_CONNECTED
 
         try:
-            await self._api_request("GET", f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/tokens",
+            await self._api_request("GET", f"{self._api_endpoint}{self._api_prefix}/tokens",
                                     headers={"User-Agent": "hummingbot"})
         except asyncio.CancelledError:
             raise
@@ -1248,7 +1467,7 @@ cdef class BambooRelayMarket(MarketBase):
     cdef c_start_tracking_limit_order(self,
                                       str order_id,
                                       str exchange_order_id,
-                                      str symbol,
+                                      str trading_pair,
                                       object order_type,
                                       bint is_coordinated,
                                       object trade_type,
@@ -1259,7 +1478,7 @@ cdef class BambooRelayMarket(MarketBase):
         self._in_flight_limit_orders[order_id] = BambooRelayInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
-            symbol=symbol,
+            trading_pair=trading_pair,
             order_type=order_type,
             is_coordinated=is_coordinated,
             trade_type=trade_type,
@@ -1272,24 +1491,26 @@ cdef class BambooRelayMarket(MarketBase):
 
     cdef c_start_tracking_market_order(self,
                                        str order_id,
-                                       str symbol,
+                                       str trading_pair,
                                        object order_type,
                                        bint is_coordinated,
                                        object trade_type,
                                        object price,
                                        object amount,
-                                       str tx_hash):
+                                       str tx_hash,
+                                       object protocol_fee_amount):
         self._in_flight_market_orders[tx_hash] = BambooRelayInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=None,
-            symbol=symbol,
+            trading_pair=trading_pair,
             order_type=order_type,
             is_coordinated=is_coordinated,
             trade_type=trade_type,
             price=price,
             amount=amount,
             expires=0,
-            tx_hash=tx_hash
+            tx_hash=tx_hash,
+            protocol_fee_amount=protocol_fee_amount
         )
 
     cdef c_expire_order(self, str order_id):
@@ -1313,9 +1534,9 @@ cdef class BambooRelayMarket(MarketBase):
         elif order_id in self._in_flight_market_orders:
             del self._in_flight_market_orders[order_id]
 
-    cdef object c_get_order_price_quantum(self, str symbol, object price):
+    cdef object c_get_order_price_quantum(self, str trading_pair, object price):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
+            TradingRule trading_rule = self._trading_rules[trading_pair]
         decimals_quantum = trading_rule.min_quote_amount_increment
         if price.is_finite() and price > s_decimal_0:
             precision_quantum = Decimal(f"1e{math.ceil(math.log10(price)) - trading_rule.max_price_significant_digits}")
@@ -1323,9 +1544,9 @@ cdef class BambooRelayMarket(MarketBase):
             precision_quantum = s_decimal_0
         return max(decimals_quantum, precision_quantum)
 
-    cdef object c_get_order_size_quantum(self, str symbol, object amount):
+    cdef object c_get_order_size_quantum(self, str trading_pair, object amount):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
+            TradingRule trading_rule = self._trading_rules[trading_pair]
         decimals_quantum = trading_rule.min_base_amount_increment
 
         if amount.is_finite() and amount > s_decimal_0:
@@ -1334,11 +1555,11 @@ cdef class BambooRelayMarket(MarketBase):
             precision_quantum = s_decimal_0
         return max(decimals_quantum, precision_quantum)
 
-    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=s_decimal_0):
+    cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=s_decimal_0):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
+            TradingRule trading_rule = self._trading_rules[trading_pair]
         global s_decimal_0
-        quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, min(amount, trading_rule.max_order_size))
+        quantized_amount = MarketBase.c_quantize_order_amount(self, trading_pair, min(amount, trading_rule.max_order_size))
 
         # Check against min_order_size. If not passing the check, return 0.
         if quantized_amount < trading_rule.min_order_size:
