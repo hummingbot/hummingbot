@@ -89,7 +89,7 @@ pipeline {
       }
       post {
         success {
-          echo '=> [Run tests: arbitrage]: SUCCESS'
+          echo "=> [Run tests: ${testName}]: SUCCESS"
         }
         unstable {
           script {
@@ -151,7 +151,7 @@ void notifyDiscord(String buildStatus = 'STARTED', String commitMessage, String 
 
   def footer = commitMessage
   def title = "[${env.JOB_NAME} #${env.BUILD_NUMBER}]"
-  def description = "**[${env.GIT_BRANCH}]**: ${buildStatus}${errorMessage}"
+  def description = "*[${env.GIT_BRANCH}]*: ${buildStatus}${errorMessage}"
 
   // Send notifications
   discordSend (webhookURL: env.DISCORD_URL, description: description, result: result, title: title, link: env.BUILD_URL)
