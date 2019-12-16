@@ -91,7 +91,6 @@ def start(self):
         self.assets = set(maker_assets)
         maker_data = [self.markets[maker_market], trading_pair] + list(maker_assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
-        market_infos = [MarketTradingPairTuple(*maker_data)]
         asset_price_delegate = None
         if external_pricing_source:
             if external_price_source_type == "exchange":
@@ -100,19 +99,18 @@ def start(self):
                 ext_market = create_paper_trade_market(external_price_source_exchange, [asset_trading_pair])
                 ext_market_info = MarketTradingPairTuple(ext_market, asset_trading_pair, "", "")
                 self.markets[external_price_source_exchange]: MarketBase = ext_market
-                market_infos.append(ext_market_info)
                 asset_price_delegate = OrderBookAssetPriceDelegate(ext_market_info)
             elif external_price_source_type == "feed":
                 asset_price_delegate = DataFeedAssetPriceDelegate(external_price_source_feed_base_asset,
                                                                   external_price_source_feed_quote_asset)
             elif external_price_source_type == "custom_api":
-                asset_price_delegate = APIAssetPriceDelegate()
+                asset_price_delegate = APIAssetPriceDelegate(external_price_source_custom_api)
         else:
             asset_price_delegate = OrderBookAssetPriceDelegate(self.market_trading_pair_tuples[0])
 
         strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
 
-        self.strategy = PureMarketMakingStrategyV2(market_infos=market_infos,
+        self.strategy = PureMarketMakingStrategyV2(market_infos=[MarketTradingPairTuple(*maker_data)],
                                                    pricing_delegate=pricing_delegate,
                                                    filter_delegate=filter_delegate,
                                                    sizing_delegate=sizing_delegate,
