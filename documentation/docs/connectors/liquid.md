@@ -40,8 +40,7 @@ There is no minimum order quantity for trading fiat currency. See [this page](ht
 
 Generally, Liquid charges 0.10% on both maker and taker while a user can get 50% discount on trading fees if paid in QASH. QASH is an ERC20 token designed to be used services on the Quione and Liquid platform. Effecive April 1 2019, high-volume traders can also get rebates on trading fees.
 
-Read through their articles below related to trading fees, withdrawal fees and rebates.
+Read through their articles below related to trading fees, and rebates.
 
 * [Trading Fees](https://help.liquid.com/en/articles/2273126-trading-fees)
-* [Withdrawal fees for crypto and fiat](https://help.liquid.com/en/articles/3297510-withdrawal-fees)
 * [Trading fee rebate for high-volume traders](https://help.liquid.com/en/articles/2825019-trading-fee-rebate-for-high-volume-traders)
