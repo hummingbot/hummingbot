@@ -149,7 +149,7 @@ This function allows you to set a target base/quote inventory ratio. For example
 Would you like to enable inventory skew? (y/n) >>>
 y
 
-What is your target base asset inventory percentage? (Enter 0.01 to indicate 1%) >>>
+What is your target base asset inventory percentage? (Enter 0.01 to indicate 1%, Default is 0.5 (50%)) >>>
 0.5
 ```
 
