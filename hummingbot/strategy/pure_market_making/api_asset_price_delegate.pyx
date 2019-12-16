@@ -1,12 +1,15 @@
 from .asset_price_delegate cimport AssetPriceDelegate
+from hummingbot.data_feed.custom_api_data_feed import CustomAPIDataFeed, NetworkStatus
 
 cdef class APIAssetPriceDelegate(AssetPriceDelegate):
-    def __init__(self):
+    def __init__(self, api_url: str):
         super().__init__()
+        self._custom_api_feed = CustomAPIDataFeed(api_url=api_url)
+        self._custom_api_feed.start()
 
     cdef object c_get_mid_price(self):
-        return 3
+        return self._custom_api_feed.get_price()
 
     @property
     def ready(self) -> bool:
-        return True
+        return self._custom_api_feed.network_status == NetworkStatus.CONNECTED

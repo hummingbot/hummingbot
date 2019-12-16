@@ -16,12 +16,16 @@ def async_run(func):
 
 _price = Decimal("1.00")
 _app = None
+_to_return_404 = False
 
 
 async def price_response(request):
-    global _price
+    global _price, _to_return_404
     _price += Decimal("0.01")
-    return web.Response(text=str(_price))
+    if _to_return_404:
+        return web.HTTPFound('/redirect')
+    else:
+        return web.Response(text=str(_price))
 
 
 def start_simple_web_app():
@@ -52,10 +56,19 @@ class CustomAPIFeedUnitTest(unittest.TestCase):
     def test_fetch_price(self):
         api_feed = CustomAPIDataFeed(api_url="http://localhost:8080/")
         api_feed.start()
-        async_run(api_feed.get_ready())
+        async_run(api_feed.check_network())
         self.assertTrue(api_feed.network_status == NetworkStatus.CONNECTED)
         price = api_feed.get_price()
         self.assertGreater(price, 1)
+
+
+    def test_fetch_server_error(self):
+        global _to_return_404
+        _to_return_404 = True
+        api_feed = CustomAPIDataFeed(api_url="http://localhost:8080/")
+        api_feed.start()
+        self.assertRaises(Exception, async_run, api_feed.check_network())
+        _to_return_404 = False
 
 
 if __name__ == "__main__":

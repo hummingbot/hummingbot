@@ -6,6 +6,7 @@ cdef class DataFeedAssetPriceDelegate(AssetPriceDelegate):
         super().__init__()
         self._base_asset = base_asset
         self._quote_asset = quote_asset
+        ExchangeRateConversion.get_instance().start()
 
     cdef object c_get_mid_price(self):
         ex_rate_conversion = ExchangeRateConversion.get_instance()
