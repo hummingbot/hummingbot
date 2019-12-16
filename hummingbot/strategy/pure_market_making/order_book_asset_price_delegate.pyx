@@ -9,3 +9,7 @@ cdef class OrderBookAssetPriceDelegate(AssetPriceDelegate):
 
     cdef object c_get_mid_price(self):
         return self._market_info.get_mid_price()
+
+    @property
+    def ready(self) -> bool:
+        return self._market_info.market.ready
