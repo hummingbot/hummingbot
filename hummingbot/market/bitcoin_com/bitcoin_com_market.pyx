@@ -62,7 +62,7 @@ from hummingbot.market.bitcoin_com.bitcoin_com_utils import EventTypes, join_pat
 s_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_nan = Decimal("nan")
-TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|USD|BCH)$")
+TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|USD|USDT|BCH)$")
 
 cdef class BitcoinComMarketTransactionTracker(TransactionTracker):
     cdef:

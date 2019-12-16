@@ -19,6 +19,7 @@ HUOBI_ENDPOINT = "https://api.huobi.pro/v1/common/symbols"
 LIQUID_ENDPOINT = "https://api.liquid.com/products"
 BITTREX_ENDPOINT = "https://api.bittrex.com/v3/markets"
 DOLOMITE_ENDPOINT = "https://exchange-api.dolomite.io/v1/markets"
+BITCOIN_COM_ENDPOINT = "https://api.exchange.bitcoin.com/api/2/public/symbol"
 
 API_CALL_TIMEOUT = 5
 
@@ -228,6 +229,25 @@ class TradingPairFetcher:
                         # Do nothing if the request fails -- there will be no autocomplete for dolomite trading pairs
                 return []
 
+    @staticmethod
+    async def fetch_bitcoin_com_trading_pairs() -> List[str]:
+        from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComMarket
+
+        async with aiohttp.ClientSession() as client:
+            async with client.get(BITCOIN_COM_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                if response.status == 200:
+                    try:
+                        raw_trading_pairs: List[Dict[str, any]] = await response.json()
+                        trading_pairs: List[str] = list([item["id"] for item in raw_trading_pairs])
+
+                        return list(
+                            map(lambda trading_pair: BitcoinComMarket.convert_from_exchange_trading_pair(trading_pair), trading_pairs)
+                        )
+                    except Exception:
+                        pass
+                        # Do nothing if the request fails -- there will be no autocomplete available
+                return []
+
     async def fetch_all(self):
         binance_trading_pairs = await self.fetch_binance_trading_pairs()
         ddex_trading_pairs = await self.fetch_ddex_trading_pairs()
@@ -239,6 +259,7 @@ class TradingPairFetcher:
         liquid_trading_pairs = await self.fetch_liquid_trading_pairs()
         idex_trading_pairs = await self.fetch_idex_trading_pairs()
         bittrex_trading_pairs = await self.fetch_bittrex_trading_pairs()
+        bitcoin_com_trading_pairs = await self.fetch_bitcoin_com_trading_pairs()
         self.trading_pairs = {
             "binance": binance_trading_pairs,
             "dolomite": dolomite_trading_pairs,
@@ -250,5 +271,6 @@ class TradingPairFetcher:
             "huobi": huobi_trading_pairs,
             "liquid": liquid_trading_pairs,
             "bittrex": bittrex_trading_pairs,
+            "bitcoin_com": bitcoin_com_trading_pairs
         }
         self.ready = True
