@@ -22,7 +22,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
     See [this page](https://docs.hummingbot.io/support/how-to/#how-do-i-copy-and-paste-in-docker-toolbox-windows) for more instructions in our Get Help section.
 
 
-### Creating Liquid API keys
+### Creating Bitcoin.com Exchange API keys
 
 1. Log in to https://exchange.bitcoin.com/ or sign up for an account in [this page](https://exchange.bitcoin.com/signupapp) and go to **Settings** which is the gear icon in the upper-right.<br><br>
 ![bce_settings](/assets/img/bce_settings.png)
