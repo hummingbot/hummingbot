@@ -50,18 +50,18 @@ https://api.exchange.bitcoin.com/api/2/public/symbol
 
 The trading pair symbol can also be added to the URL to be more specific.
 
-For example, `GET /api.exchange.bitcoin.com/api/2/public/symbol/ETHBTC` returns JSON structured like this:
+For example, `GET /api.exchange.bitcoin.com/api/2/public/symbol/ETHBCH` returns JSON structured like this:
 
 ```
 {
-    "id": "ETHBTC",
+    "id": "ETHBCH",
     "baseCurrency": "ETH",
-    "quoteCurrency": "BTC",
+    "quoteCurrency": "BCH",
     "quantityIncrement": "0.0001",
-    "tickSize": "0.000001",
+    "tickSize": "0.00001",
     "takeLiquidityRate": "0.002",
     "provideLiquidityRate": "0.001",
-    "feeCurrency": "BTC"
+    "feeCurrency": "BCH"
 }
 ```
 
