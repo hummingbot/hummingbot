@@ -132,6 +132,7 @@ def main():
           ext_modules=cythonize(["hummingbot/**/*.pyx"], language="c++", language_level=3, nthreads=cpu_count),
           include_dirs=[
               np.get_include(),
+              "D:\\GITHub\\hummingbot\\"
           ],
           scripts=[
               "bin/hummingbot.py",

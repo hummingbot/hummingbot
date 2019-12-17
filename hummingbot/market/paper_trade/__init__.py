@@ -11,6 +11,8 @@ from hummingbot.market.paper_trade.market_config import MarketConfig
 from hummingbot.market.paper_trade.paper_trade_market import PaperTradeMarket
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.radar_relay.radar_relay_order_book_tracker import RadarRelayOrderBookTracker
+from hummingbot.market.dolomite.dolomite_order_book_tracker import DolomiteOrderBookTracker
+from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.binance.binance_market import BinanceMarket
@@ -27,7 +29,8 @@ ORDER_BOOK_TRACKER_CLASS = {
     "bamboo_relay": BambooRelayOrderBookTracker,
     "radar_relay": RadarRelayOrderBookTracker,
     "huobi": HuobiOrderBookTracker,
-    "bittrex": BittrexOrderBookTracker
+    "bittrex": BittrexOrderBookTracker,
+    "dolomite": DolomiteOrderBookTracker
 }
 
 
@@ -38,7 +41,8 @@ MARKET_CLASSES = {
     "bamboo_relay": BambooRelayMarket,
     "radar_relay": RadarRelayMarket,
     "huobi": HuobiMarket,
-    "bittrex": BittrexMarket
+    "bittrex": BittrexMarket,
+    "dolomite": DolomiteMarket
 }
 
 

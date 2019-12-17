@@ -13,3 +13,7 @@ cdef class APIAssetPriceDelegate(AssetPriceDelegate):
     @property
     def ready(self) -> bool:
         return self._custom_api_feed.network_status == NetworkStatus.CONNECTED
+
+    @property
+    def custom_api_feed(self) -> CustomAPIDataFeed:
+        return self._custom_api_feed

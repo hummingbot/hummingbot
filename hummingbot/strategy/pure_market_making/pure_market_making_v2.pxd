@@ -48,3 +48,4 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                      object market_info,
                                                                      object pricing_proposal,
                                                                      object sizing_proposal)
+    cdef object c_filter_orders_proposal_for_takers(self, object market_info, object orders_proposal)
