@@ -55,11 +55,6 @@ Please contact the support contact listed in the above table for support questio
 
 ## Coming Soon to Hummingbot
 
-* Liquid
-* Bitcoin.com Exchange
 * Bitfinex
 * KuCoin
-* HitBTC
 * Kraken
-* Bitmex
-* Binance DEX
