@@ -80,10 +80,11 @@ class KrakenOrderBookTrackerUnitTest(unittest.TestCase):
         Test if order book tracker is able to retrieve order book trade message from exchange and
         emit order book trade events after correctly parsing the trade messages
         """
+
         self.run_parallel(self.event_logger.wait_for(OrderBookTradeEvent))
         for ob_trade_event in self.event_logger.event_log:
             self.assertTrue(type(ob_trade_event) == OrderBookTradeEvent)
-            self.assertTrue(ob_trade_event.symbol in self.trading_pairs)
+            self.assertTrue(ob_trade_event.trading_pair in self.trading_pairs)
             self.assertTrue(type(ob_trade_event.timestamp) in [float, int])
             self.assertTrue(type(ob_trade_event.amount) == float)
             self.assertTrue(type(ob_trade_event.price) == float)

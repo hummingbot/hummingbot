@@ -60,14 +60,26 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 raise IOError(f"Error fetching Kraken exchange information. "
                               f"HTTP status is {exchange_response.status}.")
             exchange_data = await exchange_response.json()
+            print(exchange_data)
+            for info in exchange_data["result"].items():
+                info = info[1]
+                if len(info['base']) > 3:
+                    if (info['base'][0] == 'X') or (info['base'][0] == 'Z'):
+                        info['base'] = info['base'][1:]
+                if len(info['quote']) > 3:
+                    if (info['quote'][0] == 'X') or (info['quote'][0] == 'Z'):
+                        info['quote'] = info['quote'][1:]
+
             trading_pairs = {
                 trading_pair: {
                     "symbol": f"{info['base']}/{info['quote']}",
                     "baseAsset": info['base'],
                     "quoteAsset": info['quote'],
                     "altname": info['altname']
+
                 } for trading_pair, info in exchange_data["result"].items()
             }
+
             pairs = [info["altname"] for info in exchange_data["result"].values()]
 
             params = '&pair='
@@ -91,17 +103,17 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 colum.pop('b')
                 colum['close'] = colum['c'][0]
                 colum.pop('c')
-                colum['hcolumgh'] = colum['h'][0]
+                colum['high'] = colum['h'][0]
                 colum.pop('h')
                 colum['low'] = colum['l'][0]
                 colum.pop('l')
                 colum['open'] = colum['o'][0]
                 colum.pop('o')
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index="symbol")
-            btc_price: float = float(all_markets.loc["XBTUSD"]["close"])
-            eth_price: float = float(all_markets.loc["ETHUSD"]["close"])
+            btc_price: float = float(all_markets.loc["XBT/USD"]["close"])
+            eth_price: float = float(all_markets.loc["ETH/USD"]["close"])
             usd_volume: float = [(
-                quoteVolume * btc_price if symbol.endswith("BTC") else
+                quoteVolume * btc_price if symbol.endswith("XBT") else
                 quoteVolume * eth_price if symbol.endswith("ETH") else
                 quoteVolume
             )
