@@ -1,4 +1,3 @@
-from __future__ import print_function
 from decimal import Decimal
 import logging
 from typing import (
@@ -21,7 +20,8 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import (
     MarketBase,
-    OrderType
+    OrderType,
+    s_decimal_NaN
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -182,6 +182,14 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         return self._sizing_delegate
 
     @property
+    def asset_price_delegate(self) -> AssetPriceDelegate:
+        return self._asset_price_delegate
+
+    @asset_price_delegate.setter
+    def asset_price_delegate(self, value):
+        self._asset_price_delegate = value
+
+    @property
     def order_tracker(self):
         return self._sb_order_tracker
 
@@ -310,9 +318,39 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                                    market_info,
                                                                                    market_info_to_active_orders.get(market_info, []),
                                                                                    orders_proposal)
+                filtered_proposal = self.c_filter_orders_proposal_for_takers(market_info, filtered_proposal)
                 self.c_execute_orders_proposal(market_info, filtered_proposal)
         finally:
             self._last_timestamp = timestamp
+
+    # To filter out any orders that are going to be taker orders, i.e. buy order price higher than first ask
+    # and sell order price lower than first bid on the order book.
+    cdef object c_filter_orders_proposal_for_takers(self, object market_info, object orders_proposal):
+        cdef :
+            list buy_prices = []
+            list buy_sizes = []
+            list sell_prices = []
+            list sell_sizes = []
+        if orders_proposal.buy_order_sizes[0] > 0:
+            for i in range(0, len(orders_proposal.buy_order_prices)):
+                first_ask = market_info.get_price(True)
+                if first_ask.is_nan() or (orders_proposal.buy_order_prices[i] < first_ask):
+                    buy_prices.append(orders_proposal.buy_order_prices[i])
+                    buy_sizes.append(orders_proposal.buy_order_sizes[i])
+        if orders_proposal.sell_order_sizes[0] > 0:
+            for i in range(0, len(orders_proposal.sell_order_prices)):
+                first_bid = market_info.get_price(False)
+                if first_bid.is_nan() or (orders_proposal.sell_order_prices[i] > first_bid):
+                    sell_prices.append(orders_proposal.sell_order_prices[i])
+                    sell_sizes.append(orders_proposal.sell_order_sizes[i])
+        return OrdersProposal(orders_proposal.actions,
+                              orders_proposal.buy_order_type,
+                              buy_prices,
+                              buy_sizes,
+                              orders_proposal.sell_order_type,
+                              sell_prices,
+                              sell_sizes,
+                              orders_proposal.cancel_order_ids)
 
     # Compare the market price with the top bid and top ask price
     cdef object c_get_penny_jumped_pricing_proposal(self,
@@ -512,15 +550,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             asset_mid_price = market_info.get_mid_price()
         else:
             asset_mid_price = self._asset_price_delegate.c_get_mid_price()
-        print(f"market_info price:{market_info.get_mid_price()} asset_mid_price: {asset_mid_price}")
         pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self,
                                                                              market_info,
                                                                              active_orders,
                                                                              asset_mid_price)
-        for buy in pricing_proposal.buy_order_prices:
-            print(f"buy price: {buy}")
-        for sell in pricing_proposal.sell_order_prices:
-            print(f"sell price: {sell}")
         # If jump orders is enabled, run the penny jumped pricing proposal
         if self._best_bid_ask_jump_mode:
             pricing_proposal = self.c_get_penny_jumped_pricing_proposal(market_info,
@@ -712,7 +745,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         # Create orders.
         if actions & ORDER_PROPOSAL_ACTION_CREATE_ORDERS:
-            if orders_proposal.buy_order_sizes[0] > 0:
+            if len(orders_proposal.buy_order_sizes) > 0 and orders_proposal.buy_order_sizes[0] > 0:
                 if orders_proposal.buy_order_type is OrderType.LIMIT and orders_proposal.buy_order_prices[0] > 0:
                     if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                         order_price_quote = zip(orders_proposal.buy_order_sizes, orders_proposal.buy_order_prices)
@@ -737,7 +770,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 elif orders_proposal.buy_order_type is OrderType.MARKET:
                     raise RuntimeError("Market buy order in orders proposal is not supported yet.")
 
-            if orders_proposal.sell_order_sizes[0] > 0:
+            if len(orders_proposal.sell_order_sizes) > 0 and orders_proposal.sell_order_sizes[0] > 0:
                 if orders_proposal.sell_order_type is OrderType.LIMIT and orders_proposal.sell_order_prices[0] > 0:
                     if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                         order_price_quote = zip(orders_proposal.sell_order_sizes, orders_proposal.sell_order_prices)

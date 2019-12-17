@@ -13,7 +13,6 @@ from hummingbot.strategy.pure_market_making import (
     InventorySkewSingleSizeSizingDelegate,
     InventorySkewMultipleSizeSizingDelegate,
     PassThroughFilterDelegate,
-    AssetPriceDelegate,
     OrderBookAssetPriceDelegate,
     DataFeedAssetPriceDelegate,
     APIAssetPriceDelegate

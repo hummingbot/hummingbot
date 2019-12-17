@@ -14,61 +14,71 @@ def async_run(func):
     loop.run_until_complete(func)
 
 
-_price = Decimal("1.00")
-_app = None
-_to_return_404 = False
+class SimpleWebApp:
+    @classmethod
+    def api_url(cls):
+        return "http://localhost:8080/"
 
+    _shared_instance: "SimpleWebApp" = None
 
-async def price_response(request):
-    global _price, _to_return_404
-    _price += Decimal("0.01")
-    if _to_return_404:
-        return web.HTTPFound('/redirect')
-    else:
-        return web.Response(text=str(_price))
+    @classmethod
+    def get_instance(cls) -> "SimpleWebApp":
+        if cls._shared_instance is None:
+            cls._shared_instance = SimpleWebApp()
+        return cls._shared_instance
 
+    def __init__(self, response_price=1, to_return_404=False):
+        self._price = response_price
+        self._app = None
+        self.loop = None
+        self._to_return_404 = to_return_404
+        self._start()
 
-def start_simple_web_app():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    _app = web.Application(loop=loop)
-    _app.add_routes([web.get('/', price_response)])
-    web.run_app(_app)
+    def set_params(self, response_price, to_return_404=False):
+        self._price = response_price
+        self._to_return_404 = to_return_404
 
+    async def price_response(self, request):
+        if self._to_return_404:
+            return web.HTTPFound('/redirect')
+        else:
+            return web.Response(text=str(self._price))
 
-def stop_web_app():
-    async_run(_app.shutdown())
+    def start_web_app(self):
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+        self._app = web.Application(loop=self.loop)
+        self._app.add_routes([web.get('/', self.price_response)])
+        web.run_app(self._app)
+
+    def _start(self):
+        thread = Thread(target=self.start_web_app)
+        thread.daemon = True
+        thread.start()
+        time.sleep(2)
+
+    def stop(self):
+        async_run(self._app.shutdown())
 
 
 class CustomAPIFeedUnitTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        thread = Thread(target=start_simple_web_app)
-        thread.daemon = True
-        thread.start()
-        time.sleep(1)
-
-    @classmethod
-    def tearDown(cls):
-        if _app is not None:
-            stop_web_app()
 
     def test_fetch_price(self):
-        api_feed = CustomAPIDataFeed(api_url="http://localhost:8080/")
+        SimpleWebApp.get_instance().set_params(1, False)
+        api_feed = CustomAPIDataFeed(api_url=SimpleWebApp.api_url())
         api_feed.start()
         async_run(api_feed.check_network())
         self.assertTrue(api_feed.network_status == NetworkStatus.CONNECTED)
         price = api_feed.get_price()
-        self.assertGreater(price, 1)
-
+        self.assertEqual(price, 1)
 
     def test_fetch_server_error(self):
-        global _to_return_404
-        _to_return_404 = True
-        api_feed = CustomAPIDataFeed(api_url="http://localhost:8080/")
+        SimpleWebApp.get_instance().set_params(1, True)
+        api_feed = CustomAPIDataFeed(api_url=SimpleWebApp.api_url())
         api_feed.start()
-        self.assertRaises(Exception, async_run, api_feed.check_network())
-        _to_return_404 = False
+        with self.assertRaises(Exception) as context:
+            async_run(api_feed.check_network())
+        self.assertTrue('server error:' in str(context.exception))
 
 
 if __name__ == "__main__":
