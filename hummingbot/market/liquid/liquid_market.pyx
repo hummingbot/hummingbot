@@ -848,8 +848,8 @@ cdef class LiquidMarket(MarketBase):
         data = {
             "order": {
                 "client_order_id": order_id,
-                "price": float(price),
-                "quantity": float(amount),
+                "price": "{:10.8f}".format(price),
+                "quantity": "{:10.8f}".format(amount),
                 "product_id": product_id,
                 "side": "buy" if is_buy else "sell",
                 "order_type": "limit" if order_type is OrderType.LIMIT else "market",
@@ -929,15 +929,15 @@ cdef class LiquidMarket(MarketBase):
                                                       order_id))
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as e:
             self.c_stop_tracking_order(order_id)
             order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Liquid for "
                 f"{decimal_amount} {trading_pair} {price}.",
                 exc_info=True,
-                app_warning_msg="Failed to submit buy order to Liquid. "
-                                "Check API key and network connection."
+                app_warning_msg=f"Failed to submit buy order to Liquid. "
+                                f"Check API key and network connection.{e}"
             )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
@@ -993,15 +993,15 @@ cdef class LiquidMarket(MarketBase):
                                                        order_id))
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as e:
             self.c_stop_tracking_order(order_id)
             order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Liquid for "
                 f"{decimal_amount} {trading_pair} {price}.",
                 exc_info=True,
-                app_warning_msg="Failed to submit sell order to Liquid. "
-                                "Check API key and network connection."
+                app_warning_msg=f"Failed to submit sell order to Liquid."
+                                f"Check API key and network connection.{e}"
             )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
@@ -1051,7 +1051,7 @@ cdef class LiquidMarket(MarketBase):
                 f"Failed to cancel order {order_id}: {str(e)}",
                 exc_info=True,
                 app_warning_msg=f"Failed to cancel the order {order_id} on Liquid. "
-                                f"Check API key and network connection."
+                                f"Check API key and network connection.{e}"
             )
         return None
 
@@ -1082,11 +1082,11 @@ cdef class LiquidMarket(MarketBase):
                     if type(client_order_id) is str:
                         order_id_set.remove(client_order_id)
                         successful_cancellations.append(CancellationResult(client_order_id, True))
-        except Exception:
+        except Exception as e:
             self.logger().network(
                 f"Unexpected error cancelling orders.",
                 exc_info=True,
-                app_warning_msg="Failed to cancel order on Liquid. Check API key and network connection."
+                app_warning_msg=f"Failed to cancel order on Liquid. Check API key and network connection.{e}"
             )
 
         failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
@@ -1239,7 +1239,7 @@ cdef class LiquidMarket(MarketBase):
                 f"Error sending withdraw request to Liquid for {currency}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to issue withdrawal request for {currency} from Liquid. "
-                                f"Check API key and network connection."
+                                f"Check API key and network connection.{e}"
             )
             self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                                  MarketTransactionFailureEvent(self._current_timestamp, tracking_id))

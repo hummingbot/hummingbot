@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 1
+template_version: 2
 
 # Exchange configs
 bamboo_relay_use_coordinator: null
@@ -11,6 +11,9 @@ bamboo_relay_pre_emptive_soft_cancels: null
 
 binance_api_key: null
 binance_api_secret: null
+
+bitcoin_com_api_key: null
+bitcoin_com_secret_key: null
 
 bittrex_api_key: null
 bittrex_secret_key: null
@@ -23,6 +26,9 @@ huobi_api_key: null
 huobi_secret_key: null
 
 idex_api_key: null
+
+liquid_api_key: null
+liquid_secret_key: null
 
 # Ethereum wallet address: required for trading on a DEX
 wallet: null
