@@ -43,6 +43,11 @@ coinbase_pro_api_key = os.getenv("COINBASE_PRO_API_KEY")
 coinbase_pro_secret_key = os.getenv("COINBASE_PRO_SECRET_KEY")
 coinbase_pro_passphrase = os.getenv("COINBASE_PRO_PASSPHRASE")
 
+# Bitfinex Tests
+bitfinex_api_key = os.getenv("BITFINEX_API_KEY")
+bitfinex_secret_key = os.getenv("BITFINEX_SECRET_KEY")
+bitfinex_quote_increment = os.getenv("BITFINEX_QUOTE_INCREMENT", "0.01")
+
 # IDEX Tests
 idex_api_key = os.getenv("IDEX_API_KEY")
 test_idex_erc20_token_address_1 = os.getenv("IDEX_TOKEN_ADDRESS_1")
