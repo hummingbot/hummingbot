@@ -46,16 +46,11 @@ class CustomAPIDataFeed(NetworkBase):
 
 
     async def check_network(self) -> NetworkStatus:
-        # try:
         client = self._http_client()
         async with client.request("GET", self.health_check_endpoint) as resp:
             status_text = await resp.text()
             if resp.status != 200:
                 raise Exception(f"Custom API Feed {self.name} server error: {status_text}")
-        # except asyncio.CancelledError:
-        #     raise
-        # except Exception:
-        #     return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
     def get_price(self) -> Decimal:
