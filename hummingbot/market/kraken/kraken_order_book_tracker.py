@@ -69,6 +69,7 @@ class KrakenOrderBookTracker(OrderBookTracker):
                                                           self._order_book_snapshot_stream,
                                                           self._order_book_diff_stream)
         )
+
         self._order_book_snapshot_listener_task = safe_ensure_future(
             self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
         )
@@ -90,14 +91,15 @@ class KrakenOrderBookTracker(OrderBookTracker):
         messages_queued: int = 0
         messages_accepted: int = 0
         messages_rejected: int = 0
-
         while True:
             try:
                 ob_message: OrderBookMessage = await self._order_book_diff_stream.get()
-                symbol: str = ob_message.symbol
+                symbol: str = ob_message.trading_pair
+
 
                 if symbol not in self._tracking_message_queues:
                     continue
+
                 message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
                 # Check the order book's initial update ID. If it's larger, don't bother.
                 order_book: OrderBook = self._order_books[symbol]
@@ -142,7 +144,6 @@ class KrakenOrderBookTracker(OrderBookTracker):
                 if message.type is OrderBookMessageType.DIFF:
                     order_book.apply_diffs(message.bids, message.asks, message.update_id)
                     diff_messages_accepted += 1
-
                     # Output some statistics periodically.
                     now: float = time.time()
                     if int(now / 60.0) > int(last_message_timestamp / 60.0):
