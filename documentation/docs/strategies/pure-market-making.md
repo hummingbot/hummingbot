@@ -43,7 +43,7 @@ The following walks through all the steps when running `config` for the first ti
 |-----|-----|
 | `What is your market making strategy >>>` | Enter `pure_market_making`. |
 | `Import previous configs or create a new config file? (import/create) >>>` | When running the bot for the first time, enter `create`. If you have previously initialized, enter `import`, which will then ask you to specify the config file name. |
-| `Enter your maker exchange name >>>` | The exchange where the bot will place bid and ask orders.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, `bamboo_relay`, `huobi`, `bittrex`, `dolomite` *(case sensitive)* |
+| `Enter your maker exchange name >>>` | The exchange where the bot will place bid and ask orders.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, `bamboo_relay`, `huobi`, `bittrex`, `dolomite`, `liquid`, `bitcoin_com` *(case sensitive)* |
 | `Enter the token symbol you would like to trade on [maker exchange name] >>>` | Enter the token symbol for the *maker exchange*.<br/>Example input: `ETH-USD`<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Options available are based on each exchange's methodology for labeling currency pairs. Ensure that the pair is a valid pair for the selected exchange.</td></tr></tbody></table> |
 | `Enter quantity of bid/ask orders per side (single/multiple) >>> ` | `single` or `multiple`<br /><br />Specify if you would like a single order per side (i.e. one bid and one ask), or multiple orders each side.<br /><br />Multiple allows for different prices and sizes for each side. See [additional configuration for multiple orders](#multiple-order-configuration). |
 | `How far away from the mid price do you want to place the first bid? (Enter 0.01 to indicate 1%) >>>` | This sets `bid_place_threshold` ([definition](#configuration-parameters)). |
@@ -99,7 +99,7 @@ For example, if you are targeting a 50/50 base to quote asset ratio but the curr
  | Prompt | Description |
 |-----|-----|
 | `Would you like to enable inventory skew? (y/n) >>>` | This sets `inventory_skew_enabled` ([definition](#configuration-parameters)). |
-| `What is your target base asset inventory percentage? (Enter 0.01 to indicate 1%) >>> ` | This sets `inventory_target_base_percent` ([definition](#configuration-parameters)). |
+| `What is your target base asset inventory percentage? (Enter 0.01 to indicate 1%, default is 0.5 (50%)) >>> ` | This sets `inventory_target_base_percent` ([definition](#configuration-parameters)). |
 
 Here's an [inventory skew calculator](https://docs.google.com/spreadsheets/d/16oCExZyM8Wo8d0aRPmT_j7oXCzea3knQ5mmm0LlPGbU/edit#gid=690135600) that shows how it adjusts order sizes.
 

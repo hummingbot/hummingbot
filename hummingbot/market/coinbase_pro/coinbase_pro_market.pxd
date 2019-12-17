@@ -31,5 +31,4 @@ cdef class CoinbaseProMarket(MarketBase):
                                 object order_type,
                                 object price,
                                 object amount)
-    cdef c_stop_tracking_order(self, str order_id)
     cdef c_did_timeout_tx(self, str tracking_id)
