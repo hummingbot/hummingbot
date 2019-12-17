@@ -139,6 +139,9 @@ cdef class MarketBase(NetworkIterator):
     cdef c_cancel(self, str trading_pair, str client_order_id):
         raise NotImplementedError
 
+    cdef c_stop_tracking_order(self, str order_id):
+        raise NotImplementedError
+
     cdef object c_get_fee(self,
                           str base_currency,
                           str quote_currency,
