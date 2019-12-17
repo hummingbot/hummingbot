@@ -21,6 +21,8 @@ from hummingbot.market.ddex.ddex_market import DDEXMarket
 # from hummingbot.market.idex.idex_market import IDEXMarket
 
 from hummingbot.market.bittrex.bittrex_market import BittrexOrderBookTracker, BittrexMarket
+from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComOrderBookTracker, BitcoinComMarket
+from hummingbot.market.liquid.liquid_market import LiquidOrderBookTracker, LiquidMarket
 
 ORDER_BOOK_TRACKER_CLASS = {
     "binance": BinanceOrderBookTracker,
@@ -30,7 +32,9 @@ ORDER_BOOK_TRACKER_CLASS = {
     "radar_relay": RadarRelayOrderBookTracker,
     "huobi": HuobiOrderBookTracker,
     "bittrex": BittrexOrderBookTracker,
-    "dolomite": DolomiteOrderBookTracker
+    "dolomite": DolomiteOrderBookTracker,
+    "bitcoin_com": BitcoinComOrderBookTracker,
+    "liquid": LiquidOrderBookTracker
 }
 
 
@@ -42,7 +46,9 @@ MARKET_CLASSES = {
     "radar_relay": RadarRelayMarket,
     "huobi": HuobiMarket,
     "bittrex": BittrexMarket,
-    "dolomite": DolomiteMarket
+    "dolomite": DolomiteMarket,
+    "bitcoin_com": BitcoinComMarket,
+    "liquid": LiquidMarket
 }
 
 
