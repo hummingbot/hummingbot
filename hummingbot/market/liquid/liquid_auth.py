@@ -25,7 +25,6 @@ class LiquidAuth:
             'token_id': self.api_key
         }
         signature = jwt.encode(auth_payload, self.secret_key, 'HS256')
-
         return signature
 
     def get_headers(self, path_url: str) -> (Dict[str, Any]):
