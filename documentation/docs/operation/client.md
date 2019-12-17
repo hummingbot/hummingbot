@@ -28,7 +28,7 @@ bin/hummingbot.py
 
 ### Trading Strategy Autostart
 
-Hummingbot can automatically start the execution of a previously configured trading strategy upon launch without requiring the Hummingbot interface `config` and `start` commands.  Any parameters that are required for `config` can be passed into the Hummingbot launch command.
+Hummingbot can automatically start the execution of a previously configured trading strategy upon launch without requiring the Hummingbot interface `config` and `start` commands.  Any parameters that are required for `config` can be passed into the Hummingbot launch command. Note, config-password (or wallet-password) is the password used for decrypting encrypted configuration and key files and must be supplied. 
 
 **Launch command from docker**
 
@@ -36,8 +36,8 @@ Hummingbot can automatically start the execution of a previously configured trad
 docker run -it \
 -e STRATEGY=${STRATEGY} \
 -e CONFIG_FILE_NAME=${CONFIG_FILENAME} \
+-e CONFIG_PASSWORD=${CONFIG_PASSWORD} \
 -e WALLET=${WALLET} \
--e WALLET_PASSWORD=${WALLET_PASSWORD} \
 --name hummingbot-instance \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
@@ -48,8 +48,8 @@ coinalpha/hummingbot:latest
 docker run -it \
 -e STRATEGY=discovery \
 -e CONFIG_FILE_NAME=conf_discovery_strategy_1.yml \
+-e CONFIG_PASSWORD=<INSERT_CONFIG_PASSWORD> \
 -e WALLET=<INSERT_WALLET_ADDRESS> \
--e WALLET_PASSWORD=<INSERT_WALLET_PASSWORD> \
 --name hummingbot-instance \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
@@ -70,16 +70,16 @@ docker run -it -d \...
 bin/hummingbot_quickstart.py \
 --strategy ${STRATEGY} \
 --config-file-name ${CONFIG_FILENAME} \
+--config-password ${CONFIG-PASSWORD}
 --wallet ${WALLET} \
---wallet-password ${WALLET-PASSWORD}
 ```
 
 ```bash tab="Sample entry"
 bin/hummingbot_quickstart.py \
 --strategy discovery \
 --config-file-name conf_discovery_strategy_0.yml \
+--config-password <INSERT_CONFIG_PASSWORD>
 --wallet <INSERT_WALLET_ADDRESS> \
---wallet-password <INSERT_WALLET_PASSWORD>
 ```
 
 
