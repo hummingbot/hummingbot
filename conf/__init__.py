@@ -66,6 +66,8 @@ bittrex_secret_key = os.getenv("BITTREX_SECRET_KEY")
 # these values. maybe later it will be in market-api.
 bitfinex_base_increment = 1e-8
 bitfinex_quote_increment = 0.01
+bitfinex_api_key = os.getenv("BITFINEX_API_KEY")
+bitfinex_secret_key = os.getenv("BITFINEX_SECRET_KEY")
 
 # KuCoin Tests
 kucoin_api_key = os.getenv("KUCOIN_API_KEY")
