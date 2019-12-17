@@ -32,10 +32,12 @@ EXCHANGES = {
     "coinbase_pro",
     "ddex",
     "huobi",
+    "liquid",
     "idex",
     "radar_relay",
     "dolomite",
-    "bittrex"
+    "bittrex",
+    "bitcoin_com"
 }
 
 DEXES = {
@@ -49,27 +51,31 @@ DEXES = {
 STRATEGIES: List[str] = get_strategy_list()
 
 EXAMPLE_PAIRS = {
-    "binance": "ZRX-ETH",
-    "ddex": "ZRX-WETH",
-    "idex": "ZRX-ETH",
-    "radar_relay": "ZRX-WETH",
     "bamboo_relay": "ZRX-WETH",
+    "binance": "ZRX-ETH",
+    "bitcoin_com": "ETH-BCH",
+    "bittrex": "ZRX-ETH",
     "coinbase_pro": "ETH-USDC",
+    "ddex": "ZRX-WETH",
     "dolomite": "WETH-DAI",
     "huobi": "ETH-USDT",
-    "bittrex": "ZRX-ETH"
+    "idex": "ZRX-ETH",
+    "liquid": "ETH-USD",
+    "radar_relay": "ZRX-WETH",
 }
 
 EXAMPLE_ASSETS = {
-    "binance": "ZRX",
-    "ddex": "ZRX",
-    "idex": "ETH",
-    "radar_relay": "ZRX",
     "bamboo_relay": "ZRX",
+    "binance": "ZRX",
+    "bitcoin_com": "BCH",
+    "bittrex": "ZRX",
     "coinbase_pro": "ETH",
-    "huobi": "eth",
+    "ddex": "ZRX",
     "dolomite": "LRC",
-    "bittrex": "ZRX"
+    "huobi": "eth",
+    "idex": "ETH",
+    "liquid": "ETH",
+    "radar_relay": "ZRX",
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
