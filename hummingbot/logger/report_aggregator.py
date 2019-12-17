@@ -14,9 +14,11 @@ from hummingbot.market.bittrex.bittrex_market import BittrexMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
+from hummingbot.market.liquid.liquid_market import LiquidMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
+from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComMarket
 
 MARKETS = {
     "ddex": DDEXMarket,
@@ -27,7 +29,9 @@ MARKETS = {
     "idex": IDEXMarket,
     "dolomite": DolomiteMarket,
     "huobi": HuobiMarket,
-    "bittrex": BittrexMarket
+    "liquid": LiquidMarket,
+    "bittrex": BittrexMarket,
+    "bitcoin_com": BitcoinComMarket
 }
 
 

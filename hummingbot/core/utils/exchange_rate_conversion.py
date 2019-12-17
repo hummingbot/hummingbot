@@ -196,7 +196,8 @@ class ExchangeRateConversion:
         from_currency = from_currency.upper()
         to_currency = to_currency.upper()
         # assume WETH and ETH are equal value
-        if from_currency == "ETH" and to_currency == "WETH" or from_currency == "WETH" and to_currency == "ETH":
+        if from_currency == "ETH" and to_currency == "WETH" or from_currency == "WETH" and to_currency == "ETH" \
+                or from_currency == to_currency:
             return amount
         from_currency_usd_rate = exchange_rate.get(from_currency.upper(), NaN)
         to_currency_usd_rate = exchange_rate.get(to_currency.upper(), NaN)
