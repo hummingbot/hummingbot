@@ -131,7 +131,6 @@ cdef class BitfinexActiveOrderTracker:
         for snapshot_orders, active_orders in [(message.content["bids"], self._active_bids),
                                                (message.content["asks"], self._active_asks)]:
             for order in snapshot_orders:
-                print("order from snapshot->", order)
                 price = Decimal(order[0])
                 order_id = order[2]
                 amount = order[1]
