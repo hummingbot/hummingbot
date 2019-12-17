@@ -34,7 +34,11 @@ from hummingbot.core.data_type.order_book_message import (
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.bitfinex import BITFINEX_REST_URL, BITFINEX_WS_URI
+from hummingbot.market.bitfinex import (
+    BITFINEX_REST_URL,
+    BITFINEX_WS_URI,
+    ContentEventType,
+)
 from hummingbot.market.bitfinex.bitfinex_active_order_tracker import BitfinexActiveOrderTracker
 from hummingbot.market.bitfinex.bitfinex_order_book import BitfinexOrderBook
 
@@ -242,7 +246,6 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
         request_url: str = f"{BITFINEX_REST_URL}/book/t{trading_pair}/R0"
-        print(request_url)
 
         async with client.get(request_url) as response:
             response: aiohttp.ClientResponse = response
@@ -277,10 +280,6 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         metadata={"symbol": trading_pair}
                     )
 
-                    # print("---------------- debug 1 =========== snapshot_msg.bids")
-                    # print(snapshot)
-                    # print(snapshot_msg.bids)
-
                     order_book: OrderBook = self.order_book_create_function()
                     active_order_tracker: BitfinexActiveOrderTracker = BitfinexActiveOrderTracker()
                     order_book.apply_snapshot(
@@ -312,8 +311,10 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         return result
 
-    def _prepare_trade(self, raw_response: str) -> Dict[str, Any]:
+    def _prepare_trade(self, raw_response: str) -> Optional[Dict[str, Any]]:
         *_, content = ujson.loads(raw_response)
+        if content == ContentEventType.HEART_BEAT:
+            return None
         try:
             trade = TradeStructure(*content)
         except Exception as err:
@@ -427,7 +428,6 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 # this is not a new order. Either update it or delete it
                 if price == 0:
                     self._untrack_order(order_id)
-                    # print("-------------- Deleted order %d" % (order_id))
                     return self._generate_delete_message(pair, order.price, side)
                 else:
                     self._track_order(order_id, OrderBookRow(price, abs(amount), order.update_id), side)
@@ -436,7 +436,6 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 # this is a new order unless the price is 0, just track it and create message that
                 # will add it to the order book
                 if price != 0:
-                    # print("-------------- Add order %d" % (order_id))
                     return self._generate_add_message(pair, price, amount)
         return None
 
@@ -457,13 +456,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # snapshot
 
                     async for raw_msg in self._get_response(ws):
-                        # print("------------- debug 3 ============== raw update message:")
-                        # print(raw_msg)
                         msg = self._parse_raw_update(pair, raw_msg)
-
-                        # print("------------- debug 3 ============== update message:")
-                        # print(msg)
-
                         if msg is not None:
                             output.put_nowait(msg)
             except asyncio.CancelledError:
