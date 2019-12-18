@@ -14,6 +14,8 @@ trading_pair_fetcher = TradingPairFetcher.get_instance()
 # Global static values
 KEYFILE_PREFIX = "key_file_"
 KEYFILE_POSTFIX = ".json"
+ENCYPTED_CONF_PREFIX = "encrypted_"
+ENCYPTED_CONF_POSTFIX = ".json"
 GLOBAL_CONFIG_PATH = "conf/conf_global.yml"
 TOKEN_ADDRESSES_FILE_PATH = realpath(join(__file__, "../../wallet/ethereum/erc20_tokens.json"))
 DEFAULT_KEY_FILE_PATH = "conf/"
@@ -30,9 +32,12 @@ EXCHANGES = {
     "coinbase_pro",
     "ddex",
     "huobi",
+    "liquid",
     "idex",
     "radar_relay",
-    "bittrex"
+    "dolomite",
+    "bittrex",
+    "bitcoin_com"
 }
 
 DEXES = {
@@ -40,28 +45,37 @@ DEXES = {
     "ddex",
     "idex",
     "radar_relay",
+    "dolomite"
 }
 
 STRATEGIES: List[str] = get_strategy_list()
 
 EXAMPLE_PAIRS = {
-    "binance": "ZRXETH",
-    "ddex": "ZRX-WETH",
-    "idex": "ETH_ZRX",
-    "radar_relay": "ZRX-WETH",
     "bamboo_relay": "ZRX-WETH",
+    "binance": "ZRX-ETH",
+    "bitcoin_com": "ETH-BCH",
+    "bittrex": "ZRX-ETH",
     "coinbase_pro": "ETH-USDC",
-    "huobi": "ethusdt"
+    "ddex": "ZRX-WETH",
+    "dolomite": "WETH-DAI",
+    "huobi": "ETH-USDT",
+    "idex": "ZRX-ETH",
+    "liquid": "ETH-USD",
+    "radar_relay": "ZRX-WETH",
 }
 
 EXAMPLE_ASSETS = {
-    "binance": "ZRX",
-    "ddex": "ZRX",
-    "idex": "ETH=",
-    "radar_relay": "ZRX",
     "bamboo_relay": "ZRX",
+    "binance": "ZRX",
+    "bitcoin_com": "BCH",
+    "bittrex": "ZRX",
     "coinbase_pro": "ETH",
-    "huobi": "eth"
+    "ddex": "ZRX",
+    "dolomite": "LRC",
+    "huobi": "eth",
+    "idex": "ETH",
+    "liquid": "ETH",
+    "radar_relay": "ZRX",
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
@@ -70,13 +84,3 @@ MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT = 100
 
 # Liquidity Bounties:
 LIQUIDITY_BOUNTY_CONFIG_PATH = "conf/conf_liquidity_bounty.yml"
-
-
-# Values that were once a part of configuration but no longer needed.
-# Keep them for reference in case a user is using outdated config files
-DEPRECATED_CONFIG_VALUES = {
-    "stop_loss_pct",
-    "stop_loss_price_type",
-    "stop_loss_base_token",
-    "trade_size_override",
-}

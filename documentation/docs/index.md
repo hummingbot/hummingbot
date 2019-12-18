@@ -25,5 +25,5 @@ New to Hummingbot? Here are some helpful links to get you started!
 ## Get help
 * [Cheatsheets](/cheatsheets): Quick reference for common Hummingbot commands
 * [Support](/support): Various ways to get support in using Hummingbot
-* [Troubleshooting](/support/troubleshooting): Common issues and how to resolve them
+* [Troubleshooting](/support/troubleshooting/general): Common issues and how to resolve them
 * [中文 Github repo](https://github.com/coinalpha/hummingbot_chinese): General information about Hummingbot, translated into Mandarin Chinese

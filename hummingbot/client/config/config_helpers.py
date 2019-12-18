@@ -2,6 +2,7 @@ import logging
 from decimal import Decimal
 
 import ruamel.yaml
+from os import unlink
 from os.path import (
     join,
     isfile,
@@ -28,8 +29,13 @@ from hummingbot.client.settings import (
     CONF_POSTFIX,
     CONF_PREFIX,
     LIQUIDITY_BOUNTY_CONFIG_PATH,
-    DEPRECATED_CONFIG_VALUES,
     TOKEN_ADDRESSES_FILE_PATH,
+)
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.client.config.config_crypt import (
+    encrypt_n_save_config_value,
+    decrypt_config_value,
+    encrypted_config_file_exists
 )
 
 # Use ruamel.yaml to preserve order and comments in .yml file
@@ -116,11 +122,15 @@ def get_strategy_template_path(strategy: str) -> str:
     return join(TEMPLATE_PATH, f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_TEMPLATE.yml")
 
 
-def get_erc20_token_addresses(symbols: List[str]):
+def get_erc20_token_addresses(trading_pairs: List[str]):
+
     with open(TOKEN_ADDRESSES_FILE_PATH) as f:
         try:
-            data = json.load(f)
-            addresses = [data[symbol] for symbol in symbols if symbol in data]
+            data: Dict[str, str] = json.load(f)
+            overrides: Dict[str, str] = global_config_map.get("ethereum_token_overrides").value
+            if overrides is not None:
+                data.update(overrides)
+            addresses = [data[trading_pair] for trading_pair in trading_pairs if trading_pair in data]
             return addresses
         except Exception as e:
             logging.getLogger().error(e, exc_info=True)
@@ -183,43 +193,65 @@ def load_required_configs(*args) -> OrderedDict:
         return _merge_dicts(in_memory_config_map, strategy_config_map, global_config_map)
 
 
-def read_configs_from_yml(strategy_file_path: str = None):
+def read_configs_from_yml(strategy_file_path: Optional[str] = None):
     """
     Read global config and selected strategy yml files and save the values to corresponding config map
+    If a yml file is outdated, it gets reformatted with the new template
     """
     from hummingbot.client.config.in_memory_config_map import in_memory_config_map
     current_strategy = in_memory_config_map.get("strategy").value
-    strategy_config_map = get_strategy_config_map(current_strategy)
+    strategy_config_map: Optional[Dict[str, ConfigVar]] = get_strategy_config_map(current_strategy)
 
-    def load_yml_into_cm(yml_path: str, cm: Dict[str, ConfigVar]):
+    def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, ConfigVar]):
         try:
             with open(yml_path) as stream:
                 data = yaml_parser.load(stream) or {}
-                for key in data:
-                    if current_strategy == "cross_exchange_market_making" and key == "trade_size_override":
-                        logging.getLogger(__name__).error("Cross Exchange Strategy cannot be run with old config "
-                                                          "file due to changes in strategy. "
-                                                          "Please create a new config file.")
-                    if key == "wallet":
-                        continue
-                    if key in DEPRECATED_CONFIG_VALUES:
-                        continue
-                    cvar = cm.get(key)
-                    val_in_file = data.get(key)
-                    if cvar is None:
-                        logging.getLogger().warning(f"Cannot find corresponding config to key {key}.")
-                        continue
-                    cvar.value = parse_cvar_value(cvar, val_in_file)
-                    if val_in_file is not None and not cvar.validate(val_in_file):
-                        raise ValueError("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
+                conf_version = data.get("template_version", 0)
+
+            with open(template_file_path, "r") as template_fd:
+                template_data = yaml_parser.load(template_fd)
+                template_version = template_data.get("template_version", 0)
+
+            for key in template_data:
+                if key in {"wallet", "template_version"}:
+                    continue
+
+                cvar = cm.get(key)
+                if cvar is None:
+                    logging.getLogger().error(f"Cannot find corresponding config to key {key} in template.")
+                    continue
+
+                val_in_file = data.get(key)
+                cvar.value = parse_cvar_value(cvar, val_in_file)
+                if cvar.is_secure:
+                    if encrypted_config_file_exists(cvar):
+                        password = in_memory_config_map.get("password").value
+                        if password is not None:
+                            cvar.value = decrypt_config_value(cvar, password)
+                if val_in_file is not None and not cvar.validate(cvar.value):
+                    # Instead of raising an exception, simply skip over this variable and wait till the user is prompted
+                    logging.getLogger().error("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
+                    cvar.value = None
+
+            if conf_version < template_version:
+                # delete old config file
+                if isfile(yml_path):
+                    unlink(yml_path)
+                # copy the new file template
+                shutil.copy(template_file_path, yml_path)
+                # save the old variables into the new config file
+                safe_ensure_future(save_to_yml(yml_path, cm))
         except Exception as e:
             logging.getLogger().error("Error loading configs. Your config file may be corrupt. %s" % (e,),
                                       exc_info=True)
 
-    load_yml_into_cm(GLOBAL_CONFIG_PATH, global_config_map)
-    load_yml_into_cm(LIQUIDITY_BOUNTY_CONFIG_PATH, liquidity_bounty_config_map)
+    load_yml_into_cm(GLOBAL_CONFIG_PATH, join(TEMPLATE_PATH, "conf_global_TEMPLATE.yml"), global_config_map)
+    load_yml_into_cm(LIQUIDITY_BOUNTY_CONFIG_PATH,
+                     join(TEMPLATE_PATH, "conf_liquidity_bounty_TEMPLATE.yml"),
+                     liquidity_bounty_config_map)
     if strategy_file_path:
-        load_yml_into_cm(join(CONF_FILE_PATH, strategy_file_path), strategy_config_map)
+        strategy_template_path = get_strategy_template_path(current_strategy)
+        load_yml_into_cm(join(CONF_FILE_PATH, strategy_file_path), strategy_template_path, strategy_config_map)
 
 
 async def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
@@ -231,7 +263,14 @@ async def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
             data = yaml_parser.load(stream) or {}
             for key in cm:
                 cvar = cm.get(key)
-                if type(cvar.value) == Decimal:
+                if cvar.is_secure:
+                    if cvar.value is not None and not encrypted_config_file_exists(cvar):
+                        from hummingbot.client.config.in_memory_config_map import in_memory_config_map
+                        password = in_memory_config_map.get("password").value
+                        encrypt_n_save_config_value(cvar, password)
+                    if key in data:
+                        data.pop(key)
+                elif type(cvar.value) == Decimal:
                     data[key] = float(cvar.value)
                 else:
                     data[key] = cvar.value
@@ -268,15 +307,18 @@ async def create_yml_files():
             conf_path = join(CONF_FILE_PATH, stripped_fname)
             if not isfile(conf_path):
                 shutil.copy(template_path, conf_path)
-            with open(template_path, "r") as template_fd:
-                template_data = yaml_parser.load(template_fd)
-                template_version = template_data.get("template_version", 0)
-            with open(conf_path, "r") as conf_fd:
-                conf_version = 0
-                try:
-                    conf_data = yaml_parser.load(conf_fd)
-                    conf_version = conf_data.get("template_version", 0)
-                except Exception:
-                    pass
-            if conf_version < template_version:
-                shutil.copy(template_path, conf_path)
+
+            # Only overwrite log config. Updating `conf_global.yml` is handled by `read_configs_from_yml`
+            if conf_path.endswith("hummingbot_logs.yml"):
+                with open(template_path, "r") as template_fd:
+                    template_data = yaml_parser.load(template_fd)
+                    template_version = template_data.get("template_version", 0)
+                with open(conf_path, "r") as conf_fd:
+                    conf_version = 0
+                    try:
+                        conf_data = yaml_parser.load(conf_fd)
+                        conf_version = conf_data.get("template_version", 0)
+                    except Exception:
+                        pass
+                if conf_version < template_version:
+                    shutil.copy(template_path, conf_path)

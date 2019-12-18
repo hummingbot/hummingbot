@@ -2,14 +2,16 @@
 ###   Cross exchange market making strategy config   ###
 ########################################################
 
+template_version: 2
+
 # The following configuations are only required for the
 # cross exchange market making strategy
 
 # Exchange and token parameters
 maker_market: null
 taker_market: null
-maker_market_symbol: null
-taker_market_symbol: null
+maker_market_trading_pair: null
+taker_market_trading_pair: null
 
 # Minimum profitability target required to place an order
 # Expressed in decimals: 0.01 = 1% target profit

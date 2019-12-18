@@ -17,7 +17,6 @@ from .market_trading_pair_tuple import MarketTradingPairTuple
 
 NaN = float("nan")
 
-
 cdef class OrderTracker(TimeIterator):
     # ETH confirmation requirement of Binance has shortened to 12 blocks as of 7/15/2019.
     # 12 * 15 / 60 = 3 minutes
@@ -33,6 +32,7 @@ cdef class OrderTracker(TimeIterator):
         self._shadow_tracked_maker_orders = {}
         self._shadow_order_id_to_market_pair = {}
         self._shadow_gc_requests = deque()
+        self._in_flight_pending_created = set()
         self._in_flight_cancels = OrderedDict()
 
     @property
@@ -89,11 +89,15 @@ cdef class OrderTracker(TimeIterator):
                          for market_trading_pair_tuple, order_map in self._tracked_taker_orders.items()
                          for order_id, order in order_map.items()]
 
-        return pd.DataFrame(data=market_orders, columns=["market", "symbol", "order_id", "quantity", "timestamp"])
+        return pd.DataFrame(data=market_orders, columns=["market", "trading_pair", "order_id", "quantity", "timestamp"])
 
     @property
     def in_flight_cancels(self) -> Dict[str, float]:
         return self._in_flight_cancels
+
+    @property
+    def in_flight_pending_created(self) -> Dict[str, float]:
+        return self._in_flight_pending_created
 
     cdef c_tick(self, double timestamp):
         TimeIterator.c_tick(self, timestamp)
@@ -118,6 +122,9 @@ cdef class OrderTracker(TimeIterator):
         """
         cdef:
             list keys_to_delete = []
+
+        if order_id in self._in_flight_pending_created:  # Checks if a Buy/SellOrderCreatedEvent has been received
+            return False
 
         # Maintain the cancel expiry time invariant.
         for k, cancel_timestamp in self._in_flight_cancels.items():
@@ -222,3 +229,9 @@ cdef class OrderTracker(TimeIterator):
                     del self._shadow_tracked_maker_orders[market_pair]
             if order_id in self._shadow_order_id_to_market_pair:
                 del self._shadow_order_id_to_market_pair[order_id]
+
+    cdef c_add_create_order_pending(self, str order_id):
+        self.in_flight_pending_created.add(order_id)
+
+    cdef c_remove_create_order_pending(self, str order_id):
+        self._in_flight_pending_created.discard(order_id)

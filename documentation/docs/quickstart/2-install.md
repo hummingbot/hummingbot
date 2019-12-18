@@ -1,9 +1,11 @@
 # [Quickstart] Install Hummingbot
 
+!!! note
+    You can now install `Hummingbot` using GUI Installer on [Windows](https://docs.hummingbot.io/installation/from-binary/windows/), [MacOS](https://docs.hummingbot.io/installation/from-binary/macos/) and coming soon to [Linux](https://hummingbot.io/download/).
+
 Below, we show you how to install Hummingbot using our installation scripts for each supported platform. We highlight the Docker image method for new users since it contains all necessary dependencies.
 
-If you would like to install from source or see the detailed installation instructions, see [Installation](/installation) in the User Manual.
-
+If you would like to install from source or see the detailed installation instructions, see [Installation](/installation) in the [User Manual](https://docs.hummingbot.io/manual/).
 
 ## Step 1: Install Docker
 
@@ -14,7 +16,7 @@ If you don't already have Docker, we show you how to install Docker for each pla
 Install `tmux` to allow you to easily run Hummingbot remotely:
 
 !!! note
-    To learn more about `tmux` please visit [getting-started-with-tmux](https://linuxize.com/post/getting-started-with-tmux/).
+    To learn more about `tmux` please visit [getting started with tmux](https://linuxize.com/post/getting-started-with-tmux/).
 
 ```bash tab="Ubuntu / Debian"
 sudo apt-get update

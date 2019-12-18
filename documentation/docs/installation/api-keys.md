@@ -10,9 +10,13 @@ Please see below for instructions to find your API keys for the exchanges that H
 
 * [Huobi Global](/connectors/huobi/#creating-huobi-api-keys)
 
-* [Bittrex International](/connectors/bittrex/#creating-bittrex-api-keys)
+* [Bittrex Global](/connectors/bittrex/#creating-bittrex-api-keys)
 
 * [IDEX](/connectors/idex/#api-key)
+
+* [Liquid](/connectors/liquid/#creating-liquid-api-keys)
+
+* [Bitcoin.com Exchange](/connectors/bitcoin-com/#creating-bitcoincom-exchange-api-keys)
 
 !!! warning "API key permissions"
     We recommend using only **"trade"** enabled API keys; enabling **"withdraw", "transfer", or the equivalent** is unnecessary for current Hummingbot strategies.

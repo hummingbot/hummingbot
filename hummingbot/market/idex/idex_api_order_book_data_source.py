@@ -47,10 +47,10 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._iaobds_logger = logging.getLogger(__name__)
         return cls._iaobds_logger
 
-    def __init__(self, idex_api_key: str, symbols: Optional[List[str]] = None):
+    def __init__(self, idex_api_key: str, trading_pairs: Optional[List[str]] = None):
         super().__init__()
         self._idex_api_key = idex_api_key
-        self._symbols: Optional[List[str]] = symbols
+        self._trading_pairs: Optional[List[str]] = trading_pairs
         self._get_tracking_pair_done_event: asyncio.Event = asyncio.Event()
 
     @classmethod
@@ -71,7 +71,7 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         """
-        Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
+        Returned data frame should have trading pair as index and include usd volume, baseAsset and quoteAsset
         """
         async with aiohttp.ClientSession() as client:
             async with client.get(f"{IDEX_REST_URL}/return24Volume") as response:
@@ -121,12 +121,12 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 return all_markets.sort_values("USDVolume", ascending=False)
 
     async def get_trading_pairs(self) -> List[str]:
-        if self._symbols is None:
+        if self._trading_pairs is None:
             active_markets: pd.DataFrame = await self.get_active_exchange_markets()
             trading_pairs: List[str] = active_markets.index.tolist()
-            self._symbols = trading_pairs
+            self._trading_pairs = trading_pairs
         else:
-            trading_pairs: List[str] = self._symbols
+            trading_pairs: List[str] = self._trading_pairs
         return trading_pairs
 
     async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
@@ -171,9 +171,9 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         timestamp=None,
                         metadata={"market": trading_pair}
                     )
-                    quote_asset_symbol, base_asset_symbol = trading_pair.split("_")
-                    base_asset: Dict[str, Any] = token_info[base_asset_symbol]
-                    quote_asset: Dict[str, Any] = token_info[quote_asset_symbol]
+                    quote_asset_str, base_asset_str = trading_pair.split("_")
+                    base_asset: Dict[str, Any] = token_info[base_asset_str]
+                    quote_asset: Dict[str, Any] = token_info[quote_asset_str]
                     idex_active_order_tracker: IDEXActiveOrderTracker = IDEXActiveOrderTracker(base_asset=base_asset,
                                                                                                quote_asset=quote_asset)
                     bids, asks = idex_active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
