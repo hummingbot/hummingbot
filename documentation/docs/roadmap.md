@@ -41,5 +41,5 @@ The timeline below shows the past milestones we have completed, along with the f
 ## Q1 2020
 * Liquidity Mining Launch: Wave 1 (mid-January)
 * Graphical user interface
-* More connectors for decentralized and centralized exchanges: Bitfinex, Kraken
+* More connectors for decentralized and centralized exchanges: Bitfinex, Kraken, gate.io, HitBTC
 * Connectors to automated market makers
