@@ -25,11 +25,12 @@ from hummingbot.client.config.config_helpers import (
     copy_strategy_template,
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.config.config_crypt import list_encrypted_file_paths, decrypt_file
+from hummingbot.client.config.config_crypt import list_encrypted_file_paths, decrypt_file, \
+    encrypted_config_file_exists, get_encrypted_config_path
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
-
+import os
 
 class ConfigCommand:
     def config(self,  # type: HummingbotApplication
@@ -273,6 +274,8 @@ class ConfigCommand:
                even if it is not required by default setting
         :return: a validated user input or the variable's default value
         """
+        if cvar.key != "password" and cvar.is_secure and in_memory_config_map.get("password").value is None:
+            in_memory_config_map.get("password").value = await self._one_password_config()
         if cvar.required or requirement_overwrite:
             if cvar.key == "password":
                 return await self._one_password_config()
@@ -301,6 +304,8 @@ class ConfigCommand:
 
         if val is None or (isinstance(val, str) and len(val) == 0):
             val = cvar.default
+        if cvar.key != "password" and cvar.is_secure and encrypted_config_file_exists(cvar):
+            os.remove(get_encrypted_config_path(cvar))
         return val
 
     @staticmethod
