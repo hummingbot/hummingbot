@@ -47,7 +47,7 @@ class BambooRelayOrderBookTrackerUnitTest(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.order_book_tracker: BambooRelayOrderBookTracker = BambooRelayOrderBookTracker(
             data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-            symbols=cls.trading_pairs
+            trading_pairs=cls.trading_pairs
         )
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
@@ -91,7 +91,7 @@ class BambooRelayOrderBookTrackerUnitTest(unittest.TestCase):
         self.run_parallel(self.event_logger.wait_for(OrderBookTradeEvent))
         for ob_trade_event in self.event_logger.event_log:
             self.assertTrue(type(ob_trade_event) == OrderBookTradeEvent)
-            self.assertTrue(ob_trade_event.symbol in self.trading_pairs)
+            self.assertTrue(ob_trade_event.trading_pair in self.trading_pairs)
             self.assertTrue(type(ob_trade_event.timestamp) in [float, int])
             self.assertTrue(type(ob_trade_event.amount) == float)
             self.assertTrue(type(ob_trade_event.price) == float)

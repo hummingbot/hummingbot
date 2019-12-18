@@ -7,6 +7,8 @@ We regularly update Hummingbot (see [Releases](/release-notes/)) and recommend u
 Updating to the latest docker image (e.g. `coinalpha/hummingbot:latest`) requires users to (1) delete any instances of Hummingbot using that image, (2) delete the old image, and (3) recreate the Hummingbot instance:
 
 ```bash tab="Script"
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh
+chmod a+x update.sh
 ./update.sh
 ```
 
@@ -51,4 +53,19 @@ Alternatively, use our automated script:
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/update.sh
 chmod a+x update.sh
 ./update.sh
+```
+
+
+## Installing from specific version via Docker
+`$TAG` = Hummingbot version e.g. `version-0.16.0` For more information, visit the list of versions of [Hummingbot tags](https://hub.docker.com/r/coinalpha/hummingbot/tags).
+
+```
+$ ./create.sh 
+
+** ✏️  Creating a new Hummingbot instance **
+
+ℹ️  Press [enter] for default values.
+
+➡️  Enter Hummingbot version: [latest|development] (default = "latest")
+$TAG
 ```

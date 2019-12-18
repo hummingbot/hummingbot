@@ -29,7 +29,7 @@ class TradeFill(HummingbotBase):
     __tablename__ = "TradeFill"
     __table_args__ = (Index("tf_config_timestamp_index",
                             "config_file_path", "timestamp"),
-                      Index("tf_market_symbol_timestamp_index",
+                      Index("tf_market_trading_pair_timestamp_index",
                             "market", "symbol", "timestamp"),
                       Index("tf_market_base_asset_timestamp_index",
                             "market", "base_asset", "timestamp"),
@@ -65,7 +65,7 @@ class TradeFill(HummingbotBase):
     def get_trades(sql_session: Session,
                    strategy: str = None,
                    market: str = None,
-                   symbol: str = None,
+                   trading_pair: str = None,
                    base_asset: str = None,
                    quote_asset: str = None,
                    trade_type: str = None,
@@ -78,8 +78,8 @@ class TradeFill(HummingbotBase):
             filters.append(TradeFill.strategy == strategy)
         if market is not None:
             filters.append(TradeFill.market == market)
-        if symbol is not None:
-            filters.append(TradeFill.symbol == symbol)
+        if trading_pair is not None:
+            filters.append(TradeFill.symbol == trading_pair)
         if base_asset is not None:
             filters.append(TradeFill.base_asset == base_asset)
         if quote_asset is not None:
@@ -117,7 +117,7 @@ class TradeFill(HummingbotBase):
             if len(flat_fees) == 0:
                 flat_fee_str = "None"
             else:
-                fee_strs = [f"{fee_dict['amount']} {fee_dict['symbol']}" for fee_dict in flat_fees]
+                fee_strs = [f"{fee_dict['amount']} {fee_dict['trading_pair']}" for fee_dict in flat_fees]
                 flat_fee_str = ",".join(fee_strs)
 
             data.append([
@@ -141,7 +141,7 @@ class TradeFill(HummingbotBase):
             "trade_id": trade_fill.exchange_trade_id,
             "price": numpy.format_float_positional(trade_fill.price),
             "quantity": numpy.format_float_positional(trade_fill.amount),
-            "trading_pair": trade_fill.symbol,
+            "symbol": trade_fill.symbol,
             "trade_timestamp": trade_fill.timestamp,
             "trade_type": trade_fill.trade_type,
             "base_asset": trade_fill.base_asset,

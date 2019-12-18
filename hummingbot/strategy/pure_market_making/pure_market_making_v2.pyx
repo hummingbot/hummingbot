@@ -24,7 +24,6 @@ from hummingbot.market.market_base import (
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from math import isnan
 
 from .data_types import (
@@ -96,8 +95,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  filled_order_replenish_wait_time: float = 10,
                  enable_order_filled_stop_cancellation: bool = False,
                  add_transaction_costs_to_orders: bool = False,
-                 jump_orders_enabled: bool = False,
-                 jump_orders_depth: Decimal = s_decimal_zero,
+                 best_bid_ask_jump_mode: bool = False,
+                 best_bid_ask_jump_orders_depth: Decimal = s_decimal_zero,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
                  status_report_interval: float = 900):
@@ -126,8 +125,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._pricing_delegate = pricing_delegate
         self._sizing_delegate = sizing_delegate
         self._enable_order_filled_stop_cancellation = enable_order_filled_stop_cancellation
-        self._jump_orders_enabled = jump_orders_enabled
-        self._jump_orders_depth = jump_orders_depth
+        self._best_bid_ask_jump_mode = best_bid_ask_jump_mode
+        self._best_bid_ask_jump_orders_depth = best_bid_ask_jump_orders_depth
 
         self.limit_order_min_expiration = limit_order_min_expiration
 
@@ -325,9 +324,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             else:
                 own_sell_order_depth = order.quantity
 
-        # Get the top bid price in the market using jump_orders_depth and your buy order volume
+        # Get the top bid price in the market using best_bid_ask_jump_orders_depth and your buy order volume
         top_bid_price = market_info.get_price_for_volume(False,
-                                                         self._jump_orders_depth + own_buy_order_depth).result_price
+                                                         self._best_bid_ask_jump_orders_depth + own_buy_order_depth).result_price
         price_quantum = maker_market.c_get_order_price_quantum(
             market_info.trading_pair,
             top_bid_price
@@ -341,9 +340,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         updated_buy_order_prices[0] = maker_market.c_quantize_order_price(market_info.trading_pair,
                                                                           lower_buy_price)
 
-        # Get the top ask price in the market using jump_orders_depth and your sell order volume
+        # Get the top ask price in the market using best_bid_ask_jump_orders_depth and your sell order volume
         top_ask_price = market_info.get_price_for_volume(True,
-                                                         self._jump_orders_depth + own_sell_order_depth).result_price
+                                                         self._best_bid_ask_jump_orders_depth + own_sell_order_depth).result_price
         price_quantum = maker_market.c_get_order_price_quantum(
             market_info.trading_pair,
             top_ask_price
@@ -498,7 +497,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                              active_orders)
 
         # If jump orders is enabled, run the penny jumped pricing proposal
-        if self._jump_orders_enabled:
+        if self._best_bid_ask_jump_mode:
             pricing_proposal = self.c_get_penny_jumped_pricing_proposal(market_info,
                                                                         pricing_proposal,
                                                                         active_orders)
@@ -576,6 +575,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         cdef:
             str order_id = order_completed_event.order_id
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
+            MarketBase maker_market = market_info.market
             LimitOrder limit_order_record
 
         if isinstance(self.sizing_delegate, self.SINGLE_ORDER_SIZING_DELEGATES):
@@ -607,6 +607,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 # Stop tracking the order
                 if self._enable_order_filled_stop_cancellation:
                     self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
+                    maker_market.c_stop_tracking_order(other_order_id)
 
             if not isnan(replenish_time_stamp):
                 self.filter_delegate.order_placing_timestamp = replenish_time_stamp
@@ -624,6 +625,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         cdef:
             str order_id = order_completed_event.order_id
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
+            MarketBase maker_market = market_info.market
             LimitOrder limit_order_record
 
         if isinstance(self.sizing_delegate, self.SINGLE_ORDER_SIZING_DELEGATES):
@@ -655,6 +657,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 # Stop tracking the order
                 if self._enable_order_filled_stop_cancellation:
                     self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
+                    maker_market.c_stop_tracking_order(other_order_id)
 
             if not isnan(replenish_time_stamp):
                 self.filter_delegate.order_placing_timestamp = replenish_time_stamp

@@ -28,7 +28,12 @@ cdef class BittrexMarket(MarketBase):
         public object _user_stream_tracker_task
         TransactionTracker _tx_tracker
 
-    cdef c_start_tracking_order(self, str order_id, str exchange_order_id, str symbol, object trade_type, object order_type, object price,
+    cdef c_start_tracking_order(self,
+                                str order_id,
+                                str exchange_order_id,
+                                str trading_pair,
+                                object trade_type,
+                                object order_type,
+                                object price,
                                 object amount)
-    cdef c_stop_tracking_order(self, str order_id)
     cdef c_did_timeout_tx(self, str tracking_id)

@@ -37,11 +37,10 @@ cdef class DDEXMarket(MarketBase):
 
     cdef c_start_tracking_order(self,
                                 str order_id,
-                                str symbol,
+                                str trading_pair,
                                 object trade_type,
                                 object order_type,
                                 object amount,
                                 object price)
     cdef c_expire_order(self, str order_id)
     cdef c_check_and_remove_expired_orders(self)
-    cdef c_stop_tracking_order(self, str order_id)

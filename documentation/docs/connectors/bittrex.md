@@ -1,6 +1,6 @@
 # Bittrex Connector
 
-## About Bittrex International
+## About Bittrex Global
 
 Bittrex is a global, centralized cryptocurrency exchange based in Seattle, USA.  It was founded in 2013 and began its operations in 2014. It is an intuitive and easy to navigate exchange platform often finding its way into the top 3 US exchanges in terms of trading volume.
 
@@ -9,6 +9,15 @@ Bittrex is a global, centralized cryptocurrency exchange based in Seattle, USA. 
 
 [Bittrex](https://international.bittrex.com/) is a centralized exchange and an API key is required in order to trade using Hummingbot.
 
+| Prompt |
+|-----|
+| `Enter your Bittrex API key >>>`
+| `Enter your Bittrex secret key >>>`
+
+!!! tip "Copying and pasting into Hummingbot"
+    See [this page](https://docs.hummingbot.io/support/how-to/#how-do-i-copy-and-paste-in-docker-toolbox-windows) for more instructions in our Get Help section.
+
+Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
 ### Creating Bittrex API Keys
 
@@ -59,4 +68,4 @@ https://bittrex.com/api/v1.1/public/getmarkets
 
 ## Transaction Fees
 
-Bittrex charges 0.25% in both maker and taker fees for most users. However, those who trade in high volumes can trade at discounted rates. Refer to [Fee Schedule](https://bittrex.zendesk.com/hc/en-us/articles/115000199651-What-fees-does-Bittrex-charge-/fee-schedule) section for more details.
+Bittrex charges 0.25% in both maker and taker fees for most users. However, those who trade in high volumes can trade at discounted rates. Refer to [Fee Schedule](https://bittrex.zendesk.com/hc/en-us/articles/115000199651-What-fees-does-Bittrex-charge-/) section for more details.

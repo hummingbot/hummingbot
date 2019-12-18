@@ -1,12 +1,9 @@
-from os.path import join
-
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     is_strategy,
     is_path,
 )
 from hummingbot.client.settings import (
-    CONF_FILE_PATH,
     CONF_POSTFIX,
     CONF_PREFIX,
 )
@@ -30,12 +27,18 @@ def default_strategy_conf_path_prompt():
 # These configs are never saved and prompted every time
 in_memory_config_map = {
     # Always required
-    "strategy":                         ConfigVar(key="strategy",
-                                                  prompt="What is your market making strategy? >>> ",
-                                                  validator=is_strategy,
-                                                  on_validated=load_required_configs),
-    "strategy_file_path":               ConfigVar(key="strategy_file_path",
-                                                  prompt=default_strategy_conf_path_prompt,
-                                                  validator=is_path,
-                                                  on_validated=read_configs_from_yml)
+    "password":
+        ConfigVar(key="password",
+                  prompt="Password please >>> ",
+                  is_secure=True),
+    "strategy":
+        ConfigVar(key="strategy",
+                  prompt="What is your market making strategy? >>> ",
+                  validator=is_strategy,
+                  on_validated=load_required_configs),
+    "strategy_file_path":
+        ConfigVar(key="strategy_file_path",
+                  prompt=default_strategy_conf_path_prompt,
+                  validator=is_path,
+                  on_validated=read_configs_from_yml)
 }
