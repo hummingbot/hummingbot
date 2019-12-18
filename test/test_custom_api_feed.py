@@ -17,7 +17,7 @@ def async_run(func):
 class SimpleWebApp:
     @classmethod
     def api_url(cls):
-        return "http://localhost:8080/"
+        return "http://localhost:6001/"
 
     _shared_instance: "SimpleWebApp" = None
 
@@ -49,7 +49,7 @@ class SimpleWebApp:
         asyncio.set_event_loop(self.loop)
         self._app = web.Application(loop=self.loop)
         self._app.add_routes([web.get('/', self.price_response)])
-        web.run_app(self._app)
+        web.run_app(self._app, port=6001)
 
     def _start(self):
         thread = Thread(target=self.start_web_app)
