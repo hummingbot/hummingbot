@@ -700,6 +700,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         logging_options: int = (PureMarketMakingStrategyV2.OPTION_LOG_ALL &
                                 (~PureMarketMakingStrategyV2.OPTION_LOG_NULL_ORDER_SIZE))
         SimpleWebApp.get_instance().set_params(20, False)
+        p = SimpleWebApp.get_instance().start()
         self.api_price_del = APIAssetPriceDelegate(SimpleWebApp.api_url())
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.api_price_del.custom_api_feed.check_network())
@@ -727,11 +728,13 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         bid_order: LimitOrder = self.ext_api_price_strategy.active_bids[0][1]
         self.assertEqual(Decimal("19.8"), bid_order.price)
         self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        p.terminate()
 
     def test_multi_orders_external_api_price_source_empty_orderbook(self):
         logging_options: int = (PureMarketMakingStrategyV2.OPTION_LOG_ALL &
                                 (~PureMarketMakingStrategyV2.OPTION_LOG_NULL_ORDER_SIZE))
         SimpleWebApp.get_instance().set_params(20, False)
+        p = SimpleWebApp.get_instance().start()
         self.api_price_del = APIAssetPriceDelegate(SimpleWebApp.api_url())
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.api_price_del.custom_api_feed.check_network())
@@ -772,6 +775,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         last_ask_price = Decimal(20.2 * (1 + 0.01) ** 4).quantize(Decimal("0.001"))
         self.assertAlmostEqual(last_ask_price, last_ask_order.price, 3)
         self.assertEqual(Decimal("1.0"), last_ask_order.quantity)
+        p.terminate()
 
     def test_multiple_orders_equal_sizes(self):
         self.clock.remove_iterator(self.strategy)
