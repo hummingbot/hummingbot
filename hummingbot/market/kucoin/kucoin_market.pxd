@@ -22,12 +22,14 @@ cdef class KucoinMarket(MarketBase):
         dict _trading_rules
         public object _trading_rules_polling_task
         TransactionTracker _tx_tracker
+        #object _order_book_tracker
+        #dict _account_balances
 
     cdef c_did_timeout_tx(self, str tracking_id)
     cdef c_start_tracking_order(self,
                                 str client_order_id,
                                 str exchange_order_id,
-                                str symbol,
+                                str trading_pair,
                                 object order_type,
                                 object trade_type,
                                 object price,

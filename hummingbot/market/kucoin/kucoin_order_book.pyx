@@ -36,7 +36,7 @@ cdef class KucoinOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "symbol": msg["symbol"],
+            "trading_pair": msg["symbol"],
             "update_id": int(msg["data"]["sequence"]),
             "bids": msg["data"]["bids"],
             "asks": msg["data"]["asks"]
@@ -50,7 +50,7 @@ cdef class KucoinOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "symbol": msg["data"]["symbol"],
+            "trading_pair": msg["data"]["symbol"],
             "update_id": msg["data"]["sequenceEnd"],
             "bids": msg["data"]["changes"]["bids"],
             "asks": msg["data"]["changes"]["asks"]
@@ -63,7 +63,7 @@ cdef class KucoinOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "symbol": msg["symbol"],
+            "trading_pair": msg["symbol"],
             "update_id": int(ts),
             "bids": msg["data"]["bids"],
             "asks": msg["data"]["asks"]
@@ -76,7 +76,7 @@ cdef class KucoinOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "symbol": msg["symbol"],
+            "trading_pair": msg["symbol"],
             "update_id": ts,
             "bids": msg["data"]["bids"],
             "asks": msg["data"]["asks"]
@@ -89,7 +89,7 @@ cdef class KucoinOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "symbol": msg["symbol"],
+            "trading_pair": msg["symbol"],
             "update_id": ts,
             "bids": msg["data"]["bids"],
             "asks": msg["data"]["asks"]
@@ -101,7 +101,7 @@ cdef class KucoinOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "symbol": msg["symbol"],
+            "trading_pair": msg["symbol"],
             "update_id": record.timestamp,
             "bids": msg["data"]["bids"],
             "asks": msg["data"]["asks"]
@@ -114,7 +114,7 @@ cdef class KucoinOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "symbol": msg["symbol"],
+            "trading_pair": msg["symbol"],
             "trade_type": float(TradeType.BUY.value) if msg["side"] == "buy"
                             else float(TradeType.SELL.value),
             "trade_id": msg["tradeId"],
@@ -128,7 +128,7 @@ cdef class KucoinOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "symbol": msg["symbol"],
+            "trading_pair": msg["symbol"],
             "trade_type": float(TradeType.BUY.value) if msg["side"] == "buy"
                             else float(TradeType.SELL.value),
             "trade_id": msg["tradeId"],

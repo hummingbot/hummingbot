@@ -56,12 +56,11 @@ from hummingbot.market.kucoin.kucoin_order_book_tracker import KucoinOrderBookTr
 from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.market.market_base import (
     MarketBase,
-    NaN,
-    s_decimal_NaN)
+    NaN)
 
-hm_logger = None
+km_logger = None
 s_decimal_0 = Decimal(0)
-KUCOIN_ROOT_API = "https://api.kucoin.com"
+KUCOIN_ROOT_API = "https://openapi-sandbox.kucoin.com"
 
 
 class KucoinAPIError(IOError):
@@ -99,10 +98,10 @@ cdef class KucoinMarket(MarketBase):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global hm_logger
-        if hm_logger is None:
-            hm_logger = logging.getLogger(__name__)
-        return hm_logger
+        global km_logger
+        if km_logger is None:
+            km_logger = logging.getLogger(__name__)
+        return km_logger
 
     def __init__(self,
                  kucoin_api_key: str,
@@ -111,7 +110,7 @@ cdef class KucoinMarket(MarketBase):
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                  OrderBookTrackerDataSourceType.EXCHANGE_API,
-                 symbols: Optional[List[str]] = None,
+                 trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
         super().__init__()
@@ -125,7 +124,7 @@ cdef class KucoinMarket(MarketBase):
         self._last_timestamp = 0
         self._order_book_tracker = KucoinOrderBookTracker(
             data_source_type=order_book_tracker_data_source_type,
-            symbols=symbols
+            trading_pairs=trading_pairs
         )
         self._order_tracker_task = None
         self._poll_notifier = asyncio.Event()
@@ -138,12 +137,12 @@ cdef class KucoinMarket(MarketBase):
         self._tx_tracker = KucoinMarketTransactionTracker(self)
 
     @staticmethod
-    def split_symbol(symbol: str) -> Tuple[str, str]:
+    def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
         try:
-            m = symbol.split("-")
+            m = trading_pair.split("-")
             return m[1], m[2]
         except Exception as e:
-            raise ValueError(f"Error parsing symbol {symbol}: {str(e)}")
+            raise ValueError(f"Error parsing trading_pair {trading_pair}: {str(e)}")
 
     @staticmethod
     def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
@@ -286,6 +285,7 @@ cdef class KucoinMarket(MarketBase):
                 raise IOError(f"Error parsing data from {url}.")
 
             data = parsed_response.get("data")
+            print(data)
             if data is None:
                 self.logger().error(f"Error received from {url}. Response is {parsed_response}.")
                 return {"error": parsed_response}
@@ -351,16 +351,16 @@ cdef class KucoinMarket(MarketBase):
             trading_rules_list = self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
-                self._trading_rules[trading_rule.symbol] = trading_rule
+                self._trading_rules[trading_rule.trading_pair] = trading_rule
 
-    def _format_trading_rules(self, raw_symbol_info: List[Dict[str, Any]]) -> List[TradingRule]:
+    def _format_trading_rules(self, raw_trading_pair_info: List[Dict[str, Any]]) -> List[TradingRule]:
         cdef:
             list trading_rules = []
 
-        for info in raw_symbol_info:
+        for info in raw_trading_pair_info:
             try:
                 trading_rules.append(
-                    TradingRule(symbol=info["symbol"],
+                    TradingRule(trading_pair=info["trading_pair"],
                                 min_order_size=Decimal(info["baseMinSize"]),
                                 max_order_size=Decimal(info["baseMaxSize"]),
                                 min_price_increment=Decimal(info['priceIncrement']),
@@ -369,7 +369,7 @@ cdef class KucoinMarket(MarketBase):
                                 min_notional_size=Decimal(info["quoteMinSize"]))
                 )
             except Exception:
-                self.logger().error(f"Error parsing the symbol rule {info}. Skipping.", exc_info=True)
+                self.logger().error(f"Error parsing the trading_pair rule {info}. Skipping.", exc_info=True)
         return trading_rules
 
     async def get_order_status(self, exchange_order_id: str) -> Dict[str, Any]:
@@ -414,7 +414,7 @@ cdef class KucoinMarket(MarketBase):
                     order_filled_event = OrderFilledEvent(
                         self._current_timestamp,
                         tracked_order.client_order_id,
-                        tracked_order.symbol,
+                        tracked_order.trading_pair,
                         tracked_order.trade_type,
                         tracked_order.order_type,
                         float(execute_price),
@@ -509,7 +509,7 @@ cdef class KucoinMarket(MarketBase):
         return {
             "account_id_initialized": self._account_id != "" if self._trading_required else True,
             "order_books_initialized": self._order_book_tracker.ready,
-            "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
+            "account_balance": self._account_balances if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0
         }
 
@@ -522,7 +522,7 @@ cdef class KucoinMarket(MarketBase):
 
     async def place_order(self,
                           order_id: str,
-                          symbol: str,
+                          trading_pair: str,
                           amount: Decimal,
                           is_buy: bool,
                           order_type: OrderType,
@@ -534,7 +534,7 @@ cdef class KucoinMarket(MarketBase):
             "funds": str(amount),
             "clientOid": order_id,
 			"side": side,
-            "symbol": symbol,
+            "trading_pair": trading_pair,
             "type": order_type_str,
         }
         if order_type is OrderType.LIMIT:
@@ -550,12 +550,12 @@ cdef class KucoinMarket(MarketBase):
 
     async def execute_buy(self,
                           order_id: str,
-                          symbol: str,
+                          trading_pair: str,
                           amount: Decimal,
                           order_type: OrderType,
                           price: Decimal):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
+            TradingRule trading_rule = self._trading_rules[trading_pair]
             double quote_amount
             object decimal_amount
             object decimal_price
@@ -563,23 +563,23 @@ cdef class KucoinMarket(MarketBase):
             object tracked_order
 
         if order_type is OrderType.MARKET:
-            quote_amount = (<OrderBook>self.c_get_order_book(symbol)).c_get_quote_volume_for_base_amount(
+            quote_amount = (<OrderBook>self.c_get_order_book(trading_pair)).c_get_quote_volume_for_base_amount(
                 True, float(amount)).result_volume
             # Quantize according to price rules, not base token amount rules.
-            decimal_amount = self.c_quantize_order_price(symbol, Decimal(quote_amount))
+            decimal_amount = self.c_quantize_order_price(trading_pair, Decimal(quote_amount))
             decimal_price = s_decimal_0
         else:
-            decimal_amount = self.c_quantize_order_amount(symbol, amount)
-            decimal_price = self.c_quantize_order_price(symbol, price)
+            decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
+            decimal_price = self.c_quantize_order_price(trading_pair, price)
             if decimal_amount < trading_rule.min_order_size:
                 raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
         try:
-            exchange_order_id = await self.place_order(order_id, symbol, decimal_amount, True, order_type, decimal_price)
+            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type, decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
-                symbol=symbol,
+                trading_pair=trading_pair,
                 order_type=order_type,
                 trade_type=TradeType.BUY,
                 price=decimal_price,
@@ -587,12 +587,12 @@ cdef class KucoinMarket(MarketBase):
             )
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
-                self.logger().info(f"Created {order_type} buy order {order_id} for {decimal_amount} {symbol}.")
+                self.logger().info(f"Created {order_type} buy order {order_id} for {decimal_amount} {trading_pair}.")
             self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
                                  BuyOrderCreatedEvent(
                                      self._current_timestamp,
                                      order_type,
-                                     symbol,
+                                     trading_pair,
                                      float(decimal_amount),
                                      float(decimal_price),
                                      order_id
@@ -604,7 +604,7 @@ cdef class KucoinMarket(MarketBase):
             order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Kucoin for "
-                f"{decimal_amount} {symbol} "
+                f"{decimal_amount} {trading_pair} "
                 f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit buy order to Kucoin. Check API key and network connection."
@@ -613,33 +613,33 @@ cdef class KucoinMarket(MarketBase):
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
     cdef str c_buy(self,
-                   str symbol,
+                   str trading_pair,
                    object amount,
                    object order_type = OrderType.MARKET,
                    object price = s_decimal_0,
                    dict kwargs = {}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
-            str order_id = f"buy-{symbol}-{tracking_nonce}"
+            str order_id = f"buy-{trading_pair}-{tracking_nonce}"
 
-        safe_ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
+        safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
 
     async def execute_sell(self,
                            order_id: str,
-                           symbol: str,
+                           trading_pair: str,
                            amount: Decimal,
                            order_type: OrderType,
                            price: Decimal):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
+            TradingRule trading_rule = self._trading_rules[trading_pair]
             object decimal_amount
             object decimal_price
             str exchange_order_id
             object tracked_order
 
-        decimal_amount = self.quantize_order_amount(symbol, amount)
-        decimal_price = (self.c_quantize_order_price(symbol, price)
+        decimal_amount = self.quantize_order_amount(trading_pair, amount)
+        decimal_price = (self.c_quantize_order_price(trading_pair, price)
                          if order_type is OrderType.LIMIT
                          else s_decimal_0)
         if decimal_amount < trading_rule.min_order_size:
@@ -647,11 +647,11 @@ cdef class KucoinMarket(MarketBase):
                              f"{trading_rule.min_order_size}.")
 
         try:
-            exchange_order_id = await self.place_order(order_id, symbol, decimal_amount, False, order_type, decimal_price)
+            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type, decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
-                symbol=symbol,
+                trading_pair=trading_pair,
                 order_type=order_type,
                 trade_type=TradeType.SELL,
                 price=decimal_price,
@@ -659,12 +659,12 @@ cdef class KucoinMarket(MarketBase):
             )
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
-                self.logger().info(f"Created {order_type} sell order {order_id} for {decimal_amount} {symbol}.")
+                self.logger().info(f"Created {order_type} sell order {order_id} for {decimal_amount} {trading_pair}.")
             self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
                                  SellOrderCreatedEvent(
                                      self._current_timestamp,
                                      order_type,
-                                     symbol,
+                                     trading_pair,
                                      float(decimal_amount),
                                      float(decimal_price),
                                      order_id
@@ -676,7 +676,7 @@ cdef class KucoinMarket(MarketBase):
             order_type_str = "MARKET" if order_type is OrderType.MARKET else "LIMIT"
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Kucoin for "
-                f"{decimal_amount} {symbol} "
+                f"{decimal_amount} {trading_pair} "
                 f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit sell order to Kucoin. Check API key and network connection."
@@ -685,18 +685,18 @@ cdef class KucoinMarket(MarketBase):
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
     cdef str c_sell(self,
-                    str symbol,
+                    str trading_pair,
                     object amount,
                     object order_type = OrderType.MARKET,
                     object price = s_decimal_0,
                     dict kwargs = {}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
-            str order_id = f"sell-{symbol}-{tracking_nonce}"
-        safe_ensure_future(self.execute_sell(order_id, symbol, amount, order_type, price))
+            str order_id = f"sell-{trading_pair}-{tracking_nonce}"
+        safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
 
-    async def execute_cancel(self, symbol: str, order_id: str):
+    async def execute_cancel(self, trading_pair: str, order_id: str):
         try:
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
@@ -711,8 +711,8 @@ cdef class KucoinMarket(MarketBase):
                                 f"Check API key and network connection."
             )
 
-    cdef c_cancel(self, str symbol, str order_id):
-        safe_ensure_future(self.execute_cancel(symbol, order_id))
+    cdef c_cancel(self, str trading_pair, str order_id):
+        safe_ensure_future(self.execute_cancel(trading_pair, order_id))
         return order_id
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
@@ -741,13 +741,13 @@ cdef class KucoinMarket(MarketBase):
             )
         return cancellation_results
 
-    cdef OrderBook c_get_order_book(self, str symbol):
+    cdef OrderBook c_get_order_book(self, str trading_pair):
         cdef:
             dict order_books = self._order_book_tracker.order_books
 
-        if symbol not in order_books:
-            raise ValueError(f"No order book exists for '{symbol}'.")
-        return order_books.get(symbol)
+        if trading_pair not in order_books:
+            raise ValueError(f"No order book exists for '{trading_pair}'.")
+        return order_books.get(trading_pair)
 
     cdef c_did_timeout_tx(self, str tracking_id):
         self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
@@ -756,7 +756,7 @@ cdef class KucoinMarket(MarketBase):
     cdef c_start_tracking_order(self,
                                 str client_order_id,
                                 str exchange_order_id,
-                                str symbol,
+                                str trading_pair,
                                 object order_type,
                                 object trade_type,
                                 object price,
@@ -764,7 +764,7 @@ cdef class KucoinMarket(MarketBase):
         self._in_flight_orders[client_order_id] = KucoinInFlightOrder(
             client_order_id=client_order_id,
             exchange_order_id=exchange_order_id,
-            symbol=symbol,
+            trading_pair=trading_pair,
             order_type=order_type,
             trade_type=trade_type,
             price=price,
@@ -775,21 +775,21 @@ cdef class KucoinMarket(MarketBase):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
-    cdef object c_get_order_price_quantum(self, str symbol, object price):
+    cdef object c_get_order_price_quantum(self, str trading_pair, object price):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
+            TradingRule trading_rule = self._trading_rules[trading_pair]
         return trading_rule.min_price_increment
 
-    cdef object c_get_order_size_quantum(self, str symbol, object order_size):
+    cdef object c_get_order_size_quantum(self, str trading_pair, object order_size):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
+            TradingRule trading_rule = self._trading_rules[trading_pair]
         return Decimal(trading_rule.min_base_amount_increment)
 
-    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=s_decimal_0):
+    cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=s_decimal_0):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
-            object quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
-            object current_price = self.c_get_price(symbol, False)
+            TradingRule trading_rule = self._trading_rules[trading_pair]
+            object quantized_amount = MarketBase.c_quantize_order_amount(self, trading_pair, amount)
+            object current_price = self.c_get_price(trading_pair, False)
             object notional_size
 
         # Check against min_order_size. If not passing check, return 0.
