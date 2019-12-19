@@ -38,6 +38,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 ### Minimum Order Sizes
 
+An order size of at least 0.001 BTC in value is required to trade on this exchange.
 
 
 ## Transaction Fees
