@@ -61,6 +61,12 @@ dolomite_test_web3_address = os.getenv("DOLOMITE_TEST_ADDR")
 bittrex_api_key = os.getenv("BITTREX_API_KEY")
 bittrex_secret_key = os.getenv("BITTREX_SECRET_KEY")
 
+# Bitfinex
+# this values ​​set by empirically way, because the bitfinex-market does not have
+# these values. maybe later it will be in market-api.
+bitfinex_base_increment = 1e-8
+bitfinex_quote_increment = 0.01
+
 # KuCoin Tests
 kucoin_api_key = os.getenv("KUCOIN_API_KEY")
 kucoin_secret_key = os.getenv("KUCOIN_SECRET_KEY")

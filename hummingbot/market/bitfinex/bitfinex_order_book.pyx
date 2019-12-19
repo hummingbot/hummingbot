@@ -49,13 +49,11 @@ cdef class BitfinexOrderBook(OrderBook):
                                    msg: Dict[str, any],
                                    timestamp: Optional[float] = None,
                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
-        print("msg!!!!!!!!", msg)
         if metadata:
             msg.update(metadata)
         if "time" in msg:
             msg_time = pd.Timestamp(msg["time"]).timestamp()
 
-        # msg.update(type=str(OrderBookMessageType.DIFF.value))
         return BitfinexOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=msg,
@@ -84,7 +82,6 @@ cdef class BitfinexOrderBook(OrderBook):
 
     @classmethod
     def trade_message_from_exchange(cls, msg: Dict[str, Any], metadata: Optional[Dict] = None):
-        print("trade_message_from_exchange", msg)
         if metadata:
             msg.update(metadata)
 

@@ -2,6 +2,7 @@
 from collections import namedtuple
 import logging
 import time
+from functools import partial
 
 import aiohttp
 import asyncio
@@ -17,6 +18,7 @@ from typing import (
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+import conf
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -30,16 +32,16 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessageType,
 )
 from hummingbot.core.utils import async_ttl_cache
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.bitfinex import BITFINEX_REST_URL, BITFINEX_WS_URI
 from hummingbot.market.bitfinex.bitfinex_active_order_tracker import BitfinexActiveOrderTracker
 from hummingbot.market.bitfinex.bitfinex_order_book import BitfinexOrderBook
 
 BOOK_RET_TYPE = List[Dict[str, Any]]
-
 RESPONSE_SUCCESS = 200
 NaN = float("nan")
-MAIN_FIAT = "USD"
+MAIN_FIAT = ("USD", "USDC", "USDS", "DAI", "PAX", "TUSD", "USDT")
 
 s_base, s_quote = slice(1, 4), slice(4, 7)
 
@@ -49,6 +51,8 @@ Ticker = namedtuple(
 )
 BookStructure = namedtuple("Book", "order_id price amount")
 TradeStructure = namedtuple("Trade", "id mts amount price")
+# n0-n9 no documented, we dont' know, maybe later market write docs
+ConfStructure = namedtuple("Conf", "n0 n1 n2 min max n5 n6 n7 n8 n9")
 
 
 class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -75,17 +79,28 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._tracked_book_entries: Dict[int, OrderBookRow] = {}
 
     @staticmethod
-    def _get_prices(data) -> Dict[str, Any]:
+    def _get_prices(data, conf_data: Dict[str, ConfStructure]) -> Dict[str, Any]:
         pairs = [
             Ticker(*item)
             for item in data if item[0].startswith("t") and item[0].isalpha()
         ]
 
+        def symbol_join_f(dash=None, item=None):
+            return f"{item.symbol[s_base]}{dash}{item.symbol[s_quote]}"
+
+        symbol_f = partial(symbol_join_f, "")
+        symbol_dash_f = partial(symbol_join_f, "-")
+
         return {
-            f"{item.symbol[s_base]}-{item.symbol[s_quote]}": {
-                "symbol": f"{item.symbol[s_base]}-{item.symbol[s_quote]}",
-                "base": item.symbol[s_base],
-                "quote": item.symbol[s_quote],
+            symbol_dash_f(item): {
+                "symbol": symbol_dash_f(item),
+                "baseAsset": item.symbol[s_base],
+                "base_increment": conf.bitfinex_base_increment,
+                "base_max_size": conf_data[symbol_f(item)].max,
+                "base_min_size": conf_data[symbol_f(item)].min,
+                "display_name": symbol_f(item),
+                "quoteAsset": item.symbol[s_quote],
+                "quote_increment": conf.bitfinex_quote_increment,
                 "volume": item.volume,
                 "price": item.last_price,
             }
@@ -97,43 +112,49 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         converters = {}
         prices = []
 
-        for price in [v for v in raw_prices.values() if v["quote"] == MAIN_FIAT]:
-            raw_symbol = f"{price['base']}-{price['quote']}"
-            symbol = f"{price['base']}{price['quote']}"
+        for price in [v for v in raw_prices.values() if v["quoteAsset"] in MAIN_FIAT]:
+            raw_symbol = f"{price['baseAsset']}-{price['quoteAsset']}"
+            symbol = f"{price['baseAsset']}{price['quoteAsset']}"
             prices.append(
                 {
+                    **price,
                     "symbol": symbol,
-                    "volume": price["volume"] * price["price"]
+                    "USDVolume": price["volume"] * price["price"]
                 }
             )
-            converters[price["base"]] = price["price"]
+            converters[price["baseAsset"]] = price["price"]
             del raw_prices[raw_symbol]
 
         for raw_symbol, item in raw_prices.items():
-            symbol = f"{item['base']}{item['quote']}"
-            if item["base"] in converters:
+            symbol = f"{item['baseAsset']}{item['quoteAsset']}"
+            if item["baseAsset"] in converters:
                 prices.append(
                     {
+                        **item,
                         "symbol": symbol,
-                        "volume": item["volume"] * converters[item["base"]]
+                        "USDVolume": item["volume"] * converters[item["baseAsset"]]
                     }
                 )
-                if item["quote"] not in converters:
-                    converters[item["quote"]] = item["price"] / converters[item["base"]]
+                if item["quoteAsset"] not in converters:
+                    converters[item["quoteAsset"]] = item["price"] / converters[item["baseAsset"]]
                 continue
 
-            if item["quote"] in converters:
+            if item["quoteAsset"] in converters:
                 prices.append(
                     {
+                        **item,
                         "symbol": symbol,
-                        "volume": item["volume"] * item["price"] * converters[item["quote"]]
+                        "USDVolume": item["volume"] * item["price"] * converters[item["quoteAsset"]]
                     }
                 )
-                if item["base"] not in converters:
-                    converters[item["base"]] = item["price"] * converters[item["quote"]]
+                if item["baseAsset"] not in converters:
+                    converters[item["baseAsset"]] = item["price"] * converters[item["quoteAsset"]]
                 continue
 
-            prices.append({"symbol": symbol, "volume": NaN})
+            prices.append({
+                **item,
+                "symbol": symbol,
+                "volume": NaN})
 
         return prices
 
@@ -154,22 +175,30 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @async_ttl_cache(ttl=REQUEST_TTL, maxsize=CACHE_SIZE)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         async with aiohttp.ClientSession() as client:
-            async with client.get(f"{BITFINEX_REST_URL}/tickers?symbols=ALL") as tickers_response:
-                tickers_response: aiohttp.ClientResponse = tickers_response
+            tickers_response, exchange_conf_response = await safe_gather(
+                client.get(f"{BITFINEX_REST_URL}/tickers?symbols=ALL"),
+                client.get(f"{BITFINEX_REST_URL}/conf/pub:info:pair"),
+            )
+            tickers_response: aiohttp.ClientResponse = tickers_response
+            exchange_conf_response: aiohttp.ClientResponse = exchange_conf_response
 
-                status = tickers_response.status
-                if status != RESPONSE_SUCCESS:
-                    raise IOError(
-                        f"Error fetching active Bitfinex markets. HTTP status is {status}.")
+            if tickers_response.status != 200:
+                raise IOError(f"Error fetching Bitfinex markets information. "
+                              f"HTTP status is {tickers_response.status}.")
+            if exchange_conf_response.status != 200:
+                raise IOError(f"Error fetching Bitfinex exchange information. "
+                              f"HTTP status is {exchange_conf_response.status}.")
 
-                data = await tickers_response.json()
+            tickers_data = await tickers_response.json()
+            exchange_conf_data = await exchange_conf_response.json()
 
-                raw_prices = cls._get_prices(data)
-                prices = cls._convert_volume(raw_prices)
+            conf_data = dict((e[0], ConfStructure._make(e[1])) for e in exchange_conf_data[0])
+            raw_prices = cls._get_prices(tickers_data, conf_data)
+            prices = cls._convert_volume(raw_prices)
 
-                all_markets: pd.DataFrame = pd.DataFrame.from_records(data=prices, index="symbol")
+            all_markets: pd.DataFrame = pd.DataFrame.from_records(data=prices, index="symbol")
 
-                return all_markets.sort_values("volume", ascending=False)
+            return all_markets.sort_values("USDVolume", ascending=False)
 
     async def get_trading_pairs(self) -> List[str]:
         """
