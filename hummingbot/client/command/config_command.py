@@ -22,10 +22,17 @@ from hummingbot.client.config.config_helpers import (
     write_config_to_yml,
     load_required_configs,
     parse_cvar_value,
-    copy_strategy_template,
+    copy_strategy_template
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.config.config_crypt import list_encrypted_file_paths, decrypt_file
+from hummingbot.client.config.config_crypt import (
+    list_encrypted_file_paths,
+    decrypt_file,
+    decrypt_config_value,
+    encrypted_config_file_exists,
+    get_encrypted_config_path
+)
+from os import unlink
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -69,8 +76,21 @@ class ConfigCommand:
         for key in keys:
             cvar = config_map.get(key)
             if cvar.value is None and cvar.required:
+                if cvar.is_secure and self.load_secure_var(cvar):
+                    continue
                 return False
         return True
+
+    @staticmethod
+    def load_secure_var(cvar):
+        if encrypted_config_file_exists(cvar):
+            password = in_memory_config_map.get("password").value
+            if password is not None:
+                cvar.value = decrypt_config_value(cvar, password)
+                return True
+        return False
+
+
 
     @staticmethod
     def _get_empty_configs() -> List[str]:
@@ -273,6 +293,8 @@ class ConfigCommand:
                even if it is not required by default setting
         :return: a validated user input or the variable's default value
         """
+        if cvar.key != "password" and cvar.is_secure and in_memory_config_map.get("password").value is None:
+            in_memory_config_map.get("password").value = await self._one_password_config()
         if cvar.required or requirement_overwrite:
             if cvar.key == "password":
                 return await self._one_password_config()
@@ -301,6 +323,8 @@ class ConfigCommand:
 
         if val is None or (isinstance(val, str) and len(val) == 0):
             val = cvar.default
+        if cvar.key != "password" and cvar.is_secure and encrypted_config_file_exists(cvar):
+            unlink(get_encrypted_config_path(cvar))
         return val
 
     @staticmethod
@@ -333,6 +357,8 @@ class ConfigCommand:
             cv: ConfigVar = self._get_config_var_with_key(key)
             value = await self.prompt_single_variable(cv, requirement_overwrite=False)
             cv.value = parse_cvar_value(cv, value)
+            if self.config_complete:
+                break
         if not self.config_complete:
             await self._inner_config_loop(self._get_empty_configs())
 
