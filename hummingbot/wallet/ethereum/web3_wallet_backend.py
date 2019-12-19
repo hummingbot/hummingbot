@@ -310,7 +310,7 @@ class Web3WalletBackend(PubSub):
 
     async def check_network(self) -> NetworkStatus:
         # Assume connected if received new blocks in last 2 minutes
-        if time.time() - self._last_timestamp_received_blocks > 60 * 2:
+        if time.time() - self._last_timestamp_received_blocks < 60 * 2:
             return NetworkStatus.CONNECTED
 
         try:
