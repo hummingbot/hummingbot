@@ -23,9 +23,11 @@ from hummingbot.client.config.config_helpers import (
     load_required_configs,
     parse_cvar_value,
     copy_strategy_template,
+    read_configs_from_yml
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.config.config_crypt import list_encrypted_file_paths, decrypt_file
+from hummingbot.client.config.config_crypt import list_encrypted_file_paths, \
+    decrypt_file, decrypt_config_value, encrypted_config_file_exists
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -69,8 +71,21 @@ class ConfigCommand:
         for key in keys:
             cvar = config_map.get(key)
             if cvar.value is None and cvar.required:
+                if cvar.is_secure and self.load_secure_var(cvar):
+                    continue
                 return False
         return True
+
+    @staticmethod
+    def load_secure_var(cvar):
+        if encrypted_config_file_exists(cvar):
+            password = in_memory_config_map.get("password").value
+            if password is not None:
+                cvar.value = decrypt_config_value(cvar, password)
+                return True
+        return False
+
+
 
     @staticmethod
     def _get_empty_configs() -> List[str]:
@@ -333,6 +348,8 @@ class ConfigCommand:
             cv: ConfigVar = self._get_config_var_with_key(key)
             value = await self.prompt_single_variable(cv, requirement_overwrite=False)
             cv.value = parse_cvar_value(cv, value)
+            if self.config_complete:
+                break
         if not self.config_complete:
             await self._inner_config_loop(self._get_empty_configs())
 
