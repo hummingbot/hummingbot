@@ -116,6 +116,7 @@ dependencies:
     - pyflakes==2.1.1
     - pyhamcrest==1.9.0
     - pyinstaller==3.5
+    - PyJWT==1.7.1
     - pyperclip==1.7.0
     - pypiwin32==223
     - pyrsistent==0.15.3

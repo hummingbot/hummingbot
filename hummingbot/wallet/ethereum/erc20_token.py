@@ -16,6 +16,7 @@ from web3.contract import (
     Contract,
 )
 
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -35,11 +36,12 @@ with open(os.path.join(os.path.dirname(__file__), 'token_abi/mkr_abi.json')) as 
     m_abi: Dict[str, any] = json.load(mkr_abi)
 
 MAINNET_WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
-MAINNET_DAI_ADDRESS = "0x89d24A6b4CcB1B6fAA2625fE562bDD9a23260359"
+MAINNET_SAI_ADDRESS = "0x89d24A6b4CcB1B6fAA2625fE562bDD9a23260359"
 MAINNET_MKR_ADDRESS = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2"
 ROPSTEN_WETH_ADDRESS = "0xc778417E063141139Fce010982780140Aa0cD5Ab"
 RINKEBY_WETH_ADDRESS = "0xc778417E063141139Fce010982780140Aa0cD5Ab"
 KOVAN_WETH_ADDRESS = "0xd0A1E359811322d97991E03f863a0C30C2cF029C"
+ZEROEX_TEST_WETH_ADDRESS = "0x0B1ba0af832d7C05fD64161E0Db78E85978E8082"
 
 
 class ERC20Token:
@@ -62,7 +64,7 @@ class ERC20Token:
         if chain is EthereumChain.MAIN_NET:
             if self._address == MAINNET_WETH_ADDRESS:
                 self._abi = w_abi
-            elif self._address == MAINNET_DAI_ADDRESS:
+            elif self._address == MAINNET_SAI_ADDRESS:
                 self._abi = d_abi
             elif self._address == MAINNET_MKR_ADDRESS:
                 self._abi = m_abi
@@ -75,6 +77,21 @@ class ERC20Token:
         elif chain is EthereumChain.KOVAN:
             if self._address == KOVAN_WETH_ADDRESS:
                 self._abi = w_abi
+        elif chain is EthereumChain.ZEROEX_TEST:
+            if self._address == ZEROEX_TEST_WETH_ADDRESS:
+                self._abi = w_abi
+
+        # By default token_overrides will be assigned an empty dictionary
+        # This helps prevent breaking of market unit tests
+        token_overrides: Dict[str, str] = global_config_map["ethereum_token_overrides"].value or {}
+        override_addr_to_token_name: Dict[str, str] = {value: key for key, value in token_overrides.items()}
+        override_token_name: Optional[str] = override_addr_to_token_name.get(address)
+        if override_token_name == "WETH":
+            self._abi = w_abi
+        elif override_token_name == "SAI":
+            self._abi = d_abi
+        elif override_token_name == "MKR":
+            self._abi = m_abi
 
         self._contract: Contract = self._w3.eth.contract(address=self._address, abi=self._abi)
         self._name: Optional[str] = None
@@ -83,6 +100,9 @@ class ERC20Token:
 
     @classmethod
     def get_symbol_from_contract(cls, contract: Contract) -> str:
+        if contract.address == MAINNET_SAI_ADDRESS:
+            # Special case... due to migration to multi-collateral DAI. The old DAI is now called SAI.
+            return "SAI"
         raw_symbol: Union[str, bytes] = contract.functions.symbol().call()
         if isinstance(raw_symbol, bytes):
             retval: str = raw_symbol.split(b"\x00")[0].decode("utf8")

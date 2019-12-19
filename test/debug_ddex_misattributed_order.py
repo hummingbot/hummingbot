@@ -55,7 +55,7 @@ async def main():
         orders: List[Dict[str, any]] = await market.list_orders()
         order_data: pd.DataFrame = pd.DataFrame(
             [(o["createdAt"], o["id"], o["marketId"]) for o in orders],
-            columns=["Created", "OrderID", "Symbol"]
+            columns=["Created", "OrderID", "TradingPair"]
         )
         order_data.Created = order_data.Created.astype("datetime64[ms]").astype("datetime64[ns, UTC]")
         order_data = order_data.set_index("Created")

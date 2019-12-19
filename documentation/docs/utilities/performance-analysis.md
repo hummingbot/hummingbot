@@ -14,7 +14,7 @@ trade4: sell 1 ETH (spent) for 100 DAI (acquired)
 * Total `spent_amount` for DAI = 110 and total `acquired_amount` = 200
 * Total `spent_amount` for ETH = 1.9 and total `acquired_amount` = 1.1
 
-Final delta percentage for each asset is defined by `acquired_amount / acquired_spent`.
+Final delta percentage for each asset is defined by `acquired_amount / spent_amount`.
 
 * Performance for DAI = 200/110 = 81.8%
 * Performance for ETH = 1.1/1.9 = 42.1%

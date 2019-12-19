@@ -1,10 +1,10 @@
 import logging
+from collections import defaultdict
 from decimal import Decimal
 from typing import (
     Tuple,
     Dict,
-    List
-)
+    List)
 from hummingbot.client.data_type.currency_amount import CurrencyAmount
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
@@ -48,7 +48,7 @@ class PerformanceAnalysis:
             return self._current_quote
 
     def add_balances(self, asset_name: str, amount: float, is_base: bool, is_starting: bool):
-        """ Adds the balance of either the base or the quote in the given market symbol pair token to the corresponding
+        """ Adds the balance of either the base or the quote in the given market trading pair token to the corresponding
         CurrencyAmount object.
 
         NOTE: This is not to say that base / quote pairs between different markets are equivalent because that is NOT
@@ -115,7 +115,7 @@ class PerformanceAnalysis:
             if flat_fee_currency == trade.quote_asset:
                 total_flat_fees += Decimal(flat_fee_amount)
             else:
-                # if the flat fee currency symbol does not match quote symbol, convert to quote currency value
+                # if the flat fee asset does not match quote asset, convert to quote asset value
                 total_flat_fees += ExchangeRateConversion.get_instance().convert_token_value_decimal(
                     amount=Decimal(flat_fee_amount),
                     from_currency=flat_fee_currency,
@@ -133,30 +133,37 @@ class PerformanceAnalysis:
         return net_base_delta, net_quote_delta
 
     def calculate_asset_delta_from_trades(self,
-                                          analysis_start_time: int,
-                                          current_startegy_name: str,
-                                          market_trading_pair_tuples: List[MarketTradingPairTuple]
+                                          current_strategy_name: str,
+                                          market_trading_pair_tuples: List[MarketTradingPairTuple],
+                                          raw_queried_trades: List[TradeFill],
                                           ) -> Dict[MarketTradingPairTuple, Dict[str, Decimal]]:
         """
         Calculate spent and acquired amount for each asset from trades.
         Example:
         A buy trade of ETH_USD for price 100 and amount 1, will have 1 ETH as acquired and 100 USD as spent amount.
 
-        :param analysis_start_time: Start timestamp for the trades to be quired
-        :param current_startegy_name: Name of the currently configured strategy
+        :param current_strategy_name: Name of the currently configured strategy
         :param market_trading_pair_tuples: Current MarketTradingPairTuple
+        :param raw_queried_trades: List of queried trades
         :return: Dictionary consisting of spent and acquired amount for each assets
         """
         market_trading_pair_stats: Dict[MarketTradingPairTuple, Dict[str, Decimal]] = {}
         for market_trading_pair_tuple in market_trading_pair_tuples:
-            asset_stats: Dict[str, Decimal] = {
-                market_trading_pair_tuple.base_asset.upper(): {"spent": s_decimal_0, "acquired": s_decimal_0},
-                market_trading_pair_tuple.quote_asset.upper(): {"spent": s_decimal_0, "acquired": s_decimal_0}
-            }
-            queried_trades: List[TradeFill] = TradeFill.get_trades(self.sql_manager.get_shared_session(),
-                                                                   start_time=analysis_start_time,
-                                                                   market=market_trading_pair_tuple.market.display_name,
-                                                                   strategy=current_startegy_name)
+            asset_stats: Dict[str, Dict[str, Decimal]] = defaultdict(
+                lambda: {"spent": s_decimal_0, "acquired": s_decimal_0}
+            )
+            asset_stats[market_trading_pair_tuple.base_asset.upper()] = {"spent": s_decimal_0, "acquired": s_decimal_0}
+            asset_stats[market_trading_pair_tuple.quote_asset.upper()] = {"spent": s_decimal_0, "acquired": s_decimal_0}
+
+            if raw_queried_trades is not None:
+                queried_trades: List[TradeFill] = [t for t in raw_queried_trades if (
+                    t.strategy == current_strategy_name
+                    and t.market == market_trading_pair_tuple.market.display_name
+                    and t.symbol == market_trading_pair_tuple.trading_pair
+                )]
+            else:
+                queried_trades = []
+
             if not queried_trades:
                 market_trading_pair_stats[market_trading_pair_tuple] = {
                     "starting_quote_rate": market_trading_pair_tuple.get_mid_price(),
@@ -185,15 +192,15 @@ class PerformanceAnalysis:
         return market_trading_pair_stats
 
     def calculate_trade_performance(self,
-                                    analysis_start_time: int,
-                                    current_startegy_name: str,
-                                    market_trading_pair_tuples: List[MarketTradingPairTuple]) -> Tuple[Dict, Dict]:
+                                    current_strategy_name: str,
+                                    market_trading_pair_tuples: List[MarketTradingPairTuple],
+                                    raw_queried_trades: List[TradeFill]) -> Tuple[Dict, Dict]:
         """
         Calculate total spent and acquired amount for the whole portfolio in quote value.
 
-        :param analysis_start_time: Start timestamp for the trades to be quired
-        :param current_startegy_name: Name of the currently configured strategy
+        :param current_strategy_name: Name of the currently configured strategy
         :param market_trading_pair_tuples: Current MarketTradingPairTuple
+        :param raw_queried_trades: List of queried trades
         :return: Dictionary consisting of total spent and acquired across whole portfolio in quote value,
                  as well as individual assets
         """
@@ -201,9 +208,9 @@ class PerformanceAnalysis:
         # The final stats will be in primary quote unit
         primary_quote_asset: str = market_trading_pair_tuples[0].quote_asset
         market_trading_pair_stats: Dict[str, Dict[str, Decimal]] = self.calculate_asset_delta_from_trades(
-            analysis_start_time,
-            current_startegy_name,
-            market_trading_pair_tuples)
+            current_strategy_name,
+            market_trading_pair_tuples,
+            raw_queried_trades)
 
         # Calculate total spent and acquired amount for each trading pair in primary quote value
         for market_trading_pair_tuple, trading_pair_stats in market_trading_pair_stats.items():
