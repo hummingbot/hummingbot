@@ -8,15 +8,15 @@ Binance is a global cryptocurrency exchange that provides a platform for trading
 
 Because Binance is a centralized exchange, you will need to generate and provide your API key in order to trade using Hummingbot.
 
-| Prompt |
-|-----|
-| `Enter your Binance API key >>>`
-| `Enter your Binance secret key >>>`
+```
+Enter your Binance API key >>>
+Enter your Binance secret key >>>
+```
+
+Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
 !!! tip "Copying and pasting into Hummingbot"
     See [this page](https://docs.hummingbot.io/support/how-to/#how-do-i-copy-and-paste-in-docker-toolbox-windows) for more instructions in our Get Help section.
-
-Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
 ### Creating Binance API Keys
 

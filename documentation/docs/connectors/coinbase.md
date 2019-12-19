@@ -8,16 +8,16 @@ Coinbase Pro is a highly popular, global cryptocurrency exchange designed for pr
 
 Because Coinbase Pro is a centralized exchange, you will need to generate and provide your API key in order to trade using Hummingbot.
 
-| Prompt |
-|-----|
-| `Enter your Coinbase API key >>>`
-| `Enter your Coinbase secret key >>>`
-| `Enter your Coinbase passphrase >>>`
+```
+Enter your Coinbase API key >>>
+Enter your Coinbase secret key >>>
+Enter your Coinbase passphrase >>>
+```
+
+Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
 !!! tip "Copying and pasting into Hummingbot"
     See [this page](https://docs.hummingbot.io/support/how-to/#how-do-i-copy-and-paste-in-docker-toolbox-windows) for more instructions in our Get Help section.
-
-Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
 ### Creating Coinbase Pro API Keys
 
