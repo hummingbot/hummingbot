@@ -54,7 +54,6 @@ from hummingbot.strategy.pure_market_making import (
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.core.network_base import NetworkStatus
-from .test_custom_api_feed import SimpleWebApp
 
 
 class MockDataFeed(DataFeedBase):
@@ -84,6 +83,7 @@ class MockDataFeed(DataFeedBase):
 
     def stop(self):
         pass
+
 
 class PureMarketMakingV2UnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
@@ -695,87 +695,6 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         ask_order: LimitOrder = self.ext_feed_price_strategy.active_asks[0][1]
         self.assertEqual(Decimal("202"), ask_order.price)
         self.assertEqual(Decimal("1.0"), ask_order.quantity)
-
-    def test_external_api_price_source(self):
-        logging_options: int = (PureMarketMakingStrategyV2.OPTION_LOG_ALL &
-                                (~PureMarketMakingStrategyV2.OPTION_LOG_NULL_ORDER_SIZE))
-        SimpleWebApp.get_instance().set_params(20, False)
-        p = SimpleWebApp.get_instance().start()
-        self.api_price_del = APIAssetPriceDelegate(SimpleWebApp.api_url())
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.api_price_del.custom_api_feed.check_network())
-        time.sleep(2)
-        self.ext_api_price_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
-            [self.market_info],
-            filled_order_replenish_wait_time=self.cancel_order_wait_time,
-            filter_delegate=self.filter_delegate,
-            sizing_delegate=self.constant_sizing_delegate,
-            pricing_delegate=self.constant_pricing_delegate,
-            cancel_order_wait_time=45,
-            logging_options=logging_options,
-            asset_price_delegate=self.api_price_del
-        )
-        self.clock.remove_iterator(self.strategy)
-        self.clock.add_iterator(self.ext_api_price_strategy)
-        end_ts = self.start_timestamp + self.clock_tick_size
-        self.clock.backtest_til(end_ts)
-
-        self.assertEqual(1, len(self.ext_api_price_strategy.active_bids))
-        # There should be no sell order, since its price will be below first bid order on the order book.
-        self.assertEqual(0, len(self.ext_api_price_strategy.active_asks))
-
-        # check price data from external exchange is used for order placement
-        bid_order: LimitOrder = self.ext_api_price_strategy.active_bids[0][1]
-        self.assertEqual(Decimal("19.8"), bid_order.price)
-        self.assertEqual(Decimal("1.0"), bid_order.quantity)
-        p.terminate()
-
-    def test_multi_orders_external_api_price_source_empty_orderbook(self):
-        logging_options: int = (PureMarketMakingStrategyV2.OPTION_LOG_ALL &
-                                (~PureMarketMakingStrategyV2.OPTION_LOG_NULL_ORDER_SIZE))
-        SimpleWebApp.get_instance().set_params(20, False)
-        p = SimpleWebApp.get_instance().start()
-        self.api_price_del = APIAssetPriceDelegate(SimpleWebApp.api_url())
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.api_price_del.custom_api_feed.check_network())
-        self.multi_orders_ext_api_price_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
-            [self.market_info],
-            filled_order_replenish_wait_time=self.cancel_order_wait_time,
-            filter_delegate=self.filter_delegate,
-            sizing_delegate=self.equal_strategy_sizing_delegate,
-            pricing_delegate=self.multiple_order_strategy_pricing_delegate,
-            cancel_order_wait_time=45,
-            logging_options=logging_options,
-            asset_price_delegate=self.api_price_del
-        )
-        self.simulate_order_book_widening(self.maker_data.order_book, 0, 10000)
-        self.assertEqual(0, len(list(self.maker_data.order_book.bid_entries())))
-        self.assertEqual(0, len(list(self.maker_data.order_book.ask_entries())))
-        self.clock.remove_iterator(self.strategy)
-        self.clock.add_iterator(self.multi_orders_ext_api_price_strategy)
-        end_ts = self.start_timestamp + self.clock_tick_size
-        self.clock.backtest_til(end_ts)
-
-        self.assertEqual(5, len(self.multi_orders_ext_api_price_strategy.active_bids))
-        self.assertEqual(5, len(self.multi_orders_ext_api_price_strategy.active_asks))
-
-        # check price data from external exchange is used for order placement
-        bid_order: LimitOrder = self.multi_orders_ext_api_price_strategy.active_bids[0][1]
-        self.assertEqual(Decimal("19.8"), bid_order.price)
-        self.assertEqual(Decimal("1.0"), bid_order.quantity)
-        ask_order: LimitOrder = self.multi_orders_ext_api_price_strategy.active_asks[0][1]
-        self.assertEqual(Decimal("20.2"), ask_order.price)
-        self.assertEqual(Decimal("1.0"), ask_order.quantity)
-
-        last_bid_order: LimitOrder = self.multi_orders_ext_api_price_strategy.active_bids[-1][1]
-        last_bid_price = Decimal(19.8 * (1 - 0.01) ** 4).quantize(Decimal("0.001"))
-        self.assertAlmostEqual(last_bid_price, last_bid_order.price, 3)
-        self.assertEqual(Decimal("1.0"), last_bid_order.quantity)
-        last_ask_order: LimitOrder = self.multi_orders_ext_api_price_strategy.active_asks[-1][1]
-        last_ask_price = Decimal(20.2 * (1 + 0.01) ** 4).quantize(Decimal("0.001"))
-        self.assertAlmostEqual(last_ask_price, last_ask_order.price, 3)
-        self.assertEqual(Decimal("1.0"), last_ask_order.quantity)
-        p.terminate()
 
     def test_multiple_orders_equal_sizes(self):
         self.clock.remove_iterator(self.strategy)
