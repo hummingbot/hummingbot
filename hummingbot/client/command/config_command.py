@@ -32,7 +32,7 @@ from hummingbot.client.config.config_crypt import (
     encrypted_config_file_exists,
     get_encrypted_config_path
 )
-import os
+from os import unlink
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -324,7 +324,7 @@ class ConfigCommand:
         if val is None or (isinstance(val, str) and len(val) == 0):
             val = cvar.default
         if cvar.key != "password" and cvar.is_secure and encrypted_config_file_exists(cvar):
-            os.remove(get_encrypted_config_path(cvar))
+            unlink(get_encrypted_config_path(cvar))
         return val
 
     @staticmethod
