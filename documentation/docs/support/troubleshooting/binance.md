@@ -28,3 +28,19 @@ Timestap errors in logs happen when the Binance clock gets de-synced from time t
 ```
 binance.exceptions.BinanceAPIException: APIError(code=-1021): Timestamp for this request is outside of the recvWindow.
 ```
+
+## APIError (code=-1003)
+
+Weight/Request error in logs happens when it encountered a warning or error and Hummingbot repeatedly sends the request (fetching status updates, placing/canceling orders, etc.) which resulted to getting banned. This should be lifted after a couple of hours or up to a maximum of 24 hours.
+
+* Too many requests queued.
+* Too much request weight used; please use the websocket for live updates to avoid polling the API.
+* Too much request weight used; current limit is %s request weight per %s %s. Please use the websocket for live updates to avoid polling the API.
+* Way too much request weight used; IP banned until %s. Please use the websocket for live updates to avoid bans.
+
+```
+binance.exceptions.BinanceAPIException: APIError(code=-1003): Way too much request weight used; IP banned until 1573987680818. Please use the websocket for live updates to avoid bans
+```
+
+for more info visit the [binance api documentations for common api error's](https://binance-docs.github.io/apidocs/spot/en/#error-codes-2)
+	

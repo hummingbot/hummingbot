@@ -137,7 +137,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
     def test_limit_buy(self):
         self.assertGreater(self.market.get_balance("ETH"), 0.1)
         trading_pair = "LTC-ETH"
-        amount: Decimal = Decimal('0.02')
+        amount: Decimal = Decimal('1.0')
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         current_bid_price: Decimal = self.market.get_price(trading_pair, True)
@@ -166,7 +166,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
     def test_limit_sell(self):
         trading_pair = "LTC-ETH"
-        amount: Decimal = Decimal('0.02')
+        amount: Decimal = Decimal('1.0')
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
         current_ask_price: Decimal = self.market.get_price(trading_pair, False)
         ask_price: Decimal = current_ask_price - Decimal('0.005') * current_ask_price
@@ -194,7 +194,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
     def test_market_buy(self):
         self.assertGreater(self.market.get_balance("ETH"), 0.1)
         trading_pair = "LTC-ETH"
-        amount: Decimal = Decimal('0.02')
+        amount: Decimal = Decimal('0.5')
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id = self.market.buy(trading_pair, quantized_amount, OrderType.MARKET, 0)
@@ -220,7 +220,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
     def test_market_sell(self):
         trading_pair = "LTC-ETH"
         self.assertGreater(self.market.get_balance("LTC"), 0.01)
-        amount: Decimal = Decimal('0.02')
+        amount: Decimal = Decimal('0.5')
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id = self.market.sell(trading_pair, amount, OrderType.MARKET, 0)
@@ -283,7 +283,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
     def test_list_orders(self):
         self.assertGreater(self.market.get_balance("ETH"), 0.1)
         trading_pair = "LTC-ETH"
-        amount: Decimal = Decimal('0.02')
+        amount: Decimal = Decimal('0.5')
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         current_bid_price: Decimal = self.market.get_price(trading_pair, True)
@@ -338,7 +338,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
             bid_price: Decimal = current_bid_price * Decimal('0.8')
             quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
 
-            amount: Decimal = Decimal('0.04')
+            amount: Decimal = Decimal('0.5')
             quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
             order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
@@ -409,8 +409,8 @@ class BittrexMarketUnitTest(unittest.TestCase):
         recorder.start()
 
         try:
-            # Try to buy 0.04 ETH from the exchange, and watch for completion event.
-            amount: Decimal = Decimal('0.04')
+            # Try to buy 0.5 ETH from the exchange, and watch for completion event.
+            amount: Decimal = Decimal('0.5')
             order_id = self.market.buy(trading_pair, amount)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
