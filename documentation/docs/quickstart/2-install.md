@@ -25,8 +25,6 @@ chmod a+x install-docker-ubuntu.sh
 
 # 3) Run installation
 ./install-docker-ubuntu.sh
-
-# Note: The script will close the terminal window
 ```
 
 !!! warning "Restart Terminal"
@@ -68,7 +66,7 @@ chmod a+x *.sh
 Afterwards, you should see the Hummingbot client interface. Proceed to [Configure a Bot](/quickstart/3-configure-bot).
 
 
-## Windows and MacOS
+## Windows and macOS
 
 Setup and install package to install on local computer can be downloaded from our official website:
 
@@ -77,4 +75,4 @@ Setup and install package to install on local computer can be downloaded from ou
 You may also refer to our User Manual for more information.
 
 - [Windows Binary Installation](/installation/from-binary/windows)
-- [MacOS Binary Installation](installation/from-binary/macos)
+- [macOS Binary Installation](installation/from-binary/macos)

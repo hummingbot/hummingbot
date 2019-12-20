@@ -1,4 +1,4 @@
-# MacOS Installation Using Docker
+# macOS Installation Using Docker
 
 ## Step 1. Install Docker
 
