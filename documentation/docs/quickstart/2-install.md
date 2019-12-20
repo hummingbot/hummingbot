@@ -16,7 +16,6 @@ For Linux we highlight the Docker image method for new users since it contains a
 
 Docker is an open source containerization product that pre-packages all dependencies into a single container, greatly simplifying the installation process.
 
-Install Docker:
 ```bash
 # 1) Download Docker install script
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-docker/install-docker-ubuntu.sh
@@ -32,6 +31,8 @@ chmod a+x install-docker-ubuntu.sh
 
 !!! warning "Restart Terminal"
     The above commands will close your terminal/bash window in order to enable the correct permissions for the `docker` command. Close and restart your bash/terminal window if it did not close automatically.
+
+We also have instructions for installing Docker on [Debian](/installation/via-docker/linux/#debian) and [CentOS](/installation/via-docker/linux/#centos).
 
 
 ### Step 2: Install Hummingbot
