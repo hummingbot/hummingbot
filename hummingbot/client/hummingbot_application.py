@@ -25,7 +25,11 @@ from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
+<<<<<<< HEAD
 from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComMarket
+=======
+from hummingbot.market.hitbtc.hitbtc_market import HitBTCMarket
+>>>>>>> feat/hitbtc-exchange-connector
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
@@ -65,7 +69,8 @@ MARKET_CLASSES = {
     "radar_relay": RadarRelayMarket,
     "dolomite": DolomiteMarket,
     "bittrex": BittrexMarket,
-    "bitcoin_com": BitcoinComMarket
+    "bitcoin_com": BitcoinComMarket,
+    "hitbtc": HitBTCMarket
 }
 
 
@@ -352,6 +357,7 @@ class HummingbotApplication(*commands):
                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                        trading_pairs=trading_pairs,
                                        trading_required=self._trading_required)
+<<<<<<< HEAD
             elif market_name == "bitcoin_com":
                 bitcoin_com_api_key = global_config_map.get("bitcoin_com_api_key").value
                 bitcoin_com_secret_key = global_config_map.get("bitcoin_com_secret_key").value
@@ -360,6 +366,16 @@ class HummingbotApplication(*commands):
                                           order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                           trading_pairs=trading_pairs,
                                           trading_required=self._trading_required)
+=======
+            elif market_name == "hitbtc":
+                hitbtc_api_key = global_config_map.get("hitbtc_api_key").value
+                hitbtc_secret_key = global_config_map.get("hitbtc_secret_key").value
+                market =  HitBTCMarket(hitbtc_api_key,
+                                       hitbtc_secret_key,
+                                       order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                       symbols=symbols,
+                                       trading_required=self._trading_required)
+>>>>>>> feat/hitbtc-exchange-connector
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
 

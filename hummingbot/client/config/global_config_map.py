@@ -192,6 +192,15 @@ global_config_map = {
         ConfigVar(key="bitcoin_com_secret_key",
                   prompt="Enter your bitcoin_com secret key >>> ",
                   required_if=using_exchange("bitcoin_com"),
+    "hitbtc_api_key":
+        ConfigVar(key="hitbtc_api_key",
+                  prompt="Enter your HitBTC API key >>> ",
+                  required_if=using_exchange("hitbtc"),
+                  is_secure=True),
+    "hitbtc_secret_key":
+        ConfigVar(key="hitbtc_secret_key",
+                  prompt="Enter your HitBTC secret key >>> ",
+                  required_if=using_exchange("hitbtc"),
                   is_secure=True),
     "wallet":
         ConfigVar(key="wallet",

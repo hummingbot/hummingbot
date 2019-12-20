@@ -18,7 +18,11 @@ from hummingbot.market.liquid.liquid_market import LiquidMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
+<<<<<<< HEAD
 from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComMarket
+=======
+from hummingbot.market.hitbtc.hitbtc_market import HitBTCMarket
+>>>>>>> feat/hitbtc-exchange-connector
 
 MARKETS = {
     "ddex": DDEXMarket,
@@ -29,9 +33,14 @@ MARKETS = {
     "idex": IDEXMarket,
     "dolomite": DolomiteMarket,
     "huobi": HuobiMarket,
+<<<<<<< HEAD
     "liquid": LiquidMarket,
     "bittrex": BittrexMarket,
     "bitcoin_com": BitcoinComMarket
+=======
+    "bittrex": BittrexMarket,
+    "hitbtc": HitBTCMarket
+>>>>>>> feat/hitbtc-exchange-connector
 }
 
 

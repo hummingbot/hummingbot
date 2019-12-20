@@ -70,6 +70,10 @@ kucoin_passphrase = os.getenv("KUCOIN_PASSPHRASE")
 bitcoin_com_api_key = os.getenv("BITCOIN_COM_API_KEY")
 bitcoin_com_secret_key = os.getenv("BITCOIN_COM_SECRET_KEY")
 
+# HitBTC Tests
+hitbtc_api_key = os.getenv("HITBTC_API_KEY")
+hitbtc_secret_key = os.getenv("HITBTC_SECRET_KEY")
+
 test_web3_provider_list = [os.getenv("WEB3_PROVIDER")]
 
 # Liquid Tests

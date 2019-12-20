@@ -26,8 +26,6 @@ from .order_book_message import (
 )
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 
-TRADING_PAIR_FILTER = re.compile(r"(BTC|ETH|USDT)$")
-
 
 class OrderBookTrackerDataSourceType(Enum):
     # LOCAL_CLUSTER = 1 deprecated
