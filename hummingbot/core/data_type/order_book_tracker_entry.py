@@ -8,12 +8,8 @@ from hummingbot.market.idex.idex_active_order_tracker import IDEXActiveOrderTrac
 from hummingbot.market.radar_relay.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
 from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
 from hummingbot.market.dolomite.dolomite_active_order_tracker import DolomiteActiveOrderTracker
-<<<<<<< HEAD
 from hummingbot.market.bitcoin_com.bitcoin_com_active_order_tracker import BitcoinComActiveOrderTracker
-
-=======
 from hummingbot.market.hitbtc.hitbtc_active_order_tracker import HitBTCActiveOrderTracker
->>>>>>> feat/hitbtc-exchange-connector
 
 class OrderBookTrackerEntry:
     def __init__(self, trading_pair: str, timestamp: float, order_book: OrderBook):

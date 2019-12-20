@@ -37,11 +37,8 @@ EXCHANGES = {
     "radar_relay",
     "dolomite",
     "bittrex",
-<<<<<<< HEAD
-    "bitcoin_com"
-=======
+    "bitcoin_com",
     "hitbtc"
->>>>>>> feat/hitbtc-exchange-connector
 }
 
 DEXES = {

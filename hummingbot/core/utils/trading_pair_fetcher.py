@@ -19,11 +19,8 @@ HUOBI_ENDPOINT = "https://api.huobi.pro/v1/common/symbols"
 LIQUID_ENDPOINT = "https://api.liquid.com/products"
 BITTREX_ENDPOINT = "https://api.bittrex.com/v3/markets"
 DOLOMITE_ENDPOINT = "https://exchange-api.dolomite.io/v1/markets"
-<<<<<<< HEAD
 BITCOIN_COM_ENDPOINT = "https://api.exchange.bitcoin.com/api/2/public/symbol"
-=======
 HITBTC_ENDPOINT = "https://api.hitbtc.com/api/2/public/symbol/"
->>>>>>> feat/hitbtc-exchange-connector
 
 API_CALL_TIMEOUT = 5
 
