@@ -1,4 +1,4 @@
-# Install Hummingbot in the Cloud
+# Setup a Cloud Server
 
 Using Hummingbot as a long running service can be achieved with the help of cloud platforms such as Google Cloud Platform, Amazon Web Services, and Microsoft Azure. You may read our blog about running [Hummingbot on different cloud providers](https://www.hummingbot.io/blog/2019-06-cloud-providers/).
 
