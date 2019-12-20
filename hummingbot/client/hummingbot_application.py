@@ -365,11 +365,11 @@ class HummingbotApplication(*commands):
             elif market_name == "hitbtc":
                 hitbtc_api_key = global_config_map.get("hitbtc_api_key").value
                 hitbtc_secret_key = global_config_map.get("hitbtc_secret_key").value
-                market =  HitBTCMarket(hitbtc_api_key,
-                                       hitbtc_secret_key,
-                                       order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                       symbols=symbols,
-                                       trading_required=self._trading_required)
+                market = HitBTCMarket(hitbtc_api_key,
+                                      hitbtc_secret_key,
+                                      order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                      symbols=trading_pairs,
+                                      trading_required=self._trading_required)
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
 
