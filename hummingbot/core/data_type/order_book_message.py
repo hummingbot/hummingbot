@@ -501,7 +501,7 @@ class BittrexOrderBookMessage(OrderBookMessage):
             """
             return self.type.value < other.type.value
 
-class HitbtcOrderBookMessage(OrderBookMessage):
+class HitBTCOrderBookMessage(OrderBookMessage):
     def __new__(
         cls,
         message_type: OrderBookMessageType,
@@ -515,7 +515,7 @@ class HitbtcOrderBookMessage(OrderBookMessage):
                 raise ValueError("timestamp must not be None when initializing snapshot messages.")
             timestamp = content["timestamp"]
 
-        return super(HitbtcOrderBookMessage, cls).__new__(
+        return super(HitBTCOrderBookMessage, cls).__new__(
             cls, message_type, content, timestamp=timestamp, *args, **kwargs
         )
 
@@ -530,14 +530,6 @@ class HitbtcOrderBookMessage(OrderBookMessage):
     @property
     def symbol(self) -> str:
         return self.content["symbol"]
-
-    @property
-    def asks(self) -> List[OrderBookRow]:
-        raise self.content["asks"]
-
-    @property
-    def bids(self) -> List[OrderBookRow]:
-        raise self.content["bids"]
 
     @property
     def has_update_id(self) -> bool:

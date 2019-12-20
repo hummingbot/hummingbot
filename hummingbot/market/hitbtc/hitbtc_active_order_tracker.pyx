@@ -13,12 +13,12 @@ from hummingbot.core.data_type.order_book_row import OrderBookRow
 _hbaot_logger = None
 s_empty_diff = np.ndarray(shape=(0, 4), dtype="float64")
 
-HitbtcOrderBookTrackingDictionary = Dict[Decimal, Dict[str, Dict[str, any]]]
+HitBTCOrderBookTrackingDictionary = Dict[Decimal, Dict[str, Dict[str, any]]]
 
-cdef class HitbtcActiveOrderTracker:
+cdef class HitBTCActiveOrderTracker:
     def __init__(self,
-                 active_asks: HitbtcOrderBookTrackingDictionary = None,
-                 active_bids: HitbtcOrderBookTrackingDictionary = None):
+                 active_asks: HitBTCOrderBookTrackingDictionary = None,
+                 active_bids: HitBTCOrderBookTrackingDictionary = None):
         super().__init__()
         self._active_asks = active_asks or {}
         self._active_bids = active_bids or {}
@@ -31,11 +31,11 @@ cdef class HitbtcActiveOrderTracker:
         return _hbaot_logger
 
     @property
-    def active_asks(self) -> HitbtcOrderBookTrackingDictionary:
+    def active_asks(self) -> HitBTCOrderBookTrackingDictionary:
         return self._active_asks
 
     @property
-    def active_bids(self) -> HitbtcOrderBookTrackingDictionary:
+    def active_bids(self) -> HitBTCOrderBookTrackingDictionary:
         return self._active_bids
 
     def volume_for_ask_price(self, price) -> float:
@@ -103,8 +103,8 @@ cdef class HitbtcActiveOrderTracker:
                                               (message.content["asks"], self.active_asks)]:
 
             for order in snapshot_orders:
-                price = order["price"]
-                amount = str(order["size"])
+                price = order[0]
+                amount = order[1]
                 order_dict = {
                     "order_id": timestamp,
                     "quantity": amount

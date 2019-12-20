@@ -173,6 +173,16 @@ global_config_map = {
                   prompt="Enter your Bittrex secret key >>> ",
                   required_if=using_exchange("bittrex"),
                   is_secure=True),
+    "hitbtc_api_key":
+        ConfigVar(key="hitbtc_api_key",
+                  prompt="Enter your HitBTC API key >>> ",
+                  required_if=using_exchange("hitbtc"),
+                  is_secure=True),
+    "hitbtc_secret_key":
+        ConfigVar(key="hitbtc_secret_key",
+                  prompt="Enter your HitBTC secret key >>> ",
+                  required_if=using_exchange("hitbtc"),
+                  is_secure=True),
     "wallet":
         ConfigVar(key="wallet",
                   prompt="Would you like to import an existing wallet or create a new wallet? (import/create) >>> ",

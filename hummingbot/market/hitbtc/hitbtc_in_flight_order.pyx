@@ -3,11 +3,11 @@ from decimal import Decimal
 from typing import Optional, Dict, Any
 
 from hummingbot.core.event.events import OrderType, TradeType
-from hummingbot.market.bittrex.bittrex_market import BittrexMarket
+from hummingbot.market.hitbtc.hitbtc_market import HitBTCMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
 
-cdef class BittrexInFlightOrder(InFlightOrderBase):
+cdef class HitBTCInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: Optional[str],
@@ -16,9 +16,9 @@ cdef class BittrexInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "OPEN"):
+                 initial_state: str = "new"):
         super().__init__(
-            BittrexMarket,
+            HitBTCMarket,
             client_order_id,
             exchange_order_id,
             symbol,
@@ -31,15 +31,19 @@ cdef class BittrexInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"CLOSED"}
+        return self.last_state in {"filled", "canceled", "expired"}
 
     @property
     def is_failure(self) -> bool:
-        return self.last_state in {"CANCELLED", "FAILURE"}
+        return self.last_state in {"canceled", "expired"}
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"CANCELLED"}
+        return self.last_state in {"canceled", "expired"}
+
+    @property
+    def is_open(self) -> bool:
+        return self.last_state in {'new', 'partiallyFilled'}
 
     @property
     def order_type_description(self) -> str:
@@ -50,7 +54,7 @@ cdef class BittrexInFlightOrder(InFlightOrderBase):
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         cdef:
-            BittrexInFlightOrder retval = BittrexInFlightOrder(
+            HitBTCInFlightOrder retval = HitBTCInFlightOrder(
                 data["client_order_id"],
                 data["exchange_order_id"],
                 data["symbol"],

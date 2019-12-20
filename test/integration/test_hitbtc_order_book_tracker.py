@@ -11,7 +11,7 @@ import logging
 from typing import Dict, Optional, List
 import unittest
 
-from hummingbot.market.hitbtc.hitbtc_order_book_tracker import HitbtcOrderBookTracker
+from hummingbot.market.hitbtc.hitbtc_order_book_tracker import HitBTCOrderBookTracker
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTrackerDataSourceType
@@ -21,8 +21,8 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 
-class HitbtcOrderBookTrackerUnitTest(unittest.TestCase):
-    order_book_tracker: Optional[HitbtcOrderBookTracker] = None
+class HitBTCOrderBookTrackerUnitTest(unittest.TestCase):
+    order_book_tracker: Optional[HitBTCOrderBookTracker] = None
     events: List[OrderBookEvent] = [
         OrderBookEvent.TradeEvent
     ]
@@ -34,7 +34,7 @@ class HitbtcOrderBookTrackerUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.order_book_tracker: HitbtcOrderBookTracker = HitbtcOrderBookTracker(
+        cls.order_book_tracker: HitBTCOrderBookTracker = HitBTCOrderBookTracker(
             OrderBookTrackerDataSourceType.EXCHANGE_API, symbols=cls.trading_pairs)
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
@@ -81,7 +81,7 @@ class HitbtcOrderBookTrackerUnitTest(unittest.TestCase):
             self.assertTrue(type(ob_trade_event.amount) == float)
             self.assertTrue(type(ob_trade_event.price) == float)
             self.assertTrue(type(ob_trade_event.type) == TradeType)
-            # Hitbtc datetime is in epoch milliseconds
+            # HitBTC datetime is in epoch milliseconds
             self.assertTrue(math.ceil(math.log10(ob_trade_event.timestamp)) == 10)
             self.assertTrue(ob_trade_event.amount > 0)
             self.assertTrue(ob_trade_event.price > 0)
@@ -92,9 +92,9 @@ class HitbtcOrderBookTrackerUnitTest(unittest.TestCase):
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
         btcusd_book: OrderBook = order_books["BTCUSD"]
         # print(btcusd_book)
-        self.assertGreaterEqual(btcusd_book.get_price_for_volume(True, 10).result_price,
+        self.assertGreaterEqual(btcusd_book.get_price_for_volume(True, 5).result_price,
                                 btcusd_book.get_price(True))
-        self.assertLessEqual(btcusd_book.get_price_for_volume(False, 10).result_price,
+        self.assertLessEqual(btcusd_book.get_price_for_volume(False, 5).result_price,
                              btcusd_book.get_price(False))
 
 

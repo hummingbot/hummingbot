@@ -12,7 +12,7 @@ from hummingbot.logger import HummingbotLogger
 # reusable websocket class
 
 
-class HitbtcWebsocket():
+class HitBTCWebsocket():
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 

@@ -7,18 +7,18 @@ import hummingbot.market.hitbtc.hitbtc_constants as constants
 from collections import defaultdict, deque
 from typing import Optional, Dict, List, Deque
 # from typing import Optional, Dict, List, Deque, Set
-from hummingbot.core.data_type.order_book_message import HitbtcOrderBookMessage
+from hummingbot.core.data_type.order_book_message import HitBTCOrderBookMessage
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-# from hummingbot.core.data_type.order_book_tracker_entry import HitbtcOrderBookTrackerEntry
+from hummingbot.core.data_type.order_book_tracker_entry import HitBTCOrderBookTrackerEntry
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.market.hitbtc.hitbtc_active_order_tracker import HitbtcActiveOrderTracker
-from hummingbot.market.hitbtc.hitbtc_api_order_book_data_source import HitbtcAPIOrderBookDataSource
-from hummingbot.market.hitbtc.hitbtc_order_book import HitbtcOrderBook
+from hummingbot.market.hitbtc.hitbtc_active_order_tracker import HitBTCActiveOrderTracker
+from hummingbot.market.hitbtc.hitbtc_api_order_book_data_source import HitBTCAPIOrderBookDataSource
+from hummingbot.market.hitbtc.hitbtc_order_book import HitBTCOrderBook
 
 
-class HitbtcOrderBookTracker(OrderBookTracker):
+class HitBTCOrderBookTracker(OrderBookTracker):
     _hbaot_logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -41,9 +41,9 @@ class HitbtcOrderBookTracker(OrderBookTracker):
         self._order_book_trade_stream: asyncio.Queue = asyncio.Queue()
         self._process_msg_deque_task: Optional[asyncio.Task] = None
         self._past_diffs_windows: Dict[str, Deque] = {}
-        self._order_books: Dict[str, HitbtcOrderBook] = {}
-        self._saved_message_queues: Dict[str, Deque[HitbtcOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
-        self._active_order_trackers: Dict[str, HitbtcActiveOrderTracker] = defaultdict(HitbtcActiveOrderTracker)
+        self._order_books: Dict[str, HitBTCOrderBook] = {}
+        self._saved_message_queues: Dict[str, Deque[HitBTCOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
+        self._active_order_trackers: Dict[str, HitBTCActiveOrderTracker] = defaultdict(HitBTCActiveOrderTracker)
         self._symbols: Optional[List[str]] = symbols
         self._order_book_stream_listener_task: Optional[asyncio.Task] = None
         self._order_book_trade_listener_task: Optional[asyncio.Task] = None
@@ -56,7 +56,7 @@ class HitbtcOrderBookTracker(OrderBookTracker):
         """
         if not self._data_source:
             if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = HitbtcAPIOrderBookDataSource(symbols=self._symbols)
+                self._data_source = HitBTCAPIOrderBookDataSource(symbols=self._symbols)
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source

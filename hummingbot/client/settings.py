@@ -33,7 +33,8 @@ EXCHANGES = {
     "idex",
     "radar_relay",
     "dolomite",
-    "bittrex"
+    "bittrex",
+    "hitbtc"
 }
 
 DEXES = {
@@ -55,7 +56,8 @@ EXAMPLE_PAIRS = {
     "coinbase_pro": "ETH-USDC",
     "dolomite": "WETH-DAI",
     "huobi": "ethusdt",
-    "bittrex": "ZRX-ETH"
+    "bittrex": "ZRX-ETH",
+    "hitbtc": "ETHUSD"
 }
 
 EXAMPLE_ASSETS = {
@@ -67,7 +69,8 @@ EXAMPLE_ASSETS = {
     "coinbase_pro": "ETH",
     "huobi": "eth",
     "dolomite": "LRC",
-    "bittrex": "ZRX"
+    "bittrex": "ZRX",
+    "hitbtc": "ETH"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000

@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import time
+import json
 
 import aiohttp
 import pandas as pd
@@ -11,18 +12,18 @@ from typing import Optional, List, Dict, Any
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry, HitbtcOrderBookTrackerEntry
+from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry, HitBTCOrderBookTrackerEntry
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.hitbtc.hitbtc_active_order_tracker import HitbtcActiveOrderTracker
-from hummingbot.market.hitbtc.hitbtc_order_book import HitbtcOrderBook
-from hummingbot.market.hitbtc.hitbtc_websocket import HitbtcWebsocket
+from hummingbot.market.hitbtc.hitbtc_active_order_tracker import HitBTCActiveOrderTracker
+from hummingbot.market.hitbtc.hitbtc_order_book import HitBTCOrderBook
+from hummingbot.market.hitbtc.hitbtc_websocket import HitBTCWebsocket
 
 
 MAX_RETRIES = 20
 
-class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
+class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     MESSAGE_TIMEOUT = 30.0
     SNAPSHOT_TIMEOUT = 10.0
@@ -95,13 +96,12 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             usd_volume: List[float] = [
                 (
-                    volume * last if symbol.endswith(("USD", "USDT")) else
-                    volume * last * btc_usd_price if symbol.endswith("BTC") else
-                    volume * last * eth_usd_price if symbol.endswith("ETH") else
+                    volume * btc_usd_price if symbol.endswith("BTC") else
+                    volume * eth_usd_price if symbol.endswith("ETH") else
                     volume
                 )
                 for symbol, volume, last in zip(all_markets.index,
-                                                all_markets.volume.astype("float"),
+                                                all_markets.volumeQuote.astype("float"),
                                                 all_markets["last"].astype("float")
                                                 )
             ]
@@ -130,63 +130,54 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return self._symbols
 
     @staticmethod
-    async def get_orderbook(trading_pair: str) -> Dict[str, any]:
-        """
-        Get whole orderbook
-        """
-        client = aiohttp.ClientSession()
-        orderbook_response = await client.get(f"{constants.REST_ORDERBOOK_URL}/{trading_pair}", params={"limit": 0})
-
-        if orderbook_response.status != 200:
-            raise IOError(
-                f"Error fetching OrderBook for {trading_pair} at {constants.EXCHANGE_NAME}. " f"HTTP status is {orderbook_response.status}."
-            )
-
-        orderbook_data: List[Dict[str, Any]] = await safe_gather(orderbook_response.json())
-
-        await client.close()
-
-        if len(orderbook_data) > 0:
-            return orderbook_data[0]
-
-        return {}
+    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
+        # Get the 15 highest bids and 15 lowest asks to simulate level II market data
+        async with client.get(f"{constants.REST_ORDERBOOK_URL}{trading_pair}") as response:
+            response: aiohttp.ClientResponse = response
+            if response.status != 200:
+                raise IOError(f"Error fetching HitBTC market snapshot for {trading_pair}. "
+                              f"HTTP status is {response.status}.")
+            api_data = await response.read()
+            data: Dict[str, Any] = json.loads(api_data)
+            return data
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
-        trading_pairs: List[str] = await self.get_trading_pairs()
-        tracking_pairs: Dict[str, OrderBookTrackerEntry] = {}
+        async with aiohttp.ClientSession() as client:
+            trading_pairs: List[str] = await self.get_trading_pairs()
+            tracking_pairs: Dict[str, OrderBookTrackerEntry] = {}
 
-        number_of_pairs: int = len(trading_pairs)
-        for index, trading_pair in enumerate(trading_pairs):
-            try:
-                snapshot: Dict[str, any] = await self.get_orderbook(trading_pair)
-                snapshot_timestamp: float = pd.Timestamp(snapshot["timestamp"]).timestamp()
-                snapshot_msg: OrderBookMessage = HitbtcOrderBook.snapshot_message_from_exchange(
-                    snapshot,
-                    snapshot_timestamp,
-                    metadata={"trading_pair": trading_pair}
-                )
-                order_book: OrderBook = self.order_book_create_function()
-                active_order_tracker: HitbtcActiveOrderTracker = HitbtcActiveOrderTracker()
-                bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
-                order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
+            number_of_pairs: int = len(trading_pairs)
+            for index, trading_pair in enumerate(trading_pairs):
+                try:
+                    snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
+                    snapshot_timestamp: float = pd.Timestamp(snapshot["timestamp"]).timestamp()
+                    snapshot_msg: OrderBookMessage = HitBTCOrderBook.snapshot_message_from_exchange(
+                        snapshot,
+                        snapshot_timestamp,
+                        metadata={"trading_pair": trading_pair}
+                    )
+                    order_book: OrderBook = self.order_book_create_function()
+                    active_order_tracker: HitBTCActiveOrderTracker = HitBTCActiveOrderTracker()
+                    bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
+                    order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
 
-                tracking_pairs[trading_pair] = HitbtcOrderBookTrackerEntry(
-                    trading_pair,
-                    snapshot_timestamp,
-                    order_book,
-                    active_order_tracker
-                )
-                self.logger().info(f"Initialized order book for {trading_pair}. "
-                                   f"{index+1}/{number_of_pairs} completed.")
-                await asyncio.sleep(0.6)
-            except IOError:
-                self.logger().network(
-                    f"Error getting snapshot for {trading_pair}.",
-                    exc_info=True,
-                    app_warning_msg=f"Error getting snapshot for {trading_pair}. Check network connection."
-                )
-            except Exception:
-                self.logger().error(f"Error initializing order book for {trading_pair}. ", exc_info=True)
+                    tracking_pairs[trading_pair] = HitBTCOrderBookTrackerEntry(
+                        trading_pair,
+                        snapshot_timestamp,
+                        order_book,
+                        active_order_tracker
+                    )
+                    self.logger().info(f"Initialized order book for {trading_pair}. "
+                                    f"{index+1}/{number_of_pairs} completed.")
+                    await asyncio.sleep(0.6)
+                except IOError:
+                    self.logger().network(
+                        f"Error getting snapshot for {trading_pair}.",
+                        exc_info=True,
+                        app_warning_msg=f"Error getting snapshot for {trading_pair}. Check network connection."
+                    )
+                except Exception:
+                    self.logger().error(f"Error initializing order book for {trading_pair}. ", exc_info=True)
 
             return tracking_pairs
 
@@ -196,7 +187,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                ws = HitbtcWebsocket()
+                ws = HitBTCWebsocket()
                 trading_pairs: List[str] = await self.get_trading_pairs()
 
                 for trading_pair in trading_pairs:
@@ -210,7 +201,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                         for trade in trades:
                             trade_timestamp: float = pd.Timestamp(trade["timestamp"]).timestamp()
-                            trade_msg: OrderBookMessage = HitbtcOrderBook.trade_message_from_exchange(trade, trade_timestamp, metadata={"trading_pair": trading_pair})
+                            trade_msg: OrderBookMessage = HitBTCOrderBook.trade_message_from_exchange(trade, trade_timestamp, metadata={"trading_pair": trading_pair})
                             output.put_nowait(trade_msg)
 
             except asyncio.CancelledError:
@@ -225,7 +216,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                ws = HitbtcWebsocket()
+                ws = HitBTCWebsocket()
                 trading_pairs: List[str] = await self.get_trading_pairs()
 
                 for trading_pair in trading_pairs:
@@ -235,7 +226,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     async for msg in ws.on("updateOrderbook"):
                         orderbook_timestamp: float = pd.Timestamp(msg["timestamp"]).timestamp()
-                        orderbook_msg: OrderBookMessage = HitbtcOrderBook.diff_message_from_exchange(msg, orderbook_timestamp)
+                        orderbook_msg: OrderBookMessage = HitBTCOrderBook.diff_message_from_exchange(msg, orderbook_timestamp)
                         output.put_nowait(orderbook_msg)
 
             except asyncio.CancelledError:
@@ -256,30 +247,30 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trading_pairs: List[str] = await self.get_trading_pairs()
-
-                for trading_pair in trading_pairs:
-                    try:
-                        snapshot: Dict[str, any] = await self.get_orderbook(trading_pair)
-                        snapshot_timestamp: float = pd.Timestamp(snapshot["timestamp"]).timestamp()
-                        snapshot_msg: OrderBookMessage = HitbtcOrderBook.snapshot_message_from_exchange(
-                            snapshot,
-                            snapshot_timestamp,
-                            metadata={"trading_pair": trading_pair}
-                        )
-                        output.put_nowait(snapshot_msg)
-                        self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-                        # Be careful not to go above API rate limits.
-                        await asyncio.sleep(5.0)
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception:
-                        self.logger().network(
-                            f"Unexpected error with WebSocket connection.",
-                            exc_info=True,
-                            app_warning_msg=f"Unexpected error with WebSocket connection. Retrying in 5 seconds. "
-                                            f"Check network connection."
-                        )
-                        await asyncio.sleep(5.0)
+                async with aiohttp.ClientSession() as client:
+                    for trading_pair in trading_pairs:
+                        try:
+                            snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
+                            snapshot_timestamp: float = pd.Timestamp(snapshot["timestamp"]).timestamp()
+                            snapshot_msg: OrderBookMessage = HitBTCOrderBook.snapshot_message_from_exchange(
+                                snapshot,
+                                snapshot_timestamp,
+                                metadata={"trading_pair": trading_pair}
+                            )
+                            output.put_nowait(snapshot_msg)
+                            self.logger().debug(f"Saved order book snapshot for {trading_pair}")
+                            # Be careful not to go above API rate limits.
+                            await asyncio.sleep(1.0)
+                        except asyncio.CancelledError:
+                            raise
+                        except Exception as e:
+                            self.logger().network(
+                                f"Unexpected error with REST API connection.",
+                                exc_info=True,
+                                app_warning_msg=f"Unexpected error with REST API connection. Retrying in 5 seconds. "
+                                                f"Check network connection."
+                            )
+                            await asyncio.sleep(5.0)
                 this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
                 next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
                 delta: float = next_hour.timestamp() - time.time()
