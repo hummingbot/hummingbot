@@ -183,6 +183,21 @@ global_config_map = {
                   prompt="Enter your Bittrex secret key >>> ",
                   required_if=using_exchange("bittrex"),
                   is_secure=True),
+    "kucoin_api_key":
+        ConfigVar(key="kucoin_api_key",
+                  prompt="Enter your KuCoin API key >>> ",
+                  required_if=using_exchange("kucoin"),
+                  is_secure=True),
+    "kucoin_secret_key":
+        ConfigVar(key="kucoin_secret_key",
+                  prompt="Enter your KuCoin secret key >>> ",
+                  required_if=using_exchange("kucoin"),
+                  is_secure=True),
+    "kucoin_passphrase":
+        ConfigVar(key="kucoin_passphrase",
+                  prompt="Enter your KuCoin passphrase >>> ",
+                  required_if=using_exchange("kucoin"),
+                  is_secure=True),
     "bitcoin_com_api_key":
         ConfigVar(key="bitcoin_com_api_key",
                   prompt="Enter your bitcoin_com API key >>> ",

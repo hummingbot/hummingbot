@@ -74,16 +74,16 @@ class KucoinMarketUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: KucoinMarket = KucoinMarket(
-            kucoin_api_key=conf.kucoin_api_key,
-            kucoin_passphrase=conf.kucoin_passphrase,
-            kucoin_secret_key=conf.kucoin_secret_key,
+            "5dce529f6c77eb0008560824",
+            "Ko0u8cft6o0i9nji9.",
+            "bdec92f1-7c2c-47f1-a738-dfecccff7cc5",
             trading_pairs=["ETH-USDT"]
         )
         # Need 2nd instance of market to prevent events mixing up across tests
         cls.market_2: KucoinMarket = KucoinMarket(
-            kucoin_api_key=conf.kucoin_api_key,
-            kucoin_passphrase=conf.kucoin_passphrase,
-            kucoin_secret_key=conf.kucoin_secret_key,
+            "5dce529f6c77eb0008560824",
+            "Ko0u8cft6o0i9nji9.",
+            "bdec92f1-7c2c-47f1-a738-dfecccff7cc5",
             trading_pairs=["ETH-USDT"]
         )
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -344,9 +344,9 @@ class KucoinMarketUnitTest(unittest.TestCase):
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
             self.market: KucoinMarket = KucoinMarket(
-                kucoin_api_key=conf.kucoin_api_key,
-                kucoin_passphrase=conf.kucoin_passphrase,
-                kucoin_secret_key=conf.kucoin_secret_key,
+                "5dce529f6c77eb0008560824",
+                "Ko0u8cft6o0i9nji9.",
+                "bdec92f1-7c2c-47f1-a738-dfecccff7cc5",
                 trading_pairs=["ETH-USDT", "BTC-USDT"]
             )
             for event_tag in self.events:
