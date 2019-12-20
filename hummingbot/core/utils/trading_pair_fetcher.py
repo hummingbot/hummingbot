@@ -20,6 +20,7 @@ LIQUID_ENDPOINT = "https://api.liquid.com/products"
 BITTREX_ENDPOINT = "https://api.bittrex.com/v3/markets"
 DOLOMITE_ENDPOINT = "https://exchange-api.dolomite.io/v1/markets"
 BITCOIN_COM_ENDPOINT = "https://api.exchange.bitcoin.com/api/2/public/symbol"
+KYBER_ENDPOINT = "https://api.kyber.network/market"
 
 API_CALL_TIMEOUT = 5
 
@@ -72,6 +73,24 @@ class TradingPairFetcher:
                         markets = response.get("data").get("markets")
                         raw_trading_pairs = list(map(lambda details: details.get('id'), markets))
                         return [DDEXMarket.convert_from_exchange_trading_pair(p) for p in raw_trading_pairs]
+                    except Exception:
+                        pass
+                        # Do nothing if the request fails -- there will be no autocomplete for ddex trading pairs
+                return []
+
+    @staticmethod
+    async def fetch_kyber_trading_pairs() -> List[str]:
+        from hummingbot.market.kyber.kyber_market import KyberMarket
+
+        async with aiohttp.ClientSession() as client:
+            async with client.get(KYBER_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                if response.status == 200:
+                    try:
+                        response = await response.json()
+                        markets = response.get("data")
+                        raw_trading_pairs = list(map(lambda details: details.get('pair'), markets))
+                        print('raw_trading_pairs', raw_trading_pairs)
+                        return [KyberMarket.convert_from_exchange_trading_pair(p) for p in raw_trading_pairs]
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for ddex trading pairs
@@ -260,6 +279,7 @@ class TradingPairFetcher:
         idex_trading_pairs = await self.fetch_idex_trading_pairs()
         bittrex_trading_pairs = await self.fetch_bittrex_trading_pairs()
         bitcoin_com_trading_pairs = await self.fetch_bitcoin_com_trading_pairs()
+        kyber_trading_pairs = await self.fetch_kyber_trading_pairs()
         self.trading_pairs = {
             "binance": binance_trading_pairs,
             "dolomite": dolomite_trading_pairs,
@@ -271,6 +291,7 @@ class TradingPairFetcher:
             "huobi": huobi_trading_pairs,
             "liquid": liquid_trading_pairs,
             "bittrex": bittrex_trading_pairs,
-            "bitcoin_com": bitcoin_com_trading_pairs
+            "bitcoin_com": bitcoin_com_trading_pairs,
+            "kyber": kyber_trading_pairs
         }
         self.ready = True
