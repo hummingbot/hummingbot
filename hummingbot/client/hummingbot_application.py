@@ -37,7 +37,6 @@ from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.errors import InvalidCommandError, ArgumentParserError
 from hummingbot.client.config.in_memory_config_map import in_memory_config_map
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.liquidity_bounty.liquidity_bounty_config_map import liquidity_bounty_config_map
 from hummingbot.client.config.config_helpers import get_erc20_token_addresses
 from hummingbot.logger.report_aggregator import ReportAggregator
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -48,7 +47,6 @@ from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.client.liquidity_bounty.bounty_utils import LiquidityBounty
 from hummingbot.market.markets_recorder import MarketsRecorder
 
 
@@ -116,8 +114,6 @@ class HummingbotApplication(*commands):
         self.data_feed: Optional[DataFeedBase] = None
         self.notifiers: List[NotifierBase] = []
         self.kill_switch: Optional[KillSwitch] = None
-        self.liquidity_bounty: Optional[LiquidityBounty] = None
-        self._initialize_liquidity_bounty()
         self._app_warnings: Deque[ApplicationWarning] = deque()
         self._trading_required: bool = True
 
@@ -386,11 +382,3 @@ class HummingbotApplication(*commands):
                 )
         for notifier in self.notifiers:
             notifier.start()
-
-    def _initialize_liquidity_bounty(self):
-        if (
-            liquidity_bounty_config_map.get("liquidity_bounty_enabled").value is not None
-            and liquidity_bounty_config_map.get("liquidity_bounty_client_id").value is not None
-        ):
-            self.liquidity_bounty = LiquidityBounty.get_instance()
-            self.liquidity_bounty.start()
