@@ -22,12 +22,10 @@ from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.market.ddex.ddex_active_order_tracker import DDEXActiveOrderTracker
 from hummingbot.market.ddex.ddex_order_book import DDEXOrderBook
 from hummingbot.market.ddex.ddex_order_book_message import DDEXOrderBookMessage
+from hummingbot.market.ddex.ddex_order_book_tracker_entry import DDEXOrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker_entry import (
-    DDEXOrderBookTrackerEntry,
-    OrderBookTrackerEntry
-)
+from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 
 TRADING_PAIR_FILTER = re.compile(r"(TUSD|WETH|DAI|SAI)$")
 

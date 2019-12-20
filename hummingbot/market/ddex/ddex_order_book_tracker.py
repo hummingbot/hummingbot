@@ -24,8 +24,8 @@ from hummingbot.core.data_type.remote_api_order_book_data_source import RemoteAP
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.ddex.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
 from hummingbot.market.ddex.ddex_order_book_message import DDEXOrderBookMessage
+from hummingbot.market.ddex.ddex_order_book_tracker_entry import DDEXOrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.core.data_type.order_book_tracker_entry import DDEXOrderBookTrackerEntry
 
 
 class DDEXOrderBookTracker(OrderBookTracker):
