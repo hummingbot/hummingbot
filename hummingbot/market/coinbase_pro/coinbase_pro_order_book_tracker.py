@@ -21,14 +21,15 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.market.coinbase_pro.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
+from hummingbot.market.coinbase_pro.coinbase_pro_order_book_message import CoinbaseProOrderBookMessage
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessageType,
-    CoinbaseProOrderBookMessage,
-    OrderBookMessage)
-from hummingbot.core.data_type.order_book_tracker_entry import CoinbaseProOrderBookTrackerEntry
+    OrderBookMessage,
+)
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 from hummingbot.market.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
+from hummingbot.market.coinbase_pro.coinbase_pro_order_book_tracker_entry import CoinbaseProOrderBookTrackerEntry
 
 
 class CoinbaseProOrderBookTracker(OrderBookTracker):
