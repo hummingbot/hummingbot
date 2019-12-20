@@ -321,7 +321,6 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
         try:
             self.assertEqual(0, len(self.market.tracking_states))
-
             current_bid_price: Decimal = self.market.get_price(trading_pair, True) * Decimal('0.80')
             quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, current_bid_price)
             bid_amount: Decimal = Decimal('0.0005') / quantize_bid_price * Decimal('1.1')
@@ -395,7 +394,6 @@ class BittrexMarketUnitTest(unittest.TestCase):
         recorder.start()
 
         try:
-            # Try to buy 0.04 ETH from the exchange, and watch for completion event.
             current_bid_price: Decimal = self.market.get_price(trading_pair, True)
             bid_price: Decimal = current_bid_price * Decimal('1.01')
             quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
@@ -408,7 +406,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
             # Reset the logs
             self.market_logger.clear()
 
-            # Try to sell back the same amount of ETH to the exchange, and watch for completion event.
+
             amount = Decimal(buy_order_completed_event.base_asset_amount)
             order_id = self.market.sell(trading_pair, amount)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
