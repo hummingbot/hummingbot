@@ -368,7 +368,7 @@ class HummingbotApplication(*commands):
                 market = HitBTCMarket(hitbtc_api_key,
                                       hitbtc_secret_key,
                                       order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                      symbols=trading_pairs,
+                                      trading_pairs=trading_pairs,
                                       trading_required=self._trading_required)
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")

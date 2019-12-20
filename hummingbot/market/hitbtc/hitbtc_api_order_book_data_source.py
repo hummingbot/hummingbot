@@ -23,6 +23,7 @@ from hummingbot.market.hitbtc.hitbtc_websocket import HitBTCWebsocket
 
 MAX_RETRIES = 20
 
+
 class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     MESSAGE_TIMEOUT = 30.0
@@ -36,16 +37,16 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._hbaot_logger = logging.getLogger(__name__)
         return cls._hbaot_logger
 
-    def __init__(self, symbols: Optional[List[str]] = None):
+    def __init__(self, trading_pairs: Optional[List[str]] = None):
         super().__init__()
-        self._symbols: Optional[List[str]] = symbols
+        self._trading_pairs: Optional[List[str]] = trading_pairs
         self._snapshot_msg: Dict[str, any] = {}
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         """
-        Returned data frame should have symbol as index and include USDVolume, baseAsset and quoteAsset
+        Returned data frame should have trading_pair as index and include USDVolume, baseAsset and quoteAsset
         """
         async with aiohttp.ClientSession() as client:
 
@@ -115,19 +116,19 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Return list of trading pairs
         """
-        if not self._symbols:
+        if not self._trading_pairs:
             try:
                 active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                self._symbols = active_markets.index.tolist()
+                self._trading_pairs = active_markets.index.tolist()
             except Exception:
-                self._symbols = []
+                self._trading_pairs = []
                 self.logger().network(
                     f"Error getting active exchange information.",
                     exc_info=True,
                     app_warning_msg=f"Error getting active exchange information. Check network connection.",
                 )
 
-        return self._symbols
+        return self._trading_pairs
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
@@ -168,7 +169,7 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         active_order_tracker
                     )
                     self.logger().info(f"Initialized order book for {trading_pair}. "
-                                    f"{index+1}/{number_of_pairs} completed.")
+                                       f"{index+1}/{number_of_pairs} completed.")
                     await asyncio.sleep(0.6)
                 except IOError:
                     self.logger().network(
@@ -263,7 +264,7 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             await asyncio.sleep(1.0)
                         except asyncio.CancelledError:
                             raise
-                        except Exception as e:
+                        except Exception:
                             self.logger().network(
                                 f"Unexpected error with REST API connection.",
                                 exc_info=True,

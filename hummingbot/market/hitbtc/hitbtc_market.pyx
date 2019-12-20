@@ -113,7 +113,7 @@ cdef class HitBTCMarket(MarketBase):
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                  OrderBookTrackerDataSourceType.EXCHANGE_API,
-                 symbols: Optional[List[str]] = None,
+                 trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
         super().__init__()
@@ -126,7 +126,7 @@ cdef class HitBTCMarket(MarketBase):
         self._last_timestamp = 0
         self._order_book_tracker = HitBTCOrderBookTracker(
             data_source_type=order_book_tracker_data_source_type,
-            symbols=symbols
+            trading_pairs=trading_pairs
         )
         self._order_tracker_task = None
         self._poll_notifier = asyncio.Event()
@@ -139,10 +139,10 @@ cdef class HitBTCMarket(MarketBase):
         self._tx_tracker = HitBTCMarketTransactionTracker(self)
 
     @staticmethod
-    def split_symbol(symbol: str) -> Tuple[str, str]:
+    def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
         try:
-            m = SYMBOL_SPLITTER.match(symbol)
-            p = symbol.partition('USD')
+            m = SYMBOL_SPLITTER.match(trading_pair)
+            p = trading_pair.partition('USD')
             if m is not None:
                 return m.group(1), m.group(2)
             elif p[1] is 'USD' and p[0] is not '':
@@ -150,11 +150,11 @@ cdef class HitBTCMarket(MarketBase):
             else:
                 raise Exception
         except Exception as e:
-            raise ValueError(f"Error parsing symbol {symbol}: {str(e)}")
+            raise ValueError(f"Error parsing trading_pair {trading_pair}: {str(e)}")
 
     @staticmethod
     def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
-        base_asset, quote_asset = HitBTCMarket.split_symbol(exchange_trading_pair)
+        base_asset, quote_asset = HitBTCMarket.split_trading_pair(exchange_trading_pair)
         return f"{base_asset}-{quote_asset}"
 
     @staticmethod
@@ -286,7 +286,7 @@ cdef class HitBTCMarket(MarketBase):
         headers = {"Content-Type": content_type}
         url = f"{ constants.BASE_URL }{ path_url }"
         client = await self._http_client()
-        
+
         if is_auth_required:
             auth = self._hitbtc_auth.auth
 
@@ -369,7 +369,7 @@ cdef class HitBTCMarket(MarketBase):
             trading_rules_list = self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
-                self._trading_rules[trading_rule.symbol] = trading_rule
+                self._trading_rules[trading_rule.trading_pair] = trading_rule
 
     def _format_trading_rules(self, raw_symbol_info: List[Dict[str, Any]]) -> List[TradingRule]:
         cdef:
@@ -378,7 +378,7 @@ cdef class HitBTCMarket(MarketBase):
         for info in raw_symbol_info:
             try:
                 trading_rules.append(
-                    TradingRule(symbol=info["id"],
+                    TradingRule(trading_pair=info["id"],
                                 min_order_size=Decimal(info["quantityIncrement"]),
                                 min_price_increment=Decimal(info['tickSize']),
                                 min_base_amount_increment=Decimal(info['quantityIncrement']),
@@ -467,22 +467,22 @@ cdef class HitBTCMarket(MarketBase):
                     tracked_order.executed_amount_base = new_confirmed_amount
                     tracked_order.executed_amount_quote = Decimal(order_update["price"]) * new_confirmed_amount
                     execute_price = Decimal(order_update["price"])
-                    
+
                     fee = self.c_get_fee(
-                            tracked_order.base_asset,
-                            tracked_order.quote_asset,
-                            tracked_order.order_type,
-                            tracked_order.trade_type,
-                            execute_price,
-                            execute_amount_diff,
-                        )
-                    
+                        tracked_order.base_asset,
+                        tracked_order.quote_asset,
+                        tracked_order.order_type,
+                        tracked_order.trade_type,
+                        execute_price,
+                        execute_amount_diff,
+                    )
+
                     tracked_order.fee_paid = tracked_order.executed_amount_quote * fee.percent
-                    
+
                     order_filled_event = OrderFilledEvent(
                         self._current_timestamp,
                         tracked_order.client_order_id,
-                        tracked_order.symbol,
+                        tracked_order.trading_pair,
                         tracked_order.trade_type,
                         tracked_order.order_type,
                         execute_price,
@@ -631,14 +631,14 @@ cdef class HitBTCMarket(MarketBase):
 
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
-                                f"{trading_rule.min_order_size}.")
-        
+                             f"{trading_rule.min_order_size}.")
+
         try:
             exchange_order_id = await self.place_order(order_id, symbol, decimal_amount, True, order_type, decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
-                symbol=symbol,
+                trading_pair=symbol,
                 order_type=order_type,
                 trade_type=TradeType.BUY,
                 price=decimal_price,
@@ -672,18 +672,18 @@ cdef class HitBTCMarket(MarketBase):
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
     cdef str c_buy(self,
-                   str symbol,
+                   str trading_pair,
                    object amount,
                    object order_type=OrderType.MARKET,
                    object price=s_decimal_0,
                    dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
-            str order_id = f"buy-{symbol}-{tracking_nonce}"
+            str order_id = f"buy-{trading_pair}-{tracking_nonce}"
 
-        safe_ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
+        safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
-    
+
     async def execute_sell(self,
                            order_id: str,
                            symbol: str,
@@ -710,7 +710,7 @@ cdef class HitBTCMarket(MarketBase):
             self.c_start_tracking_order(
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
-                symbol=symbol,
+                trading_pair=symbol,
                 order_type=order_type,
                 trade_type=TradeType.SELL,
                 price=decimal_price,
@@ -744,17 +744,17 @@ cdef class HitBTCMarket(MarketBase):
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
     cdef str c_sell(self,
-                    str symbol,
+                    str trading_pair,
                     object amount,
                     object order_type=OrderType.MARKET, object price=s_decimal_0,
                     dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
-            str order_id = f"sell-{symbol}-{tracking_nonce}"
-        safe_ensure_future(self.execute_sell(order_id, symbol, amount, order_type, price))
+            str order_id = f"sell-{trading_pair}-{tracking_nonce}"
+        safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
 
-    async def execute_cancel(self, symbol: str, order_id: str):
+    async def execute_cancel(self, trading_pair: str, order_id: str):
         try:
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
@@ -770,15 +770,15 @@ cdef class HitBTCMarket(MarketBase):
                                 f"Check API key and network connection."
             )
 
-    cdef c_cancel(self, str symbol, str order_id):
-        safe_ensure_future(self.execute_cancel(symbol, order_id))
+    cdef c_cancel(self, str trading_pair, str order_id):
+        safe_ensure_future(self.execute_cancel(trading_pair, order_id))
         return order_id
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         open_orders = [o for o in self._in_flight_orders.values() if o.is_open]
         if len(open_orders) == 0:
             return []
-        cancel_order_symbols = list(set([o.symbol for o in open_orders]))
+        cancel_order_symbols = list(set([o.trading_pair for o in open_orders]))
         self.logger().debug(f"cancel_order_symbols {cancel_order_symbols} {open_orders}")
         path_url = "/api/2/order"
         data = {"symbol": ','.join(cancel_order_symbols)}
@@ -809,13 +809,13 @@ cdef class HitBTCMarket(MarketBase):
             )
         return cancellation_results
 
-    cdef OrderBook c_get_order_book(self, str symbol):
+    cdef OrderBook c_get_order_book(self, str trading_pair):
         cdef:
             dict order_books = self._order_book_tracker.order_books
 
-        if symbol not in order_books:
-            raise ValueError(f"No order book exists for '{symbol}'.")
-        return order_books.get(symbol)
+        if trading_pair not in order_books:
+            raise ValueError(f"No order book exists for '{trading_pair}'.")
+        return order_books.get(trading_pair)
 
     cdef c_did_timeout_tx(self, str tracking_id):
         self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
@@ -824,7 +824,7 @@ cdef class HitBTCMarket(MarketBase):
     cdef c_start_tracking_order(self,
                                 str client_order_id,
                                 str exchange_order_id,
-                                str symbol,
+                                str trading_pair,
                                 object order_type,
                                 object trade_type,
                                 object price,
@@ -832,7 +832,7 @@ cdef class HitBTCMarket(MarketBase):
         self._in_flight_orders[client_order_id] = HitBTCInFlightOrder(
             client_order_id=client_order_id,
             exchange_order_id=exchange_order_id,
-            symbol=symbol,
+            trading_pair=trading_pair,
             order_type=order_type,
             trade_type=trade_type,
             price=price,
@@ -843,21 +843,21 @@ cdef class HitBTCMarket(MarketBase):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
-    cdef object c_get_order_price_quantum(self, str symbol, object price):
+    cdef object c_get_order_price_quantum(self, str trading_pair, object price):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
+            TradingRule trading_rule = self._trading_rules[trading_pair]
         return trading_rule.min_price_increment
 
-    cdef object c_get_order_size_quantum(self, str symbol, object order_size):
+    cdef object c_get_order_size_quantum(self, str trading_pair, object order_size):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
+            TradingRule trading_rule = self._trading_rules[trading_pair]
         return Decimal(trading_rule.min_base_amount_increment)
 
-    cdef object c_quantize_order_amount(self, str symbol, object amount, object price=s_decimal_0):
+    cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=s_decimal_0):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
-            object quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
-            object current_price = self.c_get_price(symbol, False)
+            TradingRule trading_rule = self._trading_rules[trading_pair]
+            object quantized_amount = MarketBase.c_quantize_order_amount(self, trading_pair, amount)
+            object current_price = self.c_get_price(trading_pair, False)
             object notional_size
 
         # Check against min_order_size. If not passing check, return 0.

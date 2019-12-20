@@ -46,7 +46,7 @@ cdef class HitBTCOrderBook(OrderBook):
         asks = [list(item.values()) for item in msg['ask']]
 
         content = {
-            "symbol": msg["trading_pair"],
+            "trading_pair": msg["trading_pair"],
             "update_id": timestamp,
             "bids": bids,
             "asks": asks
@@ -86,9 +86,8 @@ cdef class HitBTCOrderBook(OrderBook):
         bids = [list(item.values()) for item in msg['bid']]
         asks = [list(item.values()) for item in msg['ask']]
 
-
         content = {
-            "symbol": msg["symbol"],
+            "trading_pair": msg["symbol"],
             "update_id": timestamp,
             "bids": bids,
             "asks": asks
@@ -129,7 +128,7 @@ cdef class HitBTCOrderBook(OrderBook):
         """
 
         content = {
-            "symbol": metadata["trading_pair"],
+            "trading_pair": metadata["trading_pair"],
             "trade_type": float(TradeType.SELL.value) if msg["side"] == "buy" else float(TradeType.BUY.value),
             "trade_id": msg["id"],
             "update_id": timestamp,

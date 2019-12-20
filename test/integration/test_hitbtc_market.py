@@ -76,13 +76,13 @@ class HitBTCMarketUnitTest(unittest.TestCase):
         cls.market: HitBTCMarket = HitBTCMarket(
             conf.hitbtc_api_key,
             conf.hitbtc_secret_key,
-            symbols=["ETHUSD"]
+            trading_pairs=["ETHUSD"]
         )
         # Need 2nd instance of market to prevent events mixing up across tests
         cls.market_2: HitBTCMarket = HitBTCMarket(
             conf.hitbtc_api_key,
             conf.hitbtc_secret_key,
-            symbols=["ETHUSD"]
+            trading_pairs=["ETHUSD"]
         )
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.market)
@@ -344,7 +344,7 @@ class HitBTCMarketUnitTest(unittest.TestCase):
             self.market: HitBTCMarket = HitBTCMarket(
                 conf.hitbtc_api_key,
                 conf.hitbtc_secret_key,
-                symbols=["ETHUSD", "BTCUSD"]
+                trading_pairs=["ETHUSD", "BTCUSD"]
             )
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)
