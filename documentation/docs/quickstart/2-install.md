@@ -13,20 +13,6 @@ If you don't already have Docker, we show you how to install Docker for each pla
 
 ### Linux/Cloud
 
-Install `tmux` to allow you to easily run Hummingbot remotely:
-
-!!! note
-    To learn more about `tmux` please visit [getting started with tmux](https://linuxize.com/post/getting-started-with-tmux/).
-
-```bash tab="Ubuntu / Debian"
-sudo apt-get update
-sudo apt-get install -y tmux
-```
-
-```bash tab="CentOS"
-sudo yum -y install tmux
-```
-
 Install Docker:
 ```bash
 # 1) Download Docker install script
@@ -84,11 +70,6 @@ hummingbot_files       # Top level folder for hummingbot-related files
 
 
 ### Linux/Cloud
-
-Open a new Bash window and run `tmux` to create a new process:
-```
-tmux
-```
 
 Aftewards, run the following commands:
 ```bash
