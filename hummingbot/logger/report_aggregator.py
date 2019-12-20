@@ -11,6 +11,7 @@ from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversio
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.bittrex.bittrex_market import BittrexMarket
+from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
@@ -31,6 +32,7 @@ MARKETS = {
     "huobi": HuobiMarket,
     "liquid": LiquidMarket,
     "bittrex": BittrexMarket,
+    "kucoin": KucoinMarket,
     "bitcoin_com": BitcoinComMarket
 }
 
