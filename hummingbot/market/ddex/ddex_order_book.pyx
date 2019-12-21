@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 from aiokafka import ConsumerRecord
-from decimal import Decimal
 import logging
 from sqlalchemy.engine import RowProxy
 from typing import (
@@ -14,8 +13,8 @@ import ujson
 from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.market.ddex.ddex_order_book_message import DDEXOrderBookMessage
 from hummingbot.core.data_type.order_book_message import (
-    DDEXOrderBookMessage,
     OrderBookMessage,
     OrderBookMessageType
 )
@@ -52,9 +51,9 @@ cdef class DDEXOrderBook(OrderBook):
 
     @classmethod
     def trade_message_from_exchange(cls,
-                                   msg: Dict[str, any],
-                                   timestamp: Optional[float] = None,
-                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                    msg: Dict[str, any],
+                                    timestamp: Optional[float] = None,
+                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
         return DDEXOrderBookMessage(OrderBookMessageType.TRADE, {
