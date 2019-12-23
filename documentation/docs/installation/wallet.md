@@ -6,9 +6,9 @@ Strategies that transact on decentralized exchanges (such as [Radar Relay](/conn
 
 Towards the end of initial `config` walkthrough for each strategy, you will be prompted to either import or create a wallet.
 
-| Prompt |
-|-----|
-| `Would you like to import an existing wallet or create a new wallet? (import/create) >>>`
+```
+Would you like to import an existing wallet or create a new wallet? (import/create) >>>
+```
 
 ## Creating your wallet
 
@@ -46,10 +46,10 @@ To import your wallet using its JSON keyfile:
 2. Respond with `import` and you are prompted to enter the private key associated with the wallet
 3. Secure your wallet with a password
 
-| Prompt |
-|-----|
-| `Your wallet private key >>>`
-| `A password to protect your wallet key >>>`
+```
+Your wallet private key >>>
+A password to protect your wallet key >>>
+```
 
 ## Exporting your wallet
 

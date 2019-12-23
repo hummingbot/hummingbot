@@ -10,7 +10,6 @@ from typing import Optional, List, Dict, Any
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.order_book_tracker_entry import BitcoinComOrderBookTrackerEntry
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -18,6 +17,7 @@ from hummingbot.market.bitcoin_com.bitcoin_com_active_order_tracker import Bitco
 from hummingbot.market.bitcoin_com.bitcoin_com_order_book import BitcoinComOrderBook
 from hummingbot.market.bitcoin_com.bitcoin_com_websocket import BitcoinComWebsocket
 from hummingbot.market.bitcoin_com.bitcoin_com_utils import merge_dicts, add_event_type, EventTypes
+from hummingbot.market.bitcoin_com.bitcoin_com_order_book_tracker_entry import BitcoinComOrderBookTrackerEntry
 
 
 class BitcoinComAPIOrderBookDataSource(OrderBookTrackerDataSource):

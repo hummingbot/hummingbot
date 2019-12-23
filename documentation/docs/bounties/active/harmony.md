@@ -11,7 +11,7 @@ $ONE Makers will run from July 1, 2019 to October 31, 2019, split into 4 monthly
 * July 1st to July 31st
 * August 1st to August 31st
 * September 1st to September 30th
-* **October 1st to October 31st (current)**
+* October 1st to October 31st
 
 Each period begins at 12am UTC on the 1st of the month and ends at 12am UTC time on the 1st of the following month.
 
