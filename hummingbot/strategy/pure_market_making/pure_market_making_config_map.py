@@ -44,15 +44,13 @@ pure_market_making_config_map = {
                   prompt="How far away from the mid price do you want to place the "
                          "first bid order? (Enter 0.01 to indicate 1%) >>> ",
                   type_str="decimal",
-                  validator=is_valid_percent,
-                  default=0.01),
+                  validator=is_valid_percent),
     "ask_place_threshold":
         ConfigVar(key="ask_place_threshold",
                   prompt="How far away from the mid price do you want to place the "
                          "first ask order? (Enter 0.01 to indicate 1%) >>> ",
                   type_str="decimal",
-                  validator=is_valid_percent,
-                  default=0.01),
+                  validator=is_valid_percent),
     "cancel_order_wait_time":
         ConfigVar(key="cancel_order_wait_time",
                   prompt="How often do you want to cancel and replace bids and asks "
@@ -103,7 +101,7 @@ pure_market_making_config_map = {
     "inventory_target_base_percent":
         ConfigVar(key="inventory_target_base_percent",
                   prompt="What is your target base asset inventory percentage? "
-                         "(Enter 0.01 to indicate 1%) >>> ",
+                         "(Enter 0.01 to indicate 1%, default is 0.5 (50%) >>> ",
                   required_if=lambda: pure_market_making_config_map.get("inventory_skew_enabled").value,
                   type_str="decimal",
                   validator=is_valid_percent,

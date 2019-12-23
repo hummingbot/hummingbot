@@ -3,11 +3,22 @@ import asyncio
 import bisect
 import logging
 import time
-from collections import defaultdict, deque
-from typing import Optional, Dict, List, Set, Deque
+from collections import (
+    defaultdict,
+    deque,
+)
+from typing import (
+    Optional,
+    Dict,
+    List,
+    Set,
+    Deque,
+)
 
-from hummingbot.core.data_type.order_book_message import BittrexOrderBookMessage, OrderBookMessageType, OrderBookMessage
-from hummingbot.core.data_type.order_book_tracker_entry import BittrexOrderBookTrackerEntry
+from hummingbot.core.data_type.order_book_message import (
+    OrderBookMessageType,
+    OrderBookMessage,
+)
 from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
@@ -16,6 +27,8 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.bittrex.bittrex_active_order_tracker import BittrexActiveOrderTracker
 from hummingbot.market.bittrex.bittrex_api_order_book_data_source import BittrexAPIOrderBookDataSource
 from hummingbot.market.bittrex.bittrex_order_book import BittrexOrderBook
+from hummingbot.market.bittrex.bittrex_order_book_message import BittrexOrderBookMessage
+from hummingbot.market.bittrex.bittrex_order_book_tracker_entry import BittrexOrderBookTrackerEntry
 
 
 class BittrexOrderBookTracker(OrderBookTracker):
