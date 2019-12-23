@@ -69,8 +69,8 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         # Build the data frame
         all_markets_df: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index='trading_pair')
 
-        btc_price: float = float(all_markets_df.loc['BTC-USDC'].last_traded_price)
-        eth_price: float = float(all_markets_df.loc['ETH-USDC'].last_traded_price)
+        btc_price: float = float(all_markets_df.loc['BTC-USD'].last_traded_price)
+        eth_price: float = float(all_markets_df.loc['ETH-USD'].last_traded_price)
         usd_volume: float = [
             (
                 volume * quote_price if trading_pair.endswith(("USD", "USDC")) else
@@ -87,6 +87,9 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         all_markets_df.loc[:, 'USDVolume'] = usd_volume
         all_markets_df.loc[:, 'volume'] = all_markets_df.volume_24h
+        all_markets_df.rename(
+            {"base_currency": "baseAsset", "quoted_currency": "quoteAsset"}, axis="columns", inplace=True
+        )
 
         return all_markets_df.sort_values("USDVolume", ascending=False)
 
