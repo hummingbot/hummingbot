@@ -4,9 +4,9 @@
 
 You need an Ethereum node for strategies that trade on Ethereum-based decentralized exchanges, such as Radar Relay, DDEX, Bamboo Relay, and Dolomite.
 
-| Prompt |
-|-----|
-| `Which Ethereum node would you like your client to connect to? >>>`
+```
+Which Ethereum node would you like your client to connect to? >>>
+```
 
 ## Option 1. Run your own local node
 
