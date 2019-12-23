@@ -7,13 +7,13 @@ import ujson
 
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
-    BitfinexOrderBookMessage,
     OrderBookMessage,
     OrderBookMessageType,
 )
 from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
-
+from hummingbot.market.bitfinex.bitfinex_order_book_message import \
+    BitfinexOrderBookMessage
 
 _logger = None
 

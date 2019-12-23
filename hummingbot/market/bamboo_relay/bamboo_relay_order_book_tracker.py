@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import asyncio
-import bisect
 from collections import deque, defaultdict
 import logging
 import time
@@ -20,13 +19,13 @@ from hummingbot.core.data_type.order_book_tracker import (
 )
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
+from hummingbot.market.bamboo_relay.bamboo_relay_order_book_message import BambooRelayOrderBookMessage
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessageType,
-    BambooRelayOrderBookMessage,
     OrderBookMessage
 )
-from hummingbot.core.data_type.order_book_tracker_entry import BambooRelayOrderBookTrackerEntry
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.market.bamboo_relay.bamboo_relay_order_book_tracker_entry import BambooRelayOrderBookTrackerEntry
 from hummingbot.market.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
 from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
@@ -34,6 +33,7 @@ from hummingbot.market.bamboo_relay.bamboo_relay_constants import (
     BAMBOO_RELAY_REST_ENDPOINT,
     BAMBOO_RELAY_TEST_ENDPOINT
 )
+
 
 class BambooRelayOrderBookTracker(OrderBookTracker):
     _brobt_logger: Optional[HummingbotLogger] = None
@@ -82,7 +82,7 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
             self._network_id = 1
 
     def get_active_order_tracker(self, trading_pair: str) -> BambooRelayActiveOrderTracker:
-        if not trading_pair in self._active_order_trackers:
+        if trading_pair not in self._active_order_trackers:
             raise ValueError(f"{trading_pair} is not being actively tracked.")
         return self._active_order_trackers[trading_pair]
 
