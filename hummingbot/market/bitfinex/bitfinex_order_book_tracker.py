@@ -6,8 +6,8 @@ from typing import Deque, Dict, List, Optional, Set
 import asyncio
 import bisect
 
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import (
-    BitfinexOrderBookMessage,
     OrderBookMessageType,
     OrderBookMessage,
 )
@@ -15,14 +15,17 @@ from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTracker,
     OrderBookTrackerDataSourceType
 )
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.order_book_tracker_entry import BitfinexOrderBookTrackerEntry
-from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_tracker_data_source import \
+    OrderBookTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.bitfinex.bitfinex_active_order_tracker import BitfinexActiveOrderTracker
+from hummingbot.market.bitfinex.bitfinex_active_order_tracker import \
+    BitfinexActiveOrderTracker
 from hummingbot.market.bitfinex.bitfinex_order_book import BitfinexOrderBook
-
+from hummingbot.market.bitfinex.bitfinex_order_book_message import \
+    BitfinexOrderBookMessage
+from hummingbot.market.bitfinex.bitfinex_order_book_tracker_entry import \
+    BitfinexOrderBookTrackerEntry
 from .bitfinex_api_order_book_data_source import BitfinexAPIOrderBookDataSource
 
 EXC_API = OrderBookTrackerDataSourceType.EXCHANGE_API
