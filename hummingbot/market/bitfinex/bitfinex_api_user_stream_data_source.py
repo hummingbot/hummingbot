@@ -8,13 +8,14 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from hummingbot.core.data_type.order_book_message import BitfinexOrderBookMessage
 from hummingbot.core.data_type.user_stream_tracker_data_source import \
     UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.bitfinex.bitfinex_order_book import BitfinexOrderBook
 from hummingbot.market.bitfinex import BITFINEX_WS_URI
 from hummingbot.market.bitfinex.bitfinex_auth import BitfinexAuth
+from hummingbot.market.bitfinex.bitfinex_order_book_message import \
+    BitfinexOrderBookMessage
 
 
 class BitfinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
