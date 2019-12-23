@@ -23,11 +23,9 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import (
-    BitfinexOrderBookTrackerEntry,
     OrderBookTrackerEntry
 )
 from hummingbot.core.data_type.order_book_message import (
-    BitfinexOrderBookMessage,
     OrderBookMessage,
     OrderBookMessageType,
 )
@@ -37,6 +35,10 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.market.bitfinex import BITFINEX_REST_URL, BITFINEX_WS_URI
 from hummingbot.market.bitfinex.bitfinex_active_order_tracker import BitfinexActiveOrderTracker
 from hummingbot.market.bitfinex.bitfinex_order_book import BitfinexOrderBook
+from hummingbot.market.bitfinex.bitfinex_order_book_message import \
+    BitfinexOrderBookMessage
+from hummingbot.market.bitfinex.bitfinex_order_book_tracker_entry import \
+    BitfinexOrderBookTrackerEntry
 
 BOOK_RET_TYPE = List[Dict[str, Any]]
 RESPONSE_SUCCESS = 200
