@@ -18,7 +18,6 @@ from typing import (
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-import conf
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -55,6 +54,11 @@ BookStructure = namedtuple("Book", "order_id price amount")
 TradeStructure = namedtuple("Trade", "id mts amount price")
 # n0-n9 no documented, we dont' know, maybe later market write docs
 ConfStructure = namedtuple("Conf", "n0 n1 n2 min max n5 n6 n7 n8 n9")
+
+# this values ​​set by empirically way, because the bitfinex-market does not have
+# these values. maybe later it will be in market-api.
+bitfinex_base_increment = 1e-8
+bitfinex_quote_increment = 0.01
 
 
 class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -97,12 +101,12 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             symbol_dash_f(item): {
                 "symbol": symbol_dash_f(item),
                 "baseAsset": item.symbol[s_base],
-                "base_increment": conf.bitfinex_base_increment,
+                "base_increment": bitfinex_base_increment,
                 "base_max_size": conf_data[symbol_f(item)].max,
                 "base_min_size": conf_data[symbol_f(item)].min,
                 "display_name": symbol_f(item),
                 "quoteAsset": item.symbol[s_quote],
-                "quote_increment": conf.bitfinex_quote_increment,
+                "quote_increment": bitfinex_quote_increment,
                 "volume": item.volume,
                 "price": item.last_price,
             }
