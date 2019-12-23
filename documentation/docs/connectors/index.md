@@ -18,6 +18,8 @@ Connectors are packages of code that link Hummingbot's internal trading algorith
 * [Coinbase Pro](/connectors/coinbase)
 * [Huobi Global](/connectors/huobi)
 * [Bittrex Global](/connectors/bittrex)
+* [Liquid](/connectors/liquid)
+* [Bitcoin.com Exchange](/connectors/bitcoin-com)
 
 ### Decentralized Exchanges
 
@@ -28,18 +30,13 @@ Connectors are packages of code that link Hummingbot's internal trading algorith
 
 ## Community-Contributed Exchange Connectors
 
-| Exchange | Gitcoin Bounty | Github Contact | Support Contact | Last Version Tested | Last Updated | Status | Known Issues |
-| --- |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| Bamboo Relay | NA | [Arctek](https://github.com/Arctek) | [Online Chat](https://bamboorelay.com/) | 0.18.0 | 0.17.1 | <span style="color:green">⬤</span> | [782](https://github.com/CoinAlpha/hummingbot/issues/782) |
-| Dolomite | NA | [zrubenst](https://github.com/zrubenst) | [Telegram](https://t.me/dolomite_official) | [ TBD ] | 0.18.0 | <span style="color:yellow"> ⬤</span> | |
+| Exchange | Github Contact | Support Contact | Last Version Tested | Last Updated | Status | Known Issues |
+| --- |:---:|:---:|:---:|:---:|:---:|:---:|
+| Bamboo Relay | [Arctek](https://github.com/Arctek) | [Online Chat](https://bamboorelay.com/) | 0.20.0 | 0.20.0 | <span style="color:green; font-size:25px">⬤</span> |  |
+| Dolomite | [zrubenst](https://github.com/zrubenst) | [Telegram](https://t.me/dolomite_official) | 0.19.0 | 0.20.0 | <span style="color:green; font-size:25px"> ⬤</span> | [#1148](https://github.com/CoinAlpha/hummingbot/issues/1148) |
 
-### Last Version Tested
-
-Last reported Hummingbot version that the exchange connector maintainer has confirmed has been tested and is operational.
-
-### Last Updated
-
-Last Hummingbot release which included an update to the exchange connector code.
+* Last Version Tested - Last reported Hummingbot version that the exchange connector maintainer has confirmed has been tested and is operational.
+* Last Updated - Last Hummingbot release which included an update to the exchange connector code.
 
 ### Exchange Connector Specific Support
 
@@ -49,15 +46,11 @@ Please contact the support contact listed in the above table for support questio
 
 1. Create a Github issue and tag the Github contact to inform them of the issue.
 1. Report the issue to the exchange connector support contact.
+1. Send a message through Discord in [#community-connectors](https://discordapp.com/channels/530578568154054663/642099307922718730) channel.
 
 
 ## Coming Soon to Hummingbot
 
-* Liquid
-* Bitcoin.com Exchange
 * Bitfinex
 * KuCoin
-* HitBTC
 * Kraken
-* Bitmex
-* Binance DEX

@@ -10,6 +10,7 @@ from typing import List, Dict, Optional, Tuple, Set, Deque
 from hummingbot.client.command import __all__ as commands
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.market.binance.binance_market import BinanceMarket
@@ -17,12 +18,14 @@ from hummingbot.market.bittrex.bittrex_market import BittrexMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
+from hummingbot.market.liquid.liquid_market import LiquidMarket
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.paper_trade import create_paper_trade_market
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
+from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComMarket
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
@@ -57,10 +60,12 @@ MARKET_CLASSES = {
     "coinbase_pro": CoinbaseProMarket,
     "ddex": DDEXMarket,
     "huobi": HuobiMarket,
+    "liquid": LiquidMarket,
     "idex": IDEXMarket,
     "radar_relay": RadarRelayMarket,
     "dolomite": DolomiteMarket,
-    "bittrex": BittrexMarket
+    "bittrex": BittrexMarket,
+    "bitcoin_com": BitcoinComMarket
 }
 
 
@@ -319,6 +324,16 @@ class HummingbotApplication(*commands):
                                      order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                      trading_pairs=trading_pairs,
                                      trading_required=self._trading_required)
+            elif market_name == "liquid":
+                liquid_api_key = global_config_map.get("liquid_api_key").value
+                liquid_secret_key = global_config_map.get("liquid_secret_key").value
+
+                market = LiquidMarket(liquid_api_key,
+                                      liquid_secret_key,
+                                      order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                      user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
+                                      trading_pairs=trading_pairs,
+                                      trading_required=self._trading_required)
             elif market_name == "dolomite" and self.wallet:
                 is_test_net: bool = global_config_map.get("ethereum_chain_name").value == "DOLOMITE_TEST"
                 market = DolomiteMarket(
@@ -337,6 +352,14 @@ class HummingbotApplication(*commands):
                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                        trading_pairs=trading_pairs,
                                        trading_required=self._trading_required)
+            elif market_name == "bitcoin_com":
+                bitcoin_com_api_key = global_config_map.get("bitcoin_com_api_key").value
+                bitcoin_com_secret_key = global_config_map.get("bitcoin_com_secret_key").value
+                market = BitcoinComMarket(bitcoin_com_api_key,
+                                          bitcoin_com_secret_key,
+                                          order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                          trading_pairs=trading_pairs,
+                                          trading_required=self._trading_required)
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
 

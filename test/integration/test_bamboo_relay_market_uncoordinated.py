@@ -90,6 +90,8 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
             chain = EthereumChain.RINKEBY
         elif conf.test_bamboo_relay_chain_id == 42:
             chain = EthereumChain.KOVAN
+        elif conf.test_bamboo_relay_chain_id == 1337:
+            chain = EthereumChain.ZEROEX_TEST
         else:
             chain = EthereumChain.MAIN_NET
         cls.chain = chain
@@ -164,13 +166,14 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        maker_buy_trade_fee: TradeFee = self.market.get_fee("ZRX", self.quote_token_asset, OrderType.LIMIT, TradeType.BUY, 20, 0.01)
+        maker_buy_trade_fee: TradeFee = self.market.get_fee("ZRX", "WETH", OrderType.LIMIT, TradeType.BUY, Decimal(20), Decimal(0.01))
         self.assertEqual(maker_buy_trade_fee.percent, 0)
         self.assertEqual(len(maker_buy_trade_fee.flat_fees), 0)
-        taker_buy_trade_fee: TradeFee = self.market.get_fee("ZRX", self.quote_token_asset, OrderType.MARKET, TradeType.BUY, 20)
+        taker_buy_trade_fee: TradeFee = self.market.get_fee("ZRX", "WETH", OrderType.MARKET, TradeType.BUY, Decimal(20))
         self.assertEqual(taker_buy_trade_fee.percent, 0)
-        self.assertEqual(len(taker_buy_trade_fee.flat_fees), 1)
+        self.assertEqual(len(taker_buy_trade_fee.flat_fees), 2)
         self.assertEqual(taker_buy_trade_fee.flat_fees[0][0], "ETH")
+        self.assertEqual(taker_buy_trade_fee.flat_fees[1][0], "ETH")
 
     def test_get_wallet_balances(self):
         balances = self.market.get_all_balances()
@@ -192,9 +195,9 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
         self.assertEqual(self.base_token_asset + "-" + self.quote_token_asset, buy_order_opened_event.trading_pair)
         self.assertEqual(OrderType.LIMIT, buy_order_opened_event.type)
         self.assertEqual(float(quantized_amount), float(buy_order_opened_event.amount))
-
-        self.run_parallel(self.market.cancel_order(buy_order_id))
-        [buy_order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+        [cancellation_results,
+         buy_order_cancelled_event] = self.run_parallel(self.market.cancel_order(buy_order_id),
+                                                        self.market_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(buy_order_opened_event.order_id, buy_order_cancelled_event.order_id)
 
         # Reset the logs
@@ -452,8 +455,8 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
             self.assertEqual(1, len(self.market.tracking_states["limit_orders"]))
 
             # Cancel the order and verify that the change is saved.
-            self.market.cancel(trading_pair, order_id)
-            self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+            self.run_parallel(self.market.cancel(trading_pair, order_id),
+                              self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
             self.assertEqual(1, len(self.market.tracking_states["limit_orders"]))
@@ -461,8 +464,8 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
             self.assertEqual(1, len(saved_market_states.saved_state["limit_orders"]))
         finally:
             if order_id is not None:
-                self.market.cancel(trading_pair, order_id)
-                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+                self.run_parallel(self.market.cancel(trading_pair, order_id),
+                                  self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)
@@ -503,8 +506,8 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
 
         finally:
             if order_id is not None:
-                self.market.cancel(trading_pair, order_id)
-                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+                self.run_parallel(self.market.cancel(trading_pair, order_id),
+                                  self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)

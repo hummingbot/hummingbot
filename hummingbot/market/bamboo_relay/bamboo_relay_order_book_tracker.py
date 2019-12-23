@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import asyncio
-import bisect
 from collections import deque, defaultdict
 import logging
 import time
@@ -20,16 +19,20 @@ from hummingbot.core.data_type.order_book_tracker import (
 )
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
+from hummingbot.market.bamboo_relay.bamboo_relay_order_book_message import BambooRelayOrderBookMessage
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessageType,
-    BambooRelayOrderBookMessage,
     OrderBookMessage
 )
-from hummingbot.core.data_type.order_book_tracker_entry import BambooRelayOrderBookTrackerEntry
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.market.bamboo_relay.bamboo_relay_order_book_tracker_entry import BambooRelayOrderBookTrackerEntry
 from hummingbot.market.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
 from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
+from hummingbot.market.bamboo_relay.bamboo_relay_constants import (
+    BAMBOO_RELAY_REST_ENDPOINT,
+    BAMBOO_RELAY_TEST_ENDPOINT
+)
 
 
 class BambooRelayOrderBookTracker(OrderBookTracker):
@@ -58,17 +61,30 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
         self._trading_pairs: Optional[List[str]] = trading_pairs
         self._chain = chain
         if chain is EthereumChain.ROPSTEN:
+            self._api_endpoint = BAMBOO_RELAY_REST_ENDPOINT
             self._api_prefix = "ropsten/0x"
             self._network_id = 3
         elif chain is EthereumChain.RINKEBY:
+            self._api_endpoint = BAMBOO_RELAY_REST_ENDPOINT
             self._api_prefix = "rinkeby/0x"
             self._network_id = 4
         elif chain is EthereumChain.KOVAN:
+            self._api_endpoint = BAMBOO_RELAY_REST_ENDPOINT
             self._api_prefix = "kovan/0x"
             self._network_id = 42
+        elif chain is EthereumChain.ZEROEX_TEST:
+            self._api_endpoint = BAMBOO_RELAY_TEST_ENDPOINT
+            self._api_prefix = "testrpc/0x"
+            self._network_id = 1337
         else:
+            self._api_endpoint = BAMBOO_RELAY_REST_ENDPOINT
             self._api_prefix = "main/0x"
             self._network_id = 1
+
+    def get_active_order_tracker(self, trading_pair: str) -> BambooRelayActiveOrderTracker:
+        if trading_pair not in self._active_order_trackers:
+            raise ValueError(f"{trading_pair} is not being actively tracked.")
+        return self._active_order_trackers[trading_pair]
 
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
@@ -136,12 +152,12 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
         messages_queued: int = 0
         messages_accepted: int = 0
         messages_rejected: int = 0
-        address_token_map: Dict[str, any] = await self._data_source.get_all_token_info(self._api_prefix)
+        address_token_map: Dict[str, any] = await self._data_source.get_all_token_info(self._api_endpoint, self._api_prefix)
         while True:
             try:
                 ob_message: BambooRelayOrderBookMessage = await self._order_book_diff_stream.get()
-                base_token_address: str = ob_message.content["event"]["baseTokenAddress"]
-                quote_token_address: str = ob_message.content["event"]["quoteTokenAddress"]
+                base_token_address: str = ob_message.content["actions"][0]["event"]["baseTokenAddress"]
+                quote_token_address: str = ob_message.content["actions"][0]["event"]["quoteTokenAddress"]
                 base_token_asset: str = address_token_map[base_token_address]["symbol"]
                 quote_token_asset: str = address_token_map[quote_token_address]["symbol"]
                 trading_pair: str = f"{base_token_asset}-{quote_token_asset}"
@@ -160,17 +176,18 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
                     continue
                 await message_queue.put(ob_message)
 
-                if ob_message.content["action"] == "FILL":  # put FILL messages to trade queue
-                    trade_type = float(TradeType.BUY.value) if ob_message.content["event"]["type"] == "BUY" \
-                        else float(TradeType.SELL.value)
-                    self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
-                        "trading_pair": trading_pair,
-                        "trade_type": trade_type,
-                        "trade_id": ob_message.update_id,
-                        "update_id": ob_message.timestamp,
-                        "price": ob_message.content["event"]["order"]["price"],
-                        "amount": ob_message.content["event"]["filledBaseTokenAmount"]
-                    }, timestamp=ob_message.timestamp))
+                for action in ob_message.content["actions"]:
+                    if action["action"] == "FILL":  # put FILL messages to trade queue
+                        trade_type = float(TradeType.BUY.value) if action["event"]["type"] == "BUY" \
+                            else float(TradeType.SELL.value)
+                        self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
+                            "trading_pair": trading_pair,
+                            "trade_type": trade_type,
+                            "trade_id": ob_message.update_id,
+                            "update_id": ob_message.timestamp,
+                            "price": action["event"]["order"]["price"],
+                            "amount": action["event"]["filledBaseTokenAmount"]
+                        }, timestamp=ob_message.timestamp))
 
                 messages_accepted += 1
 
@@ -215,18 +232,12 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
                     message = await message_queue.get()
 
                 if message.type is OrderBookMessageType.DIFF:
-                    # bamboo relay does not support order book diffs
-                    pass
+                    # Diff message just refreshes the entire snapshot
+                    bids, asks = active_order_tracker.convert_diff_message_to_order_book_row(message)
+                    order_book.apply_snapshot(bids, asks, message.update_id)
                 elif message.type is OrderBookMessageType.SNAPSHOT:
-                    past_diffs: List[BambooRelayOrderBookMessage] = list(past_diffs_window)
-                    # only replay diffs later than snapshot, first update active order with snapshot then replay diffs
-                    replay_position = bisect.bisect_right(past_diffs, message)
-                    replay_diffs = past_diffs[replay_position:]
                     s_bids, s_asks = active_order_tracker.convert_snapshot_message_to_order_book_row(message)
                     order_book.apply_snapshot(s_bids, s_asks, message.update_id)
-                    for diff_message in replay_diffs:
-                        d_bids, d_asks = active_order_tracker.convert_diff_message_to_order_book_row(diff_message)
-                        order_book.apply_diffs(d_bids, d_asks, diff_message.update_id)
 
                     self.logger().debug("Processed order book snapshot for %s.", trading_pair)
             except asyncio.CancelledError:
