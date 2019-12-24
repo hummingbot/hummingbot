@@ -90,8 +90,6 @@ class ConfigCommand:
                 return True
         return False
 
-
-
     @staticmethod
     def _get_empty_configs() -> List[str]:
         """
