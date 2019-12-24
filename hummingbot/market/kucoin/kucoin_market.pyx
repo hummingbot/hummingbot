@@ -105,7 +105,7 @@ cdef class KucoinMarket(MarketBase):
 
     def __init__(self,
                  kucoin_api_key: str,
-				 kucoin_passphrase: str,
+                 kucoin_passphrase: str,
                  kucoin_secret_key: str,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
@@ -245,8 +245,8 @@ cdef class KucoinMarket(MarketBase):
 
     cdef c_tick(self, double timestamp):
         cdef:
-            int64_t last_tick = <int64_t>(self._last_timestamp / self._poll_interval)
-            int64_t current_tick = <int64_t>(timestamp / self._poll_interval)
+            int64_t last_tick = <int64_t > (self._last_timestamp / self._poll_interval)
+            int64_t current_tick = <int64_t > (timestamp / self._poll_interval)
         MarketBase.c_tick(self, timestamp)
         self._tx_tracker.c_tick(timestamp)
         if current_tick > last_tick:
@@ -265,7 +265,7 @@ cdef class KucoinMarket(MarketBase):
                            params: Optional[Dict[str, Any]] = None,
                            data=None,
                            is_auth_required: bool = False) -> Dict[str, Any]:
-        content_type = "application/json" if method == "post" else "application/x-www-form-urlencoded"
+        content_type = "application/json"
         headers = {"Content-Type": content_type}
         url = KUCOIN_ROOT_API + path_url
         client = await self._http_client()
@@ -283,13 +283,8 @@ cdef class KucoinMarket(MarketBase):
                 parsed_response = await response.json()
             except Exception:
                 raise IOError(f"Error parsing data from {url}.")
-
-            data = parsed_response.get("data")
-            print(data)
-            if data is None:
-                self.logger().error(f"Error received from {url}. Response is {parsed_response}.")
-                return {"error": parsed_response}
-            return data
+            print(parsed_response)
+            return parsed_response
 
     async def _update_account_id(self) -> str:
         accounts = await self._api_request("get", path_url="/api/v1/accounts", is_auth_required=True)
@@ -344,8 +339,8 @@ cdef class KucoinMarket(MarketBase):
     async def _update_trading_rules(self):
         cdef:
             # The poll interval for trade rules is 60 seconds.
-            int64_t last_tick = <int64_t>(self._last_timestamp / 60.0)
-            int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
+            int64_t last_tick = <int64_t > (self._last_timestamp / 60.0)
+            int64_t current_tick = <int64_t > (self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) < 1:
             exchange_info = await self._api_request("get", path_url="/api/v1/symbols")
             trading_rules_list = self._format_trading_rules(exchange_info)
@@ -379,8 +374,8 @@ cdef class KucoinMarket(MarketBase):
     async def _update_order_status(self):
         cdef:
             # The poll interval for order status is 10 seconds.
-            int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
-            int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDERS_INTERVAL)
+            int64_t last_tick = <int64_t > (self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
+            int64_t current_tick = <int64_t > (self._current_timestamp / self.UPDATE_ORDERS_INTERVAL)
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
@@ -395,7 +390,6 @@ cdef class KucoinMarket(MarketBase):
                                         f"The order has either been filled or canceled."
                     )
                     continue
-                
 
                 order_state = order_update["isActive"]
                 if order_state:
@@ -433,7 +427,7 @@ cdef class KucoinMarket(MarketBase):
                                        f"order {tracked_order.client_order_id}.")
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
-                if order_state == False and order_update["cancelExist"] == False:
+                if order_state is False and order_update["cancelExist"] is False:
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                     if tracked_order.trade_type is TradeType.BUY:
                         self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
@@ -462,7 +456,7 @@ cdef class KucoinMarket(MarketBase):
                                                                      float(tracked_order.fee_paid),
                                                                      tracked_order.order_type))
 
-                if order_state == False and order_update["cancelExist"] == True:
+                if order_state is False and order_update["cancelExist"] is True:
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                     self.logger().info(f"The market order {tracked_order.client_order_id} has been cancelled according"
                                        f" to order status API.")
@@ -533,7 +527,7 @@ cdef class KucoinMarket(MarketBase):
         params = {
             "funds": str(amount),
             "clientOid": order_id,
-			"side": side,
+            "side": side,
             "trading_pair": trading_pair,
             "type": order_type_str,
         }
@@ -563,7 +557,7 @@ cdef class KucoinMarket(MarketBase):
             object tracked_order
 
         if order_type is OrderType.MARKET:
-            quote_amount = (<OrderBook>self.c_get_order_book(trading_pair)).c_get_quote_volume_for_base_amount(
+            quote_amount = (< OrderBook > self.c_get_order_book(trading_pair)).c_get_quote_volume_for_base_amount(
                 True, float(amount)).result_volume
             # Quantize according to price rules, not base token amount rules.
             decimal_amount = self.c_quantize_order_price(trading_pair, Decimal(quote_amount))
@@ -619,7 +613,7 @@ cdef class KucoinMarket(MarketBase):
                    object price = s_decimal_0,
                    dict kwargs = {}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t > (time.time() * 1e6)
             str order_id = f"buy-{trading_pair}-{tracking_nonce}"
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
@@ -691,7 +685,7 @@ cdef class KucoinMarket(MarketBase):
                     object price = s_decimal_0,
                     dict kwargs = {}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t > (time.time() * 1e6)
             str order_id = f"sell-{trading_pair}-{tracking_nonce}"
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
