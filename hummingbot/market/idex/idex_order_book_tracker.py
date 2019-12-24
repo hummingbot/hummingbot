@@ -5,8 +5,8 @@ import bisect
 import logging
 import time
 from collections import (
-  defaultdict,
-  deque
+    defaultdict,
+    deque,
 )
 from typing import (
     Deque,
@@ -26,12 +26,12 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.market.idex.idex_order_book import IDEXOrderBook
 from hummingbot.market.idex.idex_active_order_tracker import IDEXActiveOrderTracker
 from hummingbot.market.idex.idex_api_order_book_data_source import IDEXAPIOrderBookDataSource
+from hummingbot.market.idex.idex_order_book_message import IDEXOrderBookMessage
+from hummingbot.market.idex.idex_order_book_tracker_entry import IDEXOrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessageType,
-    IDEXOrderBookMessage,
     OrderBookMessage,
 )
-from hummingbot.core.data_type.order_book_tracker_entry import IDEXOrderBookTrackerEntry
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
@@ -96,7 +96,7 @@ class IDEXOrderBookTracker(OrderBookTracker):
         Starts tracking for any new trading pairs, and stop tracking for any inactive trading pairs.
         """
         tracking_trading_pairs: Set[str] = set([key for key in self._tracking_tasks.keys()
-                                          if not self._tracking_tasks[key].done()])
+                                                if not self._tracking_tasks[key].done()])
         available_pairs: Dict[str, IDEXOrderBookTrackerEntry] = await self.data_source.get_tracking_pairs()
         available_trading_pairs: Set[str] = set(available_pairs.keys())
         new_trading_pairs: Set[str] = available_trading_pairs - tracking_trading_pairs
@@ -188,7 +188,7 @@ class IDEXOrderBookTracker(OrderBookTracker):
         message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
         order_book: IDEXOrderBook = self._order_books[trading_pair]
         active_order_tracker: IDEXActiveOrderTracker = self._active_order_trackers[trading_pair]
-        last_message_timestamp: float = time.time() 
+        last_message_timestamp: float = time.time()
         diff_messages_accepted: int = 0
 
         while True:
