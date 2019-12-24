@@ -273,6 +273,28 @@ cdef class BitfinexMarket(MarketBase):
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
+    async def stop_network(self):
+        """
+        *required
+        Async wrapper for `self._stop_network`. Used by NetworkBase class to handle when a single market goes offline.
+        """
+        self._stop_network()
+
+    def _stop_network(self):
+        """
+        Synchronous function that handles when a single market goes offline
+        """
+        if self._order_tracker_task is not None:
+            self._order_tracker_task.cancel()
+        if self._status_polling_task is not None:
+            self._status_polling_task.cancel()
+        if self._user_stream_tracker_task is not None:
+            self._user_stream_tracker_task.cancel()
+        if self._user_stream_event_listener_task is not None:
+            self._user_stream_event_listener_task.cancel()
+        self._order_tracker_task = self._status_polling_task = self._user_stream_tracker_task = \
+            self._user_stream_event_listener_task = None
+
     async def _status_polling_loop(self):
         """
         Background process that periodically pulls for changes from the rest API
