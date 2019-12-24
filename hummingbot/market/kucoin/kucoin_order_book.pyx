@@ -16,6 +16,7 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType
 )
+from hummingbot.market.kucoin.kucoin_order_book_message import KucoinOrderBookMessage
 
 _kob_logger = None
 
@@ -35,7 +36,7 @@ cdef class KucoinOrderBook(OrderBook):
                                        metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
+        return KucoinOrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["symbol"],
             "update_id": int(msg["data"]["sequence"]),
             "bids": msg["data"]["bids"],
@@ -49,7 +50,7 @@ cdef class KucoinOrderBook(OrderBook):
                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-        return OrderBookMessage(OrderBookMessageType.DIFF, {
+        return KucoinOrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": msg["data"]["symbol"],
             "update_id": msg["data"]["sequenceEnd"],
             "bids": msg["data"]["changes"]["bids"],
@@ -59,7 +60,7 @@ cdef class KucoinOrderBook(OrderBook):
     @classmethod
     def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
         ts = record["timestamp"]
-        msg = record["json"] if type(record["json"])==dict else ujson.loads(record["json"])
+        msg = record["json"] if type(record["json"]) == dict else ujson.loads(record["json"])
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
@@ -72,7 +73,7 @@ cdef class KucoinOrderBook(OrderBook):
     @classmethod
     def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
         ts = record["timestamp"]
-        msg = ujson.loads(record["json"]) # Kucoin json in DB is TEXT
+        msg = ujson.loads(record["json"])  # Kucoin json in DB is TEXT
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
@@ -116,7 +117,7 @@ cdef class KucoinOrderBook(OrderBook):
         return OrderBookMessage(OrderBookMessageType.TRADE, {
             "trading_pair": msg["symbol"],
             "trade_type": float(TradeType.BUY.value) if msg["side"] == "buy"
-                            else float(TradeType.SELL.value),
+            else float(TradeType.SELL.value),
             "trade_id": msg["tradeId"],
             "update_id": msg["sequence"],
             "price": msg["price"],
@@ -130,7 +131,7 @@ cdef class KucoinOrderBook(OrderBook):
         return OrderBookMessage(OrderBookMessageType.TRADE, {
             "trading_pair": msg["symbol"],
             "trade_type": float(TradeType.BUY.value) if msg["side"] == "buy"
-                            else float(TradeType.SELL.value),
+            else float(TradeType.SELL.value),
             "trade_id": msg["tradeId"],
             "update_id": msg["sequence"],
             "price": msg["price"],
@@ -142,4 +143,3 @@ cdef class KucoinOrderBook(OrderBook):
         retval = KucoinOrderBook()
         retval.apply_snapshot(msg.bids, msg.asks, msg.update_id)
         return retval
-

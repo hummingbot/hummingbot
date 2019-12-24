@@ -12,22 +12,20 @@ from typing import (
     List,
     Optional
 )
-import re
 import time
-import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
-
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
+from hummingbot.market.kucoin.kucoin_order_book_tracker_entry import KucoinOrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.kucoin.kucoin_order_book import KucoinOrderBook
+from hummingbot.market.kucoin.kucoin_active_order_tracker import KucoinActiveOrderTracker
 
-TRADING_PAIR_FILTER = re.compile(r"(BTC|ETH|USDT)$")
 
 SNAPSHOT_REST_URL = "https://api.kucoin.com/api/v2/market/orderbook/level2"
 DIFF_STREAM_URL = ""
@@ -77,12 +75,12 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             market_data = await market_response.json()
             exchange_data = await exchange_response.json()
-            
+
             attr_name_map = {"baseCurrency": "baseAsset", "quoteCurrency": "quoteAsset"}
 
             trading_pairs: Dict[str, Any] = {item["symbol"]: {attr_name_map[k]: item[k] for k in ["baseCurrency", "quoteCurrency"]}
                                              for item in exchange_data["data"]
-                                             if item["enableTrading"] == True}
+                                             if item["enableTrading"] == "true"}
 
             market_data: List[Dict[str, Any]] = [{**item, **trading_pairs[item["symbol"]]}
                                                  for item in market_data["data"]["ticker"]
@@ -98,13 +96,13 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 elif product_name.endswith("USDT"):
                     all_markets.loc[product_name, "USDVolume"] = float(row.volValue)
                 else:
-                        quote_currency: str = product_name.split('-')[1]
-                        mul: str = quote_currency + "-USDT"
-                        div: str = "USDT-" + quote_currency
-                        if mul in all_markets.index:
-                            all_markets.loc[product_name, "USDVolume"] = float(row.volValue) * float(all_markets.loc[mul, "last"])
-                        elif div in all_markets.index:
-                            all_markets.loc[product_name, "USDVolume"] = float(row.volValue) / float(all_markets.loc[div, "last"])
+                    quote_currency: str = product_name.split('-')[1]
+                    mul: str = quote_currency + "-USDT"
+                    div: str = "USDT-" + quote_currency
+                    if mul in all_markets.index:
+                        all_markets.loc[product_name, "USDVolume"] = float(row.volValue) * float(all_markets.loc[mul, "last"])
+                    elif div in all_markets.index:
+                        all_markets.loc[product_name, "USDVolume"] = float(row.volValue) / float(all_markets.loc[div, "last"])
             all_markets.loc[:, "volume"] = all_markets.vol
             return all_markets.sort_values("USDVolume", ascending=False)
 
@@ -150,8 +148,10 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         metadata={"symbol": trading_pair}
                     )
                     order_book: OrderBook = self.order_book_create_function()
-                    order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
-                    retval[trading_pair] = OrderBookTrackerEntry(trading_pair, snapshot_timestamp, order_book)
+                    active_order_tracker: KucoinActiveOrderTracker = KucoinActiveOrderTracker()
+                    bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
+                    order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
+                    retval[trading_pair] = KucoinOrderBookTrackerEntry(trading_pair, snapshot_timestamp, order_book, active_order_tracker)
                     self.logger().info(f"Initialized order book for {trading_pair}. "
                                        f"{index+1}/{number_of_pairs} completed.")
                     # Kucoin rate limit is 100 https requests per 10 seconds
@@ -182,15 +182,15 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return
         finally:
             await ws.close()
-			
-	#get required data to create a websocket request
+
+    # get required data to create a websocket request
     async def ws_connect_data(self):
         async with aiohttp.ClientSession() as session:
             async with session.post('https://api.kucoin.com/api/v1/bullet-public', data=b'') as resp:
                 response: aiohttp.ClientResponse = resp
                 if response.status != 200:
                     raise IOError(f"Error fetching Kucoin websocket connection data."
-                            f"HTTP status is {response.status}.")
+                                  f"HTTP status is {response.status}.")
                 data: Dict[str, Any] = await response.json()
                 return data
 
@@ -204,11 +204,11 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     ws: websockets.WebSocketClientProtocol = ws
                     for trading_pair in trading_pairs:
                         subscribe_request: Dict[str, Any] = {
-                                "id": int(time.time()),                          
-				"type": "subscribe",
-				"topic": f"/market/match:{trading_pair}",
-				"privateChannel": False,                      
-				"response": True
+                            "id": int(time.time()),
+                            "type": "subscribe",
+                            "topic": f"/market/match:{trading_pair}",
+                            "privateChannel": False,
+                            "response": True
                         }
                         await ws.send(json.dumps(subscribe_request))
 
@@ -220,7 +220,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             trading_pair = msg["data"]["symbol"]
                             data = msg["data"]
                             trade_message: OrderBookMessage = KucoinOrderBook.trade_message_from_exchange(
-                                    data, metadata={"trading_pair": trading_pair}
+                                data, metadata={"trading_pair": trading_pair}
                             )
                             output.put_nowait(trade_message)
                         else:
@@ -242,10 +242,10 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     ws: websockets.WebSocketClientProtocol = ws
                     for trading_pair in trading_pairs:
                         subscribe_request: Dict[str, Any] = {
-                                "id": int(time.time()),                          
-				"type": "subscribe",
-				"topic": f"/market/level2:{trading_pair}",
-				"response": True
+                            "id": int(time.time()),
+                            "type": "subscribe",
+                            "topic": f"/market/level2:{trading_pair}",
+                            "response": True
                         }
                         await ws.send(json.dumps(subscribe_request))
 
