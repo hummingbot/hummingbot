@@ -193,12 +193,12 @@ cdef class BinanceMarket(MarketBase):
         try:
             m = TRADING_PAIR_SPLITTER.match(trading_pair)
             return m.group(1), m.group(2)
-        # Exceptions are now logged as warnings
+        # Exceptions are now logged as warnings in trading pair fetcher
         except Exception as e:
             return None
 
     @staticmethod
-    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
+    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
         # Binance does not split BASEQUOTE (BTCUSDT)
         base_asset, quote_asset = BinanceMarket.split_trading_pair(exchange_trading_pair)
         return f"{base_asset}-{quote_asset}"
