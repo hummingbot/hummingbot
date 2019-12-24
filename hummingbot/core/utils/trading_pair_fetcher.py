@@ -3,11 +3,14 @@ from typing import (
     List,
     Dict,
     Any,
+    Optional,
 )
 
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.logger import HummingbotLogger
 import certifi
 import ssl
+import logging
 
 BINANCE_ENDPOINT = "https://api.binance.com/api/v1/exchangeInfo"
 DDEX_ENDPOINT = "https://api.ddex.io/v3/markets"
@@ -26,6 +29,13 @@ API_CALL_TIMEOUT = 5
 
 class TradingPairFetcher:
     _sf_shared_instance: "TradingPairFetcher" = None
+    tpf_logger: Optional[HummingbotLogger] = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls.tpf_logger is None:
+            cls.tpf_logger = logging.getLogger(__name__)
+        return cls.tpf_logger
 
     @classmethod
     def get_instance(cls) -> "TradingPairFetcher":
@@ -37,6 +47,9 @@ class TradingPairFetcher:
         self.ready = False
         self.trading_pairs: Dict[str, Any] = {}
         safe_ensure_future(self.fetch_all())
+
+    def log_warning_if_pair_not_present(self, market_name: str):
+        self.logger().warning(f"Trading Pairs are not updated for {market_name}")
 
     @staticmethod
     async def fetch_binance_trading_pairs() -> List[str]:

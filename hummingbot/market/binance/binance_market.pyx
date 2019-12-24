@@ -199,6 +199,8 @@ cdef class BinanceMarket(MarketBase):
 
     @staticmethod
     def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
+        if BinanceMarket.split_trading_pair(exchange_trading_pair) is None:
+            return None
         # Binance does not split BASEQUOTE (BTCUSDT)
         base_asset, quote_asset = BinanceMarket.split_trading_pair(exchange_trading_pair)
         return f"{base_asset}-{quote_asset}"
