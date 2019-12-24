@@ -11,6 +11,11 @@ TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USD|USDT|USDC|USDS|T
 
 MIN_BASE_AMOUNT_INCREMENT = Decimal("0.01")
 
+# this values ​​set by empirically way, because the bitfinex-market does not have
+# these values. maybe later it will be in market-api.
+BITFINEX_QUOTE_INCREMENT = 0.01
+BITFINEX_BASE_INCREMENT = 1e-8
+
 
 class SubmitOrder:
     OID = 0

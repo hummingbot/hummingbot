@@ -10,7 +10,6 @@ import aiohttp
 from libc.stdint cimport int64_t
 from libcpp cimport bool
 
-import conf
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
@@ -36,6 +35,7 @@ from hummingbot.market.bitfinex import (
     ContentEventType,
     TRADING_PAIR_SPLITTER,
     MIN_BASE_AMOUNT_INCREMENT,
+    BITFINEX_QUOTE_INCREMENT
 )
 from hummingbot.market.market_base import (
     MarketBase,
@@ -51,7 +51,7 @@ from hummingbot.market.trading_rule cimport TradingRule
 
 s_logger = None
 s_decimal_0 = Decimal(0)
-general_order_size_quantum = Decimal(conf.bitfinex_quote_increment)
+general_order_size_quantum = Decimal(BITFINEX_QUOTE_INCREMENT)
 
 Wallet = collections.namedtuple('Wallet',
                                 'wallet_type currency balance unsettled_interest balance_available')
@@ -491,7 +491,7 @@ cdef class BitfinexMarket(MarketBase):
                 trading_pair_id = rule[0]
                 retval.append(
                     TradingRule(trading_pair_id,
-                                min_price_increment=Decimal(conf.bitfinex_quote_increment),
+                                min_price_increment=Decimal(BITFINEX_QUOTE_INCREMENT),
                                 min_order_size=Decimal(str(rule[1][3])),
                                 min_base_amount_increment=MIN_BASE_AMOUNT_INCREMENT,
                                 min_quote_amount_increment=MIN_BASE_AMOUNT_INCREMENT,
