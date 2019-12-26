@@ -202,7 +202,6 @@ class TradingPairFetcher:
                         # Do nothing if the request fails -- there will be no autocomplete for idex trading pairs
                 return []
 
-    @staticmethod
     async def fetch_huobi_trading_pairs(self) -> List[str]:
         from hummingbot.market.huobi.huobi_market import HuobiMarket
 
