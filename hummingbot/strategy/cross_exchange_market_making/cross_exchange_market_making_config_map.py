@@ -9,7 +9,7 @@ from hummingbot.client.settings import required_exchanges, EXAMPLE_PAIRS
 def maker_trading_pair_prompt():
     maker_market = cross_exchange_market_making_config_map.get("maker_market").value
     example = EXAMPLE_PAIRS.get(maker_market)
-    return "Enter the token trading pair you would like to trade on %s%s >>> " % (
+    return "Enter the token trading pair you would like to trade on maker market: %s%s >>> " % (
         maker_market,
         f" (e.g. {example})" if example else "",
     )
@@ -18,7 +18,7 @@ def maker_trading_pair_prompt():
 def taker_trading_pair_prompt():
     taker_market = cross_exchange_market_making_config_map.get("taker_market").value
     example = EXAMPLE_PAIRS.get(taker_market)
-    return "Enter the token trading pair you would like to trade on %s%s >>> " % (
+    return "Enter the token trading pair you would like to trade on taker market: %s%s >>> " % (
         taker_market,
         f" (e.g. {example})" if example else "",
     )
@@ -49,10 +49,14 @@ cross_exchange_market_making_config_map = {
         on_validated=lambda value: required_exchanges.append(value),
     ),
     "maker_market_trading_pair": ConfigVar(
-        key="maker_market_trading_pair", prompt=maker_trading_pair_prompt, validator=is_valid_maker_market_trading_pair
+        key="maker_market_trading_pair",
+        prompt=maker_trading_pair_prompt,
+        validator=is_valid_maker_market_trading_pair
     ),
     "taker_market_trading_pair": ConfigVar(
-        key="taker_market_trading_pair", prompt=taker_trading_pair_prompt, validator=is_valid_taker_market_trading_pair
+        key="taker_market_trading_pair",
+        prompt=taker_trading_pair_prompt,
+        validator=is_valid_taker_market_trading_pair
     ),
     "min_profitability": ConfigVar(
         key="min_profitability",
