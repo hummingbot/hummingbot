@@ -89,11 +89,11 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=ticker_data,
                                                                   index="marketId")
 
-            sai_to_weth_price: float = float(all_markets.loc["WETH-SAI"].price)
+            sai_to_nusd_price: float = float(all_markets.loc["SAI-NUSD"].price)
             weth_to_usd_price: float = float(all_markets.loc["WETH-TUSD"].price)
             usd_volume: float = [
                 (
-                    quoteVolume * sai_to_weth_price * weth_to_usd_price if trading_pair.endswith("SAI") else
+                    quoteVolume * sai_to_nusd_price if trading_pair.endswith("SAI") else
                     quoteVolume * weth_to_usd_price if trading_pair.endswith("WETH") else
                     quoteVolume
                 )
