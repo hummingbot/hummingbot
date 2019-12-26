@@ -21,7 +21,7 @@ class KillSwitch:
         self._hummingbot_application = hummingbot_application
 
         self._kill_switch_enabled: bool = global_config_map.get("kill_switch_enabled").value
-        self._kill_switch_rate: Decimal = Decimal(global_config_map.get("kill_switch_rate").value)
+        self._kill_switch_rate: Decimal = Decimal(global_config_map.get("kill_switch_rate").value or "0.0")
 
         self._started = False
         self._update_interval = 10.0
@@ -35,7 +35,7 @@ class KillSwitch:
                     # calculate_profitability gives profitability in percent terms i.e. 0.015 to indicate 0.015%
                     # self._kill_switch_rate is in numerical term 1.e. 0.015 to indicate 1.5%
                     self._profitability: Decimal = \
-                        self._hummingbot_application.calculate_profitability()
+                        self._hummingbot_application.calculate_profitability() / Decimal("100")
 
                     # Stop the bot if losing too much money, or if gained a certain amount of profit
                     if (self._profitability <= self._kill_switch_rate < Decimal("0.0")) or \
