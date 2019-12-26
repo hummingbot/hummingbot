@@ -48,11 +48,7 @@ class TradingPairFetcher:
         self.trading_pairs: Dict[str, Any] = {}
         safe_ensure_future(self.fetch_all())
 
-    def log_warning_if_pair_not_present(self, market_name: str):
-        self.logger().warning(f"Trading Pairs are not updated for {market_name}")
-
-    @staticmethod
-    async def fetch_binance_trading_pairs() -> List[str]:
+    async def fetch_binance_trading_pairs(self) -> List[str]:
         from hummingbot.market.binance.binance_market import BinanceMarket
 
         async with aiohttp.ClientSession() as client:
@@ -67,14 +63,19 @@ class TradingPairFetcher:
                         # https://api.binance.com/api/v1/exchangeInfo
                         if "123456" in raw_trading_pairs:
                             raw_trading_pairs.remove("123456")
-                        return [BinanceMarket.convert_from_exchange_trading_pair(p) for p in raw_trading_pairs]
+                        trading_pair_list: List[str] = []
+                        for p in raw_trading_pairs:
+                            if BinanceMarket.convert_from_exchange_trading_pair(p) is not None:
+                                trading_pair_list.append(p)
+                            else:
+                                self.logger().warning(f"Trading Pairs are not updated for binance for pair: {p}")
+                        return trading_pair_list
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for binance trading pairs
                 return []
 
-    @staticmethod
-    async def fetch_ddex_trading_pairs() -> List[str]:
+    async def fetch_ddex_trading_pairs(self) -> List[str]:
         from hummingbot.market.ddex.ddex_market import DDEXMarket
 
         async with aiohttp.ClientSession() as client:
@@ -84,14 +85,19 @@ class TradingPairFetcher:
                         response = await response.json()
                         markets = response.get("data").get("markets")
                         raw_trading_pairs = list(map(lambda details: details.get('id'), markets))
-                        return [DDEXMarket.convert_from_exchange_trading_pair(p) for p in raw_trading_pairs]
+                        trading_pair_list: List[str] = []
+                        for p in raw_trading_pairs:
+                            if DDEXMarket.convert_from_exchange_trading_pair(p) is not None:
+                                trading_pair_list.append(p)
+                            else:
+                                self.logger().warning(f"Trading Pairs are not updated for ddex for pair: {p}")
+                        return trading_pair_list
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for ddex trading pairs
                 return []
 
-    @staticmethod
-    async def fetch_radar_relay_trading_pairs() -> List[str]:
+    async def fetch_radar_relay_trading_pairs(self) -> List[str]:
         from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 
         trading_pairs = set()
@@ -109,13 +115,19 @@ class TradingPairFetcher:
                             else:
                                 trading_pairs = trading_pairs.union(new_trading_pairs)
                             page_count += 1
+                            trading_pair_list: List[str] = []
+                            for p in trading_pairs:
+                                if RadarRelayMarket.convert_from_exchange_trading_pair(p) is not None:
+                                    trading_pair_list.append(p)
+                                else:
+                                    self.logger().warning(
+                                        f"Trading Pairs are not updated for radar relay for pair: {p}")
+                            return trading_pair_list
                         except Exception:
                             # Do nothing if the request fails -- there will be no autocomplete for radar trading pairs
                             break
-        return [RadarRelayMarket.convert_from_exchange_trading_pair(p) for p in trading_pairs]
 
-    @staticmethod
-    async def fetch_bamboo_relay_trading_pairs() -> List[str]:
+    async def fetch_bamboo_relay_trading_pairs(self) -> List[str]:
         from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 
         sslcontext = ssl.create_default_context(cafile=certifi.where())
@@ -134,13 +146,19 @@ class TradingPairFetcher:
                             else:
                                 trading_pairs = trading_pairs.union(new_trading_pairs)
                             page_count += 1
+                            trading_pair_list: List[str] = []
+                            for p in trading_pairs:
+                                if BambooRelayMarket.convert_from_exchange_trading_pair(p) is not None:
+                                    trading_pair_list.append(p)
+                                else:
+                                    self.logger().warning(
+                                        f"Trading Pairs are not updated for bamboo relay for pair: {p}")
+                            return trading_pair_list
                         except Exception:
                             # Do nothing if the request fails -- there will be no autocomplete for bamboo trading pairs
                             break
-        return [BambooRelayMarket.convert_from_exchange_trading_pair(p) for p in trading_pairs]
 
-    @staticmethod
-    async def fetch_coinbase_pro_trading_pairs() -> List[str]:
+    async def fetch_coinbase_pro_trading_pairs(self) -> List[str]:
         from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 
         async with aiohttp.ClientSession() as client:
@@ -149,14 +167,20 @@ class TradingPairFetcher:
                     try:
                         markets = await response.json()
                         raw_trading_pairs: List[str] = list(map(lambda details: details.get('id'), markets))
-                        return [CoinbaseProMarket.convert_from_exchange_trading_pair(p) for p in raw_trading_pairs]
+                        trading_pair_list: List[str] = []
+                        for p in raw_trading_pairs:
+                            if CoinbaseProMarket.convert_from_exchange_trading_pair(p) is not None:
+                                trading_pair_list.append(p)
+                            else:
+                                self.logger().warning(
+                                    f"Trading Pairs are not updated for coinbase pro for pair: {p}")
+                        return trading_pair_list
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for coinbase trading pairs
                 return []
 
-    @staticmethod
-    async def fetch_idex_trading_pairs() -> List[str]:
+    async def fetch_idex_trading_pairs(self) -> List[str]:
         from hummingbot.market.idex.idex_market import IDEXMarket
 
         async with aiohttp.ClientSession() as client:
@@ -165,14 +189,21 @@ class TradingPairFetcher:
                     try:
                         market: Dict[Any] = await response.json()
                         raw_trading_pairs: List[str] = list(market.keys())
-                        return [IDEXMarket.convert_from_exchange_trading_pair(p) for p in raw_trading_pairs]
+                        trading_pair_list: List[str] = []
+                        for p in raw_trading_pairs:
+                            if IDEXMarket.convert_from_exchange_trading_pair(p) is not None:
+                                trading_pair_list.append(p)
+                            else:
+                                self.logger().warning(
+                                    f"Trading Pairs are not updated for idex for pair: {p}")
+                        return trading_pair_list
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for idex trading pairs
                 return []
 
     @staticmethod
-    async def fetch_huobi_trading_pairs() -> List[str]:
+    async def fetch_huobi_trading_pairs(self) -> List[str]:
         from hummingbot.market.huobi.huobi_market import HuobiMarket
 
         async with aiohttp.ClientSession() as client:
@@ -184,7 +215,15 @@ class TradingPairFetcher:
                         for item in all_trading_pairs["data"]:
                             if item["state"] == "online":
                                 valid_trading_pairs.append(item["symbol"])
-                        return [HuobiMarket.convert_from_exchange_trading_pair(p) for p in valid_trading_pairs]
+                        trading_pair_list: List[str] = []
+                        for p in valid_trading_pairs:
+                            if HuobiMarket.convert_from_exchange_trading_pair(p) is not None:
+                                trading_pair_list.append(p)
+                            else:
+                                self.logger().warning(
+                                    f"Trading Pairs are not updated for huobi for pair: {p}")
+                        return trading_pair_list
+
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for huobi trading pairs
@@ -224,8 +263,7 @@ class TradingPairFetcher:
                         # Do nothing if the request fails -- there will be no autocomplete for bittrex trading pairs
                 return []
 
-    @staticmethod
-    async def fetch_dolomite_trading_pairs() -> List[str]:
+    async def fetch_dolomite_trading_pairs(self) -> List[str]:
         from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 
         async with aiohttp.ClientSession() as client:
@@ -236,14 +274,20 @@ class TradingPairFetcher:
                         valid_trading_pairs: list = []
                         for item in all_trading_pairs["data"]:
                             valid_trading_pairs.append(item["market"])
-                        return [DolomiteMarket.convert_from_exchange_trading_pair(p) for p in valid_trading_pairs]
+                        trading_pair_list: List[str] = []
+                        for p in valid_trading_pairs:
+                            if DolomiteMarket.convert_from_exchange_trading_pair(p) is not None:
+                                trading_pair_list.append(p)
+                            else:
+                                self.logger().warning(
+                                    f"Trading Pairs are not updated for dolomite for pair: {p}")
+                        return trading_pair_list
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for dolomite trading pairs
                 return []
 
-    @staticmethod
-    async def fetch_bitcoin_com_trading_pairs() -> List[str]:
+    async def fetch_bitcoin_com_trading_pairs(self) -> List[str]:
         from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComMarket
 
         async with aiohttp.ClientSession() as client:
@@ -252,10 +296,14 @@ class TradingPairFetcher:
                     try:
                         raw_trading_pairs: List[Dict[str, any]] = await response.json()
                         trading_pairs: List[str] = list([item["id"] for item in raw_trading_pairs])
-
-                        return list(
-                            map(lambda trading_pair: BitcoinComMarket.convert_from_exchange_trading_pair(trading_pair), trading_pairs)
-                        )
+                        trading_pair_list: List[str] = []
+                        for p in trading_pairs:
+                            if BitcoinComMarket.convert_from_exchange_trading_pair(p) is not None:
+                                trading_pair_list.append(p)
+                            else:
+                                self.logger().warning(
+                                    f"Trading Pairs are not updated for BitcoinCom for pair: {p}")
+                        return trading_pair_list
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete available
