@@ -96,9 +96,8 @@ def start(self):
                 asset_trading_pair: str = self._convert_to_exchange_trading_pair(
                     external_price_source_exchange, [raw_maker_trading_pair])[0]
                 ext_market = create_paper_trade_market(external_price_source_exchange, [asset_trading_pair])
-                ext_market_info = MarketTradingPairTuple(ext_market, asset_trading_pair, "", "")
                 self.markets[external_price_source_exchange]: MarketBase = ext_market
-                asset_price_delegate = OrderBookAssetPriceDelegate(ext_market_info)
+                asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
             elif external_price_source_type == "feed":
                 asset_price_delegate = DataFeedAssetPriceDelegate(external_price_source_feed_base_asset,
                                                                   external_price_source_feed_quote_asset)

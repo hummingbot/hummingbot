@@ -331,15 +331,16 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             list buy_sizes = []
             list sell_prices = []
             list sell_sizes = []
+            MarketBase market = market_info.market
         if orders_proposal.buy_order_sizes[0] > 0:
+            first_ask = market.c_get_price(market_info.trading_pair, True)
             for i in range(0, len(orders_proposal.buy_order_prices)):
-                first_ask = market_info.get_price(True)
                 if first_ask.is_nan() or (orders_proposal.buy_order_prices[i] < first_ask):
                     buy_prices.append(orders_proposal.buy_order_prices[i])
                     buy_sizes.append(orders_proposal.buy_order_sizes[i])
         if orders_proposal.sell_order_sizes[0] > 0:
+            first_bid = market.c_get_price(market_info.trading_pair, False)
             for i in range(0, len(orders_proposal.sell_order_prices)):
-                first_bid = market_info.get_price(False)
                 if first_bid.is_nan() or (orders_proposal.sell_order_prices[i] > first_bid):
                     sell_prices.append(orders_proposal.sell_order_prices[i])
                     sell_sizes.append(orders_proposal.sell_order_sizes[i])

@@ -1,15 +1,17 @@
 from .asset_price_delegate cimport AssetPriceDelegate
-from hummingbot.market.paper_trade import create_paper_trade_market
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.market.market_base import MarketBase
+from decimal import Decimal
 
 cdef class OrderBookAssetPriceDelegate(AssetPriceDelegate):
-    def __init__(self, market_info: MarketTradingPairTuple):
+    def __init__(self, market: MarketBase, trading_pair: str):
         super().__init__()
-        self._market_info = market_info
+        self._market = market
+        self._trading_pair = trading_pair
 
     cdef object c_get_mid_price(self):
-        return self._market_info.get_mid_price()
+        return (self._market.c_get_price(self._trading_pair, True) +
+                self._market.c_get_price(self._trading_pair, False))/Decimal('2')
 
     @property
     def ready(self) -> bool:
-        return self._market_info.market.ready
+        return self._market.ready
