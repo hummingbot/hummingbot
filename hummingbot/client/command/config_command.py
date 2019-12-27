@@ -30,7 +30,8 @@ from hummingbot.client.config.config_crypt import (
     decrypt_file,
     decrypt_config_value,
     encrypted_config_file_exists,
-    get_encrypted_config_path
+    get_encrypted_config_path,
+    encrypt_n_save_config_value
 )
 from os import unlink
 from typing import TYPE_CHECKING
@@ -76,7 +77,7 @@ class ConfigCommand:
         for key in keys:
             cvar = config_map.get(key)
             if cvar.value is None and cvar.required:
-                if cvar.is_secure and self.load_secure_var(cvar):
+                if cvar.is_secure and cvar.key != "wallet" and self.load_secure_var(cvar):
                     continue
                 return False
         return True
@@ -291,8 +292,6 @@ class ConfigCommand:
                even if it is not required by default setting
         :return: a validated user input or the variable's default value
         """
-        if cvar.key != "password" and cvar.is_secure and in_memory_config_map.get("password").value is None:
-            in_memory_config_map.get("password").value = await self._one_password_config()
         if cvar.required or requirement_overwrite:
             if cvar.key == "password":
                 return await self._one_password_config()
@@ -318,11 +317,8 @@ class ConfigCommand:
                     val = await self.prompt_single_variable(cvar, requirement_overwrite)
         else:
             val = cvar.value
-
         if val is None or (isinstance(val, str) and len(val) == 0):
             val = cvar.default
-        if cvar.key != "password" and cvar.is_secure and encrypted_config_file_exists(cvar):
-            unlink(get_encrypted_config_path(cvar))
         return val
 
     @staticmethod
@@ -397,7 +393,10 @@ class ConfigCommand:
             cv: ConfigVar = self._get_config_var_with_key(key)
             value = await self.prompt_single_variable(cv, requirement_overwrite=True)
             cv.value = parse_cvar_value(cv, value)
-            await write_config_to_yml()
+            if cv.is_secure:
+                await self._encrypt_n_save_config_value(cv)
+            else:
+                await write_config_to_yml()
             self._notify(f"\nNew config saved:\n{key}: {str(value)}")
 
             if not self.config_complete:
@@ -416,3 +415,12 @@ class ConfigCommand:
             self.app.toggle_hide_input()
             self.placeholder_mode = False
             self.app.change_prompt(prompt=">>> ")
+
+    async def _encrypt_n_save_config_value(self,  # type: HummingbotApplication
+                                           cvar:ConfigVar):
+        if in_memory_config_map.get("password").value is None:
+            in_memory_config_map.get("password").value = await self._one_password_config()
+        password = in_memory_config_map.get("password").value
+        if encrypted_config_file_exists(cvar):
+            unlink(get_encrypted_config_path(cvar))
+        encrypt_n_save_config_value(cvar, password)
