@@ -2,7 +2,6 @@ import asyncio
 import aiohttp
 import logging
 from typing import (
-    Dict,
     Optional,
 )
 from hummingbot.core.network_base import NetworkBase, NetworkStatus
@@ -43,7 +42,6 @@ class CustomAPIDataFeed(NetworkBase):
         if self._shared_client is None:
             self._shared_client = aiohttp.ClientSession()
         return self._shared_client
-
 
     async def check_network(self) -> NetworkStatus:
         client = self._http_client()

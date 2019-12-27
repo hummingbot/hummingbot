@@ -212,7 +212,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.ext_data.set_balanced_order_book(mid_price=50, min_price=1, max_price=400,
                                          price_step_size=1, volume_step_size=10)
         self.ext_market.add_data(self.ext_data)
-        self.asset_del = OrderBookAssetPriceDelegate(self.ext_market_info)
+        self.asset_del = OrderBookAssetPriceDelegate(self.ext_market, self.maker_trading_pairs[0])
         self.ext_exc_price_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
             filled_order_replenish_wait_time=self.cancel_order_wait_time,

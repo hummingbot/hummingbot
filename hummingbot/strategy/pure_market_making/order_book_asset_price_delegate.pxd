@@ -1,5 +1,7 @@
 from .asset_price_delegate cimport AssetPriceDelegate
+from hummingbot.market.market_base cimport MarketBase
 
 cdef class OrderBookAssetPriceDelegate(AssetPriceDelegate):
     cdef:
-        object _market_info
+        MarketBase _market
+        str _trading_pair
