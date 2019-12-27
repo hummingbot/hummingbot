@@ -9,6 +9,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
+from hummingbot.market.bitfinex import OrderStatus
 from hummingbot.market.bitfinex.bitfinex_market import BitfinexMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
@@ -22,7 +23,8 @@ cdef class BitfinexInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "open"):
+                 initial_state: str = OrderStatus.ACTIVE):
+
         super().__init__(
             BitfinexMarket,
             client_order_id,
@@ -36,17 +38,23 @@ cdef class BitfinexInFlightOrder(InFlightOrderBase):
         )
 
     @property
+    def is_open(self) -> bool:
+        if self.last_state.startswith("PARTIALLY"):
+            return True
+        return self.last_state in {OrderStatus.ACTIVE}
+
+    @property
     def is_done(self) -> bool:
-        return self.last_state in {"filled", "canceled" "done"}
+        return self.last_state in {OrderStatus.EXECUTED, OrderStatus.CANCELED}
 
     @property
     def is_failure(self) -> bool:
         # This is the only known canceled state
-        return self.last_state == "canceled"
+        return self.last_state == OrderStatus.CANCELED
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state == "canceled"
+        return self.last_state == OrderStatus.CANCELED
 
     @property
     def order_type_description(self) -> str:
@@ -56,6 +64,12 @@ cdef class BitfinexInFlightOrder(InFlightOrderBase):
         order_type = "market" if self.order_type is OrderType.MARKET else "limit"
         side = "buy" if self.trade_type == TradeType.BUY else "sell"
         return f"{order_type} {side}"
+
+    def set_status(self, order_status: str):
+        # ACTIVE, CANCELLED, PARTIALLY FILLED@128.86(0.04975707)
+        self.last_state = order_status
+        if order_status.startswith("PARTIALLY"):
+            self.last_state = OrderStatus.PARTIALLY
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:

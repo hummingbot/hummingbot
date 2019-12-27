@@ -8,7 +8,8 @@ import unittest
 from decimal import Decimal
 from os.path import join, realpath
 from typing import (
-    List
+    List,
+    Optional,
 )
 
 import conf
@@ -35,6 +36,10 @@ from hummingbot.core.utils.async_utils import (
 )
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.market.bitfinex.bitfinex_market import BitfinexMarket
+from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.model.market_state import MarketState
+from hummingbot.model.order import Order
+from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 
 sys.path.insert(0, realpath(join(__file__, "../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)
@@ -51,7 +56,7 @@ class BitfinexMarketUnitTest(unittest.TestCase):
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCancelled
+        MarketEvent.OrderCancelled,
     ]
 
     market: BitfinexMarket
@@ -125,7 +130,7 @@ class BitfinexMarketUnitTest(unittest.TestCase):
         self.assertEqual(len(market_fee.flat_fees), 0)
 
     def test_minimum_order_size(self):
-        amount = Decimal('0.001')
+        amount = Decimal("0.001")
         quantized_amount = self.market.quantize_order_amount("ETHUSD", amount)
         self.assertEqual(quantized_amount, 0)
 
@@ -137,7 +142,8 @@ class BitfinexMarketUnitTest(unittest.TestCase):
         trading_pair = "ETHUSD"
         amount: Decimal = Decimal("0.04")
         current_ask_price: Decimal = self.market.get_price(trading_pair, False)
-        bid_price: Decimal = current_ask_price - Decimal("0.08") * current_ask_price
+        # no fill
+        bid_price: Decimal = Decimal("0.9") * current_ask_price
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair,
                                                                        bid_price)
 
@@ -160,7 +166,8 @@ class BitfinexMarketUnitTest(unittest.TestCase):
         trading_pair = "ETHUSD"
         amount: Decimal = Decimal("-0.04")
         current_ask_price: Decimal = self.market.get_price(trading_pair, False)
-        ask_price: Decimal = current_ask_price + Decimal("0.08") * current_ask_price
+        # for no fill
+        ask_price: Decimal = Decimal("1.1") * current_ask_price
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair,
                                                                        ask_price)
 
@@ -182,7 +189,7 @@ class BitfinexMarketUnitTest(unittest.TestCase):
 
     def test_execute_limit_buy(self):
         trading_pair = "ETHUSD"
-        amount: Decimal = Decimal("0.05")
+        amount: Decimal = Decimal("0.04")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair,
                                                                       amount)
 
@@ -192,7 +199,7 @@ class BitfinexMarketUnitTest(unittest.TestCase):
         bid_price: Decimal = Decimal(most_top_bid.price)
         quantize_bid_price: Decimal = \
             self.market.quantize_order_price(trading_pair, bid_price)
-        quantize_bid_price = quantize_bid_price + Decimal("0.05")
+        quantize_bid_price = quantize_bid_price + Decimal("0.2")
 
         order_id = self.market.buy(trading_pair,
                                    quantized_amount,
@@ -231,16 +238,18 @@ class BitfinexMarketUnitTest(unittest.TestCase):
         ask_entries = self.market.order_books[trading_pair].ask_entries()
         most_top_ask = next(ask_entries)
         ask_price: Decimal = Decimal(most_top_ask.price)
+        print("ask_price", ask_price)
         quantize_ask_price: Decimal = \
             self.market.quantize_order_price(trading_pair, ask_price)
         quantize_ask_price = quantize_ask_price - Decimal("0.05")
+        print("quantize_ask_price", quantize_ask_price)
 
         order_id = self.market.sell(trading_pair,
                                     quantized_amount,
                                     OrderType.LIMIT,
                                     quantize_ask_price,
                                     )
-
+        print("order_id", order_id)
         [order_completed_event] = self.run_parallel(
             self.market_logger.wait_for(SellOrderCompletedEvent))
 
@@ -264,3 +273,96 @@ class BitfinexMarketUnitTest(unittest.TestCase):
                              for event in self.market_logger.event_log]))
         # Reset the logs
         self.market_logger.clear()
+
+    def test_orders_saving_and_restoration(self):
+        self.tearDownClass()
+        self.setUpClass()
+        self.setUp()
+
+        config_path: str = "test_config"
+        strategy_name: str = "test_strategy"
+        trading_pair: str = "ETHUSD"
+        sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
+        order_id: Optional[str] = None
+
+        recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
+        recorder.start()
+
+        try:
+            self.assertEqual(0, len(self.market.tracking_states))
+            bid_price: Decimal = self.market.get_price(trading_pair, True)
+            order_id = self.market.buy("ETHUSD", Decimal("0.04"), OrderType.LIMIT, bid_price * Decimal("0.08"),)
+            [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+            order_created_event: BuyOrderCreatedEvent = order_created_event
+            self.assertEqual(order_id, order_created_event.order_id)
+
+            # Verify tracking states
+            self.assertEqual(1, len(self.market.tracking_states))
+            self.assertEqual(order_id, list(self.market.tracking_states.keys())[0])
+
+            # Verify orders from recorder
+            recorded_orders: List[Order] = recorder.get_orders_for_config_and_market(config_path, self.market)
+            self.assertEqual(1, len(recorded_orders))
+            self.assertEqual(order_id, recorded_orders[0].id)
+
+            # Verify saved market states
+            saved_market_states: MarketState = recorder.get_market_states(config_path, self.market)
+            self.assertIsNotNone(saved_market_states)
+            self.assertIsInstance(saved_market_states.saved_state, dict)
+            self.assertGreater(len(saved_market_states.saved_state), 0)
+
+            # Close out the current market and start another market.
+            self.clock.remove_iterator(self.market)
+            for event_tag in self.events:
+                self.market.remove_listener(event_tag, self.market_logger)
+
+            market: BitfinexMarket = BitfinexMarket(
+                conf.bitfinex_api_key, conf.bitfinex_secret_key, trading_pairs=["ETHUSD"]
+            )
+            for event_tag in self.events:
+                market.add_listener(event_tag, self.market_logger)
+            recorder.stop()
+            recorder = MarketsRecorder(sql, [market], config_path, strategy_name)
+            recorder.start()
+            saved_market_states = recorder.get_market_states(config_path, market)
+            self.clock.add_iterator(market)
+            self.assertEqual(0, len(market.limit_orders))
+            self.assertEqual(0, len(market.tracking_states))
+            market.restore_tracking_states(saved_market_states.saved_state)
+            self.assertEqual(1, len(market.limit_orders))
+            self.assertEqual(1, len(market.tracking_states))
+
+            # Cancel the order and verify that the change is saved.
+            market.cancel(trading_pair, order_id)
+            self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+            order_id = None
+            self.assertEqual(0, len(market.limit_orders))
+            self.assertEqual(0, len(market.tracking_states))
+            saved_market_states = recorder.get_market_states(config_path, market)
+            self.assertEqual(0, len(saved_market_states.saved_state))
+            print("FINISH")
+        finally:
+            if order_id is not None:
+                self.market.cancel(trading_pair, order_id)
+                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+
+            recorder.stop()
+            self.setUpClass()
+
+    def test_cancel_all(self):
+        trading_pair = "ETHUSD"
+        bid_price: Decimal = self.market.get_price(trading_pair, True)
+        ask_price: Decimal = self.market.get_price(trading_pair, False)
+        amount: Decimal = Decimal("0.04")
+        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
+
+        # Intentionally setting invalid price to prevent getting filled
+        quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price * Decimal("0.9"))
+        quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.1"))
+
+        self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        self.market.sell(trading_pair, quantized_amount, OrderType.LIMIT, quantize_ask_price)
+        self.run_parallel(asyncio.sleep(5))
+        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+        for cr in cancellation_results:
+            self.assertEqual(cr.success, True)
