@@ -97,6 +97,8 @@ class HistoryCommand:
         This function is used by the KillSwitch class.
         Must be updated if the method of performance report gets updated.
         """
+        if not self.markets_recorder:
+            return Decimal("0.0")
         trade_performance_stats, _ = self._calculate_trade_performance()
         portfolio_delta_percentage: Decimal = trade_performance_stats["portfolio_delta_percentage"]
         return portfolio_delta_percentage
