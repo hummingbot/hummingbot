@@ -7,9 +7,13 @@ from decimal import Decimal
 from typing import Optional, List, Dict, Any, AsyncIterable, Tuple
 
 import aiohttp
+import pandas as pd
+from async_timeout import timeout
 from libc.stdint cimport int64_t
 from libcpp cimport bool
 
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
@@ -35,8 +39,12 @@ from hummingbot.market.bitfinex import (
     ContentEventType,
     TRADING_PAIR_SPLITTER,
     MIN_BASE_AMOUNT_INCREMENT,
-    BITFINEX_QUOTE_INCREMENT
+    BITFINEX_QUOTE_INCREMENT,
+    TAKER_FEE,
+    MAKER_FEE,
 )
+from hummingbot.market.bitfinex.bitfinex_api_order_book_data_source import \
+    BitfinexAPIOrderBookDataSource
 from hummingbot.market.market_base import (
     MarketBase,
     OrderType,
@@ -55,6 +63,13 @@ general_order_size_quantum = Decimal(BITFINEX_QUOTE_INCREMENT)
 
 Wallet = collections.namedtuple('Wallet',
                                 'wallet_type currency balance unsettled_interest balance_available')
+
+OrderRetrieved = collections.namedtuple(
+    "OrderRetrived",
+    "id gid cid symbol mts_create mts_update "
+    "amount amount_orig type type_prev n1 n2 "
+    "flags status n3 n4 price price_exec"
+)  # 18
 
 
 cdef class BitfinexMarketTransactionTracker(TransactionTracker):
@@ -82,6 +97,7 @@ cdef class BitfinexMarket(MarketBase):
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
 
     API_CALL_TIMEOUT = 10.0
+    UPDATE_ORDERS_INTERVAL = 10.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -206,8 +222,8 @@ cdef class BitfinexMarket(MarketBase):
         # There is no API for checking user's fee tier
         # Fee info from https://www.bitfinex.com/fees
         cdef:
-            object maker_fee = Decimal("0.001")
-            object taker_fee = Decimal("0.002")
+            object maker_fee = MAKER_FEE
+            object taker_fee = TAKER_FEE
 
         return TradeFee(
             percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
@@ -305,6 +321,7 @@ cdef class BitfinexMarket(MarketBase):
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self._update_balances(),
+                    self._update_order_status(),
                 )
             except asyncio.CancelledError:
                 raise
@@ -910,3 +927,222 @@ cdef class BitfinexMarket(MarketBase):
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
+
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+        open_orders = [o for o in self._in_flight_orders.values() if o.is_open]
+
+        if len(open_orders) == 0:
+            return []
+        cancel_order_ids = [int(o.exchange_order_id) for o in open_orders]
+        self.logger().debug(f"cancel_order_ids {cancel_order_ids} {open_orders}")
+        path_url = "auth/w/order/cancel/multi"
+        data = {"id": cancel_order_ids}
+        cancellation_results = []
+        try:
+            async with timeout(timeout_seconds):
+                cancel_all_results = await self._api_private(
+                    "post",
+                    path_url=path_url,
+                    data=data,
+                )
+                # Example.
+                # [1568711312683,"oc_multi-req",null,null,[
+                #   [31123704044,null,1568711144715,"tBTCUSD",1568711147000,1568711147000,
+                #   0.001,0.001,"LIMIT",null,null,null,0,"ACTIVE",null,null,15,0,0,0,null,
+                #   null,null,0,0,null,null,null,"API>BFX",null,null,null],
+                #   [31123725368,null,1568711155664,"tBTCUSD",1568711158000,1568711158000,
+                #   0.001,0.001,"LIMIT",null,null,null,0,"ACTIVE",null,null,15,0,0,0,null,
+                #   null,null,0,0,null,null,null,"API>BFX",null,null,null]
+                # ],
+                # null,"SUCCESS","Submitting 2 order cancellations."]
+                status = True
+                result_status = cancel_all_results[-2: -1][0]
+                if result_status != "SUCCESS":
+                    status = False
+                for result in cancel_all_results[4]:
+                    cancellation_results.append(CancellationResult(result[0], status))
+        except Exception as e:
+            self.logger().network(
+                f"Failed to cancel all orders: {cancel_order_ids}",
+                exc_info=True,
+                app_warning_msg=f"Failed to cancel all orders on Bitfinex. Check API key and network connection."
+            )
+        return cancellation_results
+
+    async def get_active_exchange_markets(self) -> pd.DataFrame:
+        """
+        *required
+        Used by the discovery strategy to read order books of all actively trading markets,
+        and find opportunities to profit
+        """
+        return await BitfinexAPIOrderBookDataSource.get_active_exchange_markets()
+
+    @property
+    def limit_orders(self) -> List[LimitOrder]:
+        """
+        *required
+        :return: list of active limit orders
+        """
+        return [
+            in_flight_order.to_limit_order()
+            for in_flight_order in self._in_flight_orders.values()
+        ]
+
+    # sqlite
+    @property
+    def tracking_states(self) -> Dict[str, any]:
+        """
+        *required
+        :return: Dict[client_order_id: InFlightOrder]
+        This is used by the MarketsRecorder class to orchestrate market classes at a higher level.
+        """
+        return {
+            key: value.to_json()
+            for key, value in self._in_flight_orders.items()
+        }
+
+    def restore_tracking_states(self, saved_states: Dict[str, any]):
+        """
+        *required
+        Updates inflight order statuses from API results
+        This is used by the MarketsRecorder class to orchestrate market classes at a higher level.
+        """
+        self._in_flight_orders.update({
+            key: BitfinexInFlightOrder.from_json(value)
+            for key, value in saved_states.items()
+        })
+
+    # orders status
+    async def list_orders(self) -> List[OrderRetrieved]:
+        """
+        Gets a list of the user's active orders via rest API
+        :returns: json response
+        """
+        path_url = "auth/r/orders"
+        result = await self._api_private("post", path_url=path_url, data={})
+        orders = [OrderRetrieved._make(res[:18]) for res in result]
+        return orders
+
+    def calculate_fee(self, price, amount, _type, order_type):
+        # fee_percent dependent only from order_type
+        fee_percent = self.c_get_fee(None, None, order_type, None, None, None).percent
+        if _type == TradeType.BUY:
+            fee = price * fee_percent
+        else:
+            fee = price * abs(amount) * fee_percent
+        return fee
+
+    async def _update_order_status(self):
+        """
+        Pulls the rest API for for latest order statuses and update local order statuses.
+        """
+        cdef:
+            dict order_dict
+            double current_timestamp = self._current_timestamp
+
+        if current_timestamp - self._last_order_update_timestamp <= self.UPDATE_ORDERS_INTERVAL:
+            return
+        await asyncio.sleep(1)
+        tracked_orders = list(self._in_flight_orders.values())
+        results = await self.list_orders()
+        order_dict = dict((result[0], result) for result in results)
+
+        for tracked_order in tracked_orders:
+            exchange_order_id = await tracked_order.get_exchange_order_id()
+            order_update = order_dict.get(int(exchange_order_id))
+            if order_update is None:
+                self.logger().network(
+                    f"Error fetching status update for the order {tracked_order.client_order_id}: "
+                    f"{order_update}.",
+                    app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id}. "
+                                    f"Check API key and network connection."
+                )
+                continue
+
+            # Calculate the newly executed amount for this update.
+            original_amount = Decimal(order_update.amount_orig)
+            rest_amount = Decimal(order_update.amount)
+            base_execute_amount_diff = original_amount - rest_amount
+            base_execute_price = Decimal(order_update.price_exec)
+
+            client_order_id = tracked_order.client_order_id
+            order_type_description = tracked_order.order_type_description
+            order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
+
+            # order no changed, it means is active now, skip
+            if base_execute_amount_diff == s_decimal_0:
+                self.logger().info(f"Order {client_order_id} not updated yet")
+                continue
+            # Emit event if executed amount is greater than 0.
+            if base_execute_amount_diff > s_decimal_0:
+                order_filled_event = OrderFilledEvent(
+                    self._current_timestamp,
+                    tracked_order.client_order_id,
+                    tracked_order.trading_pair,
+                    tracked_order.trade_type,
+                    order_type,
+                    base_execute_price,
+                    base_execute_amount_diff,
+                    self.c_get_fee(
+                        tracked_order.base_asset,
+                        tracked_order.quote_asset,
+                        order_type,
+                        tracked_order.trade_type,
+                        base_execute_price,
+                        base_execute_amount_diff,
+                    ),
+                    exchange_trade_id=exchange_order_id,
+                )
+                self.logger().info(f"Filled {base_execute_amount_diff} out of {tracked_order.amount} of the "
+                                   f"{order_type_description} order {client_order_id}.")
+                self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
+
+            # Update the tracked order
+            tracked_order.set_status(order_update.status)
+            tracked_order.executed_amount_base = base_execute_amount_diff
+            tracked_order.executed_amount_quote = base_execute_amount_diff * base_execute_price
+            tracked_order.fee_paid = self.calculate_fee(base_execute_amount_diff,
+                                                        order_update.price_exec,
+                                                        tracked_order.trade_type,
+                                                        tracked_order.order_type
+                                                        )
+            if tracked_order.is_done:
+                if not tracked_order.is_failure:
+                    if tracked_order.trade_type == TradeType.BUY:
+                        self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
+                                           f"according to order status API.")
+                        self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
+                                             BuyOrderCompletedEvent(self._current_timestamp,
+                                                                    tracked_order.client_order_id,
+                                                                    tracked_order.base_asset,
+                                                                    tracked_order.quote_asset,
+                                                                    (tracked_order.fee_asset
+                                                                     or tracked_order.base_asset),
+                                                                    tracked_order.executed_amount_base,
+                                                                    tracked_order.executed_amount_quote,
+                                                                    tracked_order.fee_paid,
+                                                                    order_type))
+                    else:
+                        self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
+                                           f"according to order status API.")
+                        self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
+                                             SellOrderCompletedEvent(self._current_timestamp,
+                                                                     tracked_order.client_order_id,
+                                                                     tracked_order.base_asset,
+                                                                     tracked_order.quote_asset,
+                                                                     (tracked_order.fee_asset
+                                                                      or tracked_order.quote_asset),
+                                                                     tracked_order.executed_amount_base,
+                                                                     tracked_order.executed_amount_quote,
+                                                                     tracked_order.fee_paid,
+                                                                     order_type))
+                else:
+                    self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been cancelled "
+                                       f"according to order status API.")
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                         OrderCancelledEvent(
+                                             self._current_timestamp,
+                                             tracked_order.client_order_id
+                                         ))
+                self.c_stop_tracking_order(tracked_order.client_order_id)
+        self._last_order_update_timestamp = current_timestamp
