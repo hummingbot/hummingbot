@@ -68,7 +68,7 @@ class TradingPairFetcher:
                             if BinanceMarket.convert_from_exchange_trading_pair(p) is not None:
                                 trading_pair_list.append(p)
                             else:
-                                self.logger().warning(f"Trading Pairs are not updated for binance for pair: {p}")
+                                self.logger().warning(f"Could not parse the trading pair {p}, skipping it...")
                         return trading_pair_list
                     except Exception:
                         pass
@@ -90,7 +90,7 @@ class TradingPairFetcher:
                             if DDEXMarket.convert_from_exchange_trading_pair(p) is not None:
                                 trading_pair_list.append(p)
                             else:
-                                self.logger().warning(f"Trading Pairs are not updated for ddex for pair: {p}")
+                                self.logger().warning(f"Could not parse the trading pair {p}, skipping it...")
                         return trading_pair_list
                     except Exception:
                         pass
@@ -121,7 +121,7 @@ class TradingPairFetcher:
                                     trading_pair_list.append(p)
                                 else:
                                     self.logger().warning(
-                                        f"Trading Pairs are not updated for radar relay for pair: {p}")
+                                        f"Could not parse the trading pair {p}, skipping it...")
                             return trading_pair_list
                         except Exception:
                             # Do nothing if the request fails -- there will be no autocomplete for radar trading pairs
@@ -152,7 +152,7 @@ class TradingPairFetcher:
                                     trading_pair_list.append(p)
                                 else:
                                     self.logger().warning(
-                                        f"Trading Pairs are not updated for bamboo relay for pair: {p}")
+                                        f"Could not parse the trading pair {p}, skipping it...")
                             return trading_pair_list
                         except Exception:
                             # Do nothing if the request fails -- there will be no autocomplete for bamboo trading pairs
@@ -173,7 +173,7 @@ class TradingPairFetcher:
                                 trading_pair_list.append(p)
                             else:
                                 self.logger().warning(
-                                    f"Trading Pairs are not updated for coinbase pro for pair: {p}")
+                                    f"Could not parse the trading pair {p}, skipping it...")
                         return trading_pair_list
                     except Exception:
                         pass
@@ -195,7 +195,7 @@ class TradingPairFetcher:
                                 trading_pair_list.append(p)
                             else:
                                 self.logger().warning(
-                                    f"Trading Pairs are not updated for idex for pair: {p}")
+                                    f"Could not parse the trading pair {p}, skipping it...")
                         return trading_pair_list
                     except Exception:
                         pass
@@ -220,7 +220,7 @@ class TradingPairFetcher:
                                 trading_pair_list.append(p)
                             else:
                                 self.logger().warning(
-                                    f"Trading Pairs are not updated for huobi for pair: {p}")
+                                    f"Could not parse the trading pair {p}, skipping it...")
                         return trading_pair_list
 
                     except Exception:
@@ -279,7 +279,7 @@ class TradingPairFetcher:
                                 trading_pair_list.append(p)
                             else:
                                 self.logger().warning(
-                                    f"Trading Pairs are not updated for dolomite for pair: {p}")
+                                    f"Could not parse the trading pair {p}, skipping it...")
                         return trading_pair_list
                     except Exception:
                         pass
@@ -301,7 +301,7 @@ class TradingPairFetcher:
                                 trading_pair_list.append(p)
                             else:
                                 self.logger().warning(
-                                    f"Trading Pairs are not updated for BitcoinCom for pair: {p}")
+                                    f"Could not parse the trading pair {p}, skipping it...")
                         return trading_pair_list
                     except Exception:
                         pass
