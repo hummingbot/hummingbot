@@ -2,6 +2,7 @@ import asyncio
 import aiohttp
 import logging
 from typing import (
+    Dict,
     Optional,
 )
 from hummingbot.core.network_base import NetworkBase, NetworkStatus
