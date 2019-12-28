@@ -123,6 +123,7 @@ nav:
       - Operation:
         - Using the Client: operation/client.md
         - Running Trading Bots: operation/running-bots.md
+        - Trading Strategy Autostart: operation/autostart.md
         - Running Multiple Bots: operation/running-multiple-bots.md
       - Configuration:
         - Configuring Hummingbot: operation/configuration.md
