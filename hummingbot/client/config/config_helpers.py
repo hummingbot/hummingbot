@@ -30,12 +30,10 @@ from hummingbot.client.settings import (
     CONF_PREFIX,
     LIQUIDITY_BOUNTY_CONFIG_PATH,
     TOKEN_ADDRESSES_FILE_PATH,
-    required_exchanges
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.config_crypt import (
     encrypt_n_save_config_value,
-    decrypt_config_value,
     encrypted_config_file_exists
 )
 
@@ -220,6 +218,10 @@ def read_configs_from_yml(strategy_file_path: Optional[str] = None):
                 cvar = cm.get(key)
                 if cvar is None:
                     logging.getLogger().error(f"Cannot find corresponding config to key {key} in template.")
+                    continue
+
+                # Skip this step since the values are not saved in the yml file
+                if cvar.is_secure:
                     continue
 
                 val_in_file = data.get(key)
