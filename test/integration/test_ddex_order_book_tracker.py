@@ -37,10 +37,7 @@ class DDEXOrderBookTrackerUnitTest(unittest.TestCase):
         OrderBookEvent.TradeEvent
     ]
     trading_pairs: List[str] = [
-        "USDC-DAI",
-        "WETH-DAI",
-        "QKC-WETH",
-        "ECOREAL-TUSD"
+        "WETH-SAI",
     ]
 
     @classmethod
@@ -68,7 +65,7 @@ class DDEXOrderBookTrackerUnitTest(unittest.TestCase):
                 raise Exception("Time out running parallel async task in tests.")
             timer += 1
             now = time.time()
-            next_iteration = now // 1.0 + 1
+            _next_iteration = now // 1.0 + 1  # noqa: F841
             await asyncio.sleep(1.0)
         return future.result()
 
@@ -104,20 +101,14 @@ class DDEXOrderBookTrackerUnitTest(unittest.TestCase):
         # Wait 5 seconds to process some diffs.
         self.ev_loop.run_until_complete(asyncio.sleep(5.0))
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
-        usdc_dai_book: OrderBook = order_books["USDC-DAI"]
-        weth_dai_book: OrderBook = order_books["WETH-DAI"]
-        # print("usdc_dai_book")
-        # print(usdc_dai_book.snapshot)
-        # print("weth_dai_book")
-        # print(weth_dai_book.snapshot)
-        self.assertGreaterEqual(usdc_dai_book.get_price_for_volume(True, 10).result_price,
-                                usdc_dai_book.get_price(True))
-        self.assertLessEqual(usdc_dai_book.get_price_for_volume(False, 10).result_price,
-                             usdc_dai_book.get_price(False))
-        self.assertGreaterEqual(weth_dai_book.get_price_for_volume(True, 10).result_price,
-                                weth_dai_book.get_price(True))
-        self.assertLessEqual(weth_dai_book.get_price_for_volume(False, 10).result_price,
-                             weth_dai_book.get_price(False))
+        weth_sai_book: OrderBook = order_books["WETH-SAI"]
+        # print("weth_sai_book")
+        # print(weth_sai_book.snapshot)
+        self.assertGreaterEqual(weth_sai_book.get_price_for_volume(True, 10).result_price,
+                                weth_sai_book.get_price(True))
+        self.assertLessEqual(weth_sai_book.get_price_for_volume(False, 10).result_price,
+                             weth_sai_book.get_price(False))
+        self.assertTrue(weth_sai_book.last_diff_uid != 0)
 
 
 def main():

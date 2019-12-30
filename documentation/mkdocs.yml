@@ -123,6 +123,7 @@ nav:
       - Operation:
         - Using the Client: operation/client.md
         - Running Trading Bots: operation/running-bots.md
+        - Trading Strategy Autostart: operation/autostart.md
         - Running Multiple Bots: operation/running-multiple-bots.md
       - Configuration:
         - Configuring Hummingbot: operation/configuration.md
@@ -136,6 +137,8 @@ nav:
         - Coinbase Pro: connectors/coinbase.md
         - Huobi Global: connectors/huobi.md
         - Bittrex Global: connectors/bittrex.md
+        - Liquid: connectors/liquid.md
+        - Bitcoin.com Exchange: connectors/bitcoin-com.md
         - DDEX: connectors/ddex.md
         - IDEX: connectors/idex.md
         - Radar Relay: connectors/radar-relay.md
@@ -180,6 +183,7 @@ nav:
         - Configuration: developers/config.md
     - Release Notes:
       - About Releases: release-notes/index.md
+      - 0.21.0: release-notes/0.21.0.md
       - 0.20.0: release-notes/0.20.0.md
       - 0.19.1: release-notes/0.19.1.md
       - 0.19.0: release-notes/0.19.0.md

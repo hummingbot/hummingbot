@@ -32,14 +32,14 @@ The timeline below shows the past milestones we have completed, along with the f
 ## Q4 2019
 * Released connector for [Bittrex Global](/connectors/bittrex)
 * Community contributed connector for [Dolomite](/connectors/dolomite)
-* Liquidity Mining Platform: [Blog](https://hummingbot.io/blog/2019-11-liquidity-mining/) | [Whitepaper](https://hummingbot.io/liquidity-mining.pdf)
-* Connector for [Liquid](https://liquid.com/) ([in progress](https://gitcoin.co/issue/CoinAlpha/hummingbot/909/3556))
-* Connector for [Bitcoin Exchange](https://exchange.bitcoin.com/) ([in progress](https://gitcoin.co/issue/CoinAlpha/hummingbot/991/3588))
-* Connector for [KuCoin](https://www.kucoin.com/) ([in progress](https://github.com/CoinAlpha/hummingbot/pull/1011))
-* Connector for [HitBTC](https://hitbtc.com/) ([in progress](https://github.com/CoinAlpha/hummingbot/pull/1039))
+* Announced Liquidity Mining Platform: [Blog](https://hummingbot.io/blog/2019-11-liquidity-mining/) | [Whitepaper](https://hummingbot.io/liquidity-mining.pdf)
+* Released connector for [Liquid](https://liquid.com/)
+* Released connector for [Bitcoin Exchange](https://exchange.bitcoin.com/)
 * Add support for 0x v3
+* Connector for [KuCoin](https://www.kucoin.com/) ([in progress](https://github.com/CoinAlpha/hummingbot/pull/1011))
 
 ## Q1 2020
+* Liquidity Mining Launch: Wave 1 (mid-January)
 * Graphical user interface
-* More connectors for decentralized and centralized exchanges: Bitfinex, Kraken, Bitmex, Binance DEX
+* More connectors for decentralized and centralized exchanges: Bitfinex, Kraken, gate.io, HitBTC
 * Connectors to automated market makers

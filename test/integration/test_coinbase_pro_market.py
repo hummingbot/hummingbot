@@ -79,7 +79,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             conf.coinbase_pro_api_key,
             conf.coinbase_pro_secret_key,
             conf.coinbase_pro_passphrase,
-            trading_pairs=["ETH-USDC", "ETH-USD"]
+            trading_pairs=["ETH-USDC"]
         )
         print("Initializing Coinbase Pro market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -199,7 +199,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
     # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
     def test_market_buy(self):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
-        trading_pair = "ETH-USD"
+        trading_pair = "ETH-USDC"
         amount: Decimal = Decimal("0.02")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
@@ -215,7 +215,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
         self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("USD", order_completed_event.quote_asset)
+        self.assertEqual("USDC", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
@@ -225,7 +225,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
 
     # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
     def test_market_sell(self):
-        trading_pair = "ETH-USD"
+        trading_pair = "ETH-USDC"
         amount: Decimal = Decimal("0.02")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
@@ -240,7 +240,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
         self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("USD", order_completed_event.quote_asset)
+        self.assertEqual("USDC", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
