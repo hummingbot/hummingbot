@@ -165,15 +165,18 @@ cdef class BitcoinComMarket(MarketBase):
         self._shared_client = None
 
     @staticmethod
-    def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
+    def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
         try:
             m = TRADING_PAIR_SPLITTER.match(trading_pair)
             return m.group(1), m.group(2)
+        # Exceptions are now logged as warnings in trading pair fetcher
         except Exception as e:
-            raise ValueError(f"Error parsing trading_pair {trading_pair}: {str(e)}")
+            return None
 
     @staticmethod
-    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
+    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
+        if BitcoinComMarket.split_trading_pair(exchange_trading_pair) is None:
+            return None
         # exchange does not split BASEQUOTE (BTCUSDT)
         base_asset, quote_asset = BitcoinComMarket.split_trading_pair(exchange_trading_pair)
         return f"{base_asset}-{quote_asset}"
