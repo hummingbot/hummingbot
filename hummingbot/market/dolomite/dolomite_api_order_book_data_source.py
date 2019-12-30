@@ -18,12 +18,11 @@ from websockets.exceptions import ConnectionClosed
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.market.dolomite.dolomite_active_order_tracker import DolomiteActiveOrderTracker
 from hummingbot.market.dolomite.dolomite_order_book import DolomiteOrderBook
+from hummingbot.market.dolomite.dolomite_order_book_tracker_entry import DolomiteOrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-
-from hummingbot.core.data_type.order_book_tracker_entry import DolomiteOrderBookTrackerEntry, OrderBookTrackerEntry
-
-from hummingbot.core.data_type.order_book_message import DolomiteOrderBookMessage
+from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
+from hummingbot.market.dolomite.dolomite_order_book_message import DolomiteOrderBookMessage
 
 
 MARKETS_URL = "/v1/markets"

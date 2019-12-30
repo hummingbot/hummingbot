@@ -17,7 +17,6 @@ from .market_trading_pair_tuple import MarketTradingPairTuple
 
 NaN = float("nan")
 
-
 cdef class OrderTracker(TimeIterator):
     # ETH confirmation requirement of Binance has shortened to 12 blocks as of 7/15/2019.
     # 12 * 15 / 60 = 3 minutes
