@@ -4,6 +4,7 @@ from typing import (
     Dict,
     List,
     Tuple,
+    Optional,
     Iterator)
 
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -58,14 +59,15 @@ cdef class MarketBase(NetworkIterator):
         self._order_book_tracker = None
 
     @staticmethod
-    def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
+    def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
         try:
             return tuple(trading_pair.split('-'))
+        # Exceptions are logged as warnings in Trading pair fetcher class
         except Exception:
-            raise ValueError(f"Error parsing trading_pair {trading_pair}")
+            return None
 
     @staticmethod
-    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
+    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
         return exchange_trading_pair
 
     @staticmethod
