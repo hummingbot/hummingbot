@@ -9,20 +9,27 @@ If you have successfully installed Hummingbot using our install scripts, you sho
 First, let's walk through the design of the Hummingbot client interface:
 
 * Left top pane: where the responses to your commands are printed
-* Left bottom pane: where you input [commands](https://docs.hummingbot.io/operation/client/#client-commands) to control your bot
+* Left bottom pane: where you input [commands](/operation/client/#user-interface) to control your bot
 * Right pane: where logs of live trading bot activity are printed
 
 **Enter `help` to see a list of commands:**
-```
->>> help
-help    Print a list of commands
-start   Start market making with Hummingbot
-config  Add your personal credentials e.g. exchange API keys
-status  Get current bot status
-bounty  Participate in hummingbot's liquidity bounty programs
 
-etc...
 ```
+bounty              Participate in hummingbot's liquidity bounty programs 
+config              Add your personal credentials e.g. exchange API keys  
+exit                Securely exit the command line                        
+export_private_key  Print your account private key                        
+export_trades       Export your trades to a csv file                      
+get_balance         Print balance of a certain currency                   
+help                Print a list of commands                              
+history             Get your bot's past trades and performance analytics  
+list                List global objects                                   
+paper_trade         Enable / Disable paper trade mode.                    
+start               Start market making with Hummingbot                   
+status              Get current bot status                                
+stop                Stop the bot's active strategy
+```
+
 ## Step 2: Enable Paper Trading Mode (Optional)
 
 You can run Hummingbot and simulate trading strategies without executing and placing actual trades. Run command `paper_trade` at the beginning to enable this feature.
@@ -39,21 +46,7 @@ Your configuration is incomplete. Would you like to proceed and finish all neces
 For more information about this feature, see [Paper Trading Mode](/utilities/paper-trade) in the User Manual. To perform actual trading, proceed to the next step.
 
 
-## Step 3: Register for Liquidity Bounties (Optional)
-
-Liquidity Bounties allow you to earn rewards by running market making bots for specific tokens and/or exchanges.
-
-Hummingbot enters into partnerships with token issuers and exchanges to administer bounty programs that reward Hummingbot users based on their volume of filled market maker orders. For more information, please see [Bounties FAQ](/bounties/faq).
-
-**Enter `bounty --register` to start the registration process:**
-
-1. Agree to the Terms & Conditions
-2. Allow us to collect your trading data for verification purposes
-3. Enter your Ethereum wallet address
-4. Enter your email address
-5. Confirm information and finalize
-
-## Step 4: Configure a market making bot
+## Step 3: Configure a market making bot
 
 Now, let's walk through the process of configuring a basic market making bot.
 
@@ -62,7 +55,8 @@ Now, let's walk through the process of configuring a basic market making bot.
 
 #### a) Enter `config` to start the configuration walkthrough
 
-If you never entered your password to HB before, the system will prompt 
+If setting up Hummingbot for the first time, the system will prompt:
+
 ```
 Enter your new password >>> ****
 
@@ -71,7 +65,7 @@ Please reenter your password >>> ****
 
 This password will be used to encrypt sensitive configuration settings e.g. api keys, secrets and wallet private keys. Please note, for security reason, the system does not store your password anywhere, so in case of forgotten password, there is no way to recover it.
 
-Next, we'll create a configuration for the `pure market making` strategy which makes a market on a single trading pair.
+Next, we'll create a configuration for the [pure market making](/strategies/pure-market-making) strategy which makes a market on a single trading pair.
 
 !!! warning
     Values of parameters from here on are indicative for illustrative purposes only; this is not financial advice.
@@ -86,7 +80,7 @@ create
 
 #### b) Select the exchange and trading pair
 
-Next, select which exchange and trading pair you want to use. Note that you may need an exchange account and inventory of crypto assets deposited on the exchange. You can view more information [here](/connectors/index) about the exchanges Hummingbot currently supports.
+Next, select which exchange and trading pair you want to use. Note that you may need an exchange account and inventory of crypto assets deposited on the exchange. You can view more information in [Connectors Overview](https://docs.hummingbot.io/connectors/) about the exchanges Hummingbot currently supports.
 
 You can select a centralized exchange like Binance:
 ```
@@ -160,8 +154,8 @@ Here's an [inventory skew calculator](https://docs.google.com/spreadsheets/d/16o
 
 Now that you have set up how your market making bot will behave, it's time to provide it with the necessary API keys (for centralized exchanges) or wallet/node info (for decentralized exchanges) that it needs to operate:
 
-!!! note "Copying and pasting in Windows"
-    If you are using a Windows machine, you may need to activate copying and pasting on Docker Toolbox. Please see [this page](/support/how-to/#how-do-i-copy-and-paste-in-docker-toolbox-windows) for instructions on how to activate this.
+!!! note "Copying and Pasting"
+    Our Get Help section contains answers to some of the common how-to questions like [How do I copy and paste in Docker Toolbox?](/support/how-to/#how-do-i-copy-and-paste-in-docker-toolbox-windows) and [How do I paste items from clipboard in PuTTY?](support/how-to/#how-do-i-paste-items-from-clipboard-in-putty)
 
 If you selected a centralized exchange like Binance in Step 3(b), you will need to :
 ```
@@ -190,7 +184,8 @@ Which Ethereum node would you like your client to connect to? >>>
 [ENTER ADDRESS OF YOUR ETHEREUM NODE]
 ```
 
-See [Ethereum wallet](/installation/wallet) and [Ethereum node](/installation/node/node) for more information.
+More information in User Manual about [Ethereum wallet](/installation/wallet) and [Ethereum node](/installation/node/node).
+
 
 #### f) Enter kill switch parameters
 
@@ -212,7 +207,7 @@ At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5% l
 -0.05
 ```
 
-## Step 5: Adjusting Parameters
+## Step 4: Adjusting Parameters
 
 If you want to reconfigure the bot from the beginning, type `config` and reply `y` to the question `Would you like to reconfigure the bot? (y/n) >>>?`. This will prompt all questions during initial set up.
 
