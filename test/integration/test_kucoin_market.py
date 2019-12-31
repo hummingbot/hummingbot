@@ -96,6 +96,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.stack.close()
+        return 0
 
     @classmethod
     async def wait_til_ready(cls):
@@ -105,6 +106,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
             if cls.market.ready and cls.market_2.ready:
                 break
             else:
+                break
                 await cls._clock.run_til(next_iteration)
             await asyncio.sleep(1.0)
 
@@ -142,14 +144,14 @@ class KucoinMarketUnitTest(unittest.TestCase):
 
     def test_get_fee(self):
         limit_fee: TradeFee = self.market.get_fee("ETH", "USDT", OrderType.LIMIT, TradeType.BUY, 1, 10)
-        print(self.assertGreater(limit_fee.percent, 0))
-        print(self.assertEqual(len(limit_fee.flat_fees), 0))
+        self.assertGreater(limit_fee.percent, 0)
+        self.assertEqual(len(limit_fee.flat_fees), 0)
         market_fee: TradeFee = self.market.get_fee("ETH", "USDT", OrderType.MARKET, TradeType.BUY, 1)
-        print(self.assertGreater(market_fee.percent, 0))
-        print(self.assertEqual(len(market_fee.flat_fees), 0))
+        self.assertGreater(market_fee.percent, 0)
+        self.assertEqual(len(market_fee.flat_fees), 0)
         sell_trade_fee: TradeFee = self.market.get_fee("ETH", "USDT", OrderType.LIMIT, TradeType.SELL, 1, 10)
-        print(self.assertGreater(sell_trade_fee.percent, 0))
-        print(self.assertEqual(len(sell_trade_fee.flat_fees), 0))
+        self.assertGreater(sell_trade_fee.percent, 0)
+        self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
     def test_limit_buy(self):
         trading_pair = "ETH-USDT"
@@ -344,9 +346,9 @@ class KucoinMarketUnitTest(unittest.TestCase):
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
             self.market: KucoinMarket = KucoinMarket(
-                kucoin_api_key=conf.kucoin_api_key,
-                kucoin_passphrase=conf.kucoin_passphrase,
-                kucoin_secret_key=conf.kucoin_secret_key,
+                kucoin_api_key="5e04e411a55fad0008edbdc2",
+                kucoin_passphrase="Ko0u8cft6o0i9nji9.",
+                kucoin_secret_key="b7d30e03-48c8-4733-88cd-f4f75dc29fb5",
                 trading_pairs=["ETH-USDT", "BTC-USDT"]
             )
             for event_tag in self.events:
@@ -379,6 +381,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
             os.unlink(self.db_path)
 
     def test_order_fill_record(self):
+        print(11)
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
         trading_pair: str = "ETH-USDT"

@@ -19,6 +19,7 @@ from typing import (
     Tuple
 )
 import ujson
+import json
 
 import hummingbot
 from hummingbot.core.clock cimport Clock
@@ -265,31 +266,35 @@ cdef class KucoinMarket(MarketBase):
                            params: Optional[Dict[str, Any]] = None,
                            data=None,
                            is_auth_required: bool = False) -> Dict[str, Any]:
-        content_type = "application/json"
-        headers = {"Content-Type": content_type}
         url = KUCOIN_ROOT_API + path_url
         client = await self._http_client()
         if is_auth_required:
-            params = self._kucoin_auth.add_auth_to_params(method, path_url, params)
-        async with client.request(method=method,
-                                  url=url,
-                                  headers=headers,
-                                  params=params,
-                                  data=ujson.dumps(data),
-                                  timeout=self.API_CALL_TIMEOUT) as response:
+            headers = self._kucoin_auth.add_auth_to_params(method, path_url, params)
+        else:
+            headers = {"Content-Type": "application/json"}
+
+        if method == "get":
+            response = await client.get(url, headers=headers)
+        elif method == "post":
+            response = await client.post(url, data=json.dumps(params), headers=headers)
+        elif method == "delete":
+            response = await client.delete(url, headers=headers)
+        else:
+            response = False
+
+        if response:
             if response.status != 200:
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
             try:
-                parsed_response = await response.json()
+                parsed_response = json.loads(await response.text())
             except Exception:
                 raise IOError(f"Error parsing data from {url}.")
-            print(parsed_response)
             return parsed_response
 
     async def _update_account_id(self) -> str:
         accounts = await self._api_request("get", path_url="/api/v1/accounts", is_auth_required=True)
         try:
-            for account in accounts:
+            for account in accounts["data"]:
                 if account["type"] == "trade":
                     self._account_id = str(account["id"])
         except Exception as e:
@@ -352,10 +357,10 @@ cdef class KucoinMarket(MarketBase):
         cdef:
             list trading_rules = []
 
-        for info in raw_trading_pair_info:
+        for info in raw_trading_pair_info["data"]:
             try:
                 trading_rules.append(
-                    TradingRule(trading_pair=info["trading_pair"],
+                    TradingRule(trading_pair=info["symbol"],
                                 min_order_size=Decimal(info["baseMinSize"]),
                                 max_order_size=Decimal(info["baseMaxSize"]),
                                 min_price_increment=Decimal(info['priceIncrement']),
@@ -488,7 +493,7 @@ cdef class KucoinMarket(MarketBase):
         while True:
             try:
                 await self._update_trading_rules()
-                await asyncio.sleep(60 * 5)
+                await asyncio.sleep(60)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -548,6 +553,7 @@ cdef class KucoinMarket(MarketBase):
                           amount: Decimal,
                           order_type: OrderType,
                           price: Decimal):
+        print(self._trading_rules)
         cdef:
             TradingRule trading_rule = self._trading_rules[trading_pair]
             double quote_amount
