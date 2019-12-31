@@ -45,13 +45,13 @@ cdef class KucoinActiveOrderTracker:
         return sum([float(msg["remaining_size"]) for msg in self._active_bids[price].values()])
 
     def get_rates_and_quantities(self, entry) -> tuple:
-        return entry["R"], entry["Q"]
+        return float(entry[0]), float(entry[1])
 
     cdef tuple c_convert_diff_message_to_np_arrays(self, object message):
         cdef:
             dict content = message.content
-            list bid_entries = content["Z"]
-            list ask_entries = content["S"]
+            list bid_entries = content["asks"]
+            list ask_entries = content["bids"]
             str order_id
             str order_side
             str price_raw
