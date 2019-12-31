@@ -20,11 +20,13 @@ from websockets.exceptions import ConnectionClosed
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.market.radar_relay.radar_relay_order_book import RadarRelayOrderBook
 from hummingbot.market.radar_relay.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
+from hummingbot.market.radar_relay.radar_relay_order_book_message import RadarRelayOrderBookMessage
+from hummingbot.market.radar_relay.radar_relay_order_book_tracker_entry import RadarRelayOrderBookTrackerEntry
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry, RadarRelayOrderBookTrackerEntry
-from hummingbot.core.data_type.order_book_message import OrderBookMessage, RadarRelayOrderBookMessage
+from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 
 TRADING_PAIR_FILTER = re.compile(r"(WETH|DAI)$")
