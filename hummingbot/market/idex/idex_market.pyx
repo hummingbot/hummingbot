@@ -145,15 +145,18 @@ cdef class IDEXMarket(MarketBase):
         self._last_nonce = 0
 
     @staticmethod
-    def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
+    def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
         try:
             quote_asset, base_asset = trading_pair.split('_')
             return base_asset, quote_asset
+        # Exceptions are now logged as warnings in trading pair fetcher
         except Exception:
-            raise ValueError(f"Error parsing trading_pair {trading_pair}")
+            return None
 
     @staticmethod
-    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
+    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
+        if IDEXMarket.split_trading_pair(exchange_trading_pair) is None:
+            return None
         # IDEX uses QUOTE_BASE (USDT_BTC)
         quote_asset, base_asset = exchange_trading_pair.split("_")
         return f"{base_asset}-{quote_asset}"
