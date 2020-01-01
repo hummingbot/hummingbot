@@ -142,5 +142,39 @@ pure_market_making_config_map = {
                   prompt="Do you want to add transaction costs automatically to order prices? "
                          "(Default is True) >>> ",
                   type_str="bool",
-                  default=True)
+                  default=True),
+    "external_pricing_source": ConfigVar(key="external_pricing_source",
+                                         prompt="Would you like to use an external pricing source for mid-market "
+                                                "price? (y/n) >>> ",
+                                         type_str="bool",
+                                         default=False),
+    "external_price_source_type": ConfigVar(key="external_price_source_type",
+                                            prompt="Which type of external price source to use? "
+                                                   "(exchange/feed/custom_api) >>> ",
+                                            required_if=lambda: pure_market_making_config_map.get(
+                                                    "external_pricing_source").value,
+                                            type_str="str",
+                                            validator=lambda s: s in {"exchange", "feed", "custom_api"}),
+    "external_price_source_exchange": ConfigVar(key="external_price_source_exchange",
+                                                prompt="Enter exchange name >>> ",
+                                                required_if=lambda: pure_market_making_config_map.get(
+                                                    "external_price_source_type").value == "exchange",
+                                                type_str="str",
+                                                validator=lambda s: s != pure_market_making_config_map.get(
+                                                    "maker_market").value and is_exchange(s)),
+    "external_price_source_feed_base_asset": ConfigVar(key="external_price_source_feed_base_asset",
+                                                       prompt="Reference base asset from data feed? (e.g. ETH) >>> ",
+                                                       required_if=lambda: pure_market_making_config_map.get(
+                                                           "external_price_source_type").value == "feed",
+                                                       type_str="str"),
+    "external_price_source_feed_quote_asset": ConfigVar(key="external_price_source_feed_quote_asset",
+                                                        prompt="Reference quote asset from data feed? (e.g. USD) >>> ",
+                                                        required_if=lambda: pure_market_making_config_map.get(
+                                                            "external_price_source_type").value == "feed",
+                                                        type_str="str"),
+    "external_price_source_custom_api": ConfigVar(key="external_price_source_custom_api",
+                                                  prompt="Enter pricing API URL >>> ",
+                                                  required_if=lambda: pure_market_making_config_map.get(
+                                                      "external_price_source_type").value == "custom_api",
+                                                  type_str="str")
 }
