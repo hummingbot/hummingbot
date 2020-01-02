@@ -1,9 +1,9 @@
-# Liquidity Bounties FAQ
+# Liquidity Mining FAQ
 
-## What are liquidity bounties?
-Liquidity bounties are a community-based approach to market making. Inspired by bug bounties, liquidity bounties allow Hummingbot users to **earn rewards by market making** for specific tokens and/or trading pairs.
+## What is liquidity mining?
+Liquidity mining is a community-based approach to market making. It means the collective actions of a pool of decentralized users ("liquidity miners") that provide computing resources as well as their own exchange accounts, wallets, and digital assets to provide liquidity for a digital asset or a set of digital assets and to **earn rewards by market making**.
 
-For more information, please see the blog post [Introducing Liquidity Bounties](https://www.hummingbot.io/blog/2019-06-introducing-liquidity-bounties-harmony/).
+For more information, please read [the whitepaper](bit.ly/liquiditymining).
 
 ## What is market making?
 Market making is a strategy that allows traders to earn profits by providing liquidity to a market. They do so by creating and maintaining limit orders to buy and sell an asset.
@@ -19,6 +19,11 @@ Second, higher liquidity is generally associated with less risk and higher marke
 
 There are a few commonly-used indicators of liquidity. Primary ones include tight bid-ask spreads, deep order books, and real, active trading volume.
 
+## How to measure liquidity?
+To measure liquidity, we use **slippage**, which measures the price impact of a buy or sell order. Slippage refers to the difference between the expected price of a trade and the price at which the trade is actually executed. Deep, liquid order books have low slippage, while thin, illiquid order books have high slippage.
+
+**We believe slippage is a more robust indicator of liquidity than trading volume**. As an ex-ante metric, slippage measures information used by traders before they trade to decide whether to execute the trade and in which venue to execute it. In contrast, volume is an ex-post metric and can be easily manipulated.
+
 ## Why is market making important in crypto?
 <a href="https://en.wikipedia.org/wiki/Market_maker" target="_blank">Market makers</a> play an important role in providing liquidity in a trade, especially in the cryptocurrency world. In the traditional financial world, liquidity providers(i.e. **market makers**) are dominated by highly technical quantitative hedge funds and trading firms who have the infrastructure and intelligence to deploy sophisticated algorithms at scale.
 
@@ -28,20 +33,25 @@ In addition, the prohibitively high payment demanded by pro market makers, coupl
 
 For more discussion on the liquidity problem, please check out [this blog post](https://www.hummingbot.io/blog/2019-01-thin-crust-of-liquidity/).
 
-## What strategies can a market maker use?
+## What strategies can a liquidity miner use?
 Professional market makers utilize many different strategies, ranging from simple to sophisticated. We have implemented two basic strategy templates:
 
 - [Pure market making (market making on a single exchange)](https://docs.hummingbot.io/strategies/pure-market-making/)
 - [Cross-exchange market making](https://docs.hummingbot.io/strategies/cross-exchange-market-making/)
 
+If you want to participate in liquidity mining programs, please choose the above two strategies for trading in order to earn rewards. 
 
-## What risks does a market maker bear?
+## What risks does a liquidity miner bear?
 Like any trading strategy, market making includes risk. One of the primary risks is **inventory risk**, the risk of negative changes in inventory value as a result of market making. For instance, if prices drop significantly in a short time period and a market maker accumulates a large position in the asset due to continual fills of their market maker's buy orders, their overall inventory value may be lower.
 
-## How do you verify that liquidity bounty trading volume is real?
-We take compliance extremely seriously, because we want to reward only genuine providers of liquidity. For this reason, participants need to opt into data collection, which allows us to attempt to verify their trading activity against our internal exchange data feeds in order to prevent reporting of fake volume.
+## How do you determine liquidity miners' rewards?
+In order to make economic sense for a market maker, the market maker’s compensation must correlate with increased levels of risk. There are three main parameters that we use in liquidity mining to determine market maker compensation: (1) **time**: placing orders in the order book consistently over time, (2) **spreads**, and (3) **order sizes**. Our rewards methodology rewards market makers more for placing orders consistently over time in the order book, placing orders with tighter spreads and with larger sizes as shown in the below figure. The real-time reward information will be displayed in the real-time user dashboard. 
+![](https://hummingbot.io/static/e9bcf5a0b0ad5320f95f0a1de89c3e9a/ed7b0/rewards-allocation-chart.png)
 
-In addition, we will run proprietary algorithms in order to attempt to detect wash trading and spoofing. While exploitative practices can be difficult to identify given the adversarial nature of the market, we believe that the combination of our focus on compliance, granular data feeds, and machine learning-based algorithms may deter and detect bad actors.
+For more details on the calculation, please read [Demystifying Liquidity Mining Rewards](https://hummingbot.io/blog/2019-12-liquidity-mining-rewards/). 
 
-## How is Hummingbot compensated for liquidity bounties?
-In return for administering a Liquidity Bounty, collecting the data necessary to verify the trading activity of participants, and automating the payout process, we receive a percentage of the total payouts from our other Liquidity Bounty partners.
+## How do you verify the trading activities?
+We take compliance extremely seriously, because we want to reward only genuine providers of liquidity. For this reason, participants need to opt into data collection and provide their read-only API keys on exchanges, allowing us to attempt to verify their trading activity. In addition, we will run proprietary algorithms in order to attempt to detect wash trading and spoofing. While exploitative practices can be difficult to identify given the adversarial nature of the market, we believe that the combination of our focus on compliance, granular data feeds, and machine learning-based algorithms may deter and detect bad actors.
+
+## How is Hummingbot compensated for liquidity mining programs?
+In return for administering liquidity mining programs, collecting the data necessary to verify the trading activity of participants, and automating the payout process, we receive a percentage of the total payouts from our other Liquidity Mining partners.
