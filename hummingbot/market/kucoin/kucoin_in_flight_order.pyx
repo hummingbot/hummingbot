@@ -22,7 +22,7 @@ cdef class KucoinInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "submitted"):
+                 initial_state: str = "DEAL"):
         super().__init__(
             KucoinMarket,
             client_order_id,
@@ -37,11 +37,11 @@ cdef class KucoinInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {False, "CANCEL"}
+        return self.last_state in {"DONE", "CANCEL"}
 
     @property
     def is_failure(self) -> bool:
-        return self.last_state in {"DEAL"}
+        return self.last_state in {"CANCEL"}
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
@@ -49,7 +49,7 @@ cdef class KucoinInFlightOrder(InFlightOrderBase):
             KucoinInFlightOrder retval = KucoinInFlightOrder(
                 client_order_id=data["client_order_id"],
                 exchange_order_id=data["exchange_order_id"],
-                trading_pair=data["symbol"],
+                trading_pair=data["trading_pair"],
                 order_type=getattr(OrderType, data["order_type"]),
                 trade_type=getattr(TradeType, data["trade_type"]),
                 price=Decimal(data["price"]),
