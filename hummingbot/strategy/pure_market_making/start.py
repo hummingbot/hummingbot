@@ -104,7 +104,7 @@ def start(self):
             elif external_price_source_type == "custom_api":
                 asset_price_delegate = APIAssetPriceDelegate(external_price_source_custom_api)
         else:
-            asset_price_delegate = OrderBookAssetPriceDelegate(self.market_trading_pair_tuples[0])
+            asset_price_delegate = None
 
         strategy_logging_options = PureMarketMakingStrategyV2.OPTION_LOG_ALL
 
