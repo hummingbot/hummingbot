@@ -141,7 +141,7 @@ cdef class KucoinMarket(MarketBase):
     def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
         try:
             m = trading_pair.split("-")
-            return m[1], m[2]
+            return m[0], m[1]
         except Exception as e:
             raise ValueError(f"Error parsing trading_pair {trading_pair}: {str(e)}")
 
@@ -273,10 +273,11 @@ cdef class KucoinMarket(MarketBase):
         else:
             headers = {"Content-Type": "application/json"}
 
+        post_json = json.dumps(params)
         if method == "get":
             response = await client.get(url, headers=headers)
         elif method == "post":
-            response = await client.post(url, data=json.dumps(params), headers=headers)
+            response = await client.post(url, data=post_json, headers=headers)
         elif method == "delete":
             response = await client.delete(url, headers=headers)
         else:
@@ -310,8 +311,8 @@ cdef class KucoinMarket(MarketBase):
             str asset_name
             object balance
 
-        if len(balances) > 0:
-            for balance_entry in balances:
+        if data:
+            for balance_entry in data["data"]:
                 asset_name = balance_entry["currency"]
                 balance = Decimal(balance_entry["balance"])
                 if balance == s_decimal_0:
@@ -396,20 +397,26 @@ cdef class KucoinMarket(MarketBase):
                     )
                     continue
 
-                order_state = order_update["isActive"]
+                order_state = order_update["data"]["isActive"]
                 if order_state:
                     continue
 
                 # Calculate the newly executed amount for this update.
-                tracked_order.last_state = order_state
-                new_confirmed_amount = Decimal(order_update["funds"])  # API isn't detailed enough assuming dealSize
-                execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
+                if order_update["data"]["opType"] == "DEAL":
+                    if order_state:
+                        tracked_order.last_state = "DEAL"
+                    else:
+                        tracked_order.last_state = "DONE"
+                else:
+                    tracked_order.last_state = "CANCEL"
+                new_confirmed_amount = Decimal(order_update["data"]["dealFunds"])  # API isn't detailed enough assuming dealSize
+                execute_amount_diff = Decimal(order_update["data"]["dealSize"])
 
                 if execute_amount_diff > s_decimal_0:
-                    tracked_order.executed_amount_base = new_confirmed_amount
-                    tracked_order.executed_amount_quote = Decimal(order_update["dealSize"])
-                    tracked_order.fee_paid = Decimal(order_update["fee"])
-                    execute_price = Decimal(order_update["funds"]) / new_confirmed_amount
+                    tracked_order.executed_amount_base = Decimal(order_update["data"]["dealSize"])
+                    tracked_order.executed_amount_quote = new_confirmed_amount
+                    tracked_order.fee_paid = Decimal(order_update["data"]["fee"])
+                    execute_price = Decimal(order_update["data"]["dealFunds"]) / execute_amount_diff
                     order_filled_event = OrderFilledEvent(
                         self._current_timestamp,
                         tracked_order.client_order_id,
@@ -432,7 +439,7 @@ cdef class KucoinMarket(MarketBase):
                                        f"order {tracked_order.client_order_id}.")
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
-                if order_state is False and order_update["cancelExist"] is False:
+                if order_state is False and order_update["data"]["cancelExist"] is False:
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                     if tracked_order.trade_type is TradeType.BUY:
                         self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
@@ -461,7 +468,7 @@ cdef class KucoinMarket(MarketBase):
                                                                      float(tracked_order.fee_paid),
                                                                      tracked_order.order_type))
 
-                if order_state is False and order_update["cancelExist"] is True:
+                if order_state is False and order_update["data"]["cancelExist"] is True:
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                     self.logger().info(f"The market order {tracked_order.client_order_id} has been cancelled according"
                                        f" to order status API.")
@@ -530,10 +537,10 @@ cdef class KucoinMarket(MarketBase):
         side = "buy" if is_buy else "sell"
         order_type_str = "limit" if order_type is OrderType.LIMIT else "market"
         params = {
-            "funds": str(amount),
+            "size": str(amount),
             "clientOid": order_id,
             "side": side,
-            "trading_pair": trading_pair,
+            "symbol": trading_pair,
             "type": order_type_str,
         }
         if order_type is OrderType.LIMIT:
@@ -545,7 +552,7 @@ cdef class KucoinMarket(MarketBase):
             data=params,
             is_auth_required=True
         )
-        return str(exchange_order_id)
+        return str(exchange_order_id["data"]["orderId"])
 
     async def execute_buy(self,
                           order_id: str,
@@ -553,7 +560,6 @@ cdef class KucoinMarket(MarketBase):
                           amount: Decimal,
                           order_type: OrderType,
                           price: Decimal):
-        print(self._trading_rules)
         cdef:
             TradingRule trading_rule = self._trading_rules[trading_pair]
             double quote_amount
@@ -563,10 +569,7 @@ cdef class KucoinMarket(MarketBase):
             object tracked_order
 
         if order_type is OrderType.MARKET:
-            quote_amount = (< OrderBook > self.c_get_order_book(trading_pair)).c_get_quote_volume_for_base_amount(
-                True, float(amount)).result_volume
-            # Quantize according to price rules, not base token amount rules.
-            decimal_amount = self.c_quantize_order_price(trading_pair, Decimal(quote_amount))
+            decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
             decimal_price = s_decimal_0
         else:
             decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
@@ -717,22 +720,15 @@ cdef class KucoinMarket(MarketBase):
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         path_url = "/api/v1/orders"
-        params = {}
-        data = {}
         cancellation_results = []
         try:
             cancel_all_results = await self._api_request(
                 "delete",
                 path_url=path_url,
-                params=params,
-                data=data,
                 is_auth_required=True
             )
-            for oid in cancel_all_results["cancelledOrderIds"]:
+            for oid in cancel_all_results["data"]["cancelledOrderIds"]:
                 cancellation_results.append(CancellationResult(oid, True))
-            for cancel_error in cancel_all_results["failed"]:
-                oid = cancel_error["order-id"]
-                cancellation_results.append(CancellationResult(oid, False))
         except Exception as e:
             self.logger().network(
                 f"Failed to cancel all orders.",
