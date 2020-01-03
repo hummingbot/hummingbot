@@ -42,7 +42,7 @@ class BinanceTime:
 
     @property
     def time_offset_ms(self):
-        if not self._time_offset_ms or len(self._time_offset_ms) < 3:
+        if not self._time_offset_ms:
             return 0.0
         return statistics.median(self._time_offset_ms)
 
@@ -65,6 +65,9 @@ class BinanceTime:
             self._set_server_time_offset_task = None
             self._time_offset_ms.clear()
             self._started = False
+
+    def ready(self):
+        return len(self._time_offset_ms) > 0
 
     async def set_server_time_offset(self):
         while True:
