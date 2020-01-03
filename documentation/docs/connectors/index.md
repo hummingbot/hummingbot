@@ -19,7 +19,6 @@ Connectors are packages of code that link Hummingbot's internal trading algorith
 * [Huobi Global](/connectors/huobi)
 * [Bittrex Global](/connectors/bittrex)
 * [Liquid](/connectors/liquid)
-* [Bitcoin.com Exchange](/connectors/bitcoin-com)
 
 ### Decentralized Exchanges
 
