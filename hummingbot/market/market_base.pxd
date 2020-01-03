@@ -6,6 +6,7 @@ from hummingbot.core.data_type.order_book_query_result cimport(
     OrderBookQueryResult,
     ClientOrderBookQueryResult
 )
+from libc.stdint cimport int64_t
 
 cdef class MarketBase(NetworkIterator):
     cdef:
@@ -15,6 +16,7 @@ cdef class MarketBase(NetworkIterator):
         dict _account_balances
         bint _trading_required
         object _order_book_tracker
+        int64_t _last_tracking_nonce
 
     cdef str c_buy(self, str trading_pair, object amount, object order_type=*, object price=*, dict kwargs=*)
     cdef str c_sell(self, str trading_pair, object amount, object order_type=*, object price=*, dict kwargs=*)
@@ -41,3 +43,4 @@ cdef class MarketBase(NetworkIterator):
                           object order_side,
                           object amount,
                           object price)
+    cdef int64_t c_tracking_nonce(self)
