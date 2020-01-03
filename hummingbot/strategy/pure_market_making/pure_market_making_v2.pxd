@@ -8,6 +8,7 @@ from hummingbot.core.data_type.order_book cimport OrderBook
 from .order_filter_delegate cimport OrderFilterDelegate
 from .order_pricing_delegate cimport OrderPricingDelegate
 from .order_sizing_delegate cimport OrderSizingDelegate
+from .asset_price_delegate cimport AssetPriceDelegate
 
 
 cdef class PureMarketMakingStrategyV2(StrategyBase):
@@ -31,6 +32,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         OrderFilterDelegate _filter_delegate
         OrderPricingDelegate _pricing_delegate
         OrderSizingDelegate _sizing_delegate
+        AssetPriceDelegate _asset_price_delegate
 
     cdef object c_get_orders_proposal_for_market_info(self,
                                                       object market_info,
@@ -46,3 +48,4 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                      object market_info,
                                                                      object pricing_proposal,
                                                                      object sizing_proposal)
+    cdef object c_filter_orders_proposal_for_takers(self, object market_info, object orders_proposal)

@@ -10,9 +10,9 @@ from typing import (
 import ujson
 
 from hummingbot.logger import HummingbotLogger
+from hummingbot.market.idex.idex_order_book_message import IDEXOrderBookMessage
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
-    IDEXOrderBookMessage,
     OrderBookMessage,
     OrderBookMessageType
 )

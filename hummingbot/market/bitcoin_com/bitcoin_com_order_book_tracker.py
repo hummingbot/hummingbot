@@ -5,15 +5,22 @@ import logging
 import hummingbot.market.bitcoin_com.bitcoin_com_constants as constants
 import time
 
-from collections import defaultdict, deque
-from typing import Optional, Dict, List, Deque
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessageType,
-    BitcoinComOrderBookMessage)
+from collections import (
+    defaultdict,
+    deque,
+)
+from typing import (
+    Deque,
+    Dict,
+    List,
+    Optional,
+)
+from hummingbot.market.bitcoin_com.bitcoin_com_order_book_message import BitcoinComOrderBookMessage
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-# from hummingbot.core.data_type.order_book_tracker_entry import BitcoinComOrderBookTrackerEntry
+# from hummingbot.market.bitcoin_com.bitcoin_com_order_book_tracker_entry import BitcoinComOrderBookTrackerEntry
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.bitcoin_com.bitcoin_com_active_order_tracker import BitcoinComActiveOrderTracker
 from hummingbot.market.bitcoin_com.bitcoin_com_api_order_book_data_source import BitcoinComAPIOrderBookDataSource
