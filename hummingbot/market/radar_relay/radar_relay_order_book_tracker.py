@@ -18,15 +18,15 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.market.radar_relay.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
+from hummingbot.market.radar_relay.radar_relay_order_book_message import RadarRelayOrderBookMessage
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessageType,
-    RadarRelayOrderBookMessage,
     OrderBookMessage,
 )
-from hummingbot.core.data_type.order_book_tracker_entry import RadarRelayOrderBookTrackerEntry
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.radar_relay.radar_relay_order_book import RadarRelayOrderBook
 from hummingbot.market.radar_relay.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
+from hummingbot.market.radar_relay.radar_relay_order_book_tracker_entry import RadarRelayOrderBookTrackerEntry
 
 
 class RadarRelayOrderBookTracker(OrderBookTracker):
