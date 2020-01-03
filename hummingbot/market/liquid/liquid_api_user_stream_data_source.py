@@ -10,6 +10,8 @@ from typing import (
     List,
 )
 import time
+
+import pandas as pd
 import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
@@ -67,9 +69,9 @@ class LiquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     }
                     await ws.send(ujson.dumps(auth_request))
 
-                    active_markets_df = await LiquidAPIOrderBookDataSource.get_active_exchange_markets()
+                    active_markets_df: pd.DataFrame = await LiquidAPIOrderBookDataSource.get_active_exchange_markets()
                     quoted_currencies = [
-                        active_markets_df.loc[trading_pair, 'quoted_currency']
+                        active_markets_df.loc[trading_pair, 'quoteAsset']
                         for trading_pair in self._trading_pairs
                     ]
 
