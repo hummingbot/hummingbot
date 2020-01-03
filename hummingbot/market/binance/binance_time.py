@@ -66,9 +66,6 @@ class BinanceTime:
             self._time_offset_ms.clear()
             self._started = False
 
-    def ready(self):
-        return len(self._time_offset_ms) > 0
-
     async def set_server_time_offset(self):
         while True:
             try:
