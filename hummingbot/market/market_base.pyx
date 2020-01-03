@@ -6,7 +6,7 @@ from typing import (
     Tuple,
     Optional,
     Iterator)
-
+import time
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book_query_result import (
     OrderBookQueryResult,
@@ -57,6 +57,7 @@ cdef class MarketBase(NetworkIterator):
         self._account_balances = {}  # Dict[asset_name:str, Decimal]
         self._account_available_balances = {}  # Dict[asset_name:str, Decimal]
         self._order_book_tracker = None
+        self._last_tracking_nonce = 0
 
     @staticmethod
     def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
@@ -105,6 +106,12 @@ cdef class MarketBase(NetworkIterator):
     @property
     def tracking_states(self) -> Dict[str, any]:
         return {}
+
+    cdef int64_t c_tracking_nonce(self):
+        cdef int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+        self._last_tracking_nonce = tracking_nonce if tracking_nonce > self._last_tracking_nonce else \
+            self._last_tracking_nonce + 1
+        return self._last_tracking_nonce
 
     def get_mid_price(self, trading_pair: str) -> Decimal:
         return (self.get_price(trading_pair, True) + self.get_price(trading_pair, False)) / Decimal("2")

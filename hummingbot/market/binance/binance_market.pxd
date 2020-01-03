@@ -30,6 +30,7 @@ cdef class BinanceMarket(MarketBase):
         object _async_scheduler
         object _set_server_time_offset_task
 
+
     cdef c_did_timeout_tx(self, str tracking_id)
     cdef c_start_tracking_order(self,
                                 str order_id,
