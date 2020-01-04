@@ -170,3 +170,16 @@ ValueError: Unable to convert 'BTC' to 'BTC'. Aborting.
 
 In this case, BTC is not yet added to the list of exchange rate class. See [this page](/utilities/exchange-rates/#exchange-rate-class) the correct format on adding exchange rate.
 
+### How to locate `data` folder or `hummingbot_trades.sqlite` when running Hummingbot via Docker
+
+```
+1. Find ID of your running container
+- You can use docker `container ps -a` to list your containers
+- To start a container: `docker container start PID`
+2. Then `run docker exec -t -i <name of your container> /bin/bash`
+3. Once directory is changed, show list `ls`
+4. Switch to `data` folder and use `ls` command to display content.
+5. If you would like to remove the sqlite database, use `rm <database_name>` command.
+
+Reference: https://stackoverflow.com/questions/20813486/exploring-docker-containers-file-system
+```
