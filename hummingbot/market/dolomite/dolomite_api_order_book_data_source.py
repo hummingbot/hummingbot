@@ -85,7 +85,7 @@ class DolomiteAPIOrderBookDataSource(OrderBookTrackerDataSource):
             )
 
             def obj_to_decimal(c):
-                return Decimal(c["amount"]) / math.pow(10, c["currency"]["precision"])
+                return Decimal(c["amount"]) / Decimal(math.pow(10, c["currency"]["precision"]))
 
             all_markets.rename(field_mapping, axis="columns", inplace=True)
             all_markets["USDVolume"] = all_markets["USDVolume"].map(obj_to_decimal)
