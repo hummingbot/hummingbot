@@ -515,8 +515,9 @@ cdef class DolomiteMarket(MarketBase):
             try:
                 await self.api_request("GET", ACCOUNT_INFO_ROUTE.replace(':address', self._wallet.address))
             except Exception:
-                self.logger().info(
-                    f"No Dolomite account for {self._wallet.address}. Create an account on the exchange at dolomite.io")
+                self.logger().warning(f"No Dolomite account for {self._wallet.address}.")
+                self.logger().warning(f"Create an account on the exchange at https://dolomite.io by either: ")
+                self.logger().warning(f"1) submitting a trade if you are located OUTSIDE the US or 2) creating an account if you are located WITHIN the US")
                 return NetworkStatus.NOT_CONNECTED
         except asyncio.CancelledError:
             raise

@@ -51,14 +51,14 @@ Add more paper trade assets by editing `conf_global.yml` using a text editor. **
 - DDEX
 - Bamboo Relay
 - Radar Relay
-
-### Not yet supported
-
-- IDEX
 - Bittrex
 - Dolomite
 - Bitcoin.com
 - Liquid
+
+### Not yet supported
+
+- IDEX
 
 !!! note
     Make sure to set paper trade to `false` when running Discovery Strategy.
