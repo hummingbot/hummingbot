@@ -39,3 +39,23 @@ docker run -it \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
 coinalpha/hummingbot:latest
 ```
+
+## Install a previous Hummingbot version
+
+A previous version can be installed when creating a Hummingbot instance.
+
+```bash
+# 1) Run the script to create a hummingbot instance
+./create.sh 
+
+# 2) Specify the version to be installed when prompted
+
+** ✏️  Creating a new Hummingbot instance **
+
+ℹ️  Press [enter] for default values.
+
+➡️  Enter Hummingbot version: [latest|development] (default = "latest")
+
+```
+
+ For example, enter `version-0.16.0`. The versions are listed here in [Hummingbot Tags](https://hub.docker.com/r/coinalpha/hummingbot/tags).
