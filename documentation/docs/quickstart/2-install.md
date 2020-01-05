@@ -38,14 +38,15 @@ We also have instructions for installing Docker on [Debian](/installation/via-do
 We have created automated docker scripts that simplify the process of installing and running Hummingbot with Docker:
 
 * `create.sh`: Creates a new instance of Hummingbot
-* `start.sh`: Starts Hummingbot
+* `start.sh`: Starts a stopped Hummingbot instance
 * `update.sh`: Updates Hummingbot
 
-The scripts help you install an instance of Hummingbot and set up folders to house your logs and configuration files:
+The scripts help you install an instance of Hummingbot and set up folders to house your logs, configuration files and trades/orders database file:
 ```
-hummingbot_files       # Top level folder for hummingbot-related files
+hummingbot_files       # Default name of top level folder for hummingbot-related files
 ├── hummingbot_conf    # Maps to hummingbot's conf/ folder, which stores configuration files
-└── hummingbot_logs    # Maps to hummingbot's logs/ folder, which stores log files
+├── hummingbot_logs    # Maps to hummingbot's logs/ folder, which stores log files
+└── hummingbot_data    # Maps to hummingbot's data/ folder, which stores the SQLite database file
 ```
 
 To download the scripts and create a Hummingbot instance, run the following commands:
