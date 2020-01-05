@@ -299,9 +299,12 @@ cdef class BambooRelayMarket(MarketBase):
 
         for in_flight_order in self._in_flight_limit_orders.values():
             typed_in_flight_order = in_flight_order
-            if typed_in_flight_order.order_type is not OrderType.LIMIT:
-                continue
-            if typed_in_flight_order.client_order_id in expiring_order_ids:
+            # Skip orders that are or have been cancelled but are still being tracked
+            if (typed_in_flight_order.order_type is not OrderType.LIMIT or
+                typed_in_flight_order.client_order_id in expiring_order_ids or
+                typed_in_flight_order.client_order_id in self._in_flight_cancels or
+                typed_in_flight_order.client_order_id in self._in_flight_pending_cancels or
+                typed_in_flight_order.has_been_cancelled):
                 continue
             retval.append(typed_in_flight_order.to_limit_order())
         return retval
