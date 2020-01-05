@@ -100,59 +100,62 @@ class NewBlocksWatcher(BaseWatcher):
     async def fetch_new_blocks_loop(self):
         last_timestamp_received_blocks: float = 0.0
         block_hash = ""
-        while True:
-            try:
-                async with timeout(30.0):
-                    incoming_block: AttributeDict = await self.call_async(
-                        functools.partial(
-                            self._w3.eth.getBlock,
-                            self._block_number_to_fetch,
-                            full_transactions=True)
-                    )
-                    if incoming_block is not None:
-                        current_block_hash: HexBytes = self._block_number_to_hash_map.get(
-                            self._current_block_number,
-                            None)
-                        incoming_block_hash: HexBytes = incoming_block.hash
-                        incoming_block_parent_hash: HexBytes = incoming_block.parentHash
-                        new_blocks: List[AttributeDict] = []
-                        if current_block_hash is not None and current_block_hash != incoming_block_parent_hash:
-                            block_reorganization: List[AttributeDict] = await self.get_block_reorganization(incoming_block)
-                            new_blocks += block_reorganization
+        try:
+            while True:
+                try:
+                    async with timeout(30.0):
+                        incoming_block: AttributeDict = await self.call_async(
+                            functools.partial(
+                                self._w3.eth.getBlock,
+                                self._block_number_to_fetch,
+                                full_transactions=True)
+                        )
+                        if incoming_block is not None:
+                            current_block_hash: HexBytes = self._block_number_to_hash_map.get(
+                                self._current_block_number,
+                                None)
+                            incoming_block_hash: HexBytes = incoming_block.hash
+                            incoming_block_parent_hash: HexBytes = incoming_block.parentHash
+                            new_blocks: List[AttributeDict] = []
+                            if current_block_hash is not None and current_block_hash != incoming_block_parent_hash:
+                                block_reorganization: List[AttributeDict] = await self.get_block_reorganization(incoming_block)
+                                new_blocks += block_reorganization
 
-                        self._block_number_to_hash_map[self._block_number_to_fetch] = incoming_block_hash
-                        self._blocks_window[incoming_block_hash] = incoming_block
-                        new_blocks.append(incoming_block)
-                        self._current_block_number = self._block_number_to_fetch
-                        self._block_number_to_fetch += 1
-                        self.trigger_event(NewBlocksWatcherEvent.NewBlocks, new_blocks)
-                        last_timestamp_received_blocks = time.time()
+                            self._block_number_to_hash_map[self._block_number_to_fetch] = incoming_block_hash
+                            self._blocks_window[incoming_block_hash] = incoming_block
+                            new_blocks.append(incoming_block)
+                            self._current_block_number = self._block_number_to_fetch
+                            self._block_number_to_fetch += 1
+                            self.trigger_event(NewBlocksWatcherEvent.NewBlocks, new_blocks)
+                            last_timestamp_received_blocks = time.time()
 
-                        while len(self._blocks_window) > self._block_window_size:
-                            block_hash = self._block_number_to_hash_map.popitem(last=False)[1]
-                            del self._blocks_window[block_hash]
+                            while len(self._blocks_window) > self._block_window_size:
+                                block_hash = self._block_number_to_hash_map.popitem(last=False)[1]
+                                del self._blocks_window[block_hash]
 
-            except asyncio.CancelledError:
-                raise
-            except asyncio.TimeoutError:
-                self.logger().network(f"Timed out fetching new block.", exc_info=True,
-                                      app_warning_msg=f"Timed out fetching new block"
-                                                      f"Check wallet network connection")
-            except Exception:
-                self.logger().network(f"Error fetching new block.", exc_info=True,
-                                      app_warning_msg=f"Error fetching new block. "
-                                                      f"Check wallet network connection")
-            sleep_time: int = 1
-            seconds_since_last_received_blocks: float = time.time() - last_timestamp_received_blocks
-            if seconds_since_last_received_blocks < 5:
-                sleep_time = 5
-            elif seconds_since_last_received_blocks < 15:
-                sleep_time = 4
-            elif seconds_since_last_received_blocks < 30:
-                sleep_time = 3
-            elif seconds_since_last_received_blocks < 45:
-                sleep_time = 2
-            await asyncio.sleep(sleep_time)
+                except asyncio.CancelledError:
+                    raise
+                except asyncio.TimeoutError:
+                    self.logger().network(f"Timed out fetching new block.", exc_info=True,
+                                          app_warning_msg=f"Timed out fetching new block"
+                                                          f"Check wallet network connection")
+                except Exception:
+                    self.logger().network(f"Error fetching new block.", exc_info=True,
+                                          app_warning_msg=f"Error fetching new block. "
+                                                          f"Check wallet network connection")
+                sleep_time: int = 1
+                seconds_since_last_received_blocks: float = time.time() - last_timestamp_received_blocks
+                if seconds_since_last_received_blocks < 5:
+                    sleep_time = 5
+                elif seconds_since_last_received_blocks < 15:
+                    sleep_time = 4
+                elif seconds_since_last_received_blocks < 30:
+                    sleep_time = 3
+                elif seconds_since_last_received_blocks < 45:
+                    sleep_time = 2
+                await asyncio.sleep(sleep_time)
+        except asyncio.CancelledError:
+            raise
 
     async def get_block_reorganization(self, incoming_block: AttributeDict) -> List[AttributeDict]:
         block_reorganization: List[AttributeDict] = []
