@@ -53,7 +53,6 @@ Add more paper trade assets by editing `conf_global.yml` using a text editor. **
 - Radar Relay
 - Bittrex
 - Dolomite
-- Bitcoin.com
 - Liquid
 
 ### Not yet supported
