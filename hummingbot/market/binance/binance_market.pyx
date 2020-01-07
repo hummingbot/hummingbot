@@ -982,8 +982,8 @@ cdef class BinanceMarket(MarketBase):
     cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_NaN,
                    dict kwargs={}):
         cdef:
-            int64_t t_nonce = get_tracking_nonce()
-            str order_id = str(f"buy-{trading_pair}-{t_nonce}")
+            int64_t tracking_nonce = get_tracking_nonce()
+            str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
 

@@ -6,7 +6,6 @@ from hummingbot.core.data_type.order_book_query_result cimport(
     OrderBookQueryResult,
     ClientOrderBookQueryResult
 )
-from libc.stdint cimport int64_t
 
 cdef class MarketBase(NetworkIterator):
     cdef:
