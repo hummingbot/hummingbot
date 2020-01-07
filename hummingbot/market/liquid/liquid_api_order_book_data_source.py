@@ -12,9 +12,9 @@ from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.order_book_tracker_entry import LiquidOrderBookTrackerEntry
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.liquid.liquid_order_book import LiquidOrderBook
+from hummingbot.market.liquid.liquid_order_book_tracker_entry import LiquidOrderBookTrackerEntry
 from hummingbot.market.liquid.constants import Constants
 
 
@@ -69,8 +69,8 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         # Build the data frame
         all_markets_df: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index='trading_pair')
 
-        btc_price: float = float(all_markets_df.loc['BTC-USDC'].last_traded_price)
-        eth_price: float = float(all_markets_df.loc['ETH-USDC'].last_traded_price)
+        btc_price: float = float(all_markets_df.loc['BTC-USD'].last_traded_price)
+        eth_price: float = float(all_markets_df.loc['ETH-USD'].last_traded_price)
         usd_volume: float = [
             (
                 volume * quote_price if trading_pair.endswith(("USD", "USDC")) else
@@ -87,6 +87,9 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         all_markets_df.loc[:, 'USDVolume'] = usd_volume
         all_markets_df.loc[:, 'volume'] = all_markets_df.volume_24h
+        all_markets_df.rename(
+            {"base_currency": "baseAsset", "quoted_currency": "quoteAsset"}, axis="columns", inplace=True
+        )
 
         return all_markets_df.sort_values("USDVolume", ascending=False)
 

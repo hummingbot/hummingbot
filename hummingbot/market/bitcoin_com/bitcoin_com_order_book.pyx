@@ -1,25 +1,26 @@
 #!/usr/bin/env python
-import bz2
+
 import logging
-import ujson
-import pandas as pd
 import hummingbot.market.bitcoin_com.bitcoin_com_constants as constants
 
-from aiokafka import ConsumerRecord
 from sqlalchemy.engine import RowProxy
 from typing import (
+    Any,
     Optional,
     Dict,
-    List, Any)
+    List,
+)
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage, OrderBookMessageType, BitcoinComOrderBookMessage
+    OrderBookMessage,
+    OrderBookMessageType,
 )
-from hummingbot.market.bitcoin_com.bitcoin_com_utils import merge_dicts
+from hummingbot.market.bitcoin_com.bitcoin_com_order_book_message import BitcoinComOrderBookMessage
 
 _logger = None
+
 
 cdef class BitcoinComOrderBook(OrderBook):
     @classmethod

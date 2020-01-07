@@ -69,7 +69,7 @@ from hummingbot.market.trading_rule cimport TradingRule
 
 s_logger = None
 s_decimal_0 = Decimal(0)
-TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|RUB)$")
+TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|RUB|TRY)$")
 
 
 cdef class BinanceMarketTransactionTracker(TransactionTracker):
@@ -189,15 +189,18 @@ cdef class BinanceMarket(MarketBase):
         self._last_pull_timestamp = 0
 
     @staticmethod
-    def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
+    def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
         try:
             m = TRADING_PAIR_SPLITTER.match(trading_pair)
             return m.group(1), m.group(2)
+        # Exceptions are now logged as warnings in trading pair fetcher
         except Exception as e:
-            raise ValueError(f"Error parsing trading_pair {trading_pair}: {str(e)}")
+            return None
 
     @staticmethod
-    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
+    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
+        if BinanceMarket.split_trading_pair(exchange_trading_pair) is None:
+            return None
         # Binance does not split BASEQUOTE (BTCUSDT)
         base_asset, quote_asset = BinanceMarket.split_trading_pair(exchange_trading_pair)
         return f"{base_asset}-{quote_asset}"

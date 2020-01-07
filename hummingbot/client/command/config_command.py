@@ -22,10 +22,18 @@ from hummingbot.client.config.config_helpers import (
     write_config_to_yml,
     load_required_configs,
     parse_cvar_value,
-    copy_strategy_template,
+    copy_strategy_template
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.config.config_crypt import list_encrypted_file_paths, decrypt_file
+from hummingbot.client.config.config_crypt import (
+    list_encrypted_file_paths,
+    decrypt_file,
+    decrypt_config_value,
+    encrypted_config_file_exists,
+    get_encrypted_config_path,
+    encrypt_n_save_config_value
+)
+from os import unlink
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -69,8 +77,19 @@ class ConfigCommand:
         for key in keys:
             cvar = config_map.get(key)
             if cvar.value is None and cvar.required:
+                if cvar.is_secure and cvar.key != "wallet" and self.load_secure_var(cvar):
+                    continue
                 return False
         return True
+
+    @staticmethod
+    def load_secure_var(cvar):
+        if encrypted_config_file_exists(cvar):
+            password = in_memory_config_map.get("password").value
+            if password is not None:
+                cvar.value = decrypt_config_value(cvar, password)
+                return True
+        return False
 
     @staticmethod
     def _get_empty_configs() -> List[str]:
@@ -298,7 +317,6 @@ class ConfigCommand:
                     val = await self.prompt_single_variable(cvar, requirement_overwrite)
         else:
             val = cvar.value
-
         if val is None or (isinstance(val, str) and len(val) == 0):
             val = cvar.default
         return val
@@ -333,6 +351,8 @@ class ConfigCommand:
             cv: ConfigVar = self._get_config_var_with_key(key)
             value = await self.prompt_single_variable(cv, requirement_overwrite=False)
             cv.value = parse_cvar_value(cv, value)
+            if self.config_complete:
+                break
         if not self.config_complete:
             await self._inner_config_loop(self._get_empty_configs())
 
@@ -373,7 +393,10 @@ class ConfigCommand:
             cv: ConfigVar = self._get_config_var_with_key(key)
             value = await self.prompt_single_variable(cv, requirement_overwrite=True)
             cv.value = parse_cvar_value(cv, value)
-            await write_config_to_yml()
+            if cv.is_secure:
+                await self._encrypt_n_save_config_value(cv)
+            else:
+                await write_config_to_yml()
             self._notify(f"\nNew config saved:\n{key}: {str(value)}")
 
             if not self.config_complete:
@@ -392,3 +415,12 @@ class ConfigCommand:
             self.app.toggle_hide_input()
             self.placeholder_mode = False
             self.app.change_prompt(prompt=">>> ")
+
+    async def _encrypt_n_save_config_value(self,  # type: HummingbotApplication
+                                           cvar:ConfigVar):
+        if in_memory_config_map.get("password").value is None:
+            in_memory_config_map.get("password").value = await self._one_password_config()
+        password = in_memory_config_map.get("password").value
+        if encrypted_config_file_exists(cvar):
+            unlink(get_encrypted_config_path(cvar))
+        encrypt_n_save_config_value(cvar, password)
