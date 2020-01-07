@@ -17,7 +17,7 @@ if os.name == "posix":
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20191216"
+    version = "20191230"
     packages = [
         "hummingbot",
         "hummingbot.client",
@@ -131,7 +131,7 @@ def main():
           install_requires=install_requires,
           ext_modules=cythonize(["hummingbot/**/*.pyx"], language="c++", language_level=3, nthreads=cpu_count),
           include_dirs=[
-              np.get_include(),
+              np.get_include()
           ],
           scripts=[
               "bin/hummingbot.py",

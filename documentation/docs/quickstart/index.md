@@ -43,7 +43,7 @@ For more information, see [Ethereum node](/installation/node/node). To get a fre
 
 We recommend that users run trading bots in the cloud, since bots require a stable network connection and can run 24/7.
 
-Follow the guide [Set up a cloud server](/installation/cloud) to set up a cloud server on your preferred cloud platform. Hummingbot is not resource-intensive so the lowest/free tiers should work.
+Follow the guide to [set up a cloud server](/installation/cloud) on your preferred cloud platform. Hummingbot is not resource-intensive so the lowest/free tiers should work.
 
 !!! tip
     Don't know which cloud platform to use? Read our [blog post](https://www.hummingbot.io/blog/2019-06-cloud-providers/) that compares and contrasts the different providers.

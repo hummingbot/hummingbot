@@ -42,7 +42,7 @@ class BinanceTime:
 
     @property
     def time_offset_ms(self):
-        if not self._time_offset_ms or len(self._time_offset_ms) < 3:
+        if not self._time_offset_ms:
             return 0.0
         return statistics.median(self._time_offset_ms)
 
