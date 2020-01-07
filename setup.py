@@ -7,7 +7,9 @@ import os
 import subprocess
 import sys
 
-if os.name == "posix":
+is_posix = (os.name == "posix")
+
+if is_posix:
     os_name = subprocess.check_output("uname").decode("utf8")
     if "Darwin" in os_name:
         os.environ["CFLAGS"] = "-stdlib=libc++ -std=c++11"
@@ -17,7 +19,7 @@ if os.name == "posix":
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20191230"
+    version = "20200105"
     packages = [
         "hummingbot",
         "hummingbot.client",
@@ -109,6 +111,14 @@ def main():
         "yarl",
     ]
 
+    cython_kwargs = {
+        "language": "c++",
+        "language_level": 3,
+    }
+
+    if is_posix:
+        cython_kwargs["nthreads"] = cpu_count
+
     if "DEV_MODE" in os.environ:
         version += ".dev1"
         package_data[""] = [
@@ -116,7 +126,7 @@ def main():
         ]
         package_data["hummingbot"].append("core/cpp/*.cpp")
 
-    if len(sys.argv) > 1 and sys.argv[1] == "build_ext":
+    if len(sys.argv) > 1 and sys.argv[1] == "build_ext" and is_posix:
         sys.argv.append(f"--parallel={cpu_count}")
 
     setup(name="hummingbot",
@@ -129,7 +139,7 @@ def main():
           packages=packages,
           package_data=package_data,
           install_requires=install_requires,
-          ext_modules=cythonize(["hummingbot/**/*.pyx"], language="c++", language_level=3, nthreads=cpu_count),
+          ext_modules=cythonize(["hummingbot/**/*.pyx"], **cython_kwargs),
           include_dirs=[
               np.get_include()
           ],
