@@ -15,7 +15,6 @@ from functools import partial
 import logging
 import pandas as pd
 import re
-import time
 from typing import (
     Any,
     Dict,
