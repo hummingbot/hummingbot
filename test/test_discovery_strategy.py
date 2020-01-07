@@ -10,7 +10,6 @@ import pandas as pd
 from typing import List
 import unittest
 from hummingsim.backtest.backtest_market import BacktestMarket
-from hummingbot.market.radar_relay.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
 from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
 from hummingbot.market.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.market.ddex.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
@@ -74,7 +73,6 @@ class DiscoveryUnitTest(unittest.TestCase):
 
     def test_market_info_spec(self):
         exchange_get_market_func_list = [
-            RadarRelayAPIOrderBookDataSource.get_active_exchange_markets,
             BambooRelayAPIOrderBookDataSource.get_active_exchange_markets,
             BinanceAPIOrderBookDataSource.get_active_exchange_markets,
             DDEXAPIOrderBookDataSource.get_active_exchange_markets
