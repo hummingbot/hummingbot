@@ -95,6 +95,7 @@ from hummingbot.market.bamboo_relay.bamboo_relay_constants import (
     BAMBOO_RELAY_KOVAN_FEE_RECIPIENT_ADDRESS,
     BAMBOO_RELAY_TEST_FEE_RECIPIENT_ADDRESS
 )
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 brm_logger = None
 s_decimal_0 = Decimal(0)
@@ -1315,7 +1316,7 @@ cdef class BambooRelayMarket(MarketBase):
                    object price=s_decimal_NaN,
                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = get_tracking_nonce()
             str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
             double current_timestamp = self._current_timestamp
         expires = kwargs.get("expiration_ts", None)
@@ -1343,7 +1344,7 @@ cdef class BambooRelayMarket(MarketBase):
                     object price=s_decimal_NaN,
                     dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = get_tracking_nonce()
             str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
             double current_timestamp = self._current_timestamp
         expires = kwargs.get("expiration_ts", None)
