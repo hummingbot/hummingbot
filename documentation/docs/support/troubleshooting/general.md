@@ -209,6 +209,6 @@ wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installa
 ```
 4) Run: `chmod a+x update.sh`
 
-5) Run script to update hummingbot: `./update.sh`
+5) Re-create your instance
 
-6) Re-create your instance and hummingbot_data folder will be added.
+5) Run script to update hummingbot: `./update.sh`
