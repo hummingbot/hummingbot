@@ -6,7 +6,6 @@ from typing import (
     Tuple,
     Optional,
     Iterator)
-import time
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book_query_result import (
     OrderBookQueryResult,
