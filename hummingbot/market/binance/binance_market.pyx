@@ -66,6 +66,7 @@ from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataS
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.market.trading_rule cimport TradingRule
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -828,7 +829,7 @@ cdef class BinanceMarket(MarketBase):
 
     cdef str c_withdraw(self, str address, str currency, object amount):
         cdef:
-            int64_t tracking_nonce = self.c_tracking_nonce()
+            int64_t tracking_nonce = get_tracking_nonce()
             str tracking_id = str(f"withdraw://{currency}/{tracking_nonce}")
         safe_ensure_future(self.execute_withdraw(tracking_id, address, currency, amount))
         return tracking_id
@@ -981,8 +982,8 @@ cdef class BinanceMarket(MarketBase):
     cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_NaN,
                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = self.c_tracking_nonce()
-            str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
+            int64_t t_nonce = get_tracking_nonce()
+            str order_id = str(f"buy-{trading_pair}-{t_nonce}")
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
 
@@ -1073,7 +1074,7 @@ cdef class BinanceMarket(MarketBase):
     cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_NaN,
                     dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = self.c_tracking_nonce()
+            int64_t tracking_nonce = get_tracking_nonce()
             str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
