@@ -1,13 +1,13 @@
 ## Bamboo Relay
-[Bamboo Relay](https://bamboorelay.com/) is a decentralized crypto exchange built upon 0x protocol. Users can trade, lend or borrow any ERC20 token trustlessly from their own wallet. [0x](https://0x.org/) sponsors this program with a goal to improve the liquidity for its Relayers.   
+[Bamboo Relay](https://bamboorelay.com/) is a decentralized crypto exchange built on 0x protocol. Users can trade, lend or borrow any ERC20 token trustlessly from their own wallet. [0x](https://0x.org/) sponsors this program with a goal to improve the liquidity for its Relayers.   
 
 ## Timeline
 
-This liquidity mining program will be initially running for 12 weeks from early February 2020 with probability for extension. 
+This liquidity mining program will run for 12 weeks starting in early February 2020.
 
 ## Rewards
 
-Liquidity minders can earn rewards based on a formula that takes how long you've been placing orders over time, the spreads and your order sized into consideration. You'll be able to check your earned rewards by minute, and your total earned balance in the "activity" section. 
+Liquidity miners can earn rewards based on a formula that takes into account duration and consistency of orders placed over time, spreads, and sizes. You'll be able to check your earned rewards by minute, and your total earned balance in the "activity" section. 
 
 ## How to Participate
 
@@ -25,11 +25,11 @@ You can also read through the articles in our [blog](https://hummingbot.io/blog/
 
 ## Performance
 
-Check your performance in the Activity section within our liquidity mining APP. 
+Check your performance in the Activity section within our liquidity mining app. 
 
 ## Evaluation
 
-Once the program officially kicks off, the rewards will be paid out **weekly** in either ETH or DAI based on the **actual trading activity** of the participants. 
+Once the program officially kicks off, the rewards will be paid out **weekly** in USDC based on the **actual trading activity** of the participants. 
 
 All rewards will be subject to the sole discretion of the token issuer and/or the Hummingbot team.
 

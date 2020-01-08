@@ -93,7 +93,7 @@ nav:
         - Liquidity Mining FAQ: liquidity-mining/faq.md
         - Upcoming campaigns:
           - Harmony: liquidity-mining/upcoming/harmony.md
-          - DAI on Bamboo Relay: liquidity-mining/upcoming/DAI_on_Bamboo.md
+          - WETH/DAI on Bamboo Relay: liquidity-mining/upcoming/WETH-DAI_on_Bamboo.md
           - iExec: liquidity-mining/upcoming/iExec.md
           - Zcoin: liquidity-mining/upcoming/ZCoin.md
           - Zilliqa: liquidity-mining/upcoming/Zilliqa.md
