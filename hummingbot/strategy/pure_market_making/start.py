@@ -21,12 +21,14 @@ from hummingbot.strategy.pure_market_making.pure_market_making_config_map import
 from hummingbot.market.paper_trade import create_paper_trade_market
 from hummingbot.market.market_base import MarketBase
 
+
 def start(self):
     try:
         order_size = pure_market_making_config_map.get("order_amount").value
         cancel_order_wait_time = pure_market_making_config_map.get("cancel_order_wait_time").value
         bid_place_threshold = pure_market_making_config_map.get("bid_place_threshold").value
         ask_place_threshold = pure_market_making_config_map.get("ask_place_threshold").value
+        expiration_seconds = pure_market_making_config_map.get("expiration_seconds").value
         mode = pure_market_making_config_map.get("mode").value
         number_of_orders = pure_market_making_config_map.get("number_of_orders").value
         order_start_size = pure_market_making_config_map.get("order_start_size").value
@@ -119,7 +121,8 @@ def start(self):
                                                    best_bid_ask_jump_orders_depth=best_bid_ask_jump_orders_depth,
                                                    add_transaction_costs_to_orders=add_transaction_costs_to_orders,
                                                    logging_options=strategy_logging_options,
-                                                   asset_price_delegate=asset_price_delegate)
+                                                   asset_price_delegate=asset_price_delegate,
+                                                   expiration_seconds=expiration_seconds)
     except Exception as e:
         self._notify(str(e))
         self.logger().error("Unknown error during initialization.", exc_info=True)
