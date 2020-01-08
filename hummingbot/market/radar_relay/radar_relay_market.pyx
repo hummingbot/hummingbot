@@ -820,7 +820,7 @@ cdef class RadarRelayMarket(MarketBase):
                    object price=s_decimal_NaN,
                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = get_tracking_nonce()
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
         expires = kwargs.get("expiration_ts", None)
         if expires is not None:
@@ -841,7 +841,7 @@ cdef class RadarRelayMarket(MarketBase):
                     object price=s_decimal_NaN,
                     dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = get_tracking_nonce()
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
         expires = kwargs.get("expiration_ts", None)
         if expires is not None:
