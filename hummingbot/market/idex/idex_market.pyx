@@ -718,7 +718,7 @@ cdef class IDEXMarket(MarketBase):
                    object price=s_decimal_0,
                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = get_tracking_nonce()
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
@@ -834,7 +834,7 @@ cdef class IDEXMarket(MarketBase):
                     object price=s_decimal_0,
                     dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = get_tracking_nonce()
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
 
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))

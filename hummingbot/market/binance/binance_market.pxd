@@ -1,6 +1,7 @@
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
+
 cdef class BinanceMarket(MarketBase):
     cdef:
         object _user_stream_tracker
