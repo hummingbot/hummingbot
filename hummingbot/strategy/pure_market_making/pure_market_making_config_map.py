@@ -8,6 +8,10 @@ from hummingbot.client.settings import (
     required_exchanges,
     EXAMPLE_PAIRS,
 )
+from hummingbot.client.config.global_config_map import (
+    using_bamboo_coordinator_mode,
+    using_exchange,
+)
 
 
 def maker_trading_pair_prompt():
@@ -51,12 +55,25 @@ pure_market_making_config_map = {
                          "first ask order? (Enter 0.01 to indicate 1%) >>> ",
                   type_str="decimal",
                   validator=is_valid_percent),
+    "expiration_seconds":
+        ConfigVar(key="expiration_seconds",
+                  prompt="How long should your limit orders remain valid until they "
+                         "expire and are replaced? (Minimum / Default is 130 seconds) >>> ",
+                  default=130.0,
+                  required_if=lambda: using_exchange("radar_relay")() or
+                  (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode()),
+                  type_str="float",
+                  validator=lambda input: float(input) >= 130.0),
     "cancel_order_wait_time":
         ConfigVar(key="cancel_order_wait_time",
                   prompt="How often do you want to cancel and replace bids and asks "
                          "(in seconds)? (Default is 60 seconds) >>> ",
-                  type_str="float",
-                  default=60),
+                  default=60.0,
+                  required_if=lambda: not (
+                      using_exchange("radar_relay")()
+                      or (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())
+                  ),
+                  type_str="float"),
     "order_amount":
         ConfigVar(key="order_amount",
                   prompt="What is your preferred quantity per order? (Denominated in "
@@ -152,7 +169,7 @@ pure_market_making_config_map = {
                                             prompt="Which type of external price source to use? "
                                                    "(exchange/feed/custom_api) >>> ",
                                             required_if=lambda: pure_market_making_config_map.get(
-                                                    "external_pricing_source").value,
+                                                "external_pricing_source").value,
                                             type_str="str",
                                             validator=lambda s: s in {"exchange", "feed", "custom_api"}),
     "external_price_source_exchange": ConfigVar(key="external_price_source_exchange",
