@@ -96,10 +96,14 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
 
             total_base_asset_quote_value = base_asset_balance * mid_price
             total_quote_asset_quote_value = quote_asset_balance
+            total_quote_value = total_base_asset_quote_value + total_quote_asset_quote_value
+
+            if total_quote_value == s_decimal_0:
+                return SizingProposal([s_decimal_0], [s_decimal_0])
 
             # Calculate percent value of base and quote
-            current_base_percent = total_base_asset_quote_value / (total_base_asset_quote_value + total_quote_asset_quote_value)
-            current_quote_percent = total_quote_asset_quote_value / (total_base_asset_quote_value + total_quote_asset_quote_value)
+            current_base_percent = total_base_asset_quote_value / total_quote_value
+            current_quote_percent = total_quote_asset_quote_value / total_quote_value
 
             target_base_percent = self._inventory_target_base_percent
             target_quote_percent = Decimal(1) - target_base_percent

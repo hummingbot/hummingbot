@@ -218,6 +218,10 @@ def read_configs_from_yml(strategy_file_path: Optional[str] = None):
                     logging.getLogger().error(f"Cannot find corresponding config to key {key} in template.")
                     continue
 
+                # Skip this step since the values are not saved in the yml file
+                if cvar.is_secure:
+                    continue
+
                 val_in_file = data.get(key)
                 cvar.value = parse_cvar_value(cvar, val_in_file)
                 if val_in_file is not None and not cvar.validate(cvar.value):
