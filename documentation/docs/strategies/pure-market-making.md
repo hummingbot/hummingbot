@@ -43,7 +43,7 @@ The following walks through all the steps when running `config` for the first ti
 |-----|-----|
 | `What is your market making strategy >>>` | Enter `pure_market_making`. |
 | `Import previous configs or create a new config file? (import/create) >>>` | When running the bot for the first time, enter `create`. If you have previously initialized, enter `import`, which will then ask you to specify the config file name. |
-| `Enter your maker exchange name >>>` | The exchange where the bot will place bid and ask orders.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, `bamboo_relay`, `huobi`, `bittrex`, `dolomite`, `liquid`, `bitcoin_com` *(case sensitive)* |
+| `Enter your maker exchange name >>>` | The exchange where the bot will place bid and ask orders.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, `bamboo_relay`, `huobi`, `bittrex`, `dolomite`, `liquid` *(case sensitive)* |
 | `Enter the token symbol you would like to trade on [maker exchange name] >>>` | Enter the token symbol for the *maker exchange*.<br/>Example input: `ETH-USD`<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Options available are based on each exchange's methodology for labeling currency pairs. Ensure that the pair is a valid pair for the selected exchange.</td></tr></tbody></table> |
 | `Enter quantity of bid/ask orders per side (single/multiple) >>> ` | `single` or `multiple`<br /><br />Specify if you would like a single order per side (i.e. one bid and one ask), or multiple orders each side.<br /><br />Multiple allows for different prices and sizes for each side. See [additional configuration for multiple orders](#multiple-order-configuration). |
 | `How far away from the mid price do you want to place the first bid? (Enter 0.01 to indicate 1%) >>>` | This sets `bid_place_threshold` ([definition](#configuration-parameters)). |
@@ -55,7 +55,42 @@ The following walks through all the steps when running `config` for the first ti
 | `Do you want to enable order_filled_stop_cancellation? If enabled, when orders are completely filled, the other side remains uncanceled. (Default is False) >>> ` | More information in ["Hanging Orders"](#hanging-orders) section. |
 | `Do you want to enable jump_orders? If enabled, when the top bid price is lesser than your order price, buy order will jump to one tick above top bid price & vice versa for sell. (Default is False) >>>` <br /><br /> `How deep do you want to go into the order book for calculating the top bid and ask, ignoring dust orders on the top (expressed in base currency)? (Default is 0) >>>` | More information in [Penny Jumping Mode](#penny-jumping-mode) section. |
 | `Do you want to add transaction costs automatically to order prices? (Default is True) >>> ` | More information in [Adding Transaction Costs to Prices](#adding-transaction-costs-to-prices) section. |
+| `Would you like to use an external pricing source for mid-market price? (y/n) >>> ` | More information in [External Pricing Source Configuration](#external-pricing-source-configuration) section. |
 
+## External Pricing Source Configuration
+By default, Hummingbot uses the market order book mid price (between the top bid and the top ask) as a starting price to calculate maker order prices. 
+With external pricing sources, you can now use below external sources for the starting mid price. 
+
+| Prompt | Description |
+|-----|-----|
+| `Which type of external price source to use? (exchange / feed / custom_api) >>> ` | The type of external price source |
+
+- Exchange
+
+An external exchange that is supported by Hummingbot.
+
+| Prompt | Description |
+|-----|-----|
+| `Enter exchange name >>> ` | An external exchange which offers the same trading pair. |
+
+- Feed
+
+Coin Market Cap or Coin Gecko data feed will be used.
+
+| Prompt | Description |
+|-----|-----|
+| `Reference base asset from data feed? (e.g. ETH) >>> ` | The base asset from data feed. |
+| `Reference quote asset from data feed? (e.g. USD) >>> ` | The quote asset from data feed. |
+
+- Custom_API
+
+An external API which provides price update continously.
+
+| Prompt | Description |
+|-----|-----|
+| `Enter pricing API URL >>> ` | An API URL that returns price only, i.e. only decimal or whole number is expected. |
+
+In a situation where the calculaton of maker order prices from external sources would result in the order matching any existing orders on the order book, such order will be ignored. For example, if ETH-USDC market is currently displaying 109 bid and 111 ask. A specified external exchange is showing 99 bid and 101 ask on its book (mid price = 100). 2 maker orders will be proposed, a bid maker order at 98 (for 2% bid spread) and an ask maker order at 102 (for 2% ask spread). The 102 ask order will be ignored (as it would match the 109 bid order), only the bid order will be submitted to the exchange. 
 
 ## Adding Transaction Costs to Prices
 
@@ -201,7 +236,12 @@ The following parameters are fields in Hummingbot configuration files located in
 | **best_bid_ask_jump_mode** | When this is `true`, the bid and ask order prices are adjusted based on the current top bid and ask prices in the market. _Default value: False_. <br/>
 | **best_bid_ask_jump_orders_depth** | If `best_bid_ask_jump_mode` is `true`, this specifies how deep into the orderbook to go for calculating the top bid and ask prices including the user's active orders. _Default value: 0_. <br/>
 | **add_transaction_costs** | Parameter to enable/disable adding transaction costs to order prices. _Default value: true_. <br/>
-
+| **external_pricing_source** | If external price source will be used for the mid price. _Default value: false_. <br/>
+| **external_price_source_type** | The type of external pricing source (exchange/feed/custom_api). <br/>
+| **external_price_source_exchange** | An external exchange name (for external exchange pricing source). <br/>
+| **external_price_source_feed_base_asset** | A base asset (for external feed pricing source), e.g. ETH. <br/>
+| **external_price_source_feed_quote_asset** | A quote asset (for external feed pricing source), e.g. USD. <br/>
+| **external_price_source_custom_api** | An external api that returns price (for external custom_api pricing source). <br/>
 
 ## Risks and Trading Mechanics
 

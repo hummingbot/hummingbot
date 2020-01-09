@@ -31,6 +31,10 @@ def using_wallet() -> bool:
     return paper_trade_disabled() and any([e in DEXES for e in required_exchanges])
 
 
+def using_bamboo_coordinator_mode() -> bool:
+    return global_config_map.get("bamboo_relay_use_coordinator").value
+
+
 # Main global config store
 global_config_map = {
     # The variables below are usually not prompted during setup process
@@ -164,15 +168,15 @@ global_config_map = {
     "bamboo_relay_use_coordinator":
         ConfigVar(key="bamboo_relay_use_coordinator",
                   prompt="Would you like to use the Bamboo Relay Coordinator (y/n) >>> ",
-                  required_if=using_exchange("bamboo_relay"),
+                  required_if=lambda: False,
                   type_str="bool",
-                  default=True),
+                  default=False),
     "bamboo_relay_pre_emptive_soft_cancels":
         ConfigVar(key="bamboo_relay_pre_emptive_soft_cancels",
                   prompt="Would you like to pre-emptively soft cancel orders (y/n) >>> ",
-                  required_if=using_exchange("bamboo_relay"),
+                  required_if=lambda: False,
                   type_str="bool",
-                  default=True),
+                  default=False),
     "bittrex_api_key":
         ConfigVar(key="bittrex_api_key",
                   prompt="Enter your Bittrex API key >>> ",
