@@ -50,14 +50,11 @@ class BitfinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     ws: websockets.WebSocketClientProtocol = ws
                     payload = self._bitfinex_auth.generate_auth_payload()
                     await ws.send(json.dumps(payload))
-                    await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # info
-                    await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # auth
 
                     async for raw_msg in self._get_response(ws):
                         transformed_msg: BitfinexOrderBookMessage = self._transform_message_from_exchange(raw_msg)
-                        if transformed_msg.type_hb:
-                            continue
-                        output.put_nowait(transformed_msg)
+                        if transformed_msg:
+                            output.put_nowait(transformed_msg)
 
             except asyncio.CancelledError:
                 raise
@@ -68,9 +65,16 @@ class BitfinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 )
                 await asyncio.sleep(self.MESSAGE_TIMEOUT)
 
-    def _transform_message_from_exchange(self, raw_msg) -> BitfinexOrderBookMessage:
+    def _transform_message_from_exchange(self, raw_msg) -> Optional[BitfinexOrderBookMessage]:
         msg = ujson.loads(raw_msg)
         order_book_message: BitfinexOrderBookMessage = BitfinexOrderBook.diff_message_from_exchange(msg, time.time())
+        if any([
+            order_book_message.type_heartbeat,
+            order_book_message.event_auth,
+            order_book_message.event_info,
+        ]):
+            # skip unneeded events and types
+            return
         return order_book_message
 
     async def _get_response(self, ws: websockets.WebSocketClientProtocol):
