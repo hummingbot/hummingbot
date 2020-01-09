@@ -37,14 +37,13 @@ cdef class ConstantMultipleSpreadPricingDelegate(OrderPricingDelegate):
     cdef object c_get_order_price_proposal(self,
                                            PureMarketMakingStrategyV2 strategy,
                                            object market_info,  # MarketTradingPairTuple
-                                           list active_orders):
+                                           list active_orders,
+                                           object asset_mid_price):
         cdef:
             MarketBase maker_market = market_info.market
             OrderBook maker_order_book = maker_market.c_get_order_book(market_info.trading_pair)
-            object top_bid_price = market_info.get_price(False)
-            object top_ask_price = market_info.get_price(True)
             str market_name = maker_market.name
-            object mid_price = (top_bid_price + top_ask_price) * Decimal("0.5")
+            object mid_price = asset_mid_price
             list bid_prices = [maker_market.c_quantize_order_price(market_info.trading_pair,
                                                                    mid_price * (Decimal(1) - self.bid_spread))]
             list ask_prices = [maker_market.c_quantize_order_price(market_info.trading_pair,

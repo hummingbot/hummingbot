@@ -21,8 +21,7 @@ def is_strategy(value: str) -> bool:
 
 def is_valid_percent(value: str) -> bool:
     try:
-        if 0 <= float(value) <= 1:
-            return True
+        return 0 <= float(value) < 1
     except ValueError:
         return False
 
