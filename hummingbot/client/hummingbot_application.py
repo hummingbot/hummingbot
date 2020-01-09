@@ -252,7 +252,8 @@ class HummingbotApplication(*commands):
                 for asset, balance in paper_trade_account_balance:
                     market.set_balance(asset, balance)
 
-            elif market_name == "ddex" and self.wallet:
+            elif market_name == "ddex":
+                assert self.wallet is not None
                 market = DDEXMarket(
                     wallet=self.wallet,
                     ethereum_rpc_url=ethereum_rpc_url,
@@ -261,7 +262,8 @@ class HummingbotApplication(*commands):
                     trading_required=self._trading_required,
                 )
 
-            elif market_name == "idex" and self.wallet:
+            elif market_name == "idex":
+                assert self.wallet is not None
                 idex_api_key: str = global_config_map.get("idex_api_key").value
                 try:
                     market = IDEXMarket(
@@ -286,7 +288,8 @@ class HummingbotApplication(*commands):
                     trading_required=self._trading_required,
                 )
 
-            elif market_name == "radar_relay" and self.wallet:
+            elif market_name == "radar_relay":
+                assert self.wallet is not None
                 market = RadarRelayMarket(
                     wallet=self.wallet,
                     ethereum_rpc_url=ethereum_rpc_url,
@@ -294,7 +297,8 @@ class HummingbotApplication(*commands):
                     trading_required=self._trading_required,
                 )
 
-            elif market_name == "bamboo_relay" and self.wallet:
+            elif market_name == "bamboo_relay":
+                assert self.wallet is not None
                 use_coordinator = global_config_map.get("bamboo_relay_use_coordinator").value
                 pre_emptive_soft_cancels = global_config_map.get("bamboo_relay_pre_emptive_soft_cancels").value
                 market = BambooRelayMarket(
@@ -334,7 +338,8 @@ class HummingbotApplication(*commands):
                                       user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
                                       trading_pairs=trading_pairs,
                                       trading_required=self._trading_required)
-            elif market_name == "dolomite" and self.wallet:
+            elif market_name == "dolomite":
+                assert self.wallet is not None
                 is_test_net: bool = global_config_map.get("ethereum_chain_name").value == "DOLOMITE_TEST"
                 market = DolomiteMarket(
                     wallet=self.wallet,

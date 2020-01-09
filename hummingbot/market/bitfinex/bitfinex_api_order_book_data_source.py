@@ -69,6 +69,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     REQUEST_TTL = 60 * 30
     TIME_SLEEP_BETWEEN_REQUESTS = 5.0
     CACHE_SIZE = 1
+    SNAPSHOT_LIMIT_SIZE = 100
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -249,10 +250,15 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
         request_url: str = f"{BITFINEX_REST_URL}/book/t{trading_pair}/R0"
+        # by default it's = 50, 25 asks + 25 bids.
+        # set 100: 100 asks + 100 bids
+        # Exchange only allow: 1, 25, 100 (((
+        params = {
+            "len": self.SNAPSHOT_LIMIT_SIZE
+        }
 
-        async with client.get(request_url) as response:
+        async with client.get(request_url, params=params) as response:
             response: aiohttp.ClientResponse = response
-
             if response.status != RESPONSE_SUCCESS:
                 raise IOError(f"Error fetching Bitfinex market snapshot for {trading_pair}. "
                               f"HTTP status is {response.status}.")
