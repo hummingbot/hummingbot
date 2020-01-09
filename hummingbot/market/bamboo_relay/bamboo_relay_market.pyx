@@ -95,6 +95,7 @@ from hummingbot.market.bamboo_relay.bamboo_relay_constants import (
     BAMBOO_RELAY_KOVAN_FEE_RECIPIENT_ADDRESS,
     BAMBOO_RELAY_TEST_FEE_RECIPIENT_ADDRESS
 )
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 brm_logger = None
 s_decimal_0 = Decimal(0)
@@ -299,9 +300,12 @@ cdef class BambooRelayMarket(MarketBase):
 
         for in_flight_order in self._in_flight_limit_orders.values():
             typed_in_flight_order = in_flight_order
-            if typed_in_flight_order.order_type is not OrderType.LIMIT:
-                continue
-            if typed_in_flight_order.client_order_id in expiring_order_ids:
+            # Skip orders that are or have been cancelled but are still being tracked
+            if (typed_in_flight_order.order_type is not OrderType.LIMIT or
+                typed_in_flight_order.client_order_id in expiring_order_ids or
+                typed_in_flight_order.client_order_id in self._in_flight_cancels or
+                typed_in_flight_order.client_order_id in self._in_flight_pending_cancels or
+                typed_in_flight_order.has_been_cancelled):
                 continue
             retval.append(typed_in_flight_order.to_limit_order())
         return retval
@@ -1312,7 +1316,7 @@ cdef class BambooRelayMarket(MarketBase):
                    object price=s_decimal_NaN,
                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
             double current_timestamp = self._current_timestamp
         expires = kwargs.get("expiration_ts", None)
@@ -1340,7 +1344,7 @@ cdef class BambooRelayMarket(MarketBase):
                     object price=s_decimal_NaN,
                     dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
             double current_timestamp = self._current_timestamp
         expires = kwargs.get("expiration_ts", None)

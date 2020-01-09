@@ -75,6 +75,10 @@ async def quick_start():
         in_memory_config_map.get("strategy_file_path").value = config_file_name
         in_memory_config_map.get("strategy_file_path").validate(config_file_name)
 
+        # To ensure quickstart runs with the default value of False for kill_switch_enabled if not present
+        if not global_config_map.get("kill_switch_enabled"):
+            global_config_map.get("kill_switch_enabled").value = False
+
         if wallet and password:
             global_config_map.get("wallet").value = wallet
             hb.acct = unlock_wallet(public_key=wallet, password=password)
