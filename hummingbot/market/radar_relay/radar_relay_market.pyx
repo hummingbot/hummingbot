@@ -58,6 +58,7 @@ from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils import fix_signature
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_exchange import ZeroExExchange
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 rrm_logger = None
 s_decimal_0 = Decimal(0)
@@ -819,7 +820,7 @@ cdef class RadarRelayMarket(MarketBase):
                    object price=s_decimal_NaN,
                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
         expires = kwargs.get("expiration_ts", None)
         if expires is not None:
@@ -840,7 +841,7 @@ cdef class RadarRelayMarket(MarketBase):
                     object price=s_decimal_NaN,
                     dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
         expires = kwargs.get("expiration_ts", None)
         if expires is not None:

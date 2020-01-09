@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import aiohttp
 from os.path import (
     join,
     realpath
@@ -28,12 +29,26 @@ class BitfinexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
         )
 
     def test_get_trading_pairs(self):
-        result: List[str] = self.ev_loop.run_until_complete(self.data_source.get_trading_pairs())
+        result: List[str] = self.ev_loop.run_until_complete(
+            self.data_source.get_trading_pairs())
 
         self.assertIsInstance(result, list)
         self.assertGreater(len(result), 0)
         self.assertIsInstance(result[0], str)
         self.assertEqual(result[0], "tBTCUSD")
+
+    def test_size_snapshot(self):
+        async def run_session_for_fetch_snaphot():
+            async with aiohttp.ClientSession() as client:
+                result = await self.data_source.get_snapshot(client, "ETHUSD")
+                assert len(result["bids"]) == self.data_source.SNAPSHOT_LIMIT_SIZE
+                assert len(result["asks"]) == self.data_source.SNAPSHOT_LIMIT_SIZE
+
+                # 25 is default fetch value, that is very small for use in production
+                assert len(result["bids"]) > 25
+                assert len(result["asks"]) > 25
+
+        self.ev_loop.run_until_complete(run_session_for_fetch_snaphot())
 
 
 def main():
