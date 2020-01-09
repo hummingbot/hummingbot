@@ -19,7 +19,6 @@ Connectors are packages of code that link Hummingbot's internal trading algorith
 * [Huobi Global](/connectors/huobi)
 * [Bittrex Global](/connectors/bittrex)
 * [Liquid](/connectors/liquid)
-* [Bitcoin.com Exchange](/connectors/bitcoin-com)
 
 ### Decentralized Exchanges
 
@@ -32,8 +31,8 @@ Connectors are packages of code that link Hummingbot's internal trading algorith
 
 | Exchange | Github Contact | Support Contact | Last Version Tested | Last Updated | Status | Known Issues |
 | --- |:---:|:---:|:---:|:---:|:---:|:---:|
-| Bamboo Relay | [Arctek](https://github.com/Arctek) | [Online Chat](https://bamboorelay.com/) | 0.20.0 | 0.20.0 | <span style="color:green; font-size:25px">⬤</span> |  |
-| Dolomite | [zrubenst](https://github.com/zrubenst) | [Telegram](https://t.me/dolomite_official) | 0.19.0 | 0.20.0 | <span style="color:green; font-size:25px"> ⬤</span> | [#1148](https://github.com/CoinAlpha/hummingbot/issues/1148) |
+| Bamboo Relay | [Arctek](https://github.com/Arctek) | [Online Chat](https://bamboorelay.com/) | 0.21.0 | 0.21.0 | <span style="color:green; font-size:25px">⬤</span> |  |
+| Dolomite | [zrubenst](https://github.com/zrubenst) | [Telegram](https://t.me/dolomite_official) | 0.20.0 | 0.21.0 | <span style="color:green; font-size:25px"> ⬤</span> |  |
 
 * Last Version Tested - Last reported Hummingbot version that the exchange connector maintainer has confirmed has been tested and is operational.
 * Last Updated - Last Hummingbot release which included an update to the exchange connector code.

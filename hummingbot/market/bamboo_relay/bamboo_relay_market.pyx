@@ -95,6 +95,7 @@ from hummingbot.market.bamboo_relay.bamboo_relay_constants import (
     BAMBOO_RELAY_KOVAN_FEE_RECIPIENT_ADDRESS,
     BAMBOO_RELAY_TEST_FEE_RECIPIENT_ADDRESS
 )
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 brm_logger = None
 s_decimal_0 = Decimal(0)
@@ -299,9 +300,12 @@ cdef class BambooRelayMarket(MarketBase):
 
         for in_flight_order in self._in_flight_limit_orders.values():
             typed_in_flight_order = in_flight_order
-            if typed_in_flight_order.order_type is not OrderType.LIMIT:
-                continue
-            if typed_in_flight_order.client_order_id in expiring_order_ids:
+            # Skip orders that are or have been cancelled but are still being tracked
+            if (typed_in_flight_order.order_type is not OrderType.LIMIT or
+                typed_in_flight_order.client_order_id in expiring_order_ids or
+                typed_in_flight_order.client_order_id in self._in_flight_cancels or
+                typed_in_flight_order.client_order_id in self._in_flight_pending_cancels or
+                typed_in_flight_order.has_been_cancelled):
                 continue
             retval.append(typed_in_flight_order.to_limit_order())
         return retval
@@ -413,15 +417,43 @@ cdef class BambooRelayMarket(MarketBase):
     def _update_available_balances(self):
         cdef:
             double current_timestamp = self._current_timestamp
+            BambooRelayInFlightOrder order
+            object amount
+            str currency
+            list pair_split
+            dict locked_balances = {}
 
         if current_timestamp - self._last_update_available_balance_timestamp > 10.0:
 
             if len(self._in_flight_limit_orders) >= 0:
-                locked_balances = {}
                 total_balances = self._account_balances
 
                 for order in self._in_flight_limit_orders.values():
-                    locked_balances[order.trading_pair] = locked_balances.get(order.trading_pair, s_decimal_0) + order.amount
+                    # Orders that are done, cancelled or expired don't deduct from the available balance
+                    if (not order.is_cancelled and 
+                        not order.has_been_cancelled and
+                        not order.is_expired and
+                        not order.is_failure and
+                        not order.is_done):
+                        pair_split = order.trading_pair.split("-")
+                        if order.trade_type is TradeType.BUY:
+                            currency = pair_split[1]
+                            amount = Decimal(order.amount * order.price)
+                        else:
+                            currency = pair_split[0]
+                            amount = Decimal(order.amount)
+                        locked_balances[currency] = locked_balances.get(currency, s_decimal_0) + amount
+
+                for order in self._in_flight_market_orders.values():
+                    # Market orders are only tracked for their transaction duration
+                    pair_split = order.trading_pair.split("-")
+                    if order.trade_type is TradeType.BUY:
+                        currency = pair_split[1]
+                        amount = Decimal(order.amount * order.price)
+                    else:
+                        currency = pair_split[0]
+                        amount = Decimal(order.amount)
+                    locked_balances[currency] = locked_balances.get(currency, s_decimal_0) + amount
 
                 for currency, balance in total_balances.items():
                     self._account_available_balances[currency] = \
@@ -471,9 +503,11 @@ cdef class BambooRelayMarket(MarketBase):
                                        headers={"User-Agent": "hummingbot"})
 
     async def _get_order_updates(self, tracked_limit_orders: List[BambooRelayInFlightOrder]) -> List[Dict[str, Any]]:
-        order_updates = []
-        hashes = []
-        hash_index = {}
+        cdef:
+            BambooRelayInFlightOrder tracked_limit_order
+            list order_updates = []
+            list hashes = []
+            dict hash_index = {}
 
         for i, tracked_order in enumerate(tracked_limit_orders):
             order_hash = tracked_order.exchange_order_id
@@ -495,6 +529,9 @@ cdef class BambooRelayMarket(MarketBase):
 
         if current_timestamp - self._last_update_limit_order_timestamp <= self.UPDATE_OPEN_LIMIT_ORDERS_INTERVAL:
             return
+
+        cdef:
+            BambooRelayInFlightOrder tracked_limit_order
 
         if len(self._in_flight_limit_orders) > 0:
             tracked_limit_orders = list(self._in_flight_limit_orders.values())
@@ -1279,7 +1316,7 @@ cdef class BambooRelayMarket(MarketBase):
                    object price=s_decimal_NaN,
                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
             double current_timestamp = self._current_timestamp
         expires = kwargs.get("expiration_ts", None)
@@ -1307,7 +1344,7 @@ cdef class BambooRelayMarket(MarketBase):
                     object price=s_decimal_NaN,
                     dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
             double current_timestamp = self._current_timestamp
         expires = kwargs.get("expiration_ts", None)
