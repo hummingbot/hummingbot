@@ -12,7 +12,7 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
 from hummingbot.data_feed.coin_gecko_data_feed import CoinGeckoDataFeed
-from hummingbot.data_feed.data_feed_base import DataFeedBase
+from hummingbot.data_feed.data_feed_base import DataFeedBase, NetworkStatus
 from hummingbot.logger import HummingbotLogger
 
 NaN = float("nan")
@@ -271,3 +271,7 @@ class ExchangeRateConversion:
         if self._fetch_exchange_rate_task and not self._fetch_exchange_rate_task.done():
             self._fetch_exchange_rate_task.cancel()
         self._started = False
+
+    @property
+    def ready(self) -> bool:
+        return all(df.network_status == NetworkStatus.CONNECTED for df in self._data_feeds)
