@@ -17,3 +17,9 @@ class SubmitOrder:
     @classmethod
     def parse(cls, order_snapshot):
         return cls(order_snapshot[cls.OID])
+
+
+class ContentEventType:
+    HEART_BEAT = "hb"
+    AUTH = "auth"
+    INFO = "info"
