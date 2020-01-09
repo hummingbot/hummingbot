@@ -57,6 +57,9 @@ from hummingbot.market.bitfinex.bitfinex_user_stream_tracker import \
     BitfinexUserStreamTracker
 from hummingbot.market.trading_rule cimport TradingRule
 
+# if  the bitfinex return error, for example, "nonce is small" we retry in this
+# time period until success result returned from the exchange, else through error
+TIMEOUT_RETRY_ATTEMPT = 60
 s_logger = None
 s_decimal_0 = Decimal(0)
 general_order_size_quantum = Decimal(BITFINEX_QUOTE_INCREMENT)
@@ -241,7 +244,6 @@ cdef class BitfinexMarket(MarketBase):
             set asset_names_to_remove
 
         account_balances = await self._api_balance()
-
         # push trading-pairs-info, that set in config
         for balance_entry in account_balances:
             # TODO: need more info about other types: exchange, margin, funding.
@@ -319,10 +321,11 @@ cdef class BitfinexMarket(MarketBase):
             try:
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
-                await safe_gather(
-                    self._update_balances(),
-                    self._update_order_status(),
-                )
+                await asyncio.sleep(1)
+                await self._update_balances()
+                await asyncio.sleep(1)
+                await self._update_order_status()
+
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -405,16 +408,26 @@ cdef class BitfinexMarket(MarketBase):
         A wrapper for submitting API requests to Bitfinex
         :returns: json data from the endpoints
         """
-
-        client = await self._http_client()
-        async with client.request(http_method,
-                                  url=url, timeout=self.API_CALL_TIMEOUT, json=data_str,
-                                  headers=headers) as response:
-            data = await response.json()
-            if response.status != 200:
-                raise IOError(
-                    f"Error fetching data from {url}. HTTP status is {response.status}. {data}")
-            return data
+        async def retry_request():
+            client = await self._http_client()
+            async with client.request(http_method,
+                                      url=url, timeout=self.API_CALL_TIMEOUT, json=data_str,
+                                      headers=headers) as response:
+                data = await response.json()
+                if response.status != 200:
+                    raise IOError(
+                        f"Error fetching data from {url}. HTTP status is {response.status}. {data}")
+                return data
+        start_do = time.time()
+        while True:
+            try:
+                res = await retry_request()
+                return res
+            except IOError:
+                self.logger().info(f"bad request, retry after 1 sec",)
+                time.sleep(1)
+                if time.time() - start_do > TIMEOUT_RETRY_ATTEMPT:
+                    raise
 
     async def _http_client(self) -> aiohttp.ClientSession:
         """
