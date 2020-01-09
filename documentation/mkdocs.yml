@@ -144,7 +144,6 @@ nav:
         - Huobi Global: connectors/huobi.md
         - Bittrex Global: connectors/bittrex.md
         - Liquid: connectors/liquid.md
-        - Bitcoin.com Exchange: connectors/bitcoin-com.md
         - DDEX: connectors/ddex.md
         - IDEX: connectors/idex.md
         - Radar Relay: connectors/radar-relay.md
