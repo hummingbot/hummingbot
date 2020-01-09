@@ -40,7 +40,7 @@ class BitfinexAuth:
 
     # private methods
     def _make_nonce(self) -> int:
-        nonce = int(round(time.time() * 1000000))
+        nonce = int(round(time.time() * 1_000_000))
         return nonce
 
     def _auth_sig(self, auth_payload) -> str:

@@ -363,6 +363,6 @@ class BitfinexMarketUnitTest(unittest.TestCase):
         self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
         self.market.sell(trading_pair, quantized_amount, OrderType.LIMIT, quantize_ask_price)
         self.run_parallel(asyncio.sleep(5))
-        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+        [cancellation_results] = self.run_parallel(self.market.cancel_all(45))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
