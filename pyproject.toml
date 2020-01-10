@@ -14,3 +14,6 @@ exclude = '''
   | dist
 )/
 '''
+
+[build-system]
+requires = ["setuptools", "numpy", "cython==0.29.5"]
