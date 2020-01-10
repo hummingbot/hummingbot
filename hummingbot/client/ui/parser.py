@@ -68,7 +68,7 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     history_parser.set_defaults(func=hummingbot.history)
 
     list_parser = subparsers.add_parser("list", help="List global objects")
-    list_parser.add_argument("obj", choices=["wallets", "exchanges", "configs", "trades"],
+    list_parser.add_argument("obj", choices=["wallets", "exchanges", "configs", "trades", "encrypted"],
                              help="Type of object to list", nargs="?")
     list_parser.set_defaults(func=hummingbot.list)
 
