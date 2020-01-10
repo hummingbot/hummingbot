@@ -21,14 +21,12 @@ import shutil
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.liquidity_bounty.liquidity_bounty_config_map import liquidity_bounty_config_map
 from hummingbot.client.settings import (
     GLOBAL_CONFIG_PATH,
     TEMPLATE_PATH,
     CONF_FILE_PATH,
     CONF_POSTFIX,
     CONF_PREFIX,
-    LIQUIDITY_BOUNTY_CONFIG_PATH,
     TOKEN_ADDRESSES_FILE_PATH,
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -244,9 +242,6 @@ def read_configs_from_yml(strategy_file_path: Optional[str] = None):
                                       exc_info=True)
 
     load_yml_into_cm(GLOBAL_CONFIG_PATH, join(TEMPLATE_PATH, "conf_global_TEMPLATE.yml"), global_config_map)
-    load_yml_into_cm(LIQUIDITY_BOUNTY_CONFIG_PATH,
-                     join(TEMPLATE_PATH, "conf_liquidity_bounty_TEMPLATE.yml"),
-                     liquidity_bounty_config_map)
 
     if strategy_file_path:
         strategy_template_path = get_strategy_template_path(current_strategy)
