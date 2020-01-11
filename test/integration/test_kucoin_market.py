@@ -77,14 +77,14 @@ class KucoinMarketUnitTest(unittest.TestCase):
             kucoin_api_key=conf.kucoin_api_key,
             kucoin_passphrase=conf.kucoin_passphrase,
             kucoin_secret_key=conf.kucoin_secret_key,
-            trading_pairs=["ETH-BTC"]
+            trading_pairs=["ETH-USDT"]
         )
         # Need 2nd instance of market to prevent events mixing up across tests
         cls.market_2: KucoinMarket = KucoinMarket(
             kucoin_api_key=conf.kucoin_api_key,
             kucoin_passphrase=conf.kucoin_passphrase,
             kucoin_secret_key=conf.kucoin_secret_key,
-            trading_pairs=["ETH-BTC"]
+            trading_pairs=["ETH-USDT"]
         )
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.market)
@@ -141,18 +141,18 @@ class KucoinMarketUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        limit_fee: TradeFee = self.market.get_fee("ETH", "BTC", OrderType.LIMIT, TradeType.BUY, 1, 10)
+        limit_fee: TradeFee = self.market.get_fee("ETH", "USDT", OrderType.LIMIT, TradeType.BUY, 1, 10)
         self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: TradeFee = self.market.get_fee("ETH", "BTC", OrderType.MARKET, TradeType.BUY, 1)
+        market_fee: TradeFee = self.market.get_fee("ETH", "USDT", OrderType.MARKET, TradeType.BUY, 1)
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
-        sell_trade_fee: TradeFee = self.market.get_fee("ETH", "BTC", OrderType.LIMIT, TradeType.SELL, 1, 10)
+        sell_trade_fee: TradeFee = self.market.get_fee("ETH", "USDT", OrderType.LIMIT, TradeType.SELL, 1, 10)
         self.assertGreater(sell_trade_fee.percent, 0)
         self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
     def test_limit_buy(self):
-        trading_pair = "ETH-BTC"
+        trading_pair = "ETH-USDT"
         amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
@@ -172,7 +172,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertAlmostEqual(float(quantized_amount), order_completed_event.base_asset_amount)
         self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("BTC", order_completed_event.quote_asset)
+        self.assertEqual("USDT", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, float(order_completed_event.base_asset_amount))
         self.assertAlmostEqual(quote_amount_traded, float(order_completed_event.quote_asset_amount))
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
@@ -182,7 +182,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_limit_sell(self):
-        trading_pair = "ETH-BTC"
+        trading_pair = "ETH-USDT"
         amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
@@ -202,7 +202,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertAlmostEqual(float(quantized_amount), order_completed_event.base_asset_amount)
         self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("BTC", order_completed_event.quote_asset)
+        self.assertEqual("USDT", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, float(order_completed_event.base_asset_amount))
         self.assertAlmostEqual(quote_amount_traded, float(order_completed_event.quote_asset_amount))
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
@@ -212,7 +212,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_market_buy(self):
-        trading_pair = "ETH-BTC"
+        trading_pair = "ETH-USDT"
         amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
@@ -228,7 +228,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_id, buy_order_completed_event.order_id)
         self.assertAlmostEqual(float(quantized_amount), buy_order_completed_event.base_asset_amount, places=4)
         self.assertEqual("ETH", buy_order_completed_event.base_asset)
-        self.assertEqual("BTC", buy_order_completed_event.quote_asset)
+        self.assertEqual("USDT", buy_order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, float(buy_order_completed_event.base_asset_amount), places=4)
         self.assertAlmostEqual(quote_amount_traded, float(buy_order_completed_event.quote_asset_amount), places=4)
         self.assertGreater(buy_order_completed_event.fee_amount, Decimal(0))
@@ -238,7 +238,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_market_sell(self):
-        trading_pair = "ETH-BTC"
+        trading_pair = "ETH-USDT"
         amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
@@ -254,7 +254,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_id, sell_order_completed_event.order_id)
         self.assertAlmostEqual(float(quantized_amount), sell_order_completed_event.base_asset_amount)
         self.assertEqual("ETH", sell_order_completed_event.base_asset)
-        self.assertEqual("BTC", sell_order_completed_event.quote_asset)
+        self.assertEqual("USDT", sell_order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, float(sell_order_completed_event.base_asset_amount))
         self.assertAlmostEqual(quote_amount_traded, float(sell_order_completed_event.quote_asset_amount))
         self.assertGreater(sell_order_completed_event.fee_amount, Decimal(0))
@@ -264,7 +264,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_cancel_order(self):
-        trading_pair = "ETH-BTC"
+        trading_pair = "ETH-USDT"
 
         current_bid_price: float = self.market.get_price(trading_pair, True)
         amount: Decimal = Decimal(0.02)
@@ -281,7 +281,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_cancelled_event.order_id, client_order_id)
 
     def test_cancel_all(self):
-        trading_pair = "ETH-BTC"
+        trading_pair = "ETH-USDT"
 
         bid_price: Decimal = Decimal(self.market_2.get_price(trading_pair, True) * Decimal(0.5))
         ask_price: Decimal = Decimal(self.market_2.get_price(trading_pair, False) * 2)
@@ -302,7 +302,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
     def test_orders_saving_and_restoration(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        trading_pair: str = "ETH-BTC"
+        trading_pair: str = "ETH-USDT"
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
@@ -347,7 +347,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
                 kucoin_api_key=conf.kucoin_api_key,
                 kucoin_passphrase=conf.kucoin_passphrase,
                 kucoin_secret_key=conf.kucoin_secret_key,
-                trading_pairs=["ETH-BTC"]
+                trading_pairs=["ETH-USDT"]
             )
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)
@@ -381,7 +381,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
     def test_order_fill_record(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        trading_pair: str = "ETH-BTC"
+        trading_pair: str = "ETH-USDT"
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
