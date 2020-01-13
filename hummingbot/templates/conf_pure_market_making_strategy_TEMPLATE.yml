@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 4
+template_version: 6
 
 # The following configuations are only required for the
 # pure market making strategy
@@ -13,10 +13,6 @@ maker_market_trading_pair: null
 
 # size of each order
 order_amount: null
-
-# Time in seconds before cancelling and rerunning strategy
-# If tick size is 60, the bot cancels active orders and reruns after a minute
-cancel_order_wait_time: null
 
 # How far away from mid price to place the bid order
 # Expressed in decimals : 0.01 = 1% away from mid price at that time
@@ -29,6 +25,13 @@ bid_place_threshold: null
 # Example if mid price is 100 and ask_place threshold is 0.01
 # Your bid is placed at 101
 ask_place_threshold: null
+
+# Ox ONLY - Sets the expiration of limit orders. Minimum is 130 seconds.
+expiration_seconds: null
+
+# Time in seconds before cancelling and rerunning strategy
+# If tick size is 60, the bot cancels active orders and reruns after a minute
+cancel_order_wait_time: null
 
 # If you want to have single or multiple bids and asks on each side
 mode: null
@@ -65,6 +68,24 @@ best_bid_ask_jump_orders_depth: null
 
 # Parameter to enable/disable adding transaction costs to order prices
 add_transaction_costs: null
+
+# If external price source will be used for the mid price, true or false.
+external_pricing_source: null
+
+# The type of external pricing source (exchange/feed/custom_api).
+external_price_source_type: null
+
+# An external exchange name (for external exchange pricing source)
+external_price_source_exchange: null
+
+# A base asset (for external feed pricing source), e.g. ETH
+external_price_source_feed_base_asset: null
+
+# A quote asset (for external feed pricing source), e.g. USD
+external_price_source_feed_quote_asset: null
+
+# An external api that returns price (for external custom_api pricing source)
+external_price_source_custom_api: null
 
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parameters

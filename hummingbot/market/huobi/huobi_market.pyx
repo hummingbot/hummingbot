@@ -59,6 +59,7 @@ from hummingbot.market.market_base import (
     MarketBase,
     NaN,
     s_decimal_NaN)
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 hm_logger = None
 s_decimal_0 = Decimal(0)
@@ -684,7 +685,7 @@ cdef class HuobiMarket(MarketBase):
                    object price=s_decimal_0,
                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = f"buy-{trading_pair}-{tracking_nonce}"
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
@@ -755,7 +756,7 @@ cdef class HuobiMarket(MarketBase):
                     object order_type=OrderType.MARKET, object price=s_decimal_0,
                     dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = f"sell-{trading_pair}-{tracking_nonce}"
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
