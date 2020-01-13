@@ -2,7 +2,8 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     is_exchange,
     is_valid_market_trading_pair,
-    is_valid_percent
+    is_valid_percent,
+    is_valid_expiration
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -63,7 +64,7 @@ pure_market_making_config_map = {
                   required_if=lambda: using_exchange("radar_relay")() or
                   (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode()),
                   type_str="float",
-                  validator=lambda input: float(input) >= 130.0),
+                  validator=is_valid_expiration),
     "cancel_order_wait_time":
         ConfigVar(key="cancel_order_wait_time",
                   prompt="How often do you want to cancel and replace bids and asks "
