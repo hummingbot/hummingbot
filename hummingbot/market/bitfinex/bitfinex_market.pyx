@@ -789,7 +789,14 @@ cdef class BitfinexMarket(MarketBase):
             m = TRADING_PAIR_SPLITTER.match(trading_pair)
             return m.group(1), m.group(2)
         except Exception as e:
-            raise ValueError(f"Error parsing trading_pair {trading_pair}: {str(e)}")
+            return None
+
+    @staticmethod
+    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
+        if BitfinexMarket.split_trading_pair(exchange_trading_pair) is None:
+            return None
+        base_asset, quote_asset = BitfinexMarket.split_trading_pair(exchange_trading_pair)
+        return f"{base_asset}{quote_asset}"
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, Any]]:
         """
