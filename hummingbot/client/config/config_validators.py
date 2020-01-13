@@ -26,6 +26,13 @@ def is_valid_percent(value: str) -> bool:
         return False
 
 
+def is_valid_expiration(value: str) -> bool:
+    try:
+        return float(value) >= 130.0
+    except Exception:
+        return False
+
+
 def is_path(value: str) -> bool:
     return isfile(join(CONF_FILE_PATH, value)) and value.endswith('.yml')
 
