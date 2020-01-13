@@ -533,31 +533,31 @@ class FixtureLiquid:
         [
             {
                 "id": 4695,
-                "balance": "10000.1773",
-                "reserved_balance": "0.0",
+                "balance": 10000.1773,
+                "reserved_balance": 0.0,
                 "currency": "USD",
                 "currency_symbol": "$",
                 "pusher_channel": "user_3020_account_usd",
-                "lowest_offer_interest_rate": "0.00020",
-                "highest_offer_interest_rate": "0.00060",
+                "lowest_offer_interest_rate": 0.00020,
+                "highest_offer_interest_rate": 0.00060,
                 "currency_type": "fiat",
-                "exchange_rate": "1.0"
+                "exchange_rate": 1.0
             }
         ]
     )
 
-    CRYTO_ACCOUNTS = json.dumps(
+    CRYPTO_ACCOUNTS = json.dumps(
         [
             {
                 "id": 4668,
-                "balance": "4.99",
-                "reserved_balance": "0.0",
+                "balance": 4.99,
+                "reserved_balance": 0.0,
                 "currency": "BTC",
                 "currency_symbol": "฿",
                 "pusher_channel": "user_3020_account_btc",
                 "minimum_withdraw": 0.02,
-                "lowest_offer_interest_rate": "0.00049",
-                "highest_offer_interest_rate": "0.05000",
+                "lowest_offer_interest_rate": 0.00049,
+                "highest_offer_interest_rate": 0.05000,
                 "currency_type": "crypto",
 
                 "address": "1F25zWAQ1BAAmppNxLV3KtK6aTNhxNg5Hg"
