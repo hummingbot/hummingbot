@@ -157,3 +157,40 @@ coinalpha/hummingbot:latest
 ```
 
 You will then be able to use the [automated docker scripts](/cheatsheets/docker/#automated-docker-scripts-optional).
+
+
+#### Locate data folder or hummingbot_trades.sqlite when running Hummingbot via Docker
+
+1. Find ID of your running container.
+```
+# Display list of containers
+docker container ps -a
+
+# Start a docker container
+docker container start <PID>
+```
+2. Evaluate containers file system.
+```
+run docker exec -t -i <name of your container> /bin/bash
+```
+3. Show list using `ls` command.
+4. Switch to `data` folder and use `ls` command to display content.
+5. If you would like to remove the sqlite database, use `rm <database_name>` command.
+
+In version 0.22.0 release, we updated the Docker scripts to map the `data` folder when creating and updating an instance.
+
+1. Delete the old scripts.
+```
+rm create.sh update.sh
+```
+2. Download the updated scripts.
+```
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh
+```
+3. Enable script permissions.
+```
+chmod a+x *.sh
+```
+4. Command `./create.sh` creates a new Hummingbot instance.
+5. Command `./update.sh` updates an existing Hummingbot instance.
