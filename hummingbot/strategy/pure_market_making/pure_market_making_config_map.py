@@ -39,7 +39,7 @@ pure_market_making_config_map = {
                   validator=is_valid_maker_market_trading_pair),
     "mode":
         ConfigVar(key="mode",
-                  prompt="Enter quantity of bid/ask orders per side (single/multiple) >>> ",
+                  prompt="Enter quantity of bid/ask orders per side (single/multiple) (Default is single) >>> ",
                   type_str="str",
                   validator=lambda v: v in {"single", "multiple"},
                   default="single"),
@@ -112,7 +112,7 @@ pure_market_making_config_map = {
                   default=0.01),
     "inventory_skew_enabled":
         ConfigVar(key="inventory_skew_enabled",
-                  prompt="Would you like to enable inventory skew? (y/n) >>> ",
+                  prompt="Would you like to enable inventory skew? (y/n) (Default is no) >>> ",
                   type_str="bool",
                   default=False),
     "inventory_target_base_percent":
@@ -162,7 +162,7 @@ pure_market_making_config_map = {
                   default=True),
     "external_pricing_source": ConfigVar(key="external_pricing_source",
                                          prompt="Would you like to use an external pricing source for mid-market "
-                                                "price? (y/n) >>> ",
+                                                "price? (y/n) (Default is no) >>> ",
                                          type_str="bool",
                                          default=False),
     "external_price_source_type": ConfigVar(key="external_price_source_type",
