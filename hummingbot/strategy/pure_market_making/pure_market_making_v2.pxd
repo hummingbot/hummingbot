@@ -20,6 +20,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         bint _add_transaction_costs_to_orders
 
         double _cancel_order_wait_time
+        double _expiration_seconds
         double _status_report_interval
         double _last_timestamp
         double _filled_order_replenish_wait_time

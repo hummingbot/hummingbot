@@ -34,6 +34,7 @@ from hummingbot.market.bittrex.bittrex_user_stream_tracker import BittrexUserStr
 from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import NaN
 from hummingbot.market.trading_rule cimport TradingRule
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 bm_logger = None
 s_decimal_0 = Decimal(0)
@@ -839,7 +840,7 @@ cdef class BittrexMarket(MarketBase):
                    object price=NaN,
                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t> (time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
@@ -938,7 +939,7 @@ cdef class BittrexMarket(MarketBase):
                     object price=0.0,
                     dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t> (time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
 
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
