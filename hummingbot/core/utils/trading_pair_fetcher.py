@@ -270,8 +270,9 @@ class TradingPairFetcher:
                     for data in products:
                         data['trading_pair'] = '-'.join([data['base_currency'], data['quoted_currency']])
                     return [
-                        product["trading_pair"]
-                        for product in products]
+                        product["trading_pair"] for product in products
+                        if product['disabled'] is False
+                    ]
 
         except Exception:
             # Do nothing if the request fails -- there will be no autocomplete available
