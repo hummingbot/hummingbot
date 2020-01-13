@@ -51,6 +51,7 @@ from hummingbot.market.idex.idex_api_order_book_data_source import IDEXAPIOrderB
 from hummingbot.market.idex.idex_order_book_tracker import IDEXOrderBookTracker
 from hummingbot.market.idex.idex_utils import generate_vrs
 from hummingbot.market.idex.idex_in_flight_order cimport IDEXInFlightOrder
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 im_logger = None
 s_decimal_0 = Decimal(0)
@@ -717,7 +718,7 @@ cdef class IDEXMarket(MarketBase):
                    object price=s_decimal_0,
                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
@@ -833,7 +834,7 @@ cdef class IDEXMarket(MarketBase):
                     object price=s_decimal_0,
                     dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
 
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))

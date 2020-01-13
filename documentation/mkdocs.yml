@@ -10,7 +10,7 @@ repo_url: 'https://github.com/coinalpha/hummingbot'
 edit_uri: 'blob/master/documentation/docs/'
 
 # Copyright
-copyright: 'Copyright &copy; 2019 CoinAlpha, Inc.'
+copyright: 'Copyright &copy; 2020 CoinAlpha, Inc.'
 
 # Configuration
 theme:
@@ -89,11 +89,17 @@ nav:
         - Docker Commands: cheatsheets/docker.md
         - Source Commands: cheatsheets/source.md
         - Client Commands: cheatsheets/client.md
+      - Liquidity Mining:
+        - Liquidity Mining FAQ: liquidity-mining/faq.md
+        - Upcoming campaigns:
+          - Harmony: liquidity-mining/upcoming/harmony.md
+          - WETH/DAI on Bamboo Relay: liquidity-mining/upcoming/WETH-DAI_on_Bamboo.md
+          - iExec: liquidity-mining/upcoming/iExec.md
+          - Zcoin: liquidity-mining/upcoming/ZCoin.md
+          - Zilliqa: liquidity-mining/upcoming/Zilliqa.md
       - Bounties:
-        - Liquidity Bounties FAQ: bounties/faq.md
-        - Active Bounties:
-          - Harmony $ONE Makers: bounties/active/harmony.md
         - Bug Bounty Program: support/bug-bounty-program.md
+        - Developer Bounty Program: bounties/developer-bounty.md
       - Get Help:
         - Frequently Asked Questions: support/faq.md
         - Troubleshooting:
@@ -138,7 +144,6 @@ nav:
         - Huobi Global: connectors/huobi.md
         - Bittrex Global: connectors/bittrex.md
         - Liquid: connectors/liquid.md
-        - Bitcoin.com Exchange: connectors/bitcoin-com.md
         - DDEX: connectors/ddex.md
         - IDEX: connectors/idex.md
         - Radar Relay: connectors/radar-relay.md
@@ -183,6 +188,7 @@ nav:
         - Configuration: developers/config.md
     - Release Notes:
       - About Releases: release-notes/index.md
+      - 0.22.0: release-notes/0.22.0.md
       - 0.21.0: release-notes/0.21.0.md
       - 0.20.0: release-notes/0.20.0.md
       - 0.19.1: release-notes/0.19.1.md

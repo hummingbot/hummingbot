@@ -1,5 +1,3 @@
-from libc.stdint cimport int64_t
-
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
@@ -29,6 +27,7 @@ cdef class BinanceMarket(MarketBase):
         public object _trading_rules_polling_task
         object _async_scheduler
         object _set_server_time_offset_task
+
 
     cdef c_did_timeout_tx(self, str tracking_id)
     cdef c_start_tracking_order(self,

@@ -1,4 +1,3 @@
-from .bounty_command import BountyCommand
 from .config_command import ConfigCommand
 from .exit_command import ExitCommand
 from .export_private_key_command import ExportPrivateKeyCommand
@@ -14,7 +13,6 @@ from .stop_command import StopCommand
 
 
 __all__ = [
-    BountyCommand,
     ConfigCommand,
     ExitCommand,
     ExportPrivateKeyCommand,
