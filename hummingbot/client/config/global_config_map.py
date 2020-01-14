@@ -97,7 +97,7 @@ global_config_map = {
     # Required by chosen CEXes or DEXes
     "paper_trade_enabled":
         ConfigVar(key="paper_trade_enabled",
-                  prompt="Enable paper trading mode (y/n) ? >>> ",
+                  prompt="Enable paper trading mode? (y/n) (Default is no) >>> ",
                   type_str="bool",
                   default=False,
                   required_if=lambda: True),
