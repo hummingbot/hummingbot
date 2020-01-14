@@ -244,7 +244,7 @@ global_config_map = {
                            ["DAI", "coin_gecko_api"]]),
     "kill_switch_enabled":
         ConfigVar(key="kill_switch_enabled",
-                  prompt="Would you like to enable the kill switch? (y/n) >>> ",
+                  prompt="Would you like to enable the kill switch? (y/n) (Default is no) >>> ",
                   required_if=paper_trade_disabled,
                   type_str="bool",
                   default=False),
