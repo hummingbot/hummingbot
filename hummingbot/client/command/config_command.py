@@ -22,7 +22,8 @@ from hummingbot.client.config.config_helpers import (
     write_config_to_yml,
     load_required_configs,
     parse_cvar_value,
-    copy_strategy_template
+    copy_strategy_template,
+    parse_cvar_default_value_prompt
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.config_crypt import (
@@ -233,7 +234,9 @@ class ConfigCommand:
             self._notify(f"Loading previously saved config file from {strategy_path}...")
         elif choice == "create":
             strategy_path = await copy_strategy_template(current_strategy)
-            self._notify(f"new config file at {strategy_path} created.")
+            self._notify(f"A new config file {strategy_path} created.")
+            self._notify(f"Please see https://docs.hummingbot.io/strategies/{current_strategy.replace('_', '-')}/ "
+                         f"while setting up these below configuration.")
         else:
             self._notify('Invalid choice. Please enter "create" or "import".')
             strategy_path = await self._import_or_create_strategy_config()
@@ -305,6 +308,8 @@ class ConfigCommand:
                     val = await self._create_or_import_wallet()
                 logging.getLogger("hummingbot.public_eth_address").info(val)
             else:
+                if cvar.value is None:
+                    self.app.set_text(parse_cvar_default_value_prompt(cvar))
                 val = await self.app.prompt(prompt=cvar.prompt, is_password=cvar.is_secure)
 
             if not cvar.validate(val):
@@ -349,6 +354,8 @@ class ConfigCommand:
         """
         for key in keys:
             cv: ConfigVar = self._get_config_var_with_key(key)
+            if cv.value is not None and cv.key != "wallet":
+                continue
             value = await self.prompt_single_variable(cv, requirement_overwrite=False)
             cv.value = parse_cvar_value(cv, value)
             if self.config_complete:
