@@ -67,8 +67,7 @@ cdef class BambooRelayMarket(MarketBase):
                                        object amount,
                                        str tx_hash,
                                        object protocol_fee_amount)
-    cdef c_expire_order(self, str order_id)
-    cdef c_expire_order_fast(self, str order_id)
+    cdef c_expire_order(self, str order_id, int seconds)
     cdef c_check_and_remove_expired_orders(self)
     cdef list c_get_orders_for_amount_price(self,
                                             str trading_pair,
