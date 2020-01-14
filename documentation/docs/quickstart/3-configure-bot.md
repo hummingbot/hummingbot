@@ -200,7 +200,7 @@ For more information on these utilities, see the Utilities section in the [User 
 
 Activate the kill switch feature and tell it to stop the bot when it reaches a specific % loss:
 ```
-Would you like to enable the kill switch? (y/n) >>>  
+Would you like to enable the kill switch? (y/n) (Default is no) >>>  
 y
 
 At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5% loss) >>>
