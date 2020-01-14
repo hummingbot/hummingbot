@@ -2,7 +2,8 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     is_exchange,
     is_valid_market_trading_pair,
-    is_valid_percent
+    is_valid_percent,
+    is_valid_expiration
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -39,7 +40,7 @@ pure_market_making_config_map = {
                   validator=is_valid_maker_market_trading_pair),
     "mode":
         ConfigVar(key="mode",
-                  prompt="Enter quantity of bid/ask orders per side (single/multiple) >>> ",
+                  prompt="Enter quantity of bid/ask orders per side (single/multiple) (Default is single) >>> ",
                   type_str="str",
                   validator=lambda v: v in {"single", "multiple"},
                   default="single"),
@@ -63,7 +64,7 @@ pure_market_making_config_map = {
                   required_if=lambda: using_exchange("radar_relay")() or
                   (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode()),
                   type_str="float",
-                  validator=lambda input: float(input) >= 130.0),
+                  validator=is_valid_expiration),
     "cancel_order_wait_time":
         ConfigVar(key="cancel_order_wait_time",
                   prompt="How often do you want to cancel and replace bids and asks "
@@ -112,7 +113,7 @@ pure_market_making_config_map = {
                   default=0.01),
     "inventory_skew_enabled":
         ConfigVar(key="inventory_skew_enabled",
-                  prompt="Would you like to enable inventory skew? (y/n) >>> ",
+                  prompt="Would you like to enable inventory skew? (y/n) (Default is no) >>> ",
                   type_str="bool",
                   default=False),
     "inventory_target_base_percent":
@@ -162,7 +163,7 @@ pure_market_making_config_map = {
                   default=True),
     "external_pricing_source": ConfigVar(key="external_pricing_source",
                                          prompt="Would you like to use an external pricing source for mid-market "
-                                                "price? (y/n) >>> ",
+                                                "price? (y/n) (Default is no) >>> ",
                                          type_str="bool",
                                          default=False),
     "external_price_source_type": ConfigVar(key="external_price_source_type",

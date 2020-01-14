@@ -8,7 +8,7 @@ The TWAP strategy is a common algorithmic execution strategy used for splitting 
 * Dividing an order into segments
 * Incorporating time delays between segmented orders
 
-## Overwiew
+## Overview
 
 The TWAP strategy divides a large user order into chunks according to the following user configurations:
 
