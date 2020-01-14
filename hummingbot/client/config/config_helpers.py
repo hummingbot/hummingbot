@@ -94,6 +94,19 @@ def parse_cvar_value(cvar: ConfigVar, value: Any) -> Any:
         raise TypeError
 
 
+def parse_cvar_default_value_prompt(cvar: ConfigVar) -> str:
+    """
+    :param cvar: ConfigVar object
+    :return: text for default value prompt
+    """
+    if cvar.default is None:
+        return ""
+    elif cvar.type == 'bool' and isinstance(cvar.prompt, str) and "Yes/No" in cvar.prompt:
+        return "Yes" if cvar.default else "No"
+    else:
+        return str(cvar.default)
+
+
 async def copy_strategy_template(strategy: str) -> str:
     """
     Look up template `.yml` file for a particular strategy in `hummingbot/templates` and copy it to the `conf` folder.
@@ -223,7 +236,10 @@ def read_configs_from_yml(strategy_file_path: Optional[str] = None):
                     continue
 
                 val_in_file = data.get(key)
-                cvar.value = parse_cvar_value(cvar, val_in_file)
+                if key not in data and cvar.migration_default is not None:
+                    cvar.value = cvar.migration_default
+                else:
+                    cvar.value = parse_cvar_value(cvar, val_in_file)
                 if val_in_file is not None and not cvar.validate(cvar.value):
                     # Instead of raising an exception, simply skip over this variable and wait till the user is prompted
                     logging.getLogger().error("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
