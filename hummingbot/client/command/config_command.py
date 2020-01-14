@@ -401,7 +401,7 @@ class ConfigCommand:
 
             if not self.config_complete:
                 choice = await self.app.prompt("Your configuration is incomplete. Would you like to proceed and "
-                                               "finish all necessary configurations? (y/n) >>> ")
+                                               "finish all necessary configurations? (y/n) (Default is no) >>> ")
                 if choice.lower() in {"y", "yes"}:
                     self.config()
                     return
