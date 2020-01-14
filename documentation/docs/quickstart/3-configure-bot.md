@@ -35,12 +35,12 @@ stop                Stop the bot's active strategy
 You can run Hummingbot and simulate trading strategies without executing and placing actual trades. Run command `paper_trade` at the beginning to enable this feature.
 
 ```
-Enable paper trading mode (y/n) ? >>> y
+Enable paper trading mode? (y/n) (Default is no) >>> y
 
 New config saved:
 paper_trade_enabled: y
 
-Your configuration is incomplete. Would you like to proceed and finish all necessary configurations? (y/n) >>> n
+Your configuration is incomplete. Would you like to proceed and finish all necessary configurations? (y/n) (Default is no) >>> y
 ```
 
 For more information about this feature, see [Paper Trading Mode](/utilities/paper-trade) in the User Manual. To perform actual trading, proceed to the next step.
