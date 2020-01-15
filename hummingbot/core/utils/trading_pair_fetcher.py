@@ -20,6 +20,7 @@ LIQUID_ENDPOINT = "https://api.liquid.com/products"
 BITTREX_ENDPOINT = "https://api.bittrex.com/v3/markets"
 DOLOMITE_ENDPOINT = "https://exchange-api.dolomite.io/v1/markets"
 BITCOIN_COM_ENDPOINT = "https://api.exchange.bitcoin.com/api/2/public/symbol"
+HITBTC_ENDPOINT = "https://api.hitbtc.com/api/2/public/symbol/"
 
 API_CALL_TIMEOUT = 5
 
@@ -197,6 +198,24 @@ class TradingPairFetcher:
                 return []
 
     @staticmethod
+    async def fetch_hitbtc_trading_pairs() -> List[str]:
+        from hummingbot.market.hitbtc.hitbtc_market import HitBTCMarket
+
+        async with aiohttp.ClientSession() as client:
+            async with client.get(HITBTC_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                if response.status == 200:
+                    try:
+                        all_trading_pairs: Dict[str, any] = await response.json()
+                        valid_trading_pairs: list = []
+                        for item in all_trading_pairs:
+                            valid_trading_pairs.append(item["id"])
+                        return [HitBTCMarket.convert_from_exchange_trading_pair(p) for p in valid_trading_pairs]
+                    except Exception:
+                        pass
+                        # Do nothing if the request fails -- there will be no autocomplete for HitBTC trading pairs
+                return []
+
+    @staticmethod
     async def fetch_bittrex_trading_pairs() -> List[str]:
         async with aiohttp.ClientSession() as client:
             async with client.get(BITTREX_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
@@ -260,6 +279,7 @@ class TradingPairFetcher:
         idex_trading_pairs = await self.fetch_idex_trading_pairs()
         bittrex_trading_pairs = await self.fetch_bittrex_trading_pairs()
         bitcoin_com_trading_pairs = await self.fetch_bitcoin_com_trading_pairs()
+        hitbtc_trading_pairs = await self.fetch_hitbtc_trading_pairs()
         self.trading_pairs = {
             "binance": binance_trading_pairs,
             "dolomite": dolomite_trading_pairs,
@@ -271,6 +291,7 @@ class TradingPairFetcher:
             "huobi": huobi_trading_pairs,
             "liquid": liquid_trading_pairs,
             "bittrex": bittrex_trading_pairs,
-            "bitcoin_com": bitcoin_com_trading_pairs
+            "bitcoin_com": bitcoin_com_trading_pairs,
+            "hitbtc": hitbtc_trading_pairs
         }
         self.ready = True

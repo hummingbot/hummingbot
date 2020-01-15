@@ -398,6 +398,10 @@ cdef class DolomiteMarket(MarketBase):
     cdef c_cancel(self, str trading_pair, str client_order_id):
         safe_ensure_future(self.cancel_order(client_order_id))
 
+    cdef c_stop_tracking_order(self, str order_id):
+        if order_id in self._in_flight_orders:
+            del self._in_flight_orders[order_id]
+
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         results = []
         cancellation_queue = self._in_flight_orders.copy()

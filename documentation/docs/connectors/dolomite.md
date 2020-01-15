@@ -37,4 +37,4 @@ Some additional small flat fees may be applied to your trades. More information 
 This connector is maintained by [Dolomite](https://beta.dolomite.io/), which can be contacted at:
 
 - [Support Site](https://dolomite.io/support)
-- [Twitter](https://twitter.com/dolomite_io?lang=en) | [Telegram](https://t.me/dolomite_official) | 
+- [Twitter](https://twitter.com/dolomite_io?lang=en) | [Telegram](https://t.me/dolomite_official)

@@ -9,7 +9,7 @@ from hummingbot.market.radar_relay.radar_relay_active_order_tracker import Radar
 from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
 from hummingbot.market.dolomite.dolomite_active_order_tracker import DolomiteActiveOrderTracker
 from hummingbot.market.bitcoin_com.bitcoin_com_active_order_tracker import BitcoinComActiveOrderTracker
-
+from hummingbot.market.hitbtc.hitbtc_active_order_tracker import HitBTCActiveOrderTracker
 
 class OrderBookTrackerEntry:
     def __init__(self, trading_pair: str, timestamp: float, order_book: OrderBook):
@@ -201,3 +201,21 @@ class LiquidOrderBookTrackerEntry(OrderBookTrackerEntry):
     @property
     def order_book(self) -> (OrderBook):
         return self._order_book
+
+
+class HitBTCOrderBookTrackerEntry(OrderBookTrackerEntry):
+    def __init__(
+        self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: HitBTCActiveOrderTracker
+    ):
+        self._active_order_tracker = active_order_tracker
+        super(HitBTCOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
+
+    def __repr__(self) -> str:
+        return (
+            f"HitBTCOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', "
+            f"order_book='{self._order_book}')"
+        )
+
+    @property
+    def active_order_tracker(self) -> HitBTCActiveOrderTracker:
+        return self._active_order_tracker
