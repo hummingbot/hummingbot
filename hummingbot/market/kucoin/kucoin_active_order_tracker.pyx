@@ -50,8 +50,8 @@ cdef class KucoinActiveOrderTracker:
     cdef tuple c_convert_diff_message_to_np_arrays(self, object message):
         cdef:
             dict content = message.content
-            list bid_entries = content["asks"]
-            list ask_entries = content["bids"]
+            list bid_entries = content["bids"]
+            list ask_entries = content["asks"]
             str order_id
             str order_side
             str price_raw
