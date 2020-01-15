@@ -32,6 +32,12 @@ def get_encrypted_config_path(config_var):
     return "%s%s%s%s" % (get_key_file_path(), ENCYPTED_CONF_PREFIX, config_var.key, ENCYPTED_CONF_POSTFIX)
 
 
+def get_encrypted_key_name_from_file(file_path):
+    _, file_name = os.path.split(file_path)
+    return file_name[file_name.find(ENCYPTED_CONF_PREFIX) + len(ENCYPTED_CONF_PREFIX):
+                     file_name.find(ENCYPTED_CONF_POSTFIX)]
+
+
 def encrypted_config_file_exists(config_var):
     return os.path.exists(get_encrypted_config_path(config_var))
 

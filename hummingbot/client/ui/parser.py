@@ -1,5 +1,4 @@
 import argparse
-import asyncio
 from typing import (
     List,
 )
@@ -39,14 +38,6 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     parser = ThrowingArgumentParser(prog="", add_help=False)
     subparsers = parser.add_subparsers()
 
-    bounty_parser = subparsers.add_parser("bounty", help="Participate in hummingbot's liquidity bounty programs")
-    bounty_parser.add_argument("--register", action="store_true", help="Register to collect liquidity bounties")
-    bounty_parser.add_argument("--status", action="store_true", help="Show your current bounty status")
-    bounty_parser.add_argument("--terms", action="store_true", help="Read liquidity bounty terms and conditions")
-    bounty_parser.add_argument("--list", action="store_true", help="Show list of available bounties")
-    bounty_parser.add_argument("--restore-id", action="store_true", help="Restore your lost bounty ID")
-    bounty_parser.set_defaults(func=hummingbot.bounty)
-
     config_parser = subparsers.add_parser("config", help="Add your personal credentials e.g. exchange API keys")
     config_parser.add_argument("key", nargs="?", default=None, help="Configure a specific variable")
     config_parser.set_defaults(func=hummingbot.config)
@@ -77,7 +68,7 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     history_parser.set_defaults(func=hummingbot.history)
 
     list_parser = subparsers.add_parser("list", help="List global objects")
-    list_parser.add_argument("obj", choices=["wallets", "exchanges", "configs", "trades"],
+    list_parser.add_argument("obj", choices=["wallets", "exchanges", "configs", "trades", "encrypted"],
                              help="Type of object to list", nargs="?")
     list_parser.set_defaults(func=hummingbot.list)
 
