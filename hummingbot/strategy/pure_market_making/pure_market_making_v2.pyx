@@ -104,7 +104,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
                  status_report_interval: float = 900,
-                 asset_price_delegate: AssetPriceDelegate = None):
+                 asset_price_delegate: AssetPriceDelegate = None,
+                 expiration_seconds: float = NaN):
 
         if len(market_infos) < 1:
             raise ValueError(f"market_infos must not be empty.")
@@ -117,6 +118,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         }
         self._all_markets_ready = False
         self._cancel_order_wait_time = cancel_order_wait_time
+        self._expiration_seconds = expiration_seconds
         self._filled_order_replenish_wait_time = filled_order_replenish_wait_time
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
 
@@ -326,7 +328,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     # To filter out any orders that are going to be taker orders, i.e. buy order price higher than first ask
     # and sell order price lower than first bid on the order book.
     cdef object c_filter_orders_proposal_for_takers(self, object market_info, object orders_proposal):
-        cdef :
+        cdef:
             list buy_prices = []
             list buy_sizes = []
             list sell_prices = []

@@ -18,16 +18,17 @@ from decimal import Decimal
 from websockets.exceptions import ConnectionClosed
 
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.market.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
-from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
-from hummingbot.market.bamboo_relay.bamboo_relay_order_book_message import BambooRelayOrderBookMessage
-from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.market.bamboo_relay.bamboo_relay_order_book_tracker_entry import BambooRelayOrderBookTrackerEntry
+from hummingbot.core.utils import async_ttl_cache
+from hummingbot.core.utils.ssl_client_request import SSLClientRequest
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.logger import HummingbotLogger
+from hummingbot.market.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
+from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
+from hummingbot.market.bamboo_relay.bamboo_relay_order_book_message import BambooRelayOrderBookMessage
+from hummingbot.market.bamboo_relay.bamboo_relay_order_book_tracker_entry import BambooRelayOrderBookTrackerEntry
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.market.bamboo_relay.bamboo_relay_constants import (
     BAMBOO_RELAY_REST_ENDPOINT,
@@ -88,7 +89,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if cls._client is None:
             if not asyncio.get_event_loop().is_running():
                 raise EnvironmentError("Event loop must be running to start HTTP client session.")
-            cls._client = aiohttp.ClientSession()
+            cls._client = aiohttp.ClientSession(request_class=SSLClientRequest)
         return cls._client
 
     @classmethod

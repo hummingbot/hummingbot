@@ -124,7 +124,7 @@ curl -Lo C:/Users/YOUR_USERNAME/.docker/machine/cache/boot2docker.iso https://gi
 ```
 
 !!! note
-    If your Windows 10 build is 17063(or later) curl is installed by default. All you need to do is run Command Prompt with administrative rights and you can use curl. The curl.exe is located at C:\Windows\System32. If you want to be able to use curl from anywhere, consider adding it to Path Environment Variables.
+    If your Windows 10 build is 17063 (or later) curl is installed by default. All you need to do is run Command Prompt with administrative rights and you can use curl. The curl.exe is located at C:\Windows\System32. If you want to be able to use curl from anywhere, consider adding it to Path Environment Variables.
 
 ## Running Hummingbot
 
@@ -169,4 +169,3 @@ ValueError: Unable to convert 'BTC' to 'BTC'. Aborting.
 ```
 
 In this case, BTC is not yet added to the list of exchange rate class. See [this page](/utilities/exchange-rates/#exchange-rate-class) the correct format on adding exchange rate.
-
