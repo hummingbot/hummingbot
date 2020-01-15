@@ -35,12 +35,12 @@ stop                Stop the bot's active strategy
 You can run Hummingbot and simulate trading strategies without executing and placing actual trades. Run command `paper_trade` at the beginning to enable this feature.
 
 ```
-Enable paper trading mode? (y/n) (Default is no) >>> y
+Enable paper trading mode? (y/n) (Default is n) >>> y
 
 New config saved:
 paper_trade_enabled: y
 
-Your configuration is incomplete. Would you like to proceed and finish all necessary configurations? (y/n) (Default is no) >>> y
+Your configuration is incomplete. Would you like to proceed and finish all necessary configurations? (y/n) (Default is n) >>> y
 ```
 
 For more information about this feature, see [Paper Trading Mode](/utilities/paper-trade) in the User Manual. To perform actual trading, proceed to the next step.
@@ -106,7 +106,7 @@ ZRX-WETH
 Parameters control the behavior of your bot by setting the spread utilized, the size of each order, how many orders to place, and how often to refresh orders. A more detailed explanation of each prompt for pure market making strategy are explained [here](/strategies/pure-market-making/#configuration-walkthrough) in the User Manual.
 
 ```
-Enter quantity of bid/ask orders per side (single/multiple) >>>
+Enter quantity of bid/ask orders per side (single/multiple) (Default is single) >>>
 single
 
 How far away from the mid price do you want to place the first bid order? (Enter 0.01 to indicate 1%) >>>
@@ -140,7 +140,7 @@ True
 This function allows you to set a target base/quote inventory ratio. For example, you are trading ZRX-WETH pair while your current asset inventory consists of 80% ZRX and 20% WETH. Setting this to 0.5 will allow the bot to automatically adjust the order amount on both sides, selling more and buying less ZRX until you get a 50%-50% ratio.
 
 ```
-Would you like to enable inventory skew? (y/n) >>>
+Would you like to enable inventory skew? (y/n) (Default is n) >>>
 y
 
 What is your target base asset inventory percentage? (Enter 0.01 to indicate 1%, Default is 0.5 (50%)) >>>
