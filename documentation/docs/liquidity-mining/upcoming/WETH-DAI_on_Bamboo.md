@@ -3,10 +3,8 @@
 
 [Twitter](https://twitter.com/BambooRelay) | [Telegram](https://t.me/bamboorelay)
 
-## Eligable pairs and exchanges
+## Eligible pairs and exchanges
 Pair | Exchange 
 ---|--- 
  WETH/DAI | Bamboo Relay
- ETH/DAI | Coinbase Pro (cross-exchange market making with Bamboo Relay ONLY)
- DAI/ETH | Bittrex (cross-exchange market making with Bamboo Relay ONLY)
  ETH/DAI | KuCoin (cross-exchange market making with Bamboo Relay ONLY - Coming soon)

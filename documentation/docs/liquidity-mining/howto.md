@@ -14,7 +14,7 @@ Liquidity miners can earn rewards based on a formula that takes into account dur
 2. Start market making for any eligible trading pair and Earn rewards! 😎 
 
 !!! Tip
-    The rewards will be automatically calculated based on your trading acitivities for eligible pairs collected through the exchange APIs you provide. Please check out the individual campaign page for the eligible pair information. 
+    The rewards will be automatically calculated based on your trading activities for eligible pairs collected through the exchange APIs you provide. Please check out the individual campaign page for the eligible pair information. 
 
 !!! note 
     If you want to participate using Hummingbot, you can [download Hummingbot](https://hummingbot.io/download) on the website, or follow the [Quickstart Guide](/quickstart/) to install and configure Hummingbot. Configure and run a bot that uses either the [**pure market making**](/strategies/pure-market-making) or the [**cross-exchange market making**](/strategies/cross-exchange-market-making) strategy within or across eligible exchanges.

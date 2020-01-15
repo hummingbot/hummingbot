@@ -3,17 +3,13 @@
 
 [Whitepaper](https://zcoin.io/tech/) | [Twitter](https://twitter.com/zcoinofficial) | [Telegram](https://t.me/zcoinproject) | [Github](https://github.com/zcoinofficial) | [Explorer](https://chainz.cryptoid.info/xzc/)
 
-## Eligable pairs and exchanges
+## Eligible pairs and exchanges
 Pair | Exchange 
 ---|--- 
  XZC/BTC | Binance
  XZC/ETH | Binance
  XZC/BNB | Binance
  XZC/XRP | Binance
- XZC/USDT | Huobi Global
- XZC/BTC | Huobi Global
- XZC/ETH | Huobi Global
- XZC/BTC | Bittrex
 
 ## More information 
 You can check out [CoinMarketCap](https://coinmarketcap.com/currencies/zcoin) or [CoinGecko](https://www.coingecko.com/en/coins/zcoin).
