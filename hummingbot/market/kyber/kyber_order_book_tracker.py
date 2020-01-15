@@ -71,18 +71,6 @@ class KyberOrderBookTracker(OrderBookTracker):
 
     async def start(self):
         await super().start()
-        # self._order_book_trade_listener_task = safe_ensure_future(
-        #     self.data_source.listen_for_trades(self._ev_loop, self._order_book_trade_stream)
-        # )
-        # self._order_book_diff_listener_task = safe_ensure_future(
-        #     self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
-        # )
-        # self._order_book_snapshot_listener_task = safe_ensure_future(
-        #     self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
-        # )
-        # self._emit_trade_event_task = safe_ensure_future(
-        #     self._emit_trade_event_loop()
-        # )
         self._refresh_tracking_task = safe_ensure_future(
             self._refresh_tracking_loop()
         )

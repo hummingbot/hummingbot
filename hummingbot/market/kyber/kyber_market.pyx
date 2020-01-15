@@ -42,6 +42,7 @@ from hummingbot.market.kyber.kyber_in_flight_order cimport KyberInFlightOrder
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 
 s_logger = None
@@ -182,16 +183,19 @@ cdef class KyberMarket(MarketBase):
         }
 
     @staticmethod
-    def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
+    def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
         try:
             quote_asset, base_asset = trading_pair.split('_')
             return base_asset, quote_asset
+        # Exceptions are now logged as warnings in trading pair fetcher
         except Exception:
-            raise ValueError(f"Error parsing trading_pair {trading_pair}")
+            return None
 
     @staticmethod
-    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
-        # Kyber uses QUOTE_BASE (ETH_DAI)
+    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
+        if KyberMarket.split_trading_pair(exchange_trading_pair) is None:
+            return None
+        # IDEX uses QUOTE_BASE (USDT_BTC)
         quote_asset, base_asset = exchange_trading_pair.split("_")
         return f"{base_asset}-{quote_asset}"
 
@@ -291,7 +295,7 @@ cdef class KyberMarket(MarketBase):
                         tracked_order.order_type,
                         tracked_order.price,
                         tracked_order.amount,
-                        TradeFee(0.0, [("ETH", gas_used)]),
+                        TradeFee(s_decimal_0, [("ETH", gas_used)]),
                         tracked_order.tx_hash  # Use tx hash for market order validation
                     )
                 )
@@ -402,7 +406,7 @@ cdef class KyberMarket(MarketBase):
             double transaction_cost_eth
 
         transaction_cost_eth = self._wallet.gas_price * gas_estimate / 1e18
-        return TradeFee(percent=0.0,
+        return TradeFee(percent=s_decimal_0,
                         flat_fees=[("ETH", Decimal(transaction_cost_eth))])
 
     async def get_quote_amount(self, amount: str, trading_pair: str, side: str) -> str:
@@ -470,7 +474,7 @@ cdef class KyberMarket(MarketBase):
     cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
@@ -526,7 +530,7 @@ cdef class KyberMarket(MarketBase):
     cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
                     dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t> (time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
 
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
