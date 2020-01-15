@@ -77,7 +77,6 @@ class BitfinexOrderBookTracker(OrderBookTracker):
         return "bitfinex"
 
     async def start(self):
-        print("Bitfinex orderbook start")
         await super().start()
 
         self._order_book_trade_listener_task = safe_ensure_future(
@@ -102,7 +101,6 @@ class BitfinexOrderBookTracker(OrderBookTracker):
         )
 
     async def _refresh_tracking_tasks(self):
-        print("bitfinext: _refresh_tracking_tasks")
         tracking_trading_pair: Set[str] = set(
             [
                 key for key in self._tracking_tasks.keys()
