@@ -3,15 +3,16 @@
 
 [Whitepaper](https://docs.zilliqa.com/whitepaper.pdf) | [Twitter](https://twitter.com/zilliqa) | [Telegram](https://t.me/zilliqachat) | [Github](https://github.com/Zilliqa) | [Explorer](https://viewblock.io/zilliqa)
 
-## Eligable pairs and exchanges
+## Eligible pairs and exchanges
 Pair | Exchange 
 ---|--- 
  ZIL/USDT | Binance
  ZIL/ETH | Binance
  ZIL/BNB | Binance
- ZIL/USDT | Huobi Global
- ZIL/ETH | Huobi Global
  ZIL/ETH | KuCoin (coming soon)
+
+!!! note 
+    ZIL/BTC is excluded from the campaign. 
 
 ## More information 
 You can check out [CoinMarketCap](https://coinmarketcap.com/currencies/zilliqa) or [CoinGecko](https://www.coingecko.com/en/coins/zilliqa).

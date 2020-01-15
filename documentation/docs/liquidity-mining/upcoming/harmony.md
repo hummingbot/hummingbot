@@ -5,16 +5,13 @@ Partnering with Harmony, we launched a successful pilot program rewarding commun
 
 [Whitepaper](https://zcoin.io/tech/) | [Twitter](https://twitter.com/harmonyprotocol) | [Telegram](https://t.me/harmony_one) | [Github](https://github.com/harmony-one) | [Explorer](https://explorer.binance.org/asset/ONE-5F9)
 
-## Eligable pairs and exchanges
+## Eligible pairs and exchanges
 Pair | Exchange 
 ---|--- 
  ONE/BTC | Binance
  ONE/USDT | Binance
  ONE/BNB | Binance
  ONE/USDC | Binance
- ONE/USDT | Huobi Global
- ONE/BTC | Huobi Global
- ONE/HT | Huobi Global
  ONE/BTC | KuCoin (coming soon)
  ONE/USDT | KuCoin (coming soon)
 
