@@ -213,9 +213,6 @@ class TradingPairFetcher:
                         pair = BitfinexMarket.convert_from_exchange_trading_pair(p)
                         if pair is not None:
                             trading_pair_list.append(pair)
-                        else:
-                            self.logger().warning(
-                                f"Could not parse the trading pair {p}, skipping it...")
                     return trading_pair_list
 
         except Exception:
