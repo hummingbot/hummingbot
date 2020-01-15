@@ -122,15 +122,6 @@ def get_version():
     return [("class:title", f"Version: {version}")]
 
 
-def get_bounty_status():
-    from hummingbot.client.liquidity_bounty.liquidity_bounty_config_map import liquidity_bounty_config_map
-    enabled = liquidity_bounty_config_map["liquidity_bounty_enabled"].value is True and \
-        liquidity_bounty_config_map["liquidity_bounty_client_id"].value is not None
-    bounty_status = "ON" if enabled else "OFF"
-    style = "class:primary" if enabled else "class:warning"
-    return [(style, f"bounty_status: {bounty_status}")]
-
-
 def get_paper_trade_status():
     from hummingbot.client.config.global_config_map import global_config_map
     enabled = global_config_map["paper_trade_enabled"].value is True
@@ -155,7 +146,6 @@ def generate_layout(input_field: TextArea,
     root_container = HSplit([
         VSplit([
             Window(FormattedTextControl(get_version), style="class:title"),
-            Window(FormattedTextControl(get_bounty_status), style="class:title"),
             Window(FormattedTextControl(get_paper_trade_status), style="class:title"),
             Window(FormattedTextControl(get_title_bar_right_text), align=WindowAlign.RIGHT, style="class:title"),
         ], height=1),

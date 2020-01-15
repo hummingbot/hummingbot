@@ -6,8 +6,6 @@ Here are some of the common questions from our users about running Hummingbot.
 
 Check the balance in your inventory. If you don't have enough balance on one side, it will only place orders on the side that it can. This is fine and expected behavior for the strategy.
 
-### Why does my starting inventory value keep changing?
+### What settings or parameter values should I use to make profitable trades?
 
-Starting inventory value is calculated based on current market prices at the time you start the bot. Therefore, it will change if there are changes in the price of the asset. But if you look at your actual inventory token balances, those should be consistent after considering any trades that have occurred.
-
-This [blog post](https://hummingbot.io/blog/2019-07-measure-performance-crypto-trading/) explains how we calculate performance. Basically, we calculate the market value of the net change in inventory.
+We generally don't advise on parameter values. As a market maker, testing different parameters and seeing how they perform is really the art or science of market making.
