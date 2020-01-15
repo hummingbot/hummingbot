@@ -37,7 +37,8 @@ EXCHANGES = {
     "radar_relay",
     "dolomite",
     "bittrex",
-    "bitcoin_com"
+    "bitcoin_com",
+    "kyber"
 }
 
 DEXES = {
@@ -45,7 +46,8 @@ DEXES = {
     "ddex",
     "idex",
     "radar_relay",
-    "dolomite"
+    "dolomite",
+    "kyber"
 }
 
 STRATEGIES: List[str] = get_strategy_list()
@@ -62,6 +64,7 @@ EXAMPLE_PAIRS = {
     "idex": "ZRX-ETH",
     "liquid": "ETH-USD",
     "radar_relay": "ZRX-WETH",
+    "kyber": "KNC-ETH"
 }
 
 EXAMPLE_ASSETS = {
@@ -76,6 +79,7 @@ EXAMPLE_ASSETS = {
     "idex": "ETH",
     "liquid": "ETH",
     "radar_relay": "ZRX",
+    "kyber": "KNC"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
