@@ -406,7 +406,6 @@ class BittrexMarketUnitTest(unittest.TestCase):
             # Reset the logs
             self.market_logger.clear()
 
-
             amount = Decimal(buy_order_completed_event.base_asset_amount)
             order_id = self.market.sell(trading_pair, amount)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))

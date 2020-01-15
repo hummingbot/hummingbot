@@ -57,7 +57,7 @@ from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.market.bitcoin_com.bitcoin_com_in_flight_order import BitcoinComInFlightOrder
 from hummingbot.market.bitcoin_com.bitcoin_com_in_flight_order cimport BitcoinComInFlightOrder
 from hummingbot.market.bitcoin_com.bitcoin_com_utils import EventTypes, join_paths
-
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -165,15 +165,18 @@ cdef class BitcoinComMarket(MarketBase):
         self._shared_client = None
 
     @staticmethod
-    def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
+    def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
         try:
             m = TRADING_PAIR_SPLITTER.match(trading_pair)
             return m.group(1), m.group(2)
+        # Exceptions are now logged as warnings in trading pair fetcher
         except Exception as e:
-            raise ValueError(f"Error parsing trading_pair {trading_pair}: {str(e)}")
+            return None
 
     @staticmethod
-    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
+    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
+        if BitcoinComMarket.split_trading_pair(exchange_trading_pair) is None:
+            return None
         # exchange does not split BASEQUOTE (BTCUSDT)
         base_asset, quote_asset = BitcoinComMarket.split_trading_pair(exchange_trading_pair)
         return f"{base_asset}-{quote_asset}"
@@ -838,7 +841,7 @@ cdef class BitcoinComMarket(MarketBase):
         Synchronous wrapper that generates a client-side order ID and schedules the buy order.
         """
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str client_order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
 
         safe_ensure_future(self.execute_buy(client_order_id, trading_pair, amount, order_type, price))
@@ -902,7 +905,7 @@ cdef class BitcoinComMarket(MarketBase):
         Synchronous wrapper that generates a client-side order ID and schedules the sell order.
         """
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str client_order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
         safe_ensure_future(self.execute_sell(client_order_id, trading_pair, amount, order_type, price))
         return client_order_id
@@ -1161,7 +1164,7 @@ cdef class BitcoinComMarket(MarketBase):
         Synchronous wrapper that schedules a withdrawal.
         """
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str tracking_id = str(f"withdraw://{currency}/{tracking_nonce}")
         safe_ensure_future(self.execute_withdraw(tracking_id, to_address, currency, amount))
         return tracking_id

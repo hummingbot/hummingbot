@@ -5,66 +5,13 @@ You can install Docker and/or Hummingbot by selecting ***either*** of the follow
 1. **Easy Install**: download and use automated install scripts.
 2. **Manual Installation**: run install commands manually.
 
-## Existing Docker Installation
-
-If you already have Docker installed, use the following commands to install and start Hummingbot:
-
-#### Install tmux
-
-!!! note
-    To learn more about `tmux` please visit [getting-started-with-tmux](https://linuxize.com/post/getting-started-with-tmux/).
-
-```bash tab="Ubuntu / Debian"
-sudo apt-get update
-sudo apt-get install -y tmux
-```
-
-```bash tab="CentOS"
-sudo yum -y install tmux
-```
-
-
-#### Run Hummingbot
-
-Open a new `tmux` window:
-
-```
-tmux
-```
-
-Install and run Hummingbot:
-
-```bash tab="Option 1: Easy Install"
-# 1) Download Hummingbot install script
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
-
-# 2) Enable script permissions
-chmod a+x create.sh
-
-# 3) Run installation
-./create.sh
-```
-
-```bash tab="Option 2: Manual Installation"
-# 1) Create folder for your new instance
-mkdir hummingbot_files
-
-# 2) Create folders for log and config files
-mkdir hummingbot_files/hummingbot_conf && mkdir hummingbot_files/hummingbot_logs
-
-# 3) Launch a new instance of hummingbot
-docker run -it \
---name hummingbot-instance \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
-coinalpha/hummingbot:latest
-```
-
 ## Ubuntu
 
 *Supported versions: 16.04 LTS, 18.04 LTS, 19.04*
 
 #### Step 1: Install Docker
+
+Skip this step if you already have Docker installed. Run the following commands:
 
 ```bash tab="Option 1: Easy Install"
 # 1) Download Docker install script
@@ -75,8 +22,6 @@ chmod a+x install-docker-ubuntu.sh
 
 # 3) Run installation
 ./install-docker-ubuntu.sh
-
-# **Note**: the script will close the terminal window
 ```
 
 ```bash tab="Option 2: Manual Installation"
@@ -105,13 +50,7 @@ exit
 
 #### Step 2: Install Hummingbot
 
-Open a new `tmux` window:
-
-```
-tmux
-```
-
-Install and run Hummingbot:
+Run the following commands:
 
 ```bash tab="Option 1: Easy Install"
 # 1) Download Hummingbot install script
@@ -120,7 +59,7 @@ wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installa
 # 2) Enable script permissions
 chmod a+x create.sh
 
-# 3) Run installation
+# 3) Create a hummingbot instance
 ./create.sh
 ```
 
@@ -128,14 +67,17 @@ chmod a+x create.sh
 # 1) Create folder for your new instance
 mkdir hummingbot_files
 
-# 2) Create folders for log and config files
-mkdir hummingbot_files/hummingbot_conf && mkdir hummingbot_files/hummingbot_logs
+# 2) Create folders for logs, config files and database file
+mkdir hummingbot_files/hummingbot_conf
+mkdir hummingbot_files/hummingbot_logs
+mkdir hummingbot_files/hummingbot_data
 
 # 3) Launch a new instance of hummingbot
 docker run -it \
 --name hummingbot-instance \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
 coinalpha/hummingbot:latest
 ```
 
@@ -144,6 +86,8 @@ coinalpha/hummingbot:latest
 *Supported version: Debian GNU/Linux 9*
 
 #### Step 1: Install Docker
+
+Skip this step if you already have Docker installed. Run the following commands:
 
 ```bash tab="Option 1: Easy Install"
 # 1) Download Docker install script
@@ -154,8 +98,6 @@ chmod a+x install-docker-debian.sh
 
 # 3) Run installation
 ./install-docker-debian.sh
-
-# **Note**: the script will close the terminal window
 ```
 
 ```bash tab="Option 2: Manual Installation"
@@ -186,13 +128,7 @@ exit
 
 #### Step 2: Install Hummingbot
 
-Open a new `tmux` window:
-
-```
-tmux
-```
-
-Install and run Hummingbot:
+Run the following commands:
 
 ```bash tab="Option 1: Easy Install"
 # 1) Download Hummingbot install script
@@ -201,7 +137,7 @@ wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installa
 # 2) Enable script permissions
 chmod a+x create.sh
 
-# 3) Run installation
+# 3) Create a hummingbot instance
 ./create.sh
 ```
 
@@ -209,14 +145,17 @@ chmod a+x create.sh
 # 1) Create folder for your new instance
 mkdir hummingbot_files
 
-# 2) Create folders for log and config files
-mkdir hummingbot_files/hummingbot_conf && mkdir hummingbot_files/hummingbot_logs
+# 2) Create folders for logs, config files and database file
+mkdir hummingbot_files/hummingbot_conf
+mkdir hummingbot_files/hummingbot_logs
+mkdir hummingbot_files/hummingbot_data
 
 # 3) Launch a new instance of hummingbot
 docker run -it \
 --name hummingbot-instance \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
 coinalpha/hummingbot:latest
 ```
 
@@ -225,6 +164,8 @@ coinalpha/hummingbot:latest
 *Supported version: 7*
 
 #### Step 1: Install Docker
+
+Skip this step if you already have Docker installed. Run the following commands:
 
 ```bash tab="Option 1: Easy Install"
 # 1) Download Docker install script
@@ -235,8 +176,6 @@ chmod a+x install-docker-centos.sh
 
 # 3) Run installation
 ./install-docker-centos.sh
-
-# **Note**: the script will close the terminal window
 ```
 
 ```bash tab="Option 2: Manual Installation"
@@ -265,13 +204,7 @@ exit
 
 #### Step 2: Install Hummingbot
 
-Open a new `tmux` window:
-
-```
-tmux
-```
-
-Install and run Hummingbot:
+Run the following commands:
 
 ```bash tab="Option 1: Easy Install"
 # 1) Download Hummingbot install script
@@ -280,7 +213,7 @@ wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installa
 # 2) Enable script permissions
 chmod a+x create.sh
 
-# 3) Run installation
+# 3) Create a hummingbot instance
 ./create.sh
 ```
 
@@ -288,16 +221,39 @@ chmod a+x create.sh
 # 1) Create folder for your new instance
 mkdir hummingbot_files
 
-# 2) Create folders for log and config files
-mkdir hummingbot_files/hummingbot_conf && mkdir hummingbot_files/hummingbot_logs
+# 2) Create folders for logs, config files and database file
+mkdir hummingbot_files/hummingbot_conf
+mkdir hummingbot_files/hummingbot_logs
+mkdir hummingbot_files/hummingbot_data
 
 # 3) Launch a new instance of hummingbot
 docker run -it \
 --name hummingbot-instance \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
 coinalpha/hummingbot:latest
 ```
+
+## Install a previous Hummingbot version
+
+A previous version can be installed when creating a Hummingbot instance.
+
+```bash
+# 1) Run the script to create a hummingbot instance
+./create.sh 
+
+# 2) Specify the version to be installed when prompted
+
+** ✏️  Creating a new Hummingbot instance **
+
+ℹ️  Press [enter] for default values.
+
+➡️  Enter Hummingbot version: [latest|development] (default = "latest")
+
+```
+
+ For example, enter `version-0.16.0`. The versions are listed here in [Hummingbot Tags](https://hub.docker.com/r/coinalpha/hummingbot/tags).
 
 ----
 

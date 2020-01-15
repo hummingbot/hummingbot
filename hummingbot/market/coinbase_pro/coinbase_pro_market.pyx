@@ -53,7 +53,7 @@ from hummingbot.market.market_base import (
 from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.market.coinbase_pro.coinbase_pro_in_flight_order import CoinbaseProInFlightOrder
 from hummingbot.market.coinbase_pro.coinbase_pro_in_flight_order cimport CoinbaseProInFlightOrder
-
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -746,7 +746,7 @@ cdef class CoinbaseProMarket(MarketBase):
         Synchronous wrapper that generates a client-side order ID and schedules the buy order.
         """
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
@@ -814,7 +814,7 @@ cdef class CoinbaseProMarket(MarketBase):
         Synchronous wrapper that generates a client-side order ID and schedules the sell order.
         """
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
@@ -1031,7 +1031,7 @@ cdef class CoinbaseProMarket(MarketBase):
         Synchronous wrapper that schedules a withdrawal.
         """
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str tracking_id = str(f"withdraw://{currency}/{tracking_nonce}")
         safe_ensure_future(self.execute_withdraw(tracking_id, to_address, currency, amount))
         return tracking_id

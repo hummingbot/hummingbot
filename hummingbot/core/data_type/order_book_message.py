@@ -3,9 +3,11 @@
 from collections import namedtuple
 from enum import Enum
 from functools import total_ordering
-import pandas as pd
-from typing import Optional, List, Dict
-import time
+from typing import (
+    Dict,
+    List,
+    Optional,
+)
 
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
@@ -88,7 +90,6 @@ class OrderBookMessage(namedtuple("_OrderBookMessage", "type, content, timestamp
             else:
                 # For messages of same timestamp, order book messages come before trade messages.
                 return self.has_update_id
-
 
 class DDEXOrderBookMessage(OrderBookMessage):
     def __new__(
@@ -606,7 +607,6 @@ class LiquidOrderBookMessage(OrderBookMessage):
         return [
             OrderBookRow(float(price), float(amount), self.update_id) for price, amount, *trash in self.content.get("bids", [])
         ]
-
 
 class HitBTCOrderBookMessage(OrderBookMessage):
     def __new__(
