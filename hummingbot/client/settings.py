@@ -37,7 +37,8 @@ EXCHANGES = {
     "radar_relay",
     "dolomite",
     "bittrex",
-    "bitcoin_com"
+    "bitcoin_com",
+    "bitfinex",
 }
 
 DEXES = {
@@ -62,6 +63,7 @@ EXAMPLE_PAIRS = {
     "idex": "ZRX-ETH",
     "liquid": "ETH-USD",
     "radar_relay": "ZRX-WETH",
+    "bitfinex": "ETHUSD",
 }
 
 EXAMPLE_ASSETS = {
@@ -76,6 +78,7 @@ EXAMPLE_ASSETS = {
     "idex": "ETH",
     "liquid": "ETH",
     "radar_relay": "ZRX",
+    "bitfinex": "ETH",
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
