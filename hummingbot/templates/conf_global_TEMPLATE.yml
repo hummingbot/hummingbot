@@ -71,6 +71,9 @@ exchange_rate_default_data_feed: coin_gecko_api
 exchange_rate_conversion:
 exchange_rate_fetcher:
 
+# Error log sharing
+send_error_logs: null
+
 # Advanced configs: Do NOT touch unless you understand what you are changing
 client_id: null
 log_level: INFO

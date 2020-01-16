@@ -112,9 +112,10 @@ class ReportingProxyHandler(logging.Handler):
         if send_all:
             min_send_capacity = 0
         try:
-            if len(self._log_queue) > min_send_capacity:
-                self.send_logs(self._log_queue)
-                self._log_queue = []
+            if global_config_map["send_error_logs"].value:
+                if len(self._log_queue) > min_send_capacity:
+                    self.send_logs(self._log_queue)
+                    self._log_queue = []
         except Exception:
             self.logger().error(f"Error sending logs.", exc_info=True, extra={"do_not_send": True})
         finally:
