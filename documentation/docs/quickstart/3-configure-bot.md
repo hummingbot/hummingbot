@@ -35,12 +35,12 @@ stop                Stop the bot's active strategy
 You can run Hummingbot and simulate trading strategies without executing and placing actual trades. Run command `paper_trade` at the beginning to enable this feature.
 
 ```
-Enable paper trading mode (y/n) ? >>> y
+Enable paper trading mode (Yes/No) ? >>> Yes
 
 New config saved:
-paper_trade_enabled: y
+paper_trade_enabled: Yes
 
-Your configuration is incomplete. Would you like to proceed and finish all necessary configurations? (y/n) >>> n
+Your configuration is incomplete. Would you like to proceed and finish all necessary configurations? (Yes/No) >>> No
 ```
 
 For more information about this feature, see [Paper Trading Mode](/utilities/paper-trade) in the User Manual. To perform actual trading, proceed to the next step.
@@ -140,8 +140,8 @@ True
 This function allows you to set a target base/quote inventory ratio. For example, you are trading ZRX-WETH pair while your current asset inventory consists of 80% ZRX and 20% WETH. Setting this to 0.5 will allow the bot to automatically adjust the order amount on both sides, selling more and buying less ZRX until you get a 50%-50% ratio.
 
 ```
-Would you like to enable inventory skew? (y/n) >>>
-y
+Would you like to enable inventory skew? (Yes/No) >>>
+Yes
 
 What is your target base asset inventory percentage? (Enter 0.01 to indicate 1%, Default is 0.5 (50%)) >>>
 0.5
@@ -200,8 +200,8 @@ For more information on these utilities, see the Utilities section in the [User 
 
 Activate the kill switch feature and tell it to stop the bot when it reaches a specific % loss:
 ```
-Would you like to enable the kill switch? (y/n) >>>  
-y
+Would you like to enable the kill switch? (Yes/No) >>>  
+Yes
 
 At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5% loss) >>>
 -0.05
@@ -209,7 +209,7 @@ At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5% l
 
 ## Step 4: Adjusting Parameters
 
-If you want to reconfigure the bot from the beginning, type `config` and reply `y` to the question `Would you like to reconfigure the bot? (y/n) >>>?`. This will prompt all questions during initial set up.
+If you want to reconfigure the bot from the beginning, type `config` and reply `y` to the question `Would you like to reconfigure the bot? (Yes/No) >>>?`. This will prompt all questions during initial set up.
 
 Alternatively, the command `list configs` will show your current bot parameters both global and the strategy configs.
 
