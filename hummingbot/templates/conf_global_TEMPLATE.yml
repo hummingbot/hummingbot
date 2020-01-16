@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 3
+template_version: 4
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -76,8 +76,6 @@ client_id: null
 log_level: INFO
 debug_console: false
 strategy_report_interval: 900.0
-reporting_aggregation_interval: 60.0
-reporting_log_interval: 60.0
 logger_override_whitelist:
 - hummingbot.strategy.arbitrage
 - hummingbot.strategy.cross_exchange_market_making
