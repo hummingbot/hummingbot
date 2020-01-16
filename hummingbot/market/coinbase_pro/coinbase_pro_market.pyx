@@ -467,9 +467,9 @@ cdef class CoinbaseProMarket(MarketBase):
                     raise
                 except Exception as e:
                     self.logger().network(
-                        f"Error fetching status update for the order {tracked_order.client_order_id}: "
+                        f"Error fetching status update for the order {client_order_id}: "
                         f"{type(e)} {str(e)}.",
-                        app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id}. "
+                        app_warning_msg=f"Could not fetch updates for the order {client_order_id}. "
                                         f"Check API key and network connection."
                     )
                 continue
