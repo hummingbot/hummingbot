@@ -2,13 +2,9 @@
 
 Below, we show you how to easily install Hummingbot using our installation scripts for each supported platform.
 
-For more detailed instructions, refer to our [User Manual](/installation/index). For developers who would like to install from source:
+For more detailed instructions, refer to our [User Manual](/installation/index).
 
-- [Linux Source Installation](/installation/from-source.linux)
-- [macOS Source Installation](installation/from-source/macOS)
-- [Windows Source Installation](installation/from-source/windows)
-
-## Linux/Cloud
+## Linux
 
 For Linux we highlight the Docker image method for new users since it contains all necessary dependencies.
 
@@ -77,3 +73,12 @@ You may also refer to our User Manual for more information.
 
 - [Windows Binary Installation](/installation/from-binary/windows)
 - [macOS Binary Installation](installation/from-binary/macos)
+
+
+## Hummingbot for Developers
+
+For developers looking to contribute to Hummingbot and extend its capabilities, it is recommended to install Hummingbot from source.
+
+- [Linux Source Installation](/installation/from-source.linux)
+- [macOS Source Installation](installation/from-source/macOS)
+- [Windows Source Installation](installation/from-source/windows)
