@@ -879,9 +879,14 @@ cdef class CoinbaseProMarket(MarketBase):
                     if type(client_order_id) is str:
                         order_id_set.remove(client_order_id)
                         successful_cancellations.append(CancellationResult(client_order_id, True))
-        except Exception:
+                    else:
+                        self.logger().info(
+                            f"failed to cancel order with error: "
+                            f"{type(client_order_id)} {client_order_id}"
+                        )
+        except Exception as e:
             self.logger().network(
-                f"Unexpected error cancelling orders.",
+                f"Unexpected error cancelling orders. {type(e)} {str(e)}",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order on Coinbase Pro. Check API key and network connection."
             )
