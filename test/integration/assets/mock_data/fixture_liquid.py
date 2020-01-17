@@ -564,3 +564,34 @@ class FixtureLiquid:
             }
         ]
     )
+
+    ORDERS = json.dumps(
+        {
+            "models": [
+                {
+                    "id": 2157474,
+                    "order_type": "limit",
+                    "margin_type": None,
+                    "quantity": "0.01",
+                    "disc_quantity": "0.0",
+                    "iceberg_total_quantity": "0.0",
+                    "side": "sell",
+                    "filled_quantity": "0.0",
+                    "price": "500.0",
+                    "created_at": 1462123639,
+                    "updated_at": 1462123639,
+                    "status": "live",
+                    "leverage_level": 1,
+                    "source_exchange": "QUOINE",
+                    "product_id": 1,
+                    "product_code": "CASH",
+                    "funding_currency": "USD",
+                    "currency_pair_code": "BTCUSD",
+                    "order_fee": "0.0",
+                    "executions": []
+                }
+            ],
+            "current_page": 1,
+            "total_pages": 1
+        }
+    )

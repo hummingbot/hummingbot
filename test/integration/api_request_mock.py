@@ -21,14 +21,13 @@ def mock_aiohttp(params):
             loop.run_until_complete(arsps.__aenter__())
             for param in params:
                 host, path, method, response = param
-                if response.lower() == PASSTHROUGH:
-                    async def pass_through(*args):
-                        return await arsps.passthrough(ClientRequest(url=URL(f"https://{host}{path}"), method=method))
-                    response = pass_through
-                else:
-                    response = aresponses.Response(
-                        body=response,
-                        headers={"Content-Type": "application/json"})
+                if type(response) == str:
+                    if response == PASSTHROUGH:
+                        response = arsps.passthrough
+                    else:
+                        response = aresponses.Response(
+                            body=response,
+                            headers={"Content-Type": "application/json"})
                 arsps.add(host, path, method, response)
             value = func(*args, **kwargs)
             loop.run_until_complete(arsps.__aexit__(*sys.exc_info()))
