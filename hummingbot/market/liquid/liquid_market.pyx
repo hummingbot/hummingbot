@@ -607,13 +607,31 @@ cdef class LiquidMarket(MarketBase):
         for tracked_order in tracked_orders:
             exchange_order_id = await tracked_order.get_exchange_order_id()
             order_update = order_dict.get(str(exchange_order_id))
+            client_order_id = tracked_order.client_order_id
             if order_update is None:
-                self.logger().network(
-                    f"Error fetching status update for the order {tracked_order.client_order_id}: "
-                    f"{order_update}.",
-                    app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id}. "
-                                    f"Check API key and network connection."
-                )
+                try:
+                    order = await self.get_order(client_order_id)
+                except IOError as e:
+                    if "order not found" in str(e):
+                        # The order does not exist. So we should not be tracking it.
+                        self.logger().info(
+                            f"The tracked order {client_order_id} does not exist on Liquid."
+                            f"Order removed from tracking."
+                        )
+                        self.c_stop_tracking_order(client_order_id)
+                        self.c_trigger_event(
+                            self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                            OrderCancelledEvent(self._current_timestamp, client_order_id)
+                        )
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    self.logger().network(
+                        f"Error fetching status update for the order {client_order_id}: "
+                        f"{type(e)} {str(e)}.",
+                        app_warning_msg=f"Could not fetch updates for the order {client_order_id}. "
+                                        f"Check API key and network connection."
+                    )
                 continue
 
             order_status = order_update.get("status")
@@ -623,7 +641,6 @@ cdef class LiquidMarket(MarketBase):
             execute_price = s_decimal_0 if new_confirmed_amount == s_decimal_0 \
                 else Decimal(order_update["price"]) / new_confirmed_amount
 
-            client_order_id = tracked_order.client_order_id
             order_type_description = tracked_order.order_type_description
             order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
             # Emit event if executed amount is greater than 0.
