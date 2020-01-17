@@ -64,6 +64,8 @@ To restart Hummingbot via Docker, run the `start.sh` helper script from the comm
 ./start.sh
 ```
 
+![script_start](/assets/img/script_start.gif)
+
 ## Step 5: Import your saved configuration
 
 Hummingbot automatically saves your **global config file** and **strategy config file**, so you can import these settings without entering them again:
@@ -80,7 +82,10 @@ By default, the auto-saved strategy configuration file is named `conf_pure_marke
 #### a) Import configuration
 
 Enter `config` to start the configuration process again, enter your password, then select `import`:
+
 ```
+Enter your password >>> ****
+
 What is your market making strategy >>>
 pure_market_making
 
@@ -90,12 +95,18 @@ import
 Enter path to your strategy file (e.g. "conf_pure_market_making_strategy_0.yml") >>>
 conf_pure_market_making_strategy_0.yml
 
-# This question appears only if you are trading on a decentralized exchange
-Would you like to unlock your previously saved wallet? (y/n) >>>
-
 Config process complete. Enter "start" to start market making.
 ```
 
+If trading on a decentralized exchange, this question appears and would ask which wallet you want to unlock if you have multiple wallets stored.
+
+```
+Would you like to unlock your previously saved wallet? (Yes/No) >>> Yes
+```
+
+Responding `No` to this question will also prompt you to import or create a new wallet.
+
+![config_import](/assets/img/quickstart_config_import.gif)
 
 ---
 Congratulations on successfully completing the Hummingbot quickstart guide!
