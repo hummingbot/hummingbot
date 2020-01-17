@@ -61,7 +61,7 @@ from hummingbot.market.market_base import (
 
 km_logger = None
 s_decimal_0 = Decimal(0)
-KUCOIN_ROOT_API = "https://api.kucoin.com"
+KUCOIN_ROOT_API = "https://openapi-sandbox.kucoin.com"
 
 
 class KucoinAPIError(IOError):
