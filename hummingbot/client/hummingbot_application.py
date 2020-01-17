@@ -15,6 +15,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.bittrex.bittrex_market import BittrexMarket
+from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
@@ -63,6 +64,7 @@ MARKET_CLASSES = {
     "radar_relay": RadarRelayMarket,
     "dolomite": DolomiteMarket,
     "bittrex": BittrexMarket,
+    "kucoin": KucoinMarket,
     "bitcoin_com": BitcoinComMarket
 }
 
@@ -350,6 +352,16 @@ class HummingbotApplication(*commands):
                 bittrex_secret_key = global_config_map.get("bittrex_secret_key").value
                 market = BittrexMarket(bittrex_api_key,
                                        bittrex_secret_key,
+                                       order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                       trading_pairs=trading_pairs,
+                                       trading_required=self._trading_required)
+            elif market_name == "kucoin":
+                kucoin_api_key = global_config_map.get("kucoin_api_key").value
+                kucoin_secret_key = global_config_map.get("kucoin_secret_key").value
+                kucoin_passphrase = global_config_map.get("kucoin_passphrase").value
+                market = KucoinMarket(kucoin_api_key,
+                                       kucoin_passphrase,
+                                       kucoin_secret_key,
                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                        trading_pairs=trading_pairs,
                                        trading_required=self._trading_required)
