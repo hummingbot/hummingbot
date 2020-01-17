@@ -1083,11 +1083,16 @@ cdef class LiquidMarket(MarketBase):
                     if type(client_order_id) is str:
                         order_id_set.remove(client_order_id)
                         successful_cancellations.append(CancellationResult(client_order_id, True))
+                    else:
+                        self.logger().warning(
+                            f"Failed to cancel order with error: "
+                            f"{type(client_order_id)} {client_order_id}"
+                        )
         except Exception as e:
             self.logger().network(
-                f"Unexpected error cancelling orders.",
+                f"Unexpected error cancelling orders. {type(e)} {str(e)}",
                 exc_info=True,
-                app_warning_msg=f"Failed to cancel order on Liquid. Check API key and network connection.{e}"
+                app_warning_msg=f"Failed to cancel order on Liquid. Check API key and network connection."
             )
 
         failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
