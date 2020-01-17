@@ -95,6 +95,9 @@ import
 Enter path to your strategy file (e.g. "conf_pure_market_making_strategy_0.yml") >>>
 conf_pure_market_making_strategy_0.yml
 
+# This question appears only if you are trading on a decentralized exchange
+Would you like to unlock your previously saved wallet? (Yes/No) >>>
+
 Config process complete. Enter "start" to start market making.
 ```
 

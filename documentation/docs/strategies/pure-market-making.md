@@ -50,12 +50,12 @@ The following walks through all the steps when running `config` for the first ti
 | `How far away from the mid price do you want to place the first ask? (Enter 0.01 to indicate 1%) >>>` | This sets `ask_place_threshold` ([definition](#configuration-parameters)). |
 | `How often do you want to cancel and replace bids and asks (in seconds)? (Default is 60 seconds) >>>` | This sets the `cancel_order_wait_time` ([definition](#configuration-parameters)). |
 | `What is your preferred quantity per order? (Denominated in the base asset, default is 1) >>> ` | This sets `order_amount` ([definition](#configuration-parameters)). |
-| `Would you like to enable inventory skew? (y/n) >>>` <br /><br /> `What is your target base asset inventory percentage? (Enter 0.01 to indicate 1%, default is 0.5 (50%)) >>>` | More information in [Inventory-Based Dynamic Order Sizing](#inventory-based-dynamic-order-sizing) section. |
+| `Would you like to enable inventory skew? (Yes/No) >>>` <br /><br /> `What is your target base asset inventory percentage? (Enter 0.01 to indicate 1%, default is 0.5 (50%)) >>>` | More information in [Inventory-Based Dynamic Order Sizing](#inventory-based-dynamic-order-sizing) section. |
 | `How long do you want to wait before placing the next order if your order gets filled (in seconds)? (Default is 10 seconds) >>>` | More information in [Order Replenish Time](#order-replenish-time) section. |
 | `Do you want to enable order_filled_stop_cancellation? If enabled, when orders are completely filled, the other side remains uncanceled. (Default is False) >>> ` | More information in ["Hanging Orders"](#hanging-orders) section. |
 | `Do you want to enable jump_orders? If enabled, when the top bid price is lesser than your order price, buy order will jump to one tick above top bid price & vice versa for sell. (Default is False) >>>` <br /><br /> `How deep do you want to go into the order book for calculating the top bid and ask, ignoring dust orders on the top (expressed in base currency)? (Default is 0) >>>` | More information in [Penny Jumping Mode](#penny-jumping-mode) section. |
 | `Do you want to add transaction costs automatically to order prices? (Default is True) >>> ` | More information in [Adding Transaction Costs to Prices](#adding-transaction-costs-to-prices) section. |
-| `Would you like to use an external pricing source for mid-market price? (y/n) >>> ` | More information in [External Pricing Source Configuration](#external-pricing-source-configuration) section. |
+| `Would you like to use an external pricing source for mid-market price? (Yes/No) >>> ` | More information in [External Pricing Source Configuration](#external-pricing-source-configuration) section. |
 
 ## External Pricing Source Configuration
 By default, Hummingbot uses the market order book mid price (between the top bid and the top ask) as a starting price to calculate maker order prices. 
@@ -133,7 +133,7 @@ For example, if you are targeting a 50/50 base to quote asset ratio but the curr
 
  | Prompt | Description |
 |-----|-----|
-| `Would you like to enable inventory skew? (y/n) >>>` | This sets `inventory_skew_enabled` ([definition](#configuration-parameters)). |
+| `Would you like to enable inventory skew? (Yes/No) >>>` | This sets `inventory_skew_enabled` ([definition](#configuration-parameters)). |
 | `What is your target base asset inventory percentage? (Enter 0.01 to indicate 1%, default is 0.5 (50%)) >>> ` | This sets `inventory_target_base_percent` ([definition](#configuration-parameters)). |
 
 Here's an [inventory skew calculator](https://docs.google.com/spreadsheets/d/16oCExZyM8Wo8d0aRPmT_j7oXCzea3knQ5mmm0LlPGbU/edit#gid=690135600) that shows how it adjusts order sizes.
