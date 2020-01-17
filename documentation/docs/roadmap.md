@@ -19,8 +19,8 @@ The timeline below shows the past milestones we have completed, along with the f
 * First community contributed connector for [Bamboo Relay](https://bamboorelay.com/)
 * Released [pure market making strategy](/strategies/pure-market-making)
 * Released [Telegram Integration](/utilities/telegram)
-* Announced [Liquidity Bounty Programs](https://www.hummingbot.io/liquidity-bounties/)
-* Launch 1st liquidity bounty program for [Harmony](https://www.hummingbot.io/liquidity-bounties/harmony)
+* Announced [Liquidity Bounty Programs](https://www.hummingbot.io/liquidity-mining/)
+* Launch 1st liquidity bounty program for [Harmony](https://www.hummingbot.io/liquidity-mining/harmony)
 
 ## Q3 2019
 * Released [Simple Trade](/strategies/simple-trade) strategy
