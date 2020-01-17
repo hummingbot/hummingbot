@@ -64,7 +64,7 @@ import hummingbot.market.hitbtc.hitbtc_constants as constants
 
 hbm_logger = None
 s_decimal_0 = Decimal(0)
-SYMBOL_SPLITTER = re.compile(r"^(\w+)(EURS|BUSD|TUSD|GUSD|USDT|USDC|KRWB|USDT20|DAI|PAX|EOSDT|EOS|BTC|ETH|BCH)$")
+SYMBOL_SPLITTER = re.compile(r"^(\w+)(IDRT|EURS|BUSD|TUSD|GUSD|USDT|USDC|KRWB|USDT20|DAI|PAX|EOSDT|EOS|BTC|ETH|BCH)$")
 
 
 class HitBTCAPIError(IOError):
