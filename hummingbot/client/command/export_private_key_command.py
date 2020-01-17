@@ -14,7 +14,7 @@ class ExportPrivateKeyCommand:
             self.placeholder_mode = True
             self.app.toggle_hide_input()
 
-            ans = await self.app.prompt("Are you sure you want to print your private key in plain text? (y/n) >>> ")
+            ans = await self.app.prompt("Are you sure you want to print your private key in plain text? (Yes/No) >>> ")
 
             if ans.lower() in {"y", "yes"}:
                 self._notify("\nWarning: Never disclose this key. Anyone with your private keys can steal any assets "
