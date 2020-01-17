@@ -612,7 +612,7 @@ cdef class LiquidMarket(MarketBase):
                 try:
                     order = await self.get_order(client_order_id)
                 except IOError as e:
-                    if "order not found" in str(e):
+                    if "order not found" in str(e).lower():
                         # The order does not exist. So we should not be tracking it.
                         self.logger().info(
                             f"The tracked order {client_order_id} does not exist on Liquid."
@@ -1055,7 +1055,7 @@ cdef class LiquidMarket(MarketBase):
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
         except IOError as e:
-            if "order not found" in str(e):
+            if "order not found" in str(e).lower():
                 # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
                 self.logger().info(f"The order {order_id} does not exist on Liquid. No cancellation needed.")
                 self.c_stop_tracking_order(order_id)
