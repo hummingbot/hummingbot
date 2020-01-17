@@ -125,9 +125,9 @@ class ConfigCommand:
 
         if self.strategy:
             choice = await self.app.prompt(prompt=f"Would you like to stop running the {strategy} strategy "
-                                                  f"and reconfigure the bot? (y/n) >>> ")
+                                                  f"and reconfigure the bot? (Yes/No) >>> ")
         else:
-            choice = await self.app.prompt(prompt=f"Would you like to reconfigure the bot? (y/n) >>> ")
+            choice = await self.app.prompt(prompt=f"Would you like to reconfigure the bot? (Yes/No) >>> ")
 
         self.app.change_prompt(prompt=">>> ")
         self.app.toggle_hide_input()
@@ -183,7 +183,7 @@ class ConfigCommand:
         """
         Special handler function that helps the user unlock an existing wallet, or redirect user to create a new wallet.
         """
-        choice = await self.app.prompt(prompt="Would you like to unlock your previously saved wallet? (y/n) >>> ")
+        choice = await self.app.prompt(prompt="Would you like to unlock your previously saved wallet? (Yes/No) >>> ")
         if choice.lower() in {"y", "yes"}:
             wallets = list_wallets()
             self._notify("Existing wallets:")
@@ -408,7 +408,7 @@ class ConfigCommand:
 
             if not self.config_complete:
                 choice = await self.app.prompt("Your configuration is incomplete. Would you like to proceed and "
-                                               "finish all necessary configurations? (y/n) >>> ")
+                                               "finish all necessary configurations? (Yes/No) >>> ")
                 if choice.lower() in {"y", "yes"}:
                     self.config()
                     return
