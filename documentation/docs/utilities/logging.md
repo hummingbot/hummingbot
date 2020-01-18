@@ -1,6 +1,6 @@
 # Logs and Logging
 
-As Hummingbot is an in-progress, open-access software, logs are available localy for each time an instance is run. Logs contain records of what happens when a bot is run, including the results of specified checks and behaviors as well as error tracing.
+As Hummingbot is an in-progress, open-access software, logs are available locally for each time an instance is run. Logs contain records of what happens when a bot is run, including the results of specified checks and behaviors as well as error tracing.
 
 ## Viewing Log Configurations
 
