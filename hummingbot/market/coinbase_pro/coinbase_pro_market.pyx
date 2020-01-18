@@ -467,10 +467,10 @@ cdef class CoinbaseProMarket(MarketBase):
                     raise
                 except Exception as e:
                     self.logger().network(
-                        f"Error fetching status update for the order {client_order_id}: "
-                        f"{type(e)} {str(e)}.",
+                        f"Error fetching status update for the order {client_order_id}: ",
+                        exc_info=True,
                         app_warning_msg=f"Could not fetch updates for the order {client_order_id}. "
-                                        f"Check API key and network connection."
+                                        f"Check API key and network connection.{e}"
                     )
                 continue
 
@@ -862,10 +862,10 @@ cdef class CoinbaseProMarket(MarketBase):
             raise
         except Exception as e:
             self.logger().network(
-                f"Failed to cancel order {order_id}: {str(e)}",
+                f"Failed to cancel order {order_id}: ",
                 exc_info=True,
                 app_warning_msg=f"Failed to cancel the order {order_id} on Coinbase Pro. "
-                                f"Check API key and network connection."
+                                f"Check API key and network connection.{e}"
             )
         return None
 
@@ -897,13 +897,13 @@ cdef class CoinbaseProMarket(MarketBase):
                         order_id_set.remove(client_order_id)
                         successful_cancellations.append(CancellationResult(client_order_id, True))
                     else:
-                        self.logger().info(
+                        self.logger().warning(
                             f"failed to cancel order with error: "
-                            f"{type(client_order_id)} {client_order_id}"
+                            f"{repr(client_order_id)}"
                         )
         except Exception as e:
             self.logger().network(
-                f"Unexpected error cancelling orders. {type(e)} {str(e)}",
+                f"Unexpected error cancelling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order on Coinbase Pro. Check API key and network connection."
             )
