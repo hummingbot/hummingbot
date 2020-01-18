@@ -627,10 +627,10 @@ cdef class LiquidMarket(MarketBase):
                     raise
                 except Exception as e:
                     self.logger().network(
-                        f"Error fetching status update for the order {client_order_id}: "
-                        f"{type(e)} {str(e)}.",
+                        f"Error fetching status update for the order {client_order_id}: ",
+                        exc_info=True,
                         app_warning_msg=f"Could not fetch updates for the order {client_order_id}. "
-                                        f"Check API key and network connection."
+                                        f"Check API key and network connection.{e}"
                     )
                 continue
 
@@ -1066,7 +1066,7 @@ cdef class LiquidMarket(MarketBase):
             raise
         except Exception as e:
             self.logger().network(
-                f"Failed to cancel order {order_id}: {str(e)}",
+                f"Failed to cancel order {order_id}: ",
                 exc_info=True,
                 app_warning_msg=f"Failed to cancel the order {order_id} on Liquid. "
                                 f"Check API key and network connection.{e}"
@@ -1103,11 +1103,11 @@ cdef class LiquidMarket(MarketBase):
                     else:
                         self.logger().warning(
                             f"Failed to cancel order with error: "
-                            f"{type(client_order_id)} {client_order_id}"
+                            f"{repr(client_order_id)}"
                         )
         except Exception as e:
             self.logger().network(
-                f"Unexpected error cancelling orders. {type(e)} {str(e)}",
+                f"Unexpected error cancelling orders.",
                 exc_info=True,
                 app_warning_msg=f"Failed to cancel order on Liquid. Check API key and network connection."
             )
