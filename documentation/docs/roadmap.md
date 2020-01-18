@@ -23,8 +23,8 @@ The timeline below shows the past milestones we have completed, along with the f
 * Launch 1st liquidity bounty program for [Harmony](https://www.hummingbot.io/liquidity-mining/harmony)
 
 ## Q3 2019
-* Released [Simple Trade](/strategies/simple-trade) strategy
-* Created [Developer Manual](/developers/index)
+* Released [Simple Trade](/developers/tutorial/simple-trade) strategy
+* Created [Developer Manual](/developers/)
 * Released [Paper Trading Mode](/utilities/paper-trade)
 * Released connector for [Huobi Global](/connectors/huobi)
 * Support for user defined strategies
@@ -35,10 +35,9 @@ The timeline below shows the past milestones we have completed, along with the f
 * Announced Liquidity Mining Platform: [Blog](https://hummingbot.io/blog/2019-11-liquidity-mining/) | [Whitepaper](https://hummingbot.io/liquidity-mining.pdf)
 * Released connector for [Liquid](https://liquid.com/)
 * Add support for 0x v3
-* Connector for [KuCoin](https://www.kucoin.com/) ([in progress](https://github.com/CoinAlpha/hummingbot/pull/1011))
 
 ## Q1 2020
-* Liquidity Mining Launch: Wave 1 (mid-January)
+* Liquidity Mining Launch: Wave 1 (mid-February)
+* More connectors for decentralized and centralized exchanges: KuCoin, Bitfinex, HitBTC, gate.io
 * Graphical user interface
-* More connectors for decentralized and centralized exchanges: Bitfinex, Kraken, gate.io, HitBTC
 * Connectors to automated market makers
