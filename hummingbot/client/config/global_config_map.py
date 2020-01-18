@@ -61,18 +61,6 @@ global_config_map = {
                   type_str="float",
                   required_if=lambda: False,
                   default=900),
-    "reporting_aggregation_interval":
-        ConfigVar(key="reporting_aggregation_interval",
-                  prompt=None,
-                  default=60.0,
-                  required_if=lambda: False,
-                  type_str="float"),
-    "reporting_log_interval":
-        ConfigVar(key="reporting_log_interval",
-                  prompt=None,
-                  default=60.0,
-                  required_if=lambda: False,
-                  type_str="float"),
     "logger_override_whitelist":
         ConfigVar(key="logger_override_whitelist",
                   prompt=None,
@@ -279,4 +267,9 @@ global_config_map = {
                   prompt="What is your default exchange rate data feed name? >>> ",
                   required_if=lambda: False,
                   default="coin_gecko_api"),
+    "send_error_logs":
+        ConfigVar(key="send_error_logs",
+                  prompt="Would you like to send error logs to hummingbot? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=True),
 }

@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 3
+template_version: 4
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -71,13 +71,14 @@ exchange_rate_default_data_feed: coin_gecko_api
 exchange_rate_conversion:
 exchange_rate_fetcher:
 
+# Error log sharing
+send_error_logs: null
+
 # Advanced configs: Do NOT touch unless you understand what you are changing
 client_id: null
 log_level: INFO
 debug_console: false
 strategy_report_interval: 900.0
-reporting_aggregation_interval: 60.0
-reporting_log_interval: 60.0
 logger_override_whitelist:
 - hummingbot.strategy.arbitrage
 - hummingbot.strategy.cross_exchange_market_making
