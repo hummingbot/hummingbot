@@ -30,6 +30,10 @@ idex_api_key: null
 liquid_api_key: null
 liquid_secret_key: null
 
+kucoin_api_key: null
+kucoin_secret_key: null
+kucoin_passphrase: null
+
 # Ethereum wallet address: required for trading on a DEX
 wallet: null
 ethereum_rpc_url: null
