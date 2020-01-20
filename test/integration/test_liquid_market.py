@@ -82,7 +82,7 @@ class LiquidMarketUnitTest(unittest.TestCase):
             conf.liquid_api_key, conf.liquid_secret_key,
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-            trading_pairs=['ETH-USD', 'LCX-BTC', 'CEL-ETH']
+            trading_pairs=['ETH-USD', 'CEL-ETH']
         )
         print("Initializing Liquid market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import aiohttp
 import asyncio
 from async_timeout import timeout
@@ -345,6 +346,8 @@ cdef class LiquidMarket(MarketBase):
         client = await self._http_client()
         async with client.request(http_method,
                                   url=url, timeout=Constants.API_CALL_TIMEOUT, data=data_str, headers=headers) as response:
+            text = await response.text()
+            print(f'url: {url} text:{text}')
             data = await response.json()
             if response.status != 200:
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {data}")
@@ -422,7 +425,9 @@ cdef class LiquidMarket(MarketBase):
         crypto_accounts_path = Constants.CRYPTO_ACCOUNTS_URI
 
         fiat_acct_balances = await self._api_request("get", path_url=fiat_accounts_path) or []
+        print(f"Fiat balances: {fiat_acct_balances}")
         crypto_acct_balances = await self._api_request("get", path_url=crypto_accounts_path) or []
+        print(f"Crypto balances: {crypto_acct_balances}")
 
         for balance_entry in fiat_acct_balances + crypto_acct_balances:
             asset_name = balance_entry["currency"]

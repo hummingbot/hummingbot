@@ -529,69 +529,104 @@ class FixtureLiquid:
         }
     )
 
-    FIAT_ACCOUNTS = json.dumps(
-        [
-            {
-                "id": 4695,
-                "balance": 10000.1773,
-                "reserved_balance": 0.0,
-                "currency": "USD",
-                "currency_symbol": "$",
-                "pusher_channel": "user_3020_account_usd",
-                "lowest_offer_interest_rate": 0.00020,
-                "highest_offer_interest_rate": 0.00060,
-                "currency_type": "fiat",
-                "exchange_rate": 1.0
-            }
-        ]
-    )
-
-    CRYPTO_ACCOUNTS = json.dumps(
-        [
-            {
-                "id": 4668,
-                "balance": 4.99,
-                "reserved_balance": 0.0,
-                "currency": "BTC",
-                "currency_symbol": "฿",
-                "pusher_channel": "user_3020_account_btc",
-                "minimum_withdraw": 0.02,
-                "lowest_offer_interest_rate": 0.00049,
-                "highest_offer_interest_rate": 0.05000,
-                "currency_type": "crypto",
-
-                "address": "1F25zWAQ1BAAmppNxLV3KtK6aTNhxNg5Hg"
-            }
-        ]
-    )
-
-    ORDERS = json.dumps(
+    FIAT_ACCOUNTS = [
         {
-            "models": [
-                {
-                    "id": 2157474,
-                    "order_type": "limit",
-                    "margin_type": None,
-                    "quantity": "0.01",
-                    "disc_quantity": "0.0",
-                    "iceberg_total_quantity": "0.0",
-                    "side": "sell",
-                    "filled_quantity": "0.0",
-                    "price": "500.0",
-                    "created_at": 1462123639,
-                    "updated_at": 1462123639,
-                    "status": "live",
-                    "leverage_level": 1,
-                    "source_exchange": "QUOINE",
-                    "product_id": 1,
-                    "product_code": "CASH",
-                    "funding_currency": "USD",
-                    "currency_pair_code": "BTCUSD",
-                    "order_fee": "0.0",
-                    "executions": []
-                }
-            ],
-            "current_page": 1,
-            "total_pages": 1
+            "id": 4695,
+            "balance": 10000.1773,
+            "reserved_balance": 0.0,
+            "currency": "USD",
+            "currency_symbol": "$",
+            "pusher_channel": "user_3020_account_usd",
+            "lowest_offer_interest_rate": 0.00020,
+            "highest_offer_interest_rate": 0.00060,
+            "currency_type": "fiat",
+            "exchange_rate": 1.0
         }
-    )
+    ]
+    #
+    #     [{'id': 1078917, 'currency': 'USD', 'currency_symbol': '$', 'balance': 0.0, 'send_to_btc_address': None,
+    #       'pusher_channel': 'user_727639_account_usd', 'lowest_offer_interest_rate': '0.00010',
+    #       'highest_offer_interest_rate': '0.00700', 'exchange_rate': '1.0', 'currency_type': 'fiat',
+    #       'reserved_balance': 0.0}]
+    # )
+
+    CRYPTO_ACCOUNTS = [
+        {
+            "id": 4668,
+            "balance": 4.99,
+            "reserved_balance": 0.0,
+            "currency": "BTC",
+            "currency_symbol": "฿",
+            "pusher_channel": "user_3020_account_btc",
+            "minimum_withdraw": 0.02,
+            "lowest_offer_interest_rate": 0.00049,
+            "highest_offer_interest_rate": 0.05000,
+            "currency_type": "crypto",
+            "address": "1F25zWAQ1BAAmppNxLV3KtK6aTNhxNg5Hg"
+        }
+    ]
+    # FIAT_ACCOUNTS = """[
+    # {"id":1078917,"currency":"USD","currency_symbol":"$","balance":0.0,"send_to_btc_address":null,"pusher_channel":"user_727639_account_usd","lowest_offer_interest_rate":"0.00011","highest_offer_interest_rate":"0.00700","exchange_rate":"1.0","currency_type":"fiat","reserved_balance":0.0}]
+    # """
+    # CRYPTO_ACCOUNTS = '[{"id":1940696,"balance":148.0,"address":"0x9a285b5b98f461da3eee57633fbaa14f09e9795b","currency":"CEL","currency_symbol":"CEL","pusher_channel":"user_727639_account_cel","minimum_withdraw":null,"lowest_offer_interest_rate":null,"highest_offer_interest_rate":null,"currency_type":"crypto","reserved_balance":0.0},{"id":1935226,"balance":0.05484862,"address":"0x184ce8751eed3a219d76470a63734945c493e4c7","currency":"ETH","currency_symbol":"Ξ","pusher_channel":"user_727639_account_eth","minimum_withdraw":0.05,"lowest_offer_interest_rate":"0.00002","highest_offer_interest_rate":"0.00070","currency_type":"crypto","reserved_balance":0.0},{"id":1935225,"balance":0.0,"address":"36hMWY1dS6MBVs8vo442zcbs6yoqSpPJde","currency":"BTC","currency_symbol":"₿","pusher_channel":"user_727639_account_btc","minimum_withdraw":0.02,"lowest_offer_interest_rate":"0.00001","highest_offer_interest_rate":"0.00100","currency_type":"crypto","reserved_balance":0.0}]'
+    # ORDERS = {"models":[{"id":2005927068,"order_type":"market","quantity":"22.56","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"sell","filled_quantity":"22.56","price":"0.00084992","created_at":1579245108,"updated_at":1579245108,"status":"filled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.00084992","target":"spot","order_fee":"0.00001917","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"sell-CEL-ETH-1579245112014160","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[{"id":251601591,"quantity":"22.56","price":"0.00084992","taker_side":"sell","created_at":1579245108,"my_side":"sell"}],"stop_triggered_time":null},{"id":2005926495,"order_type":"market","quantity":"22.56","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"buy","filled_quantity":"22.56","price":"0.00088623","created_at":1579245093,"updated_at":1579245093,"status":"filled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.00088623","target":"spot","order_fee":"0.00001999","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"buy-CEL-ETH-1579245097337520","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[{"id":251601513,"quantity":"22.56","price":"0.00088623","taker_side":"buy","created_at":1579245093,"my_side":"buy"}],"stop_triggered_time":null},{"id":2005926250,"order_type":"limit","quantity":"22.56","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"sell","filled_quantity":"0.0","price":"0.00127518","created_at":1579245085,"updated_at":1579245086,"status":"cancelled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.0","target":"spot","order_fee":"0.0","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"sell-CEL-ETH-1579245088007150","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[],"stop_triggered_time":null},{"id":2005926215,"order_type":"limit","quantity":"22.56","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"buy","filled_quantity":"0.0","price":"0.00062036","created_at":1579245084,"updated_at":1579245089,"status":"cancelled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.0","target":"spot","order_fee":"0.0","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"buy-CEL-ETH-1579245088007149","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[],"stop_triggered_time":null},{"id":2004911441,"order_type":"market","quantity":"22.54","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"sell","filled_quantity":"22.54","price":"0.00084961","created_at":1579225102,"updated_at":1579225102,"status":"filled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.00084961","target":"spot","order_fee":"0.00001915","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"sell-CEL-ETH-1579225106013098","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[{"id":251433531,"quantity":"1.0145542","price":"0.00086","taker_side":"sell","created_at":1579225102,"my_side":"sell"},{"id":251433532,"quantity":"21.5254458","price":"0.00084912","taker_side":"sell","created_at":1579225102,"my_side":"sell"}],"stop_triggered_time":null},{"id":2004911394,"order_type":"market","quantity":"22.54","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"buy","filled_quantity":"22.54","price":"0.00088712","created_at":1579225100,"updated_at":1579225100,"status":"filled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.00088712","target":"spot","order_fee":"0.00002","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"buy-CEL-ETH-1579225104174507","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[{"id":251433530,"quantity":"22.54","price":"0.00088712","taker_side":"buy","created_at":1579225100,"my_side":"buy"}],"stop_triggered_time":null},{"id":2004911190,"order_type":"limit","quantity":"22.54","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"buy","filled_quantity":"0.0","price":"0.00062098","created_at":1579225093,"updated_at":1579225096,"status":"cancelled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.0","target":"spot","order_fee":"0.0","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"buy-CEL-ETH-1579225096984964","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[],"stop_triggered_time":null},{"id":2004911189,"order_type":"limit","quantity":"22.54","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"sell","filled_quantity":"0.0","price":"0.00129","created_at":1579225093,"updated_at":1579225096,"status":"cancelled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.0","target":"spot","order_fee":"0.0","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"sell-CEL-ETH-1579225096984965","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[],"stop_triggered_time":null},{"id":2001161232,"order_type":"limit","quantity":"2.99","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"buy","filled_quantity":"0.0","price":"0.00087768","created_at":1579144516,"updated_at":1579144525,"status":"cancelled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.0","target":"spot","order_fee":"0.0","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"buy-CEL-ETH-1579144519011709","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[],"stop_triggered_time":null},{"id":2001161230,"order_type":"limit","quantity":"2.99","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"buy","filled_quantity":"0.0","price":"0.00088655","created_at":1579144516,"updated_at":1579144526,"status":"cancelled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.0","target":"spot","order_fee":"0.0","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"buy-CEL-ETH-1579144519011708","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[],"stop_triggered_time":null},{"id":2001161229,"order_type":"limit","quantity":"7.0","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"sell","filled_quantity":"0.0","price":"0.00090446","created_at":1579144516,"updated_at":1579144525,"status":"cancelled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.0","target":"spot","order_fee":"0.0","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"sell-CEL-ETH-1579144519012708","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[],"stop_triggered_time":null},{"id":2001161228,"order_type":"limit","quantity":"7.0","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"sell","filled_quantity":"0.0","price":"0.0009135","created_at":1579144516,"updated_at":1579144525,"status":"cancelled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.0","target":"spot","order_fee":"0.0","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"sell-CEL-ETH-1579144519012709","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[],"stop_triggered_time":null},{"id":2001158496,"order_type":"limit","quantity":"2.99","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"buy","filled_quantity":"0.0","price":"0.00088654","created_at":1579144485,"updated_at":1579144515,"status":"cancelled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.0","target":"spot","order_fee":"0.0","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"buy-CEL-ETH-1579144487991061","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[],"stop_triggered_time":null},{"id":2001158495,"order_type":"limit","quantity":"2.99","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"buy","filled_quantity":"0.0","price":"0.00087767","created_at":1579144485,"updated_at":1579144515,"status":"cancelled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.0","target":"spot","order_fee":"0.0","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"buy-CEL-ETH-1579144487992063","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[],"stop_triggered_time":null},{"id":2001158494,"order_type":"limit","quantity":"7.0","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"sell","filled_quantity":"0.0","price":"0.00091348","created_at":1579144485,"updated_at":1579144515,"status":"cancelled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.0","target":"spot","order_fee":"0.0","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"sell-CEL-ETH-1579144487992065","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[],"stop_triggered_time":null},{"id":2001158492,"order_type":"limit","quantity":"7.0","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"sell","filled_quantity":"0.0","price":"0.00090444","created_at":1579144485,"updated_at":1579144515,"status":"cancelled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.0","target":"spot","order_fee":"0.0","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"sell-CEL-ETH-1579144487992064","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[],"stop_triggered_time":null},{"id":2001156542,"order_type":"limit","quantity":"2.99","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"buy","filled_quantity":"0.0","price":"0.00088654","created_at":1579144454,"updated_at":1579144484,"status":"cancelled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.0","target":"spot","order_fee":"0.0","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"buy-CEL-ETH-1579144457006445","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[],"stop_triggered_time":null},{"id":2001156540,"order_type":"limit","quantity":"7.0","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"sell","filled_quantity":"0.0","price":"0.00090444","created_at":1579144454,"updated_at":1579144484,"status":"cancelled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.0","target":"spot","order_fee":"0.0","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"sell-CEL-ETH-1579144457007441","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[],"stop_triggered_time":null},{"id":2001156539,"order_type":"limit","quantity":"7.0","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"sell","filled_quantity":"0.0","price":"0.00091348","created_at":1579144454,"updated_at":1579144484,"status":"cancelled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.0","target":"spot","order_fee":"0.0","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"sell-CEL-ETH-1579144457007442","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[],"stop_triggered_time":null},{"id":2001156538,"order_type":"limit","quantity":"2.99","disc_quantity":"0.0","iceberg_total_quantity":"0.0","side":"buy","filled_quantity":"0.0","price":"0.00087767","created_at":1579144454,"updated_at":1579144484,"status":"cancelled","leverage_level":1,"source_exchange":null,"product_id":500,"margin_type":null,"take_profit":null,"stop_loss":null,"trading_type":"spot","product_code":"CASH","funding_currency":"ETH","crypto_account_id":null,"currency_pair_code":"CELETH","average_price":"0.0","target":"spot","order_fee":"0.0","source_action":"manual","unwound_trade_id":null,"trade_id":null,"client_order_id":"buy-CEL-ETH-1579144457006446","settings":null,"trailing_stop_type":null,"trailing_stop_value":null,"executions":[],"stop_triggered_time":null}],"total_pages":10000,"current_page":1}
+    ORDERS = {
+        "models": [
+            {
+                "id": 2157474,
+                "order_type": "limit",
+                "margin_type": None,
+                "quantity": "0.01",
+                "disc_quantity": "0.0",
+                "iceberg_total_quantity": "0.0",
+                "side": "sell",
+                "filled_quantity": "0.0",
+                "price": "500.0",
+                "created_at": 1462123639,
+                "updated_at": 1462123639,
+                "status": "live",
+                "leverage_level": 1,
+                "source_exchange": "QUOINE",
+                "product_id": 1,
+                "product_code": "CASH",
+                "funding_currency": "USD",
+                "currency_pair_code": "BTCUSD",
+                "order_fee": "0.0",
+                "executions": []
+            }
+        ],
+        "current_page": 1,
+        "total_pages": 1
+    }
+
+    # ORDERS = json.dumps(
+    #     {
+    #         "models": [
+    #             {
+    #                 "id": 2157474,
+    #                 "order_type": "limit",
+    #                 "margin_type": None,
+    #                 "quantity": "0.01",
+    #                 "disc_quantity": "0.0",
+    #                 "iceberg_total_quantity": "0.0",
+    #                 "side": "sell",
+    #                 "filled_quantity": "0.0",
+    #                 "price": "500.0",
+    #                 "created_at": 1462123639,
+    #                 "updated_at": 1462123639,
+    #                 "status": "live",
+    #                 "leverage_level": 1,
+    #                 "source_exchange": "QUOINE",
+    #                 "product_id": 1,
+    #                 "product_code": "CASH",
+    #                 "funding_currency": "USD",
+    #                 "currency_pair_code": "BTCUSD",
+    #                 "order_fee": "0.0",
+    #                 "executions": []
+    #             }
+    #         ],
+    #         "current_page": 1,
+    #         "total_pages": 1
+    #     }
+    #)
+
