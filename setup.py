@@ -19,13 +19,12 @@ if is_posix:
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20200105"
+    version = "20200113"
     packages = [
         "hummingbot",
         "hummingbot.client",
         "hummingbot.client.command",
         "hummingbot.client.config",
-        "hummingbot.client.liquidity_bounty",
         "hummingbot.client.ui",
         "hummingbot.core",
         "hummingbot.core.data_type",
@@ -58,7 +57,6 @@ def main():
     package_data = {
         "hummingbot": [
             "core/cpp/*",
-            "client/liquidity_bounty/*.txt",
             "wallet/ethereum/zero_ex/zero_ex_coordinator_abi.json",
             "wallet/ethereum/zero_ex/zero_ex_coordinator_registry_abi.json",
             "wallet/ethereum/zero_ex/zero_ex_exchange_abi.json",
