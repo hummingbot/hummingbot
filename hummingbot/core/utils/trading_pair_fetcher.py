@@ -73,11 +73,13 @@ class TradingPairFetcher:
                     if "123456" in raw_trading_pairs:
                         raw_trading_pairs.remove("123456")
                     trading_pair_list: List[str] = []
-                    for p in raw_trading_pairs:
-                        if BinanceMarket.convert_from_exchange_trading_pair(p) is not None:
-                            trading_pair_list.append(p)
+                    for raw_trading_pair in raw_trading_pairs:
+                        converted_trading_pair: Optional[str] = \
+                            BinanceMarket.convert_from_exchange_trading_pair(raw_trading_pair)
+                        if converted_trading_pair is not None:
+                            trading_pair_list.append(converted_trading_pair)
                         else:
-                            self.logger().warning(f"Could not parse the trading pair {p}, skipping it...")
+                            self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
                     return trading_pair_list
 
         except Exception:
@@ -96,11 +98,13 @@ class TradingPairFetcher:
                     markets = response.get("data").get("markets")
                     raw_trading_pairs = list(map(lambda details: details.get('id'), markets))
                     trading_pair_list: List[str] = []
-                    for p in raw_trading_pairs:
-                        if DDEXMarket.convert_from_exchange_trading_pair(p) is not None:
-                            trading_pair_list.append(p)
+                    for raw_trading_pair in raw_trading_pairs:
+                        converted_trading_pair: Optional[str] = \
+                            DDEXMarket.convert_from_exchange_trading_pair(raw_trading_pair)
+                        if converted_trading_pair is not None:
+                            trading_pair_list.append(converted_trading_pair)
                         else:
-                            self.logger().warning(f"Could not parse the trading pair {p}, skipping it...")
+                            self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
                     return trading_pair_list
 
         except Exception:
@@ -127,12 +131,13 @@ class TradingPairFetcher:
                             trading_pairs = trading_pairs.union(new_trading_pairs)
                         page_count += 1
                         trading_pair_list: List[str] = []
-                        for p in trading_pairs:
-                            if RadarRelayMarket.convert_from_exchange_trading_pair(p) is not None:
-                                trading_pair_list.append(p)
+                        for raw_trading_pair in trading_pairs:
+                            converted_trading_pair: Optional[str] = \
+                                RadarRelayMarket.convert_from_exchange_trading_pair(raw_trading_pair)
+                            if converted_trading_pair is not None:
+                                trading_pair_list.append(converted_trading_pair)
                             else:
-                                self.logger().warning(
-                                    f"Could not parse the trading pair {p}, skipping it...")
+                                self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
                         return trading_pair_list
         except Exception:
             # Do nothing if the request fails -- there will be no autocomplete for radar trading pairs
@@ -153,19 +158,20 @@ class TradingPairFetcher:
                     if response.status == 200:
 
                         markets = await response.json()
-                        new_trading_pairs = set(map(lambda details: details.get('id'), markets))
+                        new_trading_pairs = set(map(lambda details: details.get("id"), markets))
                         if len(new_trading_pairs) == 0:
                             break
                         else:
                             trading_pairs = trading_pairs.union(new_trading_pairs)
                         page_count += 1
                         trading_pair_list: List[str] = []
-                        for p in trading_pairs:
-                            if BambooRelayMarket.convert_from_exchange_trading_pair(p) is not None:
-                                trading_pair_list.append(p)
+                        for raw_trading_pair in trading_pairs:
+                            converted_trading_pair: Optional[str] = \
+                                BambooRelayMarket.convert_from_exchange_trading_pair(raw_trading_pair)
+                            if converted_trading_pair is not None:
+                                trading_pair_list.append(converted_trading_pair)
                             else:
-                                self.logger().warning(
-                                    f"Could not parse the trading pair {p}, skipping it...")
+                                self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
                         return trading_pair_list
 
         except Exception:
@@ -184,12 +190,13 @@ class TradingPairFetcher:
                     markets = await response.json()
                     raw_trading_pairs: List[str] = list(map(lambda details: details.get('id'), markets))
                     trading_pair_list: List[str] = []
-                    for p in raw_trading_pairs:
-                        if CoinbaseProMarket.convert_from_exchange_trading_pair(p) is not None:
-                            trading_pair_list.append(p)
+                    for raw_trading_pair in raw_trading_pairs:
+                        converted_trading_pair: Optional[str] = \
+                            CoinbaseProMarket.convert_from_exchange_trading_pair(raw_trading_pair)
+                        if converted_trading_pair is not None:
+                            trading_pair_list.append(converted_trading_pair)
                         else:
-                            self.logger().warning(
-                                f"Could not parse the trading pair {p}, skipping it...")
+                            self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
                     return trading_pair_list
 
         except Exception:
@@ -209,12 +216,13 @@ class TradingPairFetcher:
                     market: Dict[Any] = await response.json()
                     raw_trading_pairs: List[str] = list(market.keys())
                     trading_pair_list: List[str] = []
-                    for p in raw_trading_pairs:
-                        if IDEXMarket.convert_from_exchange_trading_pair(p) is not None:
-                            trading_pair_list.append(p)
+                    for raw_trading_pair in raw_trading_pairs:
+                        converted_trading_pair: Optional[str] = \
+                            IDEXMarket.convert_from_exchange_trading_pair(raw_trading_pair)
+                        if converted_trading_pair is not None:
+                            trading_pair_list.append(converted_trading_pair)
                         else:
-                            self.logger().warning(
-                                f"Could not parse the trading pair {p}, skipping it...")
+                            self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
                     return trading_pair_list
 
         except Exception:
@@ -236,12 +244,13 @@ class TradingPairFetcher:
                         if item["state"] == "online":
                             valid_trading_pairs.append(item["symbol"])
                     trading_pair_list: List[str] = []
-                    for p in valid_trading_pairs:
-                        if HuobiMarket.convert_from_exchange_trading_pair(p) is not None:
-                            trading_pair_list.append(p)
+                    for raw_trading_pair in valid_trading_pairs:
+                        converted_trading_pair: Optional[str] = \
+                            HuobiMarket.convert_from_exchange_trading_pair(raw_trading_pair)
+                        if converted_trading_pair is not None:
+                            trading_pair_list.append(converted_trading_pair)
                         else:
-                            self.logger().warning(
-                                f"Could not parse the trading pair {p}, skipping it...")
+                            self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
                     return trading_pair_list
 
         except Exception:
@@ -261,8 +270,9 @@ class TradingPairFetcher:
                     for data in products:
                         data['trading_pair'] = '-'.join([data['base_currency'], data['quoted_currency']])
                     return [
-                        product["trading_pair"]
-                        for product in products]
+                        product["trading_pair"] for product in products
+                        if product['disabled'] is False
+                    ]
 
         except Exception:
             # Do nothing if the request fails -- there will be no autocomplete available
@@ -298,12 +308,13 @@ class TradingPairFetcher:
                     for item in all_trading_pairs["data"]:
                         valid_trading_pairs.append(item["market"])
                     trading_pair_list: List[str] = []
-                    for p in valid_trading_pairs:
-                        if DolomiteMarket.convert_from_exchange_trading_pair(p) is not None:
-                            trading_pair_list.append(p)
+                    for raw_trading_pair in valid_trading_pairs:
+                        converted_trading_pair: Optional[str] = \
+                            DolomiteMarket.convert_from_exchange_trading_pair(raw_trading_pair)
+                        if converted_trading_pair is not None:
+                            trading_pair_list.append(converted_trading_pair)
                         else:
-                            self.logger().warning(
-                                f"Could not parse the trading pair {p}, skipping it...")
+                            self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
                     return trading_pair_list
         except Exception:
             # Do nothing if the request fails -- there will be no autocomplete for dolomite trading pairs
@@ -321,12 +332,13 @@ class TradingPairFetcher:
                     raw_trading_pairs: List[Dict[str, any]] = await response.json()
                     trading_pairs: List[str] = list([item["id"] for item in raw_trading_pairs])
                     trading_pair_list: List[str] = []
-                    for p in trading_pairs:
-                        if BitcoinComMarket.convert_from_exchange_trading_pair(p) is not None:
-                            trading_pair_list.append(p)
+                    for raw_trading_pair in trading_pairs:
+                        converted_trading_pair: Optional[str] = \
+                            BitcoinComMarket.convert_from_exchange_trading_pair(raw_trading_pair)
+                        if converted_trading_pair is not None:
+                            trading_pair_list.append(converted_trading_pair)
                         else:
-                            self.logger().warning(
-                                f"Could not parse the trading pair {p}, skipping it...")
+                            self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
                     return trading_pair_list
         except Exception:
             # Do nothing if the request fails -- there will be no autocomplete available

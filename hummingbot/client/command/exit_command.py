@@ -29,10 +29,6 @@ class ExitCommand:
             await asyncio.sleep(1)
         ExchangeRateConversion.get_instance().stop()
 
-        if force is False and self.liquidity_bounty is not None:
-            self._notify("Winding down liquidity bounty submission...")
-            await self.liquidity_bounty.stop_network()
-
         self._notify("Winding down notifiers...")
         for notifier in self.notifiers:
             notifier.stop()
