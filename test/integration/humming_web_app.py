@@ -6,7 +6,12 @@ import logging
 import random
 from typing import Optional
 import unittest
+from unittest import mock
 from yarl import URL
+from collections import namedtuple
+
+ResponseData = namedtuple("ResponseData", "method host path query_string is_permanent is_json data")
+
 
 def get_open_port() -> int:
     import socket
@@ -27,29 +32,46 @@ class HummingWebApp:
         self._runner: Optional[web.AppRunner] = None
         self._port: Optional[int] = None
         self._started: bool = False
-        self._json_responses = {}
+        self._responses_data = []
         self.host = "127.0.0.1"
-        self._host_paths_to_handle = []
+        self._hosts_to_handle = {}
 
-    async def _handle(self, request: web.Request):
-        json_resp = self._json_responses[request.path]
-        return web.json_response(data=json_resp)
+    async def _handler(self, request: web.Request):
+        method, req_path, query_string = request.method, request.path, request.query_string
+        req_path = req_path[1:]
+        host = req_path[0:req_path.find("/")]
+        path = req_path[req_path.find("/"):]
+        resp_data = [x for x in self._responses_data if x.method == method and x.host == host and x.path == path and
+                     x.query_string == query_string]
+        if not resp_data:
+            raise web.HTTPNotFound(text=f"No Match found for {host}{path} {method}")
+        is_json, data = resp_data[0].is_json, resp_data[0].data
+        if not resp_data[0].is_permanent:
+            self._responses_data.remove(resp_data[0])
+        if is_json:
+            return web.json_response(data=data)
+        else:
+            return web.Response(text=data)
 
-    def add_json_response(self, host_path, json_resp):
-        # json_resp = json_resp.replace("\n", "")
-        host_path = "/" + host_path
-        self._json_responses[host_path] = json_resp
-        self._impl.add_routes([web.get(host_path, self._handle)])
-        self._host_paths_to_handle.append(host_path)
+    # To add or update data which will later be respoonded to a request according to its method, host and path
+    def update_response_data(self, method, host, path, data, query_string="", is_permanent=False, is_json=True):
+        method = method.upper()
+        resp_data = [x for x in self._responses_data if x.method == method and x.host == host and x.path == path]
+        if resp_data:
+            self._responses_data.remove(resp_data[0])
+        self._responses_data.append(ResponseData(method, host, path, query_string, is_permanent, is_json, data))
 
+    def add_host_to_handle(self, host, ignored_paths=[]):
+        self._hosts_to_handle[host] = ignored_paths
+
+    # reroute a url if it is one of the hosts we handle.
     def reroute_local(self, url):
         a_url = URL(url)
-        host_path = f"/{a_url.host}{a_url.path}"
-        query = a_url.query
-        if host_path not in self._host_paths_to_handle:
-            return a_url
-        a_url = a_url.with_scheme("http").with_host(self.host).with_port(self.port).with_path(host_path)\
-            .with_query(query)
+        if a_url.host in self._hosts_to_handle and not any(x in a_url.path for x in self._hosts_to_handle[a_url.host]):
+            host_path = f"/{a_url.host}{a_url.path}"
+            query = a_url.query
+            a_url = a_url.with_scheme("http").with_host(self.host).with_port(self.port).with_path(host_path)\
+                .with_query(query)
         return a_url
 
     @property
@@ -62,9 +84,8 @@ class HummingWebApp:
 
     async def _start(self):
         try:
-            self._impl.add_routes([
-                web.get("/*", self._handle)
-            ])
+            # add a handler to all requests coming to this local host and on the port
+            self._impl.add_routes([web.route("*", '/{tail:.*}', self._handler)])
             self._runner = web.AppRunner(self._impl)
             await self._runner.setup()
             site = web.TCPSite(self._runner, host=self.host, port=self.port)
@@ -96,26 +117,31 @@ class HummingWebApp:
         asyncio.ensure_future(self._stop())
 
 
-class JenkinsWebAppTest(unittest.TestCase):
+class HummingWebAppTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         cls.web_app: HummingWebApp = HummingWebApp()
-        cls.web_app.add_json_response("/get_json", '{text="retuned json"}')
+        cls.host = "www.google.com"
+        cls.web_app.add_host_to_handle(cls.host)
+        cls.web_app.update_response_data("get", cls.host, "/", data=cls.web_app.TEST_RESPONSE, is_json=False)
         cls.web_app.start()
         cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
+        cls._patcher = unittest.mock.patch("aiohttp.client.URL")
+        cls._url_mock = cls._patcher.start()
+        cls._url_mock.side_effect = cls.web_app.reroute_local
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.web_app.stop()
+        cls._patcher.stop()
 
     async def _test_web_app_response(self):
         async with ClientSession() as client:
-            async with client.get(f"http://127.0.0.1:{self.web_app.port}/get_json") as resp:
+            async with client.get("http://www.google.com/") as resp:
                 text: str = await resp.text()
                 print(text)
-                self.assertIn("json", text)
-                # self.assertEqual(self.web_app.TEST_RESPONSE, text)
+                self.assertEqual(self.web_app.TEST_RESPONSE, text)
 
     def test_web_app_response(self):
         self.ev_loop.run_until_complete(self._test_web_app_response())
