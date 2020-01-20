@@ -3,7 +3,7 @@
 ## What is liquidity mining?
 Liquidity mining is a community-based approach to market making. It means the collective actions of a pool of decentralized users ("liquidity miners") that provide computing resources as well as their own exchange accounts, wallets, and digital assets to provide liquidity for a digital asset or a set of digital assets and to **earn rewards by market making**.
 
-For more information, please read [the whitepaper](bit.ly/liquiditymining).
+For more information, please read [the whitepaper](https://hummingbot.io/liquidity-mining.pdf).
 
 ## What is market making?
 Market making is a strategy that allows traders to earn profits by providing liquidity to a market. They do so by creating and maintaining limit orders to buy and sell an asset.
