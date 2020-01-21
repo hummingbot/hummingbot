@@ -2,6 +2,7 @@
 
 This section is for developers looking to contribute to Hummingbot or extend its capabilities:
 
+* [Getting started](/developers/gettingstarted): Get started developing for Hummingbot
 * [Strategies](/developers/strategies): Create and customize your own strategies
 * [Connectors](/developers/connectors): Develop new exchange connectors
 * [Debug console](/developers/debug): Inspect and modify Hummingbot state while it's running
