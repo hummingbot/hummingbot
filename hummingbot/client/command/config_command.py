@@ -1,5 +1,4 @@
 import asyncio
-import logging
 from typing import (
     List,
     Dict,
@@ -306,7 +305,6 @@ class ConfigCommand:
                     val = await self._unlock_wallet()
                 else:
                     val = await self._create_or_import_wallet()
-                logging.getLogger("hummingbot.public_eth_address").info(val)
             else:
                 if cvar.value is None:
                     self.app.set_text(parse_cvar_default_value_prompt(cvar))
@@ -424,7 +422,7 @@ class ConfigCommand:
             self.app.change_prompt(prompt=">>> ")
 
     async def _encrypt_n_save_config_value(self,  # type: HummingbotApplication
-                                           cvar:ConfigVar):
+                                           cvar: ConfigVar):
         if in_memory_config_map.get("password").value is None:
             in_memory_config_map.get("password").value = await self._one_password_config()
         password = in_memory_config_map.get("password").value

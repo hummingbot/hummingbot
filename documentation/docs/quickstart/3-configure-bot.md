@@ -40,7 +40,7 @@ Enable paper trading mode (Yes/No) ? >>> Yes
 New config saved:
 paper_trade_enabled: Yes
 
-Your configuration is incomplete. Would you like to proceed and finish all necessary configurations? (y/n) >>> n
+Your configuration is incomplete. Would you like to proceed and finish all necessary configurations? (Yes/No) >>> No
 ```
 
 For more information about this feature, see [Paper Trading Mode](/utilities/paper-trade) in the User Manual. To perform actual trading, proceed to the next step.
@@ -184,7 +184,7 @@ Activate the kill switch feature and tell it to stop the strategy when it reache
 
 ```
 Would you like to enable the kill switch? (Yes/No) >>>  
-y
+Yes
 
 At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5% loss) >>>
 -0.05
@@ -195,7 +195,7 @@ Hummingbot comes with other useful utilities that help you run the bot such as [
 
 ## Step 4: Adjusting Parameters
 
-If you want to reconfigure the bot from the beginning, type `config` and reply `Yes` to the question `Would you like to reconfigure the bot? (Yes/No) >>>?`. This will prompt all questions during initial set up.
+If you want to reconfigure the bot from the beginning, type `config` and reply `y` to the question `Would you like to reconfigure the bot? (Yes/No) >>>?`. This will prompt all questions during initial set up.
 
 Alternatively, the command `list configs` will show your current bot parameters both global and the strategy configs.
 
