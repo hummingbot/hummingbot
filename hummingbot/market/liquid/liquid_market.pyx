@@ -607,13 +607,31 @@ cdef class LiquidMarket(MarketBase):
         for tracked_order in tracked_orders:
             exchange_order_id = await tracked_order.get_exchange_order_id()
             order_update = order_dict.get(str(exchange_order_id))
+            client_order_id = tracked_order.client_order_id
             if order_update is None:
-                self.logger().network(
-                    f"Error fetching status update for the order {tracked_order.client_order_id}: "
-                    f"{order_update}.",
-                    app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id}. "
-                                    f"Check API key and network connection."
-                )
+                try:
+                    order = await self.get_order(client_order_id)
+                except IOError as e:
+                    if "order not found" in str(e).lower():
+                        # The order does not exist. So we should not be tracking it.
+                        self.logger().info(
+                            f"The tracked order {client_order_id} does not exist on Liquid."
+                            f"Order removed from tracking."
+                        )
+                        self.c_stop_tracking_order(client_order_id)
+                        self.c_trigger_event(
+                            self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                            OrderCancelledEvent(self._current_timestamp, client_order_id)
+                        )
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    self.logger().network(
+                        f"Error fetching status update for the order {client_order_id}: ",
+                        exc_info=True,
+                        app_warning_msg=f"Could not fetch updates for the order {client_order_id}. "
+                                        f"Check API key and network connection.{e}"
+                    )
                 continue
 
             order_status = order_update.get("status")
@@ -623,7 +641,6 @@ cdef class LiquidMarket(MarketBase):
             execute_price = s_decimal_0 if new_confirmed_amount == s_decimal_0 \
                 else Decimal(order_update["price"]) / new_confirmed_amount
 
-            client_order_id = tracked_order.client_order_id
             order_type_description = tracked_order.order_type_description
             order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
             # Emit event if executed amount is greater than 0.
@@ -1038,7 +1055,7 @@ cdef class LiquidMarket(MarketBase):
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
         except IOError as e:
-            if "order not found" in e.message:
+            if "order not found" in str(e).lower():
                 # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
                 self.logger().info(f"The order {order_id} does not exist on Liquid. No cancellation needed.")
                 self.c_stop_tracking_order(order_id)
@@ -1049,7 +1066,7 @@ cdef class LiquidMarket(MarketBase):
             raise
         except Exception as e:
             self.logger().network(
-                f"Failed to cancel order {order_id}: {str(e)}",
+                f"Failed to cancel order {order_id}: ",
                 exc_info=True,
                 app_warning_msg=f"Failed to cancel the order {order_id} on Liquid. "
                                 f"Check API key and network connection.{e}"
@@ -1083,11 +1100,16 @@ cdef class LiquidMarket(MarketBase):
                     if type(client_order_id) is str:
                         order_id_set.remove(client_order_id)
                         successful_cancellations.append(CancellationResult(client_order_id, True))
+                    else:
+                        self.logger().warning(
+                            f"Failed to cancel order with error: "
+                            f"{repr(client_order_id)}"
+                        )
         except Exception as e:
             self.logger().network(
                 f"Unexpected error cancelling orders.",
                 exc_info=True,
-                app_warning_msg=f"Failed to cancel order on Liquid. Check API key and network connection.{e}"
+                app_warning_msg=f"Failed to cancel order on Liquid. Check API key and network connection."
             )
 
         failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
