@@ -37,6 +37,7 @@ EXCHANGES = {
     "radar_relay",
     "dolomite",
     "bittrex",
+    "kucoin",
     "bitcoin_com",
     "bitfinex",
 }
@@ -56,6 +57,7 @@ EXAMPLE_PAIRS = {
     "binance": "ZRX-ETH",
     "bitcoin_com": "ETH-BCH",
     "bittrex": "ZRX-ETH",
+    "kucoin": "ETH-USDT",
     "coinbase_pro": "ETH-USDC",
     "ddex": "ZRX-WETH",
     "dolomite": "WETH-DAI",
@@ -71,6 +73,7 @@ EXAMPLE_ASSETS = {
     "binance": "ZRX",
     "bitcoin_com": "BCH",
     "bittrex": "ZRX",
+    "kucoin": "ETH",
     "coinbase_pro": "ETH",
     "ddex": "ZRX",
     "dolomite": "LRC",
@@ -84,6 +87,3 @@ EXAMPLE_ASSETS = {
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
 MAXIMUM_LOG_PANE_LINE_COUNT = 1000
 MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT = 100
-
-# Liquidity Bounties:
-LIQUIDITY_BOUNTY_CONFIG_PATH = "conf/conf_liquidity_bounty.yml"

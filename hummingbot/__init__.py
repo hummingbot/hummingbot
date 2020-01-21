@@ -119,10 +119,9 @@ def add_remote_logger_handler(loggers):
     from hummingbot.logger.reporting_proxy_handler import ReportingProxyHandler
     root_logger = logging.getLogger()
     try:
-        remote_logger = ReportingProxyHandler(level="DEBUG",
+        remote_logger = ReportingProxyHandler(level="ERROR",
                                               proxy_url="https://api.coinalpha.com/reporting-proxy",
-                                              capacity=5
-                                              )
+                                              capacity=5)
         root_logger.addHandler(remote_logger)
         for logger_name in loggers:
             logger = logging.getLogger(logger_name)
