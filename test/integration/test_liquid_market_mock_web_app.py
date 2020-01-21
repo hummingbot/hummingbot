@@ -59,6 +59,8 @@ from yarl import URL
 MAINNET_RPC_URL = "http://mainnet-rpc.mainnet:8545"
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 API_MOCK_ENABLED = True
+API_KEY = "XXX" if API_MOCK_ENABLED else conf.liquid_api_key
+API_SECRET = "YYY" if API_MOCK_ENABLED else conf.liquid_secret_key
 
 
 class LiquidMarketWebAppUnitTest(unittest.TestCase):
@@ -84,7 +86,6 @@ class LiquidMarketWebAppUnitTest(unittest.TestCase):
         global MAINNET_RPC_URL
         cls.ev_loop = asyncio.get_event_loop()
 
-        api_key, api_secret = "XXX", "YYY"
         if API_MOCK_ENABLED:
             cls.web_app = HummingWebApp()
             cls.web_app.add_host_to_handle(cls.liquid_api_host, ["/products", "/currencies"])
@@ -101,12 +102,10 @@ class LiquidMarketWebAppUnitTest(unittest.TestCase):
             cls.web_app.update_response_data("get", cls.liquid_api_host, "/orders", FixtureLiquid.ORDERS_GET,
                                              query_string="with_details=1",
                                              is_permanent=True)
-        else:
-            api_key, api_secret = conf.liquid_api_key, conf.liquid_secret_key
 
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: LiquidMarket = LiquidMarket(
-            api_key, api_secret,
+            API_KEY, API_SECRET,
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
             trading_pairs=['CEL-ETH']
@@ -244,6 +243,275 @@ class LiquidMarketWebAppUnitTest(unittest.TestCase):
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
 
+    def test_limit_buy_and_sell(self):
+        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.001"))
+
+        # Try to put limit buy order for 0.05 ETH worth of CEL, and watch for completion event.
+        current_bid_price: Decimal = self.market.get_price("CEL-ETH", True)
+        bid_price: Decimal = current_bid_price + Decimal("0.05") * current_bid_price
+        quantize_bid_price: Decimal = self.market.quantize_order_price("CEL-ETH", bid_price)
+
+        amount: Decimal = 1
+        quantized_amount: Decimal = self.market.quantize_order_amount("CEL-ETH", amount)
+
+        order_id = self.market.buy("CEL-ETH", quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        if API_MOCK_ENABLED:
+            order_buy_resp = FixtureLiquid.ORDER_BUY_LIMIT
+            order_buy_resp["client_order_id"] = order_id
+            self.web_app.update_response_data("post", self.liquid_api_host, "/orders", order_buy_resp)
+            orders_get = FixtureLiquid.ORDERS_GET_AFTER_LIMIT_BUY
+            orders_get["models"][0]["client_order_id"] = order_id
+            self.web_app.update_response_data("get", self.liquid_api_host, "/orders", orders_get,
+                                              query_string="with_details=1")
+        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
+        order_completed_event: BuyOrderCompletedEvent = order_completed_event
+        trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
+                                                if isinstance(t, OrderFilledEvent)]
+        base_amount_traded: Decimal = sum(t.amount for t in trade_events)
+        quote_amount_traded: Decimal = sum(t.amount * t.price for t in trade_events)
+
+        self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
+        self.assertEqual(order_id, order_completed_event.order_id)
+        self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
+        self.assertEqual("CEL", order_completed_event.base_asset)
+        self.assertEqual("ETH", order_completed_event.quote_asset)
+        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
+        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
+        self.assertGreater(order_completed_event.fee_amount, Decimal(0))
+        self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
+                             for event in self.market_logger.event_log]))
+
+        # Reset the logs
+        self.market_logger.clear()
+
+        # Try to put limit sell order for 0.05 ETH worth of CEL, and watch for completion event.
+        current_ask_price: Decimal = self.market.get_price("CEL-ETH", False)
+        ask_price: Decimal = current_ask_price - Decimal("0.05") * current_ask_price
+        quantize_ask_price: Decimal = self.market.quantize_order_price("CEL-ETH", ask_price)
+
+        amount = order_completed_event.base_asset_amount
+        quantized_amount = order_completed_event.base_asset_amount
+
+        order_id = self.market.sell("CEL-ETH", quantized_amount, OrderType.LIMIT, quantize_ask_price)
+        if API_MOCK_ENABLED:
+            order_sell_resp = FixtureLiquid.ORDER_SELL_LIMIT
+            order_sell_resp["client_order_id"] = order_id
+            self.web_app.update_response_data("post", self.liquid_api_host, "/orders", order_sell_resp)
+            orders_get = FixtureLiquid.ORDERS_GET_AFTER_SELL_LIMIT
+            orders_get["models"][0]["client_order_id"] = order_id
+            self.web_app.update_response_data("get", self.liquid_api_host, "/orders", orders_get,
+                                              query_string="with_details=1")
+
+        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
+        order_completed_event: SellOrderCompletedEvent = order_completed_event
+        trade_events = [t for t in self.market_logger.event_log
+                        if isinstance(t, OrderFilledEvent)]
+        base_amount_traded = sum(t.amount for t in trade_events)
+        quote_amount_traded = sum(t.amount * t.price for t in trade_events)
+
+        self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
+        self.assertEqual(order_id, order_completed_event.order_id)
+        self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
+        self.assertEqual("CEL", order_completed_event.base_asset)
+        self.assertEqual("ETH", order_completed_event.quote_asset)
+        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
+        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
+        self.assertGreater(order_completed_event.fee_amount, Decimal(0))
+        self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
+                             for event in self.market_logger.event_log]))
+
+    def test_deposit_info(self):
+        [deposit_info] = self.run_parallel(
+            self.market.get_deposit_info("ETH")
+        )
+        deposit_info: DepositInfo = deposit_info
+        self.assertIsInstance(deposit_info, DepositInfo)
+        self.assertGreater(len(deposit_info.address), 0)
+        self.assertGreater(len(deposit_info.extras), 0)
+        self.assertTrue("currency_type" in deposit_info.extras.get('extras'))
+        self.assertEqual("ETH", deposit_info.extras.get('extras').get('currency'))
+
+    def test_cancel_all(self):
+        trading_pair = "CEL-ETH"
+        bid_price: Decimal = self.market.get_price(trading_pair, True)
+        ask_price: Decimal = self.market.get_price(trading_pair, False)
+        amount: Decimal = 1
+        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
+
+        # Intentionally setting invalid price to prevent getting filled
+        quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price * Decimal("0.7"))
+        quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.5"))
+
+        order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        if API_MOCK_ENABLED:
+            order_buy_resp = FixtureLiquid.ORDER_BUY_CANCEL_ALL
+            buy_exchange_id = order_buy_resp["id"]
+            order_buy_resp["client_order_id"] = order_id
+            self.web_app.update_response_data("post", self.liquid_api_host, "/orders", order_buy_resp)
+        order_id = self.market.sell(trading_pair, quantized_amount, OrderType.LIMIT, quantize_ask_price)
+        if API_MOCK_ENABLED:
+            order_sell_resp = FixtureLiquid.ORDER_SELL_CANCEL_ALL
+            sell_exchange_id = order_sell_resp["id"]
+            order_sell_resp["client_order_id"] = order_id
+            self.web_app.update_response_data("post", self.liquid_api_host, "/orders", order_sell_resp)
+
+        self.run_parallel(asyncio.sleep(1))
+        if API_MOCK_ENABLED:
+            order_cancel_resp = FixtureLiquid.ORDER_CANCEL_ALL_1
+            self.web_app.update_response_data("put", self.liquid_api_host, f"/orders/{str(buy_exchange_id)}/cancel",
+                                              order_cancel_resp)
+            order_cancel_resp = FixtureLiquid.ORDER_CANCEL_ALL_2
+            self.web_app.update_response_data("put", self.liquid_api_host, f"/orders/{str(sell_exchange_id)}/cancel",
+                                              order_cancel_resp)
+        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+        for cr in cancellation_results:
+            self.assertEqual(cr.success, True)
+
+    def test_orders_saving_and_restoration(self):
+        config_path: str = "test_config"
+        strategy_name: str = "test_strategy"
+        sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
+        order_id: Optional[str] = None
+        recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
+        recorder.start()
+
+        try:
+            self.assertEqual(0, len(self.market.tracking_states))
+
+            # Try to put limit buy order for 0.005 ETH worth of CEL, and watch for order creation event.
+            current_bid_price: Decimal = self.market.get_price("CEL-ETH", True)
+            bid_price: Decimal = current_bid_price * Decimal("0.8")
+            quantize_bid_price: Decimal = self.market.quantize_order_price("CEL-ETH", bid_price)
+
+            amount: Decimal = 1
+            quantized_amount: Decimal = self.market.quantize_order_amount("CEL-ETH", amount)
+
+            order_id = self.market.buy("CEL-ETH", quantized_amount, OrderType.LIMIT, quantize_bid_price)
+            if API_MOCK_ENABLED:
+                order_buy_resp = FixtureLiquid.ORDER_SAVE_RESTORE
+                buy_exchange_id = order_buy_resp["id"]
+                order_buy_resp["client_order_id"] = order_id
+                self.web_app.update_response_data("post", self.liquid_api_host, "/orders", order_buy_resp)
+            [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+            order_created_event: BuyOrderCreatedEvent = order_created_event
+            self.assertEqual(order_id, order_created_event.order_id)
+
+            # Verify tracking states
+            self.assertEqual(1, len(self.market.tracking_states))
+            self.assertEqual(order_id, list(self.market.tracking_states.keys())[0])
+
+            # Verify orders from recorder
+            recorded_orders: List[Order] = recorder.get_orders_for_config_and_market(config_path, self.market)
+            self.assertEqual(1, len(recorded_orders))
+            self.assertEqual(order_id, recorded_orders[0].id)
+
+            # Verify saved market states
+            saved_market_states: MarketState = recorder.get_market_states(config_path, self.market)
+            self.assertIsNotNone(saved_market_states)
+            self.assertIsInstance(saved_market_states.saved_state, dict)
+            self.assertGreater(len(saved_market_states.saved_state), 0)
+
+            # Close out the current market and start another market.
+            self.clock.remove_iterator(self.market)
+            for event_tag in self.events:
+                self.market.remove_listener(event_tag, self.market_logger)
+
+            self.market: LiquidMarket = LiquidMarket(
+                API_KEY, API_SECRET,
+                order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
+                trading_pairs=['ETH-USD', 'CEL-ETH']
+            )
+
+            for event_tag in self.events:
+                self.market.add_listener(event_tag, self.market_logger)
+            recorder.stop()
+            recorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
+            recorder.start()
+            saved_market_states = recorder.get_market_states(config_path, self.market)
+            self.clock.add_iterator(self.market)
+            self.assertEqual(0, len(self.market.limit_orders))
+            self.assertEqual(0, len(self.market.tracking_states))
+            self.market.restore_tracking_states(saved_market_states.saved_state)
+            self.assertEqual(1, len(self.market.limit_orders))
+            self.assertEqual(1, len(self.market.tracking_states))
+
+            # Cancel the order and verify that the change is saved.
+            if API_MOCK_ENABLED:
+                order_cancel_resp = FixtureLiquid.ORDER_CANCEL_SAVE_RESTORE
+                self.web_app.update_response_data("put", self.liquid_api_host, f"/orders/{str(buy_exchange_id)}/cancel",
+                                                  order_cancel_resp)
+            self.market.cancel("CEL-ETH", order_id)
+            self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+            order_id = None
+            self.assertEqual(0, len(self.market.limit_orders))
+            self.assertEqual(0, len(self.market.tracking_states))
+            saved_market_states = recorder.get_market_states(config_path, self.market)
+            self.assertEqual(0, len(saved_market_states.saved_state))
+        finally:
+            if order_id is not None:
+                self.market.cancel("CEL-ETH", order_id)
+                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+
+            recorder.stop()
+            # os.unlink(self.db_path)
+
+    def test_order_fill_record(self):
+        config_path: str = "test_config"
+        strategy_name: str = "test_strategy"
+        sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
+        order_id: Optional[str] = None
+        recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
+        recorder.start()
+
+        try:
+            # Try to buy 1 CEL from the exchange, and watch for completion event.
+            current_price: Decimal = self.market.get_price("CEL-ETH", True)
+            amount: Decimal = 1
+            order_id = self.market.buy("CEL-ETH", amount, price=current_price)
+            if API_MOCK_ENABLED:
+                order_buy_resp = FixtureLiquid.ORDER_BUY_LIMIT
+                order_buy_resp["client_order_id"] = order_id
+                self.web_app.update_response_data("post", self.liquid_api_host, "/orders", order_buy_resp)
+                orders_get = FixtureLiquid.ORDERS_GET_AFTER_LIMIT_BUY
+                orders_get["models"][0]["client_order_id"] = order_id
+                self.web_app.update_response_data("get", self.liquid_api_host, "/orders", orders_get,
+                                                  query_string="with_details=1")
+            [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
+
+            # Reset the logs
+            self.market_logger.clear()
+
+            # Try to sell back the same amount of CEL to the exchange, and watch for completion event.
+            amount = buy_order_completed_event.base_asset_amount
+            order_id = self.market.sell("CEL-ETH", amount, price=current_price)
+            if API_MOCK_ENABLED:
+                order_sell_resp = FixtureLiquid.ORDER_SELL_LIMIT
+                order_sell_resp["client_order_id"] = order_id
+                self.web_app.update_response_data("post", self.liquid_api_host, "/orders", order_sell_resp)
+                orders_get = FixtureLiquid.ORDERS_GET_AFTER_SELL_LIMIT
+                orders_get["models"][0]["client_order_id"] = order_id
+                self.web_app.update_response_data("get", self.liquid_api_host, "/orders", orders_get,
+                                                  query_string="with_details=1")
+            [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
+
+            # Query the persisted trade logs
+            trade_fills: List[TradeFill] = recorder.get_trades_for_config(config_path)
+            self.assertGreaterEqual(len(trade_fills), 2)
+            buy_fills: List[TradeFill] = [t for t in trade_fills if t.trade_type == "BUY"]
+            sell_fills: List[TradeFill] = [t for t in trade_fills if t.trade_type == "SELL"]
+            self.assertGreaterEqual(len(buy_fills), 1)
+            self.assertGreaterEqual(len(sell_fills), 1)
+
+            order_id = None
+
+        finally:
+            if order_id is not None:
+                self.market.cancel("CEL-ETH", order_id)
+                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+
+            recorder.stop()
+            # os.unlink(self.db_path)
 
 if __name__ == "__main__":
     logging.getLogger("hummingbot.core.event.event_reporter").setLevel(logging.WARNING)

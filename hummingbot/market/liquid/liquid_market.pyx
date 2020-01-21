@@ -345,6 +345,8 @@ cdef class LiquidMarket(MarketBase):
         client = await self._http_client()
         async with client.request(http_method,
                                   url=url, timeout=Constants.API_CALL_TIMEOUT, data=data_str, headers=headers) as response:
+            text = await response.text()
+            print(f'method: {http_method} url: {url} data: {data_str} text: {text}')
             data = await response.json()
             if response.status != 200:
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {data}")
