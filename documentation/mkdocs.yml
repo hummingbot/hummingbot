@@ -168,6 +168,24 @@ nav:
         - Integrating Telegram: utilities/telegram.md
     - Developer Manual:
         - Intro: developers/index.md
+        - Getting Started:
+          - Intro: developers/gettingstarted/index.md
+          - Linux:
+            - Intro: developers/gettingstarted/linux/index.md
+            - 1. Installing Hummingbot: developers/gettingstarted/linux/1-installing.md
+            - 2. Using Hummingbot: developers/gettingstarted/linux/2-using.md
+            - 3. Re-compiling Hummingbot: developers/gettingstarted/linux/3-recompiling.md
+          - macOS:
+            - Intro: developers/gettingstarted/mac/index.md
+            - 1. Installing Prerequisites: developers/gettingstarted/mac/1-prereqs.md
+            - 2. Installing Hummingbot: developers/gettingstarted/mac/2-installing.md
+            - 3. Using Hummingbot: developers/gettingstarted/mac/3-using.md
+            - 4. Re-compiling Hummingbot: developers/gettingstarted/mac/4-recompiling.md
+          - Windows:
+            - Intro: developers/gettingstarted/windows/index.md
+            - 1. Installing Hummingbot: developers/gettingstarted/windows/1-installing.md
+            - 2. Using Hummingbot: developers/gettingstarted/windows/2-using.md
+            - 3. Re-compiling Hummingbot: developers/gettingstarted/windows/3-recompiling.md
         - Strategies:
           - Architecture: developers/strategies/index.md
           - Arbitrage: developers/strategies/arbitrage.md
