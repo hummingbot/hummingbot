@@ -333,12 +333,24 @@ cdef class IDEXMarket(MarketBase):
 
         for order_update, tracked_limit_order in zip(results, tracked_orders):
             if isinstance(order_update, Exception):
-                self.logger().network(
-                    f"Error fetching status update for the order {tracked_limit_order.client_order_id}: "
-                    f"{order_update}.",
-                    app_warning_msg=f"Failed to fetch status update for the order {tracked_limit_order.client_order_id}. "
-                                    f"Check Ethereum wallet and network connection."
-                )
+                if "order not found" in str(order_update).lower():
+                    # The order does not exist. So we should not be tracking it.
+                    self.logger().info(
+                        f"The tracked order {tracked_limit_order.client_order_id} does not exist on IDEX."
+                        f"Order removed from tracking."
+                    )
+                    self.c_expire_order(tracked_limit_order.client_order_id)
+                    self.c_trigger_event(
+                        self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                        OrderCancelledEvent(self._current_timestamp, tracked_limit_order.client_order_id)
+                    )
+                else:
+                    self.logger().network(
+                        f"Error fetching status update for the order {tracked_limit_order.client_order_id}: "
+                        f"{order_update}.",
+                        app_warning_msg=f"Failed to fetch status update for the order {tracked_limit_order.client_order_id}. "
+                                        f"Check Ethereum wallet and network connection."
+                    )
                 continue
 
             previous_is_done = tracked_limit_order.is_done
