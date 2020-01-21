@@ -9,7 +9,6 @@ Pair | Exchange
  ZIL/USDT | Binance
  ZIL/ETH | Binance
  ZIL/BNB | Binance
- ZIL/ETH | KuCoin (coming soon)
 
 !!! note 
     ZIL/BTC is excluded from the campaign. 

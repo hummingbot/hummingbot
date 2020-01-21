@@ -7,4 +7,3 @@
 Pair | Exchange 
 ---|--- 
  WETH/DAI | Bamboo Relay
- ETH/DAI | KuCoin (cross-exchange market making with Bamboo Relay ONLY - Coming soon)
