@@ -995,7 +995,11 @@ cdef class IDEXMarket(MarketBase):
                 cancellation_results = await safe_gather(*tasks, return_exceptions=True)
                 for cid, cr in zip(client_order_ids, cancellation_results):
                     if isinstance(cr, Exception):
-                        continue
+                        if "order not found" in str(cr).lower():
+                            order_id_set.remove(cid)
+                            successful_cancellations.append(CancellationResult(cid, True))
+                        else:
+                            continue
                     if isinstance(cr, dict) and cr.get("success") == 1:
                         order_id_set.remove(cid)
                         successful_cancellations.append(CancellationResult(cid, True))
