@@ -678,9 +678,15 @@ cdef class IDEXMarket(MarketBase):
         response_data = await self.post_cancel_order(cancel_order_request)
         if isinstance(response_data, dict) and response_data.get("success"):
             self.logger().info(f"Successfully cancelled order {exchange_order_id}.")
-            self.c_expire_order(client_order_id)
-            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                 OrderCancelledEvent(self._current_timestamp, client_order_id))
+        elif isinstance(response_data, Exception) and "order not found" in str(response_data).lower():
+            self.logger().info(f"The order {exchange_order_id} does not exist on IDEX. No cancellation needed.")
+        else:
+            return response_data
+
+        self.c_expire_order(client_order_id)
+        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                             OrderCancelledEvent(self._current_timestamp, client_order_id))
+
         return response_data
 
     async def post_market_order(self, market_order_request: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
