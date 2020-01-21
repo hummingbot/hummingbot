@@ -12,8 +12,6 @@ Pair | Exchange
  ONE/USDT | Binance
  ONE/BNB | Binance
  ONE/USDC | Binance
- ONE/BTC | KuCoin (coming soon)
- ONE/USDT | KuCoin (coming soon)
 
 ## More information 
 You can check out [CoinMarketCap](https://coinmarketcap.com/currencies/harmony/) or [CoinGecko](https://www.coingecko.com/en/coins/harmony).
