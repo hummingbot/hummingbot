@@ -67,6 +67,6 @@ https://bittrex.com/api/v1.1/public/getmarkets
 ```
 
 
-## Transaction Fees
+### Transaction Fees
 
 Bittrex charges 0.25% in both maker and taker fees for most users. However, those who trade in high volumes can trade at discounted rates. Refer to [Fee Schedule](https://bittrex.zendesk.com/hc/en-us/articles/115000199651-What-fees-does-Bittrex-charge-/) section for more details.
