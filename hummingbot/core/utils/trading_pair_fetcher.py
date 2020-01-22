@@ -22,6 +22,7 @@ IDEX_REST_ENDPOINT = "https://api.idex.market/returnTicker"
 HUOBI_ENDPOINT = "https://api.huobi.pro/v1/common/symbols"
 LIQUID_ENDPOINT = "https://api.liquid.com/products"
 BITTREX_ENDPOINT = "https://api.bittrex.com/v3/markets"
+KUCOIN_ENDPOINT = "https://api.kucoin.com/api/v1/symbols"
 DOLOMITE_ENDPOINT = "https://exchange-api.dolomite.io/v1/markets"
 BITCOIN_COM_ENDPOINT = "https://api.exchange.bitcoin.com/api/2/public/symbol"
 BITFINEX_ENDPOINT = "https://api-pub.bitfinex.com/v2/conf/pub:list:pair:exchange"
@@ -206,31 +207,6 @@ class TradingPairFetcher:
 
         return []
 
-    async def fetch_bitfinex_trading_pairs(self) -> List[str]:
-        try:
-            from hummingbot.market.bitfinex.bitfinex_market import BitfinexMarket
-
-            client: aiohttp.ClientSession = self.http_client()
-            async with client.get(BITFINEX_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
-                if response.status == 200:
-                    markets = await response.json()
-                    raw_trading_pairs: List[str] = [symbol for symbols in markets for symbol in symbols]
-                    trading_pair_list: List[str] = []
-                    for p in raw_trading_pairs:
-                        pair = BitfinexMarket.convert_from_exchange_trading_pair(p)
-                        if pair is not None:
-                            trading_pair_list.append(pair)
-                        else:
-                            self.logger().warning(
-                                f"Could not parse the trading pair {p}, skipping it...")
-                    return trading_pair_list
-
-        except Exception:
-            # Do nothing if the request fails -- there will be no autocomplete for coinbase trading pairs
-            pass
-
-        return []
-
     async def fetch_idex_trading_pairs(self) -> List[str]:
         try:
             from hummingbot.market.idex.idex_market import IDEXMarket
@@ -319,13 +295,26 @@ class TradingPairFetcher:
         except Exception:
             # Do nothing if the request fails -- there will be no autocomplete for bittrex trading pairs
             pass
-
         return []
+
+    @staticmethod
+    async def fetch_kucoin_trading_pairs() -> List[str]:
+        async with aiohttp.ClientSession() as client:
+            async with client.get(KUCOIN_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                if response.status == 200:
+                    try:
+                        all_trading_pairs: List[Dict[str, any]] = await response.json()
+                        return [item["symbol"]
+                                for item in all_trading_pairs
+                                if item["enableTrading"] is True]
+                    except Exception:
+                        pass
+                        # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
+                return []
 
     async def fetch_dolomite_trading_pairs(self) -> List[str]:
         try:
             from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
-
             client: aiohttp.ClientSession = TradingPairFetcher.http_client()
             async with client.get(DOLOMITE_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
@@ -372,6 +361,30 @@ class TradingPairFetcher:
 
         return []
 
+    async def fetch_bitfinex_trading_pairs(self) -> List[str]:
+        try:
+            from hummingbot.market.bitfinex.bitfinex_market import BitfinexMarket
+
+            client: aiohttp.ClientSession = TradingPairFetcher.http_client()
+            async with client.get(BITFINEX_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                if response.status == 200:
+                    raw_trading_pairs: List[Dict[str, any]] = await response.json()
+                    trading_pairs: List[str] = list([item["id"] for item in raw_trading_pairs])
+                    trading_pair_list: List[str] = []
+                    for raw_trading_pair in trading_pairs:
+                        converted_trading_pair: Optional[str] = \
+                            BitfinexMarket.convert_from_exchange_trading_pair(raw_trading_pair)
+                        if converted_trading_pair is not None:
+                            trading_pair_list.append(converted_trading_pair)
+                        else:
+                            self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
+                    return trading_pair_list
+        except Exception:
+            # Do nothing if the request fails -- there will be no autocomplete available
+            pass
+
+        return []
+
     async def fetch_all(self):
         binance_trading_pairs = await self.fetch_binance_trading_pairs()
         ddex_trading_pairs = await self.fetch_ddex_trading_pairs()
@@ -385,6 +398,7 @@ class TradingPairFetcher:
         liquid_trading_pairs = await self.fetch_liquid_trading_pairs()
         idex_trading_pairs = await self.fetch_idex_trading_pairs()
         bittrex_trading_pairs = await self.fetch_bittrex_trading_pairs()
+        kucoin_trading_pairs = await self.fetch_kucoin_trading_pairs()
         bitcoin_com_trading_pairs = await self.fetch_bitcoin_com_trading_pairs()
         bitfinex_trading_pairs = await self.fetch_bitfinex_trading_pairs()
         self.trading_pairs = {
@@ -398,6 +412,7 @@ class TradingPairFetcher:
             "huobi": huobi_trading_pairs,
             "liquid": liquid_trading_pairs,
             "bittrex": bittrex_trading_pairs,
+            "kucoin": kucoin_trading_pairs,
             "bitcoin_com": bitcoin_com_trading_pairs,
             "bitfinex": bitfinex_trading_pairs,
         }

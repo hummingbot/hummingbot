@@ -54,3 +54,5 @@ class ContentEventType:
     WALLET_SNAPSHOT = "ws"
     WALLET_UPDATE = "wu"
     HEART_BEAT = "hb"
+    AUTH = "auth"
+    INFO = "info"
