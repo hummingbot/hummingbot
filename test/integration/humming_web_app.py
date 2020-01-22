@@ -9,6 +9,8 @@ import unittest
 from unittest import mock
 from yarl import URL
 from collections import namedtuple
+import requests
+from requests.sessions import Session
 
 StockResponse = namedtuple("StockResponse", "method host path query_string is_permanent is_json response")
 
@@ -76,6 +78,10 @@ class HummingWebApp:
                 .with_query(query)
         return a_url
 
+    def reroute_request(self, method, url, **kwargs):
+        print(f"method: {method} url: {url}")
+        url = "://www.python.org"
+
     @property
     def started(self) -> bool:
         return self._started
@@ -132,6 +138,10 @@ class HummingWebAppTest(unittest.TestCase):
         cls._patcher = unittest.mock.patch("aiohttp.client.URL")
         cls._url_mock = cls._patcher.start()
         cls._url_mock.side_effect = cls.web_app.reroute_local
+        cls._patcher = unittest.mock.patch.object(requests.Session, "request", requests.Session.request)
+        cls._url_mock = cls._patcher.start()
+        cls._url_mock.side_effect = cls.web_app.reroute_request
+
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -148,6 +158,9 @@ class HummingWebAppTest(unittest.TestCase):
     def test_web_app_response(self):
         self.ev_loop.run_until_complete(self._test_web_app_response())
 
+    def test_requests_response(self):
+        r = requests.request("get", "http://www.google.com")
+        print(r.text)
 
 if __name__ == '__main__':
     unittest.main()
