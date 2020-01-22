@@ -57,7 +57,7 @@ from unittest import mock
 
 MAINNET_RPC_URL = "http://mainnet-rpc.mainnet:8545"
 logging.basicConfig(level=METRICS_LOG_LEVEL)
-API_MOCK_ENABLED = True if conf.mock_api_enabled else False
+API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled in ['true', 'yes', '1']
 API_KEY = "XXX" if API_MOCK_ENABLED else conf.liquid_api_key
 API_SECRET = "YYY" if API_MOCK_ENABLED else conf.liquid_secret_key
 
@@ -537,6 +537,7 @@ class LiquidMarketUnitTest(unittest.TestCase):
 
             recorder.stop()
             os.unlink(self.db_path)
+
 
 if __name__ == "__main__":
     logging.getLogger("hummingbot.core.event.event_reporter").setLevel(logging.WARNING)

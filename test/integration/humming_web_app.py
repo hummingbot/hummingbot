@@ -6,11 +6,9 @@ import logging
 import random
 from typing import Optional
 import unittest
-from unittest import mock
 from yarl import URL
 from collections import namedtuple
-import requests
-from requests.sessions import Session
+
 
 StockResponse = namedtuple("StockResponse", "method host path query_string is_permanent is_json response")
 
@@ -44,7 +42,7 @@ class HummingWebApp:
         host = req_path[0:req_path.find("/")]
         path = req_path[req_path.find("/"):]
         resps = [x for x in self._stock_responses if x.method == method and x.host == host and x.path == path and
-                x.query_string == query_string]
+                 x.query_string == query_string]
         if not resps:
             raise web.HTTPNotFound(text=f"No Match found for {host}{path} {method}")
         is_json, response = resps[0].is_json, resps[0].response
@@ -77,10 +75,6 @@ class HummingWebApp:
             a_url = a_url.with_scheme("http").with_host(self.host).with_port(self.port).with_path(host_path)\
                 .with_query(query)
         return a_url
-
-    def reroute_request(self, method, url, **kwargs):
-        print(f"method: {method} url: {url}")
-        url = "://www.python.org"
 
     @property
     def started(self) -> bool:
@@ -138,10 +132,6 @@ class HummingWebAppTest(unittest.TestCase):
         cls._patcher = unittest.mock.patch("aiohttp.client.URL")
         cls._url_mock = cls._patcher.start()
         cls._url_mock.side_effect = cls.web_app.reroute_local
-        cls._patcher = unittest.mock.patch.object(requests.Session, "request", requests.Session.request)
-        cls._url_mock = cls._patcher.start()
-        cls._url_mock.side_effect = cls.web_app.reroute_request
-
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -158,9 +148,6 @@ class HummingWebAppTest(unittest.TestCase):
     def test_web_app_response(self):
         self.ev_loop.run_until_complete(self._test_web_app_response())
 
-    def test_requests_response(self):
-        r = requests.request("get", "http://www.google.com")
-        print(r.text)
 
 if __name__ == '__main__':
     unittest.main()
