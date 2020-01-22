@@ -312,7 +312,6 @@ class TradingPairFetcher:
                         # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
                 return []
 
-    @staticmethod
     async def fetch_dolomite_trading_pairs(self) -> List[str]:
         try:
             from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
