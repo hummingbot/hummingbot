@@ -7,6 +7,7 @@ from hummingbot.client.settings import (
     DEFAULT_KEY_FILE_PATH,
     DEFAULT_LOG_FILE_PATH,
 )
+from hummingbot.client.config.config_validators import is_valid_bool
 
 
 def generate_client_id() -> str:
@@ -60,18 +61,6 @@ global_config_map = {
                   type_str="float",
                   required_if=lambda: False,
                   default=900),
-    "reporting_aggregation_interval":
-        ConfigVar(key="reporting_aggregation_interval",
-                  prompt=None,
-                  default=60.0,
-                  required_if=lambda: False,
-                  type_str="float"),
-    "reporting_log_interval":
-        ConfigVar(key="reporting_log_interval",
-                  prompt=None,
-                  default=60.0,
-                  required_if=lambda: False,
-                  type_str="float"),
     "logger_override_whitelist":
         ConfigVar(key="logger_override_whitelist",
                   prompt=None,
@@ -97,10 +86,11 @@ global_config_map = {
     # Required by chosen CEXes or DEXes
     "paper_trade_enabled":
         ConfigVar(key="paper_trade_enabled",
-                  prompt="Enable paper trading mode (y/n) ? >>> ",
+                  prompt="Enable paper trading mode (Yes/No) ? >>> ",
                   type_str="bool",
                   default=False,
-                  required_if=lambda: True),
+                  required_if=lambda: True,
+                  validator=is_valid_bool),
     "paper_trade_account_balance":
         ConfigVar(key="paper_trade_account_balance",
                   prompt="Enter paper trade balance settings (Input must be valid json: "
@@ -167,16 +157,18 @@ global_config_map = {
                   is_secure=True),
     "bamboo_relay_use_coordinator":
         ConfigVar(key="bamboo_relay_use_coordinator",
-                  prompt="Would you like to use the Bamboo Relay Coordinator (y/n) >>> ",
+                  prompt="Would you like to use the Bamboo Relay Coordinator? (Yes/No) >>> ",
                   required_if=lambda: False,
                   type_str="bool",
-                  default=False),
+                  default=False,
+                  validator=is_valid_bool),
     "bamboo_relay_pre_emptive_soft_cancels":
         ConfigVar(key="bamboo_relay_pre_emptive_soft_cancels",
-                  prompt="Would you like to pre-emptively soft cancel orders (y/n) >>> ",
+                  prompt="Would you like to pre-emptively soft cancel orders? (Yes/No) >>> ",
                   required_if=lambda: False,
                   type_str="bool",
-                  default=False),
+                  default=False,
+                  validator=is_valid_bool),
     "bittrex_api_key":
         ConfigVar(key="bittrex_api_key",
                   prompt="Enter your Bittrex API key >>> ",
@@ -186,6 +178,21 @@ global_config_map = {
         ConfigVar(key="bittrex_secret_key",
                   prompt="Enter your Bittrex secret key >>> ",
                   required_if=using_exchange("bittrex"),
+                  is_secure=True),
+    "kucoin_api_key":
+        ConfigVar(key="kucoin_api_key",
+                  prompt="Enter your KuCoin API key >>> ",
+                  required_if=using_exchange("kucoin"),
+                  is_secure=True),
+    "kucoin_secret_key":
+        ConfigVar(key="kucoin_secret_key",
+                  prompt="Enter your KuCoin secret key >>> ",
+                  required_if=using_exchange("kucoin"),
+                  is_secure=True),
+    "kucoin_passphrase":
+        ConfigVar(key="kucoin_passphrase",
+                  prompt="Enter your KuCoin passphrase >>> ",
+                  required_if=using_exchange("kucoin"),
                   is_secure=True),
     "bitcoin_com_api_key":
         ConfigVar(key="bitcoin_com_api_key",
@@ -254,10 +261,11 @@ global_config_map = {
                            ["DAI", "coin_gecko_api"]]),
     "kill_switch_enabled":
         ConfigVar(key="kill_switch_enabled",
-                  prompt="Would you like to enable the kill switch? (y/n) >>> ",
+                  prompt="Would you like to enable the kill switch? (Yes/No) >>> ",
                   required_if=paper_trade_disabled,
                   type_str="bool",
-                  default=False),
+                  default=False,
+                  validator=is_valid_bool),
     "kill_switch_rate":
         ConfigVar(key="kill_switch_rate",
                   prompt="At what profit/loss rate would you like the bot to stop? "
@@ -284,4 +292,9 @@ global_config_map = {
                   prompt="What is your default exchange rate data feed name? >>> ",
                   required_if=lambda: False,
                   default="coin_gecko_api"),
+    "send_error_logs":
+        ConfigVar(key="send_error_logs",
+                  prompt="Would you like to send error logs to hummingbot? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=True),
 }
