@@ -1,5 +1,9 @@
 # Liquid Connector
 
+!!! Note "As of 01/22/2020"
+    This connector is currently available in development version only and will be in the upcoming 0.23.0 release.
+
+
 ## About KuCoin
 
 KuCoin is a centralized exchange based in Hong Kong that opened for cryptocurrency trading in September 2017. Nicknamed the "People's Exchange"​, Kucoin is easy to use for novice investors and in-depth enough for crypto enthusiasts. 
