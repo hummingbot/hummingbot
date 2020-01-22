@@ -251,11 +251,18 @@ cdef class BitfinexMarket(MarketBase):
             if balance_entry.wallet_type != "exchange":
                 continue
             asset_name = balance_entry.currency
+
+            reserved_balance = Decimal(0)
+            for order in self._in_flight_orders.values():
+                base_asset, quote_asset = BitfinexMarket.split_trading_pair(order.trading_pair)
+                if (quote_asset == balance_entry.currency):
+                    reserved_balance = reserved_balance + order.amount
+
             # None or 0
-            available_balance = Decimal(balance_entry.balance_available or 0)
             total_balance = Decimal(balance_entry.balance or 0)
-            self._account_available_balances[asset_name] = available_balance
+            available_balance = total_balance - reserved_balance
             self._account_balances[asset_name] = total_balance
+            self._account_available_balances[asset_name] = available_balance
             remote_asset_names.add(asset_name)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
@@ -328,7 +335,8 @@ cdef class BitfinexMarket(MarketBase):
 
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except Exception as e:
+                print(str(e))
                 self.logger().network(
                     "Unexpected error while fetching account updates.",
                     exc_info=True,
@@ -849,8 +857,6 @@ cdef class BitfinexMarket(MarketBase):
         Update order statuses from incoming messages from the user stream
         """
         async for event_message in self._iter_user_event_queue():
-            self.logger().info(f"event come from exchange: {event_message.content[:2]}")
-
             try:
                 content = self.parse_message_content(*event_message.content)
                 if not content:
@@ -954,7 +960,6 @@ cdef class BitfinexMarket(MarketBase):
         if len(open_orders) == 0:
             return []
         cancel_order_ids = [int(o.exchange_order_id) for o in open_orders]
-        self.logger().debug(f"cancel_order_ids {cancel_order_ids} {open_orders}")
         path_url = "auth/w/order/cancel/multi"
         data = {"id": cancel_order_ids}
         cancellation_results = []
