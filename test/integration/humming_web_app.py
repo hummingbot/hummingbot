@@ -10,7 +10,7 @@ from unittest import mock
 from yarl import URL
 from collections import namedtuple
 
-ResponseData = namedtuple("ResponseData", "method host path query_string is_permanent is_json data")
+StockResponse = namedtuple("StockResponse", "method host path query_string is_permanent is_json response")
 
 
 def get_open_port() -> int:
@@ -32,42 +32,44 @@ class HummingWebApp:
         self._runner: Optional[web.AppRunner] = None
         self._port: Optional[int] = None
         self._started: bool = False
-        self._responses_data = []
+        self._stock_responses = []
         self.host = "127.0.0.1"
-        self._hosts_to_handle = {}
+        self._hosts_to_mock = {}
 
     async def _handler(self, request: web.Request):
         method, req_path, query_string = request.method, request.path, request.query_string
         req_path = req_path[1:]
         host = req_path[0:req_path.find("/")]
         path = req_path[req_path.find("/"):]
-        resp_data = [x for x in self._responses_data if x.method == method and x.host == host and x.path == path and
-                     x.query_string == query_string]
-        if not resp_data:
+        resps = [x for x in self._stock_responses if x.method == method and x.host == host and x.path == path and
+                x.query_string == query_string]
+        if not resps:
             raise web.HTTPNotFound(text=f"No Match found for {host}{path} {method}")
-        is_json, data = resp_data[0].is_json, resp_data[0].data
-        if not resp_data[0].is_permanent:
-            self._responses_data.remove(resp_data[0])
+        is_json, response = resps[0].is_json, resps[0].response
+        if not resps[0].is_permanent:
+            self._stock_responses.remove(resps[0])
         if is_json:
-            return web.json_response(data=data)
+            return web.json_response(data=response)
+        elif type(response) == str:
+            return web.Response(text=response)
         else:
-            return web.Response(text=data)
+            return response
 
     # To add or update data which will later be respoonded to a request according to its method, host and path
     def update_response_data(self, method, host, path, data, query_string="", is_permanent=False, is_json=True):
         method = method.upper()
-        resp_data = [x for x in self._responses_data if x.method == method and x.host == host and x.path == path]
+        resp_data = [x for x in self._stock_responses if x.method == method and x.host == host and x.path == path]
         if resp_data:
-            self._responses_data.remove(resp_data[0])
-        self._responses_data.append(ResponseData(method, host, path, query_string, is_permanent, is_json, data))
+            self._stock_responses.remove(resp_data[0])
+        self._stock_responses.append(StockResponse(method, host, path, query_string, is_permanent, is_json, data))
 
-    def add_host_to_handle(self, host, ignored_paths=[]):
-        self._hosts_to_handle[host] = ignored_paths
+    def add_host_to_mock(self, host, ignored_paths=[]):
+        self._hosts_to_mock[host] = ignored_paths
 
     # reroute a url if it is one of the hosts we handle.
     def reroute_local(self, url):
         a_url = URL(url)
-        if a_url.host in self._hosts_to_handle and not any(x in a_url.path for x in self._hosts_to_handle[a_url.host]):
+        if a_url.host in self._hosts_to_mock and not any(x in a_url.path for x in self._hosts_to_mock[a_url.host]):
             host_path = f"/{a_url.host}{a_url.path}"
             query = a_url.query
             a_url = a_url.with_scheme("http").with_host(self.host).with_port(self.port).with_path(host_path)\
@@ -123,7 +125,7 @@ class HummingWebAppTest(unittest.TestCase):
         cls.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         cls.web_app: HummingWebApp = HummingWebApp()
         cls.host = "www.google.com"
-        cls.web_app.add_host_to_handle(cls.host)
+        cls.web_app.add_host_to_mock(cls.host)
         cls.web_app.update_response_data("get", cls.host, "/", data=cls.web_app.TEST_RESPONSE, is_json=False)
         cls.web_app.start()
         cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())

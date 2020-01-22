@@ -87,7 +87,7 @@ class LiquidMarketUnitTest(unittest.TestCase):
 
         if API_MOCK_ENABLED:
             cls.web_app = HummingWebApp()
-            cls.web_app.add_host_to_handle(cls.liquid_api_host, ["/products", "/currencies"])
+            cls.web_app.add_host_to_mock(cls.liquid_api_host, ["/products", "/currencies"])
             cls.web_app.start()
             cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
             cls._patcher = mock.patch("aiohttp.client.URL")
