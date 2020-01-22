@@ -5,7 +5,7 @@ from aiohttp import web, ClientSession
 import logging
 import random
 from typing import Optional
-import unittest
+import unittest.mock
 from yarl import URL
 from collections import namedtuple
 
