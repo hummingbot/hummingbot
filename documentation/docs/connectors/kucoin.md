@@ -67,6 +67,9 @@ The size must be greater than the `baseMinSize` for the symbol and no larger tha
 "isMarginEnabled": true
 ```
 
+!!! tip
+    See troubleshooting section on how to [Get REST API data using Postman](/support/how-to/#get-rest-api-data-using-postman).
+
 
 ### Transaction Fees
 
