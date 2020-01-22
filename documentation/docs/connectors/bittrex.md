@@ -49,7 +49,7 @@ Minimum order size varies per market. All minimum trade quantities can be found 
 https://bittrex.com/api/v1.1/public/getmarkets
 ```
 
-"MinTradeSize" denotes the minimum order size for each market. For example, trading pair ETH-ZRX minimum order size is 5.81577937 ZRX.
+`MinTradeSize` denotes the minimum order size for each market. For example, trading pair ETH-ZRX minimum order size is 5.81577937 ZRX.
 
 ```
 "MarketCurrency": "ZRX",
@@ -65,6 +65,9 @@ https://bittrex.com/api/v1.1/public/getmarkets
 "IsSponsored": null,
 "LogoUrl": "https://bittrexblobstorage.blob.core.windows.net/public/60b380a9-5161-4afe-a8f8-dbf3a8210033.png"
 ```
+
+!!! tip
+    See troubleshooting section on how to [Get REST API data using Postman](/support/how-to/#get-rest-api-data-using-postman).
 
 
 ### Transaction Fees
