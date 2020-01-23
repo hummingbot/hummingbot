@@ -13,4 +13,4 @@ cdef extern from "../cpp/OrderBookEntry.h":
         double getAmount()
         int64_t getUpdateId()
 
-    void truncateOverlapEntries(set[OrderBookEntry] &bid_book, set[OrderBookEntry] &ask_book, bint dex)
+    void truncateOverlapEntries(set[OrderBookEntry] &bid_book, set[OrderBookEntry] &ask_book, const bint &dex)
