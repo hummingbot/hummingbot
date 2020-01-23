@@ -28,6 +28,9 @@ cdef class BambooRelayOrderBook(OrderBook):
         if _rrob_logger is None:
             _rrob_logger = logging.getLogger(__name__)
         return _rrob_logger
+    
+    def __init__(self):
+        super().__init__(dex=True)
 
     @classmethod
     def snapshot_message_from_exchange(cls,

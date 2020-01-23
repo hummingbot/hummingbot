@@ -42,11 +42,12 @@ cdef class OrderBook(PubSub):
             ob_logger = logging.getLogger(__name__)
         return ob_logger
 
-    def __init__(self):
+    def __init__(self, dex=None):
         super().__init__()
         self._snapshot_uid = 0
         self._last_diff_uid = 0
         self._best_bid = self._best_ask = float("NaN")
+        self._dex = dex if dex is not None else False
 
     cdef c_apply_diffs(self, vector[OrderBookEntry] bids, vector[OrderBookEntry] asks, int64_t update_id):
         cdef:
@@ -72,8 +73,8 @@ cdef class OrderBook(PubSub):
             if ask.getAmount() > 0:
                 self._ask_book.insert(ask)
 
-        # If there's any overlapping entries between the bid and ask books, the newer entries win.
-        truncateOverlapEntries(self._bid_book, self._ask_book)
+        # If any overlapping entries between the bid and ask books, centralised: newer entries win, dex: see OrderBookEntry.cpp
+        truncateOverlapEntries(self._bid_book, self._ask_book, self._dex)
 
         # Record the current best prices, for faster c_get_price() calls.
         bid_iterator = self._bid_book.rbegin()
