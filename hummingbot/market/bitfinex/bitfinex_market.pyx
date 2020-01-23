@@ -433,7 +433,7 @@ cdef class BitfinexMarket(MarketBase):
                 return res
             except IOError:
                 self.logger().info(f"bad request, retry after 1 sec",)
-                time.sleep(1)
+                time.sleep(5)
                 if time.time() - start_do > TIMEOUT_RETRY_ATTEMPT:
                     raise
 
