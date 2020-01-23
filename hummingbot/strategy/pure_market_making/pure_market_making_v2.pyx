@@ -334,18 +334,18 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             list sell_prices = []
             list sell_sizes = []
             MarketBase market = market_info.market
-        if orders_proposal.buy_order_sizes[0] > 0:
+        if len(orders_proposal.buy_order_sizes) > 0 and orders_proposal.buy_order_sizes[0] > 0:
             first_ask = market.c_get_price(market_info.trading_pair, True)
-            for i in range(0, len(orders_proposal.buy_order_prices)):
-                if first_ask.is_nan() or (orders_proposal.buy_order_prices[i] < first_ask):
-                    buy_prices.append(orders_proposal.buy_order_prices[i])
-                    buy_sizes.append(orders_proposal.buy_order_sizes[i])
-        if orders_proposal.sell_order_sizes[0] > 0:
+            for buy_price, buy_size in zip(orders_proposal.buy_order_prices, orders_proposal.buy_order_sizes):
+                if first_ask.is_nan() or (buy_price < first_ask):
+                    buy_prices.append(buy_price)
+                    buy_sizes.append(buy_size)
+        if len(orders_proposal.sell_order_sizes) > 0 and orders_proposal.sell_order_sizes[0] > 0:
             first_bid = market.c_get_price(market_info.trading_pair, False)
-            for i in range(0, len(orders_proposal.sell_order_prices)):
-                if first_bid.is_nan() or (orders_proposal.sell_order_prices[i] > first_bid):
-                    sell_prices.append(orders_proposal.sell_order_prices[i])
-                    sell_sizes.append(orders_proposal.sell_order_sizes[i])
+            for sell_price, sell_size in zip(orders_proposal.sell_order_prices, orders_proposal.sell_order_sizes):
+                if first_bid.is_nan() or (sell_price > first_bid):
+                    sell_prices.append(sell_price)
+                    sell_sizes.append(sell_size)
         return OrdersProposal(orders_proposal.actions,
                               orders_proposal.buy_order_type,
                               buy_prices,
