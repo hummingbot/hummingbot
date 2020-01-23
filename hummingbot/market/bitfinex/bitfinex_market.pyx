@@ -955,15 +955,26 @@ cdef class BitfinexMarket(MarketBase):
                 await asyncio.sleep(5.0)
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
-        open_orders = [o for o in self._in_flight_orders.values() if o.is_open]
-
-        if len(open_orders) == 0:
-            return []
-        cancel_order_ids = [int(o.exchange_order_id) for o in open_orders]
-        path_url = "auth/w/order/cancel/multi"
-        data = {"id": cancel_order_ids}
-        cancellation_results = []
         try:
+            open_orders = [o for o in self._in_flight_orders.values() if o.is_open]
+
+            if len(open_orders) == 0:
+                return []
+
+            cancel_order_ids = list(
+                map(
+                    lambda id: int(id),
+                    filter(
+                        lambda id: id is not None,
+                        [o.exchange_order_id for o in open_orders]
+                    )
+                )
+            )
+
+            path_url = "auth/w/order/cancel/multi"
+            data = {"id": cancel_order_ids}
+            cancellation_results = []
+
             async with timeout(timeout_seconds):
                 cancel_all_results = await self._api_private(
                     "post",
