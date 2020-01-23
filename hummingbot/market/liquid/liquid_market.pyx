@@ -521,7 +521,7 @@ cdef class LiquidMarket(MarketBase):
         for product in products:
             try:
                 trading_pair = product.get("trading_pair")
-                currency = product.get("currency")
+                currency = product.get("base_currency")
 
                 # Find the corresponding rule based on currency
                 rule = trading_rules.get(currency)
