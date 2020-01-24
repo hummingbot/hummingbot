@@ -57,7 +57,7 @@ Check `hummingbot/client/config/config_var.py` for more details.
    Example: `telegram_token` should only be required if `telegram_enabled` is set to True. Therefore `telegram_enabled` should be listed before `telegram_token`.
 2. For exchange-specific configurations, use `using_exchange("exchange_name")` as the `required_if` condition.
 3. When writing prompt questions, be sure to add examples for a better user experience.
-4. When prompting for a boolean value, add `(y/n)` as options so that the user knows what to enter.
+4. When prompting for a boolean value, add `(Yes/No)` as options so that the user knows what to enter.
 5. When prompting a question with a few choices as answers e.g. `["import", "create", etc]`, make sure to include all options in the format of `(OPTION_1/OPTION_2/OPTION_3)`. 
    This pattern is recognized by our autocomplete system, and the user can hit `Tab` to have the option autofilled. 
 6. When prompting for an exchange name, make sure to include 'exchange name', 'name of exchange' or 'name of the exchange' in the prompt text (case insensitive, e.g. Exchange Name is valid), our autocomplete system will list and autofill with exchange names supported by our system.

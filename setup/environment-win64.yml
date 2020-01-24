@@ -89,6 +89,7 @@ dependencies:
     - flake8==3.7.8
     - future==0.17.1
     - hexbytes==0.2.0
+    - https://hummingbot-python.s3-us-west-2.amazonaws.com/hummingsim-20200105-cp36-cp36m-win_amd64.whl
     - hyperlink==19.0.0
     - hypothesis==4.28.2
     - identify==1.4.7

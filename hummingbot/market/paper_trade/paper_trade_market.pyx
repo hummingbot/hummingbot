@@ -947,13 +947,13 @@ cdef class PaperTradeMarket(MarketBase):
         order_size_quantum = self.c_get_order_size_quantum(trading_pair, amount)
         return (amount // order_size_quantum) * order_size_quantum
 
+    cdef str c_withdraw(self, str address, str currency, object amount):
+        pass
+
     def get_all_balances(self) -> Dict[str, Decimal]:
         return self._account_balances.copy()
 
     async def get_deposit_info(self, asset: str):
-        pass
-
-    def c_withdraw(self, address, currency, amount):
         pass
 
     # <editor-fold desc="Python wrapper for cdef functions">

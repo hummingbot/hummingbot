@@ -9,11 +9,10 @@ from typing import (
 
 from sqlalchemy.engine import RowProxy
 
-from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
+from hummingbot.market.bamboo_relay.bamboo_relay_order_book_message import BambooRelayOrderBookMessage
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
-    BambooRelayOrderBookMessage,
     OrderBookMessage,
     OrderBookMessageType
 )
@@ -51,12 +50,11 @@ cdef class BambooRelayOrderBook(OrderBook):
     @classmethod
     def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
         msg = record.json if type(record.json)==dict else ujson.loads(record.json)
-        return BambooRelayOrderBookMessage(OrderBookMessageType.SNAPSHOT, msg,
-                                    timestamp=record.timestamp * 1e-3)
+        return BambooRelayOrderBookMessage(OrderBookMessageType.SNAPSHOT, msg, timestamp=record.timestamp * 1e-3)
 
     @classmethod
     def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        return BambooRelayOrderBookMessage(OrderBookMessageType.DIFF, record.json, timestamp=record.timestamp  * 1e-3)
+        return BambooRelayOrderBookMessage(OrderBookMessageType.DIFF, record.json, timestamp=record.timestamp * 1e-3)
 
     @classmethod
     def trade_receive_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
