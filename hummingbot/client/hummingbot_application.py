@@ -39,7 +39,6 @@ from hummingbot.client.errors import InvalidCommandError, ArgumentParserError
 from hummingbot.client.config.in_memory_config_map import in_memory_config_map
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import get_erc20_token_addresses
-from hummingbot.logger.report_aggregator import ReportAggregator
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
 
@@ -112,7 +111,6 @@ class HummingbotApplication(*commands):
         self.starting_balances = {}
         self.placeholder_mode = False
         self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
-        self.reporting_module: Optional[ReportAggregator] = None
         self.data_feed: Optional[DataFeedBase] = None
         self.notifiers: List[NotifierBase] = []
         self.kill_switch: Optional[KillSwitch] = None
@@ -121,15 +119,6 @@ class HummingbotApplication(*commands):
 
         self.trade_fill_db: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
         self.markets_recorder: Optional[MarketsRecorder] = None
-
-    def init_reporting_module(self):
-        if not self.reporting_module:
-            self.reporting_module = ReportAggregator(
-                self,
-                report_aggregation_interval=global_config_map["reporting_aggregation_interval"].value,
-                log_report_interval=global_config_map["reporting_log_interval"].value,
-            )
-        self.reporting_module.start()
 
     def _notify(self, msg: str):
         self.app.log(msg)
@@ -142,7 +131,6 @@ class HummingbotApplication(*commands):
             if self.placeholder_mode:
                 pass
             else:
-                logging.getLogger("hummingbot.command_history").info(raw_command)
                 args = self.parser.parse_args(args=raw_command.split())
                 kwargs = vars(args)
                 if not hasattr(args, "func"):

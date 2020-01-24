@@ -3,7 +3,8 @@ from hummingbot.client.config.config_validators import (
     is_exchange,
     is_valid_market_trading_pair,
     is_valid_percent,
-    is_valid_expiration
+    is_valid_expiration,
+    is_valid_bool
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -88,7 +89,8 @@ pure_market_making_config_map = {
                   type_str="bool",
                   default=False,
                   on_validated=assign_values_advanced_mode_switch,
-                  migration_default=True),
+                  migration_default=True,
+                  validator=is_valid_bool),
     "expiration_seconds":
         ConfigVar(key="expiration_seconds",
                   prompt="How long should your limit orders remain valid until they "
@@ -135,7 +137,8 @@ pure_market_making_config_map = {
         ConfigVar(key="inventory_skew_enabled",
                   prompt="Would you like to enable inventory skew? (Yes/No) >>> ",
                   type_str="bool",
-                  default=False),
+                  default=False,
+                  validator=is_valid_bool),
     "inventory_target_base_percent":
         ConfigVar(key="inventory_target_base_percent",
                   prompt="What is your target base asset inventory percentage? "
@@ -154,12 +157,14 @@ pure_market_making_config_map = {
         ConfigVar(key="enable_order_filled_stop_cancellation",
                   prompt="Do you want to enable hanging orders? (Yes/No) >>> ",
                   type_str="bool",
-                  default=False),
+                  default=False,
+                  validator=is_valid_bool),
     "best_bid_ask_jump_mode":
         ConfigVar(key="best_bid_ask_jump_mode",
                   prompt="Do you want to enable best bid ask jumping? (Yes/No) >>> ",
                   type_str="bool",
-                  default=False),
+                  default=False,
+                  validator=is_valid_bool),
     "best_bid_ask_jump_orders_depth":
         ConfigVar(key="best_bid_ask_jump_orders_depth",
                   prompt="How deep do you want to go into the order book for calculating "
@@ -172,12 +177,14 @@ pure_market_making_config_map = {
         ConfigVar(key="add_transaction_costs",
                   prompt="Do you want to add transaction costs automatically to order prices? (Yes/No) >>> ",
                   type_str="bool",
-                  default=False),
+                  default=False,
+                  validator=is_valid_bool),
     "external_pricing_source": ConfigVar(key="external_pricing_source",
                                          prompt="Would you like to use an external pricing source for mid-market "
                                                 "price? (Yes/No) >>> ",
                                          type_str="bool",
-                                         default=False),
+                                         default=False,
+                                         validator=is_valid_bool),
     "external_price_source_type": ConfigVar(key="external_price_source_type",
                                             prompt="Which type of external price source to use? "
                                                    "(exchange/feed/custom_api) >>> ",
