@@ -305,15 +305,15 @@ class TradingPairFetcher:
                         all_trading_pairs: List[Dict[str, any]] = await response.json()
                         return [item["symbol"]
                                 for item in all_trading_pairs
-                                if item["enableTrading"] == True]
+                                if item["enableTrading"] is True]
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
                 return []
 
-    @staticmethod
-    async def fetch_dolomite_trading_pairs() -> List[str]:
-        from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
+    async def fetch_dolomite_trading_pairs(self) -> List[str]:
+        try:
+            from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
             client: aiohttp.ClientSession = TradingPairFetcher.http_client()
             async with client.get(DOLOMITE_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:

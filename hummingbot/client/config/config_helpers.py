@@ -240,7 +240,7 @@ def read_configs_from_yml(strategy_file_path: Optional[str] = None):
                     cvar.value = cvar.migration_default
                 else:
                     cvar.value = parse_cvar_value(cvar, val_in_file)
-                if val_in_file is not None and not cvar.validate(cvar.value):
+                if val_in_file is not None and not cvar.validate(str(cvar.value)):
                     # Instead of raising an exception, simply skip over this variable and wait till the user is prompted
                     logging.getLogger().error("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
                     cvar.value = None
