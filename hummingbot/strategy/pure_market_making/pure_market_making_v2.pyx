@@ -20,7 +20,8 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import (
     MarketBase,
-    OrderType
+    OrderType,
+    s_decimal_NaN
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -44,6 +45,9 @@ from .constant_size_sizing_delegate cimport ConstantSizeSizingDelegate
 from .constant_size_sizing_delegate import ConstantSizeSizingDelegate
 from .inventory_skew_single_size_sizing_delegate cimport InventorySkewSingleSizeSizingDelegate
 from .inventory_skew_single_size_sizing_delegate import InventorySkewSingleSizeSizingDelegate
+from .asset_price_delegate cimport AssetPriceDelegate
+from .asset_price_delegate import AssetPriceDelegate
+
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -99,7 +103,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  best_bid_ask_jump_orders_depth: Decimal = s_decimal_zero,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
-                 status_report_interval: float = 900):
+                 status_report_interval: float = 900,
+                 asset_price_delegate: AssetPriceDelegate = None,
+                 expiration_seconds: float = NaN):
 
         if len(market_infos) < 1:
             raise ValueError(f"market_infos must not be empty.")
@@ -112,6 +118,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         }
         self._all_markets_ready = False
         self._cancel_order_wait_time = cancel_order_wait_time
+        self._expiration_seconds = expiration_seconds
         self._filled_order_replenish_wait_time = filled_order_replenish_wait_time
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
 
@@ -127,6 +134,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._enable_order_filled_stop_cancellation = enable_order_filled_stop_cancellation
         self._best_bid_ask_jump_mode = best_bid_ask_jump_mode
         self._best_bid_ask_jump_orders_depth = best_bid_ask_jump_orders_depth
+        self._asset_price_delegate = asset_price_delegate
 
         self.limit_order_min_expiration = limit_order_min_expiration
 
@@ -176,6 +184,14 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         return self._sizing_delegate
 
     @property
+    def asset_price_delegate(self) -> AssetPriceDelegate:
+        return self._asset_price_delegate
+
+    @asset_price_delegate.setter
+    def asset_price_delegate(self, value):
+        self._asset_price_delegate = value
+
+    @property
     def order_tracker(self):
         return self._sb_order_tracker
 
@@ -221,6 +237,13 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         return self.c_cancel_order(market_info, order_id)
 
     def get_order_price_proposal(self, market_info: MarketTradingPairTuple) -> PricingProposal:
+        asset_mid_price = Decimal("0")
+        if self._asset_price_delegate is None:
+            top_bid_price = market_info.get_price(False)
+            top_ask_price = market_info.get_price(True)
+            asset_mid_price = (top_bid_price + top_ask_price) * Decimal("0.5")
+        else:
+            asset_mid_price = self._asset_price_delegate.c_get_mid_price()
         active_orders = []
         for limit_order in self._sb_order_tracker.c_get_maker_orders().get(market_info, {}).values():
             if self._sb_order_tracker.c_has_in_flight_cancel(limit_order.client_order_id):
@@ -228,7 +251,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             active_orders.append(limit_order)
 
         return self._pricing_delegate.c_get_order_price_proposal(
-            self, market_info, active_orders
+            self, market_info, active_orders, asset_mid_price
         )
 
     def get_order_size_proposal(self, market_info: MarketTradingPairTuple, pricing_proposal: PricingProposal) -> SizingProposal:
@@ -266,6 +289,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         try:
             if not self._all_markets_ready:
                 self._all_markets_ready = all([market.ready for market in self._sb_markets])
+                if self._asset_price_delegate is not None and self._all_markets_ready:
+                    self._all_markets_ready = self._asset_price_delegate.ready
                 if not self._all_markets_ready:
                     # Markets not ready yet. Don't do anything.
                     if should_report_warnings:
@@ -295,9 +320,40 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                                    market_info,
                                                                                    market_info_to_active_orders.get(market_info, []),
                                                                                    orders_proposal)
+                filtered_proposal = self.c_filter_orders_proposal_for_takers(market_info, filtered_proposal)
                 self.c_execute_orders_proposal(market_info, filtered_proposal)
         finally:
             self._last_timestamp = timestamp
+
+    # To filter out any orders that are going to be taker orders, i.e. buy order price higher than first ask
+    # and sell order price lower than first bid on the order book.
+    cdef object c_filter_orders_proposal_for_takers(self, object market_info, object orders_proposal):
+        cdef:
+            list buy_prices = []
+            list buy_sizes = []
+            list sell_prices = []
+            list sell_sizes = []
+            MarketBase market = market_info.market
+        if len(orders_proposal.buy_order_sizes) > 0 and orders_proposal.buy_order_sizes[0] > 0:
+            first_ask = market.c_get_price(market_info.trading_pair, True)
+            for buy_price, buy_size in zip(orders_proposal.buy_order_prices, orders_proposal.buy_order_sizes):
+                if first_ask.is_nan() or (buy_price < first_ask):
+                    buy_prices.append(buy_price)
+                    buy_sizes.append(buy_size)
+        if len(orders_proposal.sell_order_sizes) > 0 and orders_proposal.sell_order_sizes[0] > 0:
+            first_bid = market.c_get_price(market_info.trading_pair, False)
+            for sell_price, sell_size in zip(orders_proposal.sell_order_prices, orders_proposal.sell_order_sizes):
+                if first_bid.is_nan() or (sell_price > first_bid):
+                    sell_prices.append(sell_price)
+                    sell_sizes.append(sell_size)
+        return OrdersProposal(orders_proposal.actions,
+                              orders_proposal.buy_order_type,
+                              buy_prices,
+                              buy_sizes,
+                              orders_proposal.sell_order_type,
+                              sell_prices,
+                              sell_sizes,
+                              orders_proposal.cancel_order_ids)
 
     # Compare the market price with the top bid and top ask price
     cdef object c_get_penny_jumped_pricing_proposal(self,
@@ -492,10 +548,15 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         #  2. Ask the sizing delegate on what are the order sizes.
         #  3. Set the actions to carry out in the orders proposal to include create orders.
 
+        asset_mid_price = Decimal("0")
+        if self._asset_price_delegate is None:
+            asset_mid_price = market_info.get_mid_price()
+        else:
+            asset_mid_price = self._asset_price_delegate.c_get_mid_price()
         pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self,
                                                                              market_info,
-                                                                             active_orders)
-
+                                                                             active_orders,
+                                                                             asset_mid_price)
         # If jump orders is enabled, run the penny jumped pricing proposal
         if self._best_bid_ask_jump_mode:
             pricing_proposal = self.c_get_penny_jumped_pricing_proposal(market_info,
@@ -687,7 +748,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         # Create orders.
         if actions & ORDER_PROPOSAL_ACTION_CREATE_ORDERS:
-            if orders_proposal.buy_order_sizes[0] > 0:
+            if len(orders_proposal.buy_order_sizes) > 0 and orders_proposal.buy_order_sizes[0] > 0:
                 if orders_proposal.buy_order_type is OrderType.LIMIT and orders_proposal.buy_order_prices[0] > 0:
                     if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                         order_price_quote = zip(orders_proposal.buy_order_sizes, orders_proposal.buy_order_prices)
@@ -712,7 +773,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 elif orders_proposal.buy_order_type is OrderType.MARKET:
                     raise RuntimeError("Market buy order in orders proposal is not supported yet.")
 
-            if orders_proposal.sell_order_sizes[0] > 0:
+            if len(orders_proposal.sell_order_sizes) > 0 and orders_proposal.sell_order_sizes[0] > 0:
                 if orders_proposal.sell_order_type is OrderType.LIMIT and orders_proposal.sell_order_prices[0] > 0:
                     if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                         order_price_quote = zip(orders_proposal.sell_order_sizes, orders_proposal.sell_order_prices)

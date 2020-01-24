@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 import logging
-from typing import Dict, Optional
+from typing import (
+    Dict,
+    Optional,
+)
 
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.core.data_type.order_book_message import LiquidOrderBookMessage
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
+from hummingbot.market.liquid.liquid_order_book_message import LiquidOrderBookMessage
 
 
 cdef class LiquidOrderBook(OrderBook):
@@ -27,6 +30,7 @@ cdef class LiquidOrderBook(OrderBook):
         Convert json snapshot data into standard OrderBookMessage format
         :param msg: json snapshot data from live web socket stream
         :param timestamp: timestamp attached to incoming data
+        :param metadata:
         :return: LiquidOrderBookMessage
         """
         if metadata:
@@ -47,6 +51,7 @@ cdef class LiquidOrderBook(OrderBook):
         Convert json diff data into standard OrderBookMessage format
         :param msg: json diff data from live web socket stream
         :param timestamp: timestamp attached to incoming data
+        :param metadata:
         :return: LiquidOrderBookMessage
         """
         if metadata:

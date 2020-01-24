@@ -1,6 +1,6 @@
 # [Quickstart] Run Your First Trading Bot
 
-Now that you have successfully [configured](/quickstart/3-configure-bot) a trading bot, you can start market making by running the `start` command.
+Now that you have successfully configured a trading bot, you can start market making by running the `start` command.
 
 !!! tip
     You can see your Hummingbot open orders in real-time on the exchange website as you run Hummingbot. Generally, we recommend having the exchange website in a browser alongside the running Hummingbot command line interface.
@@ -46,8 +46,7 @@ This command shows you:
 * **Inventory**: How your inventory has changed as a result of these trades
 * **Performance**: How much profit or loss your bot has made as a result of these trades
 
-!!! note "Performance"
-    The value of your starting inventory may change when you check your bot's status. See [this page](/support/faq/#why-does-my-starting-inventory-value-keep-changing) for more information.
+For more information on how Hummingbot calculates performance, refer to [Performance Analysis](/utilities/performance-analysis/).
 
 
 ## Step 4: Exit and restart Hummingbot
@@ -60,10 +59,12 @@ Hummingbot automatically cancels all outstanding orders and notifies you if it b
 
 #### b) Restart Hummingbot
 
-To restart Hummingbot, run the `start.sh` helper script from the command line. This starts and attaches the Docker container.
+To restart Hummingbot via Docker, run the `start.sh` helper script from the command line. This starts and attaches the Docker container.
 ```
 ./start.sh
 ```
+
+![script_start](/assets/img/script_start.gif)
 
 ## Step 5: Import your saved configuration
 
@@ -80,8 +81,11 @@ By default, the auto-saved strategy configuration file is named `conf_pure_marke
 
 #### a) Import configuration
 
-Enter `config` to start the configuration process again, but select `import`:
+Enter `config` to start the configuration process again, enter your password, then select `import`:
+
 ```
+Enter your password >>> ****
+
 What is your market making strategy >>>
 pure_market_making
 
@@ -92,11 +96,20 @@ Enter path to your strategy file (e.g. "conf_pure_market_making_strategy_0.yml")
 conf_pure_market_making_strategy_0.yml
 
 # This question appears only if you are trading on a decentralized exchange
-Would you like to unlock your previously saved wallet? (y/n) >>>
+Would you like to unlock your previously saved wallet? (Yes/No) >>>
 
 Config process complete. Enter "start" to start market making.
 ```
 
+If trading on a decentralized exchange, this question appears and would ask which wallet you want to unlock if you have multiple wallets stored.
+
+```
+Would you like to unlock your previously saved wallet? (Yes/No) >>> Yes
+```
+
+Responding `No` to this question will also prompt you to import or create a new wallet.
+
+![config_import](/assets/img/quickstart_config_import.gif)
 
 ---
 Congratulations on successfully completing the Hummingbot quickstart guide!

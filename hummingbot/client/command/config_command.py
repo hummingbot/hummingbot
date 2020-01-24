@@ -1,5 +1,4 @@
 import asyncio
-import logging
 from typing import (
     List,
     Dict,
@@ -22,7 +21,8 @@ from hummingbot.client.config.config_helpers import (
     write_config_to_yml,
     load_required_configs,
     parse_cvar_value,
-    copy_strategy_template
+    copy_strategy_template,
+    parse_cvar_default_value_prompt
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.config_crypt import (
@@ -30,7 +30,8 @@ from hummingbot.client.config.config_crypt import (
     decrypt_file,
     decrypt_config_value,
     encrypted_config_file_exists,
-    get_encrypted_config_path
+    get_encrypted_config_path,
+    encrypt_n_save_config_value
 )
 from os import unlink
 from typing import TYPE_CHECKING
@@ -76,7 +77,7 @@ class ConfigCommand:
         for key in keys:
             cvar = config_map.get(key)
             if cvar.value is None and cvar.required:
-                if cvar.is_secure and self.load_secure_var(cvar):
+                if cvar.is_secure and cvar.key != "wallet" and self.load_secure_var(cvar):
                     continue
                 return False
         return True
@@ -89,8 +90,6 @@ class ConfigCommand:
                 cvar.value = decrypt_config_value(cvar, password)
                 return True
         return False
-
-
 
     @staticmethod
     def _get_empty_configs() -> List[str]:
@@ -125,9 +124,9 @@ class ConfigCommand:
 
         if self.strategy:
             choice = await self.app.prompt(prompt=f"Would you like to stop running the {strategy} strategy "
-                                                  f"and reconfigure the bot? (y/n) >>> ")
+                                                  f"and reconfigure the bot? (Yes/No) >>> ")
         else:
-            choice = await self.app.prompt(prompt=f"Would you like to reconfigure the bot? (y/n) >>> ")
+            choice = await self.app.prompt(prompt=f"Would you like to reconfigure the bot? (Yes/No) >>> ")
 
         self.app.change_prompt(prompt=">>> ")
         self.app.toggle_hide_input()
@@ -183,7 +182,7 @@ class ConfigCommand:
         """
         Special handler function that helps the user unlock an existing wallet, or redirect user to create a new wallet.
         """
-        choice = await self.app.prompt(prompt="Would you like to unlock your previously saved wallet? (y/n) >>> ")
+        choice = await self.app.prompt(prompt="Would you like to unlock your previously saved wallet? (Yes/No) >>> ")
         if choice.lower() in {"y", "yes"}:
             wallets = list_wallets()
             self._notify("Existing wallets:")
@@ -234,7 +233,9 @@ class ConfigCommand:
             self._notify(f"Loading previously saved config file from {strategy_path}...")
         elif choice == "create":
             strategy_path = await copy_strategy_template(current_strategy)
-            self._notify(f"new config file at {strategy_path} created.")
+            self._notify(f"A new config file {strategy_path} created.")
+            self._notify(f"Please see https://docs.hummingbot.io/strategies/{current_strategy.replace('_', '-')}/ "
+                         f"while setting up these below configuration.")
         else:
             self._notify('Invalid choice. Please enter "create" or "import".')
             strategy_path = await self._import_or_create_strategy_config()
@@ -293,8 +294,6 @@ class ConfigCommand:
                even if it is not required by default setting
         :return: a validated user input or the variable's default value
         """
-        if cvar.key != "password" and cvar.is_secure and in_memory_config_map.get("password").value is None:
-            in_memory_config_map.get("password").value = await self._one_password_config()
         if cvar.required or requirement_overwrite:
             if cvar.key == "password":
                 return await self._one_password_config()
@@ -306,8 +305,9 @@ class ConfigCommand:
                     val = await self._unlock_wallet()
                 else:
                     val = await self._create_or_import_wallet()
-                logging.getLogger("hummingbot.public_eth_address").info(val)
             else:
+                if cvar.value is None:
+                    self.app.set_text(parse_cvar_default_value_prompt(cvar))
                 val = await self.app.prompt(prompt=cvar.prompt, is_password=cvar.is_secure)
 
             if not cvar.validate(val):
@@ -320,11 +320,8 @@ class ConfigCommand:
                     val = await self.prompt_single_variable(cvar, requirement_overwrite)
         else:
             val = cvar.value
-
         if val is None or (isinstance(val, str) and len(val) == 0):
             val = cvar.default
-        if cvar.key != "password" and cvar.is_secure and encrypted_config_file_exists(cvar):
-            unlink(get_encrypted_config_path(cvar))
         return val
 
     @staticmethod
@@ -355,6 +352,8 @@ class ConfigCommand:
         """
         for key in keys:
             cv: ConfigVar = self._get_config_var_with_key(key)
+            if cv.value is not None and cv.key != "wallet":
+                continue
             value = await self.prompt_single_variable(cv, requirement_overwrite=False)
             cv.value = parse_cvar_value(cv, value)
             if self.config_complete:
@@ -399,12 +398,15 @@ class ConfigCommand:
             cv: ConfigVar = self._get_config_var_with_key(key)
             value = await self.prompt_single_variable(cv, requirement_overwrite=True)
             cv.value = parse_cvar_value(cv, value)
-            await write_config_to_yml()
+            if cv.is_secure:
+                await self._encrypt_n_save_config_value(cv)
+            else:
+                await write_config_to_yml()
             self._notify(f"\nNew config saved:\n{key}: {str(value)}")
 
             if not self.config_complete:
                 choice = await self.app.prompt("Your configuration is incomplete. Would you like to proceed and "
-                                               "finish all necessary configurations? (y/n) >>> ")
+                                               "finish all necessary configurations? (Yes/No) >>> ")
                 if choice.lower() in {"y", "yes"}:
                     self.config()
                     return
@@ -418,3 +420,12 @@ class ConfigCommand:
             self.app.toggle_hide_input()
             self.placeholder_mode = False
             self.app.change_prompt(prompt=">>> ")
+
+    async def _encrypt_n_save_config_value(self,  # type: HummingbotApplication
+                                           cvar: ConfigVar):
+        if in_memory_config_map.get("password").value is None:
+            in_memory_config_map.get("password").value = await self._one_password_config()
+        password = in_memory_config_map.get("password").value
+        if encrypted_config_file_exists(cvar):
+            unlink(get_encrypted_config_path(cvar))
+        encrypt_n_save_config_value(cvar, password)
