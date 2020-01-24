@@ -17,7 +17,10 @@ from typing import (
     Tuple,
     NamedTuple
 )
-from decimal import Decimal
+from decimal import (
+    ROUND_FLOOR,
+    Decimal
+)
 from eth_utils import remove_0x_prefix
 from libc.stdint cimport int64_t
 from web3 import Web3
@@ -687,7 +690,7 @@ cdef class BambooRelayMarket(MarketBase):
                 elif not previous_is_done and tracked_limit_order.is_done:
                     self.c_expire_order(tracked_limit_order.client_order_id, 60)
                     if tracked_limit_order.trade_type is TradeType.BUY:
-                        self.logger().info(f"The limit buy order {tracked_limit_order.client_order_id}"
+                        self.logger().info(f"The limit buy order {tracked_limit_order.client_order_id} "
                                            f"has completed according to order status API.")
                         self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
                                              BuyOrderCompletedEvent(current_timestamp,
@@ -700,7 +703,7 @@ cdef class BambooRelayMarket(MarketBase):
                                                                     tracked_limit_order.protocol_fee_amount,
                                                                     OrderType.LIMIT))
                     else:
-                        self.logger().info(f"The limit sell order {tracked_limit_order.client_order_id}"
+                        self.logger().info(f"The limit sell order {tracked_limit_order.client_order_id} "
                                            f"has completed according to order status API.")
                         self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
                                              SellOrderCompletedEvent(current_timestamp,
@@ -972,20 +975,20 @@ cdef class BambooRelayMarket(MarketBase):
                 if amount > remaining_base_token_amount:
                     total_base_token_amount = remaining_base_token_amount
                     total_quote_token_amount = remaining_quote_token_amount
-                    taker_asset_fill_amount = remaining_quote_token_amount * Decimal(f"1e{quote_asset_decimals}")
+                    taker_asset_fill_amount = (remaining_quote_token_amount * Decimal(f"1e{quote_asset_decimals}")).to_integral_exact(rounding=ROUND_FLOOR)
                 else:
                     total_base_token_amount = amount
                     total_quote_token_amount = amount * calculated_price
-                    taker_asset_fill_amount = total_quote_token_amount * Decimal(f"1e{quote_asset_decimals}")
+                    taker_asset_fill_amount = (total_quote_token_amount * Decimal(f"1e{quote_asset_decimals}")).to_integral_exact(rounding=ROUND_FLOOR)
             else:
                 if amount > remaining_base_token_amount:
                     total_base_token_amount = remaining_base_token_amount
                     total_quote_token_amount = remaining_quote_token_amount
-                    taker_asset_fill_amount = remaining_base_token_amount * Decimal(f"1e{base_asset_decimals}")
+                    taker_asset_fill_amount = (remaining_base_token_amount * Decimal(f"1e{base_asset_decimals}")).to_integral_exact(rounding=ROUND_FLOOR)
                 else:
                     total_base_token_amount = amount
                     total_quote_token_amount = amount * calculated_price
-                    taker_asset_fill_amount = max_base_amount_with_decimals
+                    taker_asset_fill_amount = max_base_amount_with_decimals.to_integral_exact(rounding=ROUND_FLOOR)
             if amount >= remaining_base_token_amount:
                 self._filled_order_hashes.append(apiOrder["orderHash"])
 
@@ -1013,16 +1016,16 @@ cdef class BambooRelayMarket(MarketBase):
 
             # This would overfill the last order
             if remaining_base_token_amount + total_base_token_amount > amount:
-                order_price = remaining_base_token_amount / remaining_quote_token_amount
+                order_price = remaining_quote_token_amount / remaining_base_token_amount
                 remaining_base_token_amount = amount - total_base_token_amount
-                remaining_quote_token_amount = remaining_base_token_amount * order_price                
+                remaining_quote_token_amount = remaining_base_token_amount * order_price          
             else:
                 self._filled_order_hashes.append(apiOrder["orderHash"])
             
             if trade_type is TradeType.BUY:
-                taker_asset_fill_amounts.append(remaining_quote_token_amount * Decimal(f"1e{quote_asset_decimals}"))
+                taker_asset_fill_amounts.append((remaining_quote_token_amount * Decimal(f"1e{quote_asset_decimals}")).to_integral_exact(rounding=ROUND_FLOOR))
             else:
-                taker_asset_fill_amounts.append(remaining_base_token_amount * Decimal(f"1e{base_asset_decimals}"))
+                taker_asset_fill_amounts.append((remaining_base_token_amount * Decimal(f"1e{base_asset_decimals}")).to_integral_exact(rounding=ROUND_FLOOR))
 
             total_base_token_amount += remaining_base_token_amount
             total_quote_token_amount += remaining_quote_token_amount
@@ -1379,6 +1382,8 @@ cdef class BambooRelayMarket(MarketBase):
         expires = kwargs.get("expiration_ts", None)
         if expires is not None:
             expires = int(expires)
+        else:
+            expires = int(current_timestamp) + 120
         if order_type is OrderType.LIMIT:
             # Don't spam the server endpoint if a order placement failed recently
             if current_timestamp - self._last_failed_limit_order_timestamp <= self.ORDER_CREATION_BACKOFF_TIME:
@@ -1407,6 +1412,8 @@ cdef class BambooRelayMarket(MarketBase):
         expires = kwargs.get("expiration_ts", None)
         if expires is not None:
             expires = int(expires)
+        else:
+            expires = int(current_timestamp) + 120
         if order_type is OrderType.LIMIT:
             # Don't spam the server endpoint if a order placement failed recently
             if current_timestamp - self._last_failed_limit_order_timestamp <= self.ORDER_CREATION_BACKOFF_TIME:
