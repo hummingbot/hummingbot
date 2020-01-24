@@ -3,11 +3,11 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 2
+template_version: 4
 
 # Exchange configs
-bamboo_relay_use_coordinator: null
-bamboo_relay_pre_emptive_soft_cancels: null
+bamboo_relay_use_coordinator: false
+bamboo_relay_pre_emptive_soft_cancels: false
 
 binance_api_key: null
 binance_api_secret: null
@@ -29,6 +29,10 @@ idex_api_key: null
 
 liquid_api_key: null
 liquid_secret_key: null
+
+kucoin_api_key: null
+kucoin_secret_key: null
+kucoin_passphrase: null
 
 # Ethereum wallet address: required for trading on a DEX
 wallet: null
@@ -71,13 +75,14 @@ exchange_rate_default_data_feed: coin_gecko_api
 exchange_rate_conversion:
 exchange_rate_fetcher:
 
+# Error log sharing
+send_error_logs: null
+
 # Advanced configs: Do NOT touch unless you understand what you are changing
 client_id: null
 log_level: INFO
 debug_console: false
 strategy_report_interval: 900.0
-reporting_aggregation_interval: 60.0
-reporting_log_interval: 60.0
 logger_override_whitelist:
 - hummingbot.strategy.arbitrage
 - hummingbot.strategy.cross_exchange_market_making

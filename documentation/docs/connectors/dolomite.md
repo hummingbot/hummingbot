@@ -9,10 +9,16 @@
 
 Dolomite streamlines the decentralized exchange experience so that users can utilize the security and control of a DEX while enjoying the user interface simplicity of a centralized exchange.
 
-An ethereum node is required in order to use Hummingbot with Dolomite. See below for information on how to create an ethereum node and wallet:
+An ethereum node is required in order to use Hummingbot with Dolomite. Luckily, an Ethereum node is only needed for approving tokens, which is a one-time process. So, users of the Dolomite connector can rest assured it will add virtually no extra stress to their node. See below for information on how to create an Ethereum node and wallet:
 
 * [Creating a crypto wallet](/installation/wallet)
 * [Creating an ethereum node](/installation/node/node)
+
+In addition to the above, the user must also create an account on Dolomite. As of now, this takes 1 of 2 forms:
+1) For users **inside** the US, they must create an account from the site [https://app.dolomite.io](https://app.dolomite.io).
+2) For users **outside** the US, they simply must submit a trade. When Dolomite sees the first trade from a new wallet, it automatically creates an account for it.
+
+**Note**: The above 2 criteria hold true for where *Hummingbot* is running. For example, if you live *outside* the US, but you are running Hummingbot from within the US in the cloud (IE AWS or Azure), you still must create an account. Please reach out to us if you face any problems doing so!
 
 For users who have little to no prior experience using a decentralized exchange, Dolomite also has a simple account system that does not require users to setup and manage their own private keys.  Read more through here in [Dolomite Traditional Accounts](https://dolomite.io/support/noncustodial-accounts).
 
@@ -32,9 +38,19 @@ There are no transaction fees required in order to place or cancel trades.
 Some additional small flat fees may be applied to your trades. More information can be found in [this page](https://dolomite.io/support/fees).
 
 
+## Troubleshooting
+
+If you see the error:
+
+```
+... WARNING - No Dolomite account for <wallet-address>.
+```
+
+that means you must create an account on Dolomite. See the above information on how to do so.
+
 ## Contact
 
 This connector is maintained by [Dolomite](https://beta.dolomite.io/), which can be contacted at:
 
 - [Support Site](https://dolomite.io/support)
-- [Twitter](https://twitter.com/dolomite_io?lang=en) | [Telegram](https://t.me/dolomite_official) | 
+- [Twitter](https://twitter.com/dolomite_io?lang=en) | [Telegram](https://t.me/dolomite_official)

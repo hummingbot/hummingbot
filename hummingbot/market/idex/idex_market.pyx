@@ -51,6 +51,7 @@ from hummingbot.market.idex.idex_api_order_book_data_source import IDEXAPIOrderB
 from hummingbot.market.idex.idex_order_book_tracker import IDEXOrderBookTracker
 from hummingbot.market.idex.idex_utils import generate_vrs
 from hummingbot.market.idex.idex_in_flight_order cimport IDEXInFlightOrder
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 im_logger = None
 s_decimal_0 = Decimal(0)
@@ -145,15 +146,18 @@ cdef class IDEXMarket(MarketBase):
         self._last_nonce = 0
 
     @staticmethod
-    def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
+    def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
         try:
             quote_asset, base_asset = trading_pair.split('_')
             return base_asset, quote_asset
+        # Exceptions are now logged as warnings in trading pair fetcher
         except Exception:
-            raise ValueError(f"Error parsing trading_pair {trading_pair}")
+            return None
 
     @staticmethod
-    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
+    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
+        if IDEXMarket.split_trading_pair(exchange_trading_pair) is None:
+            return None
         # IDEX uses QUOTE_BASE (USDT_BTC)
         quote_asset, base_asset = exchange_trading_pair.split("_")
         return f"{base_asset}-{quote_asset}"
@@ -329,12 +333,24 @@ cdef class IDEXMarket(MarketBase):
 
         for order_update, tracked_limit_order in zip(results, tracked_orders):
             if isinstance(order_update, Exception):
-                self.logger().network(
-                    f"Error fetching status update for the order {tracked_limit_order.client_order_id}: "
-                    f"{order_update}.",
-                    app_warning_msg=f"Failed to fetch status update for the order {tracked_limit_order.client_order_id}. "
-                                    f"Check Ethereum wallet and network connection."
-                )
+                if "order not found" in str(order_update).lower():
+                    # The order does not exist. So we should not be tracking it.
+                    self.logger().info(
+                        f"The tracked order {tracked_limit_order.client_order_id} does not exist on IDEX."
+                        f"Order removed from tracking."
+                    )
+                    self.c_expire_order(tracked_limit_order.client_order_id)
+                    self.c_trigger_event(
+                        self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                        OrderCancelledEvent(self._current_timestamp, tracked_limit_order.client_order_id)
+                    )
+                else:
+                    self.logger().network(
+                        f"Error fetching status update for the order {tracked_limit_order.client_order_id}: "
+                        f"{order_update}.",
+                        app_warning_msg=f"Failed to fetch status update for the order {tracked_limit_order.client_order_id}. "
+                                        f"Check Ethereum wallet and network connection."
+                    )
                 continue
 
             previous_is_done = tracked_limit_order.is_done
@@ -662,9 +678,15 @@ cdef class IDEXMarket(MarketBase):
         response_data = await self.post_cancel_order(cancel_order_request)
         if isinstance(response_data, dict) and response_data.get("success"):
             self.logger().info(f"Successfully cancelled order {exchange_order_id}.")
-            self.c_expire_order(client_order_id)
-            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                 OrderCancelledEvent(self._current_timestamp, client_order_id))
+        elif isinstance(response_data, Exception) and "order not found" in str(response_data).lower():
+            self.logger().info(f"The order {exchange_order_id} does not exist on IDEX. No cancellation needed.")
+        else:
+            return response_data
+
+        self.c_expire_order(client_order_id)
+        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                             OrderCancelledEvent(self._current_timestamp, client_order_id))
+
         return response_data
 
     async def post_market_order(self, market_order_request: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -714,7 +736,7 @@ cdef class IDEXMarket(MarketBase):
                    object price=s_decimal_0,
                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
@@ -830,7 +852,7 @@ cdef class IDEXMarket(MarketBase):
                     object price=s_decimal_0,
                     dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
 
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
@@ -973,7 +995,11 @@ cdef class IDEXMarket(MarketBase):
                 cancellation_results = await safe_gather(*tasks, return_exceptions=True)
                 for cid, cr in zip(client_order_ids, cancellation_results):
                     if isinstance(cr, Exception):
-                        continue
+                        if "order not found" in str(cr).lower():
+                            order_id_set.remove(cid)
+                            successful_cancellations.append(CancellationResult(cid, True))
+                        else:
+                            continue
                     if isinstance(cr, dict) and cr.get("success") == 1:
                         order_id_set.remove(cid)
                         successful_cancellations.append(CancellationResult(cid, True))

@@ -19,12 +19,12 @@ The timeline below shows the past milestones we have completed, along with the f
 * First community contributed connector for [Bamboo Relay](https://bamboorelay.com/)
 * Released [pure market making strategy](/strategies/pure-market-making)
 * Released [Telegram Integration](/utilities/telegram)
-* Announced [Liquidity Bounty Programs](https://www.hummingbot.io/liquidity-bounties/)
-* Launch 1st liquidity bounty program for [Harmony](https://www.hummingbot.io/liquidity-bounties/harmony)
+* Announced [Liquidity Bounty Programs](https://www.hummingbot.io/liquidity-mining/)
+* Launch 1st liquidity bounty program for [Harmony](https://www.hummingbot.io/liquidity-mining/harmony)
 
 ## Q3 2019
-* Released [Simple Trade](/strategies/simple-trade) strategy
-* Created [Developer Manual](/developers/index)
+* Released [Simple Trade](/developers/tutorial/simple-trade) strategy
+* Created [Developer Manual](/developers/)
 * Released [Paper Trading Mode](/utilities/paper-trade)
 * Released connector for [Huobi Global](/connectors/huobi)
 * Support for user defined strategies
@@ -32,14 +32,12 @@ The timeline below shows the past milestones we have completed, along with the f
 ## Q4 2019
 * Released connector for [Bittrex Global](/connectors/bittrex)
 * Community contributed connector for [Dolomite](/connectors/dolomite)
-* Liquidity Mining Platform: [Blog](https://hummingbot.io/blog/2019-11-liquidity-mining/) | [Whitepaper](https://hummingbot.io/liquidity-mining.pdf)
-* Connector for [Liquid](https://liquid.com/) ([in progress](https://gitcoin.co/issue/CoinAlpha/hummingbot/909/3556))
-* Connector for [Bitcoin Exchange](https://exchange.bitcoin.com/) ([in progress](https://gitcoin.co/issue/CoinAlpha/hummingbot/991/3588))
-* Connector for [KuCoin](https://www.kucoin.com/) ([in progress](https://github.com/CoinAlpha/hummingbot/pull/1011))
-* Connector for [HitBTC](https://hitbtc.com/) ([in progress](https://github.com/CoinAlpha/hummingbot/pull/1039))
+* Announced Liquidity Mining Platform: [Blog](https://hummingbot.io/blog/2019-11-liquidity-mining/) | [Whitepaper](https://hummingbot.io/liquidity-mining.pdf)
+* Released connector for [Liquid](https://liquid.com/)
 * Add support for 0x v3
 
 ## Q1 2020
+* Liquidity Mining Launch: Wave 1 (mid-February)
+* More connectors for decentralized and centralized exchanges: KuCoin, Bitfinex, HitBTC, gate.io
 * Graphical user interface
-* More connectors for decentralized and centralized exchanges: Bitfinex, Kraken, Bitmex, Binance DEX
 * Connectors to automated market makers

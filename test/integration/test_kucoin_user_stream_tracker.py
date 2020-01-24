@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 from os.path import join, realpath
-import sys
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
+
 from hummingbot.market.kucoin.kucoin_user_stream_tracker import KucoinUserStreamTracker
 from hummingbot.market.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -14,7 +15,6 @@ import conf
 from typing import Optional
 import unittest
 
-sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 
 # logging.basicConfig(level=logging.DEBUG)
