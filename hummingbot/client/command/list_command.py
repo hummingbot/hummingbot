@@ -24,6 +24,14 @@ from hummingbot.model.trade_fill import TradeFill
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.client.config.config_crypt import (
+    decrypt_file,
+    list_encrypted_file_paths,
+    get_encrypted_key_name_from_file
+)
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
+from functools import partial
 
 
 class ListCommand:
@@ -118,6 +126,38 @@ class ListCommand:
                 lines.extend(["  No past trades in this session."])
             self._notify("\n".join(lines))
 
+    def _list_all_encrypted(self, encrypted_files, password):
+        self._notify("\nDecrypting configs...")
+        for file_path in encrypted_files:
+            key = get_encrypted_key_name_from_file(file_path)
+            try:
+                decrypted = decrypt_file(file_path, password)
+                self._notify(f"{key}: {decrypted}")
+            except ValueError as err:
+                if str(err) == "MAC mismatch":
+                    self._notify(f"{key}: Error: This config was encrypted with a different password.")
+                else:
+                    raise err
+        self._notify("All decryption done.")
+
+    async def list_encrypted(self,  # type: HummingbotApplication
+                             ):
+        encrypted_files = list_encrypted_file_paths()
+        if len(encrypted_files) == 0:
+            self._notify("There is no encrypted file in your conf folder.")
+            return
+        self.placeholder_mode = True
+        self.app.toggle_hide_input()
+        if in_memory_config_map.get("password").value is None:
+            in_memory_config_map.get("password").value = await self._one_password_config()
+        password = in_memory_config_map.get("password").value
+        coro = AsyncCallScheduler.shared_instance().call_async(partial(self._list_all_encrypted, encrypted_files,
+                                                                       password), timeout_seconds=30)
+        safe_ensure_future(coro)
+        self.app.change_prompt(prompt=">>> ")
+        self.app.toggle_hide_input()
+        self.placeholder_mode = False
+
     def list(self,  # type: HummingbotApplication
              obj: str):
         """ Router function for list command """
@@ -129,6 +169,8 @@ class ListCommand:
             self.list_configs()
         elif obj == "trades":
             self.list_trades()
+        elif obj == "encrypted":
+            safe_ensure_future(self.list_encrypted())
         else:
             self.help("list")
 

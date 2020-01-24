@@ -28,3 +28,52 @@ Timestap errors in logs happen when the Binance clock gets de-synced from time t
 ```
 binance.exceptions.BinanceAPIException: APIError(code=-1021): Timestamp for this request is outside of the recvWindow.
 ```
+
+## APIError (code=-1003)
+
+Weight/Request error in logs happens when it encountered a warning or error and Hummingbot repeatedly sends the request (fetching status updates, placing/canceling orders, etc.) which resulted to getting banned. This should be lifted after a couple of hours or up to a maximum of 24 hours.
+
+* Too many requests queued.
+* Too much request weight used; please use the websocket for live updates to avoid polling the API.
+* Too much request weight used; current limit is %s request weight per %s %s. Please use the websocket for live updates to avoid polling the API.
+* Way too much request weight used; IP banned until %s. Please use the websocket for live updates to avoid bans.
+
+```
+binance.exceptions.BinanceAPIException: APIError(code=-1003): Way too much request weight used; IP banned until 1573987680818. Please use the websocket for live updates to avoid bans
+```
+
+For more information visit the Binance API documentation for [Error Codes](https://binance-docs.github.io/apidocs/spot/en/#error-codes-2).
+	
+## HTTP status 429 and 418 return codes
+
+The [HTTP return codes](https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#http-return-codes) in Binance official API docs includes information on each code.
+
+We recommend to refrain from running multiple Hummingbot instances trading on Binance in one server or IP address. Otherwise, it may result to these errors especially if using multiple orders mode with pure market making strategy.
+
+If you use the endpoint https://api.binance.com/api/v3/exchangeInfo you can see their limitation on API trading.
+
+```
+"timezone": "UTC",
+"serverTime": 1578374813914,
+"rateLimits": [
+    {
+        "rateLimitType": "REQUEST_WEIGHT",
+        "interval": "MINUTE",
+        "intervalNum": 1,
+        "limit": 1200
+    },
+    {
+        "rateLimitType": "ORDERS",
+        "interval": "SECOND",
+        "intervalNum": 10,
+        "limit": 100
+    },
+    {
+        "rateLimitType": "ORDERS",
+        "interval": "DAY",
+        "intervalNum": 1,
+        "limit": 200000
+    }
+```
+
+Exceeding the 1,200 total request weight per limit will result in an IP ban. The order limits of 100 per second or 200,000 will be dependent on account.

@@ -1,13 +1,12 @@
 import pandas as pd
 import threading
-from os.path import (
-    join,
-    dirname
-)
+from os.path import join
 from typing import List
 from hummingbot.model.trade_fill import TradeFill
-
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.settings import DEFAULT_LOG_FILE_PATH
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -21,10 +20,13 @@ class ExportTradesCommand:
 
         if not path:
             fname = f"trades_{pd.Timestamp.now().strftime('%Y-%m-%d-%H-%M-%S')}.csv"
-            path = join(dirname(__file__), f"../../../logs/{fname}")
+            path = global_config_map["log_file_path"].value
+            if path is None:
+                path = DEFAULT_LOG_FILE_PATH
+            path = join(path, fname)
 
         trades: List[TradeFill] = self._get_trades_from_session(self.init_time)
-        
+
         if len(trades) > 0:
             try:
                 df: pd.DataFrame = TradeFill.to_pandas(trades)

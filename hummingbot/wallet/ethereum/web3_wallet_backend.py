@@ -217,7 +217,6 @@ class Web3WalletBackend(PubSub):
 
             # Create event watchers.
             self._new_blocks_watcher = NewBlocksWatcher(self._w3)
-            self._new_blocks_watcher.add_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
             self._account_balance_watcher = AccountBalanceWatcher(
                 self._w3,
                 self._new_blocks_watcher,
@@ -245,31 +244,33 @@ class Web3WalletBackend(PubSub):
                     [self._account.address]
                 )
 
-            # Connect the event forwarders.
-            self._erc20_events_watcher.add_listener(ERC20WatcherEvent.ReceivedToken,
-                                                    self._received_asset_event_forwarder)
-            self._erc20_events_watcher.add_listener(ERC20WatcherEvent.ApprovedToken,
-                                                    self._approved_token_event_forwarder)
-            self._incoming_eth_watcher.add_listener(IncomingEthWatcherEvent.ReceivedEther,
-                                                    self._received_asset_event_forwarder)
+        # Connect the event forwarders.
+        self._new_blocks_watcher.add_listener(NewBlocksWatcherEvent.NewBlocks, 
+                                              self._event_forwarder)
+        self._erc20_events_watcher.add_listener(ERC20WatcherEvent.ReceivedToken,
+                                                self._received_asset_event_forwarder)
+        self._erc20_events_watcher.add_listener(ERC20WatcherEvent.ApprovedToken,
+                                                self._approved_token_event_forwarder)
+        self._incoming_eth_watcher.add_listener(IncomingEthWatcherEvent.ReceivedEther,
+                                                self._received_asset_event_forwarder)
 
-            if self._weth_watcher is not None:
-                self._weth_watcher.add_listener(WalletEvent.WrappedEth,
-                                                self._wrapped_eth_event_forwarder)
-                self._weth_watcher.add_listener(WalletEvent.UnwrappedEth,
-                                                self._unwrapped_eth_event_forwarder)
+        if self._weth_watcher is not None:
+            self._weth_watcher.add_listener(WalletEvent.WrappedEth,
+                                            self._wrapped_eth_event_forwarder)
+            self._weth_watcher.add_listener(WalletEvent.UnwrappedEth,
+                                            self._unwrapped_eth_event_forwarder)
 
-            # Start the transaction processing tasks.
-            self._outgoing_transactions_task = safe_ensure_future(self.outgoing_eth_transactions_loop())
-            self._check_transaction_receipts_task = safe_ensure_future(self.check_transaction_receipts_loop())
+        # Start the transaction processing tasks.
+        self._outgoing_transactions_task = safe_ensure_future(self.outgoing_eth_transactions_loop())
+        self._check_transaction_receipts_task = safe_ensure_future(self.check_transaction_receipts_loop())
 
-            # Start the event watchers.
-            await self._new_blocks_watcher.start_network()
-            await self._account_balance_watcher.start_network()
-            await self._erc20_events_watcher.start_network()
-            await self._incoming_eth_watcher.start_network()
-            if self._weth_watcher is not None:
-                await self._weth_watcher.start_network()
+        # Start the event watchers.
+        await self._new_blocks_watcher.start_network()
+        await self._account_balance_watcher.start_network()
+        await self._erc20_events_watcher.start_network()
+        await self._incoming_eth_watcher.start_network()
+        if self._weth_watcher is not None:
+            await self._weth_watcher.start_network()
 
     async def stop_network(self):
         # Disconnect the event forwarders.
@@ -310,7 +311,7 @@ class Web3WalletBackend(PubSub):
 
     async def check_network(self) -> NetworkStatus:
         # Assume connected if received new blocks in last 2 minutes
-        if time.time() - self._last_timestamp_received_blocks > 60 * 2:
+        if time.time() - self._last_timestamp_received_blocks < 60 * 2:
             return NetworkStatus.CONNECTED
 
         try:

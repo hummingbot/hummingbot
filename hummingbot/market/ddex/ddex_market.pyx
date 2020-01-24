@@ -50,7 +50,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.market.market_base import s_decimal_NaN
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.market.trading_rule cimport TradingRule
-
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -662,7 +662,7 @@ cdef class DDEXMarket(MarketBase):
     cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
@@ -732,7 +732,7 @@ cdef class DDEXMarket(MarketBase):
     cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
                     dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
 
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
