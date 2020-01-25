@@ -8,9 +8,10 @@ from typing import Optional
 import unittest.mock
 from yarl import URL
 from collections import namedtuple
+import requests
+from threading import Thread
 
-
-StockResponse = namedtuple("StockResponse", "method host path query_string is_permanent is_json response")
+StockResponse = namedtuple("StockResponse", "method host path query_string is_json response")
 
 
 def get_open_port() -> int:
@@ -25,16 +26,28 @@ def get_open_port() -> int:
 
 class HummingWebApp:
     TEST_RESPONSE = f"hello {str(random.randint(0, 10000000))}"
+    __instance = None
+    _hosts_to_mock = {}
+    host = "127.0.0.1"
+    _port: Optional[int] = None
+
+    @staticmethod
+    def get_instance():
+        if HummingWebApp.__instance is None:
+            HummingWebApp()
+        return HummingWebApp.__instance
 
     def __init__(self):
-        self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-        self._impl: Optional[web.Application] = web.Application()
+        if HummingWebApp.__instance is not None:
+            raise Exception("This class is a singleton!")
+        else:
+            HummingWebApp.__instance = self
+        self._ev_loop: None
+        self._impl: Optional[web.Application] = None
         self._runner: Optional[web.AppRunner] = None
-        self._port: Optional[int] = None
         self._started: bool = False
         self._stock_responses = []
         self.host = "127.0.0.1"
-        self._hosts_to_mock = {}
 
     async def _handler(self, request: web.Request):
         method, req_path, query_string = request.method, request.path, request.query_string
@@ -46,8 +59,6 @@ class HummingWebApp:
         if not resps:
             raise web.HTTPNotFound(text=f"No Match found for {host}{path} {method}")
         is_json, response = resps[0].is_json, resps[0].response
-        if not resps[0].is_permanent:
-            self._stock_responses.remove(resps[0])
         if is_json:
             return web.json_response(data=response)
         elif type(response) == str:
@@ -56,25 +67,35 @@ class HummingWebApp:
             return response
 
     # To add or update data which will later be respoonded to a request according to its method, host and path
-    def update_response_data(self, method, host, path, data, query_string="", is_permanent=False, is_json=True):
+    def update_response_data(self, method, host, path, data, query_string="", is_json=True):
         method = method.upper()
         resp_data = [x for x in self._stock_responses if x.method == method and x.host == host and x.path == path]
         if resp_data:
             self._stock_responses.remove(resp_data[0])
-        self._stock_responses.append(StockResponse(method, host, path, query_string, is_permanent, is_json, data))
+        self._stock_responses.append(StockResponse(method, host, path, query_string, is_json, data))
 
     def add_host_to_mock(self, host, ignored_paths=[]):
-        self._hosts_to_mock[host] = ignored_paths
+        HummingWebApp._hosts_to_mock[host] = ignored_paths
 
     # reroute a url if it is one of the hosts we handle.
-    def reroute_local(self, url):
+    @staticmethod
+    def reroute_local(url):
         a_url = URL(url)
-        if a_url.host in self._hosts_to_mock and not any(x in a_url.path for x in self._hosts_to_mock[a_url.host]):
+        if a_url.host in HummingWebApp._hosts_to_mock and not any(x in a_url.path for x in
+                                                                  HummingWebApp._hosts_to_mock[a_url.host]):
             host_path = f"/{a_url.host}{a_url.path}"
             query = a_url.query
-            a_url = a_url.with_scheme("http").with_host(self.host).with_port(self.port).with_path(host_path)\
-                .with_query(query)
+            a_url = a_url.with_scheme("http").with_host(HummingWebApp.host).with_port(HummingWebApp._port)\
+                .with_path(host_path).with_query(query)
         return a_url
+
+    orig_session_request = requests.Session.request
+
+    # self here is not an instance of HummingWebApp, it is for mocking Session.request
+    @staticmethod
+    def reroute_request(self, method, url, **kwargs):
+        a_url = HummingWebApp.reroute_local(url)
+        return HummingWebApp.orig_session_request(self, method, str(a_url), **kwargs)
 
     @property
     def started(self) -> bool:
@@ -82,15 +103,16 @@ class HummingWebApp:
 
     @property
     def port(self) -> Optional[int]:
-        return self._port
+        return type(self)._port
 
     async def _start(self):
         try:
-            # add a handler to all requests coming to this local host and on the port
+            HummingWebApp._port = get_open_port()
+            self._impl: Optional[web.Application] = web.Application()
             self._impl.add_routes([web.route("*", '/{tail:.*}', self._handler)])
             self._runner = web.AppRunner(self._impl)
             await self._runner.setup()
-            site = web.TCPSite(self._runner, host=self.host, port=self.port)
+            site = web.TCPSite(self._runner, host=HummingWebApp.host, port=HummingWebApp._port)
             await site.start()
             self._started = True
         except Exception:
@@ -109,11 +131,18 @@ class HummingWebApp:
         self._port = None
         self._started = False
 
+    def _start_web_app(self):
+        self._ev_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self._ev_loop)
+        asyncio.ensure_future(self._start())
+        self._ev_loop.run_forever()
+
     def start(self):
         if self.started:
             self.stop()
-        self._port = get_open_port()
-        asyncio.ensure_future(self._start())
+        thread = Thread(target=self._start_web_app)
+        thread.daemon = True
+        thread.start()
 
     def stop(self):
         asyncio.ensure_future(self._stop())
@@ -123,7 +152,7 @@ class HummingWebAppTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-        cls.web_app: HummingWebApp = HummingWebApp()
+        cls.web_app: HummingWebApp = HummingWebApp.get_instance()
         cls.host = "www.google.com"
         cls.web_app.add_host_to_mock(cls.host)
         cls.web_app.update_response_data("get", cls.host, "/", data=cls.web_app.TEST_RESPONSE, is_json=False)
@@ -131,12 +160,17 @@ class HummingWebAppTest(unittest.TestCase):
         cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
         cls._patcher = unittest.mock.patch("aiohttp.client.URL")
         cls._url_mock = cls._patcher.start()
-        cls._url_mock.side_effect = cls.web_app.reroute_local
+        cls._url_mock.side_effect = HummingWebApp.reroute_local
+
+        cls._req_patcher = unittest.mock.patch.object(requests.Session, "request", autospec=True)
+        cls._req_url_mock = cls._req_patcher.start()
+        cls._req_url_mock.side_effect = HummingWebApp.reroute_request
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.web_app.stop()
         cls._patcher.stop()
+        cls._req_patcher.stop()
 
     async def _test_web_app_response(self):
         async with ClientSession() as client:
@@ -147,6 +181,10 @@ class HummingWebAppTest(unittest.TestCase):
 
     def test_web_app_response(self):
         self.ev_loop.run_until_complete(self._test_web_app_response())
+
+    def test_get_request_response(self):
+        r = requests.get("http://www.google.com/")
+        self.assertEqual(self.web_app.TEST_RESPONSE, r.text)
 
 
 if __name__ == '__main__':

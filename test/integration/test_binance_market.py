@@ -60,6 +60,9 @@ from hummingbot.wallet.ethereum.mock_wallet import MockWallet
 
 MAINNET_RPC_URL = "http://mainnet-rpc.mainnet:8545"
 logging.basicConfig(level=METRICS_LOG_LEVEL)
+API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled in ['true', 'yes', '1']
+API_KEY = "XXX" if API_MOCK_ENABLED else conf.liquid_api_key
+API_SECRET = "YYY" if API_MOCK_ENABLED else conf.liquid_secret_key
 
 
 class BinanceMarketUnitTest(unittest.TestCase):
@@ -85,10 +88,10 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: BinanceMarket = BinanceMarket(
-            conf.binance_api_key, conf.binance_api_secret,
+            API_KEY, API_SECRET,
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-            trading_pairs=["ZRXETH", "IOSTETH"]
+            trading_pairs=["LINKETH", "ZRXETH"]
         )
         print("Initializing Binance market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
