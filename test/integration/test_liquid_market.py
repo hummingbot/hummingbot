@@ -86,22 +86,18 @@ class LiquidMarketUnitTest(unittest.TestCase):
         cls.ev_loop = asyncio.get_event_loop()
 
         if API_MOCK_ENABLED:
-            cls.web_app = HummingWebApp()
+            cls.web_app = HummingWebApp.get_instance()
             cls.web_app.add_host_to_mock(cls.liquid_api_host, ["/products", "/currencies"])
             cls.web_app.start()
             cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
             cls._patcher = mock.patch("aiohttp.client.URL")
             cls._url_mock = cls._patcher.start()
             cls._url_mock.side_effect = cls.web_app.reroute_local
-            cls.web_app.update_response_data("get", cls.liquid_api_host, "/fiat_accounts", FixtureLiquid.FIAT_ACCOUNTS,
-                                             is_permanent=True)
+            cls.web_app.update_response_data("get", cls.liquid_api_host, "/fiat_accounts", FixtureLiquid.FIAT_ACCOUNTS)
             cls.web_app.update_response_data("get", cls.liquid_api_host, "/crypto_accounts",
-                                             FixtureLiquid.CRYPTO_ACCOUNTS,
-                                             is_permanent=True)
+                                             FixtureLiquid.CRYPTO_ACCOUNTS)
             cls.web_app.update_response_data("get", cls.liquid_api_host, "/orders", FixtureLiquid.ORDERS_GET,
-                                             query_string="with_details=1",
-                                             is_permanent=True)
-
+                                             query_string="with_details=1")
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: LiquidMarket = LiquidMarket(
             API_KEY, API_SECRET,
