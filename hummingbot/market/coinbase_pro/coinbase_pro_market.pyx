@@ -363,8 +363,8 @@ cdef class CoinbaseProMarket(MarketBase):
         # There is no API for checking user's fee tier
         # Fee info from https://pro.coinbase.com/fees
         cdef:
-            object maker_fee = Decimal("0.0015")
-            object taker_fee = Decimal("0.0025")
+            object maker_fee = Decimal("0.005")
+            object taker_fee = Decimal("0.005")
 
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
 
