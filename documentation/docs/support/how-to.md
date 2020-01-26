@@ -16,6 +16,14 @@ Look for a field `Mounts`, which will describe where the folders are on you loca
 "Mounts": [
     {
         "Type": "bind",
+        "Source": "/home/ubuntu/hummingbot_files/hummingbot_data",
+        "Destination": "/data",
+        "Mode": "",
+        "RW": true,
+        "Propagation": "rprivate"
+    },
+    {
+        "Type": "bind",
         "Source": "/home/ubuntu/hummingbot_files/hummingbot_conf",
         "Destination": "/conf",
         "Mode": "",
@@ -34,7 +42,7 @@ Look for a field `Mounts`, which will describe where the folders are on you loca
 ```
 
 !!! note
-    To learn more about Hummingbot Log File Management visit this [page](https://docs.hummingbot.io/utilities/logging/).
+    Read through [Log File Management](https://docs.hummingbot.io/utilities/logging/) for more information.
 
 #### How do I edit the conf files or access the log files used by my docker instance?
 
@@ -69,95 +77,29 @@ Close any warnings, and you're done! Just hit enter to move onto the next line a
 
 You should be able to paste items from your clipboard by doing mouse right-click or `SHIFT + right-click`. If that doesn't work, follow the steps below.
 
-1 - If you are currently logged in a session, do a left-click on the upper left hand corner of the PuTTY window or a right-click anywhere on the title bar then select "Change Settings". If not, proceed to step 2.
+1. If you are currently logged in a session, left-click on the upper left hand corner of the PuTTY window or a right-click anywhere on the title bar then select "Change Settings". If not, proceed to next step.
+2. In PuTTY configuration under Window category go to "Selection". Select the "Window" radio button for action of mouse buttons.
+3. You can now paste items from clipboard by doing a right-click to bring up the menu and select "Paste".
 
-  ![](/assets/img/putty_1.png)
+![](/assets/img/putty_copy_paste.gif)
 
-2 - In PuTTY configuration under Window category go to "Selection". Select the "Window" radio button for action of mouse buttons.
+#### Other ways to copy and paste
 
-  ![](/assets/img/putty_2.png)
+Copying to clipboard on Windows or Linux:
 
-3 - You can now paste items from clipboard by doing a right-click to bring up the menu and select "Paste".
-
-  ![](/assets/img/putty_3.png)
-
-#### Alternative ways of copy and paste
-
-```bash
-# Windows / Linux
-
-# Copy
+```
 Ctrl + C 
 Ctrl + Insert
 Ctrl + Shift + C
+```
 
-# Paste
+Pasting items from clipboard on Windows or Linux:
+
+```
 Ctrl + V
 Shift + Insert
 Ctrl + Shift + V
 ```
-
-#### How do I use the same email and ETH address for liquidity bounty when running multiple bots?
-
-Run the command `bounty --restore-id` in the other instance(s). Enter the email address you used to register for liquidity bounties where the verification code will be sent.
-
-Alternatively, you can also follow these steps below.
-
-Installed from Docker:
-
-1. Create and run multiple Docker instances that use the same file folder location for configs and logs. Each instance will then use the same `conf_liquidity_bounty.yml` file.
-
-Installed from source:
-
-1. Register for liquidity bounties using your email and ETH address
-2. Exit Hummingbot and open `conf/conf_liquidity_bounty.yml`
-3. Copy the contents of this file
-4. Create another instance of Hummingbot
-5. Paste what you copied in step 3 into `conf/conf_liquidity_bounty.yml` in this new instance
-
-
-#### How do I update Hummingbot after I had previously installed using old instructions?
-
-If you have previously installed Hummingbot using Docker and our previous documentation naming conventions, can you copy and paste the following command to update to the latest naming as well as to enable the user scripts:
-
-Copy the commands below and run from the root folder (i.e. when you type `ls`, make sure you see the `my-hummingbot` folder).
-
-* If your previous instance was named `my-hummingbot` (check by running `docker ps -a`):
-
-```bash
-# Remove instance
-docker rm my-hummingbot && \
-# Remove old image
-docker image rm coinalpha/hummingbot:latest && \
-# Rename file folder
-sudo mv my-hummingbot hummingbot_files && \
-# Start new instance
-docker run -it \
---name hummingbot-instance \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
-coinalpha/hummingbot:latest
-```
-
-* If your previous instance was named `my-instance-1` (check by running `docker ps -a`):
-
-```bash
-# Remove instance
-docker rm my-instance-1 && \
-# Remove old image
-docker image rm coinalpha/hummingbot:latest && \
-# Rename file folder
-sudo mv my-hummingbot hummingbot_files && \
-# Start new instance
-docker run -it \
---name hummingbot-instance \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
-coinalpha/hummingbot:latest
-```
-
-You will then be able to use the [automated docker scripts](/cheatsheets/docker/#automated-docker-scripts-optional).
-
 
 #### Locate data folder or hummingbot_trades.sqlite when running Hummingbot via Docker
 
@@ -194,3 +136,10 @@ chmod a+x *.sh
 ```
 4. Command `./create.sh` creates a new Hummingbot instance.
 5. Command `./update.sh` updates an existing Hummingbot instance.
+
+
+#### Get REST API data using Postman
+
+Some information related to an exchange can be retrieved through their public API such as minimum order sizes. You can download a program called [Postman](https://www.getpostman.com/) and follow the instructions in [Get Started with Postman](https://learning.getpostman.com/getting-started/).
+
+![](/assets/img/postman.png)
