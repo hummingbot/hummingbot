@@ -62,4 +62,8 @@ Pairs on Coinbase Pro generally require a minimum order size equivalent to betwe
 
 ### Transaction Fees
 
-Coinbase Pro charges 0.15% in maker fees and 0.25% in taker fees for most users. However, users who trade in high volumes can trade at discounted rates. See their [official fee structure](https://pro.coinbase.com/fees) for more details.
+Coinbase Pro charges 0.50% fees for both maker and taker orders. However, users who trade in high volumes can trade at discounted rates.
+
+Read through their article below related to trading fees and discounts.
+
+* [What are the fees on Coinbase Pro?](https://help.coinbase.com/en/pro/trading-and-funding/trading-rules-and-fees/fees.html)
