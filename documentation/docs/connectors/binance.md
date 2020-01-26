@@ -57,6 +57,6 @@ Make sure you store your Secret Key somewhere secure, and do not share it with a
 
 See [this page](https://www.binance.com/en/trade-rule) for the minimum order size per trading pair. Typically, the minimum is around $10 equivalent of whichever currency you are trading in.
 
-## Transaction Fees
+### Transaction Fees
 
 By default, trading fees are 0.1% on Binance for both market makers and takers. However, users who trade high volumes and own substantial amounts of Binance Coin can receive discounts. More details can be found [here](https://www.binance.com/en/support/articles/115000429332-Fee-Structure-on-Binance).
