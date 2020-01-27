@@ -24,6 +24,15 @@ class OrderBookUnitTest(unittest.TestCase):
         self.assertEqual(best_bid,[3.,1.,3.])
         self.assertEqual(best_ask,[4.,1.,1.])
 
+        new_ask = np.array([[2,0.1,5]])
+        new_bid = np.array([[3.5,1,5]])
+        self.order_book_dex.apply_numpy_diffs(new_bid,new_ask)
+        bids,asks = self.order_book_dex.snapshot
+        best_bid = bids.iloc[0].tolist()
+        best_ask = asks.iloc[0].tolist()
+        self.assertEqual(best_bid,[3.5,1.,5.])
+        self.assertEqual(best_ask,[4.,1.,1.])
+
 
 def main():
     logging.basicConfig(level=logging.INFO)
