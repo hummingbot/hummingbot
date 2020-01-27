@@ -1,0 +1,34 @@
+#!/usr/bin/env python
+
+from os.path import join, realpath
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
+
+import logging
+import unittest
+from hummingbot.core.data_type.order_book import OrderBook
+import numpy as np
+
+
+class OrderBookUnitTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.order_book_dex = OrderBook(dex=True)
+    
+    def test_truncate_overlap_entries_dex(self):
+        bids_array = np.array([[1,1,1],[2,1,2],[3,1,3],[50,0.01,4]],dtype=np.float64)
+        asks_array = np.array([[4,1,1],[5,1,2],[6,1,3],[7,1,4]],dtype=np.float64)
+        self.order_book_dex.apply_numpy_snapshot(bids_array, asks_array)
+        bids,asks = self.order_book_dex.snapshot
+        best_bid = bids.iloc[0].tolist()
+        best_ask = asks.iloc[0].tolist()
+        self.assertEqual(best_bid,[3.,1.,3.])
+        self.assertEqual(best_ask,[4.,1.,1.])
+
+
+def main():
+    logging.basicConfig(level=logging.INFO)
+    unittest.main()
+
+
+if __name__ == "__main__":
+    main()
