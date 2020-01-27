@@ -105,6 +105,9 @@ cdef class OrderBook(PubSub):
             self._ask_book.insert(ask)
             if not (ask.getPrice() >= best_ask_price):
                 best_ask_price = ask.getPrice()
+        
+        if self._dex:
+            truncateOverlapEntries(self._bid_book, self._ask_book, self._dex)
 
         # Record the current best prices, for faster c_get_price() calls.
         self._best_bid = best_bid_price
