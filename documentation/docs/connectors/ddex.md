@@ -17,46 +17,53 @@ Because DDEX is a decentralized exchange, you will need an independent cryptocur
 
 Minimum order sizes on DDEX typically range between $15 to $20.
 
-Each trading pair has a unique minimum order size denominated in the *base currency*.  You can access the minimum order size for a specific token pair using the following URL:
+Each trading pair has a unique minimum order size denominated in the *base currency*.  You can access the minimum order size for a specific token pair using the following public API:
 
 ```
-https://api.ddex.io/v3/markets/:marketId
+https://api.ddex.io/v3/markets
 ```
 
-For example, for `WETH-DAI`, navigate to: [https://api.ddex.io/v3/markets/**`WETH-DAI`**](https://api.ddex.io/v3/markets/WETH-DAI).
-
-Sample output:
+You can also add the trading pair at the end of the URL to make it more specific.
 
 ```
-{
-  "status": 0,
-  "desc": "success",
-  "data": {
+https://api.ddex.io/v3/markets/WETH-USDT
+```
+
+For example, trading pair `WETH-USDT` minimum order size is 0.01 WETH.
+
+```
+"status": 0,
+"desc": "success",
+"data": {
     "market": {
-      "id": "WETH-DAI",
-      "baseToken": "WETH",
-      "baseTokenProjectUrl": "https://weth.io/",
-      "baseTokenName": "Wrapped Ether",
-      "baseTokenDecimals": 18,
-      "baseTokenAddress": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
-      "baseTokenDisplaySymbol": null,
-      "quoteToken": "DAI",
-      "quoteTokenDecimals": 18,
-      "quoteTokenAddress": "0x89d24a6b4ccb1b6faa2625fe562bdd9a23260359",
-      "quoteTokenDisplaySymbol": null,
-      "minOrderSize": "0.050000000000000000", <== ** MINIMUM ORDER SIZE **
-      "pricePrecision": 5,
-      "priceDecimals": 2,
-      "amountDecimals": 2,
-      "asMakerFeeRate": "0.00100",
-      "asTakerFeeRate": "0.00300",
-      "gasFeeAmount": "0.3295179490594733939",
-      "supportedOrderTypes": ["limit", "market"],
-      "marketOrderMaxSlippage": "0.10000"
+        "id": "WETH-USDT",
+        "baseToken": "WETH",
+        "baseTokenProjectUrl": "https://weth.io/",
+        "baseTokenName": "Wrapped Ether",
+        "baseTokenDecimals": 18,
+        "baseTokenAddress": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        "baseTokenDisplaySymbol": null,
+        "quoteToken": "USDT",
+        "quoteTokenDecimals": 6,
+        "quoteTokenAddress": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+        "quoteTokenDisplaySymbol": null,
+        "minOrderSize": "0.010000000000000000",
+        "pricePrecision": 5,
+        "priceDecimals": 2,
+        "amountDecimals": 2,
+        "asMakerFeeRate": "0.00100",
+        "asTakerFeeRate": "0.00300",
+        "gasFeeAmount": "0.25795607384814000349",
+        "supportedOrderTypes": [
+            "limit"
+        ],
+        "marketOrderMaxSlippage": "0.10000"
     }
-  }
 }
 ```
+
+!!! tip
+    See troubleshooting section on how to [Get REST API data using Postman](/support/how-to/#get-rest-api-data-using-postman).
 
 In this example, the minimum order size is 0.5 WETH.
 

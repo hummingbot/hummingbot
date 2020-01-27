@@ -54,7 +54,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 You may refer to [this page](https://support.huobi.so/hc/en-us/articles/360000400491-Trade-Limits) for the minimum order size per trading pair.
 
-## Transaction Fees
+### Transaction Fees
 
 Huobi charges 0.2% on both maker and taker for most pairs. However, Huobi VIP users can also enjoy fees at discounted rate.
 
