@@ -6,4 +6,4 @@ This error below indicates that an account on Dolomite must be created.
 ... WARNING - No Dolomite account for <wallet_address>.
 ```
 
-Follow the instructions in [Dolomite - Using the Connector](http://localhost:8000/connectors/dolomite/#using-the-connector).
+Follow the instructions in [Dolomite - Using the Connector](https://docs.hummingbot.io/connectors/dolomite/#using-the-connector).
