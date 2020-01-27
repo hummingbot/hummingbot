@@ -6,7 +6,7 @@ BITFINEX_REST_AUTH_URL = "https://api.bitfinex.com/v2"
 BITFINEX_WS_URI = "wss://api-pub.bitfinex.com/ws/2"
 BITFINEX_WS_AUTH_URI = "wss://api.bitfinex.com/ws/2"
 
-TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USD|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|LTC|ETC|XMR|DASH)$")
+TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|USD)$")
 
 
 MIN_BASE_AMOUNT_INCREMENT = Decimal("0.01")

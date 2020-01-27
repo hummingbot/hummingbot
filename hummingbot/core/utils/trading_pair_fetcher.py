@@ -25,6 +25,7 @@ BITTREX_ENDPOINT = "https://api.bittrex.com/v3/markets"
 KUCOIN_ENDPOINT = "https://api.kucoin.com/api/v1/symbols"
 DOLOMITE_ENDPOINT = "https://exchange-api.dolomite.io/v1/markets"
 BITCOIN_COM_ENDPOINT = "https://api.exchange.bitcoin.com/api/2/public/symbol"
+BITFINEX_ENDPOINT = "https://api-pub.bitfinex.com/v2/conf/pub:list:pair:exchange"
 
 API_CALL_TIMEOUT = 5
 
@@ -360,6 +361,30 @@ class TradingPairFetcher:
 
         return []
 
+    async def fetch_bitfinex_trading_pairs(self) -> List[str]:
+        try:
+            from hummingbot.market.bitfinex.bitfinex_market import BitfinexMarket
+
+            client: aiohttp.ClientSession = TradingPairFetcher.http_client()
+            async with client.get(BITFINEX_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    raw_trading_pairs: List[Dict[str, any]] = data[0]
+                    trading_pair_list: List[str] = []
+                    for raw_trading_pair in raw_trading_pairs:
+                        converted_trading_pair: Optional[str] = \
+                            BitfinexMarket.convert_from_exchange_trading_pair(raw_trading_pair)
+                        if converted_trading_pair is not None:
+                            trading_pair_list.append(converted_trading_pair)
+                        else:
+                            self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
+                    return trading_pair_list
+        except Exception:
+            # Do nothing if the request fails -- there will be no autocomplete available
+            pass
+
+        return []
+
     async def fetch_all(self):
         binance_trading_pairs = await self.fetch_binance_trading_pairs()
         ddex_trading_pairs = await self.fetch_ddex_trading_pairs()
@@ -375,6 +400,7 @@ class TradingPairFetcher:
         bittrex_trading_pairs = await self.fetch_bittrex_trading_pairs()
         kucoin_trading_pairs = await self.fetch_kucoin_trading_pairs()
         bitcoin_com_trading_pairs = await self.fetch_bitcoin_com_trading_pairs()
+        bitfinex_trading_pairs = await self.fetch_bitfinex_trading_pairs()
         self.trading_pairs = {
             "binance": binance_trading_pairs,
             "dolomite": dolomite_trading_pairs,
@@ -387,6 +413,7 @@ class TradingPairFetcher:
             "liquid": liquid_trading_pairs,
             "bittrex": bittrex_trading_pairs,
             "kucoin": kucoin_trading_pairs,
-            "bitcoin_com": bitcoin_com_trading_pairs
+            "bitcoin_com": bitcoin_com_trading_pairs,
+            "bitfinex": bitfinex_trading_pairs,
         }
         self.ready = True
