@@ -90,13 +90,14 @@ nav:
         - Source Commands: cheatsheets/source.md
         - Client Commands: cheatsheets/client.md
       - Liquidity Mining:
-        - Liquidity Mining FAQ: liquidity-mining/faq.md
+        - Participation Guide: liquidity-mining/howto.md 
         - Upcoming campaigns:
           - Harmony: liquidity-mining/upcoming/harmony.md
           - WETH/DAI on Bamboo Relay: liquidity-mining/upcoming/WETH-DAI_on_Bamboo.md
           - iExec: liquidity-mining/upcoming/iExec.md
           - Zcoin: liquidity-mining/upcoming/ZCoin.md
           - Zilliqa: liquidity-mining/upcoming/Zilliqa.md
+        - Liquidity Mining FAQ: liquidity-mining/faq.md
       - Bounties:
         - Bug Bounty Program: support/bug-bounty-program.md
         - Developer Bounty Program: bounties/developer-bounty.md
