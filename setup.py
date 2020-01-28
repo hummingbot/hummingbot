@@ -73,6 +73,7 @@ def main():
         "cytoolz",
         "eth-abi",
         "eth-account",
+        "eth-bloom",
         "eth-hash",
         "eth-keyfile",
         "eth-keys",

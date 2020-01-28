@@ -1594,6 +1594,8 @@ cdef class BambooRelayMarket(MarketBase):
             tx_hash=None,
             zero_ex_order=zero_ex_order
         )
+        # Watch for Fill events for this order hash
+        safe_ensure_future(self._wallet.current_backend.zeroex_fill_watcher.watch_order_hash(exchange_order_id))
 
     cdef c_start_tracking_market_order(self,
                                        str order_id,
@@ -1633,6 +1635,8 @@ cdef class BambooRelayMarket(MarketBase):
 
     cdef c_stop_tracking_order(self, str order_id):
         if order_id in self._in_flight_limit_orders:
+            # Unwatch this order hash from Fill events
+            safe_ensure_future(self._wallet.current_backend.zeroex_fill_watcher.unwatch_order_hash(self._in_flight_limit_orders[order_id].exchange_order_id))
             del self._in_flight_limit_orders[order_id]
         elif order_id in self._in_flight_market_orders:
             del self._in_flight_market_orders[order_id]
