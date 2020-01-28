@@ -20,6 +20,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 |<img src="documentation/docs/assets/img/huobi_logo.png" alt="Huobi Global" width="90" />| huobi | [Huobi Global](https://www.hbg.com) | 1 | [API](https://huobiapi.github.io/docs/spot/v1/en/) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-exchange_huobi&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-exchange_huobi/) |
 |<img src="documentation/docs/assets/img/bittrex_logo.png" alt="Bittrex Global" width="90" height="30" />| bittrex | [Bittrex Global](https://global.bittrex.com/) | 1 | [API](https://bittrex.github.io/api/v1-1) |
 | <img src="documentation/docs/assets/img/liquid_logo.png" alt="Liquid" width="90" /> | liquid | [Liquid](https://www.liquid.com/) | 2 | [API](https://developers.liquid.com/) |
+| <img src="documentation/docs/assets/img/kucoin_logo.png" alt="KuCoin" width="90" /> | kucoin | [KuCoin](https://www.kucoin.com/) | 1 | [API](https://docs.kucoin.com/#general) |
 
 ## Supported decentralized exchanges
 
@@ -27,7 +28,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 |:---:|:---:|:---:|:---:|:---:|
 | <img src="documentation/docs/assets/img/radar_logo.png" alt="Radar Relay" width="90" height="30" /> | radar_relay | [Radar Relay](https://radarrelay.com/) | 2 | [API](https://developers.radarrelay.com/api/trade-api) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-exchange_radar_relay&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-exchange_radar_relay/) |
 | <img src="https://i.ibb.co/Lrpps2G/Screen-Shot-2019-03-14-at-10-39-23-AM.png" alt="DDEX" width="90" /> | ddex | [DDEX](https://ddex.io/) | 3 | [API](https://docs.ddex.io/) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-exchange_ddex&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-exchange_ddex/) |
-| <img src="documentation/docs/assets/img/idex_logo.png" alt="IDEX" width="90" /> | idex | [IDEX](https://idex.market/) | * | [API](https://docs.idex.market/) | |
+| <img src="documentation/docs/assets/img/idex_logo.png" alt="IDEX" width="90" /> | idex | [IDEX](https://idex.market/) | * | [API](https://docs.idex.market/) |
 
 ## Community contributed exchange connectors
 
