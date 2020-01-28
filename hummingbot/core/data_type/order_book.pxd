@@ -16,6 +16,7 @@ cdef class OrderBook(PubSub):
     cdef int64_t _last_diff_uid
     cdef double _best_bid
     cdef double _best_ask
+    cdef bint _dex
 
     cdef c_apply_diffs(self, vector[OrderBookEntry] bids, vector[OrderBookEntry] asks, int64_t update_id)
     cdef c_apply_snapshot(self, vector[OrderBookEntry] bids, vector[OrderBookEntry] asks, int64_t update_id)

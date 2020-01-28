@@ -36,7 +36,7 @@ This article below in their website under API information shows step-by-step ins
 
 There is no minimum order quantity for trading fiat currency. See [this page](https://help.liquid.com/en/articles/3339119-minimum-order-quantity) for minimum order sizes on crypto trading pairs.
 
-## Transaction Fees
+### Transaction Fees
 
 Generally, Liquid charges 0.10% on both maker and taker while a user can get 50% discount on trading fees if paid in QASH. QASH is an ERC20 token designed to be used services on the Quione and Liquid platform. Effecive April 1 2019, high-volume traders can also get rebates on trading fees.
 
