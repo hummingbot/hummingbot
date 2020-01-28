@@ -50,12 +50,11 @@ class HummingWebApp:
         self.host = "127.0.0.1"
 
     async def _handler(self, request: web.Request):
-        method, req_path, query_string = request.method, request.path, request.query_string
+        method, req_path = request.method, request.path
         req_path = req_path[1:]
         host = req_path[0:req_path.find("/")]
         path = req_path[req_path.find("/"):]
-        resps = [x for x in self._stock_responses if x.method == method and x.host == host and x.path == path and
-                 x.query_string == query_string]
+        resps = [x for x in self._stock_responses if x.method == method and x.host == host and x.path == path]
         if not resps:
             raise web.HTTPNotFound(text=f"No Match found for {host}{path} {method}")
         is_json, response = resps[0].is_json, resps[0].response
@@ -65,6 +64,14 @@ class HummingWebApp:
             return web.Response(text=response)
         else:
             return response
+
+    async def send_ws_msg(self, ws_path, message):
+        ws = [ws for path, ws in self._ws_response.items() if ws_path in path][0]
+        await ws.send_str(message)
+
+    async def send_ws_json(self, ws_path, data):
+        ws = [ws for path, ws in self._ws_response.items() if ws_path in path][0]
+        await ws.send_json(data=data)
 
     # To add or update data which will later be respoonded to a request according to its method, host and path
     def update_response_data(self, method, host, path, data, query_string="", is_json=True):

@@ -57,12 +57,18 @@ from hummingbot.model.sql_connection_manager import (
 )
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.wallet.ethereum.mock_wallet import MockWallet
+from test.integration.assets.mock_data.fixture_binance import FixtureBinance
+from test.integration.humming_web_app import HummingWebApp
+from unittest import mock
+import requests
+from test.integration.humming_ws_server import HummingWsServerFactory
+import json
 
 MAINNET_RPC_URL = "http://mainnet-rpc.mainnet:8545"
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled in ['true', 'yes', '1']
-API_KEY = "XXX" if API_MOCK_ENABLED else conf.liquid_api_key
-API_SECRET = "YYY" if API_MOCK_ENABLED else conf.liquid_secret_key
+API_KEY = "XXX" if API_MOCK_ENABLED else conf.binance_api_key
+API_SECRET = "YYY" if API_MOCK_ENABLED else conf.binance_api_secret
 
 
 class BinanceMarketUnitTest(unittest.TestCase):
@@ -81,11 +87,44 @@ class BinanceMarketUnitTest(unittest.TestCase):
     market: BinanceMarket
     market_logger: EventLogger
     stack: contextlib.ExitStack
+    base_api_url = "api.binance.com"
 
     @classmethod
     def setUpClass(cls):
         global MAINNET_RPC_URL
 
+        cls.ev_loop = asyncio.get_event_loop()
+
+        if API_MOCK_ENABLED:
+            cls.web_app = HummingWebApp.get_instance()
+            cls.web_app.add_host_to_mock(cls.base_api_url, ["/api/v1/ping", "/api/v1/exchangeInfo", "/api/v1/time",
+                                                            "/api/v1/depth"])
+            cls.web_app.start()
+            cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
+            cls._patcher = mock.patch("aiohttp.client.URL")
+            cls._url_mock = cls._patcher.start()
+            cls._url_mock.side_effect = cls.web_app.reroute_local
+
+            cls._req_patcher = unittest.mock.patch.object(requests.Session, "request", autospec=True)
+            # cls._req_patcher = unittest.mock.patch.object(BinanceClient.session, "request", autospec=True)
+            cls._req_url_mock = cls._req_patcher.start()
+            cls._req_url_mock.side_effect = HummingWebApp.reroute_request
+            cls.web_app.update_response_data("get", cls.base_api_url, "/api/v3/account", FixtureBinance.GET_ACCOUNT)
+            cls.web_app.update_response_data("get", cls.base_api_url, "/wapi/v3/tradeFee.html",
+                                             FixtureBinance.GET_TRADE_FEES)
+            cls.web_app.update_response_data("post", cls.base_api_url, "/api/v1/userDataStream",
+                                             FixtureBinance.GET_LISTEN_KEY)
+            cls.web_app.update_response_data("put", cls.base_api_url, "/api/v1/userDataStream",
+                                             FixtureBinance.GET_LISTEN_KEY)
+
+            cls.ws_url = f"wss://stream.binance.com:9443/ws/{FixtureBinance.GET_LISTEN_KEY['listenKey']}"
+            cls._ws_server = HummingWsServerFactory.start_new_server(cls.ws_url)
+            cls._ws_patcher = unittest.mock.patch("websockets.connect", autospec=True)
+            cls._ws_mock = cls._ws_patcher.start()
+            cls._ws_mock.side_effect = HummingWsServerFactory.reroute_ws_connect
+
+            cls._order_id_patcher = unittest.mock.patch("hummingbot.market.binance.binance_market.get_tracking_nonce")
+            cls._order_id_mock = cls._order_id_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: BinanceMarket = BinanceMarket(
             API_KEY, API_SECRET,
@@ -104,6 +143,12 @@ class BinanceMarketUnitTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.stack.close()
+        if API_MOCK_ENABLED:
+            cls.web_app.stop()
+            cls._patcher.stop()
+            cls._req_patcher.stop()
+            cls._ws_patcher.stop()
+            cls._order_id_patcher.stop()
 
     @classmethod
     async def wait_til_ready(cls):
@@ -157,12 +202,29 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
     def test_buy_and_sell(self):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
+        amount: Decimal = 1
+        quantized_amount: Decimal = self.market.quantize_order_amount("LINKETH", amount)
+        if API_MOCK_ENABLED:
+            nonce = 1580000000000001
+            self._order_id_mock.return_value = nonce
+            order_id = f"buy-LINKETH-{str(nonce)}"
+            order_resp = FixtureBinance.POST_ORDER_BUY
+            order_resp["clientOrderId"] = order_id
+            self.web_app.update_response_data("post", self.base_api_url, "/api/v3/order", order_resp)
+            orders_get = FixtureBinance.ORDER_GET_AFTER_BUY
+            orders_get["clientOrderId"] = order_id
+            self.web_app.update_response_data("get", self.base_api_url, "/api/v3/order", orders_get)
 
-        # Try to buy 0.02 ETH worth of ZRX from the exchange, and watch for completion event.
-        current_price: Decimal = self.market.get_price("ZRXETH", True)
-        amount: Decimal = Decimal("0.02") / current_price
-        quantized_amount: Decimal = self.market.quantize_order_amount("ZRXETH", amount)
-        order_id = self.market.buy("ZRXETH", amount)
+        order_id = self.market.buy("LINKETH", amount)
+        if API_MOCK_ENABLED:
+            data = FixtureBinance.WS_AFTER_BUY_1
+            data["c"] = order_id
+            self.run_parallel(self._ws_server.websocket.send(json.dumps(data)))
+            data = FixtureBinance.WS_AFTER_BUY_2
+            data["c"] = order_id
+            self.run_parallel(self._ws_server.websocket.send(json.dumps(data)))
+            data = FixtureBinance.WS_AFTER_BUY_3
+            self.run_parallel(self._ws_server.websocket.send(json.dumps(data)))
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -173,7 +235,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.MARKET for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("ZRX", order_completed_event.base_asset)
+        self.assertEqual("LINK", order_completed_event.base_asset)
         self.assertEqual("ETH", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
@@ -187,7 +249,12 @@ class BinanceMarketUnitTest(unittest.TestCase):
         # Try to sell back the same amount of ZRX to the exchange, and watch for completion event.
         amount = order_completed_event.base_asset_amount
         quantized_amount = order_completed_event.base_asset_amount
-        order_id = self.market.sell("ZRXETH", amount)
+        order_id = self.market.sell("LINKETH", amount)
+        if API_MOCK_ENABLED:
+            order_resp = FixtureBinance.POST_ORDER_SELL
+            order_resp["clientOrderId"] = order_id
+            self.web_app.update_response_data("post", self.base_api_url, "/api/v3/order", order_resp)
+
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events = [t for t in self.market_logger.event_log
@@ -198,7 +265,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.MARKET for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("ZRX", order_completed_event.base_asset)
+        self.assertEqual("LINK", order_completed_event.base_asset)
         self.assertEqual("ETH", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
