@@ -36,6 +36,37 @@ This article below in their website under API information shows step-by-step ins
 
 There is no minimum order quantity for trading fiat currency. See [this page](https://help.liquid.com/en/articles/3339119-minimum-order-quantity) for minimum order sizes on crypto trading pairs.
 
+If the token or trading pair isn't listed in the article, you can also get this information through their public API.
+
+```
+https://api.liquid.com/currencies
+```
+
+The minimum order size is the value next to `minimum_order_quantity`. In the example below, the minimum order size of IDRT is `500.0`.
+
+```
+"currency_type": "crypto",
+"currency": "IDRT",
+"symbol": "IDRT",
+"assets_precision": 2,
+"quoting_precision": 2,
+"minimum_withdrawal": 20000.0,
+"withdrawal_fee": 0.0,
+"minimum_fee": null,
+"minimum_order_quantity": 500.0,
+"display_precision": 2,
+"depositable": true,
+"withdrawable": true,
+"discount_fee": 0.5,
+"lendable": false,
+"position_fundable": false,
+"has_memo": false
+```
+
+!!! tip
+    See troubleshooting section on how to [Get REST API data using Postman](/support/how-to/#get-rest-api-data-using-postman).
+
+
 ### Transaction Fees
 
 Generally, Liquid charges 0.10% on both maker and taker while a user can get 50% discount on trading fees if paid in QASH. QASH is an ERC20 token designed to be used services on the Quione and Liquid platform. Effecive April 1 2019, high-volume traders can also get rebates on trading fees.
