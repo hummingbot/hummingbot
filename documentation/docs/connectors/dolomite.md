@@ -38,16 +38,6 @@ There are no transaction fees required in order to place or cancel trades.
 Some additional small flat fees may be applied to your trades. More information can be found in [this page](https://dolomite.io/support/fees).
 
 
-## Troubleshooting
-
-If you see the error:
-
-```
-... WARNING - No Dolomite account for <wallet-address>.
-```
-
-that means you must create an account on Dolomite. See the above information on how to do so.
-
 ## Contact
 
 This connector is maintained by [Dolomite](https://beta.dolomite.io/), which can be contacted at:
