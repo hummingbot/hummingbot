@@ -21,6 +21,7 @@ class HummingWsServerFactory:
 
     @staticmethod
     def reroute_ws_connect(url, **kwargs):
+        print(f"reroute {url}")
         if url not in HummingWsServerFactory._ws_servers:
             return HummingWsServerFactory._orig_ws_connect(url, **kwargs)
         ws_server = HummingWsServerFactory._ws_servers[url]
@@ -32,7 +33,8 @@ class HummingWsServerFactory:
         await ws_server.websocket.send(message)
 
     @staticmethod
-    async def send_json(url, data):
+    async def send_json(url, data, delay=0):
+        await asyncio.sleep(delay)
         ws_server = HummingWsServerFactory._ws_servers[url]
         await ws_server.websocket.send(json.dumps(data))
 
