@@ -1,43 +1,22 @@
 # Harmony
-[Harmony (ONE)](https://harmony.one/) is a new base-layer blockchain that aims to offer a high-throughput, low-latency, and low-fee consensus platform for decentralized economies. Partnering with Harmony, we launched a successful pilot program rewarding community members for running market making bots for $ONE using Hummingbot. In early 2020, we'll roll out our newly-designed liquidity mining program for Harmony.  
 
-## Timeline
+!!! info "Not Investment, Financial, Legal, or Tax Advice"
+    The content of this Site does not constitute financial, investment, legal, or tax advice.<br>None of the information contained on this Site constitutes a recommendation, solicitation, or offer to buy or sell any digital assets, securities, options, or other financial instruments or other assets, or to provide any investment advice or service.<br>
+    **Please review the [Liquidity Mining Policy](https://hummingbot.io/liquidity-mining-policy/) for the full disclaimer.**
 
-This liquidity mining program will run for 12 weeks starting in early February 2020.
+[Harmony (ONE)](https://harmony.one/) is a new a base-layer blockchain project with key innovations in state sharding and peer-to-peer networking. Its sharding technology uses secure proof-of-stake and decentralized randomness, and its networking technology achieves optimal cross-shard routing and fask block propagation. Harmony is set on a mission to scale trust for billions of people and power decentralized economies. 
 
-## Rewards
+Partnering with Harmony, we launched a successful pilot program rewarding community members for running market making bots for $ONE using Hummingbot in 2019. 
 
-Liquidity miners can earn rewards based on a formula that takes into account duration and consistency of orders placed over time, spreads, and sizes. You'll be able to check your earned rewards by minute, and your total earned balance in the "Activity" section. 
+[Whitepaper](https://zcoin.io/tech/) | [Twitter](https://twitter.com/harmonyprotocol) | [Telegram](https://t.me/harmony_one) | [Github](https://github.com/harmony-one) | [Explorer](https://explorer.binance.org/asset/ONE-5F9)
 
-## How to Participate
+## Eligible pairs and exchanges
+Pair | Exchange 
+---|--- 
+ ONE/BTC | Binance
+ ONE/USDT | Binance
+ ONE/BNB | Binance
+ ONE/USDC | Binance
 
-1. Register for the program on the liquidity mining web APP by entering your wallet information and read-only exchange API keys. 
-2. Start market making for any ONE trading pair and Earn rewards! 😎 (The rewards will be automatically calculated based on your trading acitivities for eligible pairs collected through the exchange APIs you provide.)
-
-!!! note
-    If you want to participate using Hummingbot, you can [download Hummingbot](https://hummingbot.io/download) on the website, or follow the [Quickstart guide](/quickstart/) to install and configure Hummingbot. Configure and run a bot that uses either the [pure market making](/strategies/pure-market-making) or the [cross-exchange market making](/strategies/cross-exchange-market-making) strategy.
-
-## Updates and Announcements
-
-We send out updates and announcements through our [Discord channel](https://discord.hummingbot.io), [Twitter](https://twitter.com/hummingbot_io), and [bi-weekly newsletters](http://hummingbot.substack.com). 
-
-You can also read through the articles in our [blog](https://hummingbot.io/blog/tag/liquidity-mining#tags) where you can find useful information about liquidity mining such as statistics, AMA, interviews from our top liquidity miners, previous month recap, and more.
-
-## Performance
-
-Check your performance in the real-time Activity section within our liquidity mining app. 
-
-## Evaluation
-
-Once the program officially kicks off, the rewards will be paid out **weekly** in USDC based on the **actual trading activity** of the participants. 
-
-All rewards will be subject to the sole discretion of the token issuer and/or the Hummingbot team.
-
-## More Resources
-
-- [Liquidity Mining FAQs](/liquidity-mining/faq/)
-
----
-## Important Disclaimer
-
-Participating users must agree to the [Liquidity Mining Program Terms and Conditions](https://hummingbot.io/liquidity-mining-policy/).
+## More information 
+You can check out [CoinMarketCap](https://coinmarketcap.com/currencies/harmony/) or [CoinGecko](https://www.coingecko.com/en/coins/harmony).
