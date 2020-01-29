@@ -154,7 +154,7 @@ rm hummingbot_files/hummingbot_conf/encrypted* hummingbot_files/hummingbot_conf/
 If Hummingbot is installed on Windows, simply delete these files found in `%localappdata%\hummingbot.io\Hummingbot`.
 
 !!! warning
-    Be careful when deleting the local wallet key file created through Hummingbot i.e. wallet that was not imported from Metamask. Deleting the its key file will result in permanently lose your funds in that wallet.
+    Be careful when deleting the local wallet key file created through Hummingbot i.e. wallet that was not imported from Metamask, deleting its key file will result in permanently lose your funds in that wallet.
 
 ![delete_encrypted_files](/assets/img/ts_delete_encrypted.gif)
 
