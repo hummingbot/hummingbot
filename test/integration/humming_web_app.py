@@ -10,8 +10,9 @@ from yarl import URL
 from collections import namedtuple
 import requests
 from threading import Thread
+import json
 
-StockResponse = namedtuple("StockResponse", "method host path query_string is_json response")
+StockResponse = namedtuple("StockResponse", "method host path params is_json response")
 
 
 def get_open_port() -> int:
@@ -55,6 +56,13 @@ class HummingWebApp:
         host = req_path[0:req_path.find("/")]
         path = req_path[req_path.find("/"):]
         resps = [x for x in self._stock_responses if x.method == method and x.host == host and x.path == path]
+        if len(resps) > 1:
+            if method == "GET":
+                params = dict(request.query)
+            else:
+                params = dict(await request.post())
+            resps = [x for x in resps if x.params is not None and all(k in params and str(v) == params[k]
+                                                                      for k, v in x.params.items())]
         if not resps:
             raise web.HTTPNotFound(text=f"No Match found for {host}{path} {method}")
         is_json, response = resps[0].is_json, resps[0].response
@@ -74,12 +82,13 @@ class HummingWebApp:
         await ws.send_json(data=data)
 
     # To add or update data which will later be respoonded to a request according to its method, host and path
-    def update_response_data(self, method, host, path, data, query_string="", is_json=True):
+    def update_response(self, method, host, path, data, params=None, is_json=True):
         method = method.upper()
-        resp_data = [x for x in self._stock_responses if x.method == method and x.host == host and x.path == path]
+        resp_data = [x for x in self._stock_responses if x.method == method and x.host == host and x.path == path
+                     and x.params == params]
         if resp_data:
             self._stock_responses.remove(resp_data[0])
-        self._stock_responses.append(StockResponse(method, host, path, query_string, is_json, data))
+        self._stock_responses.append(StockResponse(method, host, path, params, is_json, data))
 
     def add_host_to_mock(self, host, ignored_paths=[]):
         HummingWebApp._hosts_to_mock[host] = ignored_paths
@@ -162,7 +171,7 @@ class HummingWebAppTest(unittest.TestCase):
         cls.web_app: HummingWebApp = HummingWebApp.get_instance()
         cls.host = "www.google.com"
         cls.web_app.add_host_to_mock(cls.host)
-        cls.web_app.update_response_data("get", cls.host, "/", data=cls.web_app.TEST_RESPONSE, is_json=False)
+        cls.web_app.update_response("get", cls.host, "/", data=cls.web_app.TEST_RESPONSE, is_json=False)
         cls.web_app.start()
         cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
         cls._patcher = unittest.mock.patch("aiohttp.client.URL")
@@ -192,6 +201,25 @@ class HummingWebAppTest(unittest.TestCase):
     def test_get_request_response(self):
         r = requests.get("http://www.google.com/")
         self.assertEqual(self.web_app.TEST_RESPONSE, r.text)
+
+    def test_update_response(self):
+        self.web_app.update_response('get', 'www.google.com', '/', {"a": 1, "b": 2})
+        r = requests.get("http://www.google.com/")
+        r_json = json.loads(r.text)
+        self.assertEqual(r_json["a"], 1)
+
+        self.web_app.update_response('post', 'www.google.com', '/', "default")
+        self.web_app.update_response('post', 'www.google.com', '/', {"a": 1, "b": 2}, params={"para_a": '11'})
+        r = requests.post("http://www.google.com/", data={"para_a": 11, "para_b": 22})
+        r_json = json.loads(r.text)
+        self.assertEqual(r_json["a"], 1)
+
+    def test_query_string(self):
+        self.web_app.update_response('get', 'www.google.com', '/', "default")
+        self.web_app.update_response('get', 'www.google.com', '/', {"a": 1}, params={"qs1": "1"})
+        r = requests.get("http://www.google.com/?qs1=1")
+        r_json = json.loads(r.text)
+        self.assertEqual(r_json["a"], 1)
 
 
 if __name__ == '__main__':
