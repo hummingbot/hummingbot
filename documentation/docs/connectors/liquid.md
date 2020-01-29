@@ -42,24 +42,24 @@ If the token or trading pair isn't listed in the article, you can also get this 
 https://api.liquid.com/currencies
 ```
 
-The minimum order size is the value next to `minimum_order_quantity`. In the example below, the minimum order size of IDRT is `500.0`.
+The minimum order size is the value next to `minimum_order_quantity`. For example, let's say you're trading ETH-BTC and ETH which is your **base currency** is not listed in the article above. Liquid's public API shows the minimum order size of ETH currency is `0.01`.
 
 ```
 "currency_type": "crypto",
-"currency": "IDRT",
-"symbol": "IDRT",
-"assets_precision": 2,
-"quoting_precision": 2,
-"minimum_withdrawal": 20000.0,
+"currency": "ETH",
+"symbol": "Ξ",
+"assets_precision": 18,
+"quoting_precision": 8,
+"minimum_withdrawal": 0.02,
 "withdrawal_fee": 0.0,
 "minimum_fee": null,
-"minimum_order_quantity": 500.0,
-"display_precision": 2,
+"minimum_order_quantity": 0.01,
+"display_precision": 5,
 "depositable": true,
 "withdrawable": true,
 "discount_fee": 0.5,
-"lendable": false,
-"position_fundable": false,
+"lendable": true,
+"position_fundable": true,
 "has_memo": false
 ```
 
