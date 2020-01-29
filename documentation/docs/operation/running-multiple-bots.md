@@ -2,15 +2,13 @@
 
 ## Multiple bots via Docker
 
-Create multiple instances using `./create.sh` script or `docker run..` command (see [Create Hummingbot Instance](/cheatsheets/docker/#create-hummingbot-instance)).
+Create multiple instances using `./create.sh` script. More information can be found in [Create Hummingbot Instance](/cheatsheets/docker/#create-hummingbot-instance).
 
 ### Running in the background (via Docker)
 
-Press keys `Ctrl+P` then `Ctrl+Q` in sequence to detach from Docker (i.e. return to command line). This exits out of Hummingbot without shutting down the container instance.
+Press keys `Ctrl+P` then `Ctrl+Q` in sequence to detach from Docker i.e. return to command line. This exits out of Hummingbot without shutting down the container instance.
 
-Restart or connect to a running instance using `./start.sh` or `docker start.. && docker attach..` command (see [Restarting Hummingbot after Shutdown Closing the Window](/cheatsheets/docker/#restarting-hummingbot-after-shutdown-or-closing-the-window)).
-
-For more information: [Docker Commands](/cheatsheets/docker/#reference-useful-docker-commands)
+Restart or connect to a running instance using `./start.sh` command. Refer to [Restarting Hummingbot after Shutdown Closing the Window](/cheatsheets/docker/#restarting-hummingbot-after-shutdown-or-closing-the-window).
 
 
 ## Multiple bots from source
