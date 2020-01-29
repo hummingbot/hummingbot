@@ -188,32 +188,6 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
         self.assertGreaterEqual((balances["ETH"]), s_decimal_0)
         self.assertGreaterEqual((balances[self.quote_token_asset]), s_decimal_0)
 
-    def test_limit_order_amount_modified(self):
-        trading_pair: str = self.base_token_asset + "-" + self.quote_token_asset
-        current_price: Decimal = self.market.get_price(trading_pair, True)
-        amount = Decimal("0.001")
-        expires = int(time.time() + 60 * 3)
-        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
-        buy_order_id = self.market.buy(trading_pair=trading_pair,
-                                       amount=amount,
-                                       order_type=OrderType.LIMIT,
-                                       price=current_price - Decimal("0.2") * current_price,
-                                       expiration_ts=expires)
-        [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
-        self.assertEqual(self.base_token_asset + "-" + self.quote_token_asset, buy_order_opened_event.trading_pair)
-        self.assertEqual(OrderType.LIMIT, buy_order_opened_event.type)
-        self.assertEqual(float(quantized_amount), float(buy_order_opened_event.amount))
-
-        
-        
-        [cancellation_results,
-         buy_order_cancelled_event] = self.run_parallel(self.market.cancel_order(buy_order_id),
-                                                        self.market_logger.wait_for(OrderCancelledEvent))
-        self.assertEqual(buy_order_opened_event.order_id, buy_order_cancelled_event.order_id)
-
-        # Reset the logs
-        self.market_logger.clear()
-
     def test_single_limit_order_cancel(self):
         trading_pair: str = self.base_token_asset + "-" + self.quote_token_asset
         current_price: Decimal = self.market.get_price(trading_pair, True)
