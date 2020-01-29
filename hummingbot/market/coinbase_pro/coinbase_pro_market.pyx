@@ -56,7 +56,7 @@ from hummingbot.market.coinbase_pro.coinbase_pro_in_flight_order cimport Coinbas
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 s_logger = None
-s_decimal_0 = Decimal(0)
+s_decimal_0 = Decimal("0.0")
 s_decimal_nan = Decimal("nan")
 
 cdef class CoinbaseProMarketTransactionTracker(TransactionTracker):
@@ -113,6 +113,9 @@ cdef class CoinbaseProMarket(MarketBase):
     DEPOSIT_TIMEOUT = 1800.0
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
+    UPDATE_FEE_PERCENTAGE_INTERVAL = 60.0
+    MAKER_FEE_PERCENTAGE_DEFAULT = 0.0015
+    TAKER_FEE_PERCENTAGE_DEFAULT = 0.0025
 
     COINBASE_API_ENDPOINT = "https://api.pro.coinbase.com"
 
@@ -143,6 +146,7 @@ cdef class CoinbaseProMarket(MarketBase):
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._last_order_update_timestamp = 0
+        self._last_fee_percentage_update_timestamp = 0
         self._poll_interval = poll_interval
         self._in_flight_orders = {}
         self._tx_tracker = CoinbaseProMarketTransactionTracker(self)
@@ -154,6 +158,8 @@ cdef class CoinbaseProMarket(MarketBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._shared_client = None
+        self._maker_fee_percentage = Decimal(self.MAKER_FEE_PERCENTAGE_DEFAULT)
+        self._taker_fee_percentage = Decimal(self.TAKER_FEE_PERCENTAGE_DEFAULT)
 
     @property
     def name(self) -> str:
@@ -363,10 +369,25 @@ cdef class CoinbaseProMarket(MarketBase):
         # There is no API for checking user's fee tier
         # Fee info from https://pro.coinbase.com/fees
         cdef:
-            object maker_fee = Decimal("0.005")
-            object taker_fee = Decimal("0.005")
-
+            object maker_fee = self._maker_fee_percentage
+            object taker_fee = self._taker_fee_percentage
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
+
+    async def _update_fee_percentage(self):
+        """
+        Pulls the API for updated balances
+        """
+        cdef:
+            double current_timestamp = self._current_timestamp
+
+        if current_timestamp - self._last_fee_percentage_update_timestamp <= self.UPDATE_FEE_PERCENTAGE_INTERVAL:
+            return
+
+        path_url = "/fees"
+        fee_info = await self._api_request("get", path_url=path_url)
+        self._maker_fee_percentage = Decimal(fee_info["maker_fee_rate"])
+        self._taker_fee_percentage = Decimal(fee_info["taker_fee_rate"])
+        self._last_fee_percentage_update_timestamp = current_timestamp
 
     async def _update_balances(self):
         """
@@ -695,13 +716,13 @@ cdef class CoinbaseProMarket(MarketBase):
         """
         path_url = "/orders"
         data = {
-            "price": f"{price:f}",
             "size": f"{amount:f}",
             "product_id": trading_pair,
             "side": "buy" if is_buy else "sell",
             "type": "limit" if order_type is OrderType.LIMIT else "market",
         }
-
+        if order_type is OrderType.LIMIT:
+            data["price"] = f"{price:f}"
         order_result = await self._api_request("post", path_url=path_url, data=data)
         return order_result
 
@@ -923,6 +944,7 @@ cdef class CoinbaseProMarket(MarketBase):
                 await safe_gather(
                     self._update_balances(),
                     self._update_order_status(),
+                    self._update_fee_percentage(),
                 )
             except asyncio.CancelledError:
                 raise
