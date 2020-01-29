@@ -1,5 +1,9 @@
 # Liquidity Mining FAQ
 
+!!! info "Not Investment, Financial, Legal, or Tax Advice"
+    The content of this Site does not constitute financial, investment, legal, or tax advice.<br>None of the information contained on this Site constitutes a recommendation, solicitation, or offer to buy or sell any digital assets, securities, options, or other financial instruments or other assets, or to provide any investment advice or service.<br>
+    **Please review the [Liquidity Mining Policy](https://hummingbot.io/liquidity-mining-policy/) for the full disclaimer.**
+
 ## What is liquidity mining?
 Liquidity mining is a community-based approach to market making. It means the collective actions of a pool of decentralized users ("liquidity miners") that provide computing resources as well as their own exchange accounts, wallets, and digital assets to provide liquidity for a digital asset or a set of digital assets and to **earn rewards by market making**.
 
