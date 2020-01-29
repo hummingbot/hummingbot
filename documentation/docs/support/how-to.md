@@ -2,7 +2,7 @@
 
 Frequently asked 'how-to' questions and problems that may arise when using Hummingbot.
 
-#### How do I find out where the config and log files are on my local computer?
+#### How to find out where the config and log files are on Hummingbot installed via Docker
 
 Run the following command to view the details of your instance:
 
@@ -44,36 +44,28 @@ Look for a field `Mounts`, which will describe where the folders are on you loca
 !!! note
     Read through [Log File Management](https://docs.hummingbot.io/utilities/logging/) for more information.
 
-#### How do I edit the conf files or access the log files used by my docker instance?
+#### How to edit the conf files or access the log files used by my docker instance?
 
-If Hummingbot is installed on your local machine, you can access the files from your local file system in the `hummingbot_conf` and `hummingbot_logs` folder. The docker instance reads from/writes to these local files.
-
-If Hummingbot is installed on a virtual machine, you can use the `vi` text editor (or any text editor of your choice). Do command `vi $filename`. See [this page](https://www.tipsandtricks-hq.com/unix-vi-commands-take-advantage-of-the-unix-vi-editor-374) for more information how to use this text editor.
+If Hummingbot is installed on a virtual machine or a Linux cloud server, you can use the `vi` text editor (or any text editor of your choice). Run command `vi $filename`. See [this page](https://www.tipsandtricks-hq.com/unix-vi-commands-take-advantage-of-the-unix-vi-editor-374) for more information how to use this text editor.
 
 You can also use an FTP client software (e.g. WinSCP, FileZila) to copy, move, files and folders from your virtual machine to your local machine and vice versa.
 
 
-#### How do I copy and paste in Docker Toolbox (Windows)?
+#### How to copy and paste in Docker Toolbox (Windows)
 
 By default, the Docker Toolbox has copy and paste disabled within the command line. This can make it difficult to port long API and wallet keys to Hummingbot. However, there is a simple fix which can be enabled as follows:
 
-1 - Open up the Docker Toolbox via the Quickstart Terminal
-
-  ![](/assets/img/docker_toolbox_startup.PNG)
-
-2 - Right-click on the title bar of Toolbox and select "Properties"
-
-  ![](/assets/img/docker_toolbox_properties.png)
-
-3 - Check the box under the "Options" tab to enable "Ctrl Key Shortcuts"
-
+1. Open the Docker Toolbox via the Quickstart Terminal</br></br>
+  ![](/assets/img/docker_toolbox_startup.PNG)</br></br>
+2. Right-click on the title bar of Toolbox and select "Properties"</br></br>
+  ![](/assets/img/docker_toolbox_properties.png)</br></br>
+3. Check the box under the "Options" tab to enable "Ctrl Key Shortcuts"</br></br>
   ![](/assets/img/docker_toolbox_enable.png)
-
 
 Close any warnings, and you're done! Just hit enter to move onto the next line and you should be able to copy and paste text using **Ctrl+Shift+C** and **Ctrl+Shift+V**.
 
 
-#### How do I paste items from clipboard in PuTTY?
+#### Paste items from clipboard in PuTTY
 
 You should be able to paste items from your clipboard by doing mouse right-click or `SHIFT + right-click`. If that doesn't work, follow the steps below.
 
@@ -143,3 +135,41 @@ chmod a+x *.sh
 Some information related to an exchange can be retrieved through their public API such as minimum order sizes. You can download a program called [Postman](https://www.getpostman.com/) and follow the instructions in [Get Started with Postman](https://learning.getpostman.com/getting-started/).
 
 ![](/assets/img/postman.png)
+
+
+#### How to reset in case of forgotten password
+
+For security reasons, Hummingbot does not store your password anywhere so there's no way to recover it. The only solution is to create a new password and re-enter your API keys upon restarting Hummingbot after deleting or moving the encrypted files.
+
+1. Run `exit` command to exit from the Hummingbot client.
+2. Delete the encrypted files and wallet key file (if applicable) from the `hummingbot_conf` folder.
+3. Restart Hummingbot and run `config` command.
+
+If using Linux, copy the commands below and run in your terminal to delete the files. You will be prompted to confirm before proceeding.
+
+```
+rm hummingbot_files/hummingbot_conf/encrypted* hummingbot_files/hummingbot_conf/key_file*
+```
+
+If Hummingbot is installed on Windows, simply delete these files found in `%localappdata%\hummingbot.io\Hummingbot`.
+
+!!! warning
+    Be careful when deleting the local wallet key file created through Hummingbot i.e. wallet that was not imported from Metamask. Deleting the its key file will result in permanently lose your funds in that wallet.
+
+![delete_encrypted_files](/assets/img/ts_delete_encrypted.gif)
+
+
+#### Transfer files from/to Windows Subsystem for Linux and local computer
+
+Execute command `explorer.exe .` (make sure to include the dot) in WSL to launch a file explorer window of your current directory. Then you will be able to move, copy and delete files like you normally would on a Windows computer.
+
+
+#### Download a previous version of Hummingbot in Windows
+
+1. Go to `https://hummingbot-distribution.s3.amazonaws.com/`. It will show an XML file with all the Hummingbot versions listed.</br></br>
+    ![binary_distribution](/assets/img/ts_binary_distribution.png)</br></br>
+2. To download a previous version, add the version inside `<Key>` after the URL.
+
+For example, enter the URL</br>
+https://hummingbot-distribution.s3.amazonaws.com/hummingbot_v0.20.0_setup.exe
+</br>on your web browser to start downloading the installer for 0.20.0 version.
