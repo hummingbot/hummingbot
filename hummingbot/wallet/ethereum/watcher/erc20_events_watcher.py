@@ -113,7 +113,6 @@ class ERC20EventsWatcher(BaseWatcher):
         while True:
             try:
                 new_blocks: List[AttributeDict] = await self._new_blocks_queue.get()
-                block_hashes: List[HexBytes] = [block["hash"] for block in new_blocks]
 
                 transfer_tasks = []
                 approval_tasks = []
@@ -121,11 +120,11 @@ class ERC20EventsWatcher(BaseWatcher):
                     contract_event_logger: ContractEventLogger = self._contract_event_loggers[address]
                     transfer_tasks.append(
                         contract_event_logger.get_new_entries_from_logs(TRANSFER_EVENT_NAME,
-                                                                        block_hashes)
+                                                                        new_blocks)
                     )
                     approval_tasks.append(
                         contract_event_logger.get_new_entries_from_logs(APPROVAL_EVENT_NAME,
-                                                                        block_hashes)
+                                                                        new_blocks)
                     )
 
                 raw_transfer_entries = await safe_gather(*transfer_tasks)
