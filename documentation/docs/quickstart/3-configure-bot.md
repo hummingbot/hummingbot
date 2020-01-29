@@ -159,7 +159,7 @@ Enter your Binance API secret >>>
 For more information on how to find your API keys, please see [API Keys](/installation/api-keys).
 
 !!! note "Copying and Pasting"
-    Our Get Help section contains answers to some of the common how-to questions like [How do I copy and paste in Docker Toolbox?](/support/how-to/#how-do-i-copy-and-paste-in-docker-toolbox-windows) and [How do I paste items from clipboard in PuTTY?](/support/how-to/#how-do-i-paste-items-from-clipboard-in-putty)
+    Our Get Help section contains answers to some of the common how-to questions like [How to copy and paste in Docker Toolbox (Windows)](/support/how-to/#how-to-copy-and-paste-in-docker-toolbox-windows) and [Paste items from clipboard in PuTTY](/support/how-to/#paste-items-from-clipboard-in-putty)
 
 ---
 
