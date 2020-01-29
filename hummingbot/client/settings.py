@@ -38,7 +38,8 @@ EXCHANGES = {
     "dolomite",
     "bittrex",
     "kucoin",
-    "bitcoin_com"
+    "bitcoin_com",
+    "eterbase"
 }
 
 DEXES = {
@@ -64,6 +65,7 @@ EXAMPLE_PAIRS = {
     "idex": "ZRX-ETH",
     "liquid": "ETH-USD",
     "radar_relay": "ZRX-WETH",
+    "eterbase": "ETHEUR"
 }
 
 EXAMPLE_ASSETS = {
@@ -79,6 +81,7 @@ EXAMPLE_ASSETS = {
     "idex": "ETH",
     "liquid": "ETH",
     "radar_relay": "ZRX",
+    "eterbase": "ETH"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000

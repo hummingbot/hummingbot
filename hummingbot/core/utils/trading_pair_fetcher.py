@@ -25,6 +25,7 @@ BITTREX_ENDPOINT = "https://api.bittrex.com/v3/markets"
 KUCOIN_ENDPOINT = "https://api.kucoin.com/api/v1/symbols"
 DOLOMITE_ENDPOINT = "https://exchange-api.dolomite.io/v1/markets"
 BITCOIN_COM_ENDPOINT = "https://api.exchange.bitcoin.com/api/2/public/symbol"
+ETERBASE_ENDPOINT = "https://api.eterbase.exchange/api/markets"
 
 API_CALL_TIMEOUT = 5
 
@@ -206,6 +207,29 @@ class TradingPairFetcher:
 
         return []
 
+    async def fetch_eterbase_trading_pairs(self) -> List[str]:
+        try:
+            from hummingbot.market.eterbase.eterbase_market import EterbaseMarket
+
+            client: aiohttp.ClientSession() = self.http_client()
+            async with client.get(ETERBASE_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                if response.status == 200:
+                    markets = await response.json()
+                    raw_trading_pairs: List[str] = list(map(lambda details: details.get('symbol'), markets))
+                    trading_pair_list: List[str] = []
+                    for raw_trading_pair in raw_trading_pairs:
+                        converted_trading_pair: Optional[str] = \
+                            EterbaseMarket.convert_from_exchange_trading_pair(raw_trading_pair)
+                        if converted_trading_pair is not None:
+                            trading_pair_list.append(converted_trading_pair)
+                        else:
+                            self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
+                    return trading_pair_list
+        except Exception:
+            pass
+            # Do nothing if the request fails -- there will be no autocomplete for eterbase trading pairs
+        return []
+
     async def fetch_idex_trading_pairs(self) -> List[str]:
         try:
             from hummingbot.market.idex.idex_market import IDEXMarket
@@ -375,6 +399,7 @@ class TradingPairFetcher:
         bittrex_trading_pairs = await self.fetch_bittrex_trading_pairs()
         kucoin_trading_pairs = await self.fetch_kucoin_trading_pairs()
         bitcoin_com_trading_pairs = await self.fetch_bitcoin_com_trading_pairs()
+        eterbase_trading_pairs = await self.fetch_eterbase_trading_pairs()
         self.trading_pairs = {
             "binance": binance_trading_pairs,
             "dolomite": dolomite_trading_pairs,
@@ -387,6 +412,7 @@ class TradingPairFetcher:
             "liquid": liquid_trading_pairs,
             "bittrex": bittrex_trading_pairs,
             "kucoin": kucoin_trading_pairs,
-            "bitcoin_com": bitcoin_com_trading_pairs
+            "bitcoin_com": bitcoin_com_trading_pairs,
+            "eterbase": eterbase_trading_pairs
         }
         self.ready = True

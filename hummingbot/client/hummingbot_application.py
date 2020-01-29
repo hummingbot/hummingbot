@@ -20,6 +20,7 @@ from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.liquid.liquid_market import LiquidMarket
+from hummingbot.market.eterbase.eterbase_market import EterbaseMarket
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.paper_trade import create_paper_trade_market
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
@@ -64,7 +65,8 @@ MARKET_CLASSES = {
     "dolomite": DolomiteMarket,
     "bittrex": BittrexMarket,
     "kucoin": KucoinMarket,
-    "bitcoin_com": BitcoinComMarket
+    "bitcoin_com": BitcoinComMarket,
+    "eterbase": EterbaseMarket
 }
 
 
@@ -361,6 +363,15 @@ class HummingbotApplication(*commands):
                                           order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                           trading_pairs=trading_pairs,
                                           trading_required=self._trading_required)
+            elif market_name == "eterbase":
+                eterbase_api_key = global_config_map.get("eterbase_api_key").value
+                eterbase_secret_key = global_config_map.get("eterbase_secret_key").value
+                eterbase_account = global_config_map.get("eterbase_account").value
+                market = EterbaseMarket(eterbase_api_key,
+                                        eterbase_secret_key,
+                                        trading_pairs=trading_pairs,
+                                        trading_required=self._trading_required,
+                                        eterbase_account=eterbase_account)
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
 

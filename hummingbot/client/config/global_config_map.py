@@ -204,6 +204,21 @@ global_config_map = {
                   prompt="Enter your bitcoin_com secret key >>> ",
                   required_if=using_exchange("bitcoin_com"),
                   is_secure=True),
+    "eterbase_api_key":
+        ConfigVar(key="eterbase_api_key",
+                  prompt="Enter your Eterbase API key >>> ",
+                  required_if=using_exchange("eterbase"),
+                  is_secure=True),
+    "eterbase_secret_key":
+        ConfigVar(key="eterbase_secret_key",
+                  prompt="Enter your Eterbase secret key >>> ",
+                  required_if=using_exchange("eterbase"),
+                  is_secure=True),
+    "eterbase_account":
+        ConfigVar(key="eterbase_account",
+                  prompt="Enter your Eterbase account >>> ",
+                  required_if=using_exchange("eterbase"),
+                  is_secure=False),
     "wallet":
         ConfigVar(key="wallet",
                   prompt="Would you like to import an existing wallet or create a new wallet? (import/create) >>> ",
