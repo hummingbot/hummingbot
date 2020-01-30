@@ -14,7 +14,7 @@ Liquidity miners can earn rewards based on a formula that takes into account dur
 ![](setup1.png) 
 2. Once your wallet is connected, fill out your email.
 ![](setup2.png)  
-3. To complete the signup, authorize your signiture on MetaMask. 
+3. To complete the signup, authorize your signature on MetaMask. 
 ![](setup3.png)  
 4. You can see the available markets and go to **settings** to set up your exchange information.
 ![](setup4.png)  
@@ -46,7 +46,7 @@ Check your performance in the real-time Activity section within our liquidity mi
 Once the program officially kicks off, the rewards will be paid out **weekly** in USDC based on the **actual trading activity** of the participants. 
 
 !!! Tip
-    The rewards will be automatically calculated based on your trading activities for eligible pairs collected through the exchange APIs you provide. Please check out the individual campaign page for the eligible pair information. 
+    The rewards will be automatically calculated based on your trading activities for eligible pairs collected through the exchange APIs you provide. Please check each individual campaign page for specific terms, conditions, and eligibility information. 
 
 All rewards will be subject to the sole discretion of the token issuer and/or the Hummingbot team.
 
