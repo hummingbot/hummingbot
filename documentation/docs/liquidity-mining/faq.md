@@ -1,18 +1,25 @@
 # Liquidity Mining FAQ
 
 !!! info "Not Investment, Financial, Legal, or Tax Advice"
-    The content of this Site does not constitute financial, investment, legal, or tax advice.<br>None of the information contained on this Site constitutes a recommendation, solicitation, or offer to buy or sell any digital assets, securities, options, or other financial instruments or other assets, or to provide any investment advice or service.<br>
+    The content of this Site does not constitute investment, financial, legal, or tax advice.<br>None of the information contained on this Site constitutes a recommendation, solicitation, or offer to buy or sell any digital assets, securities, options, or other financial instruments or other assets, or to provide any investment advice or service.<br>
     **Please review the [Liquidity Mining Policy](https://hummingbot.io/liquidity-mining-policy/) for the full disclaimer.**
 
 ## What is liquidity mining?
-Liquidity mining is a community-based approach to market making. It means the collective actions of a pool of decentralized users ("liquidity miners") that provide computing resources as well as their own exchange accounts, wallets, and digital assets to provide liquidity for a digital asset or a set of digital assets and to **earn rewards by market making**.
+Liquidity mining is a community-based, data-driven approach to market making, in which a token issuer or exchange can reward a pool of miners to provide liquidity for a specified token.
+
+Liquidity mining sets forth an analytical framework for determining market maker compensation based on (1) time (order book consistency), (2) order spreads, and (3) order sizes, in order to create a fair model for compensation that aligns a miner's risk with rewards.
 
 For more information, please read [the whitepaper](https://hummingbot.io/liquidity-mining.pdf).
 
-## What is market making?
-Market making is a strategy that allows traders to earn profits by providing liquidity to a market. They do so by creating and maintaining limit orders to buy and sell an asset.
+## Why is it called "liquidity mining"?
+Liquidity mining is similar to "*mining*" as used in the broader cryptocurrency context in that: (1) participants are using their own computational resources for market making (e.g., by running the Hummingbot client), and (2) users deploy their own crypto asset inventories (*≈ "staking"*).
 
-By setting buy prices lower than sell prices, market makers earn profits via the **bid-ask spread** (the distance between buy prices and sell prices).  
+In addition, a collective pool of participants are working together for a common goal - in this case to provide liquidity for a specific token and exchange.  In return, miners are paid out rewards corresponding to their “*work*”.  The rules that govern rewards distributions are also clearly and algorithmically defined.
+
+## What is market making?
+Market making is the act of simultaneously creating buy and sell orders for an asset in a market.  By doing so, a market maker acts as a liquidity provider, facilitating other market participants to trade by giving them the ability to fill the market maker's orders.
+
+Market makers set buy prices lower than sell prices (the difference in prices being the "bid-ask spread") and aim to profit by capturing this bid-ask spread over time.
 
 ## What is liquidity?
 Liquidity is necessary for any publicly traded asset. In a market, buyers and sellers want to transact at a fair price in a deep, orderly market with little slippage. Liquidity is very important primarily for the following reasons:
@@ -23,8 +30,8 @@ Second, higher liquidity is generally associated with less risk and higher marke
 
 There are a few commonly-used indicators of liquidity. Primary ones include tight bid-ask spreads, deep order books, and real, active trading volume.
 
-## How to measure liquidity?
-To measure liquidity, we use **slippage**, which measures the price impact of a buy or sell order. Slippage refers to the difference between the expected price of a trade and the price at which the trade is actually executed. Deep, liquid order books have low slippage, while thin, illiquid order books have high slippage.
+## How do you measure liquidity?
+We believe that **slippage** is the optimal metric to quantify liquidity, as opposed to filled order volume, a measure widely used by the market. Slippage refers to the difference between the observed mid-market price and the actual executed price for a trade of a given size.  Calculating slippage factors in order book depth and prices at different depths, which better captures the friction and efficiency of actually trading that asset.  Deep, liquid order books have low slippage, while thin, illiquid order books have high slippage.
 
 **We believe slippage is a more robust indicator of liquidity than trading volume**. As an ex-ante metric, slippage measures information used by traders before they trade to decide whether to execute the trade and in which venue to execute it. In contrast, volume is an ex-post metric and can be easily manipulated.
 
@@ -37,20 +44,27 @@ In addition, the prohibitively high payment demanded by pro market makers, coupl
 
 For more discussion on the liquidity problem, please check out [this blog post](https://www.hummingbot.io/blog/2019-01-thin-crust-of-liquidity/).
 
+## Do I need to use the Hummingbot client to participate in liquidity mining?
+No; if you already have your own trading bots and strategies, you can still participate in liquidity mining by registering.  
+
+For the general pool of users who don't have their own trading bots, we created Hummingbot as a way to provide them access to quant/algo strategies and the ability to market make.
+
 ## What strategies can a liquidity miner use?
-Professional market makers utilize many different strategies, ranging from simple to sophisticated. We have implemented two basic strategy templates:
+Liquidity mining rewards are determined based on limit orders created ("maker" orders).  Currently, the Hummingbot client has two strategies that create maker orders:
 
 - [Pure market making (market making on a single exchange)](https://docs.hummingbot.io/strategies/pure-market-making/)
 - [Cross-exchange market making](https://docs.hummingbot.io/strategies/cross-exchange-market-making/)
 
-If you want to participate in liquidity mining programs, please choose the above two strategies for trading in order to earn rewards. 
+Using either of these two strategies for trading will qualify you to participate in liquidity mining and earn rewards.
 
 ## What risks does a liquidity miner bear?
 Like any trading strategy, market making includes risk. One of the primary risks is **inventory risk**, the risk of negative changes in inventory value as a result of market making. For instance, if prices drop significantly in a short time period and a market maker accumulates a large position in the asset due to continual fills of their market maker's buy orders, their overall inventory value may be lower.
 
-## How do you determine liquidity miners' rewards?
-In order to make economic sense for a market maker, the market maker’s compensation must correlate with increased levels of risk. There are three main parameters that we use in liquidity mining to determine market maker compensation: (1) **time**: placing orders in the order book consistently over time, (2) **spreads**, and (3) **order sizes**. Our rewards methodology rewards market makers more for placing orders consistently over time in the order book, placing orders with tighter spreads and with larger sizes as shown in the below figure. The real-time reward information will be displayed in the real-time user dashboard. 
-![](https://hummingbot.io/static/e9bcf5a0b0ad5320f95f0a1de89c3e9a/ed7b0/rewards-allocation-chart.png)
+## How are liquidity mining rewards calculated?
+In order to make economic sense for a market maker, the market maker’s compensation must correlate with increased levels of risk. There are three main parameters that we use in liquidity mining to determine market maker compensation: (1) **time**: placing orders in the order book consistently over time, (2) **spreads**, and (3) **order sizes**.
+
+In liquidity mining, market makers accumulate more rewards by consistently placing orders over time and earn higher rewards by placing orders with tighter spreads and with larger sizes. The real-time reward information will be displayed in the real-time user dashboard. 
+![](../assets/img/mining-rewards-diagram.jpg)
 
 For more details on the calculation, please read [Demystifying Liquidity Mining Rewards](https://hummingbot.io/blog/2019-12-liquidity-mining-rewards/). 
 
