@@ -65,8 +65,13 @@ HEADER = """
     ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═════╝  ╚═════╝    ╚═╝
 
 ================================================================================================
-Press CTRL + C to quit at any time.
-Enter "help" for a list of commands.
+Welcome to Hummingbot, an open source software client that helps you build and run high-frequency trading (HFT) bots.
+
+* Get 24/7 support from our Discord chat: https://discord.hummingbot.io
+* Check out the documentation: https://docs.hummingbot.io
+* Earn token rewards by Liquidity Mining: https://hummingbot.io/liquidity-mining/
+
+Enter "help" to see a list of commands.
 """
 
 with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
