@@ -8,7 +8,7 @@
 
 Partnering with Harmony, we launched a successful pilot program rewarding community members for running market making bots for $ONE using Hummingbot in 2019. 
 
-[Whitepaper](https://zcoin.io/tech/) | [Twitter](https://twitter.com/harmonyprotocol) | [Telegram](https://t.me/harmony_one) | [Github](https://github.com/harmony-one) | [Explorer](https://explorer.binance.org/asset/ONE-5F9)
+[Whitepaper](https://harmony.one/pdf/whitepaper.pdf) | [Twitter](https://twitter.com/harmonyprotocol) | [Telegram](https://t.me/harmony_one) | [Github](https://github.com/harmony-one) | [Explorer](https://explorer.binance.org/asset/ONE-5F9)
 
 ## Eligible pairs and exchanges
 Pair | Exchange 
