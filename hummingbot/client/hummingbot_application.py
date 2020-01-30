@@ -27,6 +27,7 @@ from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComMarket
+from hummingbot.market.kyber.kyber_market import KyberMarket
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
@@ -64,7 +65,8 @@ MARKET_CLASSES = {
     "dolomite": DolomiteMarket,
     "bittrex": BittrexMarket,
     "kucoin": KucoinMarket,
-    "bitcoin_com": BitcoinComMarket
+    "bitcoin_com": BitcoinComMarket,
+    "kyber": KyberMarket
 }
 
 
@@ -259,6 +261,18 @@ class HummingbotApplication(*commands):
                         order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                         trading_pairs=trading_pairs,
                         trading_required=self._trading_required,
+                    )
+                except Exception as e:
+                    self.logger().error(str(e))
+
+            elif market_name == "kyber":
+                assert self.wallet is not None
+                try:
+                    market = KyberMarket(
+                        wallet=self.wallet,
+                        ethereum_rpc_url=ethereum_rpc_url,
+                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                        trading_pairs=trading_pairs,
                     )
                 except Exception as e:
                     self.logger().error(str(e))

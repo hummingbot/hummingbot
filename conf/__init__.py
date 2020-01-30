@@ -49,6 +49,11 @@ test_idex_erc20_token_address_1 = os.getenv("IDEX_TOKEN_ADDRESS_1")
 test_idex_erc20_token_address_2 = os.getenv("IDEX_TOKEN_ADDRESS_2")
 web3_test_private_key_idex = os.getenv("IDEX_WALLET_PRIVATE_KEY")
 
+# Kyber Tests
+kyber_test_erc20_token_address_1 = os.getenv("KYBER_TOKEN_ADDRESS_1")
+kyber_test_erc20_token_address_2 = os.getenv("KYBER_TOKEN_ADDRESS_2")
+kyber_test_wallet_private_key = os.getenv("KYBER_WALLET_PRIVATE_KEY")
+
 # Huobi Tests
 huobi_api_key = os.getenv("HUOBI_API_KEY")
 huobi_secret_key = os.getenv("HUOBI_SECRET_KEY")
