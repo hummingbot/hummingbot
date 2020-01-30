@@ -154,7 +154,7 @@ rm hummingbot_files/hummingbot_conf/encrypted* hummingbot_files/hummingbot_conf/
 If Hummingbot is installed on Windows, simply delete these files found in `%localappdata%\hummingbot.io\Hummingbot`.
 
 !!! warning
-    Be careful when deleting the local wallet key file created through Hummingbot i.e. wallet that was not imported from Metamask, deleting its key file will result in permanently lose your funds in that wallet.
+    Be careful when deleting the local wallet key file created through Hummingbot, i.e, a wallet that was not imported from Metamask; deleting the key file will result in a permanent loss of access to that wallet and any assets it may contain.
 
 ![delete_encrypted_files](/assets/img/ts_delete_encrypted.gif)
 
@@ -172,4 +172,4 @@ Execute command `explorer.exe .` (make sure to include the dot) in WSL to launch
 
 For example, enter the URL</br>
 https://hummingbot-distribution.s3.amazonaws.com/hummingbot_v0.20.0_setup.exe
-</br>on your web browser to start downloading the installer for 0.20.0 version.
+</br>on your web browser to start downloading the installer for Hummingbot version 0.20.0.
