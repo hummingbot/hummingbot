@@ -223,7 +223,6 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
 
         while True:
             try:
-                message: BambooRelayOrderBookMessage = None
                 saved_messages: Deque[BambooRelayOrderBookMessage] = self._saved_message_queues[trading_pair]
                 # Process saved messages first if there are any
                 if len(saved_messages) > 0:
@@ -232,9 +231,9 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
                     message = await message_queue.get()
 
                 if message.type is OrderBookMessageType.DIFF:
-                    # Diff message just refreshes the entire snapshot
                     bids, asks = active_order_tracker.convert_diff_message_to_order_book_row(message)
-                    order_book.apply_snapshot(bids, asks, message.update_id)
+                    order_book.apply_diffs(bids, asks, message.update_id)
+
                 elif message.type is OrderBookMessageType.SNAPSHOT:
                     s_bids, s_asks = active_order_tracker.convert_snapshot_message_to_order_book_row(message)
                     order_book.apply_snapshot(s_bids, s_asks, message.update_id)
