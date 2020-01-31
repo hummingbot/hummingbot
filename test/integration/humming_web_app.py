@@ -146,6 +146,7 @@ class HummingWebApp:
         self._impl = None
         self._port = None
         self._started = False
+        self._ev_loop.stop()
 
     def _start_web_app(self):
         self._ev_loop = asyncio.new_event_loop()
@@ -161,7 +162,7 @@ class HummingWebApp:
         thread.start()
 
     def stop(self):
-        asyncio.ensure_future(self._stop())
+        asyncio.run_coroutine_threadsafe(self._stop(), self._ev_loop)
 
 
 class HummingWebAppTest(unittest.TestCase):

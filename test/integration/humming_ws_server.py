@@ -72,6 +72,7 @@ class HummingWsServer:
     async def _stop(self):
         self.port = None
         self._started = False
+        self._ev_loop.stop()
 
     def start(self):
         if self.started:
@@ -81,7 +82,7 @@ class HummingWsServer:
         thread.start()
 
     def stop(self):
-        asyncio.ensure_future(self._stop())
+        asyncio.run_coroutine_threadsafe(self._stop(), self._ev_loop)
 
 
 class HummingWsServerTest(unittest.TestCase):
