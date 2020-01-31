@@ -66,6 +66,7 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.client.config.trade_fees_config_map import trade_fees_config_map
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -340,6 +341,11 @@ cdef class BinanceMarket(MarketBase):
             object maker_trade_fee = Decimal("0.001")
             object taker_trade_fee = Decimal("0.001")
             str trading_pair = base_currency + quote_currency
+
+        if order_type is OrderType.LIMIT and trade_fees_config_map["binance_maker_fee"].value is not None:
+            return TradeFee(percent=trade_fees_config_map["binance_maker_fee"].value)
+        if order_type is OrderType.MARKET and trade_fees_config_map["binance_taker_fee"].value is not None:
+            return TradeFee(percent=trade_fees_config_map["binance_taker_fee"].value)
 
         if trading_pair not in self._trade_fees:
             # https://www.binance.com/en/fee/schedule
