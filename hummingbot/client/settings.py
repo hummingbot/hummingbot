@@ -17,6 +17,7 @@ KEYFILE_POSTFIX = ".json"
 ENCYPTED_CONF_PREFIX = "encrypted_"
 ENCYPTED_CONF_POSTFIX = ".json"
 GLOBAL_CONFIG_PATH = "conf/conf_global.yml"
+TRADE_FEES_CONFIG_PATH = "conf/conf_trade_fees.yml"
 TOKEN_ADDRESSES_FILE_PATH = realpath(join(__file__, "../../wallet/ethereum/erc20_tokens.json"))
 DEFAULT_KEY_FILE_PATH = "conf/"
 DEFAULT_LOG_FILE_PATH = "logs/"
