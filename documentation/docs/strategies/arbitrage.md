@@ -30,7 +30,7 @@ The following walks through all the steps when running `config` for the first ti
 |-----|-----|
 | `What is your market making strategy >>>` | Enter `arbitrage`. |
 | `Import previous configs or create a new config file? (import/create) >>>` | When running the bot for the first time, enter `create`. If you have previously initialized, enter `import`, which will then ask you to specify the config file location. |
-| `Enter your primary exchange name >>>` | Enter an exchange you would like to trade on.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, `bamboo_relay`, `huobi`, `bittrex`, `dolomite`, `liquid` *(case sensitive)* |
+| `Enter your primary exchange name >>>` | Enter an exchange you would like to trade on.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, `bamboo_relay`, `huobi`, `bittrex`, `dolomite`, `liquid`, `kucoin` *(case sensitive)* |
 | `Enter your secondary exchange name >>>` | Enter another exchange you would like to trade on.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, `bamboo_relay`, `huobi`, `bittrex`, `dolomite`, `liquid` *(case sensitive)* |
 | `Enter the token symbol you would like to trade on [primary exchange name] >>>` | Enter the token symbol for the *primary exchange*. |
 | `Enter the token symbol you would like to trade on [secondary exchange name] >>>` | Enter the token symbol for the *secondary exchange*. |
