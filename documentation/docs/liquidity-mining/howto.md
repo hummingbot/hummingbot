@@ -4,10 +4,6 @@
     The content of this Site does not constitute investment, financial, legal, or tax advice.<br>None of the information contained on this Site constitutes a recommendation, solicitation, or offer to buy or sell any digital assets, securities, options, or other financial instruments or other assets, or to provide any investment advice or service.<br>
     **Please review the [Liquidity Mining Policy](https://hummingbot.io/liquidity-mining-policy/) for the full disclaimer.**
 
-## Timeline
-
-This liquidity mining program will run for 12 weeks starting in early February 2020.
-
 ## Rewards
 
 Liquidity miners can earn rewards based on a formula that takes into account duration and consistency of orders placed over time, spreads, and sizes. You'll be able to check your earned rewards by minute, and your total earned balance in the Activity section. 
@@ -15,21 +11,21 @@ Liquidity miners can earn rewards based on a formula that takes into account dur
 ## How to Participate
 
 1. Sign up for the program on the [liquidity mining web APP](https://miners.hummingbot.io/) by connecting your wallet.
-![](setup1.png) 
+![](../assets/lm-setup1.png) 
 2. Once your wallet is connected, fill out your email.
-![](setup2.png)  
+![](../assets/lm-setup2.png)  
 3. To complete the signup, authorize your signature on MetaMask. 
-![](setup3.png)  
+![](../assets/lm-setup3.png)  
 4. You can see the available markets and go to **settings** to set up your exchange information.
-![](setup4.png)  
+![](../assets/lm-setup4.png)  
 You haven't connected to any of the eligible exchanges.
-![](setup5.png)  
+![](../assets/lm-setup5.png)  
 5. Fill out your **read-only** API key. (See [How to get API keys?](https://docs.hummingbot.io/installation/api-keys/))  
-![](setup6.png)  
+![](../assets/lm-setup6.png)  
 The API you provide only needs to enable "read info". 
-![](binanceAPI.png) 
+![](../assets/lm-binanceAPI.png) 
 6. Now you have been connected to one of the eligible exchanges.
-![](setup7.png)  
+![](../assets/lm-setup7.png)  
 7. Start market making for any eligible trading pair and Earn rewards! 😎 
 
 !!! note 
