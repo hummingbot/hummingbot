@@ -11,21 +11,21 @@ Liquidity miners can earn rewards based on a formula that takes into account dur
 ## How to Participate
 
 1. Sign up for the program on the [liquidity mining web APP](https://miners.hummingbot.io/) by connecting your wallet.
-![](../assets/lm-setup1.png) 
+![](../assets/img/lm-setup1.png) 
 2. Once your wallet is connected, fill out your email.
-![](../assets/lm-setup2.png)  
+![](../assets/img/lm-setup2.png)  
 3. To complete the signup, authorize your signature on MetaMask. 
-![](../assets/lm-setup3.png)  
+![](../assets/img/lm-setup3.png)  
 4. You can see the available markets and go to **settings** to set up your exchange information.
-![](../assets/lm-setup4.png)  
+![](../assets/img/lm-setup4.png)  
 You haven't connected to any of the eligible exchanges.
-![](../assets/lm-setup5.png)  
+![](../assets/img/lm-setup5.png)  
 5. Fill out your **read-only** API key. (See [How to get API keys?](https://docs.hummingbot.io/installation/api-keys/))  
-![](../assets/lm-setup6.png)  
+![](../assets/img/lm-setup6.png)  
 The API you provide only needs to enable "read info". 
-![](../assets/lm-binanceAPI.png) 
+![](../assets/img/lm-binanceAPI.png) 
 6. Now you have been connected to one of the eligible exchanges.
-![](../assets/lm-setup7.png)  
+![](../assets/img/lm-setup7.png)  
 7. Start market making for any eligible trading pair and Earn rewards! 😎 
 
 !!! note 
