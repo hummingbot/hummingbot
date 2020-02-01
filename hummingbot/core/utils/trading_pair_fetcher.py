@@ -239,7 +239,7 @@ class TradingPairFetcher:
             client: aiohttp.ClientSession = self.http_client()
             async with client.get(HUOBI_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
-                    all_trading_pairs: Dict[str, any] = await response.json()
+                    all_trading_pairs: Dict[str, Any] = await response.json()
                     valid_trading_pairs: list = []
                     for item in all_trading_pairs["data"]:
                         if item["state"] == "online":
@@ -267,7 +267,7 @@ class TradingPairFetcher:
             client: aiohttp.ClientSession = TradingPairFetcher.http_client()
             async with client.get(LIQUID_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
-                    products: List[Dict[str, any]] = await response.json()
+                    products: List[Dict[str, Any]] = await response.json()
                     for data in products:
                         data['trading_pair'] = '-'.join([data['base_currency'], data['quoted_currency']])
                     return [
@@ -287,7 +287,7 @@ class TradingPairFetcher:
             client: aiohttp.ClientSession = TradingPairFetcher.http_client()
             async with client.get(BITTREX_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
-                    all_trading_pairs: List[Dict[str, any]] = await response.json()
+                    all_trading_pairs: List[Dict[str, Any]] = await response.json()
                     return [item["symbol"]
                             for item in all_trading_pairs
                             if item["status"] == "ONLINE"]
@@ -302,10 +302,9 @@ class TradingPairFetcher:
             async with client.get(KUCOIN_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
                     try:
-                        all_trading_pairs: List[Dict[str, any]] = await response.json()
-                        return [item["symbol"]
-                                for item in all_trading_pairs
-                                if item["enableTrading"] is True]
+                        data: Dict[str, Any] = await response.json()
+                        all_trading_pairs = data.get("data", [])
+                        return [item["symbol"] for item in all_trading_pairs if item["enableTrading"] is True]
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
@@ -317,7 +316,7 @@ class TradingPairFetcher:
             client: aiohttp.ClientSession = TradingPairFetcher.http_client()
             async with client.get(DOLOMITE_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
-                    all_trading_pairs: Dict[str, any] = await response.json()
+                    all_trading_pairs: Dict[str, Any] = await response.json()
                     valid_trading_pairs: list = []
                     for item in all_trading_pairs["data"]:
                         valid_trading_pairs.append(item["market"])
@@ -343,7 +342,7 @@ class TradingPairFetcher:
             client: aiohttp.ClientSession = TradingPairFetcher.http_client()
             async with client.get(BITCOIN_COM_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
-                    raw_trading_pairs: List[Dict[str, any]] = await response.json()
+                    raw_trading_pairs: List[Dict[str, Any]] = await response.json()
                     trading_pairs: List[str] = list([item["id"] for item in raw_trading_pairs])
                     trading_pair_list: List[str] = []
                     for raw_trading_pair in trading_pairs:
