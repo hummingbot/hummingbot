@@ -58,7 +58,7 @@ When creating a new strategy or executing `config` command, the following walks 
 |-----|-----|
 | `What is your market making strategy >>>` | Enter `pure_market_making`. |
 | `Import previous configs or create a new config file? (import/create) >>>` | Enter `create` to create a new config file.<br/><br/>Enter `import` to specify the existing config file name you want to use. |
-| `Enter your maker exchange name >>>` | The exchange where the bot will place bid and ask orders.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, `bamboo_relay`, `huobi`, `bittrex`, `dolomite`, `liquid` *(case sensitive)* |
+| `Enter your maker exchange name >>>` | The exchange where the bot will place bid and ask orders.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `ddex`, `idex`, `bamboo_relay`, `huobi`, `bittrex`, `dolomite`, `liquid`, `kucoin` *(case sensitive)* |
 | `Enter the token symbol you would like to trade on [exchange name] >>>` | Enter the token symbol for the *maker exchange*.<br/>Example input: `ETH-USD`<br/> |
 | `How far away from the mid price do you want to place the first bid order? (Enter 0.01 to indicate 1%) >>>` | This sets `bid_place_threshold` ([definition](#configuration-parameters)). |
 | `How far away from the mid price do you want to place the first ask order? (Enter 0.01 to indicate 1%) >>>` | This sets `ask_place_threshold` ([definition](#configuration-parameters)). |
