@@ -24,7 +24,7 @@
   </thead>
   <tbody>
     <tr>
-      <td rowspan="4"><a href="https://www.coingecko.com/en/coins/harmony">Harmony</a></td>
+      <td rowspan="4"><a href="/liquidity-mining/campaigns/sponsors/#harmony">Harmony</a></td>
       <td>ONE/BTC</td>
       <td>1%</td>
       <td>USDC 500</td>
@@ -45,7 +45,7 @@
       <td>USDC 500</td>
     </tr>
     <tr>
-      <td rowspan="4"><a href="https://www.coingecko.com/en/coins/iexec-rlc">iExec</a></td>
+      <td rowspan="4"><a href="/liquidity-mining/campaigns/sponsors/#iexec">iExec</a></td>
       <td>RLC/BTC</td>
       <td>1%</td>
       <td>USDC 93.75</td>
@@ -66,7 +66,7 @@
       <td>USDC 93.75</td>
     </tr>
     <tr>
-      <td rowspan="2"><a href="https://www.coingecko.com/en/coins/zcoin">Zcoin</a></td>
+      <td rowspan="2"><a href="/liquidity-mining/campaigns/sponsors/#zcoin">Zcoin</a></td>
       <td>XZC/BTC</td>
       <td>1%</td>
       <td>USDC 562.50</td>
@@ -77,7 +77,7 @@
       <td>USDC 187.50</td>
     </tr>
     <tr>
-      <td rowspan="3"><a href="https://www.coingecko.com/en/coins/zil">Zilliqa</a><br><small><em>Note: ZIL/BTC is excluded</em><small></td>
+      <td rowspan="3"><a href="/liquidity-mining/campaigns/sponsors/#zilliqa">Zilliqa</a><br><small><em>Note: ZIL/BTC is excluded</em><small></td>
       <td>ZIL/USDT</td>
       <td>1%</td>
       <td>USDC 667</td>
@@ -106,13 +106,13 @@
   </thead>
   <tbody>
     <tr>
-      <td><a href="https://www.coingecko.com/en/coins/0x">0x</a></td>
+      <td><a href="/liquidity-mining/campaigns/sponsors/#0x">0x</a></td>
       <td>WETH/DAI</td>
       <td>0.60%</td>
       <td>USDC 2,000</td>
     </tr>
     <tr>
-      <td><a href="https://www.coingecko.com/en/coins/weth">iExec</a></td>
+      <td><a href="/liquidity-mining/campaigns/sponsors/#iexec">iExec</a></td>
       <td>RLC/WETH</td>
       <td>1.00%</td>
       <td>USDC 375</td>
