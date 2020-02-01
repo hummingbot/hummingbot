@@ -21,7 +21,7 @@ class LiquidAuth:
         """
         auth_payload = {
             'path': path_url,
-            'nonce': str(time.time()),
+            'nonce': str(time.time() * 1e3),
             'token_id': self.api_key
         }
         signature = jwt.encode(auth_payload, self.secret_key, 'HS256')
