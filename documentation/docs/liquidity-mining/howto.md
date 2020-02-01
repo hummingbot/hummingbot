@@ -8,7 +8,7 @@
 
 [Hummingbot Miner](https://miners.hummingbot.io/) is the official Liquidity Mining web app where users can get real-time information on liquidity mining campaigns.
 
-Hummingbot Miner is also where users register to become a liquidity miner, configure and connect the app to their exchange accounts, and view their liquidity mining activity and earnings.
+Hummingbot Miner is where users register to become a liquidity miner, configure and connect the app to their exchange accounts, and view their liquidity mining activity and earnings.
 
 
 ### 1. Register
