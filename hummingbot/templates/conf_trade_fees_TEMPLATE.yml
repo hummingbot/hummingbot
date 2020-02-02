@@ -3,7 +3,7 @@
 #####################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 2
+template_version: 1
 
 # Exchange trading fees for both maker and taker, the values are in precise decimal, e.g. 0.001 for 0.1%
 # If the value is left blank, the default value (from corresponding market connector) will be used.
@@ -14,4 +14,3 @@ binance_taker_fee:
 liquid_maker_fee:
 liquid_taker_fee:
 
-kucoin_maker_fee:

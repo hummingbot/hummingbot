@@ -71,27 +71,27 @@ def parse_cvar_value(cvar: ConfigVar, value: Any) -> Any:
         try:
             return float(value)
         except Exception:
-            logging.getLogger().error(f"\"{value}\" is not an integer.", exc_info=True)
-            return 0.0
+            logging.getLogger().error(f"\"{value}\" is not valid float.", exc_info=True)
+            return value
     elif cvar.type == 'decimal':
         try:
             return Decimal(str(value))
         except Exception:
             logging.getLogger().error(f"\"{value}\" is not valid decimal.", exc_info=True)
-            return Decimal(0)
+            return value
     elif cvar.type == 'int':
         try:
             return int(value)
         except Exception:
             logging.getLogger().error(f"\"{value}\" is not an integer.", exc_info=True)
-            return 0
+            return value
     elif cvar.type == 'bool':
         if isinstance(value, str) and value.lower() in ["true", "yes", "y"]:
             return True
         elif isinstance(value, str) and value.lower() in ["false", "no", "n"]:
             return False
         else:
-            return bool(value)
+            return value
     else:
         raise TypeError
 
@@ -239,13 +239,15 @@ def read_configs_from_yml(strategy_file_path: Optional[str] = None):
 
                 val_in_file = data.get(key)
                 if key not in data and cvar.migration_default is not None:
-                    cvar.value = cvar.migration_default
+                    val_in_file = cvar.migration_default
                 else:
-                    cvar.value = parse_cvar_value(cvar, val_in_file)
-                if val_in_file is not None and not cvar.validate(str(cvar.value)):
+                    val_in_file = parse_cvar_value(cvar, val_in_file)
+                if val_in_file is not None and not cvar.validate(str(val_in_file)):
                     # Instead of raising an exception, simply skip over this variable and wait till the user is prompted
                     logging.getLogger().error("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
                     cvar.value = None
+                else:
+                    cvar.value = val_in_file
 
             if conf_version < template_version:
                 # delete old config file
