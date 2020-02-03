@@ -21,7 +21,7 @@ import shutil
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.trade_fees_config_map import trade_fees_config_map
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.client.settings import (
     GLOBAL_CONFIG_PATH,
     TRADE_FEES_CONFIG_PATH,
@@ -239,15 +239,13 @@ def read_configs_from_yml(strategy_file_path: Optional[str] = None):
 
                 val_in_file = data.get(key)
                 if key not in data and cvar.migration_default is not None:
-                    val_in_file = cvar.migration_default
+                    cvar.value = cvar.migration_default
                 else:
-                    val_in_file = parse_cvar_value(cvar, val_in_file)
-                if val_in_file is not None and not cvar.validate(str(val_in_file)):
+                    cvar.value = parse_cvar_value(cvar, val_in_file)
+                if cvar.value is not None and not cvar.validate(str(cvar.value)):
                     # Instead of raising an exception, simply skip over this variable and wait till the user is prompted
                     logging.getLogger().error("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
                     cvar.value = None
-                else:
-                    cvar.value = val_in_file
 
             if conf_version < template_version:
                 # delete old config file
@@ -262,7 +260,8 @@ def read_configs_from_yml(strategy_file_path: Optional[str] = None):
                                       exc_info=True)
 
     load_yml_into_cm(GLOBAL_CONFIG_PATH, join(TEMPLATE_PATH, "conf_global_TEMPLATE.yml"), global_config_map)
-    load_yml_into_cm(TRADE_FEES_CONFIG_PATH, join(TEMPLATE_PATH, "conf_trade_fees_TEMPLATE.yml"), trade_fees_config_map)
+    load_yml_into_cm(TRADE_FEES_CONFIG_PATH, join(TEMPLATE_PATH, "conf_fee_overrides_TEMPLATE.yml"),
+                     fee_overrides_config_map)
 
     if strategy_file_path:
         strategy_template_path = get_strategy_template_path(current_strategy)
@@ -309,7 +308,6 @@ async def write_config_to_yml():
         await save_to_yml(strategy_file_path, strategy_config_map)
 
     await save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
-    # await save_to_yml(TRADE_FEES_CONFIG_PATH, trade_fees_config_map)
 
 
 async def create_yml_files():

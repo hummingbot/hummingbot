@@ -17,7 +17,7 @@ def new_fee_config_var(key):
 
 
 # trade fees configs are not prompted during setup process
-trade_fees_config_map = {
+fee_overrides_config_map = {
     "binance_maker_fee": new_fee_config_var("binance_maker_fee"),
     "binance_taker_fee": new_fee_config_var("binance_taker_fee"),
     "liquid_maker_fee": new_fee_config_var("liquid_maker_fee"),
