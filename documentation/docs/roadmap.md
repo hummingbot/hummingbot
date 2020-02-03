@@ -37,7 +37,23 @@ The timeline below shows the past milestones we have completed, along with the f
 * Add support for 0x v3
 
 ## Q1 2020
-* Liquidity Mining Launch: Wave 1 (mid-February)
-* More connectors for decentralized and centralized exchanges: KuCoin, Bitfinex, HitBTC, gate.io
+* Liquidity mining open beta launch (February 3, 2020)
+* Liquidity mining on Binance and 0x/Bamboo Relay (early March)
+* Released connector for [KuCoin](/connectors/kucoin)
+* More connectors for centralized exchanges: [Bitfinex](https://www.bitfinex.com/), [HitBTC](https://hitbtc.com/), [gate.io](https://www.gate.io/)
+* Improve maintenance of exchange connectors
+* Mock connector testing framework
+
+## Q2 2020
+* Liquidity mining for [Liquid.com](https://www.liquid.com/) and [KuCoin](https://www.kucoin.com/)
+* Scale liquidity mining
+* Publish real-time liquidity metrics
+* Refactor codebase for easier Hummingbot development
+* More developer tutorial on building custom strategies
+* Triangular arbitrage strategy
+* Connector certification program
+
+## 1H 2020
 * Graphical user interface
-* Connectors to automated market makers
+* Support more market types
+* Support data science workflows
