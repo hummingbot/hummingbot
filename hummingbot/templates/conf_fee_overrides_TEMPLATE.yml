@@ -10,7 +10,3 @@ template_version: 1
 
 binance_maker_fee:
 binance_taker_fee:
-
-liquid_maker_fee:
-liquid_taker_fee:
-
