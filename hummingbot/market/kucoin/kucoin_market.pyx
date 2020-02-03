@@ -340,7 +340,7 @@ cdef class KucoinMarket(MarketBase):
                           object price):
         # There is no API for checking user's fee tier
         # Fee info from https://www.kucoin.com/vip/fee
-        return TradeFee(percent=0.001)
+        return TradeFee(percent=Decimal("0.001"))
 
     async def _update_trading_rules(self):
         cdef:
