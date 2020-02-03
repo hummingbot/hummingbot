@@ -46,3 +46,8 @@ def is_valid_market_trading_pair(market: str, value: str) -> bool:
         return value in trading_pair_fetcher.trading_pairs.get(market) if len(trading_pairs) > 0 else True
     else:
         return True
+
+
+def is_valid_bool(value: str) -> bool:
+    return value.lower() in ('true', 'yes', 'y', 'false', 'no', 'n')
+

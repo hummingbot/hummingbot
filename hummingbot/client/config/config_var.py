@@ -14,7 +14,9 @@ class ConfigVar:
                  # Whether this config will be prompted during the setup process
                  required_if: Callable = lambda: True,
                  validator: Callable = lambda *args: True,
-                 on_validated: Callable = lambda *args: None):
+                 on_validated: Callable = lambda *args: None,
+                 # a default value for when a config is not found on an old configuration file (during migration).
+                 migration_default: any = None):
         self._prompt = prompt
         self.key = key
         self.value = None
@@ -24,6 +26,7 @@ class ConfigVar:
         self._required_if = required_if
         self._validator = validator
         self._on_validated = on_validated
+        self.migration_default = migration_default
 
     @property
     def prompt(self):

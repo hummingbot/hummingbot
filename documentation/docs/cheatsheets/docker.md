@@ -21,7 +21,8 @@ For more details, navigate to [Github: Hummingbot Docker scripts](https://github
 ```
 hummingbot_files       # Top level folder for hummingbot-related files
 ├── hummingbot_conf    # Maps to hummingbot's conf/ folder, which stores configuration files
-└── hummingbot_logs    # Maps to hummingbot's logs/ folder, which stores log files
+├── hummingbot_logs    # Maps to hummingbot's logs/ folder, which stores log files
+└── hummingbot_data    # Maps to hummingbot's data/ folder, which stores the SQLite database file
 ```
 
 !!! warning
@@ -73,14 +74,18 @@ mkdir hummingbot_files/hummingbot_conf
 # 3) Create folder for log files
 mkdir hummingbot_files/hummingbot_logs
 
-# 4) Launch a new instance of hummingbot
-#    The command below names your new instance "hummingbot-instance" (line 15)
-#    and uses the "latest" docker image (line 18).
-#    Lines 16-17 specify the location for the folders created in steps 2 and 3.
+# 4) Create folder for data files
+mkdir hummingbot_files/hummingbot_data
+
+# 5) Launch a new instance of hummingbot
+#    The command below names your new instance "hummingbot-instance" (line 18)
+#    and uses the "latest" docker image (line 22).
+#    Lines 19-21 specify the location for the folders created in steps 2, 3 and 4.
 docker run -it \
 --name hummingbot-instance \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
 coinalpha/hummingbot:latest
 ```
 
@@ -115,20 +120,22 @@ Parameter | Description
 ---|---
 `hummingbot_files` | Name of the folder where your config and log files will be saved
 `hummingbot-instance` | Name of your instance
-`latest` | Image version, e.g. `latest`, `development`, or a specific version such as `0.9.1`
+`latest` | Image version, e.g. `latest`, `development`, or a specific version such as `version-0.9.1`
 `hummingbot_conf` | Folder in `hummingbot_files` where config files will be saved (mapped to `conf/` folder used by Hummingbot)
 `hummingbot_logs` | Folder in `hummingbot_files` where logs files will be saved (mapped to `logs/` folder used by Hummingbot)
+`hummingbot_data` | Folder in `hummingbot_files` where data files will be saved (mapped to `data/` folder used by Hummingbot)
 
-#### Config and Log Files
+#### Config, Log and Data Files
 
-The above methodology requires you to explicitly specify the paths where you want to mount the `conf/` and `logs/` folders on your local machine.
+The above methodology requires you to explicitly specify the paths where you want to mount the `conf/`, `logs/` and `data/` folders on your local machine.
 
 The example commands above assume that you create three folders:
 
 ```
 hummingbot_files       # Top level folder for hummingbot-related files
 ├── hummingbot_conf    # Maps to hummingbot's conf/ folder, which stores configuration files
-└── hummingbot_logs    # Maps to hummingbot's logs/ folder, which stores log files
+├── hummingbot_logs    # Maps to hummingbot's logs/ folder, which stores log files
+└── hummingbot_data    # Maps to hummingbot's data/ folder, which stores the SQLite database file
 ```
 
 !!! info "`docker run` command and the `hummingbot_files` folder"
