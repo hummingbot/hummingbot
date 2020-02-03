@@ -1,6 +1,6 @@
 ---
 version: 1
-template_version: 6
+template_version: 7
 
 formatters:
     simple:
@@ -41,18 +41,6 @@ handlers:
         level: DEBUG
 
 loggers:
-    hummingbot.public_eth_address:
-        level: NETWORK
-        propagate: false
-        handlers: [report_proxy_handler]
-    hummingbot.command_history:
-        level: NETWORK
-        propagate: false
-        handlers: ["null"]
-    hummingbot.logger.report_aggregator:
-        level: NETWORK
-        handlers: [report_proxy_handler, console_warning, file_handler]
-        propagate: false
     hummingbot.logger.log_server_client:
         level: WARNING
         propagate: false
@@ -63,15 +51,15 @@ loggers:
         handlers: [console_info, file_handler]
     hummingbot.strategy:
         level: NETWORK
-        handlers: [console_info, file_handler]
+        handlers: [console_info, file_handler, report_proxy_handler]
         propagate: false
     hummingbot.market:
         level: NETWORK
-        handlers: [console_info, file_handler]
+        handlers: [console_info, file_handler, report_proxy_handler]
         propagate: false
     hummingbot.wallet:
         level: NETWORK
-        handlers: [console_info, file_handler]
+        handlers: [console_info, file_handler, report_proxy_handler]
         propagate: false
     hummingbot.core.event.event_reporter:
         level: EVENT_LOG

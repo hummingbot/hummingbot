@@ -37,6 +37,7 @@ EXCHANGES = {
     "radar_relay",
     "dolomite",
     "bittrex",
+    "kucoin",
     "bitcoin_com"
 }
 
@@ -55,6 +56,7 @@ EXAMPLE_PAIRS = {
     "binance": "ZRX-ETH",
     "bitcoin_com": "ETH-BCH",
     "bittrex": "ZRX-ETH",
+    "kucoin": "ETH-USDT",
     "coinbase_pro": "ETH-USDC",
     "ddex": "ZRX-WETH",
     "dolomite": "WETH-DAI",
@@ -69,6 +71,7 @@ EXAMPLE_ASSETS = {
     "binance": "ZRX",
     "bitcoin_com": "BCH",
     "bittrex": "ZRX",
+    "kucoin": "ETH",
     "coinbase_pro": "ETH",
     "ddex": "ZRX",
     "dolomite": "LRC",

@@ -845,6 +845,8 @@ cdef class BambooRelayMarket(MarketBase):
                     # Market orders don't care about price
                     if not price.is_nan() and current_price > price:
                         raise StopIteration
+                    if current_price not in active_asks:
+                        continue
                     for order_hash in active_asks[current_price]:
                         if order_hash in self._filled_order_hashes:
                             continue
@@ -861,6 +863,8 @@ cdef class BambooRelayMarket(MarketBase):
                     # Market orders don't care about price
                     if not price.is_nan() and current_price < price:
                         raise StopIteration
+                    if current_price not in active_asks:
+                        continue
                     for order_hash in active_bids[current_price]:
                         if order_hash in self._filled_order_hashes:
                             continue
