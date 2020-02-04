@@ -54,6 +54,7 @@ from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.market.coinbase_pro.coinbase_pro_in_flight_order import CoinbaseProInFlightOrder
 from hummingbot.market.coinbase_pro.coinbase_pro_in_flight_order cimport CoinbaseProInFlightOrder
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 s_logger = None
 s_decimal_0 = Decimal("0.0")
@@ -371,6 +372,10 @@ cdef class CoinbaseProMarket(MarketBase):
         cdef:
             object maker_fee = self._maker_fee_percentage
             object taker_fee = self._taker_fee_percentage
+        if order_type is OrderType.LIMIT and fee_overrides_config_map["coinbase_pro_maker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["coinbase_pro_maker_fee"].value)
+        if order_type is OrderType.MARKET and fee_overrides_config_map["coinbase_pro_taker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["coinbase_pro_taker_fee"].value)
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
 
     async def _update_fee_percentage(self):
