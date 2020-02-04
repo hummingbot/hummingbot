@@ -16,6 +16,47 @@ Liquidity mining is similar to "*mining*" as used in the broader cryptocurrency 
 
 In addition, a collective pool of participants are working together for a common goal - in this case to provide liquidity for a specific token and exchange.  In return, miners are paid out rewards corresponding to their “*work*”.  The rules that govern rewards distributions are also clearly and algorithmically defined.
 
+## How are liquidity mining rewards calculated?
+In order to make economic sense for a market maker, the market maker’s compensation must correlate with increased levels of risk. There are three main parameters that we use in liquidity mining to determine market maker compensation: (1) **time**: placing orders in the order book consistently over time, (2) **spreads**, and (3) **order sizes**.
+
+In liquidity mining, market makers accumulate more rewards by consistently placing orders over time and earn higher rewards by placing orders with tighter spreads and with larger sizes. The real-time reward information will be displayed in the real-time Hummingbot Miner dashboard.
+
+![](../assets/img/mining-rewards-diagram.jpg)
+
+For more details on the calculation, please read [Demystifying Liquidity Mining Rewards](https://hummingbot.io/blog/2019-12-liquidity-mining-rewards/).
+
+## What are liquidity mining "returns"?
+
+![](../assets/img/miners-return.png)
+
+The liquidity mining return measures the ratio of rewards in a snapshot compared to the total volume of eligible orders placed in that snapshot.  This displays an overall return for all participants in that snapshot.
+
+The return is represented is an annualized return calculated based on (1) the total amount of mining rewards available for that period, (2) the total volume of eligible orders placed in that period in base currency terms, which is then (3) converted into an annualized rate:
+
+![](../assets/img/lm-return-calculation.png)
+
+This annualized return is what is displayed on the Hummingbot Miner app.
+
+!!! warning "Liquidity mining return does not a represent miner's portfolio return or expected portfolio return."
+    Liquidity mining returns factor in the reward payments vs. order volumes only.  They *do not* capture the individual miner's return on the underlying strategy that generated the orders created.  As a result, *liquidity mining returns are not an indication of a miner's overall portfolio return*; miners should take into consideration overall economics, and not just mining return, when deciding on participating in liquidity mining campaigns.
+
+!!! warning "Liquidity mining return is a historic metric and not a guarantee of future return."
+    The liquidity mining return displayed on the Hummingbot Miner app is calculated from the most recently collected order book information data.  The actual return may vary depending on the actual orders submitted in the specific snapshot in which orders were placed.
+
+For more details on the calculation, please read [Demystifying Liquidity Mining Rewards](https://hummingbot.io/blog/2019-12-liquidity-mining-rewards/).
+
+## When are liquidity mining rewards paid out?
+
+Typically within three business days following the end of a period.
+
+## What strategies can a liquidity miner use?
+Liquidity mining rewards are determined based on limit orders created ("maker" orders).  Currently, the Hummingbot client has two strategies that create maker orders:
+
+- [Pure market making (market making on a single exchange)](https://docs.hummingbot.io/strategies/pure-market-making/)
+- [Cross-exchange market making](https://docs.hummingbot.io/strategies/cross-exchange-market-making/)
+
+Using either of these two strategies for trading will qualify you to participate in liquidity mining and earn rewards.
+
 ## What is market making?
 Market making is the act of simultaneously creating buy and sell orders for an asset in a market.  By doing so, a market maker acts as a liquidity provider, facilitating other market participants to trade by giving them the ability to fill the market maker's orders.
 
@@ -49,24 +90,8 @@ No; if you already have your own trading bots and strategies, you can still part
 
 For the general pool of users who don't have their own trading bots, we created Hummingbot as a way to provide them access to quant/algo strategies and the ability to market make.
 
-## What strategies can a liquidity miner use?
-Liquidity mining rewards are determined based on limit orders created ("maker" orders).  Currently, the Hummingbot client has two strategies that create maker orders:
-
-- [Pure market making (market making on a single exchange)](https://docs.hummingbot.io/strategies/pure-market-making/)
-- [Cross-exchange market making](https://docs.hummingbot.io/strategies/cross-exchange-market-making/)
-
-Using either of these two strategies for trading will qualify you to participate in liquidity mining and earn rewards.
-
 ## What risks does a liquidity miner bear?
 Like any trading strategy, market making includes risk. One of the primary risks is **inventory risk**, the risk of negative changes in inventory value as a result of market making. For instance, if prices drop significantly in a short time period and a market maker accumulates a large position in the asset due to continual fills of their market maker's buy orders, their overall inventory value may be lower.
-
-## How are liquidity mining rewards calculated?
-In order to make economic sense for a market maker, the market maker’s compensation must correlate with increased levels of risk. There are three main parameters that we use in liquidity mining to determine market maker compensation: (1) **time**: placing orders in the order book consistently over time, (2) **spreads**, and (3) **order sizes**.
-
-In liquidity mining, market makers accumulate more rewards by consistently placing orders over time and earn higher rewards by placing orders with tighter spreads and with larger sizes. The real-time reward information will be displayed in the real-time user dashboard. 
-![](../assets/img/mining-rewards-diagram.jpg)
-
-For more details on the calculation, please read [Demystifying Liquidity Mining Rewards](https://hummingbot.io/blog/2019-12-liquidity-mining-rewards/). 
 
 ## How do you verify the trading activities?
 We take compliance extremely seriously, and only reward genuine providers of liquidity. For this reason, participants need to opt into data collection and provide their read-only API keys for exchanges, in order to allow us to verify trading activity. In addition, we run proprietary algorithms in order to attempt any prohibited actions such as wash trading and spoofing. While exploitative practices can be difficult to identify given the adversarial nature of the market, we believe that the combination of our focus on compliance, granular data feeds, and machine learning-based algorithms may deter and detect bad actors.
