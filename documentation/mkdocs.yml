@@ -160,13 +160,18 @@ nav:
         - Using Exchange Rates: utilities/exchange-rates.md
         - Integrating Telegram: utilities/telegram.md
     - Liquidity Mining:
-      - Intro: liquidity-mining/index.md
-      - Participation Guide: liquidity-mining/howto.md 
+      - Overview: liquidity-mining/index.md
+      - FAQ: liquidity-mining/faq.md
+      - Liquidity Mining Guide:
+        - Intro: liquidity-mining/guide/index.md
+        - 1. Sign up: liquidity-mining/guide/1-sign-up.md
+        - 2. Connect exchanges: liquidity-mining/guide/2-connect-exchanges.md
+        - 3. Run Hummingbot: liquidity-mining/guide/3-run-bot.md
+        - 3. Track earnings: liquidity-mining/guide/4-track-earnings.md
       - Liquidity Mining Campaigns:
-        - Launch campaigns (early March): liquidity-mining/campaigns/index.md
+        - Active: liquidity-mining/campaigns/index.md
         - Sponsors: liquidity-mining/campaigns/sponsors.md
         - Reward terms: liquidity-mining/campaigns/reward-terms.md
-      - Liquidity Mining FAQ: liquidity-mining/faq.md
     - Developer Manual:
         - Intro: developers/index.md
         - Getting Started:
