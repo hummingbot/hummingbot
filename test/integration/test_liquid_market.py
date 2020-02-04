@@ -51,6 +51,7 @@ from hummingbot.model.sql_connection_manager import (
 )
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.wallet.ethereum.mock_wallet import MockWallet
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 MAINNET_RPC_URL = "http://mainnet-rpc.mainnet:8545"
 logging.basicConfig(level=METRICS_LOG_LEVEL)
@@ -145,6 +146,24 @@ class LiquidMarketUnitTest(unittest.TestCase):
         sell_trade_fee: TradeFee = self.market.get_fee("BTC", "USD", OrderType.LIMIT, TradeType.SELL, Decimal(1), Decimal(4000))
         self.assertGreater(sell_trade_fee.percent, 0)
         self.assertEqual(len(sell_trade_fee.flat_fees), 0)
+
+    def test_fee_overrides_config(self):
+        fee_overrides_config_map["liquid_taker_fee"].value = None
+        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.001"), taker_fee.percent)
+        fee_overrides_config_map["liquid_taker_fee"].value = Decimal('0.002')
+        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
+        fee_overrides_config_map["liquid_maker_fee"].value = None
+        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.001"), maker_fee.percent)
+        fee_overrides_config_map["liquid_maker_fee"].value = Decimal('0.005')
+        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
 
     def test_buy_and_sell(self):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
