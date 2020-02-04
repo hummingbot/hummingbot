@@ -4,14 +4,18 @@
     The content of this Site does not constitute investment, financial, legal, or tax advice.<br>None of the information contained on this Site constitutes a recommendation, solicitation, or offer to buy or sell any digital assets, securities, options, or other financial instruments or other assets, or to provide any investment advice or service.<br>
     **Please review the [Liquidity Mining Policy](https://hummingbot.io/liquidity-mining-policy/) for the full disclaimer.**
 
-## General terms for wave 1 campaigns
+!!! warning "Terms Subject to Change"
+    Please check this page for the most up-to-date terms.  We will notify participants of changes, if any, through email (for registered users) and on our [Discord](https://discord.hummingobt.io).
 
-- **Start date**: early March 2020
-- **Duration**: 12 weeks
-- **Reward periods**: weekly, starting Mondays 12:00am GMT to Sundays 11:59pm GMT
-- **Snapshot periods**: every minute
+## Active Campaigns
 
-## Eligible pairs and exchanges
+During the **open beta**, we track real exchange order books for real user-submitted orders, but we pay testnet Ethereum token rewards (no value). 
+
+After the commencement of **production launch**, we will pay mainnet Ethereum token rewards.
+
+* **Open beta**: 12:00am February 4, 2020 UTC time
+* **Production launch**: *(subject to change)* 12:00am March 3, 2020 UTC time
+
 
 ### [Binance.com](https://binance.com)
 
