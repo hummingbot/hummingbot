@@ -212,9 +212,9 @@ class BinanceMarketUnitTest(unittest.TestCase):
         order_id = self.market.buy("LINKETH", amount)
         if API_MOCK_ENABLED:
             data = self.fixture(FixtureBinance.WS_AFTER_BUY_1, c=order_id)
-            asyncio.ensure_future(HummingWsServerFactory.send_json(self._ws_user_url, data, delay=0.1))
+            HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.1)
             data = self.fixture(FixtureBinance.WS_AFTER_BUY_2, c=order_id)
-            asyncio.ensure_future(HummingWsServerFactory.send_json(self._ws_user_url, data, delay=0.11))
+            HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.11)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -245,9 +245,9 @@ class BinanceMarketUnitTest(unittest.TestCase):
         order_id = self.market.sell("LINKETH", amount)
         if API_MOCK_ENABLED:
             data = self.fixture(FixtureBinance.WS_AFTER_SELL_1, c=order_id)
-            asyncio.ensure_future(HummingWsServerFactory.send_json(self._ws_user_url, data, delay=0.1))
+            HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.1)
             data = self.fixture(FixtureBinance.WS_AFTER_SELL_2, c=order_id)
-            asyncio.ensure_future(HummingWsServerFactory.send_json(self._ws_user_url, data, delay=0.11))
+            HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.11)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events = [t for t in self.market_logger.event_log
@@ -282,9 +282,9 @@ class BinanceMarketUnitTest(unittest.TestCase):
         order_id = self.market.buy("LINKETH", quantized_amount, OrderType.LIMIT, quantize_bid_price)
         if API_MOCK_ENABLED:
             data = self.fixture(FixtureBinance.WS_AFTER_BUY_1, c=order_id)
-            asyncio.ensure_future(HummingWsServerFactory.send_json(self._ws_user_url, data, delay=0.1))
+            HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.1)
             data = self.fixture(FixtureBinance.WS_AFTER_BUY_2, c=order_id)
-            asyncio.ensure_future(HummingWsServerFactory.send_json(self._ws_user_url, data, delay=0.11))
+            HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.11)
 
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
@@ -318,9 +318,9 @@ class BinanceMarketUnitTest(unittest.TestCase):
         order_id = self.market.sell("LINKETH", quantized_amount, OrderType.LIMIT, quantize_ask_price)
         if API_MOCK_ENABLED:
             data = self.fixture(FixtureBinance.WS_AFTER_SELL_1, c=order_id)
-            asyncio.ensure_future(HummingWsServerFactory.send_json(self._ws_user_url, data, delay=0.1))
+            HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.1)
             data = self.fixture(FixtureBinance.WS_AFTER_SELL_2, c=order_id)
-            asyncio.ensure_future(HummingWsServerFactory.send_json(self._ws_user_url, data, delay=0.11))
+            HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.11)
 
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
@@ -648,9 +648,9 @@ class BinanceMarketUnitTest(unittest.TestCase):
             order_id = self.market.buy("LINKETH", amount)
             if API_MOCK_ENABLED:
                 data = self.fixture(FixtureBinance.WS_AFTER_BUY_1, c=order_id)
-                asyncio.ensure_future(HummingWsServerFactory.send_json(self._ws_user_url, data, delay=0.1))
+                HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.1)
                 data = self.fixture(FixtureBinance.WS_AFTER_BUY_2, c=order_id)
-                asyncio.ensure_future(HummingWsServerFactory.send_json(self._ws_user_url, data, delay=0.11))
+                HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.11)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
             # Reset the logs
@@ -664,9 +664,9 @@ class BinanceMarketUnitTest(unittest.TestCase):
             order_id = self.market.sell("LINKETH", amount)
             if API_MOCK_ENABLED:
                 data = self.fixture(FixtureBinance.WS_AFTER_SELL_1, c=order_id)
-                asyncio.ensure_future(HummingWsServerFactory.send_json(self._ws_user_url, data, delay=0.1))
+                HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.1)
                 data = self.fixture(FixtureBinance.WS_AFTER_SELL_2, c=order_id)
-                asyncio.ensure_future(HummingWsServerFactory.send_json(self._ws_user_url, data, delay=0.11))
+                HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.11)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
             # Query the persisted trade logs
