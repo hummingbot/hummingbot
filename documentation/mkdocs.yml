@@ -167,11 +167,10 @@ nav:
         - 1. Sign up: liquidity-mining/guide/1-sign-up.md
         - 2. Connect exchanges: liquidity-mining/guide/2-connect-exchanges.md
         - 3. Run Hummingbot: liquidity-mining/guide/3-run-bot.md
-        - 3. Track earnings: liquidity-mining/guide/4-track-earnings.md
+        - 4. Track earnings: liquidity-mining/guide/4-track-earnings.md
       - Liquidity Mining Campaigns:
         - Active: liquidity-mining/campaigns/index.md
-        - Sponsors: liquidity-mining/campaigns/sponsors.md
-        - Reward terms: liquidity-mining/campaigns/reward-terms.md
+        - List of Sponsors: liquidity-mining/campaigns/sponsors.md
     - Developer Manual:
         - Intro: developers/index.md
         - Getting Started:
