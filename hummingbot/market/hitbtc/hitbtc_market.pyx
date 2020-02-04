@@ -778,35 +778,32 @@ cdef class HitBTCMarket(MarketBase):
         open_orders = [o for o in self._in_flight_orders.values() if o.is_open]
         if len(open_orders) == 0:
             return []
-        cancel_order_symbols = list(set([o.trading_pair for o in open_orders]))
-        self.logger().debug(f"cancel_order_symbols {cancel_order_symbols} {open_orders}")
-        path_url = "/api/2/order"
-        data = {"symbol": ','.join(cancel_order_symbols)}
+        cancel_order_ids = list(set([o.client_order_id for o in open_orders]))
+        self.logger().debug(f"cancel_order_id {cancel_order_ids} {open_orders}")
         cancellation_results = []
-        try:
-            cancel_all_results = await self._api_request(
-                "DELETE",
-                path_url=path_url,
-                data=data,
-                is_auth_required=True
-            )
-
-            for item in cancel_all_results:
-                oid = item["clientOrderId"]
+        for id in cancel_order_ids:
+            path_url = f"/api/2/order/{id}"
+            try:
+                cancel_all_results = await self._api_request(
+                    "DELETE",
+                    path_url=path_url,
+                    is_auth_required=True
+                )
+                oid = cancel_all_results["clientOrderId"]
                 order = self._in_flight_orders[oid]
-                if item['status'] == 'canceled':
+                if cancel_all_results['status'] == 'canceled':
                     cancellation_results.append(CancellationResult(oid, True))
                 if order in open_orders:
                     open_orders.remove(order)
 
-            for order in open_orders:
-                cancellation_results.append(CancellationResult(order['clientOrderId'], False))
-        except Exception as e:
-            self.logger().network(
-                f"Failed to cancel all orders.",
-                exc_info=True,
-                app_warning_msg=f"Failed to cancel all orders on HitBTC. Check API key and network connection."
-            )
+            except Exception as e:
+                self.logger().network(
+                    f"Failed to cancel all orders.",
+                    exc_info=True,
+                    app_warning_msg=f"Failed to cancel all orders on HitBTC. Check API key and network connection."
+                )
+        for order in open_orders:
+            cancellation_results.append(CancellationResult(order['clientOrderId'], False))
         return cancellation_results
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
