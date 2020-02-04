@@ -83,4 +83,4 @@ Run a market making bot for any active market and start earning rewards! 😎
 
 ---
 
-# Next: [Step 4: Track earnings](3-track-earnings.md)
+# Next: [Step 4: Track earnings](4-track-earnings.md)
