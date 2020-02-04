@@ -34,15 +34,21 @@ class HummingWsServerFactory:
 
     @staticmethod
     async def send_json(url, data, delay=0):
-        await asyncio.sleep(delay)
+        if delay > 0:
+            await asyncio.sleep(delay)
         ws_server = HummingWsServerFactory._ws_servers[url]
         await ws_server.websocket.send(json.dumps(data))
+
+    @staticmethod
+    def send_json_threadsafe(url, data, delay=0):
+        asyncio.run_coroutine_threadsafe(HummingWsServerFactory.send_json(url, data, delay),
+                                         HummingWsServerFactory._ws_servers[url].ev_loop)
 
 
 class HummingWsServer:
 
     def __init__(self, host, port):
-        self._ev_loop: None
+        self.ev_loop: None
         self._started: bool = False
         self.host = host
         self.port = port
@@ -60,10 +66,10 @@ class HummingWsServer:
         return self._started
 
     def _start(self):
-        self._ev_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self._ev_loop)
+        self.ev_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.ev_loop)
         asyncio.ensure_future(websockets.serve(self._handler, self.host, self.port))
-        self._ev_loop.run_forever()
+        self.ev_loop.run_forever()
 
     async def wait_til_started(self):
         while not self._started:
@@ -72,7 +78,7 @@ class HummingWsServer:
     async def _stop(self):
         self.port = None
         self._started = False
-        self._ev_loop.stop()
+        self.ev_loop.stop()
 
     def start(self):
         if self.started:
@@ -82,7 +88,7 @@ class HummingWsServer:
         thread.start()
 
     def stop(self):
-        asyncio.run_coroutine_threadsafe(self._stop(), self._ev_loop)
+        asyncio.run_coroutine_threadsafe(self._stop(), self.ev_loop)
 
 
 class HummingWsServerTest(unittest.TestCase):
