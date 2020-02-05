@@ -32,7 +32,7 @@ They are sponsoring a campaign for WETH/DAI on [Bamboo Relay](https://bamboorela
 
 [Whitepaper](https://zcoin.io/tech/) | [Twitter](https://twitter.com/zcoinofficial) | [Telegram](https://t.me/zcoinproject) | [Github](https://github.com/zcoinofficial) | [Explorer](https://chainz.cryptoid.info/xzc/) | [CoinMarketCap](https://coinmarketcap.com/currencies/zcoin) | [CoinGecko](https://www.coingecko.com/en/coins/zcoin)
 
-# Zilliqa
+## Zilliqa
 
 [Zilliqa (ZIL)](https://zilliqa.com/) is a base-layer blockchain protocol centered around the idea of 'Sharding' and designed to enhance the scalability of cryptocurrency networks such as Ethereum. According to its white paper, transactions speed could scale to approximately 1000x that of Ethereum's network. Zilliqa’s high throughput means that developers can focus on fleshing out their ideas rather than worrying about network congestion.
 
