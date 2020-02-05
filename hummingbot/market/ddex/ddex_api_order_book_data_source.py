@@ -53,6 +53,7 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__()
         self._trading_pairs: Optional[List[str]] = trading_pairs
         self._get_tracking_pair_done_event: asyncio.Event = asyncio.Event()
+        self.order_book_create_function = lambda: DDEXOrderBook()
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
