@@ -57,6 +57,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(self, trading_pairs: Optional[List[str]] = None, chain: EthereumChain = EthereumChain.MAIN_NET):
         super().__init__()
         self._trading_pairs: Optional[List[str]] = trading_pairs
+        self._order_book_create_function = lambda: BambooRelayOrderBook()
         self._motd_done = False
         if chain is EthereumChain.ROPSTEN:
             self._api_endpoint = BAMBOO_RELAY_REST_ENDPOINT

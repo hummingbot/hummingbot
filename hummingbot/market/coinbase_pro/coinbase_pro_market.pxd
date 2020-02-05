@@ -10,6 +10,9 @@ cdef class CoinbaseProMarket(MarketBase):
         object _poll_notifier
         double _last_timestamp
         double _last_order_update_timestamp
+        double _last_fee_percentage_update_timestamp
+        object _maker_fee_percentage
+        object _taker_fee_percentage
         double _poll_interval
         dict _in_flight_orders
         TransactionTracker _tx_tracker

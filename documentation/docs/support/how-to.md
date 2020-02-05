@@ -2,7 +2,7 @@
 
 Frequently asked 'how-to' questions and problems that may arise when using Hummingbot.
 
-#### How do I find out where the config and log files are on my local computer?
+#### How to find out where the config and log files are on Hummingbot installed via Docker
 
 Run the following command to view the details of your instance:
 
@@ -14,6 +14,14 @@ Look for a field `Mounts`, which will describe where the folders are on you loca
 
 ```
 "Mounts": [
+    {
+        "Type": "bind",
+        "Source": "/home/ubuntu/hummingbot_files/hummingbot_data",
+        "Destination": "/data",
+        "Mode": "",
+        "RW": true,
+        "Propagation": "rprivate"
+    },
     {
         "Type": "bind",
         "Source": "/home/ubuntu/hummingbot_files/hummingbot_conf",
@@ -34,130 +42,56 @@ Look for a field `Mounts`, which will describe where the folders are on you loca
 ```
 
 !!! note
-    To learn more about Hummingbot Log File Management visit this [page](https://docs.hummingbot.io/utilities/logging/).
+    Read through [Log File Management](https://docs.hummingbot.io/utilities/logging/) for more information.
 
-#### How do I edit the conf files or access the log files used by my docker instance?
+#### How to edit the conf files or access the log files used by my docker instance?
 
-If Hummingbot is installed on your local machine, you can access the files from your local file system in the `hummingbot_conf` and `hummingbot_logs` folder. The docker instance reads from/writes to these local files.
-
-If Hummingbot is installed on a virtual machine, you can use the `vi` text editor (or any text editor of your choice). Do command `vi $filename`. See [this page](https://www.tipsandtricks-hq.com/unix-vi-commands-take-advantage-of-the-unix-vi-editor-374) for more information how to use this text editor.
+If Hummingbot is installed on a virtual machine or a Linux cloud server, you can use the `vi` text editor (or any text editor of your choice). Run command `vi $filename`. See [this page](https://www.tipsandtricks-hq.com/unix-vi-commands-take-advantage-of-the-unix-vi-editor-374) for more information how to use this text editor.
 
 You can also use an FTP client software (e.g. WinSCP, FileZila) to copy, move, files and folders from your virtual machine to your local machine and vice versa.
 
 
-#### How do I copy and paste in Docker Toolbox (Windows)?
+#### How to copy and paste in Docker Toolbox (Windows)
 
 By default, the Docker Toolbox has copy and paste disabled within the command line. This can make it difficult to port long API and wallet keys to Hummingbot. However, there is a simple fix which can be enabled as follows:
 
-1 - Open up the Docker Toolbox via the Quickstart Terminal
-
-  ![](/assets/img/docker_toolbox_startup.PNG)
-
-2 - Right-click on the title bar of Toolbox and select "Properties"
-
-  ![](/assets/img/docker_toolbox_properties.png)
-
-3 - Check the box under the "Options" tab to enable "Ctrl Key Shortcuts"
-
+1. Open the Docker Toolbox via the Quickstart Terminal</br></br>
+  ![](/assets/img/docker_toolbox_startup.PNG)</br></br>
+2. Right-click on the title bar of Toolbox and select "Properties"</br></br>
+  ![](/assets/img/docker_toolbox_properties.png)</br></br>
+3. Check the box under the "Options" tab to enable "Ctrl Key Shortcuts"</br></br>
   ![](/assets/img/docker_toolbox_enable.png)
-
 
 Close any warnings, and you're done! Just hit enter to move onto the next line and you should be able to copy and paste text using **Ctrl+Shift+C** and **Ctrl+Shift+V**.
 
 
-#### How do I paste items from clipboard in PuTTY?
+#### Paste items from clipboard in PuTTY
 
 You should be able to paste items from your clipboard by doing mouse right-click or `SHIFT + right-click`. If that doesn't work, follow the steps below.
 
-1 - If you are currently logged in a session, do a left-click on the upper left hand corner of the PuTTY window or a right-click anywhere on the title bar then select "Change Settings". If not, proceed to step 2.
+1. If you are currently logged in a session, left-click on the upper left hand corner of the PuTTY window or a right-click anywhere on the title bar then select "Change Settings". If not, proceed to next step.
+2. In PuTTY configuration under Window category go to "Selection". Select the "Window" radio button for action of mouse buttons.
+3. You can now paste items from clipboard by doing a right-click to bring up the menu and select "Paste".
 
-  ![](/assets/img/putty_1.png)
+![](/assets/img/putty_copy_paste.gif)
 
-2 - In PuTTY configuration under Window category go to "Selection". Select the "Window" radio button for action of mouse buttons.
+#### Other ways to copy and paste
 
-  ![](/assets/img/putty_2.png)
+Copying to clipboard on Windows or Linux:
 
-3 - You can now paste items from clipboard by doing a right-click to bring up the menu and select "Paste".
-
-  ![](/assets/img/putty_3.png)
-
-#### Alternative ways of copy and paste
-
-```bash
-# Windows / Linux
-
-# Copy
+```
 Ctrl + C 
 Ctrl + Insert
 Ctrl + Shift + C
+```
 
-# Paste
+Pasting items from clipboard on Windows or Linux:
+
+```
 Ctrl + V
 Shift + Insert
 Ctrl + Shift + V
 ```
-
-#### How do I use the same email and ETH address for liquidity bounty when running multiple bots?
-
-Run the command `bounty --restore-id` in the other instance(s). Enter the email address you used to register for liquidity bounties where the verification code will be sent.
-
-Alternatively, you can also follow these steps below.
-
-Installed from Docker:
-
-1. Create and run multiple Docker instances that use the same file folder location for configs and logs. Each instance will then use the same `conf_liquidity_bounty.yml` file.
-
-Installed from source:
-
-1. Register for liquidity bounties using your email and ETH address
-2. Exit Hummingbot and open `conf/conf_liquidity_bounty.yml`
-3. Copy the contents of this file
-4. Create another instance of Hummingbot
-5. Paste what you copied in step 3 into `conf/conf_liquidity_bounty.yml` in this new instance
-
-
-#### How do I update Hummingbot after I had previously installed using old instructions?
-
-If you have previously installed Hummingbot using Docker and our previous documentation naming conventions, can you copy and paste the following command to update to the latest naming as well as to enable the user scripts:
-
-Copy the commands below and run from the root folder (i.e. when you type `ls`, make sure you see the `my-hummingbot` folder).
-
-* If your previous instance was named `my-hummingbot` (check by running `docker ps -a`):
-
-```bash
-# Remove instance
-docker rm my-hummingbot && \
-# Remove old image
-docker image rm coinalpha/hummingbot:latest && \
-# Rename file folder
-sudo mv my-hummingbot hummingbot_files && \
-# Start new instance
-docker run -it \
---name hummingbot-instance \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
-coinalpha/hummingbot:latest
-```
-
-* If your previous instance was named `my-instance-1` (check by running `docker ps -a`):
-
-```bash
-# Remove instance
-docker rm my-instance-1 && \
-# Remove old image
-docker image rm coinalpha/hummingbot:latest && \
-# Rename file folder
-sudo mv my-hummingbot hummingbot_files && \
-# Start new instance
-docker run -it \
---name hummingbot-instance \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
-coinalpha/hummingbot:latest
-```
-
-You will then be able to use the [automated docker scripts](/cheatsheets/docker/#automated-docker-scripts-optional).
-
 
 #### Locate data folder or hummingbot_trades.sqlite when running Hummingbot via Docker
 
@@ -194,3 +128,48 @@ chmod a+x *.sh
 ```
 4. Command `./create.sh` creates a new Hummingbot instance.
 5. Command `./update.sh` updates an existing Hummingbot instance.
+
+
+#### Get REST API data using Postman
+
+Some information related to an exchange can be retrieved through their public API such as minimum order sizes. You can download a program called [Postman](https://www.getpostman.com/) and follow the instructions in [Get Started with Postman](https://learning.getpostman.com/getting-started/).
+
+![](/assets/img/postman.png)
+
+
+#### How to reset in case of forgotten password
+
+For security reasons, Hummingbot does not store your password anywhere so there's no way to recover it. The only solution is to create a new password and re-enter your API keys upon restarting Hummingbot after deleting or moving the encrypted files.
+
+1. Run `exit` command to exit from the Hummingbot client.
+2. Delete the encrypted files and wallet key file (if applicable) from the `hummingbot_conf` folder.
+3. Restart Hummingbot and run `config` command.
+
+If using Linux, copy the commands below and run in your terminal to delete the files. You will be prompted to confirm before proceeding.
+
+```
+rm hummingbot_files/hummingbot_conf/encrypted* hummingbot_files/hummingbot_conf/key_file*
+```
+
+If Hummingbot is installed on Windows, simply delete these files found in `%localappdata%\hummingbot.io\Hummingbot`.
+
+!!! warning
+    Be careful when deleting the local wallet key file created through Hummingbot, i.e, a wallet that was not imported from Metamask; deleting the key file will result in a permanent loss of access to that wallet and any assets it may contain.
+
+![delete_encrypted_files](/assets/img/ts_delete_encrypted.gif)
+
+
+#### Transfer files from/to Windows Subsystem for Linux and local computer
+
+Execute command `explorer.exe .` (make sure to include the dot) in WSL to launch a file explorer window of your current directory. Then you will be able to move, copy and delete files like you normally would on a Windows computer.
+
+
+#### Download a previous version of Hummingbot in Windows
+
+1. Go to `https://hummingbot-distribution.s3.amazonaws.com/`. It will show an XML file with all the Hummingbot versions listed.</br></br>
+    ![binary_distribution](/assets/img/ts_binary_distribution.png)</br></br>
+2. To download a previous version, add the version inside `<Key>` after the URL.
+
+For example, enter the URL</br>
+https://hummingbot-distribution.s3.amazonaws.com/hummingbot_v0.20.0_setup.exe
+</br>on your web browser to start downloading the installer for Hummingbot version 0.20.0.
