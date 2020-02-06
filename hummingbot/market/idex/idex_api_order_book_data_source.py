@@ -75,7 +75,7 @@ class IDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
             async with client.get(f"{IDEX_REST_URL}/return24Volume") as response:
                 response: aiohttp.ClientResponse = response
                 if response.status != 200:
-                    raise IOError(f"Error fetching active ddex markets. HTTP status is {response.status}.")
+                    raise IOError(f"Error fetching active idex markets. HTTP status is {response.status}.")
                 parsed_response: Dict[str, Dict[str, str]] = await response.json()
                 data: List[Dict[str, Any]] = []
                 for trading_pair, volume_data in parsed_response.items():
