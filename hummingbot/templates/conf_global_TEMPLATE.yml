@@ -34,6 +34,10 @@ kucoin_api_key: null
 kucoin_secret_key: null
 kucoin_passphrase: null
 
+eterbase_api_key: null
+eterbase_secret_key: null
+eterbase_account: null
+
 # Ethereum wallet address: required for trading on a DEX
 wallet: null
 ethereum_rpc_url: null
