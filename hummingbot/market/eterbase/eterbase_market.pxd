@@ -1,6 +1,7 @@
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
+cdef object trading_pairs_split
 
 cdef class EterbaseMarket(MarketBase):
     cdef:
@@ -24,6 +25,7 @@ cdef class EterbaseMarket(MarketBase):
         public object _trading_rules_polling_task
         public object _shared_client
         object _eterbase_account
+        
 
     cdef c_start_tracking_order(self,
                                 str order_id,

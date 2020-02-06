@@ -2,6 +2,7 @@ import aiohttp
 import asyncio
 from async_timeout import timeout
 from decimal import Decimal
+from threading import Thread
 import json
 import logging
 import pandas as pd
@@ -67,6 +68,11 @@ s_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_nan = Decimal("nan")
 
+trading_pairs_split = None
+
+def start_background_loop(loop: asyncio.AbstractEventLoop) -> None:
+    loop.run_forever()
+
 cdef class EterbaseMarketTransactionTracker(TransactionTracker):
     cdef:
         EterbaseMarket _owner
@@ -120,6 +126,8 @@ cdef class EterbaseMarket(MarketBase):
 
     DEPOSIT_TIMEOUT = 1800.0
     UPDATE_ORDERS_INTERVAL = 10.0
+
+
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -1164,13 +1172,32 @@ cdef class EterbaseMarket(MarketBase):
         return quantized_amount
 
     @staticmethod
-    def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
-        try:
-            base_asset, quote_asset = trading_pair[:3],trading_pair[3:]
-            return base_asset, quote_asset
-        except Exception:
-            raise ValueError(f"Error parsing trading_pair {trading_pair}")
+    def prepare_trading_pairs_split(markets:List):
+        global trading_pairs_split
+        if trading_pairs_split == None:
+            trading_pairs_split = dict()
+        for market in markets:
+            trad_pair = market.get("symbol")
+            if trad_pair not in trading_pairs_split:
+                base = market.get("base")
+                quote = market.get("quote")
+                trading_pairs_split[trad_pair]={"base":base,"quote":quote}
 
     @staticmethod
-    def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-        return hb_trading_pair.replace("-", "")
+    def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
+        global trading_pairs_split
+        if (trading_pairs_split == None):
+            loop = asyncio.new_event_loop()
+            t = Thread(target=start_background_loop, args=(loop,), daemon=True)
+            t.start()
+            future = asyncio.run_coroutine_threadsafe(api_request("get", path_url="/markets",loop=loop) , loop)
+            markets = future.result(constants.API_TIMEOUT_SEC)
+            loop.stop()
+            EterbaseMarket.prepare_trading_pairs_split(markets)
+        try:
+            market =  trading_pairs_split[trading_pair]
+            base_asset= market['base']
+            quote_asset= market['quote']
+            return base_asset, quote_asset
+        except Exception:
+            raise ValueError(f"Error parsing trading_pair {trading_pair}", exc_info=True)

@@ -13,10 +13,15 @@ shared_client = None
 
 API_CALL_TIMEOUT = 10.0
 
-async def _http_client() -> aiohttp.ClientSession:
+async def _http_client(loop: Optional = None) -> aiohttp.ClientSession:
     """
     :returns: Shared client session instance
     """
+    # calling API from different thread
+    if loop!=None:
+        return aiohttp.ClientSession(loop=loop)
+
+    # calling API fro main thread
     global shared_client
     if shared_client is None:
         shared_client = aiohttp.ClientSession()
@@ -27,7 +32,8 @@ async def api_request(http_method: str,
                        path_url: str = None,
                        url: str = None,
                        data: Optional[Dict[str, Any]] = None,
-                       auth: Optional[EterbaseAuth] = None) -> Dict[str, Any]:
+                       auth: Optional[EterbaseAuth] = None, 
+                       loop: Optional = None) -> Dict[str, Any]:
     """
     A wrapper for submitting API requests to Eterbase
     :returns: json data from the endpoints
@@ -41,7 +47,7 @@ async def api_request(http_method: str,
     if auth != None:
         headers = auth.get_headers(http_method, url, data_str)
 
-    client = await _http_client()
+    client = await _http_client(loop)
     async with client.request(http_method,
                               url=url,
                               timeout=API_CALL_TIMEOUT, 
