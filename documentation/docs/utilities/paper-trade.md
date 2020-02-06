@@ -48,7 +48,6 @@ Add more paper trade assets by editing `conf_global.yml` using a text editor. **
 - Binance
 - Coinbase Pro
 - Huobi
-- DDEX
 - Bamboo Relay
 - Radar Relay
 - Bittrex
