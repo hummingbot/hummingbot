@@ -12,7 +12,7 @@ import unittest
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
 from hummingbot.market.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
-from hummingbot.market.ddex.ddex_api_order_book_data_source import DDEXAPIOrderBookDataSource
+from hummingbot.market.bittrex.bittrex_api_order_book_data_source import BittrexAPIOrderBookDataSource
 import asyncio
 logging.basicConfig(level=logging.DEBUG)
 
@@ -36,7 +36,7 @@ class DiscoveryUnitTest(unittest.TestCase):
         run(ExchangeRateConversion.get_instance().ready_notifier.wait())
 
     def setUp(self):
-        self.mock_ddex_active_markets = {
+        self.mock_bittrex_active_markets = {
             'baseAsset': {'WETH-DAI': 'WETH', 'WETH-TUSD': 'WETH', 'WETH-USDC': 'WETH', 'WETH-PAX': 'WETH'},
             'quoteAsset': {'WETH-DAI': 'DAI', 'WETH-TUSD': 'TUSD', 'WETH-USDC': 'USDC', 'WETH-PAX': 'PAX'},
             'volume': {'WETH-DAI': '206.22', 'WETH-TUSD': '3.73', 'WETH-USDC': '1.1226', 'WETH-PAX': '0.8'},
@@ -47,8 +47,8 @@ class DiscoveryUnitTest(unittest.TestCase):
             'volume': {'ETHUSDT': '37749967.77544020', 'ETHPAX': '2269572.85440670', 'ETHUSDC': '1019692.71318160', 'ETHTUSD': '779007.75098360'},
             'USDVolume': {'ETHUSDT': 37749967.7754402, 'ETHPAX': 2269572.8544067, 'ETHUSDC': 1019692.7131816, 'ETHTUSD': 779007.7509836}}
 
-        async def mock_ddex_active_markets_func():
-            return pd.DataFrame.from_dict(self.mock_ddex_active_markets)
+        async def mock_bittrex_active_markets_func():
+            return pd.DataFrame.from_dict(self.mock_bittrex_active_markets)
 
         async def mock_binance_active_markets_func():
             return pd.DataFrame.from_dict(self.mock_binance_active_markets)
@@ -59,11 +59,11 @@ class DiscoveryUnitTest(unittest.TestCase):
                                  ['BTC', 'WBTC']]
 
         self.binance_market = BacktestMarket()
-        self.ddex_market = BacktestMarket()
+        self.bittrex_market = BacktestMarket()
 
         self.market_pair = DiscoveryMarketPair(
             *([self.binance_market, mock_binance_active_markets_func] +
-              [self.ddex_market, mock_ddex_active_markets_func])
+              [self.bittrex_market, mock_bittrex_active_markets_func])
         )
 
         self.strategy = DiscoveryStrategy(market_pairs=[self.market_pair],
@@ -75,7 +75,7 @@ class DiscoveryUnitTest(unittest.TestCase):
         exchange_get_market_func_list = [
             BambooRelayAPIOrderBookDataSource.get_active_exchange_markets,
             BinanceAPIOrderBookDataSource.get_active_exchange_markets,
-            DDEXAPIOrderBookDataSource.get_active_exchange_markets
+            BittrexAPIOrderBookDataSource.get_active_exchange_markets
         ]
         for get_active_exchange_markets_func in exchange_get_market_func_list:
             df = run(get_active_exchange_markets_func())
@@ -87,26 +87,26 @@ class DiscoveryUnitTest(unittest.TestCase):
         expected_output_match_all = ["WETH-DAI", "WETH-PAX", "WETH-TUSD", "WETH-USDC"]
         self.assertTrue(expected_output_match_all == list(self.strategy.filter_trading_pairs(
             [["DAI"]],
-            pd.DataFrame.from_dict(self.mock_ddex_active_markets),
+            pd.DataFrame.from_dict(self.mock_bittrex_active_markets),
             [["DAI", "PAX", "TUSD", "USDC"]]).index))
         self.assertTrue(expected_output_match_all == list(self.strategy.filter_trading_pairs(
             [["ETH"]],
-            pd.DataFrame.from_dict(self.mock_ddex_active_markets),
+            pd.DataFrame.from_dict(self.mock_bittrex_active_markets),
             [["ETH", "WETH"]]).index))
 
         expected_output_match_single = ["WETH-DAI"]
         self.assertTrue(expected_output_match_single == list(self.strategy.filter_trading_pairs(
             [["WETH", "DAI"]],
-            pd.DataFrame.from_dict(self.mock_ddex_active_markets),
+            pd.DataFrame.from_dict(self.mock_bittrex_active_markets),
             []).index))
         self.assertTrue(expected_output_match_single == list(self.strategy.filter_trading_pairs(
             [["ETH", "DAI"]],
-            pd.DataFrame.from_dict(self.mock_ddex_active_markets),
+            pd.DataFrame.from_dict(self.mock_bittrex_active_markets),
             [["ETH", "WETH"]]).index))
 
         self.assertTrue([] == list(self.strategy.filter_trading_pairs(
             [["ETH"]],
-            pd.DataFrame.from_dict(self.mock_ddex_active_markets),
+            pd.DataFrame.from_dict(self.mock_bittrex_active_markets),
             []).index))
 
     def test_matching_pairs(self):

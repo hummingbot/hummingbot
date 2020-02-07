@@ -2,7 +2,7 @@
 
 ## Do I need an Ethereum node?
 
-You need an Ethereum node for strategies that trade on Ethereum-based decentralized exchanges, such as Radar Relay, DDEX, Bamboo Relay, and Dolomite.
+You need an Ethereum node for strategies that trade on Ethereum-based decentralized exchanges, such as Radar Relay, Bamboo Relay, and Dolomite.
 
 ```
 Which Ethereum node would you like your client to connect to? >>>

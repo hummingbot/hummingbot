@@ -607,7 +607,8 @@ cdef class CoinbaseProMarket(MarketBase):
                                       content.get("taker_order_id")]
 
                 tracked_order = None
-                for order in self._in_flight_orders.values():
+                for order in list(self._in_flight_orders.values()):
+                    await order.get_exchange_order_id()
                     if order.exchange_order_id in exchange_order_ids:
                         tracked_order = order
                         break
@@ -644,9 +645,6 @@ cdef class CoinbaseProMarket(MarketBase):
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"{order_type_description} order {tracked_order.client_order_id}")
                     exchange_order_id = tracked_order.exchange_order_id
-
-                    if exchange_order_id is None:
-                        exchange_order_id = await tracked_order.get_exchange_order_id()
 
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                          OrderFilledEvent(
@@ -987,6 +985,8 @@ cdef class CoinbaseProMarket(MarketBase):
         :returns: json response
         """
         order = self._in_flight_orders.get(client_order_id)
+        if order is None:
+            return None
         exchange_order_id = await order.get_exchange_order_id()
         path_url = f"/orders/{exchange_order_id}"
         result = await self._api_request("get", path_url=path_url)
