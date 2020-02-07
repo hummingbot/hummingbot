@@ -129,22 +129,7 @@ No
 A more detailed explanation of each prompt for pure market making strategy are explained [here](/strategies/pure-market-making/#configuration-walkthrough) in the User Manual.
 
 
-#### e) Enable inventory skew
-
-This function allows you to set a target base/quote inventory ratio. For example, you are trading ZRX-WETH pair while your current asset inventory consists of 80% ZRX and 20% WETH. Setting this to 0.5 will allow the bot to automatically adjust the order amount on both sides, selling more and buying less ZRX until you get a 50%-50% ratio.
-
-```
-Would you like to enable inventory skew? (Yes/No) >>>
-Yes
-
-What is your target base asset inventory percentage? (Enter 0.01 to indicate 1%) >>>
-0.5
-```
-
-Here's an [inventory skew calculator](https://docs.google.com/spreadsheets/d/16oCExZyM8Wo8d0aRPmT_j7oXCzea3knQ5mmm0LlPGbU/edit#gid=690135600) that shows how it adjusts order sizes.
-
-
-#### f) Enter API keys / Ethereum wallet and node
+#### e) Enter API keys / Ethereum wallet and node
 
 Now that you have set up how your market making bot will behave, it's time to provide it with the necessary API keys (for centralized exchanges) or wallet/node info (for decentralized exchanges) that it needs to operate.
 
@@ -176,7 +161,7 @@ Your wallet private key >>>
 More information in User Manual about [Ethereum wallet](/installation/wallet) and [Ethereum node](/installation/node/node).
 
 
-#### g) Configure kill switch
+#### f) Configure kill switch
 
 [Kill switch](/utilities/kill-switch/) automatically stops the bot after a certain performance threshold, which can be either positive or negative.
 
@@ -191,6 +176,17 @@ At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5% l
 ```
 
 Hummingbot comes with other useful utilities that help you run the bot such as [exchange rates](/utilities/exchange-rates/) and [Telegram integration](/utilities/telegram/). For more information on these utilities, see the Utilities section in the [User Manual](/manual).
+
+
+#### g) Sending errors logs
+
+Hummingbot requests error logs for the sole purpose of debugging and continuously improving our software. We'll never share the data with a third party.
+
+Enter `Yes` to allow sending error logs to Hummingbot or enter `No` to disable this feature so no data will be collected.
+
+```
+Would you like to send error logs to hummingbot? (Yes/No) >>> Yes
+```
 
 
 ## Step 4: Adjusting Parameters
