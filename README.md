@@ -27,7 +27,6 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | logo | id | name | ver | doc|
 |:---:|:---:|:---:|:---:|:---:|
 | <img src="documentation/docs/assets/img/radar_logo.png" alt="Radar Relay" width="90" height="30" /> | radar_relay | [Radar Relay](https://radarrelay.com/) | 2 | [API](https://developers.radarrelay.com/api/trade-api) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-exchange_radar_relay&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-exchange_radar_relay/) |
-| <img src="https://i.ibb.co/Lrpps2G/Screen-Shot-2019-03-14-at-10-39-23-AM.png" alt="DDEX" width="90" /> | ddex | [DDEX](https://ddex.io/) | 3 | [API](https://docs.ddex.io/) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-exchange_ddex&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-exchange_ddex/) |
 | <img src="documentation/docs/assets/img/idex_logo.png" alt="IDEX" width="90" /> | idex | [IDEX](https://idex.market/) | * | [API](https://docs.idex.market/) |
 
 ## Community contributed exchange connectors
