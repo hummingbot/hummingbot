@@ -26,15 +26,15 @@ class KucoinAuth:
         partner_payload = timestamp + self.partner_id + self.api_key
         partner_signature = base64.b64encode(hmac.new(self.partner_key.encode("utf-8"), partner_payload.encode("utf-8"), hashlib.sha256).digest())
         third_party = {
-                "KC-API-PARTNER": self.partner_id,
-                "KC-API-PARTNER-SIGN": str(partner_signature, "utf-8")
-                }
+            "KC-API-PARTNER": self.partner_id,
+            "KC-API-PARTNER-SIGN": str(partner_signature, "utf-8")
+        }
         return third_party
 
     def add_auth_to_params(self,
                            method: str,
                            path_url: str,
-                           args: Dict[str, Any] = None
+                           args: Dict[str, Any] = None,
                            partner_header: bool = False) -> Dict[str, Any]:
         timestamp = int(time.time() * 1000)
         request = {
