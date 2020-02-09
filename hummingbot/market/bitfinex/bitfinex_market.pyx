@@ -144,6 +144,7 @@ cdef class BitfinexMarket(MarketBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._shared_client = None
+        self._post_queue = asyncio.Queue()
 
     @property
     def name(self) -> str:
@@ -390,11 +391,10 @@ cdef class BitfinexMarket(MarketBase):
         req = await self._api_do_request(http_method, url, None, data)
         return req
 
-    async def _api_private(self,
-                           http_method: str,
-                           path_url,
-                           data: Optional[Dict[Any]] = None) -> Dict[Any]:
-
+    async def _api_private_fn(self,
+                              http_method: str,
+                              path_url,
+                              data: Optional[Dict[Any]] = None) -> Dict[Any]:
         url = f"{BITFINEX_REST_AUTH_URL}/{path_url}"
         data_str = json.dumps(data)
         #  because BITFINEX_REST_AUTH_URL already have v2  postfix, but v2 need
@@ -407,6 +407,14 @@ cdef class BitfinexMarket(MarketBase):
                                          data_str=data)
         return req
 
+    async def _api_private(self,
+                           http_method: str,
+                           path_url,
+                           data: Optional[Dict[Any]] = None) -> Dict[Any]:
+
+        await self._post_queue.put(self._api_private_fn(http_method, path_url, data))
+        return await (await self._post_queue.get())
+
     async def _api_do_request(self,
                               http_method: str,
                               url,
@@ -416,26 +424,27 @@ cdef class BitfinexMarket(MarketBase):
         A wrapper for submitting API requests to Bitfinex
         :returns: json data from the endpoints
         """
-        async def retry_request():
+
+        try:
             client = await self._http_client()
             async with client.request(http_method,
                                       url=url, timeout=self.API_CALL_TIMEOUT, json=data_str,
                                       headers=headers) as response:
                 data = await response.json()
+
                 if response.status != 200:
                     raise IOError(
                         f"Error fetching data from {url}. HTTP status is {response.status}. {data}")
+
                 return data
-        start_do = time.time()
-        while True:
-            try:
-                res = await retry_request()
-                return res
-            except IOError:
-                self.logger().info(f"bad request, retry after 1 sec",)
-                time.sleep(5)
-                if time.time() - start_do > TIMEOUT_RETRY_ATTEMPT:
-                    raise
+        except Exception as e:
+            self.logger().network(
+                f"Failed to do order",
+                exc_info=True,
+                app_warning_msg=f"Failed to do order on Bitfinex. Check API key and network connection."
+            )
+
+        return None
 
     async def _http_client(self) -> aiohttp.ClientSession:
         """
