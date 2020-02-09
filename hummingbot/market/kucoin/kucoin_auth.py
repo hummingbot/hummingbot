@@ -15,8 +15,8 @@ class KucoinAuth:
         self.api_key: str = api_key
         self.passphrase: str = passphrase
         self.secret_key: str = secret_key
-        self.partner_id: str = "partner_id"
-        self.partner_key: str = "partner_key"
+        self.partner_id: str = "Hummingbot"
+        self.partner_key: str = "8fb50686-81a8-408a-901c-07c5ac5bd758"
 
     @staticmethod
     def keysort(dictionary: Dict[str, str]) -> Dict[str, str]:
