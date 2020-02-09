@@ -7,6 +7,7 @@ class BitfinexAuth:
     def __init__(self, api_key: str, secret_key: str):
         self.api_key = api_key
         self.secret_key = secret_key
+        self.last_nonce = 0
 
     def generate_auth_payload(self):
         nonce = self._make_nonce()
@@ -41,6 +42,14 @@ class BitfinexAuth:
     # private methods
     def _make_nonce(self) -> int:
         nonce = int(round(time.time() * 1_000_000))
+
+        if self.last_nonce == nonce:
+            nonce = nonce + 1
+        elif self.last_nonce > nonce:
+            nonce = self.last_nonce + 1
+
+        self.last_nonce = nonce
+
         return nonce
 
     def _auth_sig(self, auth_payload) -> str:
