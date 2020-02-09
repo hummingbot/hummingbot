@@ -265,7 +265,7 @@ cdef class KucoinMarket(MarketBase):
                            path_url,
                            params: Optional[Dict[str, Any]] = None,
                            data=None,
-                           is_auth_required: bool = False
+                           is_auth_required: bool = False,
                            is_partner_required: bool = False) -> Dict[str, Any]:
         url = KUCOIN_ROOT_API + path_url
         client = await self._http_client()
