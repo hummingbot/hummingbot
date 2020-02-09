@@ -54,6 +54,7 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(self, trading_pairs: Optional[List[str]] = None):
         super().__init__()
         self._trading_pairs: Optional[List[str]] = trading_pairs
+        self.order_book_create_function = lambda: RadarRelayOrderBook()
 
     @classmethod
     def http_client(cls) -> aiohttp.ClientSession:
