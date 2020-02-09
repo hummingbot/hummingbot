@@ -265,11 +265,15 @@ cdef class KucoinMarket(MarketBase):
                            path_url,
                            params: Optional[Dict[str, Any]] = None,
                            data=None,
-                           is_auth_required: bool = False) -> Dict[str, Any]:
+                           is_auth_required: bool = False
+                           is_partner_required: bool = False) -> Dict[str, Any]:
         url = KUCOIN_ROOT_API + path_url
         client = await self._http_client()
         if is_auth_required:
-            headers = self._kucoin_auth.add_auth_to_params(method, path_url, params)
+            if is_partner_required:
+                headers = self._kucoin_auth.add_auth_to_params(method, path_url, params, partner_header=True)
+            else:
+                headers = self._kucoin_auth.add_auth_to_params(method, path_url, params)
         else:
             headers = {"Content-Type": "application/json"}
 
@@ -550,7 +554,8 @@ cdef class KucoinMarket(MarketBase):
             path_url=path_url,
             params=params,
             data=params,
-            is_auth_required=True
+            is_auth_required=True,
+            is_partner_required=True
         )
         return str(exchange_order_id["data"]["orderId"])
 
