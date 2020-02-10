@@ -532,7 +532,7 @@ cdef class LiquidMarket(MarketBase):
                         "assets_precision", Constants.DEFAULT_ASSETS_PRECISION))
 
                 min_price_increment = product.get("tick_size")
-                if not min_price_increment:
+                if not min_price_increment or min_price_increment == "0.0":
                     min_price_increment = math.pow(10, -rule.get(
                         "quoting_precision", Constants.DEFAULT_QUOTING_PRECISION))
 
