@@ -138,7 +138,6 @@ nav:
         - Bittrex Global: connectors/bittrex.md
         - Liquid: connectors/liquid.md
         - KuCoin: connectors/kucoin.md
-        - DDEX: connectors/ddex.md
         - IDEX: connectors/idex.md
         - Radar Relay: connectors/radar-relay.md
         - Bamboo Relay: connectors/bamboo-relay.md

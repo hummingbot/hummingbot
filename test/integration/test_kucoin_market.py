@@ -50,6 +50,8 @@ from hummingbot.model.trade_fill import TradeFill
 from test.integration.humming_web_app import HummingWebApp
 from test.integration.assets.mock_data.fixture_kucoin import FixtureKucoin
 from unittest import mock
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
@@ -199,6 +201,24 @@ class KucoinMarketUnitTest(unittest.TestCase):
             resp["data"]["clientOid"] = order_id
             self.web_app.update_response("get", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)
         return order_id, exch_order_id
+
+    def test_fee_overrides_config(self):
+        fee_overrides_config_map["kucoin_taker_fee"].value = None
+        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.001"), taker_fee.percent)
+        fee_overrides_config_map["kucoin_taker_fee"].value = Decimal('0.002')
+        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
+        fee_overrides_config_map["kucoin_maker_fee"].value = None
+        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.001"), maker_fee.percent)
+        fee_overrides_config_map["kucoin_maker_fee"].value = Decimal('0.005')
+        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
 
     def test_limit_buy(self):
         trading_pair = "ETH-USDT"

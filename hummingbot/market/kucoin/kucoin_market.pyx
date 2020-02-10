@@ -59,6 +59,7 @@ from hummingbot.market.market_base import (
     MarketBase,
     NaN)
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 km_logger = None
 s_decimal_0 = Decimal(0)
@@ -341,6 +342,10 @@ cdef class KucoinMarket(MarketBase):
                           object price):
         # There is no API for checking user's fee tier
         # Fee info from https://www.kucoin.com/vip/fee
+        if order_type is OrderType.LIMIT and fee_overrides_config_map["kucoin_maker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["kucoin_maker_fee"].value)
+        if order_type is OrderType.MARKET and fee_overrides_config_map["kucoin_taker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["kucoin_taker_fee"].value)
         return TradeFee(percent=Decimal("0.001"))
 
     async def _update_trading_rules(self):
