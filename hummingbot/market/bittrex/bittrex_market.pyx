@@ -35,6 +35,7 @@ from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import NaN
 from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 bm_logger = None
 s_decimal_0 = Decimal(0)
@@ -187,6 +188,10 @@ cdef class BittrexMarket(MarketBase):
         cdef:
             object maker_fee = Decimal(0.0025)
             object taker_fee = Decimal(0.0025)
+        if order_type is OrderType.LIMIT and fee_overrides_config_map["bittrex_maker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["bittrex_maker_fee"].value)
+        if order_type is OrderType.MARKET and fee_overrides_config_map["bittrex_taker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["bittrex_taker_fee"].value)
 
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
 
