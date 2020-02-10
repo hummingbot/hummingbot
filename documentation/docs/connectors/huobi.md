@@ -52,7 +52,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 ### Minimum Order Sizes
 
-You may refer to [this page](https://support.huobi.so/hc/en-us/articles/360000400491-Trade-Limits) for the minimum order size per trading pair.
+You may refer to [this page](https://huobiglobal.zendesk.com/hc/en-us/articles/360000304441-Trade-Limits) for the minimum order size per trading pair.
 
 ### Transaction Fees
 

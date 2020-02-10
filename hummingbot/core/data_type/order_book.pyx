@@ -42,12 +42,12 @@ cdef class OrderBook(PubSub):
             ob_logger = logging.getLogger(__name__)
         return ob_logger
 
-    def __init__(self, dex=None):
+    def __init__(self, dex=False):
         super().__init__()
         self._snapshot_uid = 0
         self._last_diff_uid = 0
         self._best_bid = self._best_ask = float("NaN")
-        self._dex = dex if dex is not None else False
+        self._dex = dex
 
     cdef c_apply_diffs(self, vector[OrderBookEntry] bids, vector[OrderBookEntry] asks, int64_t update_id):
         cdef:
@@ -105,7 +105,7 @@ cdef class OrderBook(PubSub):
             self._ask_book.insert(ask)
             if not (ask.getPrice() >= best_ask_price):
                 best_ask_price = ask.getPrice()
-        
+
         if self._dex:
             truncateOverlapEntries(self._bid_book, self._ask_book, self._dex)
 

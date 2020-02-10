@@ -34,6 +34,9 @@ order_books_db_2 = {
 
 kafka_bootstrap_server = "***REMOVED***"
 
+# whether to enable api mocking in unit test cases
+mock_api_enabled = os.getenv("MOCK_API_ENABLED")
+
 # Binance Tests
 binance_api_key = os.getenv("BINANCE_API_KEY")
 binance_api_secret = os.getenv("BINANCE_API_SECRET")
