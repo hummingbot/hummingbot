@@ -536,8 +536,10 @@ cdef class LiquidMarket(MarketBase):
                     min_order_size = math.pow(10, -rule.get(
                         "assets_precision", Constants.DEFAULT_ASSETS_PRECISION))
 
-                min_price_increment = math.pow(10, -rule.get(
-                    "quoting_precision", Constants.DEFAULT_QUOTING_PRECISION))
+                min_price_increment = product.get("tick_size")
+                if not min_price_increment or min_price_increment == "0.0":
+                    min_price_increment = math.pow(10, -rule.get(
+                        "quoting_precision", Constants.DEFAULT_QUOTING_PRECISION))
 
                 retval.append(TradingRule(trading_pair,
                                           min_price_increment=Decimal(min_price_increment),
