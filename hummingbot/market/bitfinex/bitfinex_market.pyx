@@ -144,7 +144,7 @@ cdef class BitfinexMarket(MarketBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._shared_client = None
-        self._post_queue = asyncio.Queue()
+        self._waiting = False
 
     @property
     def name(self) -> str:
@@ -329,15 +329,12 @@ cdef class BitfinexMarket(MarketBase):
             try:
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
-                await asyncio.sleep(1)
                 await self._update_balances()
-                await asyncio.sleep(1)
                 await self._update_order_status()
 
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                print(str(e))
                 self.logger().network(
                     "Unexpected error while fetching account updates.",
                     exc_info=True,
@@ -412,8 +409,17 @@ cdef class BitfinexMarket(MarketBase):
                            path_url,
                            data: Optional[Dict[Any]] = None) -> Dict[Any]:
 
-        await self._post_queue.put(self._api_private_fn(http_method, path_url, data))
-        return await (await self._post_queue.get())
+        while (self._waiting is True):
+            # print("gotta wait")
+            await asyncio.sleep(0.1)
+
+        try:
+            self._waiting = True
+            return await self._api_private_fn(http_method, path_url, data)
+        except Exception:
+            raise
+        finally:
+            self._waiting = False
 
     async def _api_do_request(self,
                               http_method: str,
@@ -1068,6 +1074,16 @@ cdef class BitfinexMarket(MarketBase):
         orders = [OrderRetrieved._make(res[:18]) for res in result]
         return orders
 
+    async def list_orders_history(self) -> List[OrderRetrieved]:
+        """
+        Gets a list of the user's active orders via rest API
+        :returns: json response
+        """
+        path_url = "auth/r/orders/hist?limit=100"
+        result = await self._api_private("post", path_url=path_url, data={})
+        orders = [OrderRetrieved._make(res[:18]) for res in result]
+        return orders
+
     def calculate_fee(self, price, amount, _type, order_type):
         # fee_percent dependent only from order_type
         fee_percent = self.c_get_fee(None, None, order_type, None, None, None).percent
@@ -1087,14 +1103,15 @@ cdef class BitfinexMarket(MarketBase):
 
         if current_timestamp - self._last_order_update_timestamp <= self.UPDATE_ORDERS_INTERVAL:
             return
-        await asyncio.sleep(1)
         tracked_orders = list(self._in_flight_orders.values())
-        results = await self.list_orders()
-        order_dict = dict((result[0], result) for result in results)
+        active_orders = await self.list_orders()
+        inactive_orders = await self.list_orders_history()
+        all_orders = active_orders + inactive_orders
+        order_dict = dict((str(order.id), order) for order in all_orders)
 
         for tracked_order in tracked_orders:
             exchange_order_id = await tracked_order.get_exchange_order_id()
-            order_update = order_dict.get(int(exchange_order_id))
+            order_update = order_dict.get(str(exchange_order_id))
             if order_update is None:
                 self.logger().network(
                     f"Error fetching status update for the order {tracked_order.client_order_id}: "
