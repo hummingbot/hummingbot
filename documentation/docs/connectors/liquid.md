@@ -32,6 +32,13 @@ This article below in their website under API information shows step-by-step ins
 
 ## Miscellaneous Info
 
+### Exchange Status
+
+Users can go to https://status.liquid.com/ to check the status of the exchange and review past or ongoing incidents.
+
+Developers can query the current status using the API, see documentation in https://status.liquid.com/api/.
+
+
 ### Minimum Order Sizes
 
 There is no minimum order quantity for trading fiat currency. See [this page](https://help.liquid.com/en/articles/3339119-minimum-order-quantity) for minimum order sizes on crypto trading pairs.
