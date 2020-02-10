@@ -253,17 +253,23 @@ cdef class BitfinexMarket(MarketBase):
                 continue
             asset_name = balance_entry.currency
 
-            reserved_balance = Decimal(0)
-            for order in self._in_flight_orders.values():
-                base_asset, quote_asset = BitfinexMarket.split_trading_pair(order.trading_pair)
-                if (quote_asset == balance_entry.currency):
-                    reserved_balance = reserved_balance + order.amount
+            # bitfinex doesnt return 'BALANCE_AVAILABLE'
+            # we must use https://docs.bitfinex.com/reference#rest-auth-calc-order-avail
+            # available_balance_result = await self._api_private(
+            #     "post",
+            #     path_url="auth/calc/order/avail",
+            #     data={
+            #         "symbol": f"t{asset_name}",
+            #         "dir": -1,
+            #         "type": "EXCHANGE"
+            #     }
+            # )
+            # print(available_balance_result)
 
             # None or 0
-            total_balance = Decimal(balance_entry.balance or 0)
-            available_balance = total_balance - reserved_balance
-            self._account_balances[asset_name] = total_balance
-            self._account_available_balances[asset_name] = available_balance
+            self._account_balances[asset_name] = Decimal(balance_entry.balance or 0)
+            self._account_available_balances[asset_name] = Decimal(balance_entry.balance or 0)
+            # self._account_available_balances[asset_name] = Decimal(balance_entry.balance_available or 0)
             remote_asset_names.add(asset_name)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
@@ -1105,19 +1111,34 @@ cdef class BitfinexMarket(MarketBase):
             return
         tracked_orders = list(self._in_flight_orders.values())
         active_orders = await self.list_orders()
-        inactive_orders = await self.list_orders_history()
-        all_orders = active_orders + inactive_orders
+        # inactive_orders = await self.list_orders_history()
+        all_orders = active_orders
+        # all_orders = active_orders + inactive_orders
         order_dict = dict((str(order.id), order) for order in all_orders)
 
         for tracked_order in tracked_orders:
             exchange_order_id = await tracked_order.get_exchange_order_id()
             order_update = order_dict.get(str(exchange_order_id))
+
+            # TODO: we should check history
             if order_update is None:
-                self.logger().network(
-                    f"Error fetching status update for the order {tracked_order.client_order_id}: "
-                    f"{order_update}.",
-                    app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id}. "
-                                    f"Check API key and network connection."
+                # self.logger().network(
+                #     f"Error fetching status update for the order {tracked_order.client_order_id}: "
+                #     f"{order_update}.",
+                #     app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id}. "
+                #                     f"Check API key and network connection."
+                # )
+
+                self.logger().info(
+                    f"The market order {tracked_order.client_order_id} has failed/been cancelled "
+                    f"according to order status API."
+                )
+                self.c_trigger_event(
+                    self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                    OrderCancelledEvent(
+                        self._current_timestamp,
+                        tracked_order.client_order_id
+                    )
                 )
                 continue
 
