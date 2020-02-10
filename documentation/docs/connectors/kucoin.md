@@ -1,8 +1,5 @@
 # KuCoin Connector
 
-!!! Note "As of 01/22/2020"
-    This connector is currently available in development version only and will be in the upcoming 0.23.0 release.
-
 
 ## About KuCoin
 
