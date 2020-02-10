@@ -337,50 +337,42 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 "price": trade.price,
             }
 
-    async def _listen_trades_for_pair(self, pair: str, output: asyncio.Queue):
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                async with self.sem:
-                    subscribe_request: Dict[str, Any] = {
-                        "event": "subscribe",
-                        "channel": "trades",
-                        "symbol": f"t{pair}",
-                    }
-                    await self.ws.send(ujson.dumps(subscribe_request))
-                    await asyncio.wait_for(self.ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # response
-                    await asyncio.wait_for(self.ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # subscribe info
-                    await asyncio.wait_for(self.ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # snapshot
-                    async for raw_msg in self._get_response(self.ws):
-                        msg = self._prepare_trade(raw_msg)
-                        if msg:
-                            msg_book: OrderBookMessage = BitfinexOrderBook.trade_message_from_exchange(
-                                msg,
-                                metadata={"symbol": f"{pair}"}
-                            )
-                            output.put_nowait(msg_book)
-            except asyncio.CancelledError:
-                raise
+                trading_pairs: List[str] = await self.get_trading_pairs()
+
+                for trading_pair in trading_pairs:
+                    async with websockets.connect(BITFINEX_WS_URI) as ws:
+                        payload: Dict[str, Any] = {
+                            "event": "subscribe",
+                            "channel": "trades",
+                            "symbol": f"t{trading_pair}",
+                        }
+                        await ws.send(ujson.dumps(payload))
+                        await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # response
+                        await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # subscribe info
+                        await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # snapshot
+
+                        async for raw_msg in self._get_response(ws):
+                            msg = self._prepare_trade(raw_msg)
+                            if msg:
+                                msg_book: OrderBookMessage = BitfinexOrderBook.trade_message_from_exchange(
+                                    msg,
+                                    metadata={"symbol": f"{trading_pair}"}
+                                )
+                                output.put_nowait(msg_book)
+
             except Exception as err:
-                self.logger().error(f"listen trades for pair {pair}", err)
-                self.logger().error(
-                    "Unexpected error with WebSocket connection. "
-                    f"Retrying after {int(self.MESSAGE_TIMEOUT)} seconds...",
-                    exc_info=True)
-                await asyncio.sleep(self.MESSAGE_TIMEOUT)
-
-    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        trading_pairs: List[str] = await self.get_trading_pairs()
-        # add rate-limit
-        self.sem = asyncio.Semaphore(4)
-
-        async with websockets.connect(BITFINEX_WS_URI) as ws:
-            self.ws = ws
-
-            tasks = [
-                ev_loop.create_task(self._listen_trades_for_pair(pair, output))
-                for pair in trading_pairs
-            ]
-            await asyncio.gather(*tasks)
+                self.logger().error(err)
+                self.logger().network(
+                    f"Unexpected error with WebSocket connection.",
+                    exc_info=True,
+                    app_warning_msg="Unexpected error with WebSocket connection. "
+                                    f"Retrying in {int(self.MESSAGE_TIMEOUT)} seconds. "
+                                    "Check network connection."
+                )
+                await asyncio.sleep(5)
 
     async def _get_response(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         try:
@@ -453,26 +445,31 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     return self._generate_add_message(pair, price, amount)
         return None
 
-    async def _listen_order_book_for_pair(self, pair: str, output: asyncio.Queue):
+    async def listen_for_order_book_diffs(self,
+                                          ev_loop: asyncio.BaseEventLoop,
+                                          output: asyncio.Queue):
         while True:
             try:
-                async with self.sem:
-                    await asyncio.sleep(2)
-                    subscribe_request: Dict[str, Any] = {
-                        "event": "subscribe",
-                        "channel": "book",
-                        "prec": "R0",
-                        "symbol": f"t{pair}",
-                    }
-                    await self.ws.send(ujson.dumps(subscribe_request))
-                    await asyncio.wait_for(self.ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # response
-                    await asyncio.wait_for(self.ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # subscribe info
-                    await asyncio.wait_for(self.ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # snapshot
+                trading_pairs: List[str] = await self.get_trading_pairs()
 
-                    async for raw_msg in self._get_response(self.ws):
-                        msg = self._parse_raw_update(pair, raw_msg)
-                        if msg is not None:
-                            output.put_nowait(msg)
+                for trading_pair in trading_pairs:
+                    async with websockets.connect(BITFINEX_WS_URI) as ws:
+                        payload: Dict[str, Any] = {
+                            "event": "subscribe",
+                            "channel": "book",
+                            "prec": "R0",
+                            "symbol": f"t{trading_pair}",
+                        }
+                        await ws.send(ujson.dumps(payload))
+                        await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # response
+                        await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # subscribe info
+                        await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # snapshot
+
+                        async for raw_msg in self._get_response(ws):
+                            msg = self._parse_raw_update(trading_pair, raw_msg)
+                            if msg is not None:
+                                output.put_nowait(msg)
+
             except Exception as err:
                 self.logger().error(err)
                 self.logger().network(
@@ -482,24 +479,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     f"Retrying in {int(self.MESSAGE_TIMEOUT)} seconds. "
                                     "Check network connection."
                 )
-                await asyncio.sleep(self.MESSAGE_TIMEOUT)
-
-    async def listen_for_order_book_diffs(self,
-                                          ev_loop: asyncio.BaseEventLoop,
-                                          output: asyncio.Queue):
-        trading_pairs: List[str] = await self.get_trading_pairs()
-        # rate-limit
-        self.sem = asyncio.Semaphore(5)
-        try:
-            async with websockets.connect(BITFINEX_WS_URI) as ws:
-                self.ws = ws
-                tasks = [
-                    self._listen_order_book_for_pair(pair, output)
-                    for pair in trading_pairs
-                ]
-                await asyncio.gather(*tasks)
-        except asyncio.CancelledError:
-            raise
+                await asyncio.sleep(5)
 
     async def listen_for_order_book_snapshots(self,
                                               ev_loop: asyncio.BaseEventLoop,
