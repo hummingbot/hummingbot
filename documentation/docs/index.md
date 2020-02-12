@@ -12,6 +12,7 @@ Hummingbot is open source software that helps you create, configure and manage h
 
 * [General](/): For new users. Learn about how Hummingbot works, install the software, and quickly start running your first bot
 * [User Manual](/manual): For experienced users who want to get the most of Hummingbot
+* [Liquidity Mining](/liquidity-mining): How to earn rewards by running a market making bot for your favorite tokens and exchanges
 * [Developer Manual](/developers): For developers looking to contribute to Hummingbot or extend its capabilities
 * [Release Notes](/release-notes): New features, bug fixes, and other updates from our bi-weekly releases
 
