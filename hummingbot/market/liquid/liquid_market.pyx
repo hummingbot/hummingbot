@@ -58,6 +58,7 @@ from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.market.liquid.liquid_in_flight_order import LiquidInFlightOrder
 from hummingbot.market.liquid.liquid_in_flight_order cimport LiquidInFlightOrder
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -366,6 +367,10 @@ cdef class LiquidMarket(MarketBase):
             object maker_fee = Decimal("0.0010")
             object taker_fee = Decimal("0.0010")
 
+        if order_type is OrderType.LIMIT and fee_overrides_config_map["liquid_maker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["liquid_maker_fee"].value)
+        if order_type is OrderType.MARKET and fee_overrides_config_map["liquid_taker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["liquid_taker_fee"].value)
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
 
     async def _update_balances(self):
@@ -531,8 +536,10 @@ cdef class LiquidMarket(MarketBase):
                     min_order_size = math.pow(10, -rule.get(
                         "assets_precision", Constants.DEFAULT_ASSETS_PRECISION))
 
-                min_price_increment = math.pow(10, -rule.get(
-                    "quoting_precision", Constants.DEFAULT_QUOTING_PRECISION))
+                min_price_increment = product.get("tick_size")
+                if not min_price_increment or min_price_increment == "0.0":
+                    min_price_increment = math.pow(10, -rule.get(
+                        "quoting_precision", Constants.DEFAULT_QUOTING_PRECISION))
 
                 retval.append(TradingRule(trading_pair,
                                           min_price_increment=Decimal(min_price_increment),
