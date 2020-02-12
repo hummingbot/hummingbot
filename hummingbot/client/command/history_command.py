@@ -119,13 +119,23 @@ class HistoryCommand:
                                  "Total_Value_Delta", "Profit"]
 
             for market_trading_pair_tuple, trading_pair_stats in market_trading_pair_stats.items():
+                quote_asset: str = self.market_trading_pair_tuples[0].quote_asset.upper()
+                base_asset: str = self.market_trading_pair_tuples[0].base_asset.upper()
+                market_name = market_trading_pair_tuple.market.name
+                quote_starting = self.starting_balances.get(quote_asset).get(market_name)
+                base_starting = self.starting_balances.get(base_asset).get(market_name)
+                base_converted = ERC.convert_token_value_decimal(base_starting, base_asset, quote_asset)
+                profit = Decimal("0")
+                if quote_starting + base_converted > 0:
+                    profit = (trading_pair_stats['trading_pair_delta'] / (quote_starting + base_converted)) * Decimal(
+                        "100")
                 market_df_data.add((
                     market_trading_pair_tuple.market.display_name,
                     market_trading_pair_tuple.trading_pair.upper(),
                     float(trading_pair_stats["starting_quote_rate"]),
                     float(trading_pair_stats["end_quote_rate"]),
                     f"{trading_pair_stats['trading_pair_delta']:.8f} {primary_quote_asset}",
-                    f"{trading_pair_stats['trading_pair_delta_percentage']:.3f} %"
+                    f"{profit:.3f} %"
                 ))
 
             inventory_df: pd.DataFrame = self.balance_comparison_data_frame(market_trading_pair_stats)
