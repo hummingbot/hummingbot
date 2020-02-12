@@ -55,7 +55,7 @@ Installing directly from the Hummingbot open source code hosted on Github offers
 
 ## 3b. Run a market making bot
 
-Of all of [strategies](/strategies/) available in Hummingbot, only the market making strategies (strategies that submit and maintain standing limit orders on order books) can earn liquidity rewards. 
+Of all of [strategies](/strategies/) available in Hummingbot, only the market making strategies (strategies that submit and maintain standing limit orders on order books) are eligible for earning liquidity mining rewards. 
 
 Below, we link to documentation for the two market making strategies available in Hummingbot.
 
