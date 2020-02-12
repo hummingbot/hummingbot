@@ -245,31 +245,49 @@ cdef class BitfinexMarket(MarketBase):
             set asset_names_to_remove
 
         account_balances = await self._api_balance()
+        active_markets = await self.get_active_exchange_markets()
+        markets = active_markets.to_dict(orient='records')
+
         # push trading-pairs-info, that set in config
         for balance_entry in account_balances:
             # TODO: need more info about other types: exchange, margin, funding.
             #  Now work only with EXCHANGE
             if balance_entry.wallet_type != "exchange":
                 continue
+
             asset_name = balance_entry.currency
 
-            # bitfinex doesnt return 'BALANCE_AVAILABLE'
+            # find a pair we can use to retrieve available balance
+            valid_markets = list(
+                filter(
+                    lambda m: m["baseAsset"] == asset_name or m["quoteAsset"] == asset_name,
+                    markets
+                )
+            )
+            market = valid_markets[0] if valid_markets is not None and len(valid_markets) > 0 else None
+            trading_pair = {
+                "symbol": market["display_name"],
+                "dir": -1 if market["baseAsset"] == asset_name else 1
+            } if market is not None else None
+
+            # bitfinex doesn't return 'BALANCE_AVAILABLE'
             # we must use https://docs.bitfinex.com/reference#rest-auth-calc-order-avail
-            # available_balance_result = await self._api_private(
-            #     "post",
-            #     path_url="auth/calc/order/avail",
-            #     data={
-            #         "symbol": f"t{asset_name}",
-            #         "dir": -1,
-            #         "type": "EXCHANGE"
-            #     }
-            # )
-            # print(available_balance_result)
+            available_balance_result = await self._api_private(
+                "post",
+                path_url="auth/calc/order/avail",
+                data={
+                    "symbol": f"t{trading_pair['symbol']}",
+                    "dir": trading_pair['dir'],
+                    "rate": 1,
+                    "type": "EXCHANGE"
+                }
+            ) if trading_pair is not None else None
 
             # None or 0
             self._account_balances[asset_name] = Decimal(balance_entry.balance or 0)
-            self._account_available_balances[asset_name] = Decimal(balance_entry.balance or 0)
-            # self._account_available_balances[asset_name] = Decimal(balance_entry.balance_available or 0)
+            self._account_available_balances[asset_name] = Decimal(
+                abs(available_balance_result[0]) if available_balance_result is not None else 0
+            )
             remote_asset_names.add(asset_name)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
@@ -417,7 +435,7 @@ cdef class BitfinexMarket(MarketBase):
 
         while (self._waiting is True):
             # print("gotta wait")
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.01)
 
         try:
             self._waiting = True
