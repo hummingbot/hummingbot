@@ -1,7 +1,7 @@
 # Liquidity Mining FAQ
 
-!!! info "Not Investment, Financial, Legal, or Tax Advice"
-    The content of this Site does not constitute investment, financial, legal, or tax advice.<br>None of the information contained on this Site constitutes a recommendation, solicitation, or offer to buy or sell any digital assets, securities, options, or other financial instruments or other assets, or to provide any investment advice or service.<br>
+!!! info "Important Disclaimer"
+    <small><ul><li>The content of this Site does not constitute investment, financial, legal, or tax advice, nor does any of the information contained on this Site constitute a recommendation, solicitation, or offer to buy or sell any digital assets, securities, options, or other financial instruments or other assets, or to provide any investment advice or service.<li>There is no guarantee of profit for participating in liquidity mining.<li>Participation is subject to eligiblity requirements.</ul></small>
     **Please review the [Liquidity Mining Policy](https://hummingbot.io/liquidity-mining-policy/) for the full disclaimer.**
 
 ## General
@@ -78,7 +78,7 @@ The return is represented is an annualized return calculated based on (1) the to
 This annualized return is what is displayed on the Hummingbot Miner app.
 
 !!! warning "Liquidity mining return does not a represent miner's portfolio return or expected portfolio return."
-    Liquidity mining returns factor in the reward payments vs. order volumes only.  They *do not* capture the individual miner's return on the underlying strategy that generated the orders created.  As a result, *liquidity mining returns are not an indication of a miner's overall portfolio return*; miners should take into consideration overall economics, and not just mining return, when deciding on participating in liquidity mining campaigns.
+    Liquidity mining returns factor in the reward payments vs. order volumes only.  They *do not* capture the individual miner's return on the underlying strategy or any transaction fees (if any) that generated the orders created.  As a result, *liquidity mining returns are not an indication of a miner's overall portfolio return*; miners should take into consideration overall economics, and not just mining return, when deciding on participating in liquidity mining campaigns.
 
 !!! warning "Liquidity mining return is a historic metric and not a guarantee of future return."
     The liquidity mining return displayed on the Hummingbot Miner app is calculated from the most recently collected order book information data.  The actual return may vary depending on the actual orders submitted in the specific snapshot in which orders were placed.
@@ -104,27 +104,28 @@ Each weekly epoch runs begins and ends at Tuesday 12am UTC. Rewards are distribu
 ## Compliance and Data Storage
 
 ### How do you verify the trading activities?
-We take compliance extremely seriously, and only reward genuine providers of liquidity. For this reason, participants need to opt into data collection and provide their read-only API keys for exchanges, in order to allow us to verify trading activity. In addition, we run proprietary algorithms in order to attempt any prohibited actions such as wash trading and spoofing. While exploitative practices can be difficult to identify given the adversarial nature of the market, we believe that the combination of our focus on compliance, granular data feeds, and machine learning-based algorithms may deter and detect bad actors.
+We take compliance extremely seriously, and aim to only reward genuine providers of liquidity. For this reason, participants need to opt into data collection and provide their read-only API keys for exchanges, in order to allow us to verify trading activity. In addition, we run proprietary algorithms in order to attempt any prohibited actions such as wash trading and spoofing. While exploitative practices can be difficult to identify given the adversarial nature of the market, we believe that the combination of our focus on compliance, granular data feeds, and machine learning-based algorithms may deter and detect bad actors.
 
 ### Why do you need my read-only API keys? 
 In order to accurately allocate rewards, we need to separate individual miner orders from one another. Our data infrastructure uses read-only API keys to collect and aggregate order data for each miner. 
 
 ### Do you store data that you collect with my read-only API keys?
-At launch, we store individual orders and trades in order to isolate and prevent potential attempts to manipulate or abuse the system by malicious liquidity miners. After the system is more mature, we will adjust the data collection process so that we only store aggregate data and do not store individual orders and trades. We never share individual order and trade data with third-parties.
+At launch, we store individual orders and trades in order to isolate and prevent potential attempts to manipulate or abuse the system by malicious liquidity miners. After the system is more mature, we will adjust the data collection process so that we only store aggregate data and do not store individual orders and trades. We never share individual order and trade data with third parties.
 
 ## Miscellaneous
 
 ### What risks does a liquidity miner bear?
 Like any trading strategy, market making includes risk. One of the primary risks is **inventory risk**, the risk of negative changes in inventory value as a result of market making. For instance, if prices drop significantly in a short time period and a market maker accumulates a large position in the asset due to continual fills of their market maker's buy orders, their overall inventory value may be lower.
 
-Note that published liquidity mining returns illustrate the return from liquidity rewards proportional to the value of the inventory committed to maintain orders. These figures do not take into account trading-related profits and losses.
+Note that published liquidity mining returns illustrate the return from liquidity rewards proportional to the value of the inventory committed to maintain orders. These figures do not take into account trading-related profits and losses.  The return figures may also fluctuate based on relative changes in the value of the base tokens, quote tokens, and the tokens used for the liquidity mining payments.
 
 ### How is Hummingbot compensated for liquidity mining programs?
-In return for administering liquidity mining programs, collecting the data necessary to verify the trading activity of participants, and automating the payout process, we receive a percentage of the total payouts from our other Liquidity Mining partners.
+In return for administering liquidity mining programs, collecting the data necessary to verify the trading activity of participants, and automating the payout process, we receive compensation from our Liquidity Mining partners and customers.
 
+### How are liquidity miners compensated in liquidity mining programs?
+From the fees that Hummingbot receives from its partners and customers, Hummingbot allocates a portion to pay miners for participating and sharing their trading data.  The amount of liquidity payments that Hummingbot makes to miners is based on the terms specified in each liquidity mining campaign, referencing a miner's orders created and their spreads and sizes.
 
 ### Do I need to use the Hummingbot client to participate in liquidity mining?
 No; if you already have your own trading bots and strategies, you can still participate in liquidity mining by registering.  
 
 For the general pool of users who don't have their own trading bots, we created Hummingbot as a way to provide them access to quant/algo strategies and the ability to market make.
-
