@@ -69,9 +69,8 @@ class LiquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     }
                     await ws.send(ujson.dumps(auth_request))
 
-                    active_markets_df: pd.DataFrame = await LiquidAPIOrderBookDataSource.get_active_exchange_markets()
                     quoted_currencies = [
-                        active_markets_df.loc[trading_pair, 'quoteAsset']
+                        trading_pair.split('-')[1]                        
                         for trading_pair in self._trading_pairs
                     ]
 
