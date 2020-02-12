@@ -8,35 +8,30 @@ Below instructions and demo videos show you how to easily install Hummingbot for
   <iframe width="616" height="347" src="https://www.youtube.com/embed/klN-ToclwW4" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
   </iframe>
 
-Step 1. Download Hummingbot from our official website 
+Download Hummingbot from our official website, and install it on your local computer
 
-- [Download the Hummingbot client](https://hummingbot.io/download/)
+- [Download and install now](/installation/from-binary/macos)
 
-Step 2. Install Hummingbot on your local computer
-
-- [macOS Binary Installation](/installation/from-binary/macos)
+Afterwards, you should see the Hummingbot client interface. Proceed to [configure a bot](/quickstart/3-configure-bot).
 
 ## Windows
 
   <iframe width="616" height="347" src="https://www.youtube.com/embed/9TsZ_xjExXs"    frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
   </iframe>
 
-Step 1. Download Hummingbot from our official website 
+Download Hummingbot from our official website, and install it on your local computer
 
-- [Download the Hummingbot client](https://hummingbot.io/download/)
+- [Download and install now](/installation/from-binary/windows)
 
-Step 2. Install Hummingbot on your local computer
+Afterwards, you should see the Hummingbot client interface. Proceed to [Configure a Bot](/quickstart/3-configure-bot).
 
-- [Windows Binary Installation](/installation/from-binary/windows)
+## Linux and Advanced Users
 
-## Linux
+For Linux users or developers, it is recommended to refer to below instructions.
 
-If you are using Linux, you can use our installation scripts to quickly [install Hummingbot using Docker](/installation/via-docker/linux). 
+- [Set up cloud server](/installation/cloud)
+- [Install via Docker (Linux)](/installation/via-docker/linux)
+- [Install via Source (Linux)](/installation/from-source/linux/)
 
-## Hummingbot for Developers
-
-For developers looking to contribute to Hummingbot and extend its capabilities, it is recommended to install Hummingbot from source.
-
-- [Linux Source Installation](/installation/from-source/linux)
-- [macOS Source Installation](/installation/from-source/macOS)
-- [Windows Source Installation](/installation/from-source/windows)
+---
+# Next: [Configure a Bot](/quickstart/3-configure-bot)
