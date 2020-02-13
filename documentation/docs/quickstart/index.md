@@ -22,13 +22,17 @@ Remember that you need inventory of both the **base asset** (the asset that you 
 
 In addition, be aware of the minimum order size requirements on different exchanges. For more information, please see [Connectors](/connectors).
 
-## API Keys & Ethereum Wallet
+## API Keys
 
-**Why these are needed**: 
+**Why this is needed**: 
 
-- In order to run a bot on a **centralized exchange** like Binance and Liquid, you will need to enter the exchange API keys during the Hummingbot configuration process. For more information on how to get the API keys for each exchange, please see [API Keys](/installation/api-keys).
+- To run a bot on a **centralized exchange** like Binance or Huobi, you will need to enter the exchange API keys during the Hummingbot configuration process. For more information, please see [API Keys](/installation/api-keys).
 
-- In order to **earn rewards** from Liquidity Bounties, you need an Ethereum wallet. In addition, you'll need to import an Ethereum wallet when you run a trading bot on an **Ethereum-based decentralized exchange** like Bamboo Relay. For more information on creating or importing an Ethereum wallet, see [Ethereum wallet](/installation/wallet).
+## Ethereum Wallet and Node
+
+**Why this is needed**: 
+
+- If you plan to run bots on **decentralized exchanges** like Radar Relay, you will need an Ethereum wallet and access to an Ethereum node. For more information, see [Ethereum wallet](/installation/wallet) and [Ethereum node](/installation/node/).
 
 ---
 # Next: [Install Hummingbot](/quickstart/2-install)
