@@ -48,8 +48,14 @@ from hummingbot.model.sql_connection_manager import (
 )
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+from test.integration.humming_web_app import HummingWebApp
+from test.integration.assets.mock_data.fixture_huobi import FixtureHuobi
+from unittest import mock
 
-
+API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
+API_KEY = "XXX" if API_MOCK_ENABLED else conf.huobi_api_key
+API_SECRET = "YYY" if API_MOCK_ENABLED else conf.huobi_secret_key
+API_BASE_URL = "api.huobi.pro"
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
@@ -73,19 +79,34 @@ class HuobiMarketUnitTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        if API_MOCK_ENABLED:
+            cls.web_app = HummingWebApp.get_instance()
+            cls.web_app.add_host_to_mock(API_BASE_URL, ["/v1/common/timestamp", "/v1/common/symbols",
+                                                        "/market/tickers", "/market/depth"])
+            cls.web_app.start()
+            cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
+            cls._patcher = mock.patch("aiohttp.client.URL")
+            cls._url_mock = cls._patcher.start()
+            cls._url_mock.side_effect = cls.web_app.reroute_local
+            mock_account_id = FixtureHuobi.GET_ACCOUNTS["data"][0]["id"]
+            cls.web_app.update_response("get", API_BASE_URL, "/v1/account/accounts", FixtureHuobi.GET_ACCOUNTS)
+            cls.web_app.update_response("get", API_BASE_URL, f"/v1/account/accounts/{mock_account_id}/balance",
+                                        FixtureHuobi.GET_BALANCES)
+            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.market.huobi.huobi_market.get_tracking_nonce")
+            cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: HuobiMarket = HuobiMarket(
-            conf.huobi_api_key,
-            conf.huobi_secret_key,
+            API_KEY,
+            API_SECRET,
             trading_pairs=["ethusdt"]
         )
         # Need 2nd instance of market to prevent events mixing up across tests
         cls.market_2: HuobiMarket = HuobiMarket(
-            conf.huobi_api_key,
-            conf.huobi_secret_key,
+            API_KEY,
+            API_SECRET,
             trading_pairs=["ethusdt"]
         )
-        cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.market)
         cls.clock.add_iterator(cls.market_2)
         cls.stack = contextlib.ExitStack()
@@ -95,6 +116,10 @@ class HuobiMarketUnitTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.stack.close()
+        if API_MOCK_ENABLED:
+            cls.web_app.stop()
+            cls._patcher.stop()
+            cls._t_nonce_patcher.stop()
 
     @classmethod
     async def wait_til_ready(cls):
@@ -361,8 +386,8 @@ class HuobiMarketUnitTest(unittest.TestCase):
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
             self.market: HuobiMarket = HuobiMarket(
-                huobi_api_key=conf.huobi_api_key,
-                huobi_secret_key=conf.huobi_secret_key,
+                huobi_api_key=API_KEY,
+                huobi_secret_key=API_SECRET,
                 trading_pairs=["ethusdt", "btcusdt"]
             )
             for event_tag in self.events:
