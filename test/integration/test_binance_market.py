@@ -226,15 +226,8 @@ class BinanceMarketUnitTest(unittest.TestCase):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
         amount: Decimal = 1
         quantized_amount: Decimal = self.market.quantize_order_amount("LINKETH", amount)
-        if API_MOCK_ENABLED:
-            resp = self.order_response(FixtureBinance.ORDER_BUY, 10001, 'buy', "LINKETH")
-            self.web_app.update_response("post", self.base_api_url, "/api/v3/order", resp)
-        order_id = self.market.buy("LINKETH", amount)
-        if API_MOCK_ENABLED:
-            data = self.fixture(FixtureBinance.WS_AFTER_BUY_1, c=order_id)
-            HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.1)
-            data = self.fixture(FixtureBinance.WS_AFTER_BUY_2, c=order_id)
-            HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.11)
+        order_id = self.place_order(True, "LINKETH", amount, OrderType.MARKET, 0, 10001, FixtureBinance.ORDER_BUY,
+                                    FixtureBinance.WS_AFTER_BUY_1, FixtureBinance.WS_AFTER_BUY_2)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -259,15 +252,8 @@ class BinanceMarketUnitTest(unittest.TestCase):
         # Try to sell back the same amount of ZRX to the exchange, and watch for completion event.
         amount = order_completed_event.base_asset_amount
         quantized_amount = order_completed_event.base_asset_amount
-        if API_MOCK_ENABLED:
-            resp = self.order_response(FixtureBinance.ORDER_SELL, 10002, 'sell', "LINKETH")
-            self.web_app.update_response("post", self.base_api_url, "/api/v3/order", resp)
-        order_id = self.market.sell("LINKETH", amount)
-        if API_MOCK_ENABLED:
-            data = self.fixture(FixtureBinance.WS_AFTER_SELL_1, c=order_id)
-            HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.1)
-            data = self.fixture(FixtureBinance.WS_AFTER_SELL_2, c=order_id)
-            HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.11)
+        order_id = self.place_order(False, "LINKETH", amount, OrderType.MARKET, 0, 10002, FixtureBinance.ORDER_SELL,
+                                    FixtureBinance.WS_AFTER_SELL_1, FixtureBinance.WS_AFTER_SELL_2)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events = [t for t in self.market_logger.event_log
@@ -296,16 +282,9 @@ class BinanceMarketUnitTest(unittest.TestCase):
         amount: Decimal = 1
         quantized_amount: Decimal = self.market.quantize_order_amount("LINKETH", amount)
 
-        if API_MOCK_ENABLED:
-            resp = self.order_response(FixtureBinance.ORDER_BUY_LIMIT, 10002, 'buy', "LINKETH")
-            self.web_app.update_response("post", self.base_api_url, "/api/v3/order", resp)
-        order_id = self.market.buy("LINKETH", quantized_amount, OrderType.LIMIT, quantize_bid_price)
-        if API_MOCK_ENABLED:
-            data = self.fixture(FixtureBinance.WS_AFTER_BUY_1, c=order_id)
-            HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.1)
-            data = self.fixture(FixtureBinance.WS_AFTER_BUY_2, c=order_id)
-            HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.11)
-
+        order_id = self.place_order(True, "LINKETH", quantized_amount, OrderType.LIMIT, quantize_bid_price, 10001,
+                                    FixtureBinance.ORDER_BUY_LIMIT, FixtureBinance.WS_AFTER_BUY_1,
+                                    FixtureBinance.WS_AFTER_BUY_2)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -332,16 +311,9 @@ class BinanceMarketUnitTest(unittest.TestCase):
         quantize_ask_price: Decimal = self.market.quantize_order_price("LINKETH", bid_price)
         quantized_amount = order_completed_event.base_asset_amount
 
-        if API_MOCK_ENABLED:
-            resp = self.order_response(FixtureBinance.ORDER_SELL_LIMIT, 10002, 'sell', "LINKETH")
-            self.web_app.update_response("post", self.base_api_url, "/api/v3/order", resp)
-        order_id = self.market.sell("LINKETH", quantized_amount, OrderType.LIMIT, quantize_ask_price)
-        if API_MOCK_ENABLED:
-            data = self.fixture(FixtureBinance.WS_AFTER_SELL_1, c=order_id)
-            HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.1)
-            data = self.fixture(FixtureBinance.WS_AFTER_SELL_2, c=order_id)
-            HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.11)
-
+        order_id = self.place_order(False, "LINKETH", quantized_amount, OrderType.LIMIT, quantize_ask_price, 10002,
+                                    FixtureBinance.ORDER_SELL_LIMIT, FixtureBinance.WS_AFTER_SELL_1,
+                                    FixtureBinance.WS_AFTER_SELL_2)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events = [t for t in self.market_logger.event_log
@@ -400,13 +372,6 @@ class BinanceMarketUnitTest(unittest.TestCase):
         self.assertEqual(Decimal('10'), withdraw_asset_event.amount)
         self.assertGreater(withdraw_asset_event.fee_amount, Decimal(0))
 
-    def order_response(self, fixture_data, nonce, side, trading_pair):
-        self._t_nonce_mock.return_value = nonce
-        order_id = f"{side.lower()}-{trading_pair}-{str(nonce)}"
-        order_resp = fixture_data.copy()
-        order_resp["clientOrderId"] = order_id
-        return order_resp
-
     def fixture(self, fixture_data, **overwrites):
         data = fixture_data.copy()
         for key, value in overwrites.items():
@@ -414,6 +379,30 @@ class BinanceMarketUnitTest(unittest.TestCase):
                 raise Exception(f"{key} not found in fixture_data")
             data[key] = value
         return data
+
+    def order_response(self, fixture_data, nonce, side, trading_pair):
+        self._t_nonce_mock.return_value = nonce
+        order_id = f"{side.lower()}-{trading_pair}-{str(nonce)}"
+        order_resp = fixture_data.copy()
+        order_resp["clientOrderId"] = order_id
+        return order_resp
+
+    def place_order(self, is_buy, trading_pair, amount, order_type, price, nonce, fixture_resp,
+                    fixture_ws_1, fixture_ws_2):
+        order_id = None
+        if API_MOCK_ENABLED:
+            resp = self.order_response(fixture_resp, nonce, 'buy' if is_buy else 'sell', trading_pair)
+            self.web_app.update_response("post", self.base_api_url, "/api/v3/order", resp)
+        if is_buy:
+            order_id = self.market.buy(trading_pair, amount, order_type, price)
+        else:
+            order_id = self.market.sell(trading_pair, amount, order_type, price)
+        if API_MOCK_ENABLED:
+            data = self.fixture(fixture_ws_1, c=order_id)
+            HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.1)
+            data = self.fixture(fixture_ws_2, c=order_id)
+            HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.11)
+        return order_id
 
     def test_cancel_all(self):
         trading_pair = "LINKETH"
@@ -426,14 +415,13 @@ class BinanceMarketUnitTest(unittest.TestCase):
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price * Decimal("0.7"))
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.5"))
 
-        if API_MOCK_ENABLED:
-            order_resp = self.order_response(FixtureBinance.ORDER_BUY_NOT_FILLED, 1000001, "buy", "LINKETH")
-            self.web_app.update_response("post", self.base_api_url, "/api/v3/order", order_resp)
-        buy_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
-        if API_MOCK_ENABLED:
-            order_resp = self.order_response(FixtureBinance.ORDER_SELL_NOT_FILLED, 1000002, "sell", "LINKETH")
-            self.web_app.update_response("post", self.base_api_url, "/api/v3/order", order_resp)
-        sell_id = self.market.sell(trading_pair, quantized_amount, OrderType.LIMIT, quantize_ask_price)
+        buy_id = self.place_order(True, "LINKETH", quantized_amount, OrderType.LIMIT, quantize_bid_price, 10001,
+                                  FixtureBinance.ORDER_BUY_NOT_FILLED, FixtureBinance.WS_AFTER_BUY_1,
+                                  FixtureBinance.WS_AFTER_BUY_2)
+
+        sell_id = self.place_order(False, "LINKETH", quantized_amount, OrderType.LIMIT, quantize_ask_price, 10002,
+                                   FixtureBinance.ORDER_SELL_NOT_FILLED, FixtureBinance.WS_AFTER_SELL_1,
+                                   FixtureBinance.WS_AFTER_SELL_2)
 
         self.run_parallel(asyncio.sleep(1))
         if API_MOCK_ENABLED:
@@ -662,31 +650,19 @@ class BinanceMarketUnitTest(unittest.TestCase):
         try:
             # Try to buy 1 LINK from the exchange, and watch for completion event.
             amount: Decimal = 1
-            if API_MOCK_ENABLED:
-                resp = self.order_response(FixtureBinance.ORDER_BUY_LIMIT, 1000001, "buy", "LINKETH")
-                self.web_app.update_response("post", self.base_api_url, "/api/v3/order", resp)
-            order_id = self.market.buy("LINKETH", amount)
-            if API_MOCK_ENABLED:
-                data = self.fixture(FixtureBinance.WS_AFTER_BUY_1, c=order_id)
-                HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.1)
-                data = self.fixture(FixtureBinance.WS_AFTER_BUY_2, c=order_id)
-                HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.11)
+            order_id = self.place_order(True, "LINKETH", amount, OrderType.MARKET, 0, 10001,
+                                        FixtureBinance.ORDER_BUY_LIMIT, FixtureBinance.WS_AFTER_BUY_1,
+                                        FixtureBinance.WS_AFTER_BUY_2)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
             # Reset the logs
             self.market_logger.clear()
 
-            # Try to sell back the same amount of ZRX to the exchange, and watch for completion event.
+            # Try to sell back the same amount of LINK to the exchange, and watch for completion event.
             amount = buy_order_completed_event.base_asset_amount
-            if API_MOCK_ENABLED:
-                resp = self.order_response(FixtureBinance.ORDER_SELL_LIMIT, 1000002, "sell", "LINKETH")
-                self.web_app.update_response("post", self.base_api_url, "/api/v3/order", resp)
-            order_id = self.market.sell("LINKETH", amount)
-            if API_MOCK_ENABLED:
-                data = self.fixture(FixtureBinance.WS_AFTER_SELL_1, c=order_id)
-                HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.1)
-                data = self.fixture(FixtureBinance.WS_AFTER_SELL_2, c=order_id)
-                HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.11)
+            order_id = self.place_order(False, "LINKETH", amount, OrderType.MARKET, 0, 10002,
+                                        FixtureBinance.ORDER_SELL_LIMIT, FixtureBinance.WS_AFTER_SELL_1,
+                                        FixtureBinance.WS_AFTER_SELL_2)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
             # Query the persisted trade logs
