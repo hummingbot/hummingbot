@@ -1,29 +1,26 @@
 # [Quickstart] Install Hummingbot
 
-Below instructions and demo videos show you how to easily install Hummingbot for each supported platform. For more detailed instructions, refer to our [User Manual](https://docs.hummingbot.io/installation/).
+**For new Hummingbot users:** We recommend that you download and run the installer package, which is available for Windows and macOS. The videos show you how to easily install Hummingbot for each supported platform. 
 
+**For experienced Hummingbot users or developers**: We recommend that you install and run Hummingbot on an cloud instance to maximize performance and reliability.
 
-## macOS
-
-  <iframe width="616" height="347" src="https://www.youtube.com/embed/klN-ToclwW4" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
-  </iframe>
-
-Download Hummingbot from our official website, and install it on your local computer
-
-- [Download and install now](/installation/from-binary/macos)
-
-Afterwards, you should see the Hummingbot client interface. Proceed to [configure a bot](/quickstart/3-configure-bot).
+For more detailed instructions, please refer to [Installation](https://docs.hummingbot.io/installation/) in the User Manual.
 
 ## Windows
 
-  <iframe width="616" height="347" src="https://www.youtube.com/embed/9TsZ_xjExXs"    frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
-  </iframe>
+This video shows you how to download and install Hummingbot on Windows:
+<iframe width="616" height="347" src="https://www.youtube.com/embed/9TsZ_xjExXs"    frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
+</iframe>
 
-Download Hummingbot from our official website, and install it on your local computer
+If you need assistance, please see this step-by-step guide: [Installing Hummingbot on Windows](/installation/from-binary/windows)
 
-- [Download and install now](/installation/from-binary/windows)
+## macOS
 
-Afterwards, you should see the Hummingbot client interface. Proceed to [Configure a Bot](/quickstart/3-configure-bot).
+This video shows you how to download and install Hummingbot on macOS:
+<iframe width="616" height="347" src="https://www.youtube.com/embed/klN-ToclwW4" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
+</iframe>
+
+If you need assistance, please see this step-by-step guide: [Installing Hummingbot on macOS](/installation/from-binary/macos)
 
 ## Linux and Advanced Users
 
