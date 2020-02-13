@@ -311,6 +311,9 @@ cdef class HuobiMarket(MarketBase):
                 raise IOError(f"Error parsing data from {url}.")
 
             data = parsed_response.get("data")
+            text = await response.text()
+            print(f"Request: {method} {path_url} {params} {data}")
+            print(f"Response: {text}")
             if data is None:
                 self.logger().error(f"Error received from {url}. Response is {parsed_response}.")
                 raise HuobiAPIError({"error": parsed_response})
