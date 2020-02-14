@@ -48,8 +48,8 @@ void truncateOverlapEntriesDex(std::set<OrderBookEntry> &bidBook, std::set<Order
                 askBook.erase(askIterator++);
             } else {
                 std::set<OrderBookEntry>::iterator eraseIterator = (std::next(bidIterator)).base();
-                bidBook.erase(eraseIterator);
                 bidIterator++;
+                bidBook.erase(eraseIterator);
             }
         } else {
             break;
@@ -68,8 +68,8 @@ void truncateOverlapEntriesCentralised(std::set<OrderBookEntry> &bidBook, std::s
                 askBook.erase(askIterator++);
             } else {
                 std::set<OrderBookEntry>::iterator eraseIterator = (std::next(bidIterator)).base();
-                bidBook.erase(eraseIterator);
                 bidIterator++;
+                bidBook.erase(eraseIterator);
             }
         } else {
             break;
