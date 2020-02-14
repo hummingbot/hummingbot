@@ -2,7 +2,7 @@
 
 ## About Coinbase Pro
 
-Coinbase Pro is a highly popular, global cryptocurrency exchange designed for professional traders based out of San Francisco, California. It has a reputation for being secure and trustworthy, and accounts on the exchange backed by FDIC insurance.
+Based in San Francisco, CA, Coinbase Pro is a widely-used, global cryptocurrency exchange designed for professional traders. It has a reputation for being secure and trustworthy, is [regulated in all the jurisdictions in which it operates](https://www.coinbase.com/legal/insurance), and maintains some [insurance on assets and deposits](https://www.coinbase.com/legal/insurance).
 
 ## Using the Connector
 

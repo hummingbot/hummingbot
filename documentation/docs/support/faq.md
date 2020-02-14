@@ -8,4 +8,4 @@ Check the balance in your inventory. If you don't have enough balance on one sid
 
 ### What settings or parameter values should I use to make profitable trades?
 
-We generally don't advise on parameter values. As a market maker, testing different parameters and seeing how they perform is really the art or science of market making.
+Hummingbot does not advise on parameter values. As a market maker, testing different parameters and seeing how they perform is really the art or science of market making.
