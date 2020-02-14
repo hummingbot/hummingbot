@@ -16,17 +16,17 @@ We send out updates and announcements through our [Discord channel](https://disc
 
 ### Why are you making Hummingbot available to the general public rather than just running it in-house?
 
-- **Mission alignment**: We founded CoinAlpha, the company behind Hummingbot, because we believe that blockchain technology empowers individuals to compete on a level playing field with large financial institutions. Releasing Hummingbot as open source software available to the general public furthers this mission.
+- **Expand liquidity miners**: We make money by providing a service to token issuers and exchanges that enables them to source liquidity from a decentralized network of users running Hummingbot (aka [Liquidity Mining](/liquidity-mining)). The more people who use Hummingbot, the more valuable this decentralized approach to market making will be to our customers.
 
 - **Decentralized market making**: There are hundreds of fragmented digital asset exchanges in need of liquidity that are underserved by the relatively scarce number of dedicated, professional market makers. At the same time, market making requires dedicated inventory held in reserve on each market served. Given near-infinite combinations of markets, it would be impossible for a single market maker to serve the entire market. A decentralized, community-driven approach allows each market maker to serve the markets where they have comparative advantage. This is a more optimal long-term solution to the crypto industry's [liquidity problem](https://www.hummingbot.io/blog/2019-01-thin-crust-of-liquidity/).
 
-- **Regulatory limitations**: Regulations on cryptocurrencies are still evolving and unclear, which creates particular challenges for trading on an institutional/company basis.  As a technology company, we want to focus on building technology and not spend our time on navigating and monitoring the ever-changing regulations.  
+- **Mission alignment**: We founded CoinAlpha, the company behind Hummingbot, because we believe that blockchain technology empowers individuals to compete on a level playing field with large financial institutions. Releasing Hummingbot as open source software available to the general public furthers this mission.
 
 ### Why are you making Hummingbot open source?
 
-- **Transparency**: In order to use Hummingbot, users must provide their private keys and exchange API keys.  In a similar way as wallet software, we want users to know how this sensitive information is being used and give them comfort when using Hummingbot; aka, open kimono.
+- **Trust and Transparency**: In order to use Hummingbot, users must provide their private keys and exchange API keys.  In a similar way as wallet software, we want users to know how this sensitive information is being used and give them comfort when using Hummingbot; aka, open kimono.
 
-- **Community**: Decentralization, blockchain technology, and cryptocurrencies are built on the idea of community by passionate technologists.  We welcome developers to study the code, suggest improvements, add cool new features, or help identify bugs or any other problems.
+- **Community**: Decentralization, blockchain technology, and cryptocurrencies are built on the idea of community by passionate technologists. We welcome developers to study the code, suggest improvements, add cool new features, or help identify bugs or any other problems.
 
 ### What open source license does Hummingbot use?
 
