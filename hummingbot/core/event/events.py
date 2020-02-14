@@ -53,6 +53,10 @@ class OrderBookEvent(Enum):
     TradeEvent = 901
 
 
+class ZeroExEvent(Enum):
+    Fill = 1001
+
+
 class TradeType(Enum):
     BUY = 1
     SELL = 2
@@ -98,6 +102,25 @@ class WalletUnwrappedEthEvent(NamedTuple):
     address: str
     amount: Decimal
     raw_amount: int
+
+
+class ZeroExFillEvent(NamedTuple):
+    timestamp: float
+    tx_hash: str
+    maker_address: str
+    fee_recipient_address: str
+    maker_asset_data: bytes
+    taker_asset_data: bytes
+    maker_fee_asset_data: bytes
+    taker_fee_asset_data: bytes
+    order_hash: str
+    taker_address: str
+    sender_address: str
+    maker_asset_filled_amount: Decimal
+    taker_asset_filled_amount: Decimal
+    maker_fee_paid: Decimal
+    taker_fee_paid: Decimal
+    protocol_fee_paid: Decimal
 
 
 class MarketReceivedAssetEvent(NamedTuple):
