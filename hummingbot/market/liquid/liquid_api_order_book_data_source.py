@@ -233,8 +233,8 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     retval[trading_pair] = LiquidOrderBookTrackerEntry(trading_pair, snapshot_timestamp, order_book)
 
-                    self.logger().info(f"Initialized order book for {trading_pair}."
-                                       f"{index*1}/{number_of_pairs} completed")
+                    self.logger().info(f"Initialized order book for {trading_pair}. "
+                                       f"{index+1}/{number_of_pairs} completed")
                     # Each 1000 limit snapshot costs ?? requests and Liquid rate limit is ?? requests per second.
                     await asyncio.sleep(1.0)  # Might need to be changed
                 except Exception:
