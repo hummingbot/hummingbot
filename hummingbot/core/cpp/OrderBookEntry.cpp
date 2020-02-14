@@ -60,7 +60,7 @@ void truncateOverlapEntriesDex(std::set<OrderBookEntry> &bidBook, std::set<Order
 void truncateOverlapEntriesCentralised(std::set<OrderBookEntry> &bidBook, std::set<OrderBookEntry> &askBook) {
     std::set<OrderBookEntry>::reverse_iterator bidIterator = bidBook.rbegin();
     std::set<OrderBookEntry>::iterator askIterator = askBook.begin();
-    while (bidIterator != bidBook.rend() && askIterator != askBook.end()) {
+    while (bidIterator != bidBook.rend() && askIterator != askBook.end() && !bidBook.empty() && !askBook.empty()) {
         const OrderBookEntry& topBid = *bidIterator;
         const OrderBookEntry& topAsk = *askIterator;
         if (topBid.price >= topAsk.price) {
