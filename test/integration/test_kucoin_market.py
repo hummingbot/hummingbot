@@ -121,6 +121,10 @@ class KucoinMarketUnitTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.stack.close()
+        if API_MOCK_ENABLED:
+            cls.web_app.stop()
+            cls._patcher.stop()
+            cls._t_nonce_patcher.stop()
 
     @classmethod
     async def wait_til_ready(cls):
@@ -176,7 +180,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         self.assertGreater(sell_trade_fee.percent, 0)
         self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
-    def order_response(self, fixture_data, nonce, side, trading_pair):
+    def order_response(self, fixture_data, nonce):
         self._t_nonce_mock.return_value = nonce
         order_resp = fixture_data.copy()
         return order_resp
@@ -187,8 +191,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         if API_MOCK_ENABLED:
             exch_order_id = f"KUCOIN_{EXCHANGE_ORDER_ID}"
             EXCHANGE_ORDER_ID += 1
-            side = 'buy' if is_buy else 'sell'
-            resp = self.order_response(post_resp, nonce, side, trading_pair)
+            resp = self.order_response(post_resp, nonce)
             resp["data"]["orderId"] = exch_order_id
             self.web_app.update_response("post", API_BASE_URL, "/api/v1/orders", resp)
         if is_buy:
