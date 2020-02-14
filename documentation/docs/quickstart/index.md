@@ -24,31 +24,15 @@ In addition, be aware of the minimum order size requirements on different exchan
 
 ## API Keys
 
-**Why this is needed**: In order to run a bot on a centralized exchange like Binance, you will need to enter the exchange API keys during the Hummingbot configuration process.
+**Why this is needed**: 
 
-For more information on how to get the API keys for each exchange, please see [API Keys](/installation/api-keys).
+- To run a bot on a **centralized exchange** like Binance or Huobi, you will need to enter the exchange API keys during the Hummingbot configuration process. For more information, please see [API Keys](/installation/api-keys).
 
-## Ethereum Wallet
+## Ethereum Wallet and Node
 
-**Why this is needed**: In order to earn rewards from Liquidity Bounties, you need an Ethereum wallet. In addition, you'll need to import an Ethereum wallet when you run a trading bot on an Ethereum-based decentralized exchange.
+**Why this is needed**: 
 
-For more information on creating or importing an Ethereum wallet, see [Ethereum wallet](/installation/wallet).
-
-## Ethereum Node (DEX only)
-**Why this is needed**: When you run a trading bot on a Ethereum-based decentralized exchange, your wallet sends signed transactions to the blockchain via an Ethereum node.
-
-For more information, see [Ethereum node](/installation/node/node). To get a free node, see [Get a Free Ethereum Node](/installation/node/infura/).
-
-## Cloud Server (Optional)
-
-We recommend that users run trading bots in the cloud, since bots require a stable network connection and can run 24/7.
-
-Follow the guide to [set up a cloud server](/installation/cloud) on your preferred cloud platform. Hummingbot is not resource-intensive so the lowest/free tiers should work.
-
-!!! tip
-    Don't know which cloud platform to use? Read our [blog post](https://www.hummingbot.io/blog/2019-06-cloud-providers/) that compares and contrasts the different providers.
-
-If you just want to test out Hummingbot, you can skip this and install locally.
+- If you plan to run bots on **decentralized exchanges** like Radar Relay, you will need an Ethereum wallet and access to an Ethereum node. For more information, see [Ethereum wallet](/installation/wallet) and [Ethereum node](/installation/node/).
 
 ---
 # Next: [Install Hummingbot](/quickstart/2-install)

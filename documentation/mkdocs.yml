@@ -128,7 +128,7 @@ nav:
         - Configuring Hummingbot: operation/configuration.md
         - API Keys: installation/api-keys.md
         - Ethereum Wallet: installation/wallet.md
-        - Ethereum Node: installation/node/node.md
+        - Ethereum Node: installation/node/index.md
         - Get a Free Ethereum Node: installation/node/infura.md
       - Connectors:
         - Connectors Overview: connectors/index.md

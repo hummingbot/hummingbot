@@ -57,10 +57,8 @@ class HummingWebApp:
         path = req_path[req_path.find("/"):]
         resps = [x for x in self._stock_responses if x.method == method and x.host == host and x.path == path]
         if len(resps) > 1:
-            if method == "GET":
-                params = dict(request.query)
-            else:
-                params = dict(await request.post())
+            params = dict(request.query)
+            params.update(dict(await request.post()))
             resps = [x for x in resps if x.params is not None and all(k in params and str(v) == params[k]
                                                                       for k, v in x.params.items())]
         if not resps:
