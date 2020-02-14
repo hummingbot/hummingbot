@@ -15,7 +15,6 @@ First, let's walk through the design of the Hummingbot client interface:
 **Enter `help` to see a list of commands:**
 
 ```
-bounty              Participate in hummingbot's liquidity bounty programs 
 config              Add your personal credentials e.g. exchange API keys  
 exit                Securely exit the command line                        
 export_private_key  Print your account private key                        
@@ -143,8 +142,8 @@ Enter your Binance API secret >>>
 ```
 For more information on how to find your API keys, please see [API Keys](/installation/api-keys).
 
-!!! note "Copying and Pasting"
-    Our Get Help section contains answers to some of the common how-to questions like [How to copy and paste in Docker Toolbox (Windows)](/support/how-to/#how-to-copy-and-paste-in-docker-toolbox-windows) and [Paste items from clipboard in PuTTY](/support/how-to/#paste-items-from-clipboard-in-putty)
+!!! tip "Tip: Copying and Pasting"
+    Users have reported not being able to copy and paste their API keys on some platforms. Our help articles such as [How to copy and paste in Docker Toolbox (Windows)](/support/how-to/#how-to-copy-and-paste-in-docker-toolbox-windows) and [Paste items from clipboard in PuTTY](/support/how-to/#paste-items-from-clipboard-in-putty) may help, and our 24/7 support team can help you if you join our [Discord](https://discord.hummingbot.io).
 
 ---
 
@@ -178,7 +177,7 @@ At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5% l
 Hummingbot comes with other useful utilities that help you run the bot such as [exchange rates](/utilities/exchange-rates/) and [Telegram integration](/utilities/telegram/). For more information on these utilities, see the Utilities section in the [User Manual](/manual).
 
 
-#### g) Sending errors logs
+#### g) Sending error logs
 
 Hummingbot requests error logs for the sole purpose of debugging and continuously improving our software. We'll never share the data with a third party.
 
@@ -188,12 +187,22 @@ Enter `Yes` to allow sending error logs to Hummingbot or enter `No` to disable t
 Would you like to send error logs to hummingbot? (Yes/No) >>> Yes
 ```
 
+---
 
-## Step 4: Adjusting Parameters
+Congratulations! You have successfully set up your first market making bot. You should now see:
+```
+Config process complete. Enter "start" to start market making.
 
-If you want to reconfigure the bot from the beginning, type `config` and reply `y` to the question `Would you like to reconfigure the bot? (Yes/No) >>>?`. This will prompt all questions during initial set up.
+>>> start
+```
 
-Alternatively, the command `list configs` will show your current bot parameters both global and the strategy configs.
+## (Optional) Adjusting Parameters
+
+### From the Hummingbot client
+
+If you want to reconfigure the bot from the beginning, type `config` and reply `y` to the question `Would you like to reconfigure the bot? (Yes/No) >>>?`. This will prompt all questions during initial setup.
+
+Alternatively, the command `list configs` will show your current bot's configuration.
 
 ```
 >>> list configs
@@ -213,7 +222,9 @@ order_amount                    0.2
 
 ```
 
-You can specify which parameter you want to configure by doing `config $parameter_name`. As an example, we want to widen the `bid_place_threshold` to 0.02. This tells the bot to place buy order 2% lower than the mid price, rather than 1%.
+You can change a parameter by with the command `config [parameter_name]`.
+
+For example, let's widen the `bid_place_threshold` to 0.02. This tells the bot to place buy order 2% lower than the mid price, rather than 1%:
 
 ```
 >>> config bid_place_threshold
@@ -228,17 +239,23 @@ bid_place_threshold: 0.02
 
 ```
 
-You can also exit the bot with `exit` and edit the automatically generated configuration file `conf_pure_market_making_0.yml`. This file is saved in the directory `hummingbot_files/hummingbot_conf/` in your root. For more information, see [Troubleshooting](/support/how-to/#how-do-i-edit-the-conf-files-or-access-the-log-files-used-by-my-docker-instance).
+### From the command line
 
+When you configure a bot, Hummingbot automatically saves the configuration file so that you can import it the next time you run Hummingbot. If you go to the Hummingbot root folder, you can edit these configuration files directly.
 
----
-If you completed the steps above successfully, you should see the message:
+#### Root folder location
+
+* **Windows**: `%localappdata%\hummingbot.io\Hummingbot`
+* **macOS**: `~/Library/Application\ Support/Hummingbot`
+* **Docker installations**: Please see [this article](/support/how-to/#how-to-find-out-where-the-config-and-log-files-are-on-hummingbot-installed-via-docker)
+
+#### Root folder layout
 ```
-Config process complete. Enter "start" to start market making.
-
->>> start
+Hummingbot/
+└── conf/   # configuration files
+└── logs/   # log files
+└── data/   # database of executed trades
 ```
-
 
 ---
 # Next: [Run Your First Trading Bot](/quickstart/4-run-bot)
