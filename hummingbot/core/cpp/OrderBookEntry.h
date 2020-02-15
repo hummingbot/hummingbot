@@ -22,7 +22,7 @@ class OrderBookEntry {
 
         double getPrice() const;
         double getAmount() const;
-        int64_t getUpdateId();
+        int64_t getUpdateId() const;
 };
 
 #endif
