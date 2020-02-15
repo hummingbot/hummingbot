@@ -47,9 +47,10 @@ void truncateOverlapEntriesDex(std::set<OrderBookEntry> &bidBook, std::set<Order
             if (topBid.amount*topBid.price > topAsk.amount*topAsk.price) {
                 askBook.erase(askIterator++);
             } else {
+                // There is no need to move the bid iterator, since its base
+                // always points to the end() iterator.
                 std::set<OrderBookEntry>::iterator eraseIterator = (std::next(bidIterator)).base();
                 bidBook.erase(eraseIterator);
-                bidIterator++;
             }
         } else {
             break;
@@ -63,14 +64,14 @@ void truncateOverlapEntriesCentralised(std::set<OrderBookEntry> &bidBook, std::s
     while (bidIterator != bidBook.rend() && askIterator != askBook.end()) {
         const OrderBookEntry& topBid = *bidIterator;
         const OrderBookEntry& topAsk = *askIterator;
-        printf("Comparing top bid %.2f to top ask %.2f\n", topBid.getPrice(), topAsk.getPrice());
         if (topBid.price >= topAsk.price) {
             if (topBid.updateId > topAsk.updateId) {
                 askBook.erase(askIterator++);
             } else {
+                // There is no need to move the bid iterator, since its base
+                // always points to the end() iterator.
                 std::set<OrderBookEntry>::iterator eraseIterator = (std::next(bidIterator)).base();
                 bidBook.erase(eraseIterator);
-                bidIterator++;
             }
         } else {
             break;
