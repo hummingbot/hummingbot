@@ -2,6 +2,7 @@
 // Created by Martin Kou on 2/14/20.
 //
 
+#include <cmath>
 #include <cstdio>
 #include <set>
 #include "OrderBookEntry.h"
@@ -15,6 +16,22 @@ int main(const int argc, const char **argv) {
     return 0;
 }
 
+void printTopPrices(const OrderBookSide &bidsBook, const OrderBookSide &asksBook) {
+    double topBid = nan("");
+    double topAsk = nan("");
+    OrderBookSide::iterator asksIterator = asksBook.begin();
+    OrderBookSide::reverse_iterator bidsIterator = bidsBook.rbegin();
+
+    if (asksIterator != asksBook.end()) {
+        topAsk = (*asksIterator).getPrice();
+    }
+    if (bidsIterator != bidsBook.rend()) {
+        topBid = (*bidsIterator).getPrice();
+    }
+
+    printf("current top bid: %.2f, top ask: %.2f\n", topBid, topAsk);
+}
+
 void testEmptyOrderBooks() {
     OrderBookSide bidsBook;
     OrderBookSide asksBook;
@@ -24,6 +41,7 @@ void testEmptyOrderBooks() {
     printf("*** testEmptyOrderBooks(): Stage 1 ***\n");
     printf("Asks side iterator empty? %d\n", asksIterator == asksBook.end());
     printf("Bids side iterator empty? %d\n", bidsIterator == bidsBook.rend());
+    printTopPrices(bidsBook, asksBook);
 
     printf("\n*** testEmptyOrderBooks(): Stage 2 ***\n");
     bidsBook.insert(OrderBookEntry(100.0, 1.0, 1));
@@ -32,6 +50,7 @@ void testEmptyOrderBooks() {
     truncateOverlapEntriesCentralised(bidsBook, asksBook);
     printf("Asks side iterator empty? %d\n", asksIterator == asksBook.end());
     printf("Bids side iterator empty? %d\n", bidsIterator == bidsBook.rend());
+    printTopPrices(bidsBook, asksBook);
 
     printf("\n*** testEmptyOrderBooks(): Stage 3 ***\n");
     bidsBook.insert(OrderBookEntry(100.0, 4.0, 2));
@@ -48,9 +67,14 @@ void testEmptyOrderBooks() {
     bidsIterator = bidsBook.rbegin();
     printf("Asks side iterator empty? %d\n", asksIterator == asksBook.end());
     printf("Bids side iterator empty? %d\n", bidsIterator == bidsBook.rend());
+    printTopPrices(bidsBook, asksBook);
 
     printf("\n*** testEmptyOrderBooks(): Stage 4 ***\n");
+    bidsBook.insert(OrderBookEntry(100.91, 3.0, 3));
     asksBook.insert(OrderBookEntry(100.89, 1.0, 4));
     asksBook.insert(OrderBookEntry(100.88, 0.8, 4));
     asksBook.insert(OrderBookEntry(100.86, 0.7, 4));
+    bidsBook.insert(OrderBookEntry(100.87, 1.1, 5));
+    truncateOverlapEntriesCentralised(bidsBook, asksBook);
+    printTopPrices(bidsBook, asksBook);
 }
