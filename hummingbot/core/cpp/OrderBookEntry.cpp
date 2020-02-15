@@ -48,8 +48,8 @@ void truncateOverlapEntriesDex(std::set<OrderBookEntry> &bidBook, std::set<Order
                 askBook.erase(askIterator++);
             } else {
                 std::set<OrderBookEntry>::iterator eraseIterator = (std::next(bidIterator)).base();
-                bidIterator++;
                 bidBook.erase(eraseIterator);
+                bidIterator++;
             }
         } else {
             break;
@@ -63,13 +63,14 @@ void truncateOverlapEntriesCentralised(std::set<OrderBookEntry> &bidBook, std::s
     while (bidIterator != bidBook.rend() && askIterator != askBook.end()) {
         const OrderBookEntry& topBid = *bidIterator;
         const OrderBookEntry& topAsk = *askIterator;
+        printf("Comparing top bid %.2f to top ask %.2f\n", topBid.getPrice(), topAsk.getPrice());
         if (topBid.price >= topAsk.price) {
             if (topBid.updateId > topAsk.updateId) {
                 askBook.erase(askIterator++);
             } else {
                 std::set<OrderBookEntry>::iterator eraseIterator = (std::next(bidIterator)).base();
-                bidIterator++;
                 bidBook.erase(eraseIterator);
+                bidIterator++;
             }
         } else {
             break;
@@ -77,11 +78,11 @@ void truncateOverlapEntriesCentralised(std::set<OrderBookEntry> &bidBook, std::s
     }
 }
 
-double OrderBookEntry::getPrice() {
+double OrderBookEntry::getPrice() const {
     return this->price;
 }
 
-double OrderBookEntry::getAmount() {
+double OrderBookEntry::getAmount() const {
     return this->amount;
 }
 
