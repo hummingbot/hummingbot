@@ -11,6 +11,6 @@ cdef extern from "../cpp/OrderBookEntry.h":
         OrderBookEntry &operator=(const OrderBookEntry &other)
         double getPrice() const
         double getAmount() const
-        int64_t getUpdateId()
+        int64_t getUpdateId() const
 
     void truncateOverlapEntries(set[OrderBookEntry] &bid_book, set[OrderBookEntry] &ask_book, const bint &dex)

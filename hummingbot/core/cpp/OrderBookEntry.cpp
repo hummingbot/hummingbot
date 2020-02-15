@@ -87,6 +87,6 @@ double OrderBookEntry::getAmount() const {
     return this->amount;
 }
 
-int64_t OrderBookEntry::getUpdateId() {
+int64_t OrderBookEntry::getUpdateId() const {
     return this->updateId;
 }
