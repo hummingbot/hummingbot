@@ -83,7 +83,7 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.available_amount_base == s_decimal_0
+        return self.last_state in {"FILLED"}#self.available_amount_base == s_decimal_0
 
     @property
     def is_cancelled(self) -> bool:
