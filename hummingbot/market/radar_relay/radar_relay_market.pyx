@@ -667,7 +667,6 @@ cdef class RadarRelayMarket(MarketBase):
         for order in signed_market_orders:
             signatures.append(order["signature"])
             del order["signature"]
-            self.logger().info(f"order: {order}")
             order["makerAddress"] = Web3.toChecksumAddress(order["makerAddress"])
             order["senderAddress"] = Web3.toChecksumAddress(order["senderAddress"])
             order["exchangeAddress"] = Web3.toChecksumAddress(order["exchangeAddress"])
