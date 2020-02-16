@@ -696,7 +696,7 @@ cdef class RadarRelayMarket(MarketBase):
                                                                        amount=f"{amount:f}",
                                                                        price=f"{price:f}",
                                                                        expires=expires)
-        unsigned_limit_order["makerAddress"] = self._wallet.address.lower()
+        unsigned_limit_order["makerAddress"] = self._wallet.address
         order_hash_hex = self.get_order_hash_hex(unsigned_limit_order)
         signed_limit_order = copy.deepcopy(unsigned_limit_order)
         signature = self.get_zero_ex_signature(order_hash_hex)
