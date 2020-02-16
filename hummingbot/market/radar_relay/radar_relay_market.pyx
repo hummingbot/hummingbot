@@ -699,7 +699,7 @@ cdef class RadarRelayMarket(MarketBase):
         signed_limit_order = copy.deepcopy(unsigned_limit_order)
         signature = self.get_zero_ex_signature(order_hash_hex)
         signed_limit_order["signature"] = signature
-        await self._api_request(http_method="post", url=url, data=signed_limit_order, headers={"Content-Type": "application/json"}, json=1)  # ERROR – 'chainId' incorrect format
+        await self._api_request(http_method="post", url=url, data=signed_limit_order, headers={"Content-Type": "application/json"}, json=1)
         self._latest_salt = int(unsigned_limit_order["salt"])
         order_hash = self._w3.toHex(hexstr=order_hash_hex)
         del unsigned_limit_order["signature"]
