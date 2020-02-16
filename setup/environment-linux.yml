@@ -65,7 +65,7 @@ dependencies:
     - 0x-contract-addresses==3.0.0
     - 0x-contract-artifacts==2.0.0
     - 0x-contract-wrappers==2.0.0
-    - 0x-json-schemas==1.0.0
+    - 0x-json-schemas==2.1.0
     - 0x-order-utils==4.0.0
     - aioconsole==0.1.13
     - aiohttp==3.6.1
