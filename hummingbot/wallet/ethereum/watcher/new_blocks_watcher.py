@@ -160,25 +160,28 @@ class NewBlocksWatcher(BaseWatcher):
     async def get_block_reorganization(self, incoming_block: AttributeDict) -> List[AttributeDict]:
         block_reorganization: List[AttributeDict] = []
         expected_parent_hash: HexBytes = incoming_block.parentHash
-        while expected_parent_hash not in self._blocks_window and len(block_reorganization) < len(self._blocks_window):
-            replacement_block = None
-            while replacement_block is None:
-                replacement_block = await self.call_async(
-                    functools.partial(
-                        self._w3.eth.getBlock,
-                        expected_parent_hash,
-                        full_transactions=True)
-                )
-                if replacement_block is None:
-                    await asyncio.sleep(0.5)
+        try:
+            while expected_parent_hash not in self._blocks_window and len(block_reorganization) < len(self._blocks_window):
+                replacement_block = None
+                while replacement_block is None:
+                    replacement_block = await self.call_async(
+                        functools.partial(
+                            self._w3.eth.getBlock,
+                            expected_parent_hash,
+                            full_transactions=True)
+                    )
+                    if replacement_block is None:
+                        await asyncio.sleep(0.5)
 
-            replacement_block_number: int = replacement_block.number
-            replacement_block_hash: HexBytes = replacement_block.hash
-            replacement_block_parent_hash: HexBytes = replacement_block.parentHash
-            self._block_number_to_hash_map[replacement_block_number] = replacement_block_hash
-            self._blocks_window[replacement_block_hash] = replacement_block
-            block_reorganization.append(replacement_block)
-            expected_parent_hash = replacement_block_parent_hash
+                replacement_block_number: int = replacement_block.number
+                replacement_block_hash: HexBytes = replacement_block.hash
+                replacement_block_parent_hash: HexBytes = replacement_block.parentHash
+                self._block_number_to_hash_map[replacement_block_number] = replacement_block_hash
+                self._blocks_window[replacement_block_hash] = replacement_block
+                block_reorganization.append(replacement_block)
+                expected_parent_hash = replacement_block_parent_hash
 
-        block_reorganization.reverse()
-        return block_reorganization
+            block_reorganization.reverse()
+            return block_reorganization
+        except asyncio.CancelledError:
+            raise
