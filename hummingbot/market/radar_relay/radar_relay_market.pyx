@@ -699,10 +699,10 @@ cdef class RadarRelayMarket(MarketBase):
         signed_limit_order = copy.deepcopy(unsigned_limit_order)
         signature = self.get_zero_ex_signature(order_hash_hex)
         signed_limit_order["signature"] = signature
-        order["makerAddress"] = Web3.toChecksumAddress(order["makerAddress"])
-        order["senderAddress"] = Web3.toChecksumAddress(order["senderAddress"])
-        order["exchangeAddress"] = Web3.toChecksumAddress(order["exchangeAddress"])
-        order["feeRecipientAddress"] = Web3.toChecksumAddress(order["feeRecipientAddress"])
+        signed_limit_order["makerAddress"] = Web3.toChecksumAddress(signed_limit_order["makerAddress"])
+        signed_limit_order["senderAddress"] = Web3.toChecksumAddress(signed_limit_order["senderAddress"])
+        signed_limit_order["exchangeAddress"] = Web3.toChecksumAddress(signed_limit_order["exchangeAddress"])
+        signed_limit_order["feeRecipientAddress"] = Web3.toChecksumAddress(signed_limit_order["feeRecipientAddress"])
         await self._api_request(http_method="post", url=url, data=signed_limit_order, headers={"Content-Type": "application/json"}, json=1)  # ERROR – 'chainId' incorrect format
         self._latest_salt = int(unsigned_limit_order["salt"])
         order_hash = self._w3.toHex(hexstr=order_hash_hex)
