@@ -19,7 +19,7 @@ import os
 import ujson
 from web3 import Web3
 from web3.datastructures import AttributeDict
-from web3.utils.events import get_event_data
+from web3._utils.events import get_event_data
 
 from hummingbot.wallet.ethereum.erc20_token import ERC20Token
 from hummingbot.logger import HummingbotLogger
