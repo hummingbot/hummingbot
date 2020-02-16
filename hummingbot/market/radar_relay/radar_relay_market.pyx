@@ -667,6 +667,11 @@ cdef class RadarRelayMarket(MarketBase):
         for order in signed_market_orders:
             signatures.append(order["signature"])
             del order["signature"]
+            self.logger().info(f"order: {order}")
+            order["makerAddress"] = Web3.toChecksumAddress(order["makerAddress"])
+            order["senderAddress"] = Web3.toChecksumAddress(order["senderAddress"])
+            order["exchangeAddress"] = Web3.toChecksumAddress(order["exchangeAddress"])
+            order["feeRecipientAddress"] = Web3.toChecksumAddress(order["feeRecipientAddress"])
             orders.append(jsdict_to_order(order))
         tx_hash = ""
         if trade_type is TradeType.BUY:
@@ -689,11 +694,15 @@ cdef class RadarRelayMarket(MarketBase):
                                                                        amount=f"{amount:f}",
                                                                        price=f"{price:f}",
                                                                        expires=expires)
-        unsigned_limit_order["makerAddress"] = self._wallet.address.lower()
+        unsigned_limit_order["makerAddress"] = self._wallet.address
         order_hash_hex = self.get_order_hash_hex(unsigned_limit_order)
         signed_limit_order = copy.deepcopy(unsigned_limit_order)
         signature = self.get_zero_ex_signature(order_hash_hex)
         signed_limit_order["signature"] = signature
+        order["makerAddress"] = Web3.toChecksumAddress(order["makerAddress"])
+        order["senderAddress"] = Web3.toChecksumAddress(order["senderAddress"])
+        order["exchangeAddress"] = Web3.toChecksumAddress(order["exchangeAddress"])
+        order["feeRecipientAddress"] = Web3.toChecksumAddress(order["feeRecipientAddress"])
         await self._api_request(http_method="post", url=url, data=signed_limit_order, headers={"Content-Type": "application/json"}, json=1)  # ERROR – 'chainId' incorrect format
         self._latest_salt = int(unsigned_limit_order["salt"])
         order_hash = self._w3.toHex(hexstr=order_hash_hex)
