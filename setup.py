@@ -56,7 +56,7 @@ def main():
     package_data = {
         "hummingbot": [
             "core/cpp/*",
-            "wallet/ethereum/zero_ex/*.json"
+            "wallet/ethereum/zero_ex/*.json",
             "wallet/ethereum/token_abi/*.json",
             "wallet/ethereum/erc20_tokens.json",
             "VERSION",
@@ -70,6 +70,7 @@ def main():
         "cytoolz",
         "eth-abi",
         "eth-account",
+        "eth-bloom",
         "eth-hash",
         "eth-keyfile",
         "eth-keys",
