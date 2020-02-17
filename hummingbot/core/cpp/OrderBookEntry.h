@@ -20,9 +20,9 @@ class OrderBookEntry {
         friend void truncateOverlapEntriesDex(std::set<OrderBookEntry> &bidBook, std::set<OrderBookEntry> &askBook);
         friend void truncateOverlapEntriesCentralised(std::set<OrderBookEntry> &bidBook, std::set<OrderBookEntry> &askBook);
 
-        double getPrice();
-        double getAmount();
-        int64_t getUpdateId();
+        double getPrice() const;
+        double getAmount() const;
+        int64_t getUpdateId() const;
 };
 
 #endif
