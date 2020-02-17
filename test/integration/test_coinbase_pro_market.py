@@ -484,10 +484,10 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
             self.market: CoinbaseProMarket = CoinbaseProMarket(
-                coinbase_pro_api_key=conf.coinbase_pro_api_key,
-                coinbase_pro_secret_key=conf.coinbase_pro_secret_key,
-                coinbase_pro_passphrase=conf.coinbase_pro_passphrase,
-                trading_pairs=["ETH-USDC", "ETH-USD"]
+                coinbase_pro_api_key=API_KEY,
+                coinbase_pro_secret_key=API_SECRET,
+                coinbase_pro_passphrase=API_PASSPHRASE,
+                trading_pairs=["ETH-USDC"]
             )
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)
