@@ -4,6 +4,8 @@ from hummingbot.client.config.config_validators import (
     is_valid_market_trading_pair
 )
 from hummingbot.client.settings import required_exchanges, EXAMPLE_PAIRS
+from decimal import Decimal
+from hummingbot.client.config.config_helpers import minimum_order_amount
 
 
 def maker_trading_pair_prompt():
@@ -66,8 +68,11 @@ cross_exchange_market_making_config_map = {
     "order_amount": ConfigVar(
         key="order_amount",
         prompt="What is your preferred trade size? (Denominated in the base asset) >>> ",
-        default=0.0,
+        default=lambda: minimum_order_amount(
+            cross_exchange_market_making_config_map["maker_market_trading_pair"].value),
         type_str="decimal",
+        validator=lambda v: Decimal(v) >= minimum_order_amount(
+            cross_exchange_market_making_config_map["maker_market_trading_pair"].value)
     ),
     "adjust_order_enabled": ConfigVar(
         key="adjust_order_enabled",
