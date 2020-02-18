@@ -16,6 +16,7 @@ from typing import (
 from decimal import Decimal
 from libc.stdint cimport int64_t
 from web3 import Web3
+from web3.exceptions import TransactionNotFound
 from zero_ex.order_utils import (
     generate_order_hash_hex,
     Order as ZeroExOrder
@@ -558,9 +559,11 @@ cdef class RadarRelayMarket(MarketBase):
             try:
                 if len(self._pending_approval_tx_hashes) > 0:
                     for tx_hash in list(self._pending_approval_tx_hashes):
-                        receipt = self._w3.eth.getTransactionReceipt(tx_hash)
-                        if receipt is not None:
+                        try:
+                            receipt = self._w3.eth.getTransactionReceipt(tx_hash)
                             self._pending_approval_tx_hashes.remove(tx_hash)
+                        except TransactionNotFound:
+                            pass
             except Exception:
                 self.logger().network(
                     "Unexpected error while fetching approval transactions.",
@@ -880,7 +883,11 @@ cdef class RadarRelayMarket(MarketBase):
         return self.c_get_price(trading_pair, is_buy)
 
     def get_tx_hash_receipt(self, tx_hash: str) -> Dict[str, Any]:
-        return self._w3.eth.getTransactionReceipt(tx_hash)
+        try:
+            tx_hash_receipt = self._w3.eth.getTransactionReceipt(tx_hash)
+            return tx_hash_receipt
+        except TransactionNotFound:
+            return None
 
     async def list_account_orders(self) -> List[Dict[str, Any]]:
         url = f"{RADAR_RELAY_REST_ENDPOINT}/accounts/{self._wallet.address}/orders"
