@@ -132,6 +132,10 @@ class HummingWebApp:
         except Exception:
             logging.error("oops!", exc_info=True)
 
+    def _wait_til_started(self):
+        future = asyncio.run_coroutine_threadsafe(self.wait_til_started(), self._ev_loop)
+        return future.result()
+
     async def wait_til_started(self):
         while not self._started:
             await asyncio.sleep(0.1)
@@ -149,7 +153,7 @@ class HummingWebApp:
     def _start_web_app(self):
         self._ev_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._ev_loop)
-        asyncio.ensure_future(self._start())
+        self._ev_loop.run_until_complete(self._start())
         self._ev_loop.run_forever()
 
     def start(self):
