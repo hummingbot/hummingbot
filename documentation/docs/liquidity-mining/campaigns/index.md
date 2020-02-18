@@ -15,7 +15,7 @@ After the commencement of **production launch**, we will pay mainnet Ethereum to
 
 * **Open beta**: 12:00am February 4, 2020 UTC time
 * **Production launch**: *(subject to change)* 12:00am March 3, 2020 UTC time
-* **Campaign duration**: Each campaign will initially run for a period of 12 weeks
+* **Campaign duration**: each campaign will initially run for a period of 12 weeks
 
 
 ### [Binance.com](https://binance.com)
@@ -53,22 +53,22 @@ After the commencement of **production launch**, we will pay mainnet Ethereum to
       <td rowspan="4"><a href="/liquidity-mining/campaigns/sponsors/#iexec">iExec</a></td>
       <td>RLC/BTC</td>
       <td>1%</td>
-      <td>USDC 93.75</td>
+      <td>USDC 187.50</td>
     </tr>
     <tr>
       <td>RLC/USDT</td>
       <td>1%</td>
-      <td>USDC 93.75</td>
+      <td>USDC 187.50</td>
     </tr>
     <tr>
       <td>RLC/BNB</td>
       <td>1%</td>
-      <td>USDC 93.75</td>
+      <td>USDC 187.50</td>
     </tr>
     <tr>
       <td>RLC/USDC</td>
       <td>1%</td>
-      <td>USDC 93.75</td>
+      <td>USDC 187.50</td>
     </tr>
     <tr>
       <td rowspan="2"><a href="/liquidity-mining/campaigns/sponsors/#zcoin">Zcoin</a></td>
@@ -96,31 +96,6 @@ After the commencement of **production launch**, we will pay mainnet Ethereum to
       <td>ZIL/BNB</td>
       <td>1%</td>
       <td>USDC 666</td>
-    </tr>
-  </tbody>
-</table>
-
-### [Bamboo Relay](https://bamboorelay.com/)
-
-<table>
-  <thead>
-    <th>Sponsor</th>
-    <th>Eligible pair</th>
-    <th>Maximum spread</th>
-    <th>Weekly rewards</th>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/liquidity-mining/campaigns/sponsors/#0x">0x</a></td>
-      <td>WETH/DAI</td>
-      <td>0.60%</td>
-      <td>USDC 2,000</td>
-    </tr>
-    <tr>
-      <td><a href="/liquidity-mining/campaigns/sponsors/#iexec">iExec</a></td>
-      <td>RLC/WETH</td>
-      <td>1.00%</td>
-      <td>USDC 375</td>
     </tr>
   </tbody>
 </table>
