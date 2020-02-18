@@ -15,7 +15,6 @@ from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversio
 from hummingbot.market.market_base import MarketBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
-ERC = ExchangeRateConversion.get_instance()
 s_float_0 = float(0)
 
 
@@ -73,7 +72,7 @@ class HistoryCommand:
                              float(current_balance),
                              float(current_balance - starting_balance),
                              float(asset_delta["delta"]),
-                             ERC.adjust_token_rate(asset, Decimal(1))])
+                             ExchangeRateConversion.get_instance().adjust_token_rate(asset, Decimal(1))])
         df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Net_Delta",
                                                      "Trade_Delta", "Conversion_Rate"])
         return df

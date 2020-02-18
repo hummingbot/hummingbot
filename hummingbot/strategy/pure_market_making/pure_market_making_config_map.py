@@ -12,11 +12,13 @@ from hummingbot.client.settings import (
 )
 from hummingbot.client.config.global_config_map import (
     using_bamboo_coordinator_mode,
-    using_exchange,
+    using_exchange
 )
 from hummingbot.client.config.config_helpers import (
-    parse_cvar_value
+    parse_cvar_value,
+    minimum_order_amount
 )
+from decimal import Decimal
 
 
 def maker_trading_pair_prompt():
@@ -81,8 +83,11 @@ pure_market_making_config_map = {
         ConfigVar(key="order_amount",
                   prompt="What is your preferred quantity per order? (Denominated in "
                          "the base asset) >>> ",
-                  default=1.0,
-                  type_str="decimal"),
+                  default=lambda: minimum_order_amount(
+                      pure_market_making_config_map["maker_market_trading_pair"].value),
+                  type_str="decimal",
+                  validator=lambda v: Decimal(v) >= minimum_order_amount(
+                      pure_market_making_config_map["maker_market_trading_pair"].value)),
     "advanced_mode":
         ConfigVar(key="advanced_mode",
                   prompt="Would you like to proceed with advanced configuration? (Yes/No) >>> ",
