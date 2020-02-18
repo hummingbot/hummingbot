@@ -107,7 +107,7 @@ class NewBlocksWatcher(BaseWatcher):
                         incoming_block: AttributeDict = await self.call_async(
                             functools.partial(
                                 self._w3.eth.getBlock,
-                                'latest',
+                                self._block_number_to_fetch,
                                 full_transactions=True)
                         )
                         if incoming_block is not None:
