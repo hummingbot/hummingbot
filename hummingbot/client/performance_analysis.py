@@ -194,7 +194,7 @@ class PerformanceAnalysis:
                                     current_strategy_name: str,
                                     market_trading_pair_tuples: List[MarketTradingPairTuple],
                                     raw_queried_trades: List[TradeFill],
-                                    starting_balances: Dict[str, Dict[str, float]]) \
+                                    starting_balances: Dict[str, Dict[str, Decimal]]) \
             -> Tuple[Dict, Dict]:
         """
         Calculate total spent and acquired amount for the whole portfolio in quote value.
