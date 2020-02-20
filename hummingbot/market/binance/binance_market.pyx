@@ -15,6 +15,7 @@ from functools import partial
 import logging
 import pandas as pd
 import re
+import time
 from typing import (
     Any,
     Dict,
@@ -24,6 +25,7 @@ from typing import (
     Coroutine,
     Tuple,
 )
+
 import conf
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
@@ -138,6 +140,9 @@ cdef class BinanceMarket(MarketBase):
 
     DEPOSIT_TIMEOUT = 1800.0
     API_CALL_TIMEOUT = 10.0
+    SHORT_POLL_INTERVAL = 5.0
+    UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
+    LONG_POLL_INTERVAL = 120.0
     BINANCE_TRADE_TOPIC_NAME = "binance-trade.serialized"
     BINANCE_USER_STREAM_TOPIC_NAME = "binance-user-stream.serialized"
 
@@ -153,7 +158,6 @@ cdef class BinanceMarket(MarketBase):
     def __init__(self,
                  binance_api_key: str,
                  binance_api_secret: str,
-                 poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                  OrderBookTrackerDataSourceType.EXCHANGE_API,
                  user_stream_tracker_data_source_type: UserStreamTrackerDataSourceType =
@@ -172,7 +176,6 @@ cdef class BinanceMarket(MarketBase):
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
-        self._poll_interval = poll_interval
         self._in_flight_orders = {}  # Dict[client_order_id:str, BinanceInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._tx_tracker = BinanceMarketTransactionTracker(self)
@@ -187,7 +190,7 @@ cdef class BinanceMarket(MarketBase):
         self._order_tracker_task = None
         self._trading_rules_polling_task = None
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
-        self._last_pull_timestamp = 0
+        self._last_poll_timestamp = 0
 
     @staticmethod
     def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
@@ -248,6 +251,14 @@ cdef class BinanceMarket(MarketBase):
             key: value.to_json()
             for key, value in self._in_flight_orders.items()
         }
+
+    @property
+    def order_book_tracker(self) -> BinanceOrderBookTracker:
+        return self._order_book_tracker
+
+    @property
+    def user_stream_tracker(self) -> BinanceUserStreamTracker:
+        return self._user_stream_tracker
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self._in_flight_orders.update({
@@ -443,9 +454,9 @@ cdef class BinanceMarket(MarketBase):
             # in case Binance's user stream events are not working.
             # This is separated from _update_order_status which only updates the order status without producing filled
             # events, since Binance's get order endpoint does not return trade IDs.
-            # The poll interval for order status is 10 seconds.
-            int64_t last_tick = <int64_t>(self._last_pull_timestamp / 10.0)
-            int64_t current_tick = <int64_t>(self._current_timestamp / 10.0)
+            # The minimum poll interval for order status is 10 seconds.
+            int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
+            int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             trading_pairs_to_order_map = defaultdict(lambda: {})
@@ -455,6 +466,7 @@ cdef class BinanceMarket(MarketBase):
             trading_pairs = list(trading_pairs_to_order_map.keys())
             tasks = [self.query_api(self._binance_client.get_my_trades, symbol=trading_pair)
                      for trading_pair in trading_pairs]
+            self.logger().debug("Polling for order fills of %d trading pairs.", len(tasks))
             results = await safe_gather(*tasks, return_exceptions=True)
             for trades, trading_pair in zip(results, trading_pairs):
                 order_map = trading_pairs_to_order_map[trading_pair]
@@ -494,15 +506,16 @@ cdef class BinanceMarket(MarketBase):
         cdef:
             # This is intended to be a backup measure to close straggler orders, in case Binance's user stream events
             # are not working.
-            # The poll interval for order status is 10 seconds.
-            int64_t last_tick = <int64_t>(self._last_pull_timestamp / 10.0)
-            int64_t current_tick = <int64_t>(self._current_timestamp / 10.0)
+            # The minimum poll interval for order status is 10 seconds.
+            int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
+            int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
             tasks = [self.query_api(self._binance_client.get_order,
                                     symbol=o.trading_pair, origClientOrderId=o.client_order_id)
                      for o in tracked_orders]
+            self.logger().debug("Polling for order status updates of %d orders.", len(tasks))
             results = await safe_gather(*tasks, return_exceptions=True)
             for order_update, tracked_order in zip(results, tracked_orders):
                 client_order_id = tracked_order.client_order_id
@@ -744,7 +757,7 @@ cdef class BinanceMarket(MarketBase):
                     self._update_order_fills_from_trades(),
                     self._update_order_status(),
                 )
-                self._last_pull_timestamp = self._current_timestamp
+                self._last_poll_timestamp = self._current_timestamp
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -885,8 +898,12 @@ cdef class BinanceMarket(MarketBase):
 
     cdef c_tick(self, double timestamp):
         cdef:
-            int64_t last_tick = <int64_t>(self._last_timestamp / self._poll_interval)
-            int64_t current_tick = <int64_t>(timestamp / self._poll_interval)
+            double now = time.time()
+            double poll_interval = (self.SHORT_POLL_INTERVAL
+                                    if now - self.user_stream_tracker.last_recv_time > 60.0
+                                    else self.LONG_POLL_INTERVAL)
+            int64_t last_tick = <int64_t>(self._last_timestamp / poll_interval)
+            int64_t current_tick = <int64_t>(timestamp / poll_interval)
         MarketBase.c_tick(self, timestamp)
         self._tx_tracker.c_tick(timestamp)
         if current_tick > last_tick:
