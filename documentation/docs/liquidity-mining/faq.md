@@ -65,9 +65,13 @@ The figures on the Markets tab show a summary of aggregated data across all camp
 
 ![](../assets/img/hummingbot-miners-dashboard.png)
 
+<small><em>Note: figures above are for illustration only and do not represent current campaign terms; navigate to [Hummingbot Miners](https://miners.hummingbot.io) for current campaign details.</em></small>
+
 ### Why do I need to connect my wallet?
 
 ![](../assets/img/hummingbot-miners-connect_wallet.png)
+
+<small><em>Note: figures above are for illustration only and do not represent current campaign terms; navigate to [Hummingbot Miners](https://miners.hummingbot.io) for current campaign details.</em></small>
 
 The Hummingbot Miners app uses your Ethereum wallet address for:
 
@@ -75,7 +79,7 @@ The Hummingbot Miners app uses your Ethereum wallet address for:
 2. **payouts**: mining rewards payouts will be sent to this address
 
 !!! note "Wallet not used for trading"
-    Since it is only used for the purposes mentioned above, you do not need deposit assets or trade using this wallet.
+    Since it is only used for the purposes mentioned above, you do not need deposit assets into or trade using this wallet.
 
 ## Reward Calculations
 
@@ -96,6 +100,8 @@ For more details on the calculation, please read [Demystifying Liquidity Mining 
 ### What are liquidity mining "returns"?
 
 ![](../assets/img/miners-return.png)
+
+<small><em>Note: figures above are for illustration only and do not represent current campaign terms; navigate to [Hummingbot Miners](https://miners.hummingbot.io) for current campaign details.</em></small>
 
 The liquidity mining return measures the ratio of rewards in a snapshot compared to the total volume of eligible orders placed in that snapshot.  This displays an overall return for all participants in that snapshot.
 

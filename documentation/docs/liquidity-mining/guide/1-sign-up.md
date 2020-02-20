@@ -13,7 +13,7 @@ Click the **Connect Wallet** button to register using your Ethereum wallet. We u
 
 ![](../../assets/img/lm-setup1.png)
 
-<small><em>Note: figures above are for illustration only and do not represent actual, current terms. Click on the [liquidity mining policy](https://hummingbot.io/liquidity-mining-policy) for important disclaimers or navigate to [Hummingbot Miners](https://miners.hummingbot.io) for current campaign terms</em></small>
+<small><em>Note: figures above are for illustration only and do not represent current campaign terms; navigate to [Hummingbot Miners](https://miners.hummingbot.io) for current campaign details.</em></small>
 
 
 Note that this may require you to install the Metamask browser extension (see note below).
