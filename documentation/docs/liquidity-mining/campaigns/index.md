@@ -66,7 +66,7 @@ After the commencement of **production launch**, we will pay mainnet Ethereum to
       <td>USDC 187.50</td>
     </tr>
     <tr>
-      <td>RLC/USDC</td>
+      <td>RLC/ETH</td>
       <td>1%</td>
       <td>USDC 187.50</td>
     </tr>
