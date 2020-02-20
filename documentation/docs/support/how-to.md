@@ -147,11 +147,20 @@ For security reasons, Hummingbot does not store your password anywhere so there'
 
 If using Linux, copy the commands below and run in your terminal to delete the files. You will be prompted to confirm before proceeding.
 
+**Docker build**
+
 ```
 rm hummingbot_files/hummingbot_conf/encrypted* hummingbot_files/hummingbot_conf/key_file*
 ```
 
-If Hummingbot is installed on Windows, simply delete these files found in `%localappdata%\hummingbot.io\Hummingbot`.
+**Source build**
+
+```
+rm hummingbot/conf/encrypted* hummingbot/conf/key_file*
+```
+
+
+If Hummingbot is installed on Windows, simply delete these files found in `%localappdata%\hummingbot.io\Hummingbot\conf`.
 
 !!! warning
     Be careful when deleting the local wallet key file created through Hummingbot, i.e, a wallet that was not imported from Metamask; deleting the key file will result in a permanent loss of access to that wallet and any assets it may contain.
