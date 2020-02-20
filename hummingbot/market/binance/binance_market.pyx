@@ -276,9 +276,14 @@ cdef class BinanceMarket(MarketBase):
             *args,
             app_warning_msg: str = "Binance API call failed. Check API key and network connection.",
             **kwargs) -> Dict[str, any]:
-        return await self._async_scheduler.call_async(partial(func, *args, **kwargs),
-                                                      timeout_seconds=self.API_CALL_TIMEOUT,
-                                                      app_warning_msg=app_warning_msg)
+        try:
+            return await self._async_scheduler.call_async(partial(func, *args, **kwargs),
+                                                          timeout_seconds=self.API_CALL_TIMEOUT,
+                                                          app_warning_msg=app_warning_msg)
+        except Exception as ex:
+            if "Timestamp for this request was 1000ms ahead of the server" in str(ex):
+                await BinanceTime.get_instance().set_server_time_offset()
+            raise ex
 
     async def query_url(self, url) -> any:
         async with aiohttp.ClientSession() as client:
