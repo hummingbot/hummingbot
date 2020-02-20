@@ -16,6 +16,7 @@ from hummingbot.client.config.global_config_map import (
 )
 from hummingbot.client.config.config_helpers import (
     parse_cvar_value,
+    default_min_quote,
     minimum_order_amount
 )
 from decimal import Decimal
@@ -45,6 +46,16 @@ def assign_values_advanced_mode_switch(advanced_mode):
 def is_valid_maker_market_trading_pair(value: str) -> bool:
     maker_market = pure_market_making_config_map.get("maker_market").value
     return is_valid_market_trading_pair(maker_market, value)
+
+
+def order_amount_prompt() -> str:
+    maker_market = pure_market_making_config_map.get("maker_market").value
+    trading_pair = pure_market_making_config_map["maker_market_trading_pair"].value
+    base_asset, quote_asset = trading_pair.split("-")
+    default_quote_asset, default_amount = default_min_quote(quote_asset)
+    return f"What is your preferred quantity per order? " \
+           f"(minimum size for {base_asset}/{quote_asset} on {maker_market} " \
+           f"is {default_amount} {default_quote_asset} / {base_asset}) >>> "
 
 
 pure_market_making_config_map = {
@@ -81,8 +92,7 @@ pure_market_making_config_map = {
                   type_str="float"),
     "order_amount":
         ConfigVar(key="order_amount",
-                  prompt="What is your preferred quantity per order? (Denominated in "
-                         "the base asset) >>> ",
+                  prompt=order_amount_prompt,
                   default=lambda: minimum_order_amount(
                       pure_market_making_config_map["maker_market_trading_pair"].value),
                   type_str="decimal",
