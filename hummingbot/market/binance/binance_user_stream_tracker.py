@@ -47,11 +47,6 @@ class BinanceUserStreamTracker(UserStreamTracker):
         return self._data_source
 
     @property
-    def last_recv_time(self) -> float:
-        # TODO: fix the type issues later
-        return self.data_source.last_recv_time
-
-    @property
     def exchange_name(self) -> str:
         return "binance"
 

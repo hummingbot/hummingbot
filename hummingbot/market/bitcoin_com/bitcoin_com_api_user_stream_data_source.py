@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import pandas as pd
+import time
 
 from typing import Optional, List, AsyncIterable, Any
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -31,6 +32,7 @@ class BitcoinComAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._trading_pairs = trading_pairs
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
+        self._last_recv_time: float = 0
         super().__init__()
 
     @property
@@ -42,6 +44,10 @@ class BitcoinComAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         return BitcoinComOrderBook
 
+    @property
+    def last_recv_time(self) -> float:
+        return self._last_recv_time
+
     async def _listen_to_reports(self) -> AsyncIterable[Any]:
         """
         Subscribe to reports via web socket
@@ -51,10 +57,12 @@ class BitcoinComAPIUserStreamDataSource(UserStreamTrackerDataSource):
             ws = BitcoinComWebsocket()
             await ws.connect()
 
-            async for authenticated in ws.authenticate(self._bitcoin_com_auth.api_key, self._bitcoin_com_auth.secret_key):
+            async for _ in ws.authenticate(self._bitcoin_com_auth.api_key, self._bitcoin_com_auth.secret_key):
                 await ws.subscribe("subscribeReports", {})
 
                 async for msg in ws._messages():
+                    self._last_recv_time = time.time()
+
                     if (msg["method"] not in ["activeOrders", "report"]):
                         continue
 
